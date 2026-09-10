@@ -130,28 +130,28 @@ export function ServiceSettlementSection({ data }: { data: FinanceData }) {
 
   return (
     <>
-      <div className="glass-card rounded-[44px] border-white/5 overflow-hidden">
-        <div className="p-8 border-b border-white/5 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+      <div className="glass-card rounded-[44px] border-border overflow-hidden">
+        <div className="p-8 border-b border-border flex flex-col xl:flex-row xl:items-center justify-between gap-6">
           <div>
-            <h3 className="text-2xl font-black text-zinc-100 italic uppercase flex items-center gap-3">
-              <Receipt className="text-emerald-400" size={26} />
+            <h2 className="text-2xl font-black text-foreground-muted italic uppercase flex items-center gap-3">
+              <Receipt className="text-success" size={26} aria-hidden="true" />
               Service Settlement Snapshot
-            </h3>
-            <p className="text-sm text-zinc-500 mt-1">Gross, fee platform, earning kurir, settlement merchant, adjustment, refund, dan cancel fee 30 hari terakhir.</p>
+            </h2>
+            <p className="text-sm text-foreground-muted mt-1">Gross, fee platform, earning kurir, settlement merchant, adjustment, refund, dan cancel fee 30 hari terakhir.</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 min-w-0 xl:min-w-[720px]">
             {[
-              { label: 'Gross', value: serviceSettlementTotals.gross_idr, color: 'text-emerald-400' },
+              { label: 'Gross', value: serviceSettlementTotals.gross_idr, color: 'text-success' },
               { label: 'Platform Fee', value: serviceSettlementTotals.platform_fee_idr, color: 'text-primary-light' },
-              { label: 'Courier Earning', value: serviceSettlementTotals.courier_earning_idr, color: 'text-blue-300' },
-              { label: 'Merchant Settle', value: serviceSettlementTotals.merchant_settlement_idr, color: 'text-amber-300' },
-              { label: 'Adjustment', value: serviceSettlementTotals.adjustment_idr, color: 'text-violet-300' },
-              { label: 'Refund', value: serviceSettlementTotals.refund_idr, color: 'text-red-300' },
-              { label: 'Cancel Fee', value: serviceSettlementTotals.cancel_fee_idr, color: 'text-orange-300' },
-              { label: 'Net', value: serviceSettlementTotals.net_after_settlement_idr, color: 'text-zinc-100' },
+              { label: 'Courier Earning', value: serviceSettlementTotals.courier_earning_idr, color: 'text-info' },
+              { label: 'Merchant Settle', value: serviceSettlementTotals.merchant_settlement_idr, color: 'text-warning' },
+              { label: 'Adjustment', value: serviceSettlementTotals.adjustment_idr, color: 'text-info' },
+              { label: 'Refund', value: serviceSettlementTotals.refund_idr, color: 'text-error' },
+              { label: 'Cancel Fee', value: serviceSettlementTotals.cancel_fee_idr, color: 'text-accent' },
+              { label: 'Net', value: serviceSettlementTotals.net_after_settlement_idr, color: 'text-foreground-muted' },
             ].map((item) => (
-              <div key={item.label} className="rounded-2xl bg-white/[0.03] border border-white/5 p-4">
-                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600">{item.label}</p>
+              <div key={item.label} className="rounded-2xl bg-surface/[0.03] border border-border p-4">
+                <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">{item.label}</p>
                 <p className={cn("mt-2 text-sm font-black leading-tight", item.color)}>{formatCurrency(item.value || 0)}</p>
               </div>
             ))}
@@ -160,52 +160,52 @@ export function ServiceSettlementSection({ data }: { data: FinanceData }) {
 
         {isLoadingServiceSettlement ? (
           <div className="py-16 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-            <p className="text-xs font-black text-zinc-500 uppercase tracking-widest">Menghitung settlement snapshot...</p>
+            <Loader2 className="w-8 h-8 text-primary animate-spin" aria-hidden="true" />
+            <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Menghitung settlement snapshot...</p>
           </div>
         ) : serviceSettlementRows.length === 0 ? (
           <div className="py-16 text-center">
-            <Receipt className="mx-auto text-zinc-700" size={42} />
-            <p className="mt-4 text-sm font-black text-zinc-500 uppercase tracking-widest">Belum ada order delivered/completed 30 hari terakhir.</p>
+            <Receipt className="mx-auto text-foreground-muted" size={42} aria-hidden="true" />
+            <p className="mt-4 text-sm font-black text-foreground-muted uppercase tracking-widest">Belum ada order delivered/completed 30 hari terakhir.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-white/5 text-zinc-600 text-[10px] font-black uppercase tracking-[0.2em]">
-                  <th className="px-8 py-4">Service</th>
-                  <th className="px-6 py-4 text-right">Gross</th>
-                  <th className="px-6 py-4 text-right">Platform Fee</th>
-                  <th className="px-6 py-4 text-right">Courier</th>
-                  <th className="px-6 py-4 text-right">Merchant</th>
-                  <th className="px-6 py-4 text-right">Refund</th>
-                  <th className="px-6 py-4 text-right">Cancel Fee</th>
-                  <th className="px-8 py-4 text-right">Net</th>
+                <tr className="border-b border-border text-foreground-muted text-[10px] font-black uppercase tracking-[0.2em]">
+                  <th scope="col" className="px-8 py-4">Service</th>
+                  <th scope="col" className="px-6 py-4 text-right">Gross</th>
+                  <th scope="col" className="px-6 py-4 text-right">Platform Fee</th>
+                  <th scope="col" className="px-6 py-4 text-right">Courier</th>
+                  <th scope="col" className="px-6 py-4 text-right">Merchant</th>
+                  <th scope="col" className="px-6 py-4 text-right">Refund</th>
+                  <th scope="col" className="px-6 py-4 text-right">Cancel Fee</th>
+                  <th scope="col" className="px-8 py-4 text-right">Net</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-border">
                 {serviceSettlementRows.map((row: any) => (
-                  <tr key={row.service_bucket} className="hover:bg-white/[0.02] transition-colors">
+                  <tr key={row.service_bucket} className="hover:bg-surface/[0.02] transition-colors">
                     <td className="px-8 py-5">
-                      <p className="text-sm font-black text-zinc-100">{serviceLabel(row.service_bucket)}</p>
-                      <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-zinc-600">
+                      <p className="text-sm font-black text-foreground-muted">{serviceLabel(row.service_bucket)}</p>
+                      <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-foreground-muted">
                         {row.delivered_orders || 0} delivered
                         {row.open_settlement_count ? ` • ${row.open_settlement_count} open settlement` : ''}
                       </p>
                     </td>
-                    <td className="px-6 py-5 text-right text-sm font-black text-emerald-300">{formatCurrency(row.gross_idr)}</td>
+                    <td className="px-6 py-5 text-right text-sm font-black text-success">{formatCurrency(row.gross_idr)}</td>
                     <td className="px-6 py-5 text-right text-sm font-black text-primary-light">{formatCurrency(row.platform_fee_idr)}</td>
-                    <td className="px-6 py-5 text-right text-sm font-black text-blue-300">{formatCurrency(row.courier_earning_idr)}</td>
-                    <td className="px-6 py-5 text-right text-sm font-black text-amber-300">{formatCurrency(row.merchant_settlement_idr)}</td>
-                    <td className="px-6 py-5 text-right text-sm font-black text-red-300">
+                    <td className="px-6 py-5 text-right text-sm font-black text-info">{formatCurrency(row.courier_earning_idr)}</td>
+                    <td className="px-6 py-5 text-right text-sm font-black text-warning">{formatCurrency(row.merchant_settlement_idr)}</td>
+                    <td className="px-6 py-5 text-right text-sm font-black text-error">
                       {formatCurrency(row.refund_idr)}
-                      {row.refund_count ? <span className="block text-[10px] text-zinc-600">{row.refund_count} refund</span> : null}
+                      {row.refund_count ? <span className="block text-[10px] text-foreground-muted">{row.refund_count} refund</span> : null}
                     </td>
-                    <td className="px-6 py-5 text-right text-sm font-black text-orange-300">
+                    <td className="px-6 py-5 text-right text-sm font-black text-accent">
                       {formatCurrency(row.cancel_fee_idr)}
-                      {row.cancel_fee_count ? <span className="block text-[10px] text-zinc-600">{row.cancel_fee_count} fee</span> : null}
+                      {row.cancel_fee_count ? <span className="block text-[10px] text-foreground-muted">{row.cancel_fee_count} fee</span> : null}
                     </td>
-                    <td className="px-8 py-5 text-right text-sm font-black text-zinc-100">{formatCurrency(row.net_after_settlement_idr)}</td>
+                    <td className="px-8 py-5 text-right text-sm font-black text-foreground-muted">{formatCurrency(row.net_after_settlement_idr)}</td>
                   </tr>
                 ))}
               </tbody>

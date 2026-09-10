@@ -17,11 +17,11 @@ export function SafeImage({ alt, loading = 'lazy', className, onError, ...props 
         aria-label={alt}
         data-safe-image-placeholder=""
         className={cn(
-          'flex items-center justify-center overflow-hidden bg-white/5 text-zinc-400',
+          'flex items-center justify-center overflow-hidden bg-surface-subtle text-foreground-muted',
           className
         )}
       >
-        <span aria-hidden="true" className="h-2 w-2 rounded-full bg-zinc-500/60" />
+        <span aria-hidden="true" className="h-2 w-2 rounded-full bg-surface-subtle" />
       </div>
     )
   }

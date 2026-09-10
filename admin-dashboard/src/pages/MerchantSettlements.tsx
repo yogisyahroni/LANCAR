@@ -186,7 +186,7 @@ export default function MerchantSettlements() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Wallet className="h-6 w-6 text-primary" />
+            <Wallet className="h-6 w-6 text-primary" aria-hidden="true" />
             Escrow & Settlement Merchant
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -201,7 +201,7 @@ export default function MerchantSettlements() {
           disabled={loading}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border/40 text-sm font-medium hover:bg-muted/50 transition-colors"
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
           Refresh Data
         </button>
       </div>
@@ -211,7 +211,7 @@ export default function MerchantSettlements() {
         {/* Dynamic Config Card */}
         <div className="lg:col-span-2 rounded-xl bg-card border border-border/40 p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
-            <Settings className="h-5 w-5 text-primary" />
+            <Settings className="h-5 w-5 text-primary" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-foreground">
               Konfigurasi Dinamis Escrow & Auto-Disbursement
             </h2>
@@ -222,6 +222,7 @@ export default function MerchantSettlements() {
                 Hari Penahanan Dana (setelah POD)
               </label>
               <input
+                aria-label="Merchant settlement holding days"
                 type="number"
                 min="0"
                 value={config.holding_days}
@@ -239,12 +240,13 @@ export default function MerchantSettlements() {
                 Status Auto-Disbursement
               </label>
               <select
+                aria-label="Enable automatic merchant settlement"
                 value={config.auto_enabled ? 'true' : 'false'}
                 onChange={(e) => setConfig({ ...config, auto_enabled: e.target.value === 'true' })}
                 className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="true" className="bg-zinc-950 text-zinc-100">Aktif (Otomatis Pencairan)</option>
-                <option value="false" className="bg-zinc-950 text-zinc-100">Nonaktif (Tahan Manual)</option>
+                <option value="true" className="bg-background text-foreground-muted">Aktif (Otomatis Pencairan)</option>
+                <option value="false" className="bg-background text-foreground-muted">Nonaktif (Tahan Manual)</option>
               </select>
               <p className="text-[11px] text-muted-foreground mt-1">
                 Worker diproses setiap menit menggunakan pengunci anti-race condition.
@@ -256,6 +258,7 @@ export default function MerchantSettlements() {
                 Maksimal Retry Gagal
               </label>
               <input
+                aria-label="Maximum merchant settlement retries"
                 type="number"
                 min="1"
                 value={config.max_retry}
@@ -270,6 +273,7 @@ export default function MerchantSettlements() {
                 Jeda Waktu Retry (Jam)
               </label>
               <input
+                aria-label="Merchant settlement retry delay hours"
                 type="number"
                 min="1"
                 value={config.retry_delay_hours}
@@ -285,7 +289,7 @@ export default function MerchantSettlements() {
                 disabled={savingConfig}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                <Save className="h-4 w-4" />
+                <Save className="h-4 w-4" aria-hidden="true" />
                 {savingConfig ? 'Menyimpan...' : 'Simpan Konfigurasi'}
               </button>
             </div>
@@ -296,7 +300,7 @@ export default function MerchantSettlements() {
         <div className="rounded-xl bg-card border border-border/40 p-6 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <ShieldCheck className="h-5 w-5 text-emerald-500" />
+              <ShieldCheck className="h-5 w-5 text-success" aria-hidden="true" />
               <h2 className="text-lg font-semibold text-foreground">
                 Verifikasi Rekening Bank
               </h2>
@@ -306,6 +310,7 @@ export default function MerchantSettlements() {
             </p>
             <form onSubmit={handleVerifyBank} className="space-y-3">
               <input
+                aria-label="Merchant ID for bank verification"
                 type="text"
                 placeholder="Masukkan Merchant ID / User ID UUID"
                 value={merchantIdToVerify}
@@ -315,7 +320,7 @@ export default function MerchantSettlements() {
               <button
                 type="submit"
                 disabled={verifyingBank}
-                className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 text-sm transition-colors disabled:opacity-50"
+                className="w-full rounded-lg bg-success hover:bg-success text-on-success font-medium px-4 py-2 text-sm transition-colors disabled:opacity-50"
               >
                 {verifyingBank ? 'Memverifikasi...' : 'Verifikasi Rekening Bank'}
               </button>
@@ -334,7 +339,7 @@ export default function MerchantSettlements() {
             <span className="text-sm font-medium text-muted-foreground">
               Dana Escrow Tertahan (Pending / Holding)
             </span>
-            <Clock className="h-5 w-5 text-amber-500" />
+            <Clock className="h-5 w-5 text-warning" aria-hidden="true" />
           </div>
           <div className="mt-2 text-2xl font-bold text-foreground">
             {formatIDR(totalPendingNet)}
@@ -349,7 +354,7 @@ export default function MerchantSettlements() {
             <span className="text-sm font-medium text-muted-foreground">
               Total Dana Selesai Dicairkan
             </span>
-            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+            <CheckCircle2 className="h-5 w-5 text-success" aria-hidden="true" />
           </div>
           <div className="mt-2 text-2xl font-bold text-foreground">
             {formatIDR(totalCompletedNet)}
@@ -364,7 +369,7 @@ export default function MerchantSettlements() {
             <span className="text-sm font-medium text-muted-foreground">
               Total Transaksi Escrow
             </span>
-            <DollarSign className="h-5 w-5 text-blue-500" />
+            <DollarSign className="h-5 w-5 text-info" aria-hidden="true" />
           </div>
           <div className="mt-2 text-2xl font-bold text-foreground">
             {settlements.length}
@@ -379,8 +384,9 @@ export default function MerchantSettlements() {
       <div className="rounded-xl bg-card border border-border/40 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <input
+              aria-label="Search merchant settlements"
               type="text"
               placeholder="Cari Order ID, Merchant ID, Rekening..."
               value={searchQuery}
@@ -391,16 +397,17 @@ export default function MerchantSettlements() {
 
           <div className="flex items-center gap-2">
             <select
+              aria-label="Filter merchant settlements by status"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="" className="bg-zinc-950 text-zinc-100">Semua Status</option>
-              <option value="holding" className="bg-zinc-950 text-zinc-100">Holding / Escrow</option>
-              <option value="pending" className="bg-zinc-950 text-zinc-100">Pending</option>
-              <option value="processing" className="bg-zinc-950 text-zinc-100">Processing (Sedang Cair)</option>
-              <option value="completed" className="bg-zinc-950 text-zinc-100">Completed (Selesai)</option>
-              <option value="failed" className="bg-zinc-950 text-zinc-100">Failed (Gagal)</option>
+              <option value="" className="bg-background text-foreground-muted">Semua Status</option>
+              <option value="holding" className="bg-background text-foreground-muted">Holding / Escrow</option>
+              <option value="pending" className="bg-background text-foreground-muted">Pending</option>
+              <option value="processing" className="bg-background text-foreground-muted">Processing (Sedang Cair)</option>
+              <option value="completed" className="bg-background text-foreground-muted">Completed (Selesai)</option>
+              <option value="failed" className="bg-background text-foreground-muted">Failed (Gagal)</option>
             </select>
           </div>
         </div>
@@ -418,13 +425,13 @@ export default function MerchantSettlements() {
             <table className="w-full text-sm text-left">
               <thead className="bg-muted/50 text-xs text-muted-foreground uppercase border-b border-border/40">
                 <tr>
-                  <th className="px-4 py-3">Order ID / Merchant</th>
-                  <th className="px-4 py-3">Rekening Bank</th>
-                  <th className="px-4 py-3 text-right">Nilai Bruto</th>
-                  <th className="px-4 py-3 text-right">Platform Fee</th>
-                  <th className="px-4 py-3 text-right">Net Payout</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Jadwal Rilis</th>
+                  <th scope="col" className="px-4 py-3">Order ID / Merchant</th>
+                  <th scope="col" className="px-4 py-3">Rekening Bank</th>
+                  <th scope="col" className="px-4 py-3 text-right">Nilai Bruto</th>
+                  <th scope="col" className="px-4 py-3 text-right">Platform Fee</th>
+                  <th scope="col" className="px-4 py-3 text-right">Net Payout</th>
+                  <th scope="col" className="px-4 py-3">Status</th>
+                  <th scope="col" className="px-4 py-3">Jadwal Rilis</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
@@ -449,7 +456,7 @@ export default function MerchantSettlements() {
                       <td className="px-4 py-3">
                         {item.bank_account_number ? (
                           <div className="flex items-center gap-1.5">
-                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                            <Building2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                             <div>
                               <div className="font-medium text-foreground">
                                 {item.bank_name || 'BANK'} - {item.bank_account_number}
@@ -460,7 +467,7 @@ export default function MerchantSettlements() {
                             </div>
                           </div>
                         ) : (
-                          <span className="text-xs text-amber-500 italic">
+                          <span className="text-xs text-warning italic">
                             Belum set rekening
                           </span>
                         )}
@@ -471,34 +478,34 @@ export default function MerchantSettlements() {
                       <td className="px-4 py-3 text-right text-muted-foreground">
                         {formatIDR(feeAmt)}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                      <td className="px-4 py-3 text-right font-semibold text-success dark:text-success">
                         {formatIDR(netAmt)}
                       </td>
                       <td className="px-4 py-3">
                         {item.status === 'completed' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-surface text-success dark:text-success">
+                            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                             Cair (Completed)
                           </span>
                         )}
                         {(item.status === 'holding' || item.status === 'pending') && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                            <Clock className="h-3.5 w-3.5" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-surface text-warning dark:text-warning">
+                            <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                             Holding Escrow
                           </span>
                         )}
                         {item.status === 'processing' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-surface text-info dark:text-info">
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                             Processing
                           </span>
                         )}
                         {item.status === 'failed' && (
                           <span
-                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-error/10 text-error dark:text-error"
                             title={item.failure_reason}
                           >
-                            <AlertCircle className="h-3.5 w-3.5" />
+                            <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
                             Failed
                           </span>
                         )}

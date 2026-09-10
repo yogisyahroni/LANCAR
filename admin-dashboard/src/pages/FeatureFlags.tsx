@@ -126,14 +126,14 @@ export default function FeatureFlags() {
     <div className="space-y-8 animate-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-zinc-100 tracking-tight flex items-center gap-3">
-            <Flag size={26} className="text-primary-light" />
+          <h1 className="text-3xl font-black text-foreground-muted tracking-tight flex items-center gap-3">
+            <Flag size={26} className="text-primary-light" aria-hidden="true" />
             Feature Flags
           </h1>
-          <p className="text-zinc-500 mt-1">Kontrol on/off fitur platform dengan jejak alasan perubahan.</p>
+          <p className="text-foreground-muted mt-1">Kontrol on/off fitur platform dengan jejak alasan perubahan.</p>
         </div>
         <div className="relative w-full md:w-80">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={16} aria-hidden="true" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted" size={16} aria-hidden="true" />
           <label htmlFor="ff-search" className="sr-only">Cari feature flag</label>
           <input
             id="ff-search"
@@ -141,26 +141,26 @@ export default function FeatureFlags() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Cari key, nama, atau deskripsi..."
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-11 pr-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-zinc-600 placeholder:font-medium"
+            className="w-full bg-surface-subtle border border-border rounded-2xl py-3 pl-11 pr-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-foreground-muted placeholder:font-medium"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-8 items-start">
         {/* Flags Table */}
-        <div className="glass-card rounded-[40px] border-white/5 overflow-hidden shadow-2xl shadow-black/40">
+        <div className="glass-card rounded-[40px] border-border overflow-hidden shadow-2xl shadow-scrim">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-white/5 bg-white/[0.01]">
+                <tr className="border-b border-border bg-surface/[0.01]">
                   {['Flag', 'Kategori', 'Status'].map((head) => (
-                    <th key={head} scope="col" className="px-6 py-5 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">
+                    <th key={head} scope="col" className="px-6 py-5 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">
                       {head}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-border">
                 {flagsQuery.isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i}>
@@ -172,32 +172,32 @@ export default function FeatureFlags() {
                 ) : flagsQuery.isError ? (
                   <tr>
                     <td colSpan={3} className="px-8 py-16 text-center space-y-3">
-                      <AlertCircle className="w-8 h-8 mx-auto text-red-400" />
-                      <p className="text-xs font-black uppercase tracking-widest text-zinc-200">Feature flags gagal dimuat</p>
+                      <AlertCircle className="w-8 h-8 mx-auto text-error"  aria-hidden="true"/>
+                      <p className="text-xs font-black uppercase tracking-widest text-foreground-muted">Feature flags gagal dimuat</p>
                       <button
                         type="button"
                         onClick={() => flagsQuery.refetch()}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
                       >
-                        <RefreshCw size={13} />
+                        <RefreshCw size={13} aria-hidden="true" />
                         Retry
                       </button>
                     </td>
                   </tr>
                 ) : filteredFlags.length > 0 ? (
                   filteredFlags.map((flag) => (
-                    <tr key={flag.key} className="hover:bg-white/[0.02] transition-colors group">
+                    <tr key={flag.key} className="hover:bg-surface/[0.02] transition-colors group">
                       <td className="px-6 py-5 max-w-md">
-                        <p className="text-sm font-black text-zinc-100">{flag.name || flag.key}</p>
+                        <p className="text-sm font-black text-foreground-muted">{flag.name || flag.key}</p>
                         {flag.name && flag.name !== flag.key && (
-                          <p className="text-[10px] text-zinc-600 font-mono mt-0.5">{flag.key}</p>
+                          <p className="text-[10px] text-foreground-muted font-mono mt-0.5">{flag.key}</p>
                         )}
                         {flag.description && (
-                          <p className="text-xs text-zinc-500 mt-1 line-clamp-1">{flag.description}</p>
+                          <p className="text-xs text-foreground-muted mt-1 line-clamp-1">{flag.description}</p>
                         )}
                       </td>
                       <td className="px-6 py-5">
-                        <span className="px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-400 border border-white/5 text-[9px] font-black uppercase tracking-widest">
+                        <span className="px-2.5 py-1 rounded-lg bg-surface-raised text-foreground-muted border border-border text-[9px] font-black uppercase tracking-widest">
                           {flag.category || 'Umum'}
                         </span>
                       </td>
@@ -215,19 +215,19 @@ export default function FeatureFlags() {
                           disabled={toggleMutation.isPending || !canMutate}
                           className={cn(
                             'inline-flex items-center gap-3 rounded-full px-1 py-1 transition-colors w-24 justify-start',
-                            flag.is_enabled ? 'bg-emerald-500/20' : 'bg-zinc-800',
+                            flag.is_enabled ? 'bg-success-surface' : 'bg-surface-raised',
                           )}
                         >
                           <span
                             className={cn(
-                              'h-6 w-6 rounded-full bg-white shadow transition-transform',
+                              'h-6 w-6 rounded-full bg-surface shadow transition-transform',
                               flag.is_enabled ? 'translate-x-14' : 'translate-x-0',
                             )}
                           />
                           <span
                             className={cn(
                               'text-[9px] font-black uppercase tracking-widest',
-                              flag.is_enabled ? 'text-emerald-400' : 'text-zinc-500',
+                              flag.is_enabled ? 'text-success' : 'text-foreground-muted',
                             )}
                           >
                             {flag.is_enabled ? 'On' : 'Off'}
@@ -239,8 +239,8 @@ export default function FeatureFlags() {
                 ) : (
                   <tr>
                     <td colSpan={3} className="px-8 py-20 text-center space-y-3">
-                      <Flag className="mx-auto text-zinc-800" size={44} />
-                      <p className="text-zinc-500 font-black uppercase tracking-widest text-xs">
+                      <Flag className="mx-auto text-foreground-muted" size={44} aria-hidden="true" />
+                      <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">
                         Tidak ada feature flag yang cocok.
                       </p>
                     </td>
@@ -252,9 +252,9 @@ export default function FeatureFlags() {
         </div>
 
         {/* Change Log Panel */}
-        <aside aria-labelledby="ff-changelog-title" className="glass-card rounded-[40px] border-white/5 p-8 xl:sticky xl:top-4">
-          <h2 id="ff-changelog-title" className="text-sm font-black uppercase tracking-[0.22em] text-zinc-500 flex items-center gap-2">
-            <History size={15} /> Change Log
+        <aside aria-labelledby="ff-changelog-title" className="glass-card rounded-[40px] border-border p-8 xl:sticky xl:top-4">
+          <h2 id="ff-changelog-title" className="text-sm font-black uppercase tracking-[0.22em] text-foreground-muted flex items-center gap-2">
+            <History size={15} aria-hidden="true" /> Change Log
           </h2>
           {auditLogsQuery.isLoading ? (
             <div className="mt-6 space-y-3" aria-hidden="true">
@@ -263,7 +263,7 @@ export default function FeatureFlags() {
               ))}
             </div>
           ) : flagAuditLogs.length === 0 ? (
-            <p className="mt-6 text-xs text-zinc-600 italic">
+            <p className="mt-6 text-xs text-foreground-muted italic">
               Belum ada aktivitas feature flag tercatat di audit log.
             </p>
           ) : (
@@ -271,15 +271,15 @@ export default function FeatureFlags() {
               {flagAuditLogs.map((log, i) => (
                 <li
                   key={String(log.id ?? i)}
-                  className="rounded-2xl bg-white/[0.03] border border-white/5 p-4"
+                  className="rounded-2xl bg-surface/[0.03] border border-border p-4"
                 >
-                  <p className="text-[11px] font-black text-zinc-200 truncate">
+                  <p className="text-[11px] font-black text-foreground-muted truncate">
                     {(log.action as string)?.replace(/_/g, ' ') || 'perubahan'}
                   </p>
-                  <p className="text-[10px] text-zinc-500 mt-1 line-clamp-2">
+                  <p className="text-[10px] text-foreground-muted mt-1 line-clamp-2">
                     {log.payload?.reason || log.reason || (typeof log.payload === 'string' ? log.payload : '') || '—'}
                   </p>
-                  <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest mt-2">
+                  <p className="text-[9px] text-foreground-muted font-bold uppercase tracking-widest mt-2">
                     {log.actor_name || log.actor_id || 'sistem'} •{' '}
                     {log.created_at ? new Date(log.created_at).toLocaleString('id-ID') : ''}
                   </p>
@@ -294,7 +294,7 @@ export default function FeatureFlags() {
       {toggleTarget && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-6">
           <div
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            className="absolute inset-0 bg-scrim/80 backdrop-blur-sm"
             onClick={() => setToggleTarget(null)}
             aria-hidden="true"
           />
@@ -303,28 +303,28 @@ export default function FeatureFlags() {
               role="dialog"
               aria-modal="true"
               aria-labelledby="ff-toggle-title"
-              className="glass-card w-full p-8 rounded-[32px] border-white/10"
+              className="glass-card w-full p-8 rounded-[32px] border-border"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 id="ff-toggle-title" className="text-xl font-black text-zinc-100">
+                  <h2 id="ff-toggle-title" className="text-xl font-black text-foreground-muted">
                     {toggleTarget.is_enabled ? 'Nonaktifkan' : 'Aktifkan'} Feature?
                   </h2>
-                  <p className="text-xs text-zinc-500 mt-1 font-mono">{toggleTarget.key}</p>
+                  <p className="text-xs text-foreground-muted mt-1 font-mono">{toggleTarget.key}</p>
                 </div>
                 <span
                   className={cn(
                     'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border shrink-0',
                     toggleTarget.is_enabled
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      : 'bg-zinc-800 text-zinc-500 border-white/10',
+                      ? 'bg-success-surface text-success border-success'
+                      : 'bg-surface-raised text-foreground-muted border-border',
                   )}
                 >
                   {toggleTarget.is_enabled ? 'On → Off' : 'Off → On'}
                 </span>
               </div>
               <div className="mt-6 space-y-2">
-                <label htmlFor="ff-reason" className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                <label htmlFor="ff-reason" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">
                   Alasan Perubahan (wajib)
                 </label>
                 <textarea
@@ -333,11 +333,11 @@ export default function FeatureFlags() {
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Contoh: rollout bertahap payment gateway baru..."
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-medium text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                  className="w-full bg-surface-subtle border border-border rounded-2xl p-4 text-sm font-medium text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
                 />
               </div>
               <div className="mt-5 space-y-2">
-                <label htmlFor="ff-rollback-plan" className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                <label htmlFor="ff-rollback-plan" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">
                   Rollback Plan {toggleTarget.require_checklist ? '(wajib)' : '(wajib untuk high-blast flag)'}
                 </label>
                 <textarea
@@ -346,14 +346,14 @@ export default function FeatureFlags() {
                   value={rollbackPlan}
                   onChange={(e) => setRollbackPlan(e.target.value)}
                   placeholder="Contoh: kembalikan flag ke off, verifikasi active-order recovery, lalu pantau error rate..."
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-medium text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                  className="w-full bg-surface-subtle border border-border rounded-2xl p-4 text-sm font-medium text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
                 />
               </div>
               <div className="flex justify-end gap-3 mt-8">
                 <button
                   type="button"
                   onClick={() => setToggleTarget(null)}
-                  className="px-5 py-2.5 rounded-xl font-bold text-sm text-zinc-400 hover:text-white transition-colors"
+                  className="px-5 py-2.5 rounded-xl font-bold text-sm text-foreground-muted hover:text-foreground transition-colors"
                 >
                   Batal
                 </button>
@@ -362,11 +362,11 @@ export default function FeatureFlags() {
                   onClick={submitToggle}
                   disabled={toggleMutation.isPending || !canMutate}
                   className={cn(
-                    'inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest text-white transition-colors disabled:opacity-50',
-                    toggleTarget.is_enabled ? 'bg-red-500 hover:bg-red-400' : 'bg-emerald-500 hover:bg-emerald-400',
+                    'inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest text-foreground transition-colors disabled:opacity-50',
+                    toggleTarget.is_enabled ? 'bg-error hover:bg-error' : 'bg-success hover:bg-success',
                   )}
                 >
-                  {toggleMutation.isPending && <Loader2 size={14} className="animate-spin" />}
+                  {toggleMutation.isPending && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
                   Konfirmasi
                 </button>
               </div>

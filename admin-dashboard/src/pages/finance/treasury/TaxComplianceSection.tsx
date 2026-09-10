@@ -131,11 +131,11 @@ export function TaxComplianceSection({ data }: { data: FinanceData }) {
   return (
     <>
       <div className="grid grid-cols-1 gap-8">
-         <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
-            <h3 className="text-xl font-black text-zinc-100 italic uppercase">Tax Compliance (PPN) — Quick View</h3>
-            <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 flex flex-col items-center justify-center text-center space-y-4">
-               <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Total PPN to be Remitted (Current Masa)</p>
-               <p className="text-5xl font-black text-zinc-100 tracking-tighter">
+         <div className="glass-card p-10 rounded-[48px] border-border space-y-8">
+            <h3 className="text-xl font-black text-foreground-muted italic uppercase">Tax Compliance (PPN) — Quick View</h3>
+            <div className="p-8 rounded-[32px] bg-surface/[0.02] border border-border flex flex-col items-center justify-center text-center space-y-4">
+               <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Total PPN to be Remitted (Current Masa)</p>
+               <p className="text-5xl font-black text-foreground-muted tracking-tighter">
                   Rp {(financialData?.ppn_total || 0).toLocaleString()}
                </p>
                <div className="flex gap-3 pt-4">
@@ -151,15 +151,15 @@ export function TaxComplianceSection({ data }: { data: FinanceData }) {
                         URL.revokeObjectURL(url)
                       } catch { toast.error('Masa report export failed') }
                     }}
-                    className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+                    className="px-6 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-widest hover:bg-surface-subtle transition-all"
                   >
                      Export Masa Report
                   </button>
                   <button
                     onClick={() => setActiveTab('tax')}
-                    className="px-6 py-3 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2"
+                    className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2"
                   >
-                    <Receipt size={14} />
+                    <Receipt size={14} aria-hidden="true" />
                     Detail Tax Dashboard
                   </button>
                </div>

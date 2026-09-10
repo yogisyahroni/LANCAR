@@ -4,12 +4,13 @@ import { AlertOctagon, Ban, Check, CircleCheck, Clock, MapPin, MapPinned, Messag
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
+import { StatusBadge } from '../components/StatusBadge'
 
 const severityStyles: Record<string, string> = {
-  critical: 'border-red-500/40 bg-red-500/10 text-red-200',
-  high: 'border-orange-500/40 bg-orange-500/10 text-orange-200',
-  medium: 'border-amber-500/40 bg-amber-500/10 text-amber-200',
-  low: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
+  critical: 'border-error bg-error-surface text-error',
+  high: 'border-accent bg-accent-surface text-accent',
+  medium: 'border-warning bg-warning-surface text-warning',
+  low: 'border-success bg-success-surface text-success',
 }
 
 const eventLabels: Record<string, string> = {
@@ -140,19 +141,19 @@ export default function CourierSafetyEvents() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.32em] text-primary-light">Courier Safety Command</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-zinc-100">Safety Events</h1>
-          <p className="mt-2 text-sm text-zinc-500">
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-foreground-muted">Safety Events</h1>
+          <p className="mt-2 text-sm text-foreground-muted">
             Pantau SOS, laporan barang, dan kebutuhan bantuan operasional kurir on-demand.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Open</p>
-            <p className="mt-1 text-2xl font-black text-white">{openEvents}</p>
+          <div className="rounded-2xl border border-border bg-surface/[0.04] px-5 py-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-foreground-muted">Open</p>
+            <p className="mt-1 text-2xl font-black text-foreground">{openEvents}</p>
           </div>
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-red-300/70">Critical</p>
-            <p className="mt-1 text-2xl font-black text-red-100">{criticalEvents}</p>
+          <div className="rounded-2xl border border-error bg-error-surface px-5 py-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-error">Critical</p>
+            <p className="mt-1 text-2xl font-black text-error">{criticalEvents}</p>
           </div>
         </div>
       </div>
@@ -166,8 +167,8 @@ export default function CourierSafetyEvents() {
             className={cn(
               'rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-colors',
               queueFilter === queue
-                ? 'border-primary/50 bg-primary/15 text-primary-light'
-                : 'border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/10',
+                ? 'border-primary/50 bg-primary/15 text-foreground'
+                : 'border-border bg-surface/[0.04] text-foreground-muted hover:bg-surface-subtle',
             )}
           >
             {queue === 'all' ? 'Semua queue' : queueLabels[queue]}
@@ -175,76 +176,74 @@ export default function CourierSafetyEvents() {
         ))}
       </div>
 
-      <div className="rounded-3xl border border-white/10 bg-zinc-900/60">
+      <div className="rounded-3xl border border-border bg-surface-subtle">
         {isLoading ? (
-          <div className="flex h-56 items-center justify-center text-zinc-500">Memuat safety events...</div>
+          <div className="flex h-56 items-center justify-center text-foreground-muted">Memuat safety events...</div>
         ) : events.length === 0 ? (
-          <div className="flex h-56 flex-col items-center justify-center gap-3 text-zinc-500">
-            <ShieldAlert className="h-9 w-9" />
+          <div className="flex h-56 flex-col items-center justify-center gap-3 text-foreground-muted">
+            <ShieldAlert className="h-9 w-9" aria-hidden="true" />
             <p className="font-bold">Belum ada safety event aktif</p>
           </div>
         ) : (
-          <div className="divide-y divide-white/10">
+          <div className="divide-y divide-border">
             {events.map((event: any) => (
               <div key={event.id} className="grid gap-4 p-5 lg:grid-cols-[1.1fr_1.4fr_0.8fr]">
                 <div className="flex gap-3">
                   <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl border', severityStyles[event.severity] || severityStyles.medium)}>
-                    <AlertOctagon className="h-5 w-5" />
+                    <AlertOctagon className="h-5 w-5"  aria-hidden="true"/>
                   </div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-black text-zinc-100">{eventLabels[event.event_type] || event.event_type}</h3>
+                      <h3 className="font-black text-foreground-muted">{eventLabels[event.event_type] || event.event_type}</h3>
                       <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-widest', severityStyles[event.severity] || severityStyles.medium)}>
                         {event.severity}
                       </span>
                     </div>
-                    <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{event.message || 'Tidak ada catatan tambahan.'}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-foreground-muted">{event.message || 'Tidak ada catatan tambahan.'}</p>
                     <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest">
                       <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-primary-light">
                         {queueLabels[event.routing?.queueCode] || event.routing?.queueCode || 'Queue belum dipetakan'}
                       </span>
-                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-zinc-500">
+                      <span className="rounded-full border border-border bg-surface/[0.04] px-2 py-1 text-foreground-muted">
                         target: {event.issue?.reported_party || 'other'}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="grid gap-2 text-sm text-zinc-400 sm:grid-cols-2">
+                <div className="grid gap-2 text-sm text-foreground-muted sm:grid-cols-2">
                   <div className="flex items-center gap-2">
-                    <UserRound className="h-4 w-4 text-primary-light" />
+                    <UserRound className="h-4 w-4 text-primary-light" aria-hidden="true" />
                     <span className="truncate">{event.courier_name || 'Courier'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-primary-light" />
+                    <Package className="h-4 w-4 text-primary-light" aria-hidden="true" />
                     <span className="truncate">{event.order_id || 'Tanpa order'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-primary-light" />
+                    <MapPin className="h-4 w-4 text-primary-light" aria-hidden="true" />
                     <span>{event.references?.location ? `${Number(event.references.location.latitude).toFixed(3)}, ${Number(event.references.location.longitude).toFixed(3)}` : event.references?.location_captured ? 'Lokasi tersedia sesuai role' : 'Lokasi tidak dikirim'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-primary-light" />
+                    <MessageSquare className="h-4 w-4 text-primary-light" aria-hidden="true" />
                     <span>{event.references?.conversation_id ? 'Chat terhubung' : 'Tidak ada chat'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-primary-light" />
+                    <Clock className="h-4 w-4 text-primary-light" aria-hidden="true" />
                     <span>{formatDate(event.created_at)}</span>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-bold uppercase tracking-widest text-zinc-300">
-                    {event.status}
-                  </span>
+                  <StatusBadge status={event.status} labelPrefix="Safety event status" className="text-xs uppercase tracking-widest" />
                   {event.status === 'open' && event.supported_actions?.some((action: any) => ['safety_escalation', 'safety_review'].includes(action.action)) && (
                     <button
                       type="button"
                       onClick={() => supportStatusMutation.mutate({ eventId: event.id, status: 'acknowledged' })}
                       disabled={supportStatusMutation.isPending}
-                      className="inline-flex items-center gap-1 rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-orange-200 hover:bg-orange-500/20 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-xl border border-accent bg-accent-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-accent hover:bg-accent-surface disabled:opacity-50"
                     >
-                      <ShieldAlert className="h-3 w-3" /> Acknowledge
+                      <ShieldAlert className="h-3 w-3" aria-hidden="true" /> Acknowledge
                     </button>
                   )}
                   {event.status !== 'resolved' && event.status !== 'dismissed' && event.supported_actions?.some((action: any) => action.action === 'safety_escalation') && (
@@ -252,9 +251,9 @@ export default function CourierSafetyEvents() {
                       type="button"
                       onClick={() => supportStatusMutation.mutate({ eventId: event.id, status: 'resolved' })}
                       disabled={supportStatusMutation.isPending}
-                      className="inline-flex items-center gap-1 rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-950 hover:bg-emerald-400 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-xl bg-success px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-success hover:bg-success disabled:opacity-50"
                     >
-                      <CircleCheck className="h-3 w-3" /> Resolve
+                      <CircleCheck className="h-3 w-3" aria-hidden="true" /> Resolve
                     </button>
                   )}
                   {(event.supported_actions || []).filter((action: any) => action.available && ['reassign', 'cancel', 'compensation'].includes(action.action)).map((action: any) => (
@@ -267,9 +266,9 @@ export default function CourierSafetyEvents() {
                         supportActionMutation.mutate({ event, action })
                       }}
                       disabled={supportActionMutation.isPending}
-                      className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 hover:bg-white/10 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-xl border border-border bg-surface/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted hover:bg-surface-subtle disabled:opacity-50"
                     >
-                      {action.action === 'reassign' ? <RefreshCw className="h-3 w-3" /> : action.action === 'cancel' ? <Ban className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                      {action.action === 'reassign' ? <RefreshCw className="h-3 w-3" aria-hidden="true" /> : action.action === 'cancel' ? <Ban className="h-3 w-3" aria-hidden="true" /> : <Check className="h-3 w-3" aria-hidden="true" />}
                       {action.action}
                     </button>
                   ))}
@@ -283,34 +282,34 @@ export default function CourierSafetyEvents() {
       <section className="space-y-3">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-orange-300">Evidence control</p>
-            <h2 className="mt-1 text-xl font-black text-zinc-100">GPS / Geofence Risk</h2>
-            <p className="mt-1 text-sm text-zinc-500">Bukti tetap immutable; operator mengelola tindak lanjutnya di sini.</p>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-accent">Evidence control</p>
+            <h2 className="mt-1 text-xl font-black text-foreground-muted">GPS / Geofence Risk</h2>
+            <p className="mt-1 text-sm text-foreground-muted">Bukti tetap immutable; operator mengelola tindak lanjutnya di sini.</p>
           </div>
-          <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs font-black text-orange-200">
+          <span className="rounded-full border border-accent bg-accent-surface px-3 py-1 text-xs font-black text-accent">
             {(gpsRiskData || []).filter((item: any) => item.action_status !== 'resolved').length} open
           </span>
         </div>
-        <div className="rounded-3xl border border-orange-500/20 bg-orange-500/[0.04]">
+        <div className="rounded-3xl border border-accent bg-accent/[0.04]">
           {isGpsRiskLoading ? (
-            <div className="p-8 text-center text-zinc-500">Memuat GPS risk...</div>
+            <div className="p-8 text-center text-foreground-muted">Memuat GPS risk...</div>
           ) : (gpsRiskData || []).length === 0 ? (
-            <div className="flex flex-col items-center gap-2 p-8 text-zinc-500"><MapPinned className="h-8 w-8" /><p className="font-bold">Belum ada GPS risk alert</p></div>
+            <div className="flex flex-col items-center gap-2 p-8 text-foreground-muted"><MapPinned className="h-8 w-8" aria-hidden="true" /><p className="font-bold">Belum ada GPS risk alert</p></div>
           ) : (
-            <div className="divide-y divide-white/10">
+            <div className="divide-y divide-border">
               {(gpsRiskData || []).map((item: any) => (
                 <div key={item.id} className="grid gap-4 p-5 lg:grid-cols-[1.4fr_1fr_auto] lg:items-center">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-black text-zinc-100">{item.courier_name || 'Courier'} · {item.proof_step}</p>
-                      <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-red-200">{item.spoof_risk || item.rejection_reason}</span>
+                      <p className="font-black text-foreground-muted">{item.courier_name || 'Courier'} · {item.proof_step}</p>
+                      <span className="rounded-full border border-error bg-error-surface px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-error">{item.spoof_risk || item.rejection_reason}</span>
                     </div>
-                    <p className="mt-1 text-xs text-zinc-500">Order {item.order_number || item.order_id} · {item.distance_m ?? '-'}m / radius {item.radius_m ?? '-'}m · akurasi {item.accuracy_m ?? '-'}m</p>
+                    <p className="mt-1 text-xs text-foreground-muted">Order {item.order_number || item.order_id} · {item.distance_m ?? '-'}m / radius {item.radius_m ?? '-'}m · akurasi {item.accuracy_m ?? '-'}m</p>
                   </div>
-                  <p className="text-xs text-zinc-400">Status tindak lanjut: <strong className="text-zinc-200">{item.action_status}</strong></p>
+                  <p className="text-xs text-foreground-muted">Status tindak lanjut: <strong className="text-foreground-muted">{item.action_status}</strong></p>
                   <div className="flex justify-end gap-2">
-                    {item.action_status === 'open' && <button type="button" onClick={() => gpsRiskMutation.mutate({ id: item.id, status: 'acknowledged' })} disabled={gpsRiskMutation.isPending} className="rounded-xl border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 hover:bg-white/10 disabled:opacity-50">Acknowledge</button>}
-                    {item.action_status !== 'resolved' && <button type="button" onClick={() => gpsRiskMutation.mutate({ id: item.id, status: 'resolved' })} disabled={gpsRiskMutation.isPending} className="inline-flex items-center gap-1 rounded-xl bg-orange-500 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-950 hover:bg-orange-400 disabled:opacity-50"><Check className="h-3 w-3" /> Resolve</button>}
+                    {item.action_status === 'open' && <button type="button" onClick={() => gpsRiskMutation.mutate({ id: item.id, status: 'acknowledged' })} disabled={gpsRiskMutation.isPending} className="rounded-xl border border-border px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted hover:bg-surface-subtle disabled:opacity-50">Acknowledge</button>}
+                    {item.action_status !== 'resolved' && <button type="button" onClick={() => gpsRiskMutation.mutate({ id: item.id, status: 'resolved' })} disabled={gpsRiskMutation.isPending} className="inline-flex items-center gap-1 rounded-xl bg-accent px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-accent hover:bg-accent disabled:opacity-50"><Check className="h-3 w-3" aria-hidden="true" /> Resolve</button>}
                   </div>
                 </div>
               ))}

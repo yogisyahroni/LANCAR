@@ -286,8 +286,8 @@ function RoadRoutePreview({
 
   if (isRouteLoading) {
     return (
-      <div className="relative flex h-24 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-background/45">
-        <div className="absolute inset-0 animate-pulse bg-white/[0.06]" />
+      <div className="relative flex h-24 items-center justify-center overflow-hidden rounded-xl border border-border bg-background/45">
+        <div className="absolute inset-0 animate-pulse bg-surface/[0.06]" />
         <span className="relative text-xs font-semibold text-muted-foreground">{t('order.routeCalculating')}</span>
       </div>
     );
@@ -295,7 +295,7 @@ function RoadRoutePreview({
 
   if (!routeMap) {
     return (
-      <div className="relative flex h-24 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-background/45 px-4 text-center">
+      <div className="relative flex h-24 items-center justify-center overflow-hidden rounded-xl border border-border bg-background/45 px-4 text-center">
         <p className="text-xs font-medium text-muted-foreground">
           {routeError || t('order.routeAddressNeeded')}
         </p>
@@ -304,7 +304,7 @@ function RoadRoutePreview({
   }
 
   return (
-    <div className="relative h-24 overflow-hidden rounded-xl border border-white/10 bg-background/45">
+    <div className="relative h-24 overflow-hidden rounded-xl border border-border bg-background/45">
       <div
         className="absolute left-1/2 top-1/2 overflow-hidden"
         style={{
@@ -315,7 +315,7 @@ function RoadRoutePreview({
       >
         {tileSource.provider === "none" ? (
           <div
-            className="absolute inset-0 bg-[#0f1a16]"
+            className="absolute inset-0 bg-background"
             style={{
               backgroundImage: "linear-gradient(rgba(16, 185, 129, 0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(16, 185, 129, 0.12) 1px, transparent 1px)",
               backgroundSize: "24px 24px"
@@ -339,7 +339,7 @@ function RoadRoutePreview({
             />
           ))
         )}
-        <div className="absolute inset-0 bg-black/20" />
+        <div className="absolute inset-0 bg-surface-subtle" />
         <svg
           viewBox={`0 0 ${routeCanvas.width} ${routeCanvas.height}`}
           className="absolute inset-0 h-full w-full"
@@ -366,11 +366,11 @@ function RoadRoutePreview({
           <circle cx={routeMap.end.x} cy={routeMap.end.y} r="7" fill="#f97316" stroke="#fff7ed" strokeWidth="3" />
         </svg>
         {tileSource.provider === "none" ? (
-          <div className="absolute bottom-1 left-2 rounded bg-brand-emerald-950/75 px-1.5 py-0.5 text-[10px] font-medium text-brand-emerald-50">
+          <div className="absolute bottom-1 left-2 rounded bg-success/75 px-1.5 py-0.5 text-[10px] font-medium text-success">
             {t('order.routeMapPreparing')}
           </div>
         ) : (
-          <div className="absolute bottom-1 left-2 rounded bg-white/75 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
+          <div className="absolute bottom-1 left-2 rounded bg-surface-subtle px-1.5 py-0.5 text-[10px] font-medium text-foreground-muted">
             {tileSource.provider === "tomtom" ? "© TomTom" : t('order.osmAttribution')}
           </div>
         )}
@@ -449,19 +449,19 @@ export function OrderSummary({
   }, []);
 
   return (
-    <div className="sticky top-8 rounded-2xl border border-white/10 bg-background/50 p-6 shadow-xl backdrop-blur-md">
+    <div className="sticky top-8 rounded-2xl border border-border bg-background/50 p-6 shadow-xl backdrop-blur-md">
       <h3 className="mb-6 text-lg font-semibold tracking-tight">{t('order.costSummary')}</h3>
 
       <div className="space-y-4">
         {/* Base Fare */}
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <MapPin className="h-4 w-4" />
+            <MapPin className="h-4 w-4"  aria-hidden="true" />
             <span>{t('order.shippingFee')} {mode === 'instan' && pricing ? `(${t('order.distanceUnit', { distance: formatNumber(pricing.distance_km, locale) })})` : ""}</span>
           </div>
           <span className="font-medium text-foreground">
             {isLoading ? (
-              <span className="inline-block h-4 w-16 animate-pulse rounded bg-white/10"></span>
+              <span className="inline-block h-4 w-16 animate-pulse rounded bg-surface-subtle"></span>
             ) : pricing ? (
               formatMoneyForLocale(basePriceMinor, currency, currencyMinorUnit)
             ) : (
@@ -474,12 +474,12 @@ export function OrderSummary({
         {mode === 'instan' && (
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Package className="h-4 w-4" />
+            <Package className="h-4 w-4"  aria-hidden="true" />
             <span>{t('order.dimensionWeightFee')}</span>
           </div>
           <span className="font-medium text-foreground">
             {isLoading ? (
-              <span className="inline-block h-4 w-16 animate-pulse rounded bg-white/10"></span>
+              <span className="inline-block h-4 w-16 animate-pulse rounded bg-surface-subtle"></span>
             ) : pricing ? (
               volumetricSurchargeMinor > 0 ? formatMoneyForLocale(volumetricSurchargeMinor, currency, currencyMinorUnit) : t('order.free')
             ) : (
@@ -493,12 +493,12 @@ export function OrderSummary({
         {mode === 'instan' && (
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <ShieldCheck className="h-4 w-4" />
+            <ShieldCheck className="h-4 w-4"  aria-hidden="true" />
             <span>{t('order.insurance')}</span>
           </div>
           <span className="font-medium text-foreground">
             {isLoading ? (
-              <span className="inline-block h-4 w-16 animate-pulse rounded bg-white/10"></span>
+              <span className="inline-block h-4 w-16 animate-pulse rounded bg-surface-subtle"></span>
             ) : pricing ? (
               insuranceFeeMinor > 0 ? formatMoneyForLocale(insuranceFeeMinor, currency, currencyMinorUnit) : "-"
             ) : (
@@ -512,12 +512,12 @@ export function OrderSummary({
         {mode === 'instan' && (
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Zap className="h-4 w-4 text-amber-500" />
+            <Zap className="h-4 w-4 text-warning"  aria-hidden="true" />
             <span>{t('order.surgeDemand')}</span>
           </div>
           <span className="font-medium text-foreground">
             {isLoading ? (
-              <span className="inline-block h-4 w-16 animate-pulse rounded bg-white/10"></span>
+              <span className="inline-block h-4 w-16 animate-pulse rounded bg-surface-subtle"></span>
             ) : pricing && surgeAmountMinor > 0 ? (
               formatMoneyForLocale(surgeAmountMinor, currency, currencyMinorUnit)
             ) : (
@@ -527,9 +527,9 @@ export function OrderSummary({
         </div>
         )}
 
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="rounded-xl border border-border bg-surface/[0.03] p-4">
           <div className="mb-3 flex items-start gap-2">
-            <BadgePercent className="mt-0.5 h-4 w-4 text-brand-emerald-400" />
+            <BadgePercent className="mt-0.5 h-4 w-4 text-success" aria-hidden="true" />
             <div>
               <p className="text-sm font-semibold tracking-tight text-foreground">{t('order.promoCode')}</p>
               <p className="text-xs text-muted-foreground">{t('order.promoServerVerified')}</p>
@@ -538,34 +538,36 @@ export function OrderSummary({
           <div className="flex gap-2">
             <input
               type="text"
+              aria-label={t('order.promoCode')}
               value={promoCode}
               onChange={(event) => onPromoCodeChange(event.target.value.toUpperCase())}
               placeholder="TEMBUSHEMAT"
               disabled={!pricing || isLoading}
-              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-background px-3 py-2 text-sm font-semibold uppercase tracking-wide text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-brand-emerald-400/60 focus:ring-2 focus:ring-brand-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold uppercase tracking-wide text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-success/60 focus:ring-2 focus:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50"
               maxLength={40}
             />
             <button
               type="button"
+              aria-label={t('order.check')}
               onClick={onValidatePromo}
               disabled={!pricing || !promoCode.trim() || isLoading || isPromoChecking}
-              className="rounded-xl border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-4 py-2 text-sm font-bold text-brand-emerald-200 transition-all hover:bg-brand-emerald-500/15 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
+              className="rounded-xl border border-success/20 bg-success/10 px-4 py-2 text-sm font-bold text-success transition-all hover:bg-success/15 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
             >
-              {isPromoChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : t('order.check')}
+              {isPromoChecking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : t('order.check')}
             </button>
           </div>
           {promoQuote?.eligible && (
-            <div className="mt-3 rounded-lg border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-3 py-2 text-xs text-brand-emerald-100">
+            <div className="mt-3 rounded-lg border border-success/20 bg-success/10 px-3 py-2 text-xs text-success">
               {t('order.activePromo', { amount: formatMoneyForLocale(promoDiscountMinor, promoQuote?.currency || currency, promoQuote?.currency_minor_unit ?? currencyMinorUnit) })}
             </div>
           )}
           {promoError && (
-            <p className="mt-3 text-xs font-medium text-amber-200">{promoError}</p>
+            <p className="mt-3 text-xs font-medium text-warning">{promoError}</p>
           )}
           {isEligiblePromoLoading && (
             <div className="mt-3 flex gap-2">
-              <span className="h-8 flex-1 animate-pulse rounded-full bg-white/10" />
-              <span className="h-8 flex-1 animate-pulse rounded-full bg-white/10" />
+              <span className="h-8 flex-1 animate-pulse rounded-full bg-surface-subtle" />
+              <span className="h-8 flex-1 animate-pulse rounded-full bg-surface-subtle" />
             </div>
           )}
           {!isEligiblePromoLoading && eligiblePromos.length > 0 && (
@@ -576,7 +578,7 @@ export function OrderSummary({
                   type="button"
                   onClick={() => onPromoCodeChange(promo.code)}
                   disabled={!pricing || isLoading || isPromoChecking}
-                  className="rounded-full border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-3 py-1.5 text-xs font-bold text-brand-emerald-100 transition-all hover:bg-brand-emerald-500/15 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
+                  className="rounded-full border border-success/20 bg-success/10 px-3 py-1.5 text-xs font-bold text-success transition-all hover:bg-success/15 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
                   title={promo.name}
                 >
                   {promo.code}
@@ -588,21 +590,21 @@ export function OrderSummary({
 
         {promoDiscountMinor > 0 && (
           <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2 text-brand-emerald-300">
-              <BadgePercent className="h-4 w-4" />
+            <div className="flex items-center gap-2 text-success">
+              <BadgePercent className="h-4 w-4"  aria-hidden="true" />
               <span>{t('order.discountPromo')}</span>
             </div>
-            <span className="font-semibold text-brand-emerald-300">
+            <span className="font-semibold text-success">
               - {formatMoneyForLocale(promoDiscountMinor, promoQuote?.currency || currency, promoQuote?.currency_minor_unit ?? currencyMinorUnit)}
             </span>
           </div>
         )}
 
         {mode === 'instan' && (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="rounded-xl border border-border bg-surface/[0.03] p-4">
           <div className="mb-3 flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-muted-foreground">
-              <Package className="h-4 w-4" />
+              <Package className="h-4 w-4"  aria-hidden="true" />
               {t('order.calculatedWeight')}
             </span>
             <span className="font-semibold text-foreground">
@@ -611,7 +613,7 @@ export function OrderSummary({
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-muted-foreground">
-              <Truck className="h-4 w-4" />
+              <Truck className="h-4 w-4"  aria-hidden="true" />
               {t('order.model')}
             </span>
             <span className="font-semibold text-foreground">
@@ -620,7 +622,7 @@ export function OrderSummary({
           </div>
           <div className="mt-3 flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-muted-foreground">
-              <Clock className="h-4 w-4" />
+              <Clock className="h-4 w-4"  aria-hidden="true" />
               {t('order.eta')}
             </span>
             <span className="font-semibold text-foreground">
@@ -631,8 +633,8 @@ export function OrderSummary({
         )}
 
         {mode === 'instan' && pricing?.package_facts && (
-          <div className="rounded-xl border border-indigo-400/20 bg-indigo-500/[0.06] p-4 text-sm">
-            <p className="mb-3 font-semibold text-indigo-100">{t('order.packageFacts')}</p>
+          <div className="rounded-xl border border-info bg-info/[0.06] p-4 text-sm">
+            <p className="mb-3 font-semibold text-info">{t('order.packageFacts')}</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
               <span className="text-muted-foreground">{t('order.quantity')}</span><span className="text-right font-semibold">{formatNumber(pricing.package_facts.quantity || 1, locale)}</span>
               <span className="text-muted-foreground">{t('order.category')}</span><span className="truncate text-right font-semibold">{pricing.package_facts.category || '-'}</span>
@@ -642,15 +644,15 @@ export function OrderSummary({
               <span className="text-muted-foreground">{t('order.handling')}</span><span className="text-right font-semibold">{pricing.package_facts.fragile ? t('order.fragile') : t('order.standard')}</span>
               <span className="text-muted-foreground">{t('order.deliveryCode')}</span><span className="text-right font-semibold">{pricing.package_facts.delivery_code_policy === 'required' ? t('order.required') : t('order.optional')}</span>
             </div>
-            {pricing.package_facts.prohibited && <p className="mt-3 text-xs font-semibold text-red-300">{t('order.prohibitedRejected')}</p>}
+            {pricing.package_facts.prohibited && <p className="mt-3 text-xs font-semibold text-error">{t('order.prohibitedRejected')}</p>}
           </div>
         )}
 
         {mode === 'instan' && (
-        <div className="rounded-xl border border-brand-emerald-500/15 bg-brand-emerald-500/[0.06] p-4">
+        <div className="rounded-xl border border-success/15 bg-success/[0.06] p-4">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="flex items-start gap-2">
-              <Route className="mt-0.5 h-4 w-4 text-brand-emerald-400" />
+              <Route className="mt-0.5 h-4 w-4 text-success"  aria-hidden="true" />
               <div>
                 <p className="text-sm font-semibold tracking-tight text-foreground">{t('order.routePreview')}</p>
                 <p className="text-xs text-muted-foreground">
@@ -660,7 +662,7 @@ export function OrderSummary({
                 </p>
               </div>
             </div>
-            <span className="rounded-full bg-brand-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-emerald-300">
+            <span className="rounded-full bg-success/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-success">
               {routeProvider}
             </span>
           </div>
@@ -685,24 +687,24 @@ export function OrderSummary({
       </div>
 
       {mode === 'instan' && surgeAmountMinor > 0 && (
-        <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+        <div className="mt-5 rounded-xl border border-warning bg-warning-surface px-4 py-3 text-sm text-warning">
           <div className="flex items-center gap-2 font-semibold">
-            <Zap className="h-4 w-4" />
+            <Zap className="h-4 w-4"  aria-hidden="true" />
             {t('order.surgeActive')}
           </div>
-          <p className="mt-1 text-xs text-amber-100/80">{t('order.surgeDescription')}</p>
+          <p className="mt-1 text-xs text-warning">{t('order.surgeDescription')}</p>
         </div>
       )}
 
-      <div className="my-6 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      <div className="my-6 h-px w-full bg-gradient-to-r from-transparent via-foreground/20 to-transparent" />
 
       {/* Total */}
       <div className="flex items-center justify-between">
         <span className="font-semibold text-foreground">{t('order.totalBilling')}</span>
         <div className="text-right">
-          <span className="text-2xl font-bold tracking-tight text-brand-emerald-500">
+          <span className="text-2xl font-bold tracking-tight text-success">
             {isLoading ? (
-              <span className="inline-block h-8 w-24 animate-pulse rounded bg-brand-emerald-500/20"></span>
+              <span className="inline-block h-8 w-24 animate-pulse rounded bg-success/20"></span>
             ) : pricing ? (
               formatMoneyForLocale(payableTotalMinor, currency, currencyMinorUnit)
             ) : (

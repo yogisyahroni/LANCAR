@@ -139,7 +139,7 @@ export default function CourierPublicRegistration() {
   }
 
   if (isLoadingLink) {
-    return <CenteredState icon={<Loader2 className="h-8 w-8 animate-spin text-primary-light" />} title="Membuka link pendaftaran" />
+    return <CenteredState icon={<Loader2 className="h-8 w-8 animate-spin text-primary-light" aria-hidden="true" />} title="Membuka link pendaftaran" />
   }
 
   if (error && !linkInfo) {
@@ -147,14 +147,14 @@ export default function CourierPublicRegistration() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 px-5 py-8 text-zinc-100">
+    <div className="min-h-screen bg-background px-5 py-8 text-foreground-muted">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6 md:p-8">
+        <div className="rounded-[32px] border border-border bg-surface/[0.03] p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.25em] text-primary-light">TEMBUS Courier Registration</p>
               <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">{linkInfo?.title || `Daftar Kurir ${channelName}`}</h1>
-              <p className="mt-2 max-w-2xl text-sm text-zinc-400">
+              <p className="mt-2 max-w-2xl text-sm text-foreground-muted">
                 Jalur pendaftaran ini untuk kurir {channelName}. Data dan dokumen akan masuk ke admin TEMBUS untuk proses review.
               </p>
             </div>
@@ -162,14 +162,14 @@ export default function CourierPublicRegistration() {
               {channelName}
             </div>
           </div>
-          {linkInfo?.notes && <p className="mt-5 rounded-2xl bg-zinc-900 p-4 text-sm text-zinc-400">{linkInfo.notes}</p>}
+          {linkInfo?.notes && <p className="mt-5 rounded-2xl bg-surface p-4 text-sm text-foreground-muted">{linkInfo.notes}</p>}
         </div>
 
         {submitted ? (
-          <div className="rounded-[32px] border border-emerald-500/20 bg-emerald-500/10 p-8 text-center">
-            <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-400" />
+          <div className="rounded-[32px] border border-success bg-success-surface p-8 text-center">
+            <CheckCircle2 className="mx-auto h-12 w-12 text-success"  aria-hidden="true"/>
             <h2 className="mt-4 text-2xl font-black">Pendaftaran terkirim</h2>
-            <p className="mt-2 text-zinc-400">Tim admin akan memeriksa dokumen dan mengaktifkan akun bila semua syarat terpenuhi.</p>
+            <p className="mt-2 text-foreground-muted">Tim admin akan memeriksa dokumen dan mengaktifkan akun bila semua syarat terpenuhi.</p>
           </div>
         ) : (
           <>
@@ -219,13 +219,13 @@ export default function CourierPublicRegistration() {
 
             <FormSection title="Dokumen Wajib">
               {Object.entries(documentLabels).map(([key, label]) => (
-                <label key={key} className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
+                <label key={key} className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-surface-subtle p-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-zinc-100">{label}</p>
-                    <p className="truncate text-xs text-zinc-500">{documentNames[key] || 'JPG, PNG, WEBP, atau PDF. Maksimal 10 MB.'}</p>
+                    <p className="text-sm font-bold text-foreground-muted">{label}</p>
+                    <p className="truncate text-xs text-foreground-muted">{documentNames[key] || 'JPG, PNG, WEBP, atau PDF. Maksimal 10 MB.'}</p>
                   </div>
-                  <span className={cn('inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold', documents[key] ? 'bg-emerald-500/10 text-emerald-300' : 'bg-primary text-white')}>
-                    {uploadingDoc === key ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+                  <span className={cn('inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold', documents[key] ? 'bg-success-surface text-success' : 'bg-primary text-on-primary')}>
+                    {uploadingDoc === key ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <FileUp className="h-4 w-4" aria-hidden="true" />}
                     {documents[key] ? 'Ganti' : 'Upload'}
                   </span>
                   <input className="hidden" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => uploadDocument(key, event.target.files?.[0])} />
@@ -233,15 +233,15 @@ export default function CourierPublicRegistration() {
               ))}
             </FormSection>
 
-            {error && <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-bold text-red-300">{error}</div>}
+            {error && <div className="rounded-2xl border border-error bg-error-surface p-4 text-sm font-bold text-error">{error}</div>}
 
             <button
               type="button"
               onClick={submit}
               disabled={isSubmitting || uploadingDoc !== null}
-              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-4 font-black text-white shadow-lg shadow-primary/20 transition hover:bg-primary-light disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-4 font-black text-on-primary shadow-lg shadow-primary/20 transition hover:bg-primary-light disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
+              {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <ShieldCheck className="h-5 w-5" aria-hidden="true" />}
               Kirim Pendaftaran
             </button>
           </>
@@ -253,7 +253,7 @@ export default function CourierPublicRegistration() {
 
 function CenteredState({ icon, title }: { icon?: React.ReactNode; title: string }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-8 text-center text-zinc-100">
+    <div className="flex min-h-screen items-center justify-center bg-background p-8 text-center text-foreground-muted">
       <div>
         {icon && <div className="mb-4 flex justify-center">{icon}</div>}
         <p className="text-lg font-black">{title}</p>
@@ -264,7 +264,7 @@ function CenteredState({ icon, title }: { icon?: React.ReactNode; title: string 
 
 function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6">
+    <section className="rounded-[32px] border border-border bg-surface/[0.03] p-6">
       <h2 className="mb-5 text-lg font-black">{title}</h2>
       <div className="grid gap-4 md:grid-cols-2">{children}</div>
     </section>
@@ -274,12 +274,12 @@ function FormSection({ title, children }: { title: string; children: React.React
 function Field({ label, value, onChange, type = 'text' }: { label: string; value: string; type?: string; onChange: (value: string) => void }) {
   return (
     <label className="space-y-2">
-      <span className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">{label}</span>
+      <span className="text-xs font-black uppercase tracking-[0.18em] text-foreground-muted">{label}</span>
       <input
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-primary/60"
+        className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground-muted outline-none transition focus:border-primary/60"
       />
     </label>
   )
@@ -288,8 +288,8 @@ function Field({ label, value, onChange, type = 'text' }: { label: string; value
 function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
   return (
     <label className="space-y-2">
-      <span className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none">
+      <span className="text-xs font-black uppercase tracking-[0.18em] text-foreground-muted">{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground-muted outline-none">
         {options.map((option) => <option key={option} value={option}>{option}</option>)}
       </select>
     </label>
@@ -298,8 +298,8 @@ function SelectField({ label, value, options, onChange }: { label: string; value
 
 function CheckField({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
-    <label className="flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3">
-      <span className="text-sm font-bold text-zinc-200">{label}</span>
+    <label className="flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3">
+      <span className="text-sm font-bold text-foreground-muted">{label}</span>
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-5 w-5 accent-primary" />
     </label>
   )

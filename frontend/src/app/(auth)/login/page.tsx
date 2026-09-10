@@ -254,6 +254,8 @@ export default function LoginPage() {
             {apiError && (
               <motion.div
                 data-testid="customer-login-error"
+                id="customer-login-error"
+                role="alert"
                 aria-live="polite"
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -274,25 +276,28 @@ export default function LoginPage() {
                   className="space-y-4"
                 >
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
+                    <label htmlFor="customer-login-email" className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                       {t('auth.email')}
                     </label>
                     <input
                       {...register('email')}
+                      id="customer-login-email"
+                      aria-invalid={errors.email ? 'true' : 'false'}
+                      aria-describedby={errors.email ? 'customer-login-email-error' : apiError ? 'customer-login-error' : undefined}
                       type="email"
                       className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground placeholder:text-muted-foreground"
                       placeholder="name@company.com"
                     />
                     {errors.email && (
-                      <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
+                      <p id="customer-login-email-error" className="text-sm text-destructive mt-1" role="alert">{errors.email.message}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                        <KeyRound className="h-4 w-4 text-muted-foreground" />
+                      <label htmlFor="customer-login-password" className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <KeyRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                         {t('auth.password')}
                       </label>
                       <a href="/forgot-pin" className="auth-link text-sm hover:underline">
@@ -301,12 +306,15 @@ export default function LoginPage() {
                     </div>
                     <input
                       {...register('password')}
+                      id="customer-login-password"
+                      aria-invalid={errors.password ? 'true' : 'false'}
+                      aria-describedby={errors.password ? 'customer-login-password-error' : apiError ? 'customer-login-error' : undefined}
                       type="password"
                       className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground placeholder:text-muted-foreground"
                       placeholder="••••••••"
                     />
                     {errors.password && (
-                      <p className="text-sm text-destructive mt-1">{errors.password.message}</p>
+                      <p id="customer-login-password-error" className="text-sm text-destructive mt-1" role="alert">{errors.password.message}</p>
                     )}
                   </div>
                 </motion.div>
@@ -320,12 +328,15 @@ export default function LoginPage() {
                   className="space-y-4"
                 >
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
+                    <label htmlFor="customer-login-phone" className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                       {pendingOtpIdentifier ? t('auth.validatedAccount') : t('auth.emailOrPhone')}
                     </label>
                     <input
                       {...register('phone')}
+                      id="customer-login-phone"
+                      aria-invalid={errors.phone ? 'true' : 'false'}
+                      aria-describedby={errors.phone ? 'customer-login-phone-error' : apiError ? 'customer-login-error' : undefined}
                       type="text"
                       value={pendingOtpIdentifier || phoneValue || ''}
                       readOnly={!!pendingOtpIdentifier || otpSent}
@@ -333,7 +344,7 @@ export default function LoginPage() {
                       placeholder="customer@tembus.id or +62812345678"
                     />
                     {errors.phone && (
-                      <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>
+                      <p id="customer-login-phone-error" className="text-sm text-destructive mt-1" role="alert">{errors.phone.message}</p>
                     )}
                   </div>
 
@@ -344,7 +355,7 @@ export default function LoginPage() {
                       className="space-y-2"
                     >
                       <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium text-foreground">{t('auth.otpLabel')}</label>
+                        <label htmlFor="customer-login-otp" className="text-sm font-medium text-foreground">{t('auth.otpLabel')}</label>
                         <button
                           type="button"
                           onClick={handleSendOtp}
@@ -356,6 +367,9 @@ export default function LoginPage() {
                       </div>
                       <input
                         {...register('otp')}
+                        id="customer-login-otp"
+                        aria-invalid={errors.otp ? 'true' : 'false'}
+                        aria-describedby={errors.otp ? 'customer-login-otp-error' : apiError ? 'customer-login-error' : undefined}
                         type="text"
                         inputMode="numeric"  
                         pattern="\d{6}"
@@ -365,7 +379,7 @@ export default function LoginPage() {
                         placeholder="••••••"
                       />
                       {errors.otp && (
-                        <p className="text-sm text-destructive mt-1">{errors.otp.message}</p>
+                        <p id="customer-login-otp-error" className="text-sm text-destructive mt-1" role="alert">{errors.otp.message}</p>
                       )}
                     </motion.div>
                   )}
@@ -376,6 +390,8 @@ export default function LoginPage() {
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
+                  id="customer-login-remember"
+                  aria-label={t('auth.rememberMe')}
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
@@ -388,11 +404,11 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isSubmitting || (loginMethod === 'otp' && !otpSent && isSendingOtp)}
-              className="w-full bg-primary text-white font-medium py-2.5 px-4 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all duration-200 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed shadow-md shadow-primary/20"
+              className="w-full bg-primary text-on-primary font-medium py-2.5 px-4 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all duration-200 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed shadow-md shadow-primary/20"
             >
               {isSubmitting || (loginMethod === 'otp' && !otpSent && isSendingOtp) ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin"  aria-hidden="true"/>
                   {loginMethod === 'otp' && !otpSent ? t('auth.sendingOtp') : t('auth.signingIn')}
                 </>
               ) : loginMethod === 'otp' && !otpSent ? (
@@ -417,7 +433,7 @@ export default function LoginPage() {
             onClick={handleGoogleSignIn}
             className="w-full border border-border/40 bg-background/40 hover:bg-muted/30 active:scale-[0.98] text-foreground font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-3 transition-all duration-200"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24">
               <path
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                 fill="#4285F4"

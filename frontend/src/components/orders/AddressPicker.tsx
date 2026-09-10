@@ -5,6 +5,7 @@ import { UseFormSetValue } from "react-hook-form";
 import { api } from "@/lib/api";
 import { MapPin, Search, Loader2, Plus, Navigation, Sparkles, Check, Info } from "lucide-react";
 import { OrderFormValues, LocationValue, AddressMode, AddressPoint, AddressSuggestion, SavedAddress, isValidLocation } from "./OrderSchemas";
+import { FocusTrap } from "@/components/a11y/FocusTrap";
 
 const formatCoordinate = (location?: LocationValue) => {
   if (!location) return "Titik belum dipilih";
@@ -104,11 +105,22 @@ export function AddressPicker({
     location: null as LocationValue | null
   });
 
+  useEffect(() => {
+    if (!isModalOpen) return undefined;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsModalOpen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isModalOpen]);
+
   const addressField = mode === "pickup" ? "pickup_address" : "dropoff_address";
   const locationField = mode === "pickup" ? "pickup_location" : "dropoff_location";
   const pointField = mode === "pickup" ? "pickup_point" : "dropoff_point";
   const isPickup = mode === "pickup";
   const accentClass = isPickup ? "text-primary" : "text-success";
+  const fieldError = error || locationError;
+  const fieldErrorId = `${mode}-address-picker-error`;
 
   const performReverseGeocode = async (lat: number, lng: number): Promise<{
     display_label?: string;
@@ -369,14 +381,14 @@ export function AddressPicker({
               "flex items-start justify-between gap-3 rounded-xl border p-4",
               location
                 ? "border-success/25 bg-success/5"
-                : "border-white/10 bg-white/[0.03]"
+                : "border-border bg-surface/[0.03]"
             ].join(" ")}>
               <div className="flex items-start gap-3 min-w-0">
-                <MapPin className={`mt-0.5 h-4 w-4 shrink-0 ${accentClass}`} />
+                <MapPin aria-hidden="true" className={`mt-0.5 h-4 w-4 shrink-0 ${accentClass}`} />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground leading-snug line-clamp-2">{address}</p>
                   {location && (
-                    <span className="mt-1 block text-[11px] text-brand-emerald-400">✓ Titik lokasi tersimpan</span>
+                    <span className="mt-1 block text-[11px] text-success">✓ Titik lokasi tersimpan</span>
                   )}
                 </div>
               </div>
@@ -389,19 +401,19 @@ export function AddressPicker({
                   setSuggestions([]);
                   setMessage(null);
                 }}
-                className="shrink-0 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-muted-foreground hover:bg-white/10"
+                className="shrink-0 rounded-md border border-border bg-surface-subtle px-2.5 py-1 text-xs text-muted-foreground hover:bg-surface-subtle"
               >
                 Ubah
               </button>
             </div>
           ) : (
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <div className="rounded-xl border border-border bg-surface/[0.02] p-4">
               <p className="mb-3 text-xs text-muted-foreground">Pilih Alamat</p>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => { setSuggestions([]); setMessage(null); }}
-                  className="rounded-md border border-white/15 bg-white/5 px-5 py-2 text-sm font-medium text-foreground hover:bg-white/10 transition-colors"
+                  className="rounded-md border border-border bg-surface-subtle px-5 py-2 text-sm font-medium text-foreground hover:bg-surface-subtle transition-colors"
                 >
                   Batal
                 </button>
@@ -413,7 +425,7 @@ export function AddressPicker({
                   }}
                   className="inline-flex items-center gap-1.5 rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4" aria-hidden="true" />
                   Tambah
                 </button>
               </div>
@@ -425,7 +437,7 @@ export function AddressPicker({
                       onClick={() => handleUseCurrentLocation()}
                       className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      {isLocating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Navigation className="h-3 w-3" />}
+                      {isLocating ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Navigation className="h-3 w-3" aria-hidden="true" />}
                       Lokasi Saya
                     </button>
                     <span className="text-muted-foreground/30">·</span>
@@ -436,7 +448,7 @@ export function AddressPicker({
                   onClick={handleUseSavedDefault}
                   className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <Sparkles className="h-3 w-3" />
+                  <Sparkles className="h-3 w-3" aria-hidden="true" />
                   Buku Alamat
                 </button>
               </div>
@@ -445,9 +457,12 @@ export function AddressPicker({
           {/* Search input below card when no address selected */}
           {!hasAddress && (
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 name={addressField}
+                aria-label={`${isPickup ? "Alamat pickup" : "Alamat dropoff"}`}
+                aria-invalid={fieldError ? "true" : "false"}
+                aria-describedby={fieldError ? fieldErrorId : undefined}
                 data-testid={`${mode}-address-input`}
                 value={address || ""}
                 onChange={(event) => {
@@ -455,10 +470,10 @@ export function AddressPicker({
                   setValue(locationField, undefined, { shouldDirty: true, shouldValidate: true });
                   setValue(pointField, undefined, { shouldDirty: true, shouldValidate: true });
                 }}
-                className={`w-full rounded-lg border border-white/10 bg-background/50 py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${isPickup ? "focus:border-primary focus:ring-primary" : "focus:border-success focus:ring-success"}`}
+                className={`w-full rounded-lg border border-border bg-background/50 py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${isPickup ? "focus:border-primary focus:ring-primary" : "focus:border-success focus:ring-success"}`}
                 placeholder="Atau ketik untuk mencari lokasi..."
               />
-              {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+              {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden="true" />}
             </div>
           )}
         </>
@@ -467,9 +482,12 @@ export function AddressPicker({
         <>
           <label className="text-sm font-medium text-muted-foreground">Alamat Lengkap</label>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               name={addressField}
+              aria-label={`${isPickup ? "Alamat pickup" : "Alamat dropoff"}`}
+              aria-invalid={fieldError ? "true" : "false"}
+              aria-describedby={fieldError ? fieldErrorId : undefined}
               data-testid={`${mode}-address-input`}
               value={address || ""}
               onChange={(event) => {
@@ -477,10 +495,10 @@ export function AddressPicker({
                 setValue(locationField, undefined, { shouldDirty: true, shouldValidate: true });
                 setValue(pointField, undefined, { shouldDirty: true, shouldValidate: true });
               }}
-              className={`w-full rounded-lg border border-white/10 bg-background/50 py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${isPickup ? "focus:border-primary focus:ring-primary" : "focus:border-success focus:ring-success"}`}
+              className={`w-full rounded-lg border border-border bg-background/50 py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${isPickup ? "focus:border-primary focus:ring-primary" : "focus:border-success focus:ring-success"}`}
               placeholder="Cari lokasi bangunan, jalan, atau area..."
             />
-            {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+            {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden="true" />}
           </div>
           <div className="flex flex-wrap gap-2">
             {/* Tombol lokasi saat ini — tersedia untuk pickup DAN dropoff (UX Gojek/Grab) */}
@@ -488,20 +506,20 @@ export function AddressPicker({
               type="button"
               data-testid={`${mode}-current-location-button`}
               onClick={() => handleUseCurrentLocation()}
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-subtle px-3 py-1.5 text-xs font-medium hover:bg-surface-subtle"
             >
-              {isLocating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
+              {isLocating ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Navigation className="h-3.5 w-3.5" aria-hidden="true" />}
               Lokasi Saya
             </button>
-            <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-200">
+            <span className="rounded-md border border-warning bg-warning-surface px-3 py-1.5 text-xs font-medium text-warning">
               Pilih hasil pencarian atau gunakan lokasi saat ini.
             </span>
           </div>
           <div className={[
             "flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-xs",
             location
-              ? "border-success/25 bg-success/10 text-brand-emerald-200"
-              : "border-white/10 bg-white/[0.03] text-muted-foreground"
+              ? "border-success/25 bg-success/10 text-success"
+              : "border-border bg-surface/[0.03] text-muted-foreground"
           ].join(" ")}>
             <div className="min-w-0">
               <p className="font-medium text-foreground">
@@ -511,30 +529,30 @@ export function AddressPicker({
                 {formatCoordinate(location)}
               </span>
             </div>
-            {location ? <Check className="h-4 w-4 shrink-0 text-success" /> : <Info className="h-4 w-4 shrink-0" />}
+            {location ? <Check className="h-4 w-4 shrink-0 text-success" aria-hidden="true" /> : <Info className="h-4 w-4 shrink-0" aria-hidden="true" />}
           </div>
         </>
       )}
 
-      {(error || locationError) && (
-        <p className="text-xs text-destructive">{error || locationError}</p>
+      {fieldError && (
+        <p id={fieldErrorId} role="alert" className="text-xs text-destructive">{fieldError}</p>
       )}
 
       {suggestions.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-white/10 bg-background/95 shadow-xl backdrop-blur">
+        <div className="overflow-hidden rounded-lg border border-border bg-background/95 shadow-xl backdrop-blur">
           {suggestions.map((suggestion) => (
             <button
               key={suggestion.id}
               type="button"
               onClick={() => applySuggestion(suggestion)}
-              className="flex w-full items-start gap-3 border-b border-white/5 px-4 py-3 text-left transition-colors last:border-0 hover:bg-white/5"
+              className="flex w-full items-start gap-3 border-b border-border px-4 py-3 text-left transition-colors last:border-0 hover:bg-surface-subtle"
             >
-              <MapPin className={`mt-0.5 h-4 w-4 shrink-0 ${accentClass}`} />
+              <MapPin aria-hidden="true" className={`mt-0.5 h-4 w-4 shrink-0 ${accentClass}`} />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium text-foreground">{suggestion.label}</span>
                 <span className="block line-clamp-1 text-xs text-muted-foreground">{suggestion.detail}</span>
               </span>
-              <span className="ml-auto rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
+              <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
                 {addressSuggestionSourceLabel[suggestion.source]}
               </span>
             </button>
@@ -543,7 +561,7 @@ export function AddressPicker({
       )}
 
       {message && (
-        <p className="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+        <p className="rounded-md border border-warning bg-warning-surface px-3 py-2 text-xs text-warning">
           {message}
         </p>
       )}
@@ -551,15 +569,16 @@ export function AddressPicker({
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <button type="button" className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} aria-label="Tutup modal" />
-          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-background/95 shadow-2xl p-5">
-            <h3 className="text-lg font-semibold mb-4">Detail Alamat {isPickup ? "Pengirim" : "Penerima"}</h3>
+          <FocusTrap active={isModalOpen} className="relative w-full max-w-lg">
+          <div role="dialog" aria-modal="true" aria-labelledby="address-picker-dialog-title" className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-background/95 shadow-2xl p-5">
+            <h3 id="address-picker-dialog-title" className="text-lg font-semibold mb-4">Detail Alamat {isPickup ? "Pengirim" : "Penerima"}</h3>
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-muted-foreground block mb-1">Nama Toko/Lokasi</label>
                 <input
                   value={modalForm.shopName}
                   onChange={(e) => setModalForm(prev => ({ ...prev, shopName: e.target.value }))}
-                  className="w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                  className="w-full rounded-md border border-border bg-scrim/50 px-3 py-2 text-sm focus:border-primary focus:outline-none"
                   placeholder="Mis. Toko Maju Jaya"
                 />
               </div>
@@ -569,7 +588,7 @@ export function AddressPicker({
                   <input
                     value={modalForm.picName}
                     onChange={(e) => setModalForm(prev => ({ ...prev, picName: e.target.value }))}
-                    className="w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    className="w-full rounded-md border border-border bg-scrim/50 px-3 py-2 text-sm focus:border-primary focus:outline-none"
                     placeholder="Nama Kontak"
                   />
                 </div>
@@ -578,7 +597,7 @@ export function AddressPicker({
                   <input
                     value={modalForm.phone}
                     onChange={(e) => setModalForm(prev => ({ ...prev, phone: e.target.value.replace(/[^0-9+]/g, '') }))}
-                    className={`w-full rounded-md border bg-black/50 px-3 py-2 text-sm focus:outline-none ${modalForm.phone && !/^(08|628|\+628)[0-9]{8,11}$/.test(modalForm.phone) ? 'border-red-500 focus:border-red-500' : 'border-white/10 focus:border-primary'}`}
+                    className={`w-full rounded-md border bg-scrim/50 px-3 py-2 text-sm focus:outline-none ${modalForm.phone && !/^(08|628|\+628)[0-9]{8,11}$/.test(modalForm.phone) ? 'border-error focus:border-error' : 'border-border focus:border-primary'}`}
                     placeholder="08..."
                   />
                 </div>
@@ -591,19 +610,19 @@ export function AddressPicker({
                     onClick={() => handleUseCurrentLocation((addr, loc) => setModalForm(prev => ({ ...prev, fullAddress: addr, location: loc })))}
                     className="text-xs text-primary flex items-center gap-1 hover:underline"
                   >
-                    {isLocating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Navigation className="h-3 w-3" />}
+                    {isLocating ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Navigation className="h-3 w-3" aria-hidden="true" />}
                     Gunakan Lokasi Saya
                   </button>
                 </label>
                 <textarea
                   value={modalForm.fullAddress}
                   onChange={(e) => setModalForm(prev => ({ ...prev, fullAddress: e.target.value }))}
-                  className="w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm focus:border-primary focus:outline-none min-h-[80px]"
+                  className="w-full rounded-md border border-border bg-scrim/50 px-3 py-2 text-sm focus:border-primary focus:outline-none min-h-[80px]"
                   placeholder="Provinsi, Kota, Kecamatan, Kodepos, Jalan, RT/RW..."
                 />
               </div>
-              <div className="pt-4 flex gap-3 justify-end border-t border-white/10">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm rounded-md border border-white/10 hover:bg-white/5">
+              <div className="pt-4 flex gap-3 justify-end border-t border-border">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm rounded-md border border-border hover:bg-surface-subtle">
                   Batal
                 </button>
                 <button
@@ -639,6 +658,7 @@ export function AddressPicker({
               </div>
             </div>
           </div>
+          </FocusTrap>
         </div>
       )}
     </div>

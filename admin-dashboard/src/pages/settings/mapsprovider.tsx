@@ -52,6 +52,7 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '../../lib/utils'
+import { StatusBadge } from '../../components/StatusBadge'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { toast } from 'sonner'
@@ -112,21 +113,21 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="glass-card p-10 rounded-[48px] border-white/5 space-y-8"
+                className="glass-card p-10 rounded-[48px] border-border space-y-8"
               >
                 <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6">
                   <div>
-                    <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
-                      <Map className="text-primary-light" size={24} />
+                    <h3 className="text-xl font-black text-foreground-muted flex items-center gap-3 tracking-tight">
+                      <Map className="text-primary-light" size={24} aria-hidden="true" />
                       Runtime Maps Provider
                     </h3>
-                    <p className="text-zinc-500 mt-2 max-w-2xl">
+                    <p className="text-foreground-muted mt-2 max-w-2xl">
                       Switch TomTom Maps, OpenStreetMap, or text-only fallback for customer mobile, courier mobile, and web without rebuilding apps.
                     </p>
                   </div>
                   <button
                     onClick={() => queryClient.invalidateQueries({ queryKey: ['maps-provider-config'] })}
-                    className="px-5 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-200 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+                    className="px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-widest hover:bg-surface-subtle transition-all"
                   >
                     Refresh Runtime
                   </button>
@@ -135,7 +136,7 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                 {isLoadingMapsProvider ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {[1, 2, 3, 4].map((item) => (
-                      <div key={item} className="h-40 rounded-[32px] bg-white/[0.03] animate-pulse" />
+                      <div key={item} className="h-40 rounded-[32px] bg-surface/[0.03] animate-pulse" />
                     ))}
                   </div>
                 ) : (
@@ -144,32 +145,32 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                       <div className={cn(
                         "p-6 rounded-[32px] border space-y-5",
                         mapsProviderConfig?.ops?.status === 'critical'
-                          ? "bg-red-500/10 border-red-500/30"
+                          ? "bg-error-surface border-error"
                           : mapsProviderConfig?.ops?.status === 'degraded'
-                            ? "bg-amber-500/10 border-amber-500/30"
+                            ? "bg-warning-surface border-warning"
                             : mapsProviderConfig?.ops?.status === 'disabled'
-                              ? "bg-zinc-500/10 border-zinc-500/30"
-                              : "bg-emerald-500/10 border-emerald-500/25"
+                              ? "bg-surface-subtle border-border"
+                              : "bg-success-surface border-success"
                       )}>
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                           <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">Ops safety status</p>
-                            <h4 className="text-2xl font-black text-zinc-100 mt-2 capitalize">{mapsProviderConfig?.ops?.status || 'operational'}</h4>
-                            <p className="text-sm text-zinc-400 mt-2">
-                              Active provider: <span className="text-zinc-100 font-black">{mapsProviderConfig?.ops?.active_config?.active_provider || mapsProviderConfig?.value?.active_provider}</span>
-                              {' '}with fallback <span className="text-zinc-100 font-black">{mapsProviderConfig?.ops?.active_config?.fallback_provider || mapsProviderConfig?.value?.fallback_provider}</span>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-foreground-muted">Ops safety status</p>
+                            <StatusBadge status={mapsProviderConfig?.ops?.status || 'operational'} labelPrefix="Maps operations status" className="mt-2 text-sm uppercase" />
+                            <p className="text-sm text-foreground-muted mt-2">
+                              Active provider: <span className="text-foreground-muted font-black">{mapsProviderConfig?.ops?.active_config?.active_provider || mapsProviderConfig?.value?.active_provider}</span>
+                              {' '}with fallback <span className="text-foreground-muted font-black">{mapsProviderConfig?.ops?.active_config?.fallback_provider || mapsProviderConfig?.value?.fallback_provider}</span>
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-3">
                             <button
                               onClick={restoreOsmMaps}
-                              className="px-5 py-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 font-black text-xs uppercase tracking-widest hover:bg-emerald-500/20 transition-all active:scale-[0.98]"
+                              className="px-5 py-3 rounded-2xl bg-success-surface border border-success text-success font-black text-xs uppercase tracking-widest hover:bg-success-surface transition-all active:scale-[0.98]"
                             >
                               Restore OSM
                             </button>
                             <button
                               onClick={emergencyDisableMaps}
-                              className="px-5 py-3 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-200 font-black text-xs uppercase tracking-widest hover:bg-red-500/20 transition-all active:scale-[0.98]"
+                              className="px-5 py-3 rounded-2xl bg-error-surface border border-error text-error font-black text-xs uppercase tracking-widest hover:bg-error-surface transition-all active:scale-[0.98]"
                             >
                               Emergency Disable
                             </button>
@@ -184,32 +185,32 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                             { label: 'Route OK', value: `${mapsProviderConfig?.ops?.route_quality?.road_route_successes || 0}/${mapsProviderConfig?.ops?.route_quality?.route_events || 0}` },
                             { label: 'Anomaly', value: mapsProviderConfig?.ops?.route_quality?.distance_anomalies || 0 },
                           ].map((metric) => (
-                            <div key={metric.label} className="rounded-2xl bg-black/20 border border-white/10 px-4 py-3">
-                              <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">{metric.label}</p>
-                              <p className="text-lg text-zinc-100 font-black mt-1">{metric.value}</p>
+                            <div key={metric.label} className="rounded-2xl bg-surface-subtle border border-border px-4 py-3">
+                              <p className="text-[10px] text-foreground-muted font-black uppercase tracking-widest">{metric.label}</p>
+                              <p className="text-lg text-foreground-muted font-black mt-1">{metric.value}</p>
                             </div>
                           ))}
                         </div>
                         {mapsProviderConfig?.ops?.last_error && (
-                          <div className="rounded-2xl bg-black/20 border border-white/10 px-4 py-3">
-                            <p className="text-[10px] text-red-300 font-black uppercase tracking-widest">Last provider issue</p>
-                            <p className="text-sm text-zinc-300 mt-2">
+                          <div className="rounded-2xl bg-surface-subtle border border-border px-4 py-3">
+                            <p className="text-[10px] text-error font-black uppercase tracking-widest">Last provider issue</p>
+                            <p className="text-sm text-foreground-muted mt-2">
                               {mapsProviderConfig.ops.last_error.provider} - {mapsProviderConfig.ops.last_error.error_message || mapsProviderConfig.ops.last_error.fallback_reason}
                             </p>
                           </div>
                         )}
                       </div>
 
-                      <div className="p-6 rounded-[32px] bg-white/[0.03] border border-white/10 space-y-4">
+                      <div className="p-6 rounded-[32px] bg-surface/[0.03] border border-border space-y-4">
                         <div className="flex items-center gap-3">
-                          <ShieldAlert className="text-amber-300" size={20} />
+                          <ShieldAlert className="text-warning" size={20} aria-hidden="true" />
                           <div>
-                            <p className="text-zinc-100 font-black">Provider Alerts</p>
-                            <p className="text-xs text-zinc-500">Quota, latency, fallback, and disabled-mode signals.</p>
+                            <p className="text-foreground-muted font-black">Provider Alerts</p>
+                            <p className="text-xs text-foreground-muted">Quota, latency, fallback, and disabled-mode signals.</p>
                           </div>
                         </div>
                         {(mapsProviderConfig?.ops?.active_alerts || []).length === 0 ? (
-                          <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-200 font-bold">
+                          <div className="rounded-2xl bg-success-surface border border-success px-4 py-3 text-sm text-success font-bold">
                             Tidak ada alert aktif.
                           </div>
                         ) : (
@@ -218,13 +219,13 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                               <div key={alert.code} className={cn(
                                 "rounded-2xl border px-4 py-3",
                                 alert.severity === 'critical'
-                                  ? "bg-red-500/10 border-red-500/25"
+                                  ? "bg-error-surface border-error"
                                   : alert.severity === 'warning'
-                                    ? "bg-amber-500/10 border-amber-500/25"
-                                    : "bg-blue-500/10 border-blue-500/25"
+                                    ? "bg-warning-surface border-warning"
+                                    : "bg-info-surface border-info"
                               )}>
-                                <p className="text-xs text-zinc-100 font-black uppercase tracking-widest">{alert.code.replaceAll('_', ' ')}</p>
-                                <p className="text-sm text-zinc-400 mt-1">{alert.message}</p>
+                                <p className="text-xs text-foreground-muted font-black uppercase tracking-widest">{alert.code.replaceAll('_', ' ')}</p>
+                                <p className="text-sm text-foreground-muted mt-1">{alert.message}</p>
                               </div>
                             ))}
                           </div>
@@ -245,14 +246,14 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                             onClick={() => updateMapsProviderMutation.mutate({ active_provider: provider.id })}
                             className={cn(
                               "p-6 rounded-[32px] border text-left transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]",
-                              active ? "bg-primary/15 border-primary/50 shadow-lg shadow-primary/10" : "bg-white/[0.03] border-white/10 hover:bg-white/[0.06]"
+                              active ? "bg-primary/15 border-primary/50 shadow-lg shadow-primary/10" : "bg-surface/[0.03] border-border hover:bg-surface/[0.06]"
                             )}
                           >
-                            <p className="text-zinc-100 font-black text-lg">{provider.label}</p>
-                            <p className="text-zinc-500 text-sm mt-2 leading-relaxed">{provider.hint}</p>
+                            <p className="text-foreground-muted font-black text-lg">{provider.label}</p>
+                            <p className="text-foreground-muted text-sm mt-2 leading-relaxed">{provider.hint}</p>
                             <span className={cn(
                               "inline-flex mt-5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                              active ? "bg-primary text-white" : "bg-white/5 text-zinc-500"
+                              active ? "bg-primary text-on-primary" : "bg-surface-subtle text-foreground-muted"
                             )}>
                               {active ? 'Active' : 'Available'}
                             </span>
@@ -263,8 +264,8 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
 
                     <div className="space-y-4">
                       <div>
-                        <h4 className="text-zinc-100 font-black tracking-tight">Client Scope Policy</h4>
-                        <p className="text-zinc-500 text-sm">Each client resolves its own provider and falls back safely if a key/provider is unavailable.</p>
+                        <h4 className="text-foreground-muted font-black tracking-tight">Client Scope Policy</h4>
+                        <p className="text-foreground-muted text-sm">Each client resolves its own provider and falls back safely if a key/provider is unavailable.</p>
                       </div>
                       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
                         {[
@@ -277,11 +278,11 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                           const scopeConfig = mapsProviderConfig?.value?.scopes?.[scope.id] || { provider: mapsProviderConfig?.value?.active_provider || 'openstreetmap', enabled: true }
                           const resolved = mapsProviderConfig?.resolved?.[scope.id]
                           return (
-                            <div key={scope.id} className="p-6 rounded-[32px] bg-white/[0.03] border border-white/10 space-y-5">
+                            <div key={scope.id} className="p-6 rounded-[32px] bg-surface/[0.03] border border-border space-y-5">
                               <div className="flex items-center justify-between gap-4">
                                 <div>
-                                  <p className="text-zinc-100 font-black">{scope.label}</p>
-                                  <p className="text-xs text-zinc-500 mt-1">
+                                  <p className="text-foreground-muted font-black">{scope.label}</p>
+                                  <p className="text-xs text-foreground-muted mt-1">
                                     Runtime active: <span className="text-primary-light font-black">{resolved?.active_provider || scopeConfig.provider}</span>
                                   </p>
                                 </div>
@@ -296,7 +297,7 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                                   })}
                                   className={cn(
                                     "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                    scopeConfig.enabled ? "bg-emerald-500/15 text-emerald-300" : "bg-red-500/15 text-red-300"
+                                    scopeConfig.enabled ? "bg-success-surface text-success" : "bg-error-surface text-error"
                                   )}
                                 >
                                   {scopeConfig.enabled ? 'Enabled' : 'Disabled'}
@@ -317,8 +318,8 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                                     className={cn(
                                       "py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
                                       scopeConfig.provider === provider
-                                        ? "bg-primary text-white"
-                                        : "bg-white/5 text-zinc-500 hover:text-zinc-200"
+                                        ? "bg-primary text-on-primary"
+                                        : "bg-surface-subtle text-foreground-muted hover:text-foreground-muted"
                                     )}
                                   >
                                     {provider === 'openstreetmap' ? 'OSM' : provider === 'tomtom_maps' ? 'TomTom' : 'Text'}
@@ -326,7 +327,7 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                                 ))}
                               </div>
                               {resolved?.reason && (
-                                <p className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-2xl px-4 py-3">
+                                <p className="text-xs text-warning bg-warning-surface border border-warning rounded-2xl px-4 py-3">
                                   Fallback active: {resolved.reason.replaceAll('_', ' ')}
                                 </p>
                               )}
@@ -336,20 +337,20 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-border">
                       <label className="space-y-3">
-                        <span className="text-xs font-black text-zinc-600 uppercase tracking-widest">Runtime config TTL seconds</span>
+                        <span className="text-xs font-black text-foreground-muted uppercase tracking-widest">Runtime config TTL seconds</span>
                         <input
                           type="number"
                           min={30}
                           max={3600}
                           defaultValue={mapsProviderConfig?.value?.config_ttl_seconds || 300}
                           onBlur={(event) => updateMapsProviderMutation.mutate({ config_ttl_seconds: Number(event.target.value) })}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                          className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                         />
                       </label>
                       <label className="space-y-3">
-                        <span className="text-xs font-black text-zinc-600 uppercase tracking-widest">OSM tile template</span>
+                        <span className="text-xs font-black text-foreground-muted uppercase tracking-widest">OSM tile template</span>
                         <input
                           type="text"
                           defaultValue={mapsProviderConfig?.value?.providers?.openstreetmap?.tile_url_template || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'}
@@ -361,7 +362,7 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                               }
                             }
                           })}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                          className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                         />
                       </label>
                     </div>

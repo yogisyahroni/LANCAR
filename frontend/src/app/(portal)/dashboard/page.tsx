@@ -26,6 +26,7 @@ import Link from 'next/link';
 import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 import ExperienceRenderer from '@/components/experience/ExperienceRenderer';
+import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
 
 interface Order {
   id: string;
@@ -183,16 +184,16 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/orders/new"
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white font-medium text-sm rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md shadow-primary/20 cursor-pointer select-none"
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-medium text-sm rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md shadow-primary/20 cursor-pointer select-none"
           >
-            <Plus className="h-4 w-4 shrink-0" />
+            <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
             Kirim Sekarang
           </Link>
           <Link
             href="/orders/bulk"
             className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border/40 text-foreground hover:bg-muted font-medium text-sm rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm select-none"
           >
-            <Layers className="h-4 w-4 shrink-0" />
+            <Layers className="h-4 w-4 shrink-0" aria-hidden="true" />
             Kirim Massal
           </Link>
           {foodEntry.enabled && (
@@ -200,7 +201,7 @@ export default function DashboardPage() {
               href="/orders/new/food"
               className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border/40 text-foreground hover:bg-muted font-medium text-sm rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm select-none"
             >
-              <Package className="h-4 w-4 shrink-0" />
+              <Package className="h-4 w-4 shrink-0"  aria-hidden="true"/>
               Pesan Food
             </Link>
           )}
@@ -218,7 +219,7 @@ export default function DashboardPage() {
               dashboardMode === 'instan' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            🚀 Mode Instan
+            Mode Instan
           </button>
           <button
             onClick={() => setDashboardMode('ekspedisi')}
@@ -226,7 +227,7 @@ export default function DashboardPage() {
               dashboardMode === 'ekspedisi' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            📦 Mode Ekspedisi
+            Mode Ekspedisi
           </button>
         </div>
       </div>
@@ -245,10 +246,10 @@ export default function DashboardPage() {
               <div className="flex items-start justify-between z-10">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">Total Order Kamu</p>
-                  <h3 className="text-2xl font-extrabold text-foreground mt-2">{dashboardStats ? (dashboardStats.active_orders + dashboardStats.completed_orders_month + dashboardStats.cancelled_orders_month) : orders.length}</h3>
+                  <p className="text-2xl font-extrabold text-foreground mt-2">{dashboardStats ? (dashboardStats.active_orders + dashboardStats.completed_orders_month + dashboardStats.cancelled_orders_month) : orders.length}</p>
                 </div>
                 <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-                  <Package className="h-5 w-5 shrink-0" />
+                  <Package className="h-5 w-5 shrink-0"  aria-hidden="true"/>
                 </div>
               </div>
               <div className="text-xs font-medium text-primary mt-2 z-10">Semua order terdaftar</div>
@@ -258,37 +259,37 @@ export default function DashboardPage() {
               <div className="flex items-start justify-between z-10">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">Total Ongkir</p>
-                  <h3 className="text-2xl font-extrabold text-foreground mt-2">{formatIDR(totalSpend)}</h3>
+                  <p className="text-2xl font-extrabold text-foreground mt-2">{formatIDR(totalSpend)}</p>
                 </div>
                 <div className="h-10 w-10 bg-info/10 rounded-xl flex items-center justify-center text-info">
-                  <CreditCard className="h-5 w-5 shrink-0" />
+                  <CreditCard className="h-5 w-5 shrink-0" aria-hidden="true" />
                 </div>
               </div>
               <div className="text-xs font-medium text-info mt-2 z-10">Akumulasi bulan berjalan</div>
             </div>
 
-            <div className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group border-rose-500/20">
+            <div className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group border-error/20">
               <div className="flex items-start justify-between z-10">
                 <div>
-                  <p className="text-xs font-medium text-rose-500">Perlu Perhatian</p>
-                  <h3 className="text-2xl font-extrabold text-foreground mt-2">{cancelledOrdersCount}</h3>
+                  <p className="text-xs font-medium text-error">Perlu Perhatian</p>
+                  <p className="text-2xl font-extrabold text-foreground mt-2">{cancelledOrdersCount}</p>
                 </div>
-                <div className="h-10 w-10 bg-rose-500/10 rounded-xl flex items-center justify-center text-rose-500 animate-pulse">
-                  <AlertCircle className="h-5 w-5 shrink-0" />
+                <div className="h-10 w-10 bg-error/10 rounded-xl flex items-center justify-center text-error animate-pulse">
+                  <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
                 </div>
               </div>
-              <div className="text-xs font-medium text-rose-500 mt-2 z-10">Order dibatalkan bulan ini</div>
+              <div className="text-xs font-medium text-error mt-2 z-10">Order dibatalkan bulan ini</div>
             </div>
           </div>
 
           {/* Ekspedisi: Status Pengiriman (real customer orders) */}
           <div className="glass-card rounded-2xl p-6">
-            <h3 className="text-base font-bold text-foreground mb-4">Status Order Kamu</h3>
+            <h2 className="text-base font-bold text-foreground mb-4">Status Order Kamu</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                {[
                  { label: 'Aktif', count: activeOrdersCount, color: 'text-info', bg: 'bg-info/10' },
                  { label: 'Selesai', count: completedOrdersCount, color: 'text-success', bg: 'bg-success/10' },
-                 { label: 'Dibatalkan', count: cancelledOrdersCount, color: 'text-rose-500', bg: 'bg-rose-500/10' },
+                 { label: 'Dibatalkan', count: cancelledOrdersCount, color: 'text-error', bg: 'bg-error/10' },
                  { label: 'Total', count: dashboardStats ? (dashboardStats.active_orders + dashboardStats.completed_orders_month + dashboardStats.cancelled_orders_month) : orders.length, color: 'text-muted-foreground', bg: 'bg-muted' }
                ].map((stat, idx) => (
                  <div key={idx} className="p-4 rounded-xl border border-border/40 flex items-center justify-between">
@@ -322,10 +323,10 @@ export default function DashboardPage() {
           <div className="flex items-start justify-between z-10">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Order Aktif</p>
-              <h3 className="text-2xl font-extrabold text-foreground mt-2">{activeOrdersCount}</h3>
+              <p className="text-2xl font-extrabold text-foreground mt-2">{activeOrdersCount}</p>
             </div>
             <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary group-hover:scale-105 transition-all">
-              <Package className="h-5 w-5 shrink-0" />
+              <Package className="h-5 w-5 shrink-0"  aria-hidden="true"/>
             </div>
           </div>
           <div className="text-xs font-medium text-success mt-2 z-10">
@@ -341,10 +342,10 @@ export default function DashboardPage() {
           <div className="flex items-start justify-between z-10">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Selesai Bulan Ini</p>
-              <h3 className="text-2xl font-extrabold text-foreground mt-2">{completedOrdersCount}</h3>
+              <p className="text-2xl font-extrabold text-foreground mt-2">{completedOrdersCount}</p>
             </div>
             <div className="h-10 w-10 bg-success/10 rounded-xl flex items-center justify-center text-success group-hover:scale-105 transition-all">
-              <CheckCircle className="h-5 w-5 shrink-0" />
+              <CheckCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
             </div>
           </div>
           <div className="text-xs text-muted-foreground mt-2 z-10">
@@ -360,12 +361,12 @@ export default function DashboardPage() {
           <div className="flex items-start justify-between z-10">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Total Belanja</p>
-              <h3 className="text-xl font-extrabold text-foreground mt-2 truncate">
+              <p className="text-xl font-extrabold text-foreground mt-2 truncate">
                 {formatIDR(totalSpend)}
-              </h3>
+              </p>
             </div>
             <div className="h-10 w-10 bg-info/10 rounded-xl flex items-center justify-center text-info group-hover:scale-105 transition-all">
-              <CreditCard className="h-5 w-5 shrink-0" />
+              <CreditCard className="h-5 w-5 shrink-0" aria-hidden="true" />
             </div>
           </div>
           <div className="text-xs text-muted-foreground mt-2 z-10">
@@ -381,10 +382,10 @@ export default function DashboardPage() {
           <div className="flex items-start justify-between z-10">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Dibatalkan Bulan Ini</p>
-              <h3 className="text-2xl font-extrabold text-foreground mt-2">{cancelledOrdersCount}</h3>
+              <p className="text-2xl font-extrabold text-foreground mt-2">{cancelledOrdersCount}</p>
             </div>
-            <div className="h-10 w-10 bg-rose-500/10 rounded-xl flex items-center justify-center text-rose-500 group-hover:scale-105 transition-all">
-              <AlertCircle className="h-5 w-5 shrink-0" />
+            <div className="h-10 w-10 bg-error/10 rounded-xl flex items-center justify-center text-error group-hover:scale-105 transition-all">
+              <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
             </div>
           </div>
           <div className="text-xs text-muted-foreground mt-2 z-10">
@@ -405,7 +406,7 @@ export default function DashboardPage() {
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h3 className="text-base font-bold text-foreground">Aktivitas Kirim 30 Hari</h3>
+              <h2 className="text-base font-bold text-foreground">Aktivitas Kirim 30 Hari</h2>
               <p className="text-xs text-muted-foreground mt-0.5">Rincian mingguan perbandingan total order.</p>
             </div>
 
@@ -468,7 +469,7 @@ export default function DashboardPage() {
         >
           <div className="flex items-center justify-between gap-4 mb-4 select-none">
             <div>
-              <h3 className="text-base font-bold text-foreground">Order Aktif Terbaru</h3>
+              <h2 className="text-base font-bold text-foreground">Order Aktif Terbaru</h2>
               <p className="text-xs text-muted-foreground mt-0.5">Real-time update 30s.</p>
             </div>
             <Link
@@ -483,7 +484,7 @@ export default function DashboardPage() {
             {orders.map((order) => (
               <div
                 key={order.id}
-                className="p-3.5 glass-card rounded-xl hover:bg-white/10 dark:hover:bg-white/10 transition-all flex flex-col gap-2 select-none"
+                className="p-3.5 glass-card rounded-xl hover:bg-surface-subtle dark:hover:bg-surface-subtle transition-all flex flex-col gap-2 select-none"
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -499,14 +500,12 @@ export default function DashboardPage() {
                     className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-all cursor-pointer select-none"
                     title={expandedOrderId === order.id ? 'Collapse' : 'Expand Details'}
                   >
-                    {expandedOrderId === order.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    {expandedOrderId === order.id ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
                   </button>
                 </div>
 
                 <div className="flex items-center justify-between border-t border-border/40 pt-2 select-none">
-                  <span className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary rounded-full capitalize font-semibold shadow-sm select-none">
-                    {order.status.replace('_', ' ')}
-                  </span>
+                  <OrderStatusBadge status={order.status} className="px-2 py-0.5 text-[10px]" />
                   <span className="text-[10px] text-muted-foreground select-none">
                     {order.distance_km} km • {formatIDR(order.total_price_idr)}
                   </span>
@@ -523,25 +522,25 @@ export default function DashboardPage() {
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-start gap-2 select-none">
-                          <MapPin className="h-3.5 w-3.5 shrink-0 text-primary mt-0.5" />
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-primary mt-0.5" aria-hidden="true" />
                           <div>
                             <p className="text-[10px] font-bold text-muted-foreground select-none">Pickup Address</p>
-                            <p className="text-[11px] text-foreground leading-relaxed truncate">{order.pickup_address}</p>
+                          <p className="text-[11px] text-foreground leading-relaxed truncate" title={order.pickup_address}>{order.pickup_address}</p>
                           </div>
                         </div>
                         <div className="flex items-start gap-2 select-none">
-                          <MapPin className="h-3.5 w-3.5 shrink-0 text-success mt-0.5" />
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-success mt-0.5" aria-hidden="true" />
                           <div>
                             <p className="text-[10px] font-bold text-muted-foreground select-none">Dropoff Address</p>
-                            <p className="text-[11px] text-foreground leading-relaxed truncate">{order.dropoff_address}</p>
+                          <p className="text-[11px] text-foreground leading-relaxed truncate" title={order.dropoff_address}>{order.dropoff_address}</p>
                           </div>
                         </div>
                       </div>
 
                       <div className="h-20 w-full bg-muted/40 rounded-xl border border-border/40 flex items-center justify-center text-[10px] text-muted-foreground mt-1 select-none flex-col gap-1">
                         <div className="flex items-center gap-1">
-                          <RefreshCcw className="h-3 w-3 text-primary" />
-                          <span>Status terakhir: {order.status.replace('_', ' ')}</span>
+                          <RefreshCcw className="h-3 w-3 text-primary" aria-hidden="true" />
+                          <span>Status terakhir: <OrderStatusBadge status={order.status} className="px-1.5 py-0 text-[10px]" /></span>
                         </div>
                         <Link href={`/orders/${order.id}`} className="font-semibold text-primary hover:underline">
                           Buka tracking real-time

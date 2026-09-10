@@ -82,12 +82,12 @@ function AppleCallbackContent() {
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4">
       <div className="bg-card/40 backdrop-blur-xl border border-border/40 rounded-2xl p-10 shadow-2xl max-w-sm w-full text-center">
-        {status === 'processing' ? <><Loader2 className="h-8 w-8 text-primary animate-spin mx-auto mb-5" /><h1 className="text-xl font-semibold">Memverifikasi akun Apple...</h1><p className="text-sm text-muted-foreground mt-2">Harap tunggu.</p></> : <><ShieldAlert className="h-8 w-8 text-destructive mx-auto mb-5" /><h1 className="text-xl font-semibold">Login Gagal</h1><p className="text-sm text-muted-foreground my-4">{errorMessage}</p><button onClick={() => router.replace('/login')} className="w-full bg-primary text-primary-foreground font-medium py-2.5 rounded-lg">Kembali ke Login</button></>}
+        {status === 'processing' ? <><Loader2 className="h-8 w-8 text-primary animate-spin mx-auto mb-5"  aria-hidden="true"/><h1 className="text-xl font-semibold">Memverifikasi akun Apple...</h1><p className="text-sm text-muted-foreground mt-2">Harap tunggu.</p></> : <><ShieldAlert className="h-8 w-8 text-destructive mx-auto mb-5" aria-hidden="true" /><h1 className="text-xl font-semibold">Login Gagal</h1><p className="text-sm text-muted-foreground my-4">{errorMessage}</p><button onClick={() => router.replace('/login')} className="w-full bg-primary text-primary-foreground font-medium py-2.5 rounded-lg">Kembali ke Login</button></>}
       </div>
     </div>
   );
 }
 
 export default function AppleCallbackPage() {
-  return <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}><AppleCallbackContent /></Suspense>;
+  return <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary"  aria-hidden="true"/></div>}><AppleCallbackContent /></Suspense>;
 }

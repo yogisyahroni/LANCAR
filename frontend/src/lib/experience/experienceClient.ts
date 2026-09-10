@@ -17,6 +17,7 @@ export interface ExperienceManifest {
   resolved_locale?: string | null;
   surface: 'customer_web';
   sections: ExperienceSection[];
+  asset_references?: Array<{ asset_id: string; uri: string; kind?: string }>;
   checksum: string;
 }
 

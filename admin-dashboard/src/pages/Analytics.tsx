@@ -43,12 +43,15 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   CARTO_DARK_ATTRIBUTION,
   CARTO_DARK_TILE_URL,
+  CARTO_LIGHT_ATTRIBUTION,
+  CARTO_LIGHT_TILE_URL,
   TOMTOM_RASTER_ATTRIBUTION,
   TomTomRuntimeUnavailable,
   isTomTomRuntimeReady,
   tomTomRasterTileUrl,
   useMapsRuntimeConfig
 } from '../components/TomTomMapsRuntime'
+import { useTheme } from '../providers/ThemeProvider'
 import { AttributionControl, MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -141,31 +144,31 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-scrim/60 backdrop-blur-sm"
           />
           <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-lg glass-card p-8 rounded-[40px] border-white/10 shadow-2xl overflow-hidden"
+            className="relative w-full max-w-lg glass-card p-8 rounded-[40px] border-border shadow-2xl overflow-hidden"
           >
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-emerald-500" />
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-success" />
             
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-black text-zinc-100 italic uppercase tracking-tight">Schedule Report</h2>
-              <button onClick={onClose} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-500 hover:text-white transition-all">
-                <X size={20} />
+              <h2 className="text-2xl font-black text-foreground-muted italic uppercase tracking-tight">Schedule Report</h2>
+              <button type="button" onClick={onClose} aria-label="Tutup analitik" className="p-2 rounded-xl bg-surface-subtle hover:bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
+                <X size={20} aria-hidden="true" />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Report Name</label>
+                <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest ml-1">Report Name</label>
                 <input 
                   type="text"
                   required
                   placeholder="e.g. Weekly SLA Summary"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 transition-all"
+                  className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted placeholder:text-foreground-muted focus:outline-none focus:border-primary/50 transition-all"
                   value={formData.name}
                   onChange={e => setFormData({ ...formData, name: e.target.value })}
                 />
@@ -173,23 +176,23 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Frequency</label>
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest ml-1">Frequency</label>
                   <select 
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-zinc-200 focus:outline-none focus:border-primary/50 transition-all appearance-none"
+                    className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted focus:outline-none focus:border-primary/50 transition-all appearance-none"
                     value={formData.frequency}
                     onChange={e => setFormData({ ...formData, frequency: e.target.value })}
                   >
-                    <option value="Daily" className="bg-zinc-900 text-zinc-200">Daily</option>
-                    <option value="Weekly" className="bg-zinc-900 text-zinc-200">Weekly</option>
-                    <option value="Monthly" className="bg-zinc-900 text-zinc-200">Monthly</option>
+                    <option value="Daily" className="bg-surface text-foreground-muted">Daily</option>
+                    <option value="Weekly" className="bg-surface text-foreground-muted">Weekly</option>
+                    <option value="Monthly" className="bg-surface text-foreground-muted">Monthly</option>
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Time (UTC)</label>
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest ml-1">Time (UTC)</label>
                   <input 
                     type="time"
                     required
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-zinc-200 focus:outline-none focus:border-primary/50 transition-all"
+                    className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted focus:outline-none focus:border-primary/50 transition-all"
                     value={formData.time_slot}
                     onChange={e => setFormData({ ...formData, time_slot: e.target.value })}
                   />
@@ -198,25 +201,25 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
 
               {formData.frequency === 'Weekly' && (
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Preferred Day</label>
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest ml-1">Preferred Day</label>
                   <select 
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-zinc-200 focus:outline-none focus:border-primary/50 transition-all appearance-none"
+                    className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted focus:outline-none focus:border-primary/50 transition-all appearance-none"
                     value={formData.day_of_week}
                     onChange={e => setFormData({ ...formData, day_of_week: e.target.value })}
                   >
                     {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => (
-                      <option key={d} value={d} className="bg-zinc-900 text-zinc-200">{d}</option>
+                      <option key={d} value={d} className="bg-surface text-foreground-muted">{d}</option>
                     ))}
                   </select>
                 </div>
               )}
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Recipients (Comma Separated)</label>
+                <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest ml-1">Recipients (Comma Separated)</label>
                 <textarea 
                   required
                   placeholder="admin@tembus.id, analyst@tembus.id"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 transition-all min-h-[100px]"
+                  className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted placeholder:text-foreground-muted focus:outline-none focus:border-primary/50 transition-all min-h-[100px]"
                   value={formData.recipient_emails}
                   onChange={e => setFormData({ ...formData, recipient_emails: e.target.value })}
                 />
@@ -225,9 +228,9 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
               <div className="pt-4">
                 <button 
                   disabled={mutation.isPending}
-                  className="w-full py-5 rounded-2xl bg-primary hover:bg-primary-light text-white font-black uppercase tracking-widest shadow-xl shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full py-5 rounded-2xl bg-primary hover:bg-primary-light text-on-primary font-black uppercase tracking-widest shadow-xl shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {mutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                  {mutation.isPending ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
                   Confirm Schedule
                 </button>
               </div>
@@ -257,12 +260,12 @@ function DataState({
   return (
     <div className={cn(
       "h-full min-h-[220px] rounded-[32px] border flex flex-col items-center justify-center text-center p-8 gap-4",
-      isError ? "bg-red-500/5 border-red-500/20" : "bg-white/[0.02] border-dashed border-white/10"
+      isError ? "bg-error-surface border-error" : "bg-surface/[0.02] border-dashed border-border"
     )}>
-      <AlertCircle className={cn("w-10 h-10", isError ? "text-red-400" : "text-zinc-700")} />
+      <AlertCircle className={cn("w-10 h-10", isError ? "text-error" : "text-foreground-muted")} aria-hidden="true" />
       <div>
-        <p className="text-sm font-black uppercase tracking-widest text-zinc-200">{title}</p>
-        <p className="text-xs text-zinc-600 mt-2 max-w-sm">{message}</p>
+        <p className="text-sm font-black uppercase tracking-widest text-foreground-muted">{title}</p>
+        <p className="text-xs text-foreground-muted mt-2 max-w-sm">{message}</p>
       </div>
       {onRetry && (
         <button
@@ -270,10 +273,10 @@ function DataState({
           onClick={onRetry}
           className={cn(
             "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all",
-            isError ? "bg-red-500/10 border-red-500/20 text-red-300 hover:bg-red-500/20" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white"
+            isError ? "bg-error-surface border-error text-error hover:bg-error-surface" : "bg-surface-subtle border-border text-foreground-muted hover:text-foreground"
           )}
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={14} aria-hidden="true" />
           Retry
         </button>
       )}
@@ -287,7 +290,7 @@ function ChartSkeleton({ bars = 8 }: { bars?: number }) {
       {Array.from({ length: bars }).map((_, i) => (
         <div
           key={i}
-          className="flex-1 bg-white/5 animate-pulse rounded-t-lg"
+          className="flex-1 bg-surface-subtle animate-pulse rounded-t-lg"
           style={{ height: `${35 + ((i * 17) % 55)}%` }}
         />
       ))}
@@ -328,6 +331,7 @@ const analyticsQueryOptions = {
 // --- Main Component ---
 
 export default function Analytics() {
+  const { resolvedTheme } = useTheme()
   const [timeRange, setTimeRange] = useState('7D')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const queryClient = useQueryClient()
@@ -390,10 +394,10 @@ export default function Analytics() {
   const shouldRenderTomTomMap = isTomTomRuntimeReady(mapsRuntimeConfig)
   const heatmapTileUrl = shouldRenderTomTomMap
     ? tomTomRasterTileUrl(mapsRuntimeConfig?.tomtom_maps?.browser_api_key || '', 'night')
-    : CARTO_DARK_TILE_URL
+    : resolvedTheme === 'dark' ? CARTO_DARK_TILE_URL : CARTO_LIGHT_TILE_URL
   const heatmapTileAttribution = shouldRenderTomTomMap
     ? TOMTOM_RASTER_ATTRIBUTION
-    : CARTO_DARK_ATTRIBUTION
+    : resolvedTheme === 'dark' ? CARTO_DARK_ATTRIBUTION : CARTO_LIGHT_ATTRIBUTION
 
 
   const { data: reports, isLoading: reportsLoading, isError: reportsError, error: reportsQueryError, refetch: refetchReports } = useQuery({
@@ -442,18 +446,18 @@ export default function Analytics() {
     <div className="space-y-10 animate-in pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-zinc-100 tracking-tight italic uppercase">Business Intelligence</h1>
-          <p className="text-zinc-500 mt-1">Real-time performance metrics and predictive analytics.</p>
+          <h1 className="text-3xl font-black text-foreground-muted tracking-tight italic uppercase">Business Intelligence</h1>
+          <p className="text-foreground-muted mt-1">Real-time performance metrics and predictive analytics.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+          <div className="flex bg-surface-subtle p-1 rounded-xl border border-border">
             {['24H', '7D', '30D', '1Y'].map(r => (
               <button 
                 key={r}
                 onClick={() => setTimeRange(r)}
                 className={cn(
                   "px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                  timeRange === r ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-zinc-600 hover:text-zinc-300"
+                  timeRange === r ? "bg-primary text-on-primary shadow-lg shadow-primary/20" : "text-foreground-muted hover:text-foreground-muted"
                 )}
               >
                 {r}
@@ -462,9 +466,11 @@ export default function Analytics() {
           </div>
           <button 
             onClick={exportAnalytics}
-            className="p-3 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white transition-all"
+            type="button"
+            aria-label="Unduh laporan analitik"
+            className="p-3 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground transition-all"
           >
-            <Download size={20} />
+            <Download size={20} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -491,67 +497,67 @@ export default function Analytics() {
         ) : kpiItems.map((stat: any, i: number) => {
           const Icon = i === 0 ? Target : i === 1 ? Zap : i === 2 ? Users : Clock;
           return (
-            <div key={i} className="glass-card p-8 rounded-[40px] border-white/5 group hover:border-white/10 transition-all">
+            <div key={i} className="glass-card p-8 rounded-[40px] border-border group hover:border-border transition-all">
                <div className="flex items-start justify-between">
-                  <div className="p-3 rounded-2xl bg-white/5 text-zinc-500 group-hover:text-primary-light transition-colors">
-                     <Icon size={24} />
+                  <div className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted group-hover:text-primary-light transition-colors">
+                     <Icon size={24} aria-hidden="true" />
                   </div>
                   <div className={cn(
                     "flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full",
-                    stat.up ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                    stat.up ? "bg-success-surface text-success" : "bg-error-surface text-error"
                   )}>
-                     {stat.up ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                     {stat.up ? <ArrowUpRight size={10} aria-hidden="true" /> : <ArrowDownRight size={10} aria-hidden="true" />}
                      {stat.change}
                   </div>
                </div>
                <div className="mt-6">
-                  <p className="text-xs font-black text-zinc-600 uppercase tracking-widest">{stat.label}</p>
-                  <p className="text-3xl font-black text-zinc-100 mt-1 tracking-tighter">{stat.value}</p>
+                  <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">{stat.label}</p>
+                  <p className="text-3xl font-black text-foreground-muted mt-1 tracking-tighter">{stat.value}</p>
                </div>
             </div>
           );
         })}
       </div>
 
-      <div className="glass-card p-8 rounded-[40px] border-white/5">
+      <div className="glass-card p-8 rounded-[40px] border-border">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="text-xl font-black text-zinc-100 italic uppercase flex items-center gap-3">
-              <Activity className="text-primary-light" size={22} />
+            <h2 className="text-xl font-black text-foreground-muted italic uppercase flex items-center gap-3">
+              <Activity className="text-primary-light" size={22} aria-hidden="true" />
               Canonical metric definitions
-            </h3>
-            <p className="text-xs text-zinc-500 mt-2">Semua metrik global berasal dari governed event stream dan memakai definisi kontrak yang sama.</p>
+            </h2>
+            <p className="text-xs text-foreground-muted mt-2">Semua metrik global berasal dari governed event stream dan memakai definisi kontrak yang sama.</p>
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Contract {canonicalAnalyticsPayload?.contract_version || '—'}</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Contract {canonicalAnalyticsPayload?.contract_version || '—'}</span>
         </div>
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-3">
           {(canonicalAnalyticsPayload?.definitions || []).map((definition: any) => (
-            <div key={definition.name} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+            <div key={definition.name} className="rounded-2xl border border-border bg-surface/[0.02] p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-black text-zinc-100">{definition.name}</p>
+                <p className="text-sm font-black text-foreground-muted">{definition.name}</p>
                 <span className="text-[9px] font-black uppercase tracking-widest text-primary-light">{definition.unit}</span>
               </div>
-              <p className="mt-2 text-xs leading-relaxed text-zinc-500">{definition.description}</p>
-              <p className="mt-2 text-[10px] text-zinc-600">Source: {definition.source_of_truth}</p>
+              <p className="mt-2 text-xs leading-relaxed text-foreground-muted">{definition.description}</p>
+              <p className="mt-2 text-[10px] text-foreground-muted">Source: {definition.source_of_truth}</p>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-6">
+      <div className="glass-card p-8 rounded-[40px] border-border space-y-6">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="text-xl font-black text-zinc-100 italic uppercase flex items-center gap-3">
-              <Activity className="text-primary-light" size={22} />
+            <h2 className="text-xl font-black text-foreground-muted italic uppercase flex items-center gap-3">
+              <Activity className="text-primary-light" size={22} aria-hidden="true" />
               Experience reliability guardrails
-            </h3>
-            <p className="text-xs text-zinc-500 mt-2">Fetch, render, asset, deeplink, startup, dan network metrics per revision. Impression/click/dismiss dipisahkan dari guardrail reliability.</p>
+            </h2>
+            <p className="text-xs text-foreground-muted mt-2">Fetch, render, asset, deeplink, startup, dan network metrics per revision. Impression/click/dismiss dipisahkan dari guardrail reliability.</p>
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Window {timeRange}</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Window {timeRange}</span>
         </div>
         {experienceObservabilityLoading ? (
           <div className="grid grid-cols-2 lg:grid-cols-8 gap-3">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => <div key={item} className="h-24 rounded-2xl bg-white/5 animate-pulse" />)}
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => <div key={item} className="h-24 rounded-2xl bg-surface-subtle animate-pulse" />)}
           </div>
         ) : experienceObservabilityError ? (
           <DataState
@@ -579,36 +585,36 @@ export default function Analytics() {
                 ['Network regression', experienceSummary.network_regression],
                 ['Failure rate', `${experienceSummary.reliability_failure_rate_pct}%`],
               ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600">{label}</p>
-                  <p className="mt-2 text-xl font-black text-zinc-100">{value}</p>
+                <div key={String(label)} className="rounded-2xl border border-border bg-surface/[0.02] p-4">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">{label}</p>
+                  <p className="mt-2 text-xl font-black text-foreground-muted">{value}</p>
                 </div>
               ))}
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-widest text-zinc-500">
-              <span className="rounded-full bg-emerald-500/10 px-3 py-2 text-emerald-300">Core guardrail: {experienceSummary.reliability_failures}/{experienceSummary.reliability_total} failures</span>
+            <div className="flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+              <span className="rounded-full bg-success-surface px-3 py-2 text-success">Core guardrail: {experienceSummary.reliability_failures}/{experienceSummary.reliability_total} failures</span>
               <span className="rounded-full bg-primary/10 px-3 py-2 text-primary-light">Fetch latency p95: {experienceSummary.fetch_latency_p95_ms} ms</span>
-              <span className="rounded-full bg-white/5 px-3 py-2">Marketing: {experienceSummary.impressions} imp • {experienceSummary.clicks} click • {experienceSummary.dismissals} dismiss</span>
+              <span className="rounded-full bg-surface-subtle px-3 py-2">Marketing: {experienceSummary.impressions} imp • {experienceSummary.clicks} click • {experienceSummary.dismissals} dismiss</span>
             </div>
-            <div className="overflow-x-auto rounded-2xl border border-white/5">
+            <div className="overflow-x-auto rounded-2xl border border-border">
               <table className="min-w-full text-left text-xs">
-                <thead className="bg-white/[0.03] text-[9px] font-black uppercase tracking-widest text-zinc-600">
+                <thead className="bg-surface/[0.03] text-[9px] font-black uppercase tracking-widest text-foreground-muted">
                   <tr>
-                    <th className="px-4 py-3">Revision</th>
-                    <th className="px-4 py-3">Market</th>
-                    <th className="px-4 py-3">App</th>
-                    <th className="px-4 py-3">Reliability</th>
-                    <th className="px-4 py-3">Events</th>
-                    <th className="px-4 py-3">Marketing</th>
+                    <th scope="col" className="px-4 py-3">Revision</th>
+                    <th scope="col" className="px-4 py-3">Market</th>
+                    <th scope="col" className="px-4 py-3">App</th>
+                    <th scope="col" className="px-4 py-3">Reliability</th>
+                    <th scope="col" className="px-4 py-3">Events</th>
+                    <th scope="col" className="px-4 py-3">Marketing</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-border">
                   {experienceBreakdown.slice(0, 20).map((row: any) => (
-                    <tr key={`${row.manifest_id}-${row.manifest_revision}-${row.market_code}-${row.app_version}`} className="text-zinc-300">
+                    <tr key={`${row.manifest_id}-${row.manifest_revision}-${row.market_code}-${row.app_version}`} className="text-foreground-muted">
                       <td className="px-4 py-3 font-bold">{row.manifest_id} / {row.manifest_revision}</td>
                       <td className="px-4 py-3">{row.market_code}</td>
                       <td className="px-4 py-3">{row.app_version}</td>
-                      <td className={cn('px-4 py-3 font-black', Number(row.reliability_failure_rate_pct) >= 10 ? 'text-red-300' : 'text-emerald-300')}>{row.reliability_failure_rate_pct}%</td>
+                      <td className={cn('px-4 py-3 font-black', Number(row.reliability_failure_rate_pct) >= 10 ? 'text-error' : 'text-success')}>{row.reliability_failure_rate_pct}%</td>
                       <td className="px-4 py-3">{row.reliability_failures}/{row.reliability_total}</td>
                       <td className="px-4 py-3">{row.impressions}/{row.clicks}/{row.dismissals}</td>
                     </tr>
@@ -620,20 +626,20 @@ export default function Analytics() {
         )}
       </div>
 
-      <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
+      <div className="glass-card p-10 rounded-[48px] border-border space-y-8">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="text-xl font-black text-zinc-100 italic uppercase flex items-center gap-3">
-              <Activity className="text-primary-light" size={24} />
+            <h2 className="text-xl font-black text-foreground-muted italic uppercase flex items-center gap-3">
+              <Activity className="text-primary-light" size={24} aria-hidden="true" />
               Service KPI Health
-            </h3>
-            <p className="text-xs text-zinc-500 mt-2">Metrik dihitung dari fakta order, leg, proof, merchant, provider, dan finance pada window yang dipilih.</p>
+            </h2>
+            <p className="text-xs text-foreground-muted mt-2">Metrik dihitung dari fakta order, leg, proof, merchant, provider, dan finance pada window yang dipilih.</p>
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{serviceKpiPayload?.window?.range || timeRange} • no-data = belum ada fakta</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">{serviceKpiPayload?.window?.range || timeRange} • no-data = belum ada fakta</span>
         </div>
         {serviceKpisLoading ? (
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            {[1, 2, 3, 4, 5].map((item) => <div key={item} className="h-48 rounded-3xl bg-white/5 animate-pulse" />)}
+            {[1, 2, 3, 4, 5].map((item) => <div key={item} className="h-48 rounded-3xl bg-surface-subtle animate-pulse" />)}
           </div>
         ) : serviceKpisError ? (
           <DataState
@@ -651,28 +657,28 @@ export default function Analytics() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
             {serviceKpiPayload.services.map((service: any) => (
-              <div key={service.service_category} className="rounded-3xl border border-white/5 bg-white/[0.02] p-5 space-y-4">
+              <div key={service.service_category} className="rounded-3xl border border-border bg-surface/[0.02] p-5 space-y-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-black text-zinc-100">{serviceKpiLabels[service.service_category] || service.service_category}</p>
-                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-zinc-600">{service.sample_size.toLocaleString('id-ID')} order</p>
+                    <p className="text-sm font-black text-foreground-muted">{serviceKpiLabels[service.service_category] || service.service_category}</p>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">{service.sample_size.toLocaleString('id-ID')} order</p>
                   </div>
                   <span className="rounded-full bg-primary/10 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-primary-light">Server</span>
                 </div>
                 <div className="space-y-2">
                   {Object.entries(service.metrics || {}).map(([key, value]) => (
-                    <div key={key} className="flex items-center justify-between gap-2 border-t border-white/5 pt-2 first:border-t-0 first:pt-0">
-                      <span className="text-[10px] font-bold capitalize text-zinc-500">{serviceKpiMetricLabel(key)}</span>
-                      <span className={cn('text-xs font-black text-right', value === null || value === undefined ? 'text-zinc-700' : 'text-zinc-200')}>
+                    <div key={key} className="flex items-center justify-between gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0">
+                      <span className="text-[10px] font-bold capitalize text-foreground-muted">{serviceKpiMetricLabel(key)}</span>
+                      <span className={cn('text-xs font-black text-right', value === null || value === undefined ? 'text-foreground-muted' : 'text-foreground-muted')}>
                         {formatServiceKpiMetric(key, value)}
                       </span>
                     </div>
                   ))}
                 </div>
                 {service.provider_mix?.length > 0 && (
-                  <div className="border-t border-white/5 pt-3">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600">Provider mix</p>
-                    <p className="mt-1 text-[10px] text-zinc-400">{service.provider_mix.map((provider: any) => `${provider.provider} ${provider.share_pct ?? 'No data'}%`).join(' • ')}</p>
+                  <div className="border-t border-border pt-3">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">Provider mix</p>
+                    <p className="mt-1 text-[10px] text-foreground-muted">{service.provider_mix.map((provider: any) => `${provider.provider} ${provider.share_pct ?? 'No data'}%`).join(' • ')}</p>
                   </div>
                 )}
               </div>
@@ -683,28 +689,29 @@ export default function Analytics() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* SLA Compliance by Zone Line Chart */}
-        <div className="lg:col-span-2 glass-card p-10 rounded-[48px] border-white/5 space-y-8">
+        <div className="lg:col-span-2 glass-card p-10 rounded-[48px] border-border space-y-8">
            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-black text-zinc-100 italic uppercase flex items-center gap-3">
-                 <Target className="text-primary-light" size={24} />
+              <h2 className="text-xl font-black text-foreground-muted italic uppercase flex items-center gap-3">
+                 <Target className="text-primary-light" size={24} aria-hidden="true" />
                  Zonal SLA Compliance
-              </h3>
+              </h2>
               <div className="flex gap-4">
                  <div className="flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-primary" />
-                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">South</span>
+                    <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">South</span>
                  </div>
                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-emerald-400" />
-                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Central</span>
+                    <div className="h-2 w-2 rounded-full bg-success" />
+                    <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Central</span>
                  </div>
                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-violet-400" />
-                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">West</span>
+                    <div className="h-2 w-2 rounded-full bg-info" />
+                    <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">West</span>
                  </div>
               </div>
            </div>
-           <div className="h-[350px] w-full">
+           <div className="h-[350px] w-full" role="group" aria-label="Grafik persentase SLA per wilayah" aria-describedby="sla-chart-summary">
+              <p id="sla-chart-summary" className="sr-only">Grafik SLA menampilkan perbandingan wilayah South, Central, dan West berdasarkan data analytics.</p>
               {slaLoading ? (
                 <ChartSkeleton bars={7} />
               ) : slaError ? (
@@ -723,17 +730,17 @@ export default function Analytics() {
               ) : (
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
                  <LineChart data={slaData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                     <XAxis 
                        dataKey="name" 
-                       stroke="#52525b" 
+                       stroke="var(--color-foreground-muted)"
                        fontSize={12} 
                        tickLine={false} 
                        axisLine={false}
                        tickMargin={15}
                     />
                     <YAxis 
-                       stroke="#52525b" 
+                       stroke="var(--color-foreground-muted)"
                        fontSize={10} 
                        tickLine={false} 
                        axisLine={false}
@@ -741,11 +748,11 @@ export default function Analytics() {
                        tickFormatter={(val) => `${val}%`}
                     />
                     <Tooltip 
-                       contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '16px' }}
+                       contentStyle={{ backgroundColor: 'var(--color-surface-raised)', borderColor: 'var(--color-border)', borderRadius: '16px', color: 'var(--color-foreground)' }}
                     />
-                    <Line type="monotone" dataKey="south" stroke="#006437" strokeWidth={3} dot={{ fill: '#006437' }} activeDot={{ r: 8 }} />
-                    <Line type="monotone" dataKey="central" stroke="#34d399" strokeWidth={3} dot={{ fill: '#34d399' }} />
-                    <Line type="monotone" dataKey="west" stroke="#a78bfa" strokeWidth={3} dot={{ fill: '#a78bfa' }} strokeDasharray="5 5" />
+                    <Line type="monotone" dataKey="south" stroke="var(--color-success)" strokeWidth={3} dot={{ fill: 'var(--color-success)' }} activeDot={{ r: 8 }} />
+                    <Line type="monotone" dataKey="central" stroke="var(--color-primary-light)" strokeWidth={3} dot={{ fill: 'var(--color-primary-light)' }} />
+                    <Line type="monotone" dataKey="west" stroke="var(--color-info)" strokeWidth={3} dot={{ fill: 'var(--color-info)' }} strokeDasharray="5 5" />
                  </LineChart>
               </ResponsiveContainer>
               )}
@@ -753,9 +760,17 @@ export default function Analytics() {
         </div>
 
         {/* Heatmap Placeholder */}
-        <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8 relative overflow-hidden">
-            <h3 className="text-xl font-black text-zinc-100 italic uppercase">Demand Density</h3>
-            <div className="h-[400px] w-full bg-zinc-900 rounded-[32px] border border-white/5 relative overflow-hidden">
+        <div className="glass-card p-10 rounded-[48px] border-border space-y-8 relative overflow-hidden">
+            <h2 className="text-xl font-black text-foreground-muted italic uppercase">Demand Density</h2>
+            <div
+              className="h-[400px] w-full bg-surface rounded-[32px] border border-border relative overflow-hidden"
+              role="region"
+              aria-label="Demand density map"
+              aria-describedby="demand-density-map-summary"
+            >
+              <p id="demand-density-map-summary" className="sr-only">
+                Demand density map. Operational status is also provided by the visible map status label and the data state message.
+              </p>
               <MapContainer
                 center={[-6.2088, 106.8456]}
                 zoom={12}
@@ -774,7 +789,7 @@ export default function Analytics() {
                 <TomTomRuntimeUnavailable message="TomTom Maps aktif, tetapi browser key runtime belum tersedia. Demand density memakai fallback map sementara." />
               )}
               {(heatError || !hasRows(heatData)) && (
-                <div className="absolute inset-4 z-10 rounded-[28px] bg-black/70 backdrop-blur-md border border-white/10 flex items-center justify-center p-6">
+                <div className="absolute inset-4 z-10 rounded-[28px] bg-scrim/70 backdrop-blur-md border border-border flex items-center justify-center p-6">
                   <DataState
                     title={heatError ? 'Heatmap gagal dimuat' : 'Belum ada heatmap'}
                     message={heatError ? getQueryErrorMessage(heatQueryError, 'Data demand density belum bisa diambil dari API analytics.') : 'Database belum memiliki titik demand density aktif.'}
@@ -784,7 +799,7 @@ export default function Analytics() {
                 </div>
               )}
               <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
-                <div className="px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                <div className="px-3 py-1.5 rounded-lg bg-scrim/60 backdrop-blur-md border border-border text-[10px] font-black text-foreground-muted uppercase tracking-widest">
                   {hasRows(heatData) ? 'Live Courier Density' : 'Waiting for Database Points'}
                 </div>
               </div>
@@ -795,15 +810,16 @@ export default function Analytics() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Dynamic Pricing Surge Analytics */}
-        <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
+        <div className="glass-card p-10 rounded-[48px] border-border space-y-8">
            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-black text-zinc-100 italic uppercase flex items-center gap-3">
-                 <Zap className="text-amber-400" size={24} />
+              <h2 className="text-xl font-black text-foreground-muted italic uppercase flex items-center gap-3">
+                 <Zap className="text-warning" size={24} aria-hidden="true" />
                  Surge Intelligence
-              </h3>
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Peak Frequency vs Impact</p>
+              </h2>
+              <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Peak Frequency vs Impact</p>
            </div>
-          <div className="h-[350px] w-full">
+          <div className="h-[350px] w-full" role="group" aria-label="Grafik frekuensi dan dampak surge" aria-describedby="surge-chart-summary">
+              <p id="surge-chart-summary" className="sr-only">Grafik membandingkan frekuensi surge dan impact multiplier dari data pricing analytics.</p>
               {surgeLoading ? (
                 <ChartSkeleton bars={10} />
               ) : surgeError ? (
@@ -822,17 +838,17 @@ export default function Analytics() {
               ) : (
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
                  <BarChart data={surgeData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                    <XAxis dataKey="time" stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis yAxisId="left" stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} label={{ value: 'Frequency', angle: -90, position: 'insideLeft', fill: '#52525b', fontSize: 10 }} />
-                    <YAxis yAxisId="right" orientation="right" stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} label={{ value: 'Impact Multiplier', angle: 90, position: 'insideRight', fill: '#52525b', fontSize: 10 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                    <XAxis dataKey="time" stroke="var(--color-foreground-muted)" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis yAxisId="left" stroke="var(--color-foreground-muted)" fontSize={10} tickLine={false} axisLine={false} label={{ value: 'Frequency', angle: -90, position: 'insideLeft', fill: 'var(--color-foreground-muted)', fontSize: 10 }} />
+                    <YAxis yAxisId="right" orientation="right" stroke="var(--color-foreground-muted)" fontSize={10} tickLine={false} axisLine={false} label={{ value: 'Impact Multiplier', angle: 90, position: 'insideRight', fill: 'var(--color-foreground-muted)', fontSize: 10 }} />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '16px', color: '#fff' }}
-                      itemStyle={{ color: '#fff' }}
+                      contentStyle={{ backgroundColor: 'var(--color-surface-raised)', borderColor: 'var(--color-border)', borderRadius: '16px', color: 'var(--color-foreground)' }}
+                      itemStyle={{ color: 'var(--color-foreground)' }}
                     />
                     <Legend verticalAlign="top" height={36}/>
-                    <Bar yAxisId="left" name="Frequency" dataKey="frequency" fill="#f59e0b" radius={[10, 10, 0, 0]} barSize={30} />
-                    <Bar yAxisId="right" name="Impact" dataKey="impact" fill="#006437" radius={[10, 10, 0, 0]} barSize={30} />
+                    <Bar yAxisId="left" name="Frequency" dataKey="frequency" fill="var(--color-warning)" radius={[10, 10, 0, 0]} barSize={30} />
+                    <Bar yAxisId="right" name="Impact" dataKey="impact" fill="var(--color-success)" radius={[10, 10, 0, 0]} barSize={30} />
                  </BarChart>
               </ResponsiveContainer>
               )}
@@ -840,15 +856,16 @@ export default function Analytics() {
         </div>
 
         {/* Volumetric Accuracy Histogram */}
-        <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
+        <div className="glass-card p-10 rounded-[48px] border-border space-y-8">
            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-black text-zinc-100 italic uppercase flex items-center gap-3">
-                 <Package className="text-primary-light" size={24} />
+              <h2 className="text-xl font-black text-foreground-muted italic uppercase flex items-center gap-3">
+                 <Package className="text-primary-light" size={24}  aria-hidden="true"/>
                  Scan Reliability
-              </h3>
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Confidence Distribution</p>
+              </h2>
+              <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Confidence Distribution</p>
            </div>
-           <div className="h-[350px] w-full">
+           <div className="h-[350px] w-full" role="group" aria-label="Histogram reliabilitas hasil scan" aria-describedby="accuracy-chart-summary">
+              <p id="accuracy-chart-summary" className="sr-only">Histogram menampilkan distribusi confidence hasil scan dimensi.</p>
               {accuracyLoading ? (
                 <ChartSkeleton bars={8} />
               ) : accuracyError ? (
@@ -867,11 +884,11 @@ export default function Analytics() {
               ) : (
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
                  <BarChart data={accuracyData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                    <XAxis dataKey="confidence" stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '16px' }} />
-                    <Bar dataKey="count" fill="#34d399" radius={[8, 8, 0, 0]} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                    <XAxis dataKey="confidence" stroke="var(--color-foreground-muted)" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis stroke="var(--color-foreground-muted)" fontSize={10} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={{ backgroundColor: 'var(--color-surface-raised)', borderColor: 'var(--color-border)', borderRadius: '16px', color: 'var(--color-foreground)' }} />
+                    <Bar dataKey="count" fill="var(--color-primary-light)" radius={[8, 8, 0, 0]} />
                  </BarChart>
               </ResponsiveContainer>
               )}
@@ -880,15 +897,15 @@ export default function Analytics() {
       </div>
 
       {/* Customer Retention Cohort Table */}
-      <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-10">
+      <div className="glass-card p-10 rounded-[48px] border-border space-y-10">
          <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-black text-zinc-100 italic uppercase">Retention Cohort</h3>
+            <h2 className="text-2xl font-black text-foreground-muted italic uppercase">Retention Cohort</h2>
             <span className="px-4 py-2 rounded-full bg-primary/10 text-primary-light text-[10px] font-black uppercase tracking-widest">Retention Matrix %</span>
          </div>
          {retentionLoading ? (
            <div className="space-y-3">
              {[...Array(4)].map((_,i) => (
-               <div key={i} className="h-12 w-full bg-white/5 animate-pulse rounded-xl" />
+               <div key={i} className="h-12 w-full bg-surface-subtle animate-pulse rounded-xl" />
              ))}
            </div>
          ) : retentionError ? (
@@ -909,23 +926,23 @@ export default function Analytics() {
             <table className="w-full text-left border-separate border-spacing-y-2">
                <thead>
                   <tr>
-                     <th className="pb-4 pl-4 text-[10px] font-black text-zinc-600 uppercase tracking-widest">Cohort</th>
-                     <th className="pb-4 text-[10px] font-black text-zinc-600 uppercase tracking-widest">Size</th>
+                     <th scope="col" className="pb-4 pl-4 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Cohort</th>
+                     <th scope="col" className="pb-4 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Size</th>
                      {['M1', 'M2', 'M3', 'M4', 'M5'].map(m => (
-                       <th key={m} className="pb-4 text-center text-[10px] font-black text-zinc-600 uppercase tracking-widest">{m}</th>
+                       <th scope="col" key={m} className="pb-4 text-center text-[10px] font-black text-foreground-muted uppercase tracking-widest">{m}</th>
                      ))}
                   </tr>
                </thead>
-               <tbody className="divide-y divide-white/5">
+               <tbody className="divide-y divide-border">
                   {(retentionData || []).map((row: any, i: number) => (
-                    <tr key={i} className="group hover:bg-white/[0.01]">
-                       <td className="py-6 pl-4 font-bold text-zinc-300">{row.month}</td>
-                       <td className="py-6 font-black text-zinc-500 text-xs">{row.size?.toLocaleString()}</td>
+                    <tr key={i} className="group hover:bg-surface/[0.01]">
+                       <td className="py-6 pl-4 font-bold text-foreground-muted">{row.month}</td>
+                       <td className="py-6 font-black text-foreground-muted text-xs">{row.size?.toLocaleString()}</td>
                        {[row.m1, row.m2, row.m3, row.m4, row.m5].map((val, idx) => (
                          <td key={idx} className="py-4 px-1">
                             {val !== undefined ? (
                               <div 
-                                className="h-10 w-full rounded-lg flex items-center justify-center text-xs font-black text-white/80"
+                                className="h-10 w-full rounded-lg flex items-center justify-center text-xs font-black text-foreground-secondary"
                                 style={{ 
                                   backgroundColor: `rgba(0, 100, 55, ${val / 100})`,
                                   border: '1px solid rgba(255,255,255,0.05)'
@@ -934,7 +951,7 @@ export default function Analytics() {
                                 {val}%
                               </div>
                             ) : (
-                              <div className="h-10 w-full rounded-lg bg-zinc-900/50 border border-dashed border-white/5" />
+                              <div className="h-10 w-full rounded-lg bg-surface-subtle border border-dashed border-border" />
                             )}
                          </td>
                        ))}
@@ -947,24 +964,24 @@ export default function Analytics() {
       </div>
 
       {/* Scheduled Reports Management */}
-      <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-10">
+      <div className="glass-card p-10 rounded-[48px] border-border space-y-10">
          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-black text-zinc-100 italic uppercase flex items-center gap-4">
-               <Calendar className="text-zinc-500" size={24} />
+            <h2 className="text-xl font-black text-foreground-muted italic uppercase flex items-center gap-4">
+               <Calendar className="text-foreground-muted" size={24} aria-hidden="true" />
                Scheduled Automation
-            </h3>
+            </h2>
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="px-6 py-3 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2"
+              className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2"
             >
-              <Plus size={16} />
+              <Plus size={16} aria-hidden="true" />
               New Schedule
             </button>
          </div>
 
          {reportsLoading ? (
            <div className="flex items-center justify-center py-20">
-             <Loader2 className="w-8 h-8 text-primary animate-spin" />
+             <Loader2 className="w-8 h-8 text-primary animate-spin" aria-hidden="true" />
            </div>
          ) : reportsError ? (
            <DataState
@@ -976,45 +993,45 @@ export default function Analytics() {
          ) : (
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {(reports || []).map((report: any) => (
-                <div key={report.id} className="p-8 rounded-[40px] bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all space-y-6 group">
+                <div key={report.id} className="p-8 rounded-[40px] bg-surface/[0.02] border border-border hover:border-border transition-all space-y-6 group">
                    <div className="flex items-start justify-between">
-                      <div className="p-3 rounded-2xl bg-zinc-900 border border-white/5 group-hover:border-primary/20 transition-all">
-                         <HistoryIcon size={20} className="text-zinc-600 group-hover:text-primary-light" />
+                      <div className="p-3 rounded-2xl bg-surface border border-border group-hover:border-primary/20 transition-all">
+                         <HistoryIcon size={20} className="text-foreground-muted group-hover:text-primary-light" aria-hidden="true" />
                       </div>
-                      <button 
+                      <button type="button" aria-label={`Delete scheduled report ${report.name}`}
                         onClick={() => {
                           if (confirm('Are you sure you want to delete this schedule?')) {
                             deleteReport.mutate(report.id)
                           }
                         }}
-                        className="p-2 rounded-lg bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="p-2 rounded-lg bg-error-surface text-error opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={14} aria-hidden="true" />
                       </button>
                    </div>
                    <div>
-                      <h4 className="font-bold text-zinc-200">{report.name}</h4>
+                      <h3 className="font-bold text-foreground-muted">{report.name}</h3>
                       <div className="flex items-center gap-4 mt-2">
-                         <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{report.frequency}</p>
-                         <div className="h-1 w-1 rounded-full bg-zinc-800" />
-                         <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{report.time_slot}</p>
+                         <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">{report.frequency}</p>
+                         <div className="h-1 w-1 rounded-full bg-surface-raised" />
+                         <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">{report.time_slot}</p>
                       </div>
                    </div>
-                   <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                   <div className="flex items-center justify-between pt-4 border-t border-border">
                       <div className="flex items-center gap-2">
-                         <Mail size={12} className="text-zinc-600" />
-                         <span className="text-[10px] font-bold text-zinc-500">{report.recipient_emails?.length} Recipients</span>
+                         <Mail size={12} className="text-foreground-muted" aria-hidden="true" />
+                         <span className="text-[10px] font-bold text-foreground-muted">{report.recipient_emails?.length} Recipients</span>
                       </div>
-                      <button className="p-2 text-zinc-500 hover:text-zinc-200 transition-colors">
-                         <ChevronRight size={18} />
+                      <button type="button" aria-label={`Open scheduled report ${report.name}`} className="p-2 text-foreground-muted hover:text-foreground-muted transition-colors">
+                         <ChevronRight size={18} aria-hidden="true" />
                       </button>
                    </div>
                 </div>
               ))}
               {reports?.length === 0 && (
                 <div className="col-span-full py-20 text-center space-y-4">
-                  <Calendar className="mx-auto text-zinc-800" size={48} />
-                  <p className="text-zinc-600 font-bold uppercase tracking-[0.2em] text-xs">No active automation schedules</p>
+                  <Calendar className="mx-auto text-foreground-muted" size={48} aria-hidden="true" />
+                  <p className="text-foreground-muted font-bold uppercase tracking-[0.2em] text-xs">No active automation schedules</p>
                 </div>
               )}
            </div>

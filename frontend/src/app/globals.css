@@ -1,18 +1,38 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-primary: #003A20;
-  --color-primary-light: #007A42;
-  --color-primary-dark: #003A20;
-  --color-primary-soft: #E8F5EE;
-  --color-primary-pale: #F4FBF7;
-  --color-accent: #F97316;
-  --color-accent-dark: #C95A00;
-  --color-accent-light: #FB923C;
-  --color-accent-soft: #FFF1E6;
-  --color-accent-pale: #FFF8F2;
-  --color-success: #16A34A;
-  /* Brand emerald palette: intentional product color, distinct from success. */
+  --color-primary: var(--token-primary);
+  --color-primary-light: var(--token-primary-light);
+  --color-primary-dark: var(--token-primary-dark);
+  --color-primary-soft: var(--token-primary-soft);
+  --color-primary-pale: var(--token-primary-pale);
+  --color-accent: var(--token-accent);
+  --color-accent-dark: var(--token-accent-dark);
+  --color-accent-light: var(--token-accent-light);
+  --color-accent-soft: var(--token-accent-soft);
+  --color-accent-pale: var(--token-accent-pale);
+  --color-accent-surface: var(--token-accent-soft);
+  --color-success: var(--token-success);
+  --color-warning: var(--token-warning);
+  --color-error: var(--token-error);
+  --color-info: var(--token-info);
+  --color-on-primary: var(--token-on-primary);
+  --color-on-accent: var(--token-on-accent);
+  --color-on-success: var(--token-on-success);
+  --color-on-warning: var(--token-on-warning);
+  --color-on-error: var(--token-on-error);
+  --color-on-info: var(--token-on-info);
+  --color-primary-foreground: var(--token-on-primary);
+  --color-destructive: var(--token-error);
+  --color-destructive-foreground: var(--token-on-error);
+  --color-success-surface: var(--token-success-surface);
+  --color-warning-surface: var(--token-warning-surface);
+  --color-error-surface: var(--token-error-surface);
+  --color-info-surface: var(--token-info-surface);
+  --color-selection: var(--token-selection);
+  --color-scrim: var(--token-scrim);
+
+  /* Brand emerald palette remains available for fixed brand artwork. */
   --color-brand-emerald-50: #ECFDF5;
   --color-brand-emerald-100: #D1FAE5;
   --color-brand-emerald-200: #A7F3D0;
@@ -24,33 +44,131 @@
   --color-brand-emerald-800: #065F46;
   --color-brand-emerald-900: #064E3B;
   --color-brand-emerald-950: #022C22;
-  --color-warning: #F59E0B;
-  --color-error: #DC2626;
-  --color-info: #2563EB;
-  
+
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  
-  --radius-xl: 0.5rem;
-  --radius-2xl: 0.5rem;
-  
+  /* Shared readable type scale; components may opt into these role tokens. */
+  --type-display-size: clamp(2.25rem, 5vw, 3.75rem);
+  --type-page-title-size: clamp(1.75rem, 3vw, 2.25rem);
+  --type-section-title-size: 1.25rem;
+  --type-body-size: 1rem;
+  --type-body-small-size: 0.875rem;
+  --type-label-size: 0.8125rem;
+  --type-caption-size: 0.75rem;
+  --type-table-cell-size: 0.8125rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.75rem;
   --animate-in: animate-in 0.3s ease-out;
   --animate-out: animate-out 0.3s ease-in;
 
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
+  --color-background: var(--token-background);
+  --color-foreground: var(--token-foreground);
+  --color-card: var(--token-surface);
+  --color-card-foreground: var(--token-foreground);
+  --color-popover: var(--token-surface-raised);
+  --color-popover-foreground: var(--token-foreground);
+  --color-muted: var(--token-surface-subtle);
+  --color-muted-foreground: var(--token-foreground-muted);
+  --color-border: var(--token-border);
+  --color-input: var(--token-input-border);
+  --color-ring: var(--token-focus-ring);
+  --color-surface: var(--token-surface);
+  --color-surface-raised: var(--token-surface-raised);
+  --color-surface-subtle: var(--token-surface-subtle);
+  --color-foreground-secondary: var(--token-foreground-secondary);
+  --color-foreground-muted: var(--token-foreground-muted);
+  --color-border-strong: var(--token-border-strong);
+  --color-input-background: var(--token-input-background);
+  --color-input-border: var(--token-input-border);
+  --color-focus-ring: var(--token-focus-ring);
 }
 
 @layer base {
+  :root {
+    color-scheme: light;
+    --token-background: #F7F8F7;
+    --token-surface: #FFFFFF;
+    --token-surface-raised: #FFFFFF;
+    --token-surface-subtle: #EEF3EF;
+    --token-foreground: #14211A;
+    --token-foreground-secondary: #415047;
+    --token-foreground-muted: #5F6B63;
+    --token-border: #C7D1CA;
+    --token-border-strong: #718078;
+    --token-input-background: #FFFFFF;
+    --token-input-border: #66756C;
+    --token-focus-ring: #9A3412;
+    --token-primary: #006437;
+    --token-primary-light: #007A42;
+    --token-primary-dark: #003A20;
+    --token-primary-soft: #E8F5EE;
+    --token-primary-pale: #F4FBF7;
+    --token-on-primary: #FFFFFF;
+    --token-accent: #C2410C;
+    --token-accent-dark: #9A3412;
+    --token-accent-light: #EA580C;
+    --token-accent-soft: #FFF1E6;
+    --token-accent-pale: #FFF8F2;
+    --token-on-accent: #FFFFFF;
+    --token-success: #15803D;
+    --token-on-success: #FFFFFF;
+    --token-success-surface: #DCFCE7;
+    --token-warning: #B45309;
+    --token-on-warning: #FFFFFF;
+    --token-warning-surface: #FEF3C7;
+    --token-error: #B91C1C;
+    --token-on-error: #FFFFFF;
+    --token-error-surface: #FEE2E2;
+    --token-info: #1D4ED8;
+    --token-on-info: #FFFFFF;
+    --token-info-surface: #DBEAFE;
+    --token-selection: #B7E4C7;
+    --token-scrim: #14211A;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --token-background: #0B120E;
+    --token-surface: #142019;
+    --token-surface-raised: #1B2921;
+    --token-surface-subtle: #203329;
+    --token-foreground: #F4F7F5;
+    --token-foreground-secondary: #D0DBD3;
+    --token-foreground-muted: #AAB5AE;
+    --token-border: #4B5D52;
+    --token-border-strong: #71877A;
+    --token-input-background: #142019;
+    --token-input-border: #71877A;
+    --token-focus-ring: #FDBA74;
+    --token-primary: #34D399;
+    --token-primary-light: #6EE7B7;
+    --token-primary-dark: #007A42;
+    --token-primary-soft: #123B25;
+    --token-primary-pale: #0D3322;
+    --token-on-primary: #032318;
+    --token-accent: #FB923C;
+    --token-accent-dark: #C2410C;
+    --token-accent-light: #FDBA74;
+    --token-accent-soft: #4A3210;
+    --token-accent-pale: #3D2414;
+    --token-on-accent: #241000;
+    --token-success: #4ADE80;
+    --token-on-success: #032318;
+    --token-success-surface: #123B25;
+    --token-warning: #FBBF24;
+    --token-on-warning: #241000;
+    --token-warning-surface: #4A3210;
+    --token-error: #F87171;
+    --token-on-error: #2A0808;
+    --token-error-surface: #4A1717;
+    --token-info: #60A5FA;
+    --token-on-info: #071A35;
+    --token-info-surface: #132E52;
+    --token-selection: #1A7A4C;
+    --token-scrim: #000000;
+  }
+
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 3px solid var(--token-focus-ring);
     outline-offset: 2px;
   }
 
@@ -64,72 +182,73 @@
       scroll-behavior: auto !important;
     }
   }
+}
 
-  :root {
-    --background: #F7F8F7;
-    --foreground: #14211A;
-    
-    --card: #ffffff;
-    --card-foreground: #14211A;
-    --popover: #ffffff;
-    --popover-foreground: #14211A;
-    --muted: #F0F3F1;
-    --muted-foreground: #6B756F;
-    --border: #E5E9E6;
-    --input: #E5E9E6;
-  }
-
-  .dark {
-    --background: #0B120E;
-    --foreground: #F4F7F5;
-    
-    --card: #142019;
-    --card-foreground: #F4F7F5;
-    --popover: #142019;
-    --popover-foreground: #F4F7F5;
-    --muted: #1B2921;
-    --muted-foreground: #AAB5AE;
-    --border: #26352C;
-    --input: #26352C;
-  }
+html {
+  background: var(--token-background);
 }
 
 body {
-  @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary-light transition-colors duration-200;
+  @apply bg-background text-foreground antialiased transition-colors duration-200;
   font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: 1.5;
+  background-color: var(--token-background);
+  color: var(--token-foreground);
 }
 
-/* Auth links stay legible in both the light token set and the dark shell. */
+/* Body-copy links keep a non-color affordance in every theme. Navigation and
+   control links can opt out when their surrounding pattern already supplies
+   the affordance. */
+main p a,
+main li a,
+main dd a {
+  text-decoration-line: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+::selection {
+  background: var(--token-selection);
+  color: var(--token-foreground);
+}
+
 .auth-link {
-  color: var(--color-primary);
+  color: var(--token-primary-dark);
 }
 
 .dark .auth-link {
-  color: var(--color-brand-emerald-300);
+  color: var(--token-primary-light);
 }
 
-/* Glassmorphism utilities adapted for light/dark mode */
+/* Solid by default; use .glass-card--decorative only for non-critical media. */
 .glass-card {
-  @apply bg-white/60 dark:bg-white/5 backdrop-blur-md border border-black/10 dark:border-white/10;
-  box-shadow: 
-    0 20px 25px -5px rgb(0 0 0 / 0.05), 
-    0 8px 10px -6px rgb(0 0 0 / 0.05), 
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  background: var(--token-surface-raised);
+  border: 1px solid var(--token-border);
+  box-shadow: 0 12px 28px rgb(20 33 26 / 0.08);
 }
 
 .dark .glass-card {
-  box-shadow: 
-    0 20px 25px -5px rgb(0 0 0 / 0.3), 
-    0 8px 10px -6px rgb(0 0 0 / 0.3), 
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 32px rgb(0 0 0 / 0.28);
+}
+
+.glass-card--decorative {
+  background: color-mix(in srgb, var(--token-surface-raised) 82%, transparent);
+  backdrop-filter: blur(16px);
 }
 
 .glass-button {
-  @apply bg-primary/10 dark:bg-primary/20 backdrop-blur-sm border border-primary/20 dark:border-primary/30 hover:bg-primary/20 dark:hover:bg-primary/30 transition-all duration-200 active:scale-95;
+  background: color-mix(in srgb, var(--token-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--token-primary) 32%, transparent);
+  transition: background-color 200ms ease, transform 200ms ease;
+}
+
+.glass-button:hover {
+  background: color-mix(in srgb, var(--token-primary) 20%, transparent);
 }
 
 .text-gradient {
-  @apply bg-gradient-to-r from-primary to-primary-light dark:from-primary-light dark:to-primary-soft bg-clip-text text-transparent font-bold;
+  @apply bg-gradient-to-r from-primary to-primary-light bg-clip-text text-transparent font-bold;
 }
 
 @keyframes animate-in {
@@ -142,16 +261,8 @@ body {
   to { opacity: 0; transform: translateY(10px); }
 }
 
-/* Ensure select and option dropdown menus render properly in dark mode without white flash/background */
+select,
 select option {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-weight: 500;
-  padding: 8px 12px;
+  background-color: var(--token-input-background);
+  color: var(--token-foreground);
 }
-
-.dark select option {
-  background-color: #142019;
-  color: #F4F7F5;
-}
-

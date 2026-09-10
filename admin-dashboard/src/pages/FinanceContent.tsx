@@ -24,8 +24,8 @@ export function FinanceContent() {
       {/* ── Page Header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-zinc-100 tracking-tight italic uppercase">Finance Dashboard</h1>
-          <p className="text-zinc-500 mt-1">Treasury, P&L, Pajak, dan Settlement — satu tempat untuk staff finance.</p>
+          <h1 className="text-3xl font-black text-foreground-muted tracking-tight italic uppercase">Finance Dashboard</h1>
+          <p className="text-foreground-muted mt-1">Treasury, P&L, Pajak, dan Settlement — satu tempat untuk staff finance.</p>
         </div>
         {activeTab === 'treasury' && (
           <div className="flex flex-wrap items-center gap-3">
@@ -35,9 +35,9 @@ export function FinanceContent() {
                 if (code) dispatchApprovedPayoutsMutation.mutate(code);
               }}
               disabled={dispatchApprovedPayoutsMutation.isPending}
-              className="px-5 py-2.5 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2 disabled:opacity-50"
+              className="px-5 py-2.5 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2 disabled:opacity-50"
             >
-              {dispatchApprovedPayoutsMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+              {dispatchApprovedPayoutsMutation.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
               Dispatch
             </button>
             <button
@@ -46,9 +46,9 @@ export function FinanceContent() {
                 if (code) reconcilePayoutsMutation.mutate(code);
               }}
               disabled={reconcilePayoutsMutation.isPending}
-              className="px-5 py-2.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-300 font-black text-xs uppercase tracking-widest hover:bg-blue-500/20 transition-all flex items-center gap-2 disabled:opacity-50"
+              className="px-5 py-2.5 rounded-2xl bg-info-surface border border-info text-info font-black text-xs uppercase tracking-widest hover:bg-info-surface transition-all flex items-center gap-2 disabled:opacity-50"
             >
-              {reconcilePayoutsMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+              {reconcilePayoutsMutation.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <ShieldCheck size={16} aria-hidden="true" />}
               Reconcile
             </button>
             <button
@@ -63,9 +63,9 @@ export function FinanceContent() {
                   URL.revokeObjectURL(url)
                 } catch (error) { clientLog.error('Payout export failed', { error }) }
               }}
-              className="px-5 py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-xs uppercase tracking-widest hover:bg-emerald-500/20 transition-all flex items-center gap-2"
+              className="px-5 py-2.5 rounded-2xl bg-success-surface border border-success text-success font-black text-xs uppercase tracking-widest hover:bg-success-surface transition-all flex items-center gap-2"
             >
-              <Download size={16} />
+              <Download size={16} aria-hidden="true" />
               Export CSV
             </button>
             <button
@@ -80,9 +80,9 @@ export function FinanceContent() {
                   URL.revokeObjectURL(url)
                 } catch { toast.error('Audit export failed') }
               }}
-              className="px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+              className="px-5 py-2.5 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-widest hover:bg-surface-subtle transition-all flex items-center gap-2"
             >
-              <Download size={16} />
+              <Download size={16} aria-hidden="true" />
               Audit CSV
             </button>
             <button
@@ -97,9 +97,9 @@ export function FinanceContent() {
                   URL.revokeObjectURL(url)
                 } catch { toast.error('Risk audit export failed') }
               }}
-              className="px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+              className="px-5 py-2.5 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-widest hover:bg-surface-subtle transition-all flex items-center gap-2"
             >
-              <Download size={16} />
+              <Download size={16} aria-hidden="true" />
               Risk CSV
             </button>
           </div>
@@ -110,21 +110,21 @@ export function FinanceContent() {
       {!isLoadingCashPosition && cashPosition && (
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
           {[
-            { label: 'Kas Masuk 30H', value: cashPosition.inflow_30d, color: 'text-emerald-400', icon: ArrowUpRight },
-            { label: 'Kas Keluar 30H', value: cashPosition.outflow_30d, color: 'text-red-400', icon: ArrowDownRight },
-            { label: 'Escrow Customer', value: cashPosition.customer_escrow, color: 'text-amber-400', icon: Wallet },
-            { label: 'Escrow Kurir', value: cashPosition.courier_escrow, color: 'text-blue-400', icon: Users },
-            { label: 'Payout Pending', value: cashPosition.pending_payouts, color: 'text-orange-400', icon: Clock },
-            { label: 'Total Liabilitas', value: cashPosition.total_liabilities, color: 'text-red-300', icon: TrendingDown },
-            { label: 'Emergency Fund', value: cashPosition.emergency_fund, color: 'text-amber-300', icon: ShieldAlert },
-            { label: 'Cash Ratio', value: null, rawLabel: `${cashPosition.cash_ratio}%`, color: cashPosition.cash_ratio > 30 ? 'text-emerald-400' : 'text-red-400', icon: BarChart2 },
+            { label: 'Kas Masuk 30H', value: cashPosition.inflow_30d, color: 'text-success', icon: ArrowUpRight },
+            { label: 'Kas Keluar 30H', value: cashPosition.outflow_30d, color: 'text-error', icon: ArrowDownRight },
+            { label: 'Escrow Customer', value: cashPosition.customer_escrow, color: 'text-warning', icon: Wallet },
+            { label: 'Escrow Kurir', value: cashPosition.courier_escrow, color: 'text-info', icon: Users },
+            { label: 'Payout Pending', value: cashPosition.pending_payouts, color: 'text-accent', icon: Clock },
+            { label: 'Total Liabilitas', value: cashPosition.total_liabilities, color: 'text-error', icon: TrendingDown },
+            { label: 'Emergency Fund', value: cashPosition.emergency_fund, color: 'text-warning', icon: ShieldAlert },
+            { label: 'Cash Ratio', value: null, rawLabel: `${cashPosition.cash_ratio}%`, color: cashPosition.cash_ratio > 30 ? 'text-success' : 'text-error', icon: BarChart2 },
           ].map((item) => {
             const Icon = item.icon;
             return (
-              <div key={item.label} className="glass-card p-4 rounded-[20px] border-white/5 space-y-2">
+              <div key={item.label} className="glass-card p-4 rounded-[20px] border-border space-y-2">
                 <div className="flex items-center gap-2">
-                  <Icon size={12} className={item.color} />
-                  <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest leading-tight">{item.label}</p>
+                  <Icon size={12} className={item.color} aria-hidden="true" />
+                  <p className="text-[9px] font-black text-foreground-muted uppercase tracking-widest leading-tight">{item.label}</p>
                 </div>
                 <p className={`text-base font-black ${item.color} leading-none`}>
                   {item.rawLabel ?? `Rp ${Number(item.value || 0).toLocaleString('id-ID')}`}
@@ -136,7 +136,7 @@ export function FinanceContent() {
       )}
 
       {/* ── Tab Navigation ──────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-1 p-1 rounded-2xl bg-white/[0.03] border border-white/5 w-fit">
+      <div className="flex flex-wrap items-center gap-1 p-1 rounded-2xl bg-surface/[0.03] border border-border w-fit">
         {([
           { id: 'treasury' as FinanceTab, label: 'Treasury & Settlement', icon: Landmark },
           { id: 'pnl' as FinanceTab, label: 'Laporan P&L', icon: BarChart2 },
@@ -153,11 +153,11 @@ export function FinanceContent() {
             className={cn(
               'flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all',
               activeTab === id
-                ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+                ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
+                : 'text-foreground-muted hover:text-foreground-muted hover:bg-surface-subtle'
             )}
           >
-            <Icon size={14} />
+            <Icon size={14} aria-hidden="true" />
             {label}
           </button>
         ))}

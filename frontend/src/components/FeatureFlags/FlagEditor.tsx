@@ -42,7 +42,7 @@ export default function FlagEditor({ flagKey, initialConfig, isEnabled, onSave, 
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim/60 backdrop-blur-sm"
     >
       <motion.div 
         initial={{ y: 20, scale: 0.95 }}
@@ -54,15 +54,15 @@ export default function FlagEditor({ flagKey, initialConfig, isEnabled, onSave, 
             <h3 className="text-lg font-bold text-foreground">Edit Configuration: {flagKey}</h3>
             <p className="text-xs text-muted-foreground mt-1">Status saat ini: <span className={isEnabled ? "text-success font-bold" : "text-destructive font-bold"}>{isEnabled ? 'ACTIVE' : 'INACTIVE'}</span></p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-xl transition-all">
-            <X className="h-5 w-5 text-muted-foreground" />
+          <button type="button" onClick={onClose} aria-label="Tutup editor feature flag" className="p-2 hover:bg-muted rounded-xl transition-all">
+            <X className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           </button>
         </div>
 
         <div className="p-5 overflow-y-auto flex-1 space-y-4">
           {error && (
             <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl text-sm flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               {error}
             </div>
           )}
@@ -102,13 +102,13 @@ export default function FlagEditor({ flagKey, initialConfig, isEnabled, onSave, 
           <button 
             onClick={handleSave}
             disabled={isSaving}
-            className="px-4 py-2 text-sm font-medium bg-primary hover:bg-primary/90 text-white rounded-xl shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium bg-primary hover:bg-primary/90 text-on-primary rounded-xl shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
           >
             {isSaving ? (
               <span className="animate-pulse">Menyimpan...</span>
             ) : (
               <>
-                <Save className="h-4 w-4" /> Simpan Config
+                <Save className="h-4 w-4"  aria-hidden="true"/> Simpan Config
               </>
             )}
           </button>

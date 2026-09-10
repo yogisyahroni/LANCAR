@@ -16,6 +16,10 @@ function ExperienceCard({ section, manifest }: { section: ExperienceSection; man
   const title = text(section.properties, 'title');
   const body = text(section.properties, 'body');
   const badge = text(section.properties, 'badge');
+  const altLabel = text(section.properties, 'alt_label');
+  const imageAssetId = text(section.properties, 'image_asset_id');
+  const imageAsset = manifest.asset_references?.find((asset) => asset.asset_id === imageAssetId);
+  const imageDecorative = section.properties.image_decorative === true;
   const target = internalTarget(section.properties);
   const campaignId = text(section.properties, 'campaign_id') || section.id;
   if (!title && !body) return null;
@@ -35,6 +39,15 @@ function ExperienceCard({ section, manifest }: { section: ExperienceSection; man
       data-experience-revision={manifest.revision}
       data-campaign-id={campaignId}
     >
+      {imageAsset?.uri ? (
+        <img
+          src={imageAsset.uri}
+          alt={imageDecorative ? '' : altLabel || title}
+          aria-hidden={imageDecorative || undefined}
+          loading="lazy"
+          className="mb-4 max-h-56 w-full rounded-xl object-cover"
+        />
+      ) : null}
       {target ? <Link href={target} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">{content}</Link> : content}
     </article>
   );

@@ -172,10 +172,10 @@ export default function FoodReorderPage() {
 
   if (error || !check) {
     return (
-      <div className="mx-auto max-w-xl rounded-2xl border border-red-500/20 bg-red-500/10 p-8 text-center">
-        <h1 className="text-xl font-bold text-white">Pesan Lagi belum bisa dilanjutkan</h1>
-        <p className="mt-3 text-sm text-red-100">{error || 'Validasi order tidak tersedia.'}</p>
-        <Link href={orderId ? `/orders/${orderId}` : '/orders'} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15"><ArrowLeft className="h-4 w-4" /> Kembali</Link>
+      <div className="mx-auto max-w-xl rounded-2xl border border-error bg-error-surface p-8 text-center">
+        <h1 className="text-xl font-bold text-foreground">Pesan Lagi belum bisa dilanjutkan</h1>
+        <p className="mt-3 text-sm text-error">{error || 'Validasi order tidak tersedia.'}</p>
+        <Link href={orderId ? `/orders/${orderId}` : '/orders'} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-surface-subtle px-4 py-2 text-sm font-semibold text-foreground hover:bg-surface-subtle"><ArrowLeft className="h-4 w-4"  aria-hidden="true"/> Kembali</Link>
       </div>
     );
   }
@@ -184,34 +184,34 @@ export default function FoodReorderPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center gap-3">
-        <Link href={`/orders/${orderId}`} className="rounded-xl border border-white/10 p-2 text-muted-foreground hover:text-white"><ArrowLeft className="h-5 w-5" /></Link>
-        <div><p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Food delivery</p><h1 className="text-2xl font-black text-white">Pesan Lagi dari {check.merchant_name}</h1></div>
+        <Link href={`/orders/${orderId}`} className="rounded-xl border border-border p-2 text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5"  aria-hidden="true"/></Link>
+        <div><p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Food delivery</p><h1 className="text-2xl font-black text-foreground">Pesan Lagi dari {check.merchant_name}</h1></div>
       </div>
 
-      {check.has_changes && <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">Harga dan ketersediaan sudah divalidasi ulang dari menu saat ini. Total baru: <strong>{formatPrice(check.total_new)}</strong>.</div>}
-      {!check.merchant_open && <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-100">Merchant sedang tutup. Pesanan tidak dikirim sebelum merchant buka.</div>}
-      {unavailableItems.length > 0 && <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-muted-foreground">{unavailableItems.map((item) => item.item_name).join(', ')} tidak tersedia dan otomatis tidak ikut dipesan.</div>}
+      {check.has_changes && <div className="rounded-2xl border border-warning bg-warning-surface p-4 text-sm text-warning">Harga dan ketersediaan sudah divalidasi ulang dari menu saat ini. Total baru: <strong>{formatPrice(check.total_new)}</strong>.</div>}
+      {!check.merchant_open && <div className="rounded-2xl border border-error bg-error-surface p-4 text-sm text-error">Merchant sedang tutup. Pesanan tidak dikirim sebelum merchant buka.</div>}
+      {unavailableItems.length > 0 && <div className="rounded-2xl border border-border bg-surface-subtle p-4 text-sm text-muted-foreground">{unavailableItems.map((item) => item.item_name).join(', ')} tidak tersedia dan otomatis tidak ikut dipesan.</div>}
 
-      <section className="rounded-2xl border border-white/10 bg-card/40 p-5 shadow-sm">
-        <h2 className="flex items-center gap-2 border-b border-white/10 pb-4 font-bold text-white"><UtensilsCrossed className="h-5 w-5 text-primary" /> Item pesanan</h2>
-        <div className="divide-y divide-white/10">
+      <section className="rounded-2xl border border-border bg-card/40 p-5 shadow-sm">
+        <h2 className="flex items-center gap-2 border-b border-border pb-4 font-bold text-foreground"><UtensilsCrossed className="h-5 w-5 text-primary" aria-hidden="true" /> Item pesanan</h2>
+        <div className="divide-y divide-border">
           {check.items.map((item) => {
             const quantity = quantities[item.menu_item_id] || 0;
             return <div key={item.menu_item_id} className={`flex items-center justify-between gap-4 py-4 ${!item.available ? 'opacity-45' : ''}`}>
-              <div className="min-w-0"><p className="font-semibold text-white">{item.item_name}</p><p className="text-xs text-muted-foreground">{item.variants?.map((variant) => `${variant.variant_name}: ${variant.option_name}`).join(' · ') || 'Tanpa varian'}</p><p className="mt-1 text-sm text-primary">{formatPrice(item.new_price)} {item.price_changed && <span className="text-xs text-amber-300">(harga berubah)</span>}</p></div>
-              <div className="flex items-center gap-3"><button type="button" disabled={!item.available || quantity === 0} onClick={() => changeQuantity(item.menu_item_id, -1)} className="rounded-lg border border-white/10 p-2 text-white disabled:opacity-30"><Minus className="h-4 w-4" /></button><span className="w-5 text-center font-bold text-white">{quantity}</span><button type="button" disabled={!item.available} onClick={() => changeQuantity(item.menu_item_id, 1)} className="rounded-lg border border-white/10 p-2 text-white disabled:opacity-30"><Plus className="h-4 w-4" /></button></div>
+              <div className="min-w-0"><p className="font-semibold text-foreground">{item.item_name}</p><p className="text-xs text-muted-foreground">{item.variants?.map((variant) => `${variant.variant_name}: ${variant.option_name}`).join(' · ') || 'Tanpa varian'}</p><p className="mt-1 text-sm text-primary">{formatPrice(item.new_price)} {item.price_changed && <span className="text-xs text-warning">(harga berubah)</span>}</p></div>
+              <div className="flex items-center gap-3"><button type="button" disabled={!item.available || quantity === 0} onClick={() => changeQuantity(item.menu_item_id, -1)} className="rounded-lg border border-border p-2 text-foreground disabled:opacity-30"><Minus className="h-4 w-4" aria-hidden="true" /></button><span className="w-5 text-center font-bold text-foreground">{quantity}</span><button type="button" disabled={!item.available} onClick={() => changeQuantity(item.menu_item_id, 1)} className="rounded-lg border border-border p-2 text-foreground disabled:opacity-30"><Plus className="h-4 w-4" aria-hidden="true" /></button></div>
             </div>;
           })}
         </div>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-card/40 p-5 shadow-sm">
-        <h2 className="flex items-center gap-2 border-b border-white/10 pb-4 font-bold text-white"><MapPin className="h-5 w-5 text-primary" /> Antar ke alamat</h2>
-        {addresses.length === 0 ? <div className="py-5 text-sm text-muted-foreground">Belum ada alamat tersimpan dengan data penerima. <Link href="/alamat" className="font-semibold text-primary underline">Kelola buku alamat</Link>.</div> : <div className="mt-4 space-y-3">{addresses.map((address) => <label key={address.id} className={`flex cursor-pointer gap-3 rounded-xl border p-4 ${selectedAddressId === address.id ? 'border-primary bg-primary/10' : 'border-white/10 bg-white/5'}`}><input type="radio" name="address" value={address.id} checked={selectedAddressId === address.id} onChange={() => setSelectedAddressId(address.id)} className="mt-1 accent-primary" /><span><span className="block font-semibold text-white">{address.label}</span><span className="block text-sm text-muted-foreground">{address.address}</span><span className="mt-1 block text-xs text-muted-foreground">{address.contact_name || 'Penerima'} · {Number(address.lat) && Number(address.lng) ? 'Koordinat tersedia' : 'Koordinat belum tersedia'}</span></span></label>)}</div>}
+      <section className="rounded-2xl border border-border bg-card/40 p-5 shadow-sm">
+        <h2 className="flex items-center gap-2 border-b border-border pb-4 font-bold text-foreground"><MapPin className="h-5 w-5 text-primary" aria-hidden="true" /> Antar ke alamat</h2>
+        {addresses.length === 0 ? <div className="py-5 text-sm text-muted-foreground">Belum ada alamat tersimpan dengan data penerima. <Link href="/alamat" className="font-semibold text-primary underline">Kelola buku alamat</Link>.</div> : <div className="mt-4 space-y-3">{addresses.map((address) => <label key={address.id} className={`flex cursor-pointer gap-3 rounded-xl border p-4 ${selectedAddressId === address.id ? 'border-primary bg-primary/10' : 'border-border bg-surface-subtle'}`}><input type="radio" name="address" value={address.id} checked={selectedAddressId === address.id} onChange={() => setSelectedAddressId(address.id)} className="mt-1 accent-primary" /><span><span className="block font-semibold text-foreground">{address.label}</span><span className="block text-sm text-muted-foreground">{address.address}</span><span className="mt-1 block text-xs text-muted-foreground">{address.contact_name || 'Penerima'} · {Number(address.lat) && Number(address.lng) ? 'Koordinat tersedia' : 'Koordinat belum tersedia'}</span></span></label>)}</div>}
       </section>
 
-      <div className="flex flex-col items-stretch justify-between gap-4 rounded-2xl border border-primary/20 bg-primary/10 p-5 sm:flex-row sm:items-center"><div><p className="text-sm text-muted-foreground">Estimasi subtotal menu</p><p className="text-2xl font-black text-white">{formatPrice(total)}</p><p className="text-xs text-muted-foreground">Ongkir dan promo dihitung server saat order dibuat.</p></div><button type="button" onClick={submitReorder} disabled={submitting || !selectedAddress || !check.merchant_open || availableItems.length === 0} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShoppingBag className="h-5 w-5" />} Buat Pesanan Lagi</button></div>
-      <p className="flex items-start gap-2 text-xs text-muted-foreground"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> Harga, merchant, availability, varian, dan ongkir tetap divalidasi ulang oleh backend. Halaman ini tidak memakai data mock.</p>
+      <div className="flex flex-col items-stretch justify-between gap-4 rounded-2xl border border-primary/20 bg-primary/10 p-5 sm:flex-row sm:items-center"><div><p className="text-sm text-muted-foreground">Estimasi subtotal menu</p><p className="text-2xl font-black text-foreground">{formatPrice(total)}</p><p className="text-xs text-muted-foreground">Ongkir dan promo dihitung server saat order dibuat.</p></div><button type="button" onClick={submitReorder} disabled={submitting || !selectedAddress || !check.merchant_open || availableItems.length === 0} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{submitting ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <ShoppingBag className="h-5 w-5" aria-hidden="true" />} Buat Pesanan Lagi</button></div>
+      <p className="flex items-start gap-2 text-xs text-muted-foreground"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" /> Harga, merchant, availability, varian, dan ongkir tetap divalidasi ulang oleh backend. Halaman ini tidak memakai data mock.</p>
     </div>
   );
 }

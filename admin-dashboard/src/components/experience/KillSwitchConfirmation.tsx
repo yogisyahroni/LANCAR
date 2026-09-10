@@ -32,24 +32,24 @@ export default function KillSwitchConfirmation({
 }: Props) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="kill-switch-confirm-title">
-      <div className="w-full max-w-xl rounded-3xl border border-red-500/30 bg-zinc-950 p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 p-4" role="dialog" aria-modal="true" aria-labelledby="kill-switch-confirm-title">
+      <div className="w-full max-w-xl rounded-3xl border border-error bg-background p-6 shadow-2xl">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="mt-1 shrink-0 text-amber-300" size={22} />
+          <AlertTriangle className="mt-1 shrink-0 text-warning" size={22} aria-hidden="true" />
           <div>
-            <h2 id="kill-switch-confirm-title" className="text-lg font-black text-zinc-100">Konfirmasi service control</h2>
-            <p className="mt-1 text-xs text-zinc-500">Perubahan ini akan dicatat sebagai high-severity operational action dan dikirim ke channel ops.</p>
+            <h2 id="kill-switch-confirm-title" className="text-lg font-black text-foreground-muted">Konfirmasi service control</h2>
+            <p className="mt-1 text-xs text-foreground-muted">Perubahan ini akan dicatat sebagai high-severity operational action dan dikirim ke channel ops.</p>
           </div>
         </div>
-        <div className="mt-5 space-y-3 rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4 text-sm text-zinc-300">
-          <p><strong className="text-zinc-100">{active ? 'Aktifkan' : 'Nonaktifkan'}</strong> <code className="text-primary-light">{switchType}</code> untuk <code className="text-primary-light">{serviceCode || 'service belum diisi'}</code>.</p>
-          <p className="text-xs leading-relaxed text-zinc-400">{impactFor(switchType)}</p>
-          <p className="text-xs text-zinc-400">Active orders dipertahankan: <strong className="text-zinc-200">{preserveActiveOrders ? 'ya' : 'tidak'}</strong>.</p>
-          <p className="text-xs text-zinc-400">Alasan: <strong className="text-zinc-200">{reason || 'belum diisi'}</strong></p>
+        <div className="mt-5 space-y-3 rounded-2xl border border-warning bg-warning/[0.06] p-4 text-sm text-on-warning">
+          <p><strong className="text-foreground-muted">{active ? 'Aktifkan' : 'Nonaktifkan'}</strong> <code className="text-primary-light">{switchType}</code> untuk <code className="text-primary-light">{serviceCode || 'service belum diisi'}</code>.</p>
+          <p className="text-xs leading-relaxed text-foreground-muted">{impactFor(switchType)}</p>
+          <p className="text-xs text-foreground-muted">Active orders dipertahankan: <strong className="text-foreground-muted">{preserveActiveOrders ? 'ya' : 'tidak'}</strong>.</p>
+          <p className="text-xs text-foreground-muted">Alasan: <strong className="text-foreground-muted">{reason || 'belum diisi'}</strong></p>
         </div>
         <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onCancel} disabled={busy} className="rounded-xl border border-white/10 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-zinc-400">Batal</button>
-          <button type="button" onClick={onConfirm} disabled={busy || !reason.trim()} className="rounded-xl bg-red-600 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50">{busy ? 'Menyimpan...' : active ? 'Aktifkan control' : 'Nonaktifkan control'}</button>
+          <button type="button" onClick={onCancel} disabled={busy} className="rounded-xl border border-border px-4 py-2.5 text-xs font-black uppercase tracking-widest text-foreground-muted">Batal</button>
+          <button type="button" onClick={onConfirm} disabled={busy || !reason.trim()} className="rounded-xl bg-error px-4 py-2.5 text-xs font-black uppercase tracking-widest text-on-error disabled:opacity-50">{busy ? 'Menyimpan...' : active ? 'Aktifkan control' : 'Nonaktifkan control'}</button>
         </div>
       </div>
     </div>

@@ -104,10 +104,10 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         return (
           <div className="flex items-center gap-2">
             {status === 'valid' ? (
-              <CheckCircle2 className="w-4 h-4 text-brand-emerald-500" />
+              <CheckCircle2 className="w-4 h-4 text-success" aria-hidden="true" />
             ) : (
               <div className="group relative flex items-center">
-                <AlertCircle className="w-4 h-4 text-destructive" />
+                <AlertCircle className="w-4 h-4 text-destructive" aria-hidden="true" />
                 <div className="absolute left-full ml-2 hidden w-48 rounded bg-destructive p-2 text-xs text-destructive-foreground group-hover:block z-10">
                   {errors?.join(', ')}
                 </div>
@@ -123,9 +123,10 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         if (editingRowId === info.row.original.id) {
           return (
             <input
+              aria-label={`Nama penerima baris ${info.row.original.id}`}
               value={editForm.recipient_name}
               onChange={e => setEditForm({...editForm, recipient_name: e.target.value})}
-              className="w-full rounded border border-white/10 bg-background/50 px-2 py-1 text-sm"
+              className="w-full rounded border border-border bg-background/50 px-2 py-1 text-sm"
             />
           );
         }
@@ -138,9 +139,10 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         if (editingRowId === info.row.original.id) {
           return (
             <input
+              aria-label={`Nomor HP penerima baris ${info.row.original.id}`}
               value={editForm.recipient_phone}
               onChange={e => setEditForm({...editForm, recipient_phone: e.target.value})}
-              className="w-full rounded border border-white/10 bg-background/50 px-2 py-1 text-sm"
+              className="w-full rounded border border-border bg-background/50 px-2 py-1 text-sm"
             />
           );
         }
@@ -153,9 +155,10 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         if (editingRowId === info.row.original.id) {
           return (
             <input
+              aria-label={`Alamat tujuan baris ${info.row.original.id}`}
               value={editForm.dropoff_address}
               onChange={e => setEditForm({...editForm, dropoff_address: e.target.value})}
-              className="w-full rounded border border-white/10 bg-background/50 px-2 py-1 text-sm"
+              className="w-full rounded border border-border bg-background/50 px-2 py-1 text-sm"
             />
           );
         }
@@ -168,9 +171,10 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         if (editingRowId === info.row.original.id) {
           return (
             <select
+              aria-label={`Kategori barang baris ${info.row.original.id}`}
               value={editForm.category}
               onChange={e => setEditForm({...editForm, category: e.target.value})}
-              className="w-32 rounded border border-white/10 bg-background/50 px-2 py-1 text-sm"
+              className="w-32 rounded border border-border bg-background/50 px-2 py-1 text-sm"
             >
               <option value="document">document</option>
               <option value="food">food</option>
@@ -190,11 +194,12 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         if (editingRowId === info.row.original.id) {
           return (
             <input
+              aria-label={`Berat paket baris ${info.row.original.id}`}
               type="number"
               step="0.1"
               value={editForm.weight_kg}
               onChange={e => setEditForm({...editForm, weight_kg: e.target.value})}
-              className="w-20 rounded border border-white/10 bg-background/50 px-2 py-1 text-sm"
+              className="w-20 rounded border border-border bg-background/50 px-2 py-1 text-sm"
             />
           );
         }
@@ -212,13 +217,14 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
               {(['length', 'width', 'height'] as const).map((key) => (
                 <input
                   key={key}
+                  aria-label={`${key === 'length' ? 'Panjang' : key === 'width' ? 'Lebar' : 'Tinggi'} paket baris ${info.row.original.id}`}
                   type="number"
                   value={editForm.dimensions?.[key] || 0}
                   onChange={e => setEditForm({
                     ...editForm,
                     dimensions: { ...editForm.dimensions, [key]: Number(e.target.value) }
                   })}
-                  className="w-14 rounded border border-white/10 bg-background/50 px-1 py-1 text-xs"
+                  className="w-14 rounded border border-border bg-background/50 px-1 py-1 text-xs"
                 />
               ))}
             </div>
@@ -234,9 +240,10 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         if (editingRowId === info.row.original.id) {
           return (
             <select
+              aria-label={`Layanan pengiriman baris ${info.row.original.id}`}
               value={editForm.service_code}
               onChange={e => setEditForm({...editForm, service_code: e.target.value})}
-              className="w-40 rounded border border-white/10 bg-background/50 px-2 py-1 text-xs"
+              className="w-40 rounded border border-border bg-background/50 px-2 py-1 text-xs"
             >
               <option value="tembus_prioritas">Prioritas (Max 2)</option>
               <option value="tembus_instant">Instant (Max 2)</option>
@@ -255,7 +262,7 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
           'tembus_sameday': 'Sameday (Max 5)',
           'tembus_mobil': 'Mobil (Min 10)'
         };
-        return <span className="text-xs font-medium px-2 py-1 bg-white/5 rounded-md border border-white/10">{labels[code] || code}</span>;
+        return <span className="text-xs font-medium px-2 py-1 bg-surface-subtle rounded-md border border-border">{labels[code] || code}</span>;
       }
     }),
     columnHelper.display({
@@ -274,23 +281,23 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         if (editingRowId === rowId) {
           return (
             <div className="flex gap-2">
-              <button onClick={saveEdit} disabled={isSaving} className="text-brand-emerald-500 hover:text-brand-emerald-400">
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              <button type="button" onClick={saveEdit} disabled={isSaving} aria-label="Simpan perubahan item" className="text-success hover:text-success">
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Save className="w-4 h-4" aria-hidden="true" />}
               </button>
-              <button onClick={cancelEdit} disabled={isSaving} className="text-muted-foreground hover:text-foreground">
-                <X className="w-4 h-4" />
+              <button type="button" onClick={cancelEdit} disabled={isSaving} aria-label="Batalkan perubahan item" className="text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
           );
         }
         return (
           <div className="flex gap-2">
-            <button onClick={() => startEdit(info.row.original)} className="text-primary hover:text-primary/80" title="Edit">
-              <Edit2 className="w-4 h-4" />
-            </button>
-            <button onClick={() => deleteRows({ row_ids: [rowId] })} className="text-destructive hover:text-destructive/80" title="Hapus">
-              <Trash2 className="w-4 h-4" />
-            </button>
+              <button type="button" onClick={() => startEdit(info.row.original)} className="text-primary hover:text-primary/80" title="Edit" aria-label={`Edit item ${rowId}`}>
+              <Edit2 className="w-4 h-4" aria-hidden="true" />
+              </button>
+            <button type="button" onClick={() => deleteRows({ row_ids: [rowId] })} className="text-destructive hover:text-destructive/80" title="Hapus" aria-label={`Hapus item ${rowId}`}>
+              <Trash2 className="w-4 h-4" aria-hidden="true" />
+              </button>
           </div>
         );
       }
@@ -317,7 +324,7 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         </div>
 
         <div className="flex gap-4">
-          <div className="flex flex-col items-center bg-brand-emerald-500/10 text-brand-emerald-500 px-4 py-2 rounded-lg border border-brand-emerald-500/20">
+          <div className="flex flex-col items-center bg-success/10 text-success px-4 py-2 rounded-lg border border-success/20">
             <span className="text-xl font-bold">{validCount}</span>
             <span className="text-xs uppercase tracking-wider">Valid</span>
           </div>
@@ -328,20 +335,22 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-subtle p-4 md:flex-row md:items-center md:justify-between">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <input
+            aria-label="Cari data order bulk"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Cari penerima, HP, alamat, kategori..."
-            className="w-full rounded-lg border border-white/10 bg-background/50 py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-lg border border-border bg-background/50 py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
         <select
+          aria-label="Filter status data order bulk"
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value as any)}
-          className="rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm"
+          className="rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm"
         >
           <option value="all">Semua</option>
           <option value="valid">Valid</option>
@@ -353,7 +362,7 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
           disabled={errorCount === 0 || isSaving}
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm font-semibold text-destructive hover:bg-destructive/15 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
           Hapus Semua Error
         </button>
       </div>
@@ -362,25 +371,25 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         Total valid: <b>{validCount} order</b> dengan estimasi pembayaran <b>Rp {totalPrice.toLocaleString('id-ID')}</b>.
       </div>
 
-      <div className="rounded-xl border border-white/10 bg-background/50 overflow-hidden">
+      <div className="rounded-xl border border-border bg-background/50 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-muted/50 text-muted-foreground border-b border-white/10">
+            <thead className="bg-muted/50 text-muted-foreground border-b border-border">
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map(header => (
-                    <th key={header.id} className="px-4 py-3 font-medium whitespace-nowrap">
+                    <th scope="col" key={header.id} className="px-4 py-3 font-medium whitespace-nowrap">
                       {flexRender(header.column.columnDef.header, header.getContext())}
                     </th>
                   ))}
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-border">
               {table.getRowModel().rows.map(row => (
                 <tr
                   key={row.id}
-                  className={`${row.original.status === 'error' ? 'bg-destructive/5' : 'hover:bg-white/5'} transition-colors`}
+                  className={`${row.original.status === 'error' ? 'bg-destructive/5' : 'hover:bg-surface-subtle'} transition-colors`}
                 >
                   {row.getVisibleCells().map(cell => (
                     <td key={cell.id} className="px-4 py-3">

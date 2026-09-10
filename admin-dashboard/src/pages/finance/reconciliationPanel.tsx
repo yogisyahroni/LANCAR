@@ -9,6 +9,7 @@ import { id as localeId } from 'date-fns/locale';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 import { ConfirmPayoutModal, type PayoutReviewAction } from '../../components/ConfirmPayoutModal';
 import type { FinanceData } from '../useFinanceData';
+import { StatusBadge } from '../../components/StatusBadge';
 
 export function ReconciliationPanel({ data }: { data: FinanceData }) {
   const {
@@ -138,31 +139,31 @@ export function ReconciliationPanel({ data }: { data: FinanceData }) {
         <div className="space-y-8 animate-in">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-zinc-100">Wallet & Ledger Reconciliation Center</h2>
-              <p className="text-sm text-zinc-400 mt-1">
+              <h2 className="text-2xl font-bold text-foreground-muted">Wallet & Ledger Reconciliation Center</h2>
+              <p className="text-sm text-foreground-muted mt-1">
                 Audit otomatis secara real-time saldo wallet, ledger akuntansi, dan transaksi penyelesaian.
               </p>
             </div>
             <button
               onClick={() => runReconciliationMutation.mutate()}
               disabled={runReconciliationMutation.isPending}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-sm shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-on-primary font-bold text-sm shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
             >
               {runReconciliationMutation.isPending ? (
-                <Loader2 size={16} className="animate-spin" />
+                <Loader2 size={16} className="animate-spin" aria-hidden="true" />
               ) : (
-                <ShieldCheck size={16} />
+                <ShieldCheck size={16} aria-hidden="true" />
               )}
               Jalankan Rekonsiliasi Sekarang
             </button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 p-4 rounded-2xl bg-zinc-900 border border-white/5">
-            <span className="text-xs font-black uppercase tracking-widest text-zinc-500">Filter audit</span>
+          <div className="flex flex-wrap items-center gap-3 p-4 rounded-2xl bg-surface border border-border">
+            <span className="text-xs font-black uppercase tracking-widest text-foreground-muted">Filter audit</span>
             <select
               value={reconciliationServiceFilter}
               onChange={(e) => setReconciliationServiceFilter(e.target.value)}
-              className="bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none"
+              className="bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground outline-none"
               aria-label="Filter layanan rekonsiliasi"
             >
               <option value="">Semua layanan</option>
@@ -177,61 +178,54 @@ export function ReconciliationPanel({ data }: { data: FinanceData }) {
               value={reconciliationProviderFilter}
               onChange={(e) => setReconciliationProviderFilter(e.target.value)}
               placeholder="Provider"
-              className="bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none w-36"
+              className="bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground outline-none w-36"
               aria-label="Filter provider rekonsiliasi"
             />
             <input
               type="date"
               value={ledgerStartDate}
               onChange={(e) => setLedgerStartDate(e.target.value)}
-              className="bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none"
+              className="bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground outline-none"
               aria-label="Tanggal mulai rekonsiliasi"
             />
             <input
               type="date"
               value={ledgerEndDate}
               onChange={(e) => setLedgerEndDate(e.target.value)}
-              className="bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none"
+              className="bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground outline-none"
               aria-label="Tanggal akhir rekonsiliasi"
             />
           </div>
 
-          <div className="glass-card p-6 rounded-3xl border-white/5">
+          <div className="glass-card p-6 rounded-3xl border-border">
             {isLoadingRecon ? (
               <div className="py-12 flex justify-center">
-                <Loader2 size={32} className="text-primary animate-spin" />
+                <Loader2 size={32} className="text-primary animate-spin" aria-hidden="true" />
               </div>
             ) : reconciliationSummary && reconciliationSummary.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {reconciliationSummary.map((item: any, idx: number) => (
-                  <div key={idx} className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
+                  <div key={idx} className="p-5 rounded-2xl bg-surface/[0.03] border border-border space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-black uppercase tracking-wider text-zinc-400">
+                      <span className="text-xs font-black uppercase tracking-wider text-foreground-muted">
                         {item.domain || item.name || `Domain #${idx + 1}`}
                       </span>
-                      <span className={cn(
-                        "px-2.5 py-1 rounded-full text-xs font-bold uppercase",
-                        item.status === 'balanced' || item.mismatches === 0
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                          : "bg-red-500/10 text-red-400 border border-red-500/20"
-                      )}>
-                        {item.status || (item.mismatches === 0 ? 'Balanced' : 'Mismatch Found')}
-                      </span>
+                      <StatusBadge status={item.status || (item.mismatches === 0 ? 'balanced' : 'mismatch')} label={item.status || (item.mismatches === 0 ? 'Seimbang' : 'Ditemukan mismatch')} labelPrefix="Reconciliation status" className="text-xs uppercase" />
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="p-3 rounded-xl bg-black/20">
-                        <p className="text-[10px] text-zinc-500 uppercase font-bold">Matched</p>
-                        <p className="text-lg font-black text-zinc-200 mt-1">{item.matched_count || item.matched || 0}</p>
+                      <div className="p-3 rounded-xl bg-surface-subtle">
+                        <p className="text-[10px] text-foreground-muted uppercase font-bold">Matched</p>
+                        <p className="text-lg font-black text-foreground-muted mt-1">{item.matched_count || item.matched || 0}</p>
                       </div>
-                      <div className="p-3 rounded-xl bg-black/20">
-                        <p className="text-[10px] text-zinc-500 uppercase font-bold">Mismatches</p>
-                        <p className="text-lg font-black text-red-400 mt-1">{item.mismatch_count || item.mismatches || 0}</p>
+                      <div className="p-3 rounded-xl bg-surface-subtle">
+                        <p className="text-[10px] text-foreground-muted uppercase font-bold">Mismatches</p>
+                        <p className="text-lg font-black text-error mt-1">{item.mismatch_count || item.mismatches || 0}</p>
                       </div>
                     </div>
                     {item.discrepancy_idr !== undefined && (
-                      <div className="pt-2 border-t border-white/5 flex justify-between text-xs">
-                        <span className="text-zinc-500">Discrepancy:</span>
-                        <span className="font-bold text-zinc-300">
+                      <div className="pt-2 border-t border-border flex justify-between text-xs">
+                        <span className="text-foreground-muted">Discrepancy:</span>
+                        <span className="font-bold text-foreground-muted">
                           Rp {Number(item.discrepancy_idr || 0).toLocaleString('id-ID')}
                         </span>
                       </div>
@@ -240,7 +234,7 @@ export function ReconciliationPanel({ data }: { data: FinanceData }) {
                 ))}
               </div>
             ) : (
-              <div className="py-12 text-center text-zinc-500 text-sm">
+              <div className="py-12 text-center text-foreground-muted text-sm">
                 Belum ada riwayat rekonsiliasi. Klik tombol &quot;Jalankan Rekonsiliasi Sekarang&quot; untuk memulai audit.
               </div>
             )}

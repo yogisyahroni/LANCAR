@@ -8,12 +8,16 @@ import { api } from '../lib/api'
 import {
   CARTO_DARK_ATTRIBUTION,
   CARTO_DARK_TILE_URL,
+  CARTO_LIGHT_ATTRIBUTION,
+  CARTO_LIGHT_TILE_URL,
   TOMTOM_RASTER_ATTRIBUTION,
   TomTomRuntimeUnavailable,
   isTomTomRuntimeReady,
   tomTomRasterTileUrl,
   useMapsRuntimeConfig
 } from './TomTomMapsRuntime'
+import { useTheme } from '../providers/ThemeProvider'
+import { OrderStatusBadge } from './OrderStatusBadge'
 
 // Fix for default marker icons in Leaflet + React
 import icon from 'leaflet/dist/images/marker-icon.png'
@@ -99,7 +103,9 @@ const shouldUseNextCourierPoint = (current: CourierPoint, next: CourierPoint) =>
 }
 
 export default function LiveMap() {
-  const [mapTheme, setMapTheme] = useState<'dark' | 'light'>('dark')
+  const { resolvedTheme } = useTheme()
+  const [mapThemeOverride, setMapThemeOverride] = useState<'dark' | 'light' | null>(null)
+  const mapTheme = mapThemeOverride ?? resolvedTheme
   const { data: courierPoints = [], isLoading, isError } = useQuery<CourierPoint[]>({
     queryKey: ['admin-live-courier-heat-data'],
     queryFn: async () => {
@@ -148,25 +154,23 @@ export default function LiveMap() {
   const shouldRenderTomTom = isTomTomRuntimeReady(mapsRuntimeConfig)
   const tileUrl = shouldRenderTomTom
     ? tomTomRasterTileUrl(mapsRuntimeConfig?.tomtom_maps?.browser_api_key || '', mapTheme === 'dark' ? 'night' : 'main')
-    : CARTO_DARK_TILE_URL
+    : resolvedTheme === 'dark' ? CARTO_DARK_TILE_URL : CARTO_LIGHT_TILE_URL
   const tileAttribution = shouldRenderTomTom
     ? TOMTOM_RASTER_ATTRIBUTION
-    : CARTO_DARK_ATTRIBUTION
+    : resolvedTheme === 'dark' ? CARTO_DARK_ATTRIBUTION : CARTO_LIGHT_ATTRIBUTION
 
   return (
-    <div className="h-full w-full rounded-2xl overflow-hidden relative border border-white/5 shadow-2xl">
+    <div role="region" aria-label="Peta kurir dan order aktif" className="h-full w-full rounded-2xl overflow-hidden relative border border-border shadow-2xl">
       <MapContainer
         center={center}
         zoom={13}
         scrollWheelZoom={false}
         attributionControl={false}
-        style={{ height: '100%', width: '100%', background: '#09090b' }}
-      >
-        <AttributionControl prefix={false} />
+        style={{ height: '100%', width: '100%', background: 'var(--token-background)' }} aria-hidden="true">
+        <AttributionControl prefix={false} aria-hidden="true" />
         <TileLayer
           attribution={tileAttribution}
-          url={tileUrl}
-        />
+          url={tileUrl} aria-hidden="true" />
 
         {uniqueCourierPoints.map((point: CourierPoint, index: number) => {
           const lat = Number(point.lat)
@@ -174,9 +178,9 @@ export default function LiveMap() {
           if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
           const online = isCourierOnline(point)
           return (
-            <Marker key={getCourierPointKey(point, index)} position={[lat, lng]} icon={online ? onlineCourierIcon : offlineCourierIcon}>
+            <Marker key={getCourierPointKey(point, index)} position={[lat, lng]} icon={online ? onlineCourierIcon : offlineCourierIcon} aria-hidden="true">
               <Popup>
-                <div className="text-zinc-900 font-sans">
+                <div className="text-foreground-muted font-sans">
                   <p className="font-bold">{online ? 'Kurir siap menerima order' : 'Kurir tidak aktif'}</p>
                   <p className="text-xs">Weight: {Number(point.weight || 0).toFixed(1)}</p>
                   {point.last_location_at && (
@@ -192,11 +196,13 @@ export default function LiveMap() {
           const lng = Number(order.longitude)
           if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
           return (
-            <Marker key={`order:${order.id}`} position={[lat, lng]} icon={activeOrderIcon}>
+            <Marker key={`order:${order.id}`} position={[lat, lng]} icon={activeOrderIcon} aria-hidden="true">
               <Popup>
-                <div className="text-zinc-900 font-sans">
+                <div className="text-foreground-muted font-sans">
                   <p className="font-bold">Order {order.order_number || order.id.slice(0, 8)}</p>
-                  <p className="text-xs">Status: {order.status || 'aktif'}</p>
+                  <p className="flex flex-wrap items-center gap-1.5 text-xs">
+                    Status: <OrderStatusBadge status={order.status || 'active'} className="px-1.5 py-0 text-[10px]" />
+                  </p>
                   <p className="text-xs">Kurir: {order.courier_name || 'Belum ditugaskan'}</p>
                   {order.last_location_at && <p className="text-xs">Posisi: {new Date(order.last_location_at).toLocaleTimeString()}</p>}
                 </div>
@@ -211,63 +217,63 @@ export default function LiveMap() {
       )}
 
       {!isLoading && !isError && onlineCourierCount === 0 && (
-        <div className="absolute inset-x-4 top-20 z-[1000] glass-card rounded-2xl border-white/10 p-4 text-sm text-zinc-300">
+        <div role="status" aria-live="polite" className="absolute inset-x-4 top-20 z-[1000] glass-card rounded-2xl border-border p-4 text-sm text-foreground-muted">
           Belum ada kurir duty aktif. Peta tetap memantau lokasi terakhir yang tersedia.
         </div>
       )}
       {isError && (
-        <div className="absolute inset-x-4 top-20 z-[1000] rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-100">
+        <div role="alert" aria-live="assertive" className="absolute inset-x-4 top-20 z-[1000] rounded-2xl border border-error bg-error-surface p-4 text-sm text-error">
           Lokasi kurir belum bisa dimuat.
         </div>
       )}
       {activeOrdersError && (
-        <div className="absolute inset-x-4 top-36 z-[1000] rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4 text-sm text-orange-100">
+        <div role="alert" aria-live="assertive" className="absolute inset-x-4 top-36 z-[1000] rounded-2xl border border-accent bg-accent-surface p-4 text-sm text-accent">
           Layer order aktif belum bisa dimuat.
         </div>
       )}
 
       {shouldRenderTomTom && (
-        <div className="absolute right-4 top-4 z-[1000] rounded-2xl border border-white/10 bg-zinc-950/80 p-1 shadow-xl shadow-black/30 backdrop-blur-xl">
+        <div className="absolute right-4 top-4 z-[1000] rounded-2xl border border-border bg-surface-subtle p-1 shadow-xl shadow-scrim backdrop-blur-xl">
           <div className="grid grid-cols-2 gap-1">
             <button
               type="button"
-              onClick={() => setMapTheme('dark')}
+              onClick={() => setMapThemeOverride('dark')}
               className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${
                 mapTheme === 'dark'
-                  ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                  : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-200'
+                  ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
+                  : 'text-foreground-secondary hover:bg-surface-subtle hover:text-foreground'
               }`}
             >
-              <Moon size={13} />
+              <Moon size={13} aria-hidden="true" />
               Dark
             </button>
             <button
               type="button"
-              onClick={() => setMapTheme('light')}
+              onClick={() => setMapThemeOverride('light')}
               className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${
                 mapTheme === 'light'
-                  ? 'bg-white text-zinc-950 shadow-lg shadow-white/10'
-                  : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-200'
+                  ? 'bg-surface text-foreground-muted shadow-lg shadow-surface-raised'
+                  : 'text-foreground-muted hover:bg-surface-subtle hover:text-foreground-muted'
               }`}
             >
-              <Sun size={13} />
+              <Sun size={13} aria-hidden="true" />
               Light
             </button>
           </div>
         </div>
       )}
 
-      <div className="absolute bottom-4 left-4 z-[1000] glass-card p-3 rounded-xl text-xs space-y-2 border-white/10">
+      <div className="absolute bottom-4 left-4 z-[1000] glass-card p-3 rounded-xl text-xs space-y-2 border-border">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-primary-light" />
           <span>Siap menerima order ({onlineCourierCount})</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-zinc-500" />
+          <div className="w-3 h-3 rounded-full bg-surface-subtle" />
           <span>Tidak aktif ({offlineCourierCount})</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rotate-45 rounded-sm bg-orange-500" />
+          <div className="h-3 w-3 rotate-45 rounded-sm bg-accent" />
           <span>Order aktif ({activeOrdersLoading ? '…' : activeOrders.length})</span>
         </div>
       </div>

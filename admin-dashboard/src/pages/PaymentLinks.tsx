@@ -18,6 +18,7 @@ import {
   Package
 } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { StatusBadge } from '../components/StatusBadge'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { format, differenceInHours } from 'date-fns'
@@ -32,12 +33,12 @@ function PaymentLinkDataState({ title, message, onRetry, tone = 'muted' }: { tit
   return (
     <div className={cn(
       "col-span-full py-20 text-center space-y-4 rounded-[40px] border",
-      isError ? "bg-red-500/5 border-red-500/20" : "glass-card border-dashed border-white/10"
+      isError ? "bg-error-surface border-error" : "glass-card border-dashed border-border"
     )}>
-      <AlertCircle className={cn("mx-auto", isError ? "text-red-400" : "text-zinc-800")} size={48} />
+      <AlertCircle className={cn("mx-auto", isError ? "text-error" : "text-foreground-muted")} size={48} aria-hidden="true" />
       <div>
-        <p className="text-zinc-200 font-black italic uppercase tracking-widest">{title}</p>
-        <p className="text-xs text-zinc-600 mt-2">{message}</p>
+        <p className="text-foreground-muted font-black italic uppercase tracking-widest">{title}</p>
+        <p className="text-xs text-foreground-muted mt-2">{message}</p>
       </div>
       {onRetry && (
         <button
@@ -45,10 +46,10 @@ function PaymentLinkDataState({ title, message, onRetry, tone = 'muted' }: { tit
           onClick={onRetry}
           className={cn(
             "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all",
-            isError ? "bg-red-500/10 border-red-500/20 text-red-300 hover:bg-red-500/20" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white"
+            isError ? "bg-error-surface border-error text-error hover:bg-error-surface" : "bg-surface-subtle border-border text-foreground-muted hover:text-foreground"
           )}
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={14} aria-hidden="true" />
           Retry
         </button>
       )}
@@ -107,7 +108,7 @@ export default function PaymentLinks() {
   if (isLoading) {
     return (
       <div className="h-[80vh] flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <Loader2 className="w-12 h-12 text-primary animate-spin" aria-hidden="true" />
       </div>
     );
   }
@@ -121,27 +122,28 @@ export default function PaymentLinks() {
     <div className="space-y-8 animate-in pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-zinc-100 tracking-tight italic uppercase">Payment Links</h1>
-          <p className="text-zinc-500 mt-1">Generate digital invoice links to share with customers via WhatsApp.</p>
+          <h1 className="text-3xl font-black text-foreground-muted tracking-tight italic uppercase">Payment Links</h1>
+          <p className="text-foreground-muted mt-1">Generate digital invoice links to share with customers via WhatsApp.</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="px-6 py-3 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+          className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
         >
-          <Plus size={18} />
+          <Plus size={18} aria-hidden="true" />
           Create Link
         </button>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:w-96 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-primary-light transition-colors" size={18} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted group-focus-within:text-primary-light transition-colors" size={18} aria-hidden="true" />
           <input 
+            aria-label="Search payment links by item name or ID"
             type="text" 
             placeholder="Search by item name or ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-zinc-600"
+            className="w-full bg-surface-subtle border border-border rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-foreground-muted"
           />
         </div>
       </div>
@@ -165,10 +167,10 @@ export default function PaymentLinks() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
               key={link.id}
-              className="glass-card p-8 rounded-[40px] border-white/5 group hover:border-white/10 transition-all overflow-hidden relative"
+              className="glass-card p-8 rounded-[40px] border-border group hover:border-border transition-all overflow-hidden relative"
             >
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                 <LinkIcon size={120} />
+                 <LinkIcon size={120} aria-hidden="true" />
               </div>
 
               <div className="flex items-start justify-between relative z-10">
@@ -177,24 +179,18 @@ export default function PaymentLinks() {
                     <div className="px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary-light font-black text-sm tracking-wider font-mono">
                       {link.id.split('-')[0]}...
                     </div>
-                    <span className={cn(
-                      "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                      isPaid ? "bg-emerald-500/10 text-emerald-400" : 
-                      isExpired ? "bg-red-500/10 text-red-400" : "bg-amber-500/10 text-amber-400"
-                    )}>
-                      {link.status}
-                    </span>
+                    <StatusBadge status={link.status} labelPrefix="Payment link status" className="text-[10px] uppercase tracking-widest" />
                   </div>
                   <div className="flex gap-4">
                     {link.item_image_url && (
-                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 shrink-0">
+                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-surface-subtle border border-border shrink-0">
                             <img src={link.item_image_url} alt={link.item_name} className="w-full h-full object-cover" />
                         </div>
                     )}
                     <div>
-                        <h4 className="font-bold text-zinc-100 text-lg">{link.item_name}</h4>
-                        <p className="text-sm font-medium text-zinc-400 mt-1">Item: <span className="text-emerald-400 font-bold">Rp {link.item_price?.toLocaleString()}</span></p>
-                        <p className="text-[10px] text-zinc-500 mt-2 italic font-medium">
+                        <h4 className="font-bold text-foreground-muted text-lg">{link.item_name}</h4>
+                        <p className="text-sm font-medium text-foreground-muted mt-1">Item: <span className="text-success font-bold">Rp {link.item_price?.toLocaleString()}</span></p>
+                        <p className="text-[10px] text-foreground-muted mt-2 italic font-medium">
                         Ongkir Estimate: Rp {link.delivery_fee_amount?.toLocaleString() || 0}
                         </p>
                     </div>
@@ -202,24 +198,24 @@ export default function PaymentLinks() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-8 mt-8 pt-8 border-t border-white/5 relative z-10">
+              <div className="grid grid-cols-2 gap-8 mt-8 pt-8 border-t border-border relative z-10">
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-                       <MapPin size={12} /> Destination
+                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                       <MapPin size={12} aria-hidden="true" /> Destination
                     </p>
-                    <p className="text-xs font-bold text-zinc-400 mt-3 tracking-tight line-clamp-2">
+                    <p className="text-xs font-bold text-foreground-muted mt-3 tracking-tight line-clamp-2">
                       {link.dropoff_address}
                     </p>
                  </div>
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-                       <Clock size={12} /> Expiration
+                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                       <Clock size={12} aria-hidden="true" /> Expiration
                     </p>
-                    <p className="text-xs font-bold text-zinc-200 mt-3">{format(new Date(link.expired_at), 'dd MMM yyyy HH:mm')}</p>
+                    <p className="text-xs font-bold text-foreground-muted mt-3">{format(new Date(link.expired_at), 'dd MMM yyyy HH:mm')}</p>
                     <div className="flex items-center gap-1.5 mt-2">
                        <p className={cn(
                          "text-[10px] font-black uppercase tracking-wider",
-                         !isExpired ? "text-primary-light" : "text-red-400"
+                         !isExpired ? "text-primary-light" : "text-error"
                        )}>
                         {!isExpired ? 'Active' : 'Expired'}
                        </p>
@@ -233,11 +229,11 @@ export default function PaymentLinks() {
                    disabled={isExpired || isPaid}
                    className={cn(
                        "flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border flex items-center justify-center gap-2",
-                       copiedId === link.id ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-white/5 text-zinc-300 hover:bg-primary/20 hover:text-primary-light border-white/5 hover:border-primary/20",
+                       copiedId === link.id ? "bg-success-surface text-success border-success" : "bg-surface-subtle text-foreground-muted hover:bg-primary/20 hover:text-primary-light border-border hover:border-primary/20",
                        (isExpired || isPaid) ? "opacity-50 cursor-not-allowed" : ""
                    )}
                  >
-                    {copiedId === link.id ? <Check size={16} /> : <Copy size={16} />}
+                    {copiedId === link.id ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
                     {copiedId === link.id ? 'Copied!' : 'Copy Link'}
                  </button>
               </div>
@@ -245,9 +241,9 @@ export default function PaymentLinks() {
           )
         })}
         {!isError && (!filteredLinks || filteredLinks.length === 0) && (
-          <div className="col-span-full py-20 text-center space-y-4 glass-card rounded-[40px] border-dashed border-white/10">
-            <LinkIcon className="mx-auto text-zinc-800" size={48} />
-            <p className="text-zinc-500 font-black italic uppercase tracking-widest">
+          <div className="col-span-full py-20 text-center space-y-4 glass-card rounded-[40px] border-dashed border-border">
+            <LinkIcon className="mx-auto text-foreground-muted" size={48} aria-hidden="true" />
+            <p className="text-foreground-muted font-black italic uppercase tracking-widest">
               No payment links generated yet
             </p>
           </div>
@@ -335,53 +331,53 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-subtle backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-2xl bg-zinc-900 border border-white/10 rounded-[48px] overflow-hidden shadow-2xl shadow-primary/10 my-8"
+        className="w-full max-w-2xl bg-surface border border-border rounded-[48px] overflow-hidden shadow-2xl shadow-primary/10 my-8"
       >
         <div className="p-10 space-y-8">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-black text-zinc-100 italic uppercase tracking-tight">
+              <h2 className="text-2xl font-black text-foreground-muted italic uppercase tracking-tight">
                 Generate Payment Link
               </h2>
-              <p className="text-zinc-500 text-xs mt-1 font-medium">Create a new invoice for your customer.</p>
+              <p className="text-foreground-muted text-xs mt-1 font-medium">Create a new invoice for your customer.</p>
             </div>
-            <button onClick={onClose} className="p-3 rounded-2xl bg-white/5 text-zinc-500 hover:text-white transition-all">
-              <X size={20} />
+            <button type="button" onClick={onClose} aria-label="Tutup detail tautan pembayaran" className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
+              <X size={20} aria-hidden="true" />
             </button>
           </div>
 
           <div className="grid grid-cols-2 gap-8">
             <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] flex items-center gap-2"><Package size={14}/> Item Name</label>
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><Package size={14} aria-hidden="true" /> Item Name</label>
               <input 
                 value={formData.item_name}
                 onChange={e => setFormData({ ...formData, item_name: e.target.value })}
                 placeholder="e.g. Kue Kering Lebaran"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Item Price (Rp)</label>
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Item Price (Rp)</label>
               <input 
                 type="number"
                 value={formData.item_price}
                 onChange={e => setFormData({ ...formData, item_price: Number(e.target.value) })}
                 placeholder="50000"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] flex items-center gap-2">Pilihan Layanan</label>
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2">Pilihan Layanan</label>
               <select 
                 value={formData.service_code}
                 onChange={e => setFormData({ ...formData, service_code: e.target.value })}
-                className="w-full bg-zinc-900 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                className="w-full bg-surface border border-border rounded-2xl py-4 px-6 text-foreground-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                 disabled={isLoadingServices}
               >
                 {isLoadingServices ? (
@@ -397,54 +393,54 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
             </div>
 
             <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] flex items-center gap-2"><ImageIcon size={14}/> Image URL</label>
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><ImageIcon size={14} aria-hidden="true" /> Image URL</label>
               <input 
                 value={formData.item_image_url}
                 onChange={e => setFormData({ ...formData, item_image_url: e.target.value })}
                 placeholder="https://..."
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
 
-            <div className="space-y-2 col-span-2 border-t border-white/5 pt-6">
-              <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">Origin & Destination</h3>
+            <div className="space-y-2 col-span-2 border-t border-border pt-6">
+              <h3 className="text-xs font-black text-foreground-muted uppercase tracking-widest mb-4">Origin & Destination</h3>
             </div>
 
             <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14}/> Pickup Address (Your Store)</label>
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Pickup Address (Your Store)</label>
               <textarea 
                 value={formData.pickup_address}
                 onChange={e => { setFormData({ ...formData, pickup_address: e.target.value }); setGeocodeError(''); }}
                 placeholder="Alamat lengkap tokomu beserta patokan..."
                 rows={2}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
               />
             </div>
 
             <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14}/> Dropoff Address (Customer)</label>
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Dropoff Address (Customer)</label>
               <textarea 
                 value={formData.dropoff_address}
                 onChange={e => { setFormData({ ...formData, dropoff_address: e.target.value }); setGeocodeError(''); }}
                 placeholder="Alamat lengkap pembeli beserta patokan..."
                 rows={3}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
               />
             </div>
           </div>
 
           {geocodeError && (
-            <div className="px-6 py-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-400">
-              <AlertCircle size={18} />
+            <div className="px-6 py-4 bg-error-surface border border-error rounded-2xl flex items-center gap-3 text-error">
+              <AlertCircle size={18} aria-hidden="true" />
               <p className="text-xs font-bold">{geocodeError}</p>
             </div>
           )}
 
-          <div className="pt-8 border-t border-white/5 flex items-center justify-end">
+          <div className="pt-8 border-t border-border flex items-center justify-end">
             <div className="flex gap-4">
               <button 
                 onClick={onClose}
-                className="px-8 py-4 rounded-2xl bg-zinc-800 text-zinc-400 font-black text-xs uppercase tracking-widest hover:text-white transition-all"
+                className="px-8 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
               >
                 Cancel
               </button>
@@ -460,9 +456,9 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                   !formData.item_image_url || 
                   !formData.service_code
                 }
-                className="px-10 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {(isSaving || isGeocoding) ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+                {(isSaving || isGeocoding) ? <Loader2 className="animate-spin" size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
                 {isGeocoding ? 'Mencari Titik...' : 'Generate Link'}
               </button>
             </div>

@@ -1,4 +1,6 @@
 import {
+  EXPERIENCE_COMPONENT_ACCESSIBILITY_CONTRACT,
+  EXPERIENCE_SURFACE_COMPONENTS,
   parseExperienceManifestInput,
   pickExperienceManifest,
   type ExperienceManifestCandidate,
@@ -53,6 +55,17 @@ const candidate = (overrides: Partial<ExperienceManifestCandidate> = {}): Experi
 });
 
 describe('runtime experience contract fuzz corpus', () => {
+  it('requires an explicit accessibility contract for every allowlisted component', () => {
+    const allowlistedComponents = new Set(Object.values(EXPERIENCE_SURFACE_COMPONENTS).flat());
+    expect(Object.keys(EXPERIENCE_COMPONENT_ACCESSIBILITY_CONTRACT).sort()).toEqual([...allowlistedComponents].sort());
+
+    for (const contract of Object.values(EXPERIENCE_COMPONENT_ACCESSIBILITY_CONTRACT)) {
+      expect(contract.static_fallback).toBe(true);
+      expect(contract.presentation_only).toBe(true);
+      expect(contract.media_semantics).toMatch(/^(none|alt_label_or_decorative)$/);
+    }
+  });
+
   it('rejects arbitrary components and protected transaction fields across generated inputs', () => {
     const protectedFields = ['price', 'payment', 'eligibility', 'order_state', 'provider', 'transaction'];
 

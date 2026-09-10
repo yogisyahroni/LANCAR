@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
 import { AdminPageSkeleton } from '../components/ui/Skeleton'
+import { StatusBadge } from '../components/StatusBadge'
 
 const documentLabels: Record<string, string> = {
   ktp: 'e-KTP Asli',
@@ -111,13 +112,13 @@ export default function CourierApplications() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-100">{channelLabels[channel]} Courier Review</h1>
-          <p className="mt-2 text-sm text-zinc-500">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground-muted">{channelLabels[channel]} Courier Review</h1>
+          <p className="mt-2 text-sm text-foreground-muted">
             Review pendaftaran kurir berdasarkan jalur operasional sebelum akun aktif.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <div className="flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+          <div className="flex rounded-2xl border border-border bg-surface/[0.03] p-1">
             {Object.entries(channelLabels).map(([key, label]) => (
               <button
                 key={key}
@@ -128,14 +129,14 @@ export default function CourierApplications() {
                 }}
                 className={cn(
                   'rounded-xl px-4 py-2 text-sm font-bold transition',
-                  channel === key ? 'bg-primary text-white' : 'text-zinc-400 hover:text-white'
+                  channel === key ? 'bg-primary text-on-primary' : 'text-foreground-muted hover:text-foreground'
                 )}
               >
                 {label}
               </button>
             ))}
           </div>
-          <div className="flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+          <div className="flex rounded-2xl border border-border bg-surface/[0.03] p-1">
             {['pending', 'approved', 'rejected', 'all'].map((item) => (
             <button
               key={item}
@@ -146,7 +147,7 @@ export default function CourierApplications() {
               }}
               className={cn(
                 'rounded-xl px-4 py-2 text-sm font-bold capitalize transition',
-                status === item ? 'bg-primary text-white' : 'text-zinc-400 hover:text-white'
+                status === item ? 'bg-primary text-on-primary' : 'text-foreground-muted hover:text-foreground'
               )}
             >
               {item}
@@ -157,17 +158,17 @@ export default function CourierApplications() {
       </div>
 
       {isLoading ? <AdminPageSkeleton /> : <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03]">
-          <div className="border-b border-white/10 p-5">
-            <p className="text-sm font-bold text-zinc-100">{applications.length} kandidat {channelLabels[channel]}</p>
-            <p className="mt-1 text-xs text-zinc-500">Klik kandidat untuk membuka detail review.</p>
+        <div className="rounded-3xl border border-border bg-surface/[0.03]">
+          <div className="border-b border-border p-5">
+            <p className="text-sm font-bold text-foreground-muted">{applications.length} kandidat {channelLabels[channel]}</p>
+            <p className="mt-1 text-xs text-foreground-muted">Klik kandidat untuk membuka detail review.</p>
           </div>
 
           <div className="max-h-[680px] overflow-y-auto p-3">
             {isLoading ? (
-              <div className="p-6 text-sm text-zinc-500">Loading applications...</div>
+              <div className="p-6 text-sm text-foreground-muted">Loading applications...</div>
             ) : applications.length === 0 ? (
-              <div className="p-6 text-sm text-zinc-500">Belum ada kandidat pada status ini.</div>
+              <div className="p-6 text-sm text-foreground-muted">Belum ada kandidat pada status ini.</div>
             ) : applications.map((item: any) => {
               const itemChecklist = item.onboarding_checklist || {}
               const passed = Object.keys(documentLabels).every((key) => Boolean((itemChecklist.documents || {})[key]))
@@ -179,20 +180,20 @@ export default function CourierApplications() {
                   onClick={() => setSelected(item)}
                   className={cn(
                     'mb-2 w-full rounded-2xl border p-4 text-left transition',
-                    active?.id === item.id ? 'border-primary bg-primary/10' : 'border-white/10 bg-zinc-950/50 hover:bg-white/[0.06]'
+                    active?.id === item.id ? 'border-primary bg-primary/10' : 'border-border bg-surface-subtle hover:bg-surface/[0.06]'
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-bold text-zinc-100">{item.full_name}</p>
-                      <p className="mt-1 text-xs text-zinc-500">{item.phone_number} • {item.vehicle_plate}</p>
+                      <p className="font-bold text-foreground-muted">{item.full_name}</p>
+                      <p className="mt-1 text-xs text-foreground-muted">{item.phone_number} • {item.vehicle_plate}</p>
                     </div>
-                    {passed ? <CheckCircle2 className="h-5 w-5 text-emerald-400" /> : <AlertTriangle className="h-5 w-5 text-amber-300" />}
+                    {passed ? <CheckCircle2 className="h-5 w-5 text-success" aria-hidden="true" /> : <AlertTriangle className="h-5 w-5 text-warning"  aria-hidden="true"/>}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase">
-                    <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.verification_status}</span>
-                    <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.vehicle_cc || 0} cc</span>
-                    <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.document_count} docs</span>
+                    <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">{item.verification_status}</span>
+                    <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">{item.vehicle_cc || 0} cc</span>
+                    <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">{item.document_count} docs</span>
                   </div>
                 </button>
               )
@@ -200,18 +201,18 @@ export default function CourierApplications() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-3xl border border-border bg-surface/[0.03] p-6">
           {!active ? (
-            <div className="flex min-h-[520px] items-center justify-center text-zinc-500">Pilih kandidat untuk review.</div>
+            <div className="flex min-h-[520px] items-center justify-center text-foreground-muted">Pilih kandidat untuk review.</div>
           ) : (
             <div className="space-y-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">Courier Applicant</p>
-                  <h2 className="mt-2 text-3xl font-black text-zinc-100">{active.full_name}</h2>
-                  <p className="mt-1 text-sm text-zinc-500">{active.email || 'No email'} • {active.phone_number}</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Courier Applicant</p>
+                  <h2 className="mt-2 text-3xl font-black text-foreground-muted">{active.full_name}</h2>
+                  <p className="mt-1 text-sm text-foreground-muted">{active.email || 'No email'} • {active.phone_number}</p>
                 </div>
-                <StatusBadge status={active.verification_status} />
+                <StatusBadge status={active.verification_status} labelPrefix="Applicant status" />
               </div>
 
               <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-3">
@@ -242,7 +243,7 @@ export default function CourierApplications() {
 
               <ReviewSection title="Eligibility Layanan">
                 {serviceCapabilities.length === 0 ? (
-                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-500">
+                  <div className="rounded-xl border border-border bg-surface/[0.03] px-4 py-3 text-sm text-foreground-muted">
                     Belum ada capability. Simpan ulang status kandidat untuk generate layanan dari kendaraan utama.
                   </div>
                 ) : serviceCapabilities.map((item: any) => (
@@ -257,8 +258,8 @@ export default function CourierApplications() {
                 ))}
               </ReviewSection>
 
-              <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-5">
-                <p className="text-sm font-bold text-zinc-100">Rekening Payout</p>
+              <div className="rounded-2xl border border-border bg-surface-subtle p-5">
+                <p className="text-sm font-bold text-foreground-muted">Rekening Payout</p>
                 <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
                   <Meta label="Bank" value={active.bank_code} />
                   <Meta label="Nomor Rekening" value={active.bank_account_number} />
@@ -271,7 +272,7 @@ export default function CourierApplications() {
                   type="button"
                   onClick={() => updateStatus.mutate({ id: active.id, nextStatus: 'Active' })}
                   disabled={updateStatus.isPending || !allPassed}
-                  className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-xl bg-success px-5 py-3 text-sm font-bold text-on-success transition hover:bg-success disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Approve Courier
                 </button>
@@ -279,13 +280,13 @@ export default function CourierApplications() {
                   type="button"
                   onClick={() => updateStatus.mutate({ id: active.id, nextStatus: 'Rejected', reason: 'Dokumen atau kendaraan belum memenuhi syarat on-demand' })}
                   disabled={updateStatus.isPending}
-                  className="rounded-xl bg-red-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-red-500 disabled:opacity-50"
+                  className="rounded-xl bg-error px-5 py-3 text-sm font-bold text-on-error transition hover:bg-error disabled:opacity-50"
                 >
                   Reject
                 </button>
                 {!allPassed && (
-                  <p className="flex items-center gap-2 text-sm text-amber-300">
-                    <AlertTriangle className="h-4 w-4" />
+                  <p className="flex items-center gap-2 text-sm text-warning">
+                    <AlertTriangle className="h-4 w-4"  aria-hidden="true"/>
                     Kandidat belum memenuhi semua requirement.
                   </p>
                 )}
@@ -298,33 +299,20 @@ export default function CourierApplications() {
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const approved = status === 'approved'
-  const rejected = status === 'rejected'
-  return (
-    <span className={cn(
-      'rounded-full px-3 py-1 text-xs font-black uppercase',
-      approved ? 'bg-emerald-500/10 text-emerald-300' : rejected ? 'bg-red-500/10 text-red-300' : 'bg-amber-500/10 text-amber-300'
-    )}>
-      {status}
-    </span>
-  )
-}
-
 function InfoCard({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
-      <Icon className="h-5 w-5 text-primary-light" />
-      <p className="mt-3 text-xs font-bold uppercase text-zinc-500">{label}</p>
-      <p className="mt-1 text-sm font-bold text-zinc-100">{value}</p>
+    <div className="rounded-2xl border border-border bg-surface-subtle p-4">
+      <Icon className="h-5 w-5 text-primary-light" aria-hidden="true" />
+      <p className="mt-3 text-xs font-bold uppercase text-foreground-muted">{label}</p>
+      <p className="mt-1 text-sm font-bold text-foreground-muted">{value}</p>
     </div>
   )
 }
 
 function ReviewSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-5">
-      <p className="text-sm font-bold text-zinc-100">{title}</p>
+    <div className="rounded-2xl border border-border bg-surface-subtle p-5">
+      <p className="text-sm font-bold text-foreground-muted">{title}</p>
       <div className="mt-4 grid gap-3 md:grid-cols-2">{children}</div>
     </div>
   )
@@ -333,21 +321,21 @@ function ReviewSection({ title, children }: { title: string; children: React.Rea
 function ChecklistRow({ label, passed, fileUrl }: { label: string; passed: boolean; fileUrl?: string }) {
   const href = resolveUploadUrl(fileUrl)
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface/[0.03] px-4 py-3">
       <div className="min-w-0">
-        <span className="text-sm text-zinc-300">{label}</span>
+        <span className="text-sm text-foreground-muted">{label}</span>
         {href && (
           <a
             href={href}
             target="_blank"
             rel="noreferrer"
-            className="mt-1 flex items-center gap-1 text-xs font-bold text-primary-light hover:text-white"
+            className="mt-1 flex items-center gap-1 text-xs font-bold text-primary-light hover:text-foreground"
           >
-            Buka dokumen <ExternalLink className="h-3 w-3" />
+            Buka dokumen <ExternalLink className="h-3 w-3" aria-hidden="true" />
           </a>
         )}
       </div>
-      {passed ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" /> : <XCircle className="h-5 w-5 shrink-0 text-red-400" />}
+      {passed ? <CheckCircle2 className="h-5 w-5 shrink-0 text-success" aria-hidden="true" /> : <XCircle className="h-5 w-5 shrink-0 text-error" aria-hidden="true" />}
     </div>
   )
 }
@@ -368,27 +356,22 @@ function ServiceCapabilityRow({
   const enabled = item.status === 'enabled'
   const rejected = item.status === 'rejected'
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+    <div className="rounded-xl border border-border bg-surface/[0.03] px-4 py-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-bold text-zinc-100">{item.service_name || item.service_code}</p>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="text-sm font-bold text-foreground-muted">{item.service_name || item.service_code}</p>
+          <p className="mt-1 text-xs text-foreground-muted">
             {item.service_code} • {item.service_category || '-'} • max {item.max_weight_kg || 0} kg
           </p>
         </div>
-        <span className={cn(
-          'rounded-full px-2 py-1 text-[10px] font-black uppercase',
-          enabled ? 'bg-emerald-500/10 text-emerald-300' : rejected ? 'bg-red-500/10 text-red-300' : 'bg-amber-500/10 text-amber-300'
-        )}>
-          {item.status}
-        </span>
+        <StatusBadge status={item.status} labelPrefix="Service capability status" className="text-[10px] uppercase" />
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={onEnable}
           disabled={disabled || enabled}
-          className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg bg-success px-3 py-2 text-xs font-bold text-on-success disabled:cursor-not-allowed disabled:opacity-40"
         >
           Enable
         </button>
@@ -396,7 +379,7 @@ function ServiceCapabilityRow({
           type="button"
           onClick={onDisable}
           disabled={disabled || item.status === 'disabled'}
-          className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg bg-surface-raised px-3 py-2 text-xs font-bold text-foreground-muted disabled:cursor-not-allowed disabled:opacity-40"
         >
           Disable
         </button>
@@ -404,7 +387,7 @@ function ServiceCapabilityRow({
           type="button"
           onClick={onReject}
           disabled={disabled || rejected}
-          className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg bg-error px-3 py-2 text-xs font-bold text-on-error disabled:cursor-not-allowed disabled:opacity-40"
         >
           Reject
         </button>
@@ -416,9 +399,8 @@ function ServiceCapabilityRow({
 function Meta({ label, value }: { label: string; value?: string }) {
   return (
     <div>
-      <p className="text-xs font-bold uppercase text-zinc-500">{label}</p>
-      <p className="mt-1 font-bold text-zinc-100">{value || '-'}</p>
+      <p className="text-xs font-bold uppercase text-foreground-muted">{label}</p>
+      <p className="mt-1 font-bold text-foreground-muted">{value || '-'}</p>
     </div>
   )
 }
-

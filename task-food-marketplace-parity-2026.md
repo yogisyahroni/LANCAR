@@ -3059,8 +3059,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 **Icon baseline**
 - Customer Web dan Admin sudah memakai `lucide-react`; jadikan Lucide sebagai **single default functional icon family** agar tidak menambah icon pack kedua tanpa alasan.
 
-- [ ] Re-measure seluruh token pair dengan WCAG contrast calculator/script saat implementasi; angka approximate di atas hanya audit clue dan bukan substitute untuk automated + manual verification.
-- [ ] Existing good baseline seperti `:focus-visible` dan `prefers-reduced-motion` dipertahankan/hardened, bukan dihapus saat theme refactor.
+- [x] Re-measure seluruh token pair dengan WCAG contrast calculator/script saat implementasi; angka approximate di atas hanya audit clue dan bukan substitute untuk automated + manual verification.
+- [x] Existing good baseline seperti `:focus-visible` dan `prefers-reduced-motion` dipertahankan/hardened, bukan dihapus saat theme refactor.
 
 ---
 
@@ -3092,10 +3092,10 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - no decorative gradient behind dense table/form content
 
 **Checklist**
-- [ ] Customer and Admin share brand language but do not force identical density/layout.
-- [ ] Critical transactional/operational content remains readable without blur/transparency support.
-- [ ] Decorative style never overrides accessibility or information hierarchy.
-- [ ] Define reference screenshots/components for both Light and Dark before migrating pages.
+- [x] Customer and Admin share brand language but do not force identical density/layout.
+- [x] Critical transactional/operational content remains readable without blur/transparency support.
+- [ ] Decorative style never overrides accessibility or information hierarchy. Representative route scans pass; full supported-route visual review remains open in `docs/task-evidence/VISUAL-2026-001.md`.
+- [x] Define reference screenshots/components for both Light and Dark before migrating pages. Evidence: `docs/task-evidence/VISUAL-2026-001.md`
 
 ---
 
@@ -3135,12 +3135,12 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `overlay/scrim`
 
 **Checklist**
-- [ ] Every semantic token has Light and Dark value with documented intended use.
-- [ ] `on-*` token chosen from contrast result, not assumption that white text always works.
-- [ ] Components consume semantic tokens; forbid raw `#hex`, `text-zinc-*`, `bg-zinc-*`, `text-white`, `bg-black` for ordinary themed surfaces except documented special cases.
-- [ ] Brand colors may remain fixed but their foreground/surface pairing changes if required for AA.
-- [ ] Borders required to identify controls/components meet non-text contrast; decorative separators may be lower only when not necessary to perceive the control.
-- [ ] Token checker fails CI for registered invalid contrast pairs.
+- [x] Every semantic token has Light and Dark value with documented intended use.
+- [x] `on-*` token chosen from contrast result, not assumption that white text always works.
+- [x] Components consume semantic tokens; forbid raw `#hex`, `text-zinc-*`, `bg-zinc-*`, `text-white`, `bg-black` for ordinary themed surfaces except documented special cases. Full `frontend/src` and `admin-dashboard/src` source guard passes with 14 documented rendering-boundary exceptions; evidence: `docs/task-evidence/VISUAL-2026-002.md`.
+- [x] Brand colors may remain fixed but their foreground/surface pairing changes if required for AA. Evidence: `docs/task-evidence/VISUAL-2026-002.md`
+- [x] Borders required to identify controls/components meet non-text contrast; decorative separators may be lower only when not necessary to perceive the control.
+- [x] Token checker fails CI for registered invalid contrast pairs.
 
 ---
 
@@ -3158,14 +3158,14 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `frontend/src/hooks/useTheme.ts`
 
 **Checklist**
-- [ ] Remove forced global `className="dark"` from root as the permanent theme decision.
-- [ ] Support explicit `light`, `dark`, `system` values.
-- [ ] `system` reacts to `prefers-color-scheme` changes.
-- [ ] User preference persists across sessions using appropriate local persistence/cookie strategy.
-- [ ] Avoid flash of incorrect theme before hydration; theme bootstrap runs early and safely.
-- [ ] SSR/client hydration does not produce persistent mismatch warning.
-- [ ] Theme toggle has accessible name/state and keyboard support.
-- [ ] If remote config provides market default theme, explicit user preference wins unless there is a documented product reason otherwise.
+- [x] Remove forced global `className="dark"` from root as the permanent theme decision.
+- [x] Support explicit `light`, `dark`, `system` values.
+- [x] `system` reacts to `prefers-color-scheme` changes.
+- [x] User preference persists across sessions using appropriate local persistence/cookie strategy.
+- [x] Avoid flash of incorrect theme before hydration; theme bootstrap runs early and safely.
+- [x] SSR/client hydration does not produce persistent mismatch warning. Evidence: `docs/task-evidence/VISUAL-2026-003.md` (public `/login` bootstrap/reload browser proof; no matching hydration-warning console messages).
+- [x] Theme toggle has accessible name/state and keyboard support.
+- [x] If remote config provides market default theme, explicit user preference wins unless there is a documented product reason otherwise. N/A today: the public Experience manifest has no remote `theme_mode`; `theme_mode` is limited to Admin preview simulation, while Customer theme is owned by the local/system preference contract. Evidence: `docs/task-evidence/VISUAL-2026-003.md`.
 
 ---
 
@@ -3184,13 +3184,13 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `admin-dashboard/src/hooks/useTheme.ts`
 
 **Checklist**
-- [ ] Remove hardcoded dark `body` background/text and replace with semantic theme tokens.
-- [ ] Refactor sidebar/header/cards/tables/modals/toasts/forms to semantic tokens before claiming Light Mode support.
-- [ ] Support `light`, `dark`, `system`; persist admin preference.
-- [ ] Sidebar selected/hover/focus state readable in both themes.
-- [ ] Dense table rows, sticky headers, pagination, filters and dropdowns work in both themes.
-- [ ] Existing `glass-card` is no longer default operational card; use solid surface card for data-dense views.
-- [ ] Theme switching does not reset form state, filters, route or in-progress Admin Experience draft.
+- [x] Remove hardcoded dark `body` background/text and replace with semantic theme tokens.
+- [x] Refactor sidebar/header/cards/tables/modals/toasts/forms to semantic tokens before claiming Light Mode support. Full source hardcode guard and registered 70-route Admin Light/Dark axe/reflow inventories pass; evidence: `docs/task-evidence/VISUAL-2026-004.md`.
+- [x] Support `light`, `dark`, `system`; persist admin preference.
+- [x] Sidebar selected/hover/focus state readable in both themes. Evidence: `docs/task-evidence/VISUAL-2026-004.md` (Admin browser assertion passes active icon/text pairing and visible focus in Light/Dark).
+- [x] Dense table rows, sticky headers, pagination, filters and dropdowns work in both themes. Evidence: `docs/task-evidence/VISUAL-2026-004.md` (populated Admin Orders browser fixture passes sticky-header, payment-filter, pagination and Light→Dark state assertions).
+- [x] Existing `glass-card` is no longer default operational card; use solid surface card for data-dense views.
+- [x] Theme switching does not reset form state, filters, route or in-progress Admin Experience draft. Evidence: `docs/task-evidence/VISUAL-2026-004.md` (Admin browser tests preserve App Experience draft field/route and Orders filter while switching theme).
 
 ---
 
@@ -3218,10 +3218,10 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 **Checklist**
 - [ ] Success/warning/error/info use icon + text/label + color, not color alone.
 - [ ] Order/payment/provider statuses use readable label and optionally icon; green/red badge alone is insufficient.
-- [ ] Charts provide legend/label/pattern/shape or direct values so series are distinguishable without color perception alone.
+- [x] Charts provide legend/label/pattern/shape or direct values so series are distinguishable without color perception alone. Evidence: `docs/task-evidence/A11Y-2026-006.md`
 - [ ] Form errors include text and field relationship, not only red border.
 - [ ] Selected navigation/tab/row uses position/indicator/icon/text weight or other non-color cue.
-- [ ] Links inside body text are identifiable by more than a subtle hue difference; provide underline or equivalent non-color affordance at least in relevant states.
+- [x] Links inside body text are identifiable by more than a subtle hue difference; provide underline or equivalent non-color affordance at least in relevant states. Evidence: `docs/task-evidence/A11Y-2026-002.md`
 
 ---
 
@@ -3232,11 +3232,11 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - page headings/forms/tables with arbitrary font sizes
 
 **Checklist**
-- [ ] Keep Inter/system sans baseline unless brand typography intentionally changes globally.
-- [ ] Define tokens for display/page title/section title/body/body-small/label/caption/table-cell.
+- [x] Keep Inter/system sans baseline unless brand typography intentionally changes globally. Evidence: `docs/task-evidence/A11Y-2026-003.md`
+- [x] Define tokens for display/page title/section title/body/body-small/label/caption/table-cell. Evidence: `docs/task-evidence/A11Y-2026-003.md`
 - [ ] Essential body/label text is not made tiny merely to fit dense Admin layouts.
 - [ ] Font weight hierarchy remains readable in both themes; do not depend on low-contrast gray for hierarchy alone.
-- [ ] Layout survives WCAG text-spacing overrides without clipping/overlap/loss of content.
+- [x] Layout survives WCAG text-spacing overrides without clipping/overlap/loss of content. Full Customer 27/27 and Admin 70/70 route inventories pass at 320px with runtime/overflow assertions; evidence: `docs/task-evidence/A11Y-2026-003.md`.
 - [ ] Do not use uppercase + extreme tracking for long operational labels.
 - [ ] Truncated content has accessible/full-content path where information is required.
 
@@ -3262,8 +3262,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - consistent stroke width approximately 1.75–2 unless icon-specific optical correction is documented
 
 **Checklist**
-- [ ] Do not mix Lucide line icon, filled Material icon, emoji and random SVG styles in one functional navigation system.
-- [ ] Decorative icon uses `aria-hidden="true"` when adjacent text already provides the name.
+- [x] Do not mix Lucide line icon, filled Material icon, emoji and random SVG styles in one functional navigation system. Evidence: `docs/task-evidence/ICON-2026-001.md`
+- [x] Decorative icon uses `aria-hidden="true"` when adjacent text already provides the name. Evidence: `docs/task-evidence/ICON-2026-001.md`
 - [ ] Icon-only button has accessible name (`aria-label`/equivalent) and visible tooltip where useful.
 - [ ] Essential meaning is not encoded only in icon shape; critical/destructive actions have visible label in high-risk contexts.
 - [ ] Custom SVG allowed only where Lucide lacks adequate service meaning; normalize viewBox/stroke/optical size and document it.
@@ -3294,8 +3294,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 **Checklist**
 - [ ] Service icon semantics consistent across dashboard, order creation, history/detail and empty states.
-- [ ] Do not reuse same generic truck icon for both Aggregator and Towing if surrounding context cannot distinguish them.
-- [ ] Marketing 3D/illustration assets may exist in hero/service campaign cards, but transactional navigation retains accessible functional icon + text.
+- [x] Do not reuse same generic truck icon for both Aggregator and Towing if surrounding context cannot distinguish them. Evidence: `docs/task-evidence/ICON-2026-002.md`
+- [x] Marketing 3D/illustration assets may exist in hero/service campaign cards, but transactional navigation retains accessible functional icon + text. Evidence: `docs/task-evidence/ICON-2026-002.md`
 
 ---
 
@@ -3321,7 +3321,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] One concept has one canonical icon throughout sidebar, page title and actions unless context materially changes meaning.
 - [ ] Avoid multiple near-identical icons for destructive actions; delete/cancel/block must be semantically explicit with labels/confirmation.
 - [ ] Table row action icons expose accessible names and keyboard focus.
-- [ ] Collapsed sidebar provides tooltip/accessibility name for every icon.
+- [x] Collapsed sidebar provides tooltip/accessibility name for every icon. Evidence: `docs/task-evidence/ICON-2026-003.md`
 
 ---
 
@@ -3337,7 +3337,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Error message associated to field with `aria-describedby`/equivalent where appropriate.
 - [ ] Checkbox/radio/switch expose name, role, state and disabled state correctly.
 - [ ] Icon-only controls have accessible name.
-- [ ] Skip-to-content or equivalent exists for long Customer/Admin shell navigation where appropriate.
+- [x] Skip-to-content or equivalent exists for long Customer/Admin shell navigation where appropriate.
 
 ---
 
@@ -3346,8 +3346,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 **Checklist**
 - [ ] Toast does not disappear before essential action/message can be perceived; critical error also persists in page context when needed.
 - [ ] Async success/error announcements use suitable live-region semantics without flooding screen readers.
-- [ ] Destructive Admin actions show icon + verb + target + impact; color alone is not confirmation.
-- [ ] `marketing_hide`, `new_order_gate`, `provider_gate`, `checkout_gate` remain visually/verbally distinct in both themes.
+- [x] Destructive Admin actions show icon + verb + target + impact; color alone is not confirmation. Evidence: `docs/task-evidence/A11Y-2026-005.md` (authenticated service-control confirmation matrix).
+- [x] `marketing_hide`, `new_order_gate`, `provider_gate`, `checkout_gate` remain visually/verbally distinct in both themes. Evidence: `docs/task-evidence/A11Y-2026-005.md` (authenticated Chromium impact-copy matrix).
 - [ ] Warning/error text meets contrast even on tinted semantic surfaces.
 - [ ] Disabled state is visually distinct from enabled while preserving enough readability for context; do not use opacity so low that labels effectively disappear.
 
@@ -3356,14 +3356,14 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 ## A11Y-2026-006 — Tables, charts, maps and dense Admin data [P0/P1]
 
 **Tables**
-- [ ] Header/cell semantics are correct; sortable columns expose sort state.
+ - [x] Header/cell semantics are correct; every explicit application `<th>` declares `scope`, and no interactive sortable-column control exists in the current Admin surface that requires `aria-sort`. Evidence: `docs/task-evidence/A11Y-2026-006.md` and `scripts/a11y/check-table-semantics.mjs`.
 - [ ] Row hover/selection/focus states are distinguishable in both themes without color alone.
-- [ ] Sticky header/background does not become transparent over scrolling text.
+- [x] Sticky header/background does not become transparent over scrolling text. Evidence: `docs/task-evidence/A11Y-2026-006.md` (Admin Orders populated browser fixture asserts the sticky header row has a solid background in Light/Dark).
 - [ ] Horizontal overflow has deliberate responsive strategy; essential actions remain reachable.
 
 **Charts**
 - [ ] Chart colors pass applicable non-text contrast against background where needed.
-- [ ] Meaning is available through legend/direct label/value/table/accessible summary, not color alone.
+- [x] Meaning is available through legend/direct label/value/table/accessible summary, not color alone. Evidence: `docs/task-evidence/A11Y-2026-006.md`
 - [ ] Tooltip is keyboard/accessibility reachable or equivalent data representation exists.
 
 **Maps**
@@ -3379,9 +3379,9 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Text over banner/image/animation uses deterministic solid/scrim/gradient overlay whose final contrast is validated at worst-case image area.
 - [ ] Do not approve text-over-image by checking only one sample asset; CMS preview/validator must account for configured text surface.
 - [ ] Critical transactional copy is not placed directly on arbitrary campaign art.
-- [ ] Glass/translucent cards are prohibited for dense/critical content unless effective background contrast remains guaranteed.
-- [ ] Informative images have meaningful alt text; decorative images use empty alt/aria-hidden as appropriate.
-- [ ] Animation/campaign content honors reduced-motion strategy and has static fallback when needed.
+- [x] Glass/translucent cards are prohibited for dense/critical content unless effective background contrast remains guaranteed.
+- [x] Informative images have meaningful alt text; decorative images use empty alt/aria-hidden as appropriate.
+- [x] Animation/campaign content honors reduced-motion strategy and has static fallback when needed.
 
 ---
 
@@ -3390,7 +3390,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 **Checklist**
 - [ ] Customer Web critical flows work at narrow mobile viewport and desktop without loss of content/action.
 - [ ] Admin provides deliberate compact/mobile fallback for critical emergency/approval tasks even if full desktop is preferred.
-- [ ] Verify WCAG 1.4.10 reflow behavior at equivalent 320 CSS px width where applicable; no mandatory two-dimensional scrolling except content that inherently requires it such as maps/data tables with accessible alternative strategy.
+- [x] Verify WCAG 1.4.10 reflow behavior at equivalent 320 CSS px width where applicable; no mandatory two-dimensional scrolling except content that inherently requires it such as maps/data tables with accessible alternative strategy. Customer 27/27 and Admin 70/70 route inventories pass at 320px and 640px CSS-equivalent widths; evidence: `docs/task-evidence/A11Y-2026-008.md`.
 - [ ] Verify browser zoom to 200% without clipped modal, hidden CTA, overlapping labels or inaccessible sticky elements.
 - [ ] Text wrapping/localized long strings do not break icon/button alignment.
 
@@ -3444,12 +3444,12 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `backend/experience-service/` validation path
 
 **Checklist**
-- [ ] Admin preview can switch candidate content between Light/Dark/System contexts.
-- [ ] CMS blocks publish when configured text/on-surface combination fails registered AA contrast rule.
-- [ ] Banner editor requires alt/decorative semantics and safe text surface choice.
-- [ ] Runtime design-token editor cannot publish a token pair that breaks protected WCAG combinations.
-- [ ] Dynamic component schema includes accessible name/heading/alt fields where applicable.
-- [ ] New remote component type cannot become production-approved until accessibility contract is defined and tested.
+- [x] Admin preview can switch candidate content between Light/Dark/System contexts. Evidence: `docs/task-evidence/A11Y-2026-010.md`
+- [x] CMS blocks publish when configured text/on-surface combination fails registered AA contrast rule.
+- [x] Banner editor requires alt/decorative semantics and safe text surface choice.
+- [x] Runtime design-token editor cannot publish a token pair that breaks protected WCAG combinations. Evidence: `docs/task-evidence/A11Y-2026-010.md` (bounded editor/API rejection and authenticated server-rejection GUI proof).
+- [x] Dynamic component schema includes accessible name/heading/alt fields where applicable.
+- [x] New remote component type cannot become production-approved until accessibility contract is defined and tested.
 
 ---
 
@@ -3471,12 +3471,12 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `docs/accessibility/manual-audit-matrix.md`
 
 **Checklist**
-- [ ] Automated scan covers representative authenticated/unauthenticated Customer routes and all high-risk Admin route groups.
-- [ ] Run scans in Light and Dark, plus System resolved to both variants in test.
-- [ ] CI fails on configured serious/critical automated accessibility regressions.
-- [ ] Color-token test computes ratios rather than relying on visual review.
-- [ ] Visual regression screenshots catch accidental white-on-white, black-on-black, dark-only component and transparent table regressions.
-- [ ] Automated tooling is explicitly documented as incomplete; manual keyboard/screen-reader/zoom/contrast review remains release requirement.
+- [x] Automated scan covers authenticated/unauthenticated Customer routes and all registered high-risk Admin route groups. Customer inventory 56/56 and Admin inventory 142/142 pass in Light/Dark, including mobile shell cases; manual and staging/provider-backed review remains open in `docs/task-evidence/A11Y-2026-011.md`.
+- [x] Run scans in Light and Dark, plus System resolved to both variants in test. Evidence: `docs/task-evidence/A11Y-2026-011.md`
+- [x] CI fails on configured serious/critical automated accessibility regressions.
+- [x] Color-token test computes ratios rather than relying on visual review.
+- [x] Visual regression screenshots catch accidental white-on-white, black-on-black, dark-only component and transparent table regressions. Evidence: `docs/task-evidence/A11Y-2026-011.md`
+- [x] Automated tooling is explicitly documented as incomplete; manual keyboard/screen-reader/zoom/contrast review remains release requirement.
 
 ---
 
@@ -3539,8 +3539,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Use native semantic HTML/control first before custom ARIA recreation.
 - [ ] Heading hierarchy is meaningful; do not choose heading level for font size.
 - [ ] Landmarks/navigation/main regions are identifiable.
-- [ ] Accessible name of visible-label controls contains/matches visible label intent.
-- [ ] Status messages can be perceived without forcing focus jump.
+- [x] Accessible name of visible-label controls contains/matches visible label intent. Customer 56/56 and Admin 142/142 route/mobile inventory cases enforce this at runtime. Evidence: `docs/task-evidence/A11Y-2026-013.md`.
+- [x] Status messages can be perceived without forcing focus jump. Visible `role="alert"`/`role="status"` regions are required to expose non-empty accessible content in the route inventory. Evidence: `docs/task-evidence/A11Y-2026-013.md`.
 
 ---
 
@@ -3551,11 +3551,11 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `admin-dashboard/src/`
 
 **Checklist**
-- [ ] Inventory raw hex/rgb/hsl and Tailwind palette utility usage in components.
-- [ ] Convert ordinary themed surface/text/border colors to semantic tokens.
-- [ ] Maintain small documented allowlist for brand artwork, carrier logos, map-provider styles, data visualization series and genuinely fixed external-brand colors.
-- [ ] New PR review rejects unexplained `text-white`, `bg-black`, `text-zinc-*`, `bg-zinc-*` on ordinary application components.
-- [ ] Add lint/script/check if practical to flag prohibited theme-hardcoded classes outside allowlisted files.
+- [x] Inventory raw hex/rgb/hsl and Tailwind palette utility usage in components. The source guard scans both application roots and reports all 14 documented rendering-boundary exceptions; evidence: `docs/task-evidence/VISUAL-2026-005.md`.
+- [x] Convert ordinary themed surface/text/border colors to semantic tokens.
+- [x] Maintain small documented allowlist for brand artwork, carrier logos, map-provider styles, data visualization series and genuinely fixed external-brand colors.
+- [x] New PR review rejects unexplained `text-white`, `bg-black`, `text-zinc-*`, `bg-zinc-*` on ordinary application components.
+- [x] Add lint/script/check if practical to flag prohibited theme-hardcoded classes outside allowlisted files.
 
 ---
 

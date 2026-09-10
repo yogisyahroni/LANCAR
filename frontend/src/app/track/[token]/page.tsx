@@ -1,4 +1,4 @@
-import { MapPin, Navigation, PackageCheck, Timer, Truck } from 'lucide-react';
+import { CheckCircle2, Clock, MapPin, Navigation, PackageCheck, Timer, Truck, XCircle, type LucideIcon } from 'lucide-react';
 import { getCustomerServerApiRootUrl } from '@/lib/runtimeConfig';
 
 type PublicTrackingResponse = {
@@ -27,13 +27,19 @@ type PublicTrackingResponse = {
   message?: string;
 };
 
-const statusLabel = (status?: string) => {
+type TrackingStatusPresentation = {
+  label: string;
+  icon: LucideIcon;
+  className: string;
+};
+
+const getTrackingStatusPresentation = (status?: string): TrackingStatusPresentation => {
   const normalized = (status || '').toLowerCase();
-  if (['delivered', 'completed'].includes(normalized)) return 'Selesai';
-  if (['in_transit', 'picked_up'].includes(normalized)) return 'Dalam pengantaran';
-  if (['accepted', 'assigned', 'matched'].includes(normalized)) return 'Kurir menuju pickup';
-  if (['cancelled', 'failed'].includes(normalized)) return 'Tidak aktif';
-  return 'Menunggu update';
+  if (['delivered', 'completed'].includes(normalized)) return { label: 'Selesai', icon: CheckCircle2, className: 'bg-success/15 text-success' };
+  if (['in_transit', 'picked_up'].includes(normalized)) return { label: 'Dalam pengantaran', icon: Truck, className: 'bg-info/15 text-info' };
+  if (['accepted', 'assigned', 'matched'].includes(normalized)) return { label: 'Kurir menuju pickup', icon: Navigation, className: 'bg-accent/15 text-accent' };
+  if (['cancelled', 'failed'].includes(normalized)) return { label: 'Tidak aktif', icon: XCircle, className: 'bg-error/15 text-error' };
+  return { label: 'Menunggu update', icon: Clock, className: 'bg-warning/15 text-warning' };
 };
 
 const formatTime = (value?: string | null) => {
@@ -80,67 +86,70 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
   const tracking = await getTracking(token);
   const data = tracking.data;
   const hasCourierLocation = Number.isFinite(Number(data?.courier_latitude)) && Number.isFinite(Number(data?.courier_longitude));
+  const trackingStatus = getTrackingStatusPresentation(data?.status);
+  const TrackingStatusIcon = trackingStatus.icon;
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-5 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-emerald-300">TEMBUS Tracking</p>
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-success">TEMBUS Tracking</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight">Status Pengiriman</h1>
           </div>
-          <div className="rounded-2xl bg-brand-emerald-500/15 p-3 text-brand-emerald-300">
-            <Truck className="h-7 w-7" />
+          <div className="rounded-2xl bg-success/15 p-3 text-success">
+            <Truck aria-hidden="true" className="h-7 w-7" />
           </div>
         </div>
 
         {!tracking.success || !data ? (
-          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+          <div className="rounded-3xl border border-border bg-surface/[0.04] p-6">
             <h2 className="text-xl font-bold">Link tidak aktif</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-300">
+            <p className="mt-2 text-sm leading-6 text-foreground-muted">
               {tracking.message || 'Link tracking sudah berakhir atau pengiriman tidak tersedia.'}
             </p>
           </div>
         ) : (
           <div className="space-y-5">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+            <div className="rounded-3xl border border-border bg-surface/[0.04] p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm text-slate-400">Nomor order</p>
+                  <p className="text-sm text-foreground-muted">Nomor order</p>
                   <h2 className="mt-1 text-2xl font-black">{data.order_number || data.order_id}</h2>
                 </div>
-                <span className="rounded-full bg-brand-emerald-400/15 px-4 py-2 text-sm font-bold text-brand-emerald-200">
-                  {statusLabel(data.status)}
+                <span aria-label={`Status pengiriman: ${trackingStatus.label}`} className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ${trackingStatus.className}`}>
+                  <TrackingStatusIcon aria-hidden="true" className="h-4 w-4" />
+                  {trackingStatus.label}
                 </span>
               </div>
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl bg-slate-900 p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Kurir</p>
+                <div className="rounded-2xl bg-surface p-4">
+                  <p className="text-xs font-bold uppercase tracking-widest text-foreground-muted">Kurir</p>
                   <p className="mt-1 font-bold">{data.courier_name || 'Kurir TEMBUS'}</p>
                 </div>
-                <div className="rounded-2xl bg-slate-900 p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Update lokasi</p>
-                  <p className={`mt-1 font-bold ${data.location_stale ? 'text-amber-300' : ''}`}>
+                <div className="rounded-2xl bg-surface p-4">
+                  <p className="text-xs font-bold uppercase tracking-widest text-foreground-muted">Update lokasi</p>
+                  <p className={`mt-1 font-bold ${data.location_stale ? 'text-warning' : ''}`}>
                     {data.location_stale ? 'Posisi terakhir' : formatTime(data.last_location_at)}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+            <div className="rounded-3xl border border-border bg-surface/[0.04] p-6">
               <h3 className="flex items-center gap-2 text-lg font-black">
-                <Navigation className="h-5 w-5 text-brand-emerald-300" />
+                <Navigation aria-hidden="true" className="h-5 w-5 text-success" />
                 Live Tracking
               </h3>
-              <div className="mt-5 rounded-3xl border border-white/10 bg-slate-900 p-5">
+              <div className="mt-5 rounded-3xl border border-border bg-surface p-5">
                 {data.eta && (
-                  <p className="mb-4 text-sm font-bold text-brand-emerald-200">
+                  <p className="mb-4 text-sm font-bold text-success">
                     ETA dari server: {data.eta}{data.eta_source ? ` · ${data.eta_source}` : ''}
                   </p>
                 )}
                 {hasCourierLocation ? (
                   <a
-                    className="block rounded-2xl bg-brand-emerald-500 px-5 py-4 text-center font-black text-slate-950"
+                    className="block rounded-2xl bg-success px-5 py-4 text-center font-black text-on-success"
                     href={`https://www.google.com/maps?q=${data.courier_latitude},${data.courier_longitude}`}
                     target="_blank"
                     rel="noreferrer"
@@ -148,43 +157,43 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
                     Buka posisi kurir di Maps
                   </a>
                 ) : (
-                  <p className="text-sm leading-6 text-slate-300">
+                  <p className="text-sm leading-6 text-foreground-muted">
                     Posisi kurir akan tampil setelah tracking aktif dari aplikasi kurir.
                   </p>
                 )}
                 {data.location_stale && (
-                  <p className="mt-4 text-xs leading-5 text-amber-200">
+                  <p className="mt-4 text-xs leading-5 text-warning">
                     GPS terakhir sudah lebih dari batas freshness. Tunggu update baru sebelum mengambil keputusan berdasarkan posisi ini.
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+            <div className="rounded-3xl border border-border bg-surface/[0.04] p-6">
               <h3 className="mb-5 flex items-center gap-2 text-lg font-black">
-                <PackageCheck className="h-5 w-5 text-brand-emerald-300" />
+                <PackageCheck aria-hidden="true" className="h-5 w-5 text-success" />
                 Rute Pengiriman
               </h3>
               <div className="space-y-4">
                 <div className="flex gap-3">
-                  <MapPin className="mt-1 h-5 w-5 text-orange-300" />
+                  <MapPin aria-hidden="true" className="mt-1 h-5 w-5 text-accent" />
                   <div>
                     <p className="font-bold">Pickup</p>
-                    <p className="text-sm text-slate-300">{data.pickup_address || '-'}</p>
+                    <p className="text-sm text-foreground-muted">{data.pickup_address || '-'}</p>
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <MapPin className="mt-1 h-5 w-5 text-brand-emerald-300" />
+                  <MapPin aria-hidden="true" className="mt-1 h-5 w-5 text-success" />
                   <div>
                     <p className="font-bold">Tujuan</p>
-                    <p className="text-sm text-slate-300">{data.drop_address || '-'}</p>
+                    <p className="text-sm text-foreground-muted">{data.drop_address || '-'}</p>
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <Timer className="mt-1 h-5 w-5 text-sky-300" />
+                  <Timer aria-hidden="true" className="mt-1 h-5 w-5 text-info" />
                   <div>
                     <p className="font-bold">Link berlaku sampai</p>
-                    <p className="text-sm text-slate-300">{formatTime(data.expires_at)}</p>
+                    <p className="text-sm text-foreground-muted">{formatTime(data.expires_at)}</p>
                   </div>
                 </div>
               </div>

@@ -132,16 +132,28 @@ export function RekeningGridSection({ data }: { data: FinanceData }) {
     <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
          {/* Revenue Breakdown Donut */}
-        <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-10">
+        <div className="glass-card p-10 rounded-[48px] border-border space-y-10">
            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3">
-                 <PieIcon className="text-primary-light" size={24} />
+              <h3 className="text-xl font-black text-foreground-muted flex items-center gap-3">
+                 <PieIcon className="text-primary-light" size={24} aria-hidden="true" />
                  Model Breakdown
               </h3>
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Revenue Share %</p>
+              <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Revenue Share %</p>
            </div>
            <div className="flex flex-col md:flex-row items-center gap-12">
-              <div className="h-[280px] w-[280px] relative min-w-0 min-h-0">
+              <div
+                 className="h-[280px] w-[280px] relative min-w-0 min-h-0"
+                 role="img"
+                 aria-label="Revenue breakdown chart"
+                 aria-describedby="finance-revenue-breakdown-summary"
+              >
+                 <p id="finance-revenue-breakdown-summary" className="sr-only">
+                    Revenue breakdown:{' '}
+                    {revenueBreakdown.length > 0
+                      ? revenueBreakdown.map((item: any) => `${item.name}: ${item.percentage}%`).join('; ')
+                      : 'Belum ada data.'}
+                    .
+                 </p>
                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <PieChart>
                        <Pie
@@ -157,22 +169,29 @@ export function RekeningGridSection({ data }: { data: FinanceData }) {
                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
                           ))}
                        </Pie>
-                       <Tooltip />
+                       <Tooltip
+                          contentStyle={{
+                             backgroundColor: 'var(--color-surface-raised)',
+                             border: '1px solid var(--color-border)',
+                             borderRadius: '12px',
+                             color: 'var(--color-foreground)',
+                          }}
+                       />
                     </PieChart>
                  </ResponsiveContainer>
                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <p className="text-4xl font-black text-zinc-100 tracking-tighter">100%</p>
-                    <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Gross</p>
+                    <p className="text-4xl font-black text-foreground-muted tracking-tighter">100%</p>
+                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Gross</p>
                  </div>
               </div>
               <div className="flex-1 space-y-6 w-full">
                  {revenueBreakdown.map((item: any, i: number) => (
-                   <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                   <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-surface/[0.02] border border-border">
                       <div className="flex items-center gap-3">
                          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                         <span className="text-sm font-bold text-zinc-300">{item.name}</span>
+                         <span className="text-sm font-bold text-foreground-muted">{item.name}</span>
                       </div>
-                      <span className="text-sm font-black text-zinc-100">{item.percentage}%</span>
+                      <span className="text-sm font-black text-foreground-muted">{item.percentage}%</span>
                    </div>
                  ))}
               </div>
@@ -180,39 +199,47 @@ export function RekeningGridSection({ data }: { data: FinanceData }) {
         </div>
 
         {/* Cost Breakdown Bar Chart - Using Payout Data */}
-        <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-10">
+        <div className="glass-card p-10 rounded-[48px] border-border space-y-10">
            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3">
-                 <History className="text-red-400" size={24} />
+              <h3 className="text-xl font-black text-foreground-muted flex items-center gap-3">
+                 <History className="text-error" size={24} aria-hidden="true" />
                  Burn Analysis
               </h3>
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Payout History</p>
+              <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Payout History</p>
            </div>
-           <div className="h-[300px] w-full min-w-0 min-h-0">
+           <div
+              className="h-[300px] w-full min-w-0 min-h-0"
+              role="img"
+              aria-label="Payout burn analysis chart"
+              aria-describedby="finance-burn-analysis-summary"
+           >
+              <p id="finance-burn-analysis-summary" className="sr-only">
+                 Payout burn analysis by date. The adjacent chart data and tooltip expose payout amount values.
+              </p>
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                  <BarChart data={financialData?.burn_time_series}>
                     <XAxis 
                        dataKey="date" 
-                       stroke="#52525b" 
+                       stroke="var(--color-foreground-muted)"
                        fontSize={10} 
                        tickLine={false} 
                        axisLine={false}
                        tickFormatter={(date) => format(new Date(date), 'dd/MM')} 
                     />
                     <YAxis 
-                       stroke="#52525b" 
+                       stroke="var(--color-foreground-muted)"
                        fontSize={10} 
                        tickLine={false} 
                        axisLine={false}
                        tickFormatter={(value) => `Rp${(value/1000).toFixed(0)}k`} 
                     />
                     <Tooltip 
-                       cursor={{ fill: 'rgba(255,255,255,0.02)' }}
-                       contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '16px' }}
+                       cursor={{ fill: 'var(--color-surface-subtle)' }}
+                       contentStyle={{ backgroundColor: 'var(--color-surface-raised)', borderColor: 'var(--color-border)', borderRadius: '16px', color: 'var(--color-foreground)' }}
                        labelFormatter={(label) => format(new Date(label), 'dd MMM yyyy')}
                        formatter={(value: any) => [`Rp ${value.toLocaleString()}`, 'Payout Amount']}
                     />
-                    <Bar dataKey="amount" fill="#ef4444" radius={[8, 8, 0, 0]} barSize={24} />
+                    <Bar dataKey="amount" fill="var(--color-error)" radius={[8, 8, 0, 0]} barSize={24} />
                  </BarChart>
               </ResponsiveContainer>
            </div>

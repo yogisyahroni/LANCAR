@@ -13,7 +13,8 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -30,12 +31,12 @@ function VoucherDataState({ title, message, onRetry, tone = 'muted' }: { title: 
   return (
     <div className={cn(
       "col-span-full py-20 text-center space-y-4 rounded-[40px] border",
-      isError ? "bg-red-500/5 border-red-500/20" : "glass-card border-dashed border-white/10"
+      isError ? "bg-error-surface border-error" : "glass-card border-dashed border-border"
     )}>
-      <AlertCircle className={cn("mx-auto", isError ? "text-red-400" : "text-zinc-800")} size={48} />
+      <AlertCircle className={cn("mx-auto", isError ? "text-error" : "text-foreground-muted")} size={48} aria-hidden="true" />
       <div>
-        <p className="text-zinc-200 font-black italic uppercase tracking-widest">{title}</p>
-        <p className="text-xs text-zinc-600 mt-2">{message}</p>
+        <p className="text-foreground-muted font-black italic uppercase tracking-widest">{title}</p>
+        <p className="text-xs text-foreground-muted mt-2">{message}</p>
       </div>
       {onRetry && (
         <button
@@ -43,10 +44,10 @@ function VoucherDataState({ title, message, onRetry, tone = 'muted' }: { title: 
           onClick={onRetry}
           className={cn(
             "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all",
-            isError ? "bg-red-500/10 border-red-500/20 text-red-300 hover:bg-red-500/20" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white"
+            isError ? "bg-error-surface border-error text-error hover:bg-error-surface" : "bg-surface-subtle border-border text-foreground-muted hover:text-foreground"
           )}
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={14} aria-hidden="true" />
           Retry
         </button>
       )}
@@ -112,9 +113,9 @@ export default function Vouchers() {
   }
 
   const statCards = [
-    { label: 'Active Vouchers', value: stats?.activeVouchers?.toLocaleString() ?? 'Tidak tersedia', icon: Ticket, color: 'text-emerald-400' },
+    { label: 'Active Vouchers', value: stats?.activeVouchers?.toLocaleString() ?? 'Tidak tersedia', icon: Ticket, color: 'text-success' },
     { label: 'Total Claims', value: stats?.totalClaims?.toLocaleString() ?? 'Tidak tersedia', icon: Users, color: 'text-primary-light' },
-    { label: 'Revenue Impact', value: typeof stats?.revenueImpact === 'number' ? `Rp ${stats.revenueImpact.toLocaleString()}` : 'Tidak tersedia', icon: TrendingUp, color: 'text-amber-400' },
+    { label: 'Revenue Impact', value: typeof stats?.revenueImpact === 'number' ? `Rp ${stats.revenueImpact.toLocaleString()}` : 'Tidak tersedia', icon: TrendingUp, color: 'text-warning' },
   ];
 
   const filteredVouchers = vouchers?.filter((v: any) =>
@@ -142,14 +143,14 @@ export default function Vouchers() {
     <div className="space-y-8 animate-in pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-zinc-100 tracking-tight italic uppercase">Voucher Engine</h1>
-          <p className="text-zinc-500 mt-1">Create and monitor promotional campaigns and discounts.</p>
+          <h1 className="text-3xl font-black text-foreground-muted tracking-tight italic uppercase">Voucher Engine</h1>
+          <p className="text-foreground-muted mt-1">Create and monitor promotional campaigns and discounts.</p>
         </div>
         <button 
           onClick={handleCreate}
-          className="px-6 py-3 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+          className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
         >
-          <Plus size={18} />
+          <Plus size={18} aria-hidden="true" />
           Generate Voucher
         </button>
       </div>
@@ -163,14 +164,14 @@ export default function Vouchers() {
             tone="error"
           />
         ) : statCards.map((stat, i) => (
-          <div key={i} className="glass-card p-8 rounded-[32px] border-white/5">
+          <div key={i} className="glass-card p-8 rounded-[32px] border-border">
              <div className="flex items-center gap-4">
-                <div className={cn("p-4 rounded-2xl bg-white/5", stat.color)}>
-                   <stat.icon size={24} />
+                <div className={cn("p-4 rounded-2xl bg-surface-subtle", stat.color)}>
+                   <stat.icon size={24} aria-hidden="true" />
                 </div>
                 <div>
-                   <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{stat.label}</p>
-                   <p className="text-2xl font-black text-zinc-100 mt-1 tracking-tighter">{stat.value}</p>
+                   <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">{stat.label}</p>
+                   <p className="text-2xl font-black text-foreground-muted mt-1 tracking-tighter">{stat.value}</p>
                 </div>
              </div>
           </div>
@@ -179,18 +180,19 @@ export default function Vouchers() {
 
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:w-96 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-primary-light transition-colors" size={18} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted group-focus-within:text-primary-light transition-colors" size={18} aria-hidden="true" />
           <input 
             type="text" 
+            aria-label="Search vouchers by code or name"
             placeholder="Search by code or name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-zinc-600"
+            className="w-full bg-surface-subtle border border-border rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-foreground-muted"
           />
         </div>
         <div className="flex items-center gap-2">
-           <button className="p-3.5 rounded-2xl bg-white/5 text-zinc-500 hover:text-white border border-white/10 transition-all">
-              <Filter size={20} />
+           <button type="button" aria-label="Open voucher filters" className="p-3.5 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground border border-border transition-all">
+              <Filter size={20} aria-hidden="true" />
            </button>
         </div>
       </div>
@@ -213,10 +215,10 @@ export default function Vouchers() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
               key={voucher.id}
-              className="glass-card p-8 rounded-[40px] border-white/5 group hover:border-white/10 transition-all overflow-hidden relative"
+              className="glass-card p-8 rounded-[40px] border-border group hover:border-border transition-all overflow-hidden relative"
             >
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                 <Ticket size={120} />
+                 <Ticket size={120}  aria-hidden="true"/>
               </div>
 
               <div className="flex items-start justify-between relative z-10">
@@ -227,46 +229,46 @@ export default function Vouchers() {
                     </div>
                     <span className={cn(
                       "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                      voucher.is_active ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-600"
+                      voucher.is_active ? "bg-success-surface text-success" : "bg-surface-raised text-foreground-muted"
                     )}>
                       {voucher.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
                   <div>
-                     <h4 className="font-bold text-zinc-100 text-lg">{voucher.name || 'Nama voucher belum tersedia'}</h4>
-                     <p className="text-sm font-medium text-zinc-400 mt-1">Discount: <span className="text-emerald-400 font-bold">{voucher.type === 'percentage' ? `${voucher.value}%` : `Rp ${voucher.value?.toLocaleString()}`}</span></p>
-                     <p className="text-[10px] text-zinc-500 mt-2 italic font-medium">
+                     <h4 className="font-bold text-foreground-muted text-lg">{voucher.name || 'Nama voucher belum tersedia'}</h4>
+                     <p className="text-sm font-medium text-foreground-muted mt-1">Discount: <span className="text-success font-bold">{voucher.type === 'percentage' ? `${voucher.value}%` : `Rp ${voucher.value?.toLocaleString()}`}</span></p>
+                     <p className="text-[10px] text-foreground-muted mt-2 italic font-medium">
                       Min. Order {typeof voucher.min_order_idr === 'number' ? `Rp ${voucher.min_order_idr.toLocaleString()}` : 'belum tersedia'} • Max. {typeof voucher.max_discount_idr === 'number' ? `Rp ${voucher.max_discount_idr.toLocaleString()}` : 'belum tersedia'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-8 mt-8 pt-8 border-t border-white/5 relative z-10">
+              <div className="grid grid-cols-2 gap-8 mt-8 pt-8 border-t border-border relative z-10">
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-                       <TrendingUp size={12} /> Redemptions
+                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                       <TrendingUp size={12} aria-hidden="true" /> Redemptions
                     </p>
-                    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mt-3">
+                    <div className="w-full h-1.5 bg-surface-subtle rounded-full overflow-hidden mt-3">
                        <div 
                           className="h-full bg-primary rounded-full transition-all duration-500" 
                           style={{ width: `${Math.min(usagePercent, 100)}%` }} 
                        />
                     </div>
-                    <p className="text-xs font-bold text-zinc-400 mt-3 tracking-tight">
-                      {voucher.used_count?.toLocaleString() || 0} <span className="text-zinc-600 font-medium">/ {voucher.quota?.toLocaleString() || '∞'} used</span>
+                    <p className="text-xs font-bold text-foreground-muted mt-3 tracking-tight">
+                      {voucher.used_count?.toLocaleString() || 0} <span className="text-foreground-muted font-medium">/ {voucher.quota?.toLocaleString() || '∞'} used</span>
                     </p>
                  </div>
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-                       <Calendar size={12} /> Expiration
+                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                       <Calendar size={12} aria-hidden="true" /> Expiration
                     </p>
-                    <p className="text-xs font-bold text-zinc-200 mt-3">{format(new Date(voucher.valid_until || voucher.expiry_date), 'dd MMM yyyy')}</p>
+                    <p className="text-xs font-bold text-foreground-muted mt-3">{format(new Date(voucher.valid_until || voucher.expiry_date), 'dd MMM yyyy')}</p>
                     <div className="flex items-center gap-1.5 mt-2">
-                       <Clock size={10} className="text-zinc-600" />
+                       <Clock size={10} className="text-foreground-muted" aria-hidden="true" />
                        <p className={cn(
                          "text-[10px] font-black uppercase tracking-wider",
-                         daysLeft > 0 ? "text-primary-light" : "text-red-400"
+                         daysLeft > 0 ? "text-primary-light" : "text-error"
                        )}>
                         {daysLeft > 0 ? `${daysLeft} Days Left` : 'Expired'}
                        </p>
@@ -277,25 +279,25 @@ export default function Vouchers() {
               <div className="flex items-center gap-3 mt-8 relative z-10">
                  <button 
                    onClick={() => handleEdit(voucher)}
-                   className="flex-1 py-4 rounded-2xl bg-white/5 text-zinc-500 font-black text-xs uppercase tracking-widest hover:bg-primary/20 hover:text-primary-light transition-all border border-white/5 hover:border-primary/20"
+                   className="flex-1 py-4 rounded-2xl bg-surface-subtle text-foreground-secondary font-black text-xs uppercase tracking-widest hover:bg-primary/20 hover:text-primary-light transition-all border border-border hover:border-primary/20"
                  >
                     Modify Parameters
                  </button>
                  <button 
                    onClick={() => handleDelete(voucher.id)}
                    disabled={deleteMutation.isPending}
-                   className="p-4 rounded-2xl bg-red-500/5 border border-red-500/10 text-red-500/40 hover:bg-red-500 hover:text-white transition-all disabled:opacity-50"
+                   className="p-4 rounded-2xl bg-error-surface border border-error text-error hover:bg-error hover:text-on-error transition-all disabled:opacity-50"
                  >
-                    {deleteMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
+                    {deleteMutation.isPending ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Trash2 size={18} aria-hidden="true" />}
                  </button>
               </div>
             </motion.div>
           )
         })}
         {!isVouchersError && (!filteredVouchers || filteredVouchers.length === 0) && (
-          <div className="col-span-full py-20 text-center space-y-4 glass-card rounded-[40px] border-dashed border-white/10">
-            <Ticket className="mx-auto text-zinc-800" size={48} />
-            <p className="text-zinc-500 font-black italic uppercase tracking-widest italic">
+          <div className="col-span-full py-20 text-center space-y-4 glass-card rounded-[40px] border-dashed border-border">
+            <Ticket className="mx-auto text-foreground-muted" size={48}  aria-hidden="true"/>
+            <p className="text-foreground-muted font-black italic uppercase tracking-widest italic">
               No digital tokens found in archives
             </p>
           </div>
@@ -347,56 +349,56 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-subtle backdrop-blur-sm animate-in fade-in duration-200">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-2xl bg-zinc-900 border border-white/10 rounded-[48px] overflow-hidden shadow-2xl shadow-primary/10"
+        className="w-full max-w-2xl bg-surface border border-border rounded-[48px] overflow-hidden shadow-2xl shadow-primary/10"
       >
         <div className="p-10 space-y-8">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-black text-zinc-100 italic uppercase tracking-tight">
+              <h2 className="text-2xl font-black text-foreground-muted italic uppercase tracking-tight">
                 {voucher ? 'Update Parameter' : 'Forge Digital Token'}
               </h2>
-              <p className="text-zinc-500 text-xs mt-1 font-medium">Configure discount logic and redemption constraints.</p>
+              <p className="text-foreground-muted text-xs mt-1 font-medium">Configure discount logic and redemption constraints.</p>
             </div>
-            <button onClick={onClose} className="p-3 rounded-2xl bg-white/5 text-zinc-500 hover:text-white transition-all">
-              <X size={20} />
+            <button type="button" onClick={onClose} aria-label="Tutup detail voucher" className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
+              <X size={20} aria-hidden="true" />
             </button>
           </div>
 
           <div className="grid grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Token Code</label>
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Token Code</label>
               <input 
                 value={formData.code}
                 onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                 placeholder="PROMO2024"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all uppercase"
+                className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all uppercase"
                 disabled={!!voucher}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Campaign Name</label>
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Campaign Name</label>
               <input 
                 value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Summer Sale Blast"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Logic Type</label>
-              <div className="flex p-1 bg-white/5 rounded-2xl border border-white/10">
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Logic Type</label>
+              <div className="flex p-1 bg-surface-subtle rounded-2xl border border-border">
                 {['percentage', 'fixed'].map(t => (
                   <button 
                     key={t}
                     onClick={() => setFormData({ ...formData, type: t })}
                     className={cn(
                       "flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                      formData.type === t ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-zinc-600 hover:text-zinc-400"
+                      formData.type === t ? "bg-primary text-on-primary shadow-lg shadow-primary/20" : "text-foreground-muted hover:text-foreground-muted"
                     )}
                   >
                     {t}
@@ -405,86 +407,86 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Discount Value</label>
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Discount Value</label>
               <div className="relative">
-                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500 font-black text-sm">{formData.type === 'percentage' ? '%' : 'Rp'}</span>
+                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-foreground-muted font-black text-sm">{formData.type === 'percentage' ? '%' : 'Rp'}</span>
                 <input 
                   type="number"
                   value={formData.value}
                   onChange={e => setFormData({ ...formData, value: Number(e.target.value) })}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-6 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                  className="w-full bg-surface-subtle border border-border rounded-2xl py-4 pl-12 pr-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Min. Transaction</label>
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Min. Transaction</label>
               <input 
                 type="number"
                 value={formData.min_order_idr}
                 onChange={e => setFormData({ ...formData, min_order_idr: Number(e.target.value) })}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Max. Ceiling</label>
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Max. Ceiling</label>
               <input 
                 type="number"
                 value={formData.max_discount_idr}
                 onChange={e => setFormData({ ...formData, max_discount_idr: Number(e.target.value) })}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Valid Until</label>
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Valid Until</label>
               <input 
                 type="date"
                 value={formData.valid_until}
                 onChange={e => setFormData({ ...formData, valid_until: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Global Quota</label>
+              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Global Quota</label>
               <input 
                 type="number"
                 value={formData.quota}
                 onChange={e => setFormData({ ...formData, quota: Number(e.target.value) })}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
           </div>
 
-          <div className="pt-8 border-t border-white/5 flex items-center justify-between">
+          <div className="pt-8 border-t border-border flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
                 className={cn(
                   "w-12 h-6 rounded-full relative transition-all duration-300",
-                  formData.is_active ? "bg-primary" : "bg-zinc-800"
+                  formData.is_active ? "bg-primary" : "bg-surface-raised"
                 )}
               >
                 <div className={cn(
-                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300",
+                  "absolute top-1 w-4 h-4 rounded-full bg-surface transition-all duration-300",
                   formData.is_active ? "right-1" : "left-1"
                 )} />
               </button>
-              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Active Status</span>
+              <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Active Status</span>
             </div>
             <div className="flex gap-4">
               <button 
                 onClick={onClose}
-                className="px-8 py-4 rounded-2xl bg-zinc-800 text-zinc-400 font-black text-xs uppercase tracking-widest hover:text-white transition-all"
+                className="px-8 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
               >
                 Abort
               </button>
               <button 
                 onClick={() => onSave(formData)}
                 disabled={isSaving}
-                className="px-10 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+                className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
               >
-                {isSaving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+                {isSaving ? <Loader2 className="animate-spin" size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
                 {voucher ? 'Update Token' : 'Authorize Token'}
               </button>
             </div>
@@ -493,27 +495,4 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
       </motion.div>
     </div>
   );
-}
-
-function Trash2(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 6h18" />
-      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-      <line x1="10" x2="10" y1="11" y2="17" />
-      <line x1="14" x2="14" y1="11" y2="17" />
-    </svg>
-  )
 }

@@ -146,25 +146,25 @@ export default function PricingConfig() {
     <div className="space-y-8 animate-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">Pricing Configuration</h1>
-          <p className="text-zinc-500 mt-1">Configure base rates, surge multipliers, and dynamic pricing rules.</p>
+          <h1 className="text-3xl font-bold text-foreground-muted tracking-tight">Pricing Configuration</h1>
+          <p className="text-foreground-muted mt-1">Configure base rates, surge multipliers, and dynamic pricing rules.</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={() => navigate('/cost-intelligence')}
-            className="px-6 py-3 rounded-2xl bg-gradient-to-r from-amber-500/20 to-primary/20 border border-amber-500/30 text-amber-300 font-bold text-sm hover:scale-[1.02] transition-all flex items-center gap-2"
+            className="px-6 py-3 rounded-2xl bg-gradient-to-r from-warning to-primary/20 border border-warning text-warning font-bold text-sm hover:scale-[1.02] transition-all flex items-center gap-2"
           >
-            <Zap size={16} /> OPEX & CAPEX Simulator
+            <Zap size={16} aria-hidden="true" /> OPEX & CAPEX Simulator
           </button>
-          <button className="px-8 py-3 rounded-2xl bg-zinc-800 text-zinc-400 font-black text-sm uppercase tracking-widest hover:text-white transition-all">
+          <button className="px-8 py-3 rounded-2xl bg-surface-raised text-foreground-muted font-black text-sm uppercase tracking-widest hover:text-foreground transition-all">
             Discard
           </button>
           <button 
             onClick={handleSave}
             disabled={updateMutation.isPending || formData.baseFare === '' || formData.perKm === '' || formData.volumetricDiv === ''}
-            className="px-8 py-3 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:scale-100 disabled:hover:scale-100"
+            className="px-8 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:scale-100 disabled:hover:scale-100"
           >
-            {updateMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+            {updateMutation.isPending ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Save size={18} aria-hidden="true" />}
             Save Changes
           </button>
         </div>
@@ -173,10 +173,10 @@ export default function PricingConfig() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Editor */}
         <div className="lg:col-span-2 space-y-8">
-          <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-10">
+          <div className="glass-card p-10 rounded-[48px] border-border space-y-10">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
-                <Settings className="text-primary-light" size={24} />
+              <h2 className="text-xl font-black text-foreground-muted flex items-center gap-3 tracking-tight">
+                <Settings className="text-primary-light" size={24}  aria-hidden="true"/>
                 Global Fare Rules
               </h2>
               <div className="flex gap-2">
@@ -186,7 +186,7 @@ export default function PricingConfig() {
                     onClick={() => setActiveTab(t)}
                     className={cn(
                       "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-                      activeTab === t ? "bg-primary/20 text-primary-light border border-primary/20" : "text-zinc-600 hover:text-zinc-400"
+                      activeTab === t ? "bg-primary/20 text-foreground border border-primary/20" : "text-foreground-muted hover:text-foreground-muted"
                     )}
                   >
                     {t}
@@ -197,10 +197,11 @@ export default function PricingConfig() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
               <div className="space-y-4">
-                <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Base Fare (Rp)</label>
+                <label htmlFor="pricing-base-fare" className="text-xs font-black text-foreground-muted uppercase tracking-widest">Base Fare (Rp)</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">Rp</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                   <input 
+                    id="pricing-base-fare"
                     type="number" 
                     value={formData.baseFare}
                     onChange={(e) => {
@@ -208,23 +209,24 @@ export default function PricingConfig() {
                       setFormData(prev => ({ ...prev, baseFare: val === '' ? '' : Number(val) }));
                     }}
                     className={cn(
-                      "w-full bg-white/5 border rounded-2xl py-4 pl-12 pr-4 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all",
-                      formData.baseFare === '' ? "border-destructive/50" : "border-white/10"
+                      "w-full bg-surface-subtle border rounded-2xl py-4 pl-12 pr-4 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all",
+                      formData.baseFare === '' ? "border-destructive/50" : "border-border"
                     )}
                   />
                 </div>
                 {formData.baseFare === '' ? (
-                  <p className="text-[10px] text-destructive font-black mt-1">⚠️ Tarif dasar wajib diisi dan tidak boleh kosong!</p>
+                  <p className="text-[10px] text-destructive font-black mt-1">Tarif dasar wajib diisi dan tidak boleh kosong!</p>
                 ) : (
-                  <p className="text-[10px] text-zinc-600 font-bold italic">Applied to the first 2.0 km of any delivery.</p>
+                  <p className="text-[10px] text-foreground-muted font-bold italic">Applied to the first 2.0 km of any delivery.</p>
                 )}
               </div>
 
               <div className="space-y-4">
-                <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Distance Rate (Rp/km)</label>
+                <label htmlFor="pricing-distance-rate" className="text-xs font-black text-foreground-muted uppercase tracking-widest">Distance Rate (Rp/km)</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">Rp</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                   <input 
+                    id="pricing-distance-rate"
                     type="number" 
                     value={formData.perKm}
                     onChange={(e) => {
@@ -232,22 +234,23 @@ export default function PricingConfig() {
                       setFormData(prev => ({ ...prev, perKm: val === '' ? '' : Number(val) }));
                     }}
                     className={cn(
-                      "w-full bg-white/5 border rounded-2xl py-4 pl-12 pr-4 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all",
-                      formData.perKm === '' ? "border-destructive/50" : "border-white/10"
+                      "w-full bg-surface-subtle border rounded-2xl py-4 pl-12 pr-4 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all",
+                      formData.perKm === '' ? "border-destructive/50" : "border-border"
                     )}
                   />
                 </div>
                 {formData.perKm === '' ? (
-                  <p className="text-[10px] text-destructive font-black mt-1">⚠️ Tarif per km wajib diisi dan tidak boleh kosong!</p>
+                  <p className="text-[10px] text-destructive font-black mt-1">Tarif per km wajib diisi dan tidak boleh kosong!</p>
                 ) : (
-                  <p className="text-[10px] text-zinc-600 font-bold italic">Incremental rate added after base distance.</p>
+                  <p className="text-[10px] text-foreground-muted font-bold italic">Incremental rate added after base distance.</p>
                 )}
               </div>
 
               <div className="space-y-4">
-                <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Volumetric Divisor</label>
+                <label htmlFor="pricing-volumetric-divisor" className="text-xs font-black text-foreground-muted uppercase tracking-widest">Volumetric Divisor</label>
                 <div className="relative">
                   <input 
+                    id="pricing-volumetric-divisor"
                     type="number" 
                     value={formData.volumetricDiv}
                     onChange={(e) => {
@@ -255,29 +258,30 @@ export default function PricingConfig() {
                       setFormData(prev => ({ ...prev, volumetricDiv: val === '' ? '' : Number(val) }));
                     }}
                     className={cn(
-                      "w-full bg-white/5 border rounded-2xl py-4 px-4 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all",
-                      formData.volumetricDiv === '' ? "border-destructive/50" : "border-white/10"
+                      "w-full bg-surface-subtle border rounded-2xl py-4 px-4 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all",
+                      formData.volumetricDiv === '' ? "border-destructive/50" : "border-border"
                     )}
                   />
                 </div>
                 {formData.volumetricDiv === '' ? (
-                  <p className="text-[10px] text-destructive font-black mt-1">⚠️ Pembagi volumetrik wajib diisi!</p>
+                  <p className="text-[10px] text-destructive font-black mt-1">Pembagi volumetrik wajib diisi!</p>
                 ) : (
-                  <p className="text-[10px] text-zinc-600 font-bold italic">Divisor for dimension weight. Production default is 6000.</p>
+                  <p className="text-[10px] text-foreground-muted font-bold italic">Divisor for dimension weight. Production default is 6000.</p>
                 )}
               </div>
             </div>
 
             {/* Interactive Volumetric Calculator */}
-            <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 space-y-4">
+            <div className="p-6 rounded-3xl bg-surface/[0.02] border border-border space-y-4">
               <div className="flex items-center gap-2">
-                <Info className="text-primary-light" size={18} />
-                <h4 className="text-xs font-black text-zinc-300 uppercase tracking-widest">Bobot Volumetrik Simulator</h4>
+                <Info className="text-primary-light" size={18} aria-hidden="true" />
+                <h3 className="text-xs font-black text-foreground-muted uppercase tracking-widest">Bobot Volumetrik Simulator</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
                 <div className="space-y-2">
-                  <span className="text-[10px] font-black text-zinc-600 uppercase tracking-wider">Panjang (L - cm)</span>
+                  <label htmlFor="pricing-calculator-length" className="text-[10px] font-black text-foreground-muted uppercase tracking-wider">Panjang (L - cm)</label>
                   <input 
+                    id="pricing-calculator-length"
                     type="number" 
                     value={calcDimensions.length} 
                     onChange={(e) => {
@@ -285,14 +289,15 @@ export default function PricingConfig() {
                       setCalcDimensions(prev => ({ ...prev, length: val === '' ? '' : Number(val) }));
                     }}
                     className={cn(
-                      "w-full bg-white/5 border rounded-xl p-3 text-sm text-zinc-100 font-bold focus:outline-none focus:ring-1 focus:ring-primary",
-                      calcDimensions.length === '' ? "border-destructive/50" : "border-white/10"
+                      "w-full bg-surface-subtle border rounded-xl p-3 text-sm text-foreground-muted font-bold focus:outline-none focus:ring-1 focus:ring-primary",
+                      calcDimensions.length === '' ? "border-destructive/50" : "border-border"
                     )}
                   />
                 </div>
                 <div className="space-y-2">
-                  <span className="text-[10px] font-black text-zinc-600 uppercase tracking-wider">Lebar (W - cm)</span>
+                  <label htmlFor="pricing-calculator-width" className="text-[10px] font-black text-foreground-muted uppercase tracking-wider">Lebar (W - cm)</label>
                   <input 
+                    id="pricing-calculator-width"
                     type="number" 
                     value={calcDimensions.width} 
                     onChange={(e) => {
@@ -300,14 +305,15 @@ export default function PricingConfig() {
                       setCalcDimensions(prev => ({ ...prev, width: val === '' ? '' : Number(val) }));
                     }}
                     className={cn(
-                      "w-full bg-white/5 border rounded-xl p-3 text-sm text-zinc-100 font-bold focus:outline-none focus:ring-1 focus:ring-primary",
-                      calcDimensions.width === '' ? "border-destructive/50" : "border-white/10"
+                      "w-full bg-surface-subtle border rounded-xl p-3 text-sm text-foreground-muted font-bold focus:outline-none focus:ring-1 focus:ring-primary",
+                      calcDimensions.width === '' ? "border-destructive/50" : "border-border"
                     )}
                   />
                 </div>
                 <div className="space-y-2">
-                  <span className="text-[10px] font-black text-zinc-600 uppercase tracking-wider">Tinggi (H - cm)</span>
+                  <label htmlFor="pricing-calculator-height" className="text-[10px] font-black text-foreground-muted uppercase tracking-wider">Tinggi (H - cm)</label>
                   <input 
+                    id="pricing-calculator-height"
                     type="number" 
                     value={calcDimensions.height} 
                     onChange={(e) => {
@@ -315,30 +321,30 @@ export default function PricingConfig() {
                       setCalcDimensions(prev => ({ ...prev, height: val === '' ? '' : Number(val) }));
                     }}
                     className={cn(
-                      "w-full bg-white/5 border rounded-xl p-3 text-sm text-zinc-100 font-bold focus:outline-none focus:ring-1 focus:ring-primary",
-                      calcDimensions.height === '' ? "border-destructive/50" : "border-white/10"
+                      "w-full bg-surface-subtle border rounded-xl p-3 text-sm text-foreground-muted font-bold focus:outline-none focus:ring-1 focus:ring-primary",
+                      calcDimensions.height === '' ? "border-destructive/50" : "border-border"
                     )}
                   />
                 </div>
                 <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl text-center">
                   <span className="block text-[9px] font-black text-primary-light uppercase tracking-wider">Hasil (Bobot Volume)</span>
-                  <span className="text-lg font-black text-zinc-100">
+                  <span className="text-lg font-black text-foreground-muted">
                     {((lVal * wVal * hVal) / (formData.volumetricDiv === '' ? 6000 : formData.volumetricDiv || 6000)).toFixed(2)} kg
                   </span>
                 </div>
               </div>
               {(calcDimensions.length === '' || calcDimensions.width === '' || calcDimensions.height === '') ? (
-                <p className="text-[10px] text-destructive font-black mt-1">⚠️ Dimensi simulator wajib diisi dan tidak boleh kosong!</p>
+                <p className="text-[10px] text-destructive font-black mt-1">Dimensi simulator wajib diisi dan tidak boleh kosong!</p>
               ) : (
-                <p className="text-[10px] text-zinc-600 font-bold italic">
+                <p className="text-[10px] text-foreground-muted font-bold italic">
                   Rumus: (Panjang × Lebar × Tinggi) ÷ Divisor = {calcDimensions.length} × {calcDimensions.width} × {calcDimensions.height} ÷ {formData.volumetricDiv === '' ? 6000 : formData.volumetricDiv || 6000} = {((lVal * wVal * hVal) / (formData.volumetricDiv === '' ? 6000 : formData.volumetricDiv || 6000)).toFixed(2)} kg
                 </p>
               )}
             </div>
 
-            <div className="pt-10 border-t border-white/5 space-y-8">
-              <h3 className="text-lg font-black text-zinc-100 flex items-center gap-3">
-                <Zap className="text-amber-400" size={20} />
+            <div className="pt-10 border-t border-border space-y-8">
+              <h3 className="text-lg font-black text-foreground-muted flex items-center gap-3">
+                <Zap className="text-warning" size={20} aria-hidden="true" />
                 Dynamic Surge Triggers
               </h3>
               
@@ -351,26 +357,28 @@ export default function PricingConfig() {
                   const dbFlag = (pricingFlags || []).find((f: any) => f.key === rule.key);
                   const active = dbFlag ? dbFlag.is_enabled : false;
                   return (
-                    <div key={rule.key} className="flex items-center justify-between p-6 rounded-3xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all group">
+                    <div key={rule.key} className="flex items-center justify-between p-6 rounded-3xl bg-surface/[0.02] border border-border hover:bg-surface/[0.04] transition-all group">
                       <div className="flex items-center gap-4">
-                        <div className={cn("p-3 rounded-2xl bg-white/5", active ? "text-primary-light" : "text-zinc-600")}>
-                          <rule.icon size={20} />
+                        <div className={cn("p-3 rounded-2xl bg-surface-subtle", active ? "text-primary-light" : "text-foreground-muted")}>
+                          <rule.icon size={20} aria-hidden="true" />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-zinc-200">{rule.label}</p>
-                          <p className="text-xs text-zinc-600 font-medium">{rule.desc}</p>
+                          <p className="text-sm font-black text-foreground-muted">{rule.label}</p>
+                          <p className="text-xs text-foreground-muted font-medium">{rule.desc}</p>
                         </div>
                       </div>
                       <button 
                         onClick={() => toggleFlagMutation.mutate({ key: rule.key, isEnabled: !active })}
                         disabled={toggleFlagMutation.isPending}
+                        aria-label={`${rule.label}: ${active ? 'enabled' : 'disabled'}`}
+                        aria-pressed={active}
                         className={cn(
                           "w-12 h-6 rounded-full relative transition-all duration-300 disabled:opacity-50",
-                          active ? "bg-primary" : "bg-zinc-800"
+                          active ? "bg-primary" : "bg-surface-raised"
                         )}
                       >
-                        <div className={cn(
-                          "absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300",
+                        <div aria-hidden="true" className={cn(
+                          "absolute top-1 w-4 h-4 rounded-full bg-surface transition-all duration-300",
                           active ? "right-1" : "left-1"
                         )} />
                       </button>
@@ -381,9 +389,9 @@ export default function PricingConfig() {
               
               <button 
                 onClick={() => navigate('/feature-flags')}
-                className="w-full py-4 rounded-2xl border border-dashed border-white/10 text-zinc-600 hover:text-zinc-400 hover:border-white/20 transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest"
+                className="w-full py-4 rounded-2xl border border-dashed border-border text-foreground-muted hover:text-foreground-muted hover:border-border transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest"
               >
-                <Plus size={16} />
+                <Plus size={16} aria-hidden="true" />
                 Add New Trigger Rule
               </button>
             </div>
@@ -392,75 +400,87 @@ export default function PricingConfig() {
 
         {/* Right Column: Preview & Analytics */}
         <div className="space-y-8">
-          <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-6">
-            <p className="text-xs font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-              <TrendingUp size={14} />
+          <div className="glass-card p-8 rounded-[40px] border-border space-y-6">
+            <p className="text-xs font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+              <TrendingUp size={14} aria-hidden="true" />
               Pricing Simulation
             </p>
-            <div className="h-[240px] w-full min-w-0">
+            <div
+              className="h-[240px] w-full min-w-0"
+              role="img"
+              aria-label="Pricing simulation chart"
+              aria-describedby="pricing-simulation-summary"
+            >
+              <p id="pricing-simulation-summary" className="sr-only">
+                Pricing simulation by distance:{' '}
+                {simulationData.length > 0
+                  ? simulationData.map((item) => `${item.distance} km: ${item.price}`).join('; ')
+                  : 'Belum ada data.'}
+                .
+              </p>
               <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <AreaChart data={simulationData}>
                   <defs>
                     <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#006437" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#006437" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" strokeOpacity={0.5} vertical={false} />
                   <XAxis 
                     dataKey="distance" 
-                    stroke="#52525b" 
+                    stroke="var(--color-foreground-muted)"
                     fontSize={10} 
                     tickLine={false} 
                     axisLine={false}
                     tickFormatter={(val) => `${val}km`}
                   />
                   <YAxis 
-                    stroke="#52525b" 
+                    stroke="var(--color-foreground-muted)"
                     fontSize={10} 
                     tickLine={false} 
                     axisLine={false}
                     tickFormatter={(val) => `Rp${val/1000}k`}
                   />
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '12px' }}
-                    itemStyle={{ color: '#006437', fontWeight: 'bold' }}
+                    contentStyle={{ backgroundColor: 'var(--color-surface-raised)', borderColor: 'var(--color-border)', borderRadius: '12px' }}
+                    itemStyle={{ color: 'var(--color-primary)', fontWeight: 'bold' }}
                     formatter={(value) => [`Rp ${Number(value).toLocaleString()}`, 'Price']}
                   />
-                  <Area type="monotone" dataKey="price" stroke="#006437" strokeWidth={3} fillOpacity={1} fill="url(#colorPrice)" />
+                  <Area type="monotone" dataKey="price" stroke="var(--color-primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorPrice)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
             <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/20 text-primary-light">
-                  <Info size={16} />
+                  <Info size={16} aria-hidden="true" />
                 </div>
-                <p className="text-xs text-zinc-400 leading-relaxed italic font-medium">
-                  At current settings, a <span className="text-primary-light font-bold">10km</span> delivery will cost <span className="text-zinc-100 font-bold">Rp {(baseFareVal + 8 * perKmVal).toLocaleString()}</span> ({activeTab}).
+                <p className="text-xs text-foreground-muted leading-relaxed italic font-medium">
+                  At current settings, a <span className="text-primary-light font-bold">10km</span> delivery will cost <span className="text-foreground-muted font-bold">Rp {(baseFareVal + 8 * perKmVal).toLocaleString()}</span> ({activeTab}).
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-6">
-             <p className="text-xs font-black text-zinc-600 uppercase tracking-widest">Pricing Strategy Health</p>
+          <div className="glass-card p-8 rounded-[40px] border-border space-y-6">
+             <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Pricing Strategy Health</p>
              <div className="space-y-6">
                 <div>
                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs text-zinc-400 font-bold">Gross Margin</span>
-                      <span className="text-xs text-emerald-400 font-black">22.4%</span>
+                      <span className="text-xs text-foreground-muted font-bold">Gross Margin</span>
+                      <span className="text-xs text-success font-black">22.4%</span>
                    </div>
-                   <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: '22.4%' }} />
+                   <div className="h-1.5 bg-surface-subtle rounded-full overflow-hidden">
+                      <div className="h-full bg-success rounded-full" style={{ width: '22.4%' }} />
                    </div>
                 </div>
                 <div>
                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs text-zinc-400 font-bold">Courier Take-Home</span>
+                      <span className="text-xs text-foreground-muted font-bold">Courier Take-Home</span>
                       <span className="text-xs text-primary-light font-black">78.0%</span>
                    </div>
-                   <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                   <div className="h-1.5 bg-surface-subtle rounded-full overflow-hidden">
                       <div className="h-full bg-primary rounded-full" style={{ width: '78%' }} />
                    </div>
                 </div>
@@ -469,19 +489,19 @@ export default function PricingConfig() {
 
           <button 
             onClick={() => navigate('/zones')}
-            className="w-full group p-6 rounded-[32px] bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all text-left"
+            className="w-full group p-6 rounded-[32px] bg-surface/[0.02] border border-border hover:bg-surface/[0.04] transition-all text-left"
           >
              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                   <div className="p-3 rounded-2xl bg-white/5 text-zinc-400 group-hover:text-primary-light transition-colors">
-                      <Map size={20} />
+                   <div className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted group-hover:text-primary-light transition-colors">
+                      <Map size={20} aria-hidden="true" />
                    </div>
                    <div>
-                      <p className="text-sm font-black text-zinc-200">Zonal Pricing</p>
-                      <p className="text-xs text-zinc-600">Configure rates per specific zone</p>
+                      <p className="text-sm font-black text-foreground-muted">Zonal Pricing</p>
+                      <p className="text-xs text-foreground-muted">Configure rates per specific zone</p>
                    </div>
                 </div>
-                <ChevronRight size={18} className="text-zinc-700 group-hover:text-zinc-400 transition-colors" />
+                <ChevronRight size={18} className="text-foreground-muted group-hover:text-foreground-muted transition-colors" aria-hidden="true" />
              </div>
           </button>
         </div>
@@ -489,8 +509,8 @@ export default function PricingConfig() {
 
       <div className="pt-4">
         <div className="mb-6">
-          <h2 className="text-2xl font-black text-zinc-100 tracking-tight">Service Product Pricing</h2>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h2 className="text-2xl font-black text-foreground-muted tracking-tight">Service Product Pricing</h2>
+          <p className="mt-1 text-sm text-foreground-muted">
             Konfigurasi harga per layanan customer: Instant, Prioritas, Hemat, Same Day, Mobil, dan layanan baru berikutnya.
           </p>
         </div>
@@ -499,4 +519,3 @@ export default function PricingConfig() {
     </div>
   )
 }
-

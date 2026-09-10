@@ -312,7 +312,7 @@ describe('experience manifest contract', () => {
   it('persists the asset delivery contract and rejects unsafe metadata', () => {
     const parsed = parseExperienceManifestInput({
       ...validInput,
-      sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'Welcome', image_asset_id: 'hero-image' } }],
+      sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'Welcome', alt_label: 'Hero campaign', image_asset_id: 'hero-image' } }],
       asset_references: [{
         asset_id: 'hero-image',
         uri: '/assets/hero.webp',
@@ -339,12 +339,32 @@ describe('experience manifest contract', () => {
 
     expect(() => parseExperienceManifestInput({
       ...validInput,
-      sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'Welcome', image_asset_id: 'hero-image' } }],
+      sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'Welcome', alt_label: 'Hero campaign', image_asset_id: 'hero-image' } }],
       asset_references: [{
         asset_id: 'hero-image', uri: 'https://cdn.example.com/hero.bin', kind: 'image', checksum,
         content_type: 'application/octet-stream',
       }],
     })).toThrow(/content_type/);
+  });
+
+  it('requires banner alt text or an explicit decorative-image decision', () => {
+    const asset = {
+      asset_id: 'hero-image',
+      uri: '/assets/hero.webp',
+      kind: 'image' as const,
+      checksum,
+    };
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'Welcome', image_asset_id: 'hero-image' } }],
+      asset_references: [asset],
+    })).toThrow('alt_label');
+
+    expect(parseExperienceManifestInput({
+      ...validInput,
+      sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'Welcome', image_asset_id: 'hero-image', image_decorative: true } }],
+      asset_references: [asset],
+    }).sections[0].properties).toMatchObject({ image_decorative: true });
   });
 
   it('converts timezone-less schedule wall-clock values using the declared IANA timezone', () => {
@@ -709,7 +729,7 @@ describe('experience manifest contract', () => {
     })).toThrow('max_app_version');
     expect(() => parseExperienceManifestInput({
       ...validInput,
-      sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'x', image_asset_id: 'missing' } }],
+      sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'x', alt_label: 'Hero campaign', image_asset_id: 'missing' } }],
     })).toThrow('Referenced assets are missing');
   });
 

@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { clientLog } from '../lib/clientLogger'
 import { format } from 'date-fns'
+import { StatusBadge } from '../components/StatusBadge'
 
 // Debounce hook
 function useDebounce<T>(value: T, delay: number): T {
@@ -35,22 +36,22 @@ function useDebounce<T>(value: T, delay: number): T {
 // Skeleton card
 function CustomerSkeleton() {
   return (
-    <div className="glass-card p-8 rounded-[40px] border-white/5 animate-pulse">
+    <div className="glass-card p-8 rounded-[40px] border-border animate-pulse">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-6">
-          <div className="h-16 w-16 rounded-[24px] bg-zinc-800" />
+          <div className="h-16 w-16 rounded-[24px] bg-surface-raised" />
           <div className="space-y-2">
-            <div className="h-5 w-36 bg-zinc-800 rounded-lg" />
-            <div className="h-4 w-48 bg-zinc-800/60 rounded-lg" />
+            <div className="h-5 w-36 bg-surface-raised rounded-lg" />
+            <div className="h-4 w-48 bg-surface-subtle rounded-lg" />
           </div>
         </div>
-        <div className="h-5 w-16 bg-zinc-800/60 rounded-full" />
+        <div className="h-5 w-16 bg-surface-subtle rounded-full" />
       </div>
-      <div className="grid grid-cols-2 gap-4 mt-8 pt-8 border-t border-white/5">
-        <div className="h-16 bg-zinc-800/40 rounded-2xl" />
-        <div className="h-16 bg-zinc-800/40 rounded-2xl" />
+      <div className="grid grid-cols-2 gap-4 mt-8 pt-8 border-t border-border">
+        <div className="h-16 bg-surface-subtle rounded-2xl" />
+        <div className="h-16 bg-surface-subtle rounded-2xl" />
       </div>
-      <div className="h-12 bg-zinc-800/30 rounded-2xl mt-6" />
+      <div className="h-12 bg-surface-subtle rounded-2xl mt-6" />
     </div>
   )
 }
@@ -60,18 +61,18 @@ const queryErrorMessage = (error: any, fallback: string) =>
 
 function CustomerErrorState({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
   return (
-    <div className="col-span-full py-20 text-center space-y-4 rounded-[32px] border border-red-500/20 bg-red-500/5">
-      <AlertCircle className="w-10 h-10 text-red-400 mx-auto" />
+    <div className="col-span-full py-20 text-center space-y-4 rounded-[32px] border border-error bg-error-surface">
+      <AlertCircle className="w-10 h-10 text-error mx-auto" aria-hidden="true" />
       <div>
-        <p className="text-sm font-black text-zinc-100 uppercase tracking-widest">{title}</p>
-        <p className="text-xs text-zinc-500 mt-2">{message}</p>
+        <p className="text-sm font-black text-foreground-muted uppercase tracking-widest">{title}</p>
+        <p className="text-xs text-foreground-muted mt-2">{message}</p>
       </div>
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
       >
-        <RefreshCw size={14} />
+        <RefreshCw size={14} aria-hidden="true" />
         Retry
       </button>
     </div>
@@ -132,9 +133,9 @@ export default function Customers() {
   }
 
   const statCards = [
-    { label: 'Total Customers', value: isLoadingStats ? '—' : stats?.totalCustomers?.toLocaleString() ?? 'Tidak tersedia', icon: Users, color: 'text-zinc-400' },
+    { label: 'Total Customers', value: isLoadingStats ? '—' : stats?.totalCustomers?.toLocaleString() ?? 'Tidak tersedia', icon: Users, color: 'text-foreground-muted' },
     { label: 'UMKM Partners', value: isLoadingStats ? '—' : stats?.umkmPartners?.toLocaleString() ?? 'Tidak tersedia', icon: Building2, color: 'text-primary-light' },
-    { label: 'Total Revenue', value: isLoadingStats ? '—' : typeof stats?.totalRevenue === 'number' ? `Rp ${stats.totalRevenue.toLocaleString()}` : 'Tidak tersedia', icon: TrendingUp, color: 'text-emerald-400' },
+    { label: 'Total Revenue', value: isLoadingStats ? '—' : typeof stats?.totalRevenue === 'number' ? `Rp ${stats.totalRevenue.toLocaleString()}` : 'Tidak tersedia', icon: TrendingUp, color: 'text-success' },
   ]
 
   return (
@@ -142,22 +143,22 @@ export default function Customers() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">Customer Directory</h1>
-          <p className="text-zinc-500 mt-1">
+          <h1 className="text-3xl font-bold text-foreground-muted tracking-tight">Customer Directory</h1>
+          <p className="text-foreground-muted mt-1">
             Manage personal and UMKM accounts, view order history and wallets.
-            {total > 0 && <span className="text-zinc-600 ml-2">— {total.toLocaleString()} total</span>}
+            {total > 0 && <span className="text-foreground-muted ml-2">— {total.toLocaleString()} total</span>}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={handleExport}
-            className="px-6 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-sm uppercase tracking-widest hover:bg-emerald-500/20 transition-all flex items-center gap-2"
+            className="px-6 py-3 rounded-2xl bg-success-surface border border-success text-success font-black text-sm uppercase tracking-widest hover:bg-success-surface transition-all flex items-center gap-2"
           >
-            <Download size={18} />
+            <Download size={18} aria-hidden="true" />
             Export CSV
           </button>
-          <button className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-sm uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2">
-            <Mail size={18} />
+          <button className="px-6 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-sm uppercase tracking-widest hover:bg-surface-subtle transition-all flex items-center gap-2">
+            <Mail size={18} aria-hidden="true" />
             Bulk Email
           </button>
         </div>
@@ -172,14 +173,14 @@ export default function Customers() {
             onRetry={() => refetchStats()}
           />
         ) : statCards.map((stat, i) => (
-          <div key={i} className="glass-card p-8 rounded-[32px] border-white/5">
+          <div key={i} className="glass-card p-8 rounded-[32px] border-border">
             <div className="flex items-center gap-4">
-              <div className={cn("p-4 rounded-2xl bg-white/5", stat.color)}>
-                <stat.icon size={24} />
+              <div className={cn("p-4 rounded-2xl bg-surface-subtle", stat.color)}>
+                <stat.icon size={24} aria-hidden="true" />
               </div>
               <div>
-                <p className="text-xs font-black text-zinc-600 uppercase tracking-widest">{stat.label}</p>
-                <p className="text-2xl font-black text-zinc-100 mt-1">{stat.value}</p>
+                <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">{stat.label}</p>
+                <p className="text-2xl font-black text-foreground-muted mt-1">{stat.value}</p>
               </div>
             </div>
           </div>
@@ -189,21 +190,22 @@ export default function Customers() {
       {/* Search + Filter */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:w-96 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-primary-light transition-colors" size={18} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted group-focus-within:text-primary-light transition-colors" size={18} aria-hidden="true" />
           <input 
             type="text" 
+            aria-label="Search customers by name, email, or ID"
             placeholder="Search by name, email, or ID..."
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-zinc-600"
+            className="w-full bg-surface-subtle border border-border rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-foreground-muted"
           />
           {isLoadingCustomers && (
-            <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 animate-spin" size={16} />
+            <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground-muted animate-spin" size={16} aria-hidden="true" />
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button className="p-3.5 rounded-2xl bg-white/5 text-zinc-500 hover:text-white border border-white/10 transition-all">
-            <Filter size={20} />
+          <button aria-label="Open customer filters" className="p-3.5 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground border border-border transition-all">
+            <Filter size={20} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -226,63 +228,58 @@ export default function Customers() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
                 key={customer.id}
-                className="glass-card p-8 rounded-[40px] border-white/5 hover:border-white/10 transition-all group"
+                className="glass-card p-8 rounded-[40px] border-border hover:border-border transition-all group"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-6">
-                    <div className="h-16 w-16 rounded-[24px] bg-zinc-900 border border-white/10 flex items-center justify-center text-2xl font-black text-zinc-700 uppercase group-hover:bg-primary group-hover:text-white group-hover:border-primary/20 transition-all">
+                    <div className="h-16 w-16 rounded-[24px] bg-surface border border-border flex items-center justify-center text-2xl font-black text-foreground uppercase group-hover:bg-primary group-hover:text-on-primary group-hover:border-primary/20 transition-all">
                       {customer.name?.charAt(0)}
                     </div>
                     <div>
                       <div className="flex items-center gap-3">
-                        <h3 className="text-xl font-bold text-zinc-100">{customer.name}</h3>
+                        <h3 className="text-xl font-bold text-foreground-muted">{customer.name}</h3>
                         <span className={cn(
                           "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest border",
                           customer.orders_count > 100 
                             ? "border-primary-light/20 text-primary-light bg-primary-light/5" 
-                            : "border-zinc-700 text-zinc-500 bg-white/5"
+                            : "border-border text-foreground-muted bg-surface-subtle"
                         )}>
                           {customer.orders_count > 100 ? 'UMKM' : 'Personal'}
                         </span>
                       </div>
-                      <p className="text-sm text-zinc-500 mt-1">{customer.email}</p>
+                      <p className="text-sm text-foreground-muted mt-1">{customer.email}</p>
                     </div>
                   </div>
-                  <span className={cn(
-                    "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                    customer.status === 'active' ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-600"
-                  )}>
-                    {customer.status}
-                  </span>
+                  <StatusBadge status={customer.status} labelPrefix="Customer status" className="text-[10px] uppercase tracking-widest" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mt-8 pt-8 border-t border-white/5">
-                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.01]">
-                    <ShoppingBag size={18} className="text-zinc-600" />
+                <div className="grid grid-cols-2 gap-4 mt-8 pt-8 border-t border-border">
+                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface/[0.01]">
+                    <ShoppingBag size={18} className="text-foreground-muted" aria-hidden="true" />
                     <div>
-                      <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Orders</p>
-                      <p className="text-sm font-black text-zinc-200">{customer.orders_count}</p>
+                      <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Orders</p>
+                      <p className="text-sm font-black text-foreground-muted">{customer.orders_count}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.01]">
-                    <Users size={18} className="text-zinc-600" />
+                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface/[0.01]">
+                    <Users size={18} className="text-foreground-muted"  aria-hidden="true"/>
                     <div>
-                      <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Joined</p>
-                      <p className="text-sm font-black text-zinc-200">
+                      <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Joined</p>
+                      <p className="text-sm font-black text-foreground-muted">
                         {customer.joined_at ? format(new Date(customer.joined_at), 'dd MMM yyyy') : '—'}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <button className="w-full mt-6 py-4 rounded-2xl bg-white/5 text-zinc-500 font-black text-xs uppercase tracking-[0.2em] hover:bg-primary hover:text-white transition-all flex items-center justify-center gap-2">
+                <button className="w-full mt-6 py-4 rounded-2xl bg-surface-subtle text-foreground-secondary font-black text-xs uppercase tracking-[0.2em] hover:bg-primary hover:text-on-primary transition-all flex items-center justify-center gap-2">
                   View Profile Detail
-                  <ChevronRight size={14} />
+                  <ChevronRight size={14} aria-hidden="true" />
                 </button>
               </motion.div>
             ))}
             {customers.length === 0 && (
-              <div className="col-span-full py-20 text-center text-zinc-500 font-bold italic uppercase tracking-widest">
+              <div className="col-span-full py-20 text-center text-foreground-muted font-bold italic uppercase tracking-widest">
                 No customers found matching your criteria
               </div>
             )}
@@ -293,16 +290,16 @@ export default function Customers() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-4">
-          <p className="text-sm text-zinc-500">
-            Showing <span className="text-zinc-300 font-bold">{((page - 1) * LIMIT) + 1}–{Math.min(page * LIMIT, total)}</span> of <span className="text-zinc-300 font-bold">{total.toLocaleString()}</span> customers
+          <p className="text-sm text-foreground-muted">
+            Showing <span className="text-foreground-muted font-bold">{((page - 1) * LIMIT) + 1}–{Math.min(page * LIMIT, total)}</span> of <span className="text-foreground-muted font-bold">{total.toLocaleString()}</span> customers
           </p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="p-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              <ChevronLeft size={18} />
+              <ChevronLeft size={18} aria-hidden="true" />
             </button>
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               const pageNum = Math.max(1, Math.min(page - 2, totalPages - 4)) + i
@@ -313,8 +310,8 @@ export default function Customers() {
                   className={cn(
                     "w-10 h-10 rounded-xl text-sm font-black transition-all",
                     pageNum === page 
-                      ? "bg-primary text-white shadow-lg shadow-primary/20" 
-                      : "bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10"
+                      ? "bg-primary text-on-primary shadow-lg shadow-primary/20"
+                      : "bg-surface-subtle border border-border text-foreground-muted hover:text-foreground hover:bg-surface-subtle"
                   )}
                 >
                   {pageNum}
@@ -324,9 +321,9 @@ export default function Customers() {
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="p-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              <ChevronRight size={18} />
+              <ChevronRight size={18} aria-hidden="true" />
             </button>
           </div>
         </div>

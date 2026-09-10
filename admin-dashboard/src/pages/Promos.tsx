@@ -252,17 +252,17 @@ const buildCreatePayload = (form: PromoFormState) => ({
 
 function DataState({ title, message, onRetry }: { title: string; message: string; onRetry?: () => void }) {
   return (
-    <div className="rounded-[32px] border border-red-500/20 bg-red-500/5 p-8 text-center">
-      <AlertTriangle className="mx-auto h-10 w-10 text-red-300" />
-      <p className="mt-4 text-sm font-black uppercase tracking-widest text-red-100">{title}</p>
-      <p className="mt-2 text-sm text-red-200/70">{message}</p>
+    <div className="rounded-[32px] border border-error bg-error-surface p-8 text-center">
+      <AlertTriangle className="mx-auto h-10 w-10 text-error"  aria-hidden="true"/>
+      <p className="mt-4 text-sm font-black uppercase tracking-widest text-error">{title}</p>
+      <p className="mt-2 text-sm text-error">{message}</p>
       {onRetry && (
         <button
           type="button"
           onClick={onRetry}
-          className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-3 text-xs font-black uppercase tracking-widest text-red-100 transition-all hover:bg-red-500/20"
+          className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-error bg-error-surface px-5 py-3 text-xs font-black uppercase tracking-widest text-error transition-all hover:bg-error-surface"
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
           Muat ulang
         </button>
       )}
@@ -272,21 +272,21 @@ function DataState({ title, message, onRetry }: { title: string; message: string
 
 function MetricCard({ icon: Icon, label, value, tone = 'emerald' }: { icon: any; label: string; value: string; tone?: 'emerald' | 'amber' | 'blue' | 'red' }) {
   const toneClass = {
-    emerald: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/10',
-    amber: 'text-amber-300 bg-amber-500/10 border-amber-500/10',
-    blue: 'text-sky-300 bg-sky-500/10 border-sky-500/10',
-    red: 'text-red-300 bg-red-500/10 border-red-500/10',
+    emerald: 'text-success bg-success-surface border-success',
+    amber: 'text-warning bg-warning-surface border-warning',
+    blue: 'text-info bg-info-surface border-info',
+    red: 'text-error bg-error-surface border-error',
   }[tone]
 
   return (
-    <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-6 shadow-sm">
+    <div className="rounded-[28px] border border-border bg-surface/[0.03] p-6 shadow-sm">
       <div className="flex items-center gap-4">
         <div className={cn('rounded-2xl border p-3', toneClass)}>
-          <Icon className="h-5 w-5" />
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">{label}</p>
-          <p className="mt-1 text-2xl font-black tracking-tight text-zinc-100">{value}</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-foreground-muted">{label}</p>
+          <p className="mt-1 text-2xl font-black tracking-tight text-foreground-muted">{value}</p>
         </div>
       </div>
     </div>
@@ -295,18 +295,27 @@ function MetricCard({ icon: Icon, label, value, tone = 'emerald' }: { icon: any;
 
 function PromoStatusPill({ status }: { status: PromoStatus }) {
   const statusClass = {
-    draft: 'bg-zinc-700/30 text-zinc-300 border-zinc-600/30',
-    pending_approval: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
-    scheduled: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
-    active: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
-    paused: 'bg-orange-500/10 text-orange-300 border-orange-500/20',
-    expired: 'bg-red-500/10 text-red-300 border-red-500/20',
-    archived: 'bg-zinc-800 text-zinc-500 border-zinc-700',
+    draft: 'bg-surface-subtle text-foreground-muted border-border',
+    pending_approval: 'bg-warning-surface text-warning border-warning',
+    scheduled: 'bg-info-surface text-info border-info',
+    active: 'bg-success-surface text-success border-success',
+    paused: 'bg-accent-surface text-accent border-accent',
+    expired: 'bg-error-surface text-error border-error',
+    archived: 'bg-surface-raised text-foreground-muted border-border',
   }[status]
+  const StatusIcon = status === 'active'
+    ? CheckCircle2
+    : status === 'expired'
+      ? AlertTriangle
+      : status === 'paused'
+        ? PauseCircle
+        : Clock
+  const label = status.replace('_', ' ')
 
   return (
-    <span className={cn('rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest', statusClass)}>
-      {status.replace('_', ' ')}
+    <span aria-label={`Promo status: ${label}`} className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest', statusClass)}>
+      <StatusIcon size={12} aria-hidden="true" />
+      {label}
     </span>
   )
 }
@@ -477,14 +486,14 @@ export default function Promos() {
 
   return (
     <div className="space-y-8 pb-20">
-      <div className="flex flex-col gap-6 rounded-[40px] border border-white/10 bg-gradient-to-br from-zinc-900 via-zinc-950 to-emerald-950/30 p-8 shadow-2xl shadow-black/20 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-6 rounded-[40px] border border-border bg-gradient-to-br from-surface-subtle via-surface-subtle to-success p-8 shadow-2xl shadow-scrim lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-emerald-300">
-            <ShieldCheck className="h-4 w-4" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-success bg-success-surface px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-success">
+            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
             Margin Safe Promotion Control
           </div>
-          <h1 className="mt-6 text-4xl font-black tracking-tight text-white">Promo Engine</h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400">
+          <h1 className="mt-6 text-4xl font-black tracking-tight text-foreground">Promo Engine</h1>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-foreground-muted">
             Kelola campaign promo dengan guard margin dinamis, budget ledger, approval superadmin, dan audit trail. Diskon final selalu dihitung backend setelah pajak/asuransi.
           </p>
         </div>
@@ -494,9 +503,9 @@ export default function Promos() {
             campaignsQuery.refetch()
             policiesQuery.refetch()
           }}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-xs font-black uppercase tracking-widest text-zinc-200 transition-all hover:bg-white/10 active:scale-[0.98]"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface-subtle px-5 py-3 text-xs font-black uppercase tracking-widest text-foreground-muted transition-all hover:bg-surface-subtle active:scale-[0.98]"
         >
-          <RefreshCw className={cn('h-4 w-4', (campaignsQuery.isFetching || policiesQuery.isFetching) && 'animate-spin')} />
+          <RefreshCw className={cn('h-4 w-4', (campaignsQuery.isFetching || policiesQuery.isFetching) && 'animate-spin')} aria-hidden="true" />
           Refresh
         </button>
       </div>
@@ -509,13 +518,13 @@ export default function Promos() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-[36px] border border-white/10 bg-white/[0.03] p-6 shadow-xl shadow-black/10">
+        <section className="rounded-[36px] border border-border bg-surface/[0.03] p-6 shadow-xl shadow-scrim">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-black tracking-tight text-zinc-100">Campaign baru</h2>
-              <p className="mt-1 text-sm text-zinc-500">Mutasi membutuhkan role finance/superadmin dan sesi TOTP aktif.</p>
+              <h2 className="text-2xl font-black tracking-tight text-foreground-muted">Campaign baru</h2>
+              <p className="mt-1 text-sm text-foreground-muted">Mutasi membutuhkan role finance/superadmin dan sesi TOTP aktif.</p>
             </div>
-            <Sparkles className="h-7 w-7 text-emerald-300" />
+            <Sparkles className="h-7 w-7 text-success" aria-hidden="true" />
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -544,24 +553,25 @@ export default function Promos() {
             <TextField label="Limit per user" value={form.per_user_limit} onChange={(value) => updateForm('per_user_limit', value)} type="number" />
             <TextField label="Mulai" value={form.starts_at} onChange={(value) => updateForm('starts_at', value)} type="datetime-local" />
             <TextField label="Berakhir" value={form.ends_at} onChange={(value) => updateForm('ends_at', value)} type="datetime-local" />
-            <label className="flex min-h-[58px] items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+            <label className="flex min-h-[58px] items-center gap-3 rounded-2xl border border-warning bg-warning-surface px-4 py-3">
               <input
                 type="checkbox"
                 checked={form.risk_campaign}
                 onChange={(event) => updateForm('risk_campaign', event.target.checked)}
                 className="h-4 w-4 accent-amber-400"
               />
-              <span className="text-sm font-bold text-amber-100">Risk campaign - wajib approval superadmin</span>
+              <span className="text-sm font-bold text-warning">Risk campaign - wajib approval superadmin</span>
             </label>
             <div className="md:col-span-2">
               <TextField label="Alasan risk atau catatan campaign" value={form.risk_reason} onChange={(value) => updateForm('risk_reason', value)} placeholder="Contoh: kampanye akuisisi terbatas area Jakarta" />
             </div>
             <div className="md:col-span-2">
-              <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Deskripsi</label>
-              <textarea
-                value={form.description}
+              <label className="text-xs font-black uppercase tracking-widest text-foreground-muted">Deskripsi</label>
+            <textarea
+              aria-label="Promo campaign description"
+              value={form.description}
                 onChange={(event) => updateForm('description', event.target.value)}
-                className="mt-2 min-h-24 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition-all placeholder:text-zinc-700 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/10"
+                className="mt-2 min-h-24 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground-muted outline-none transition-all placeholder:text-foreground-muted focus:border-success focus:ring-2 focus:ring-success"
                 placeholder="Copy promo yang aman untuk user dan tidak menjanjikan diskon di luar policy."
               />
             </div>
@@ -571,21 +581,21 @@ export default function Promos() {
             type="button"
             disabled={createMutation.isPending}
             onClick={() => createMutation.mutate()}
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-950/40 transition-all hover:bg-emerald-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-success px-5 py-4 text-sm font-black uppercase tracking-widest text-on-success shadow-lg shadow-success transition-all hover:bg-success active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {createMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+            {createMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <Send className="h-5 w-5" aria-hidden="true" />}
             Buat Draft Promo
           </button>
         </section>
 
         <section className="space-y-6">
-          <div className="rounded-[36px] border border-white/10 bg-white/[0.03] p-6">
+          <div className="rounded-[36px] border border-border bg-surface/[0.03] p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-black tracking-tight text-zinc-100">Simulasi margin</h2>
-                <p className="mt-1 text-sm text-zinc-500">Backend menolak promo jika margin policy tidak terpenuhi.</p>
+                <h2 className="text-xl font-black tracking-tight text-foreground-muted">Simulasi margin</h2>
+                <p className="mt-1 text-sm text-foreground-muted">Backend menolak promo jika margin policy tidak terpenuhi.</p>
               </div>
-              <Target className="h-6 w-6 text-emerald-300" />
+              <Target className="h-6 w-6 text-success" aria-hidden="true" />
             </div>
             <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <TextField label="Kode promo" value={simulation.code} onChange={(value) => updateSimulation('code', value.toUpperCase())} />
@@ -600,18 +610,18 @@ export default function Promos() {
               type="button"
               disabled={simulateMutation.isPending || !simulation.code.trim()}
               onClick={() => simulateMutation.mutate()}
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-3 text-xs font-black uppercase tracking-widest text-emerald-100 transition-all hover:bg-emerald-500/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-success bg-success-surface px-5 py-3 text-xs font-black uppercase tracking-widest text-success transition-all hover:bg-success-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {simulateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              {simulateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <ShieldCheck className="h-4 w-4" aria-hidden="true" />}
               Jalankan simulasi
             </button>
             {simulationResult && (
-              <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="mt-5 rounded-2xl border border-success bg-success-surface p-4">
                 <div className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-300" />
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 text-success" aria-hidden="true" />
                   <div>
-                    <p className="text-sm font-black text-emerald-100">Promo aman digunakan</p>
-                    <p className="mt-1 text-xs leading-5 text-emerald-100/70">
+                    <p className="text-sm font-black text-success">Promo aman digunakan</p>
+                    <p className="mt-1 text-xs leading-5 text-success">
                       Diskon {formatIdr(simulationResult.discount_amount_idr)} - payable {formatIdr(simulationResult.payable_amount_idr)} - margin {formatIdr(simulationResult.margin?.projected_margin_idr)}.
                     </p>
                   </div>
@@ -620,35 +630,35 @@ export default function Promos() {
             )}
           </div>
 
-          <div className="rounded-[36px] border border-white/10 bg-white/[0.03] p-6">
-            <h2 className="text-xl font-black tracking-tight text-zinc-100">Margin policy aktif</h2>
-            <p className="mt-1 text-sm text-zinc-500">Policy ini dinamis dari database dan menjadi guard utama agar promo tidak rugi.</p>
+          <div className="rounded-[36px] border border-border bg-surface/[0.03] p-6">
+            <h2 className="text-xl font-black tracking-tight text-foreground-muted">Margin policy aktif</h2>
+            <p className="mt-1 text-sm text-foreground-muted">Policy ini dinamis dari database dan menjadi guard utama agar promo tidak rugi.</p>
             <div className="mt-5 max-h-[360px] space-y-3 overflow-y-auto pr-1">
               {policiesQuery.isError ? (
                 <DataState title="Policy gagal dimuat" message={queryErrorMessage(policiesQuery.error, 'Margin policy tidak tersedia.')} onRetry={() => policiesQuery.refetch()} />
               ) : policies.length === 0 ? (
-                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100">
+                <div className="rounded-2xl border border-warning bg-warning-surface p-4 text-sm text-warning">
                   Belum ada margin policy. Promo tidak boleh dipublish sampai policy service dikonfigurasi.
                 </div>
               ) : policies.map((policy) => (
-                <div key={policy.id} className="rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
+                <div key={policy.id} className="rounded-2xl border border-border bg-surface-subtle p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="font-black text-zinc-100">{policy.service_code}</p>
-                      <p className="mt-1 text-xs text-zinc-500">{policy.vehicle_type || 'semua kendaraan'} - {policy.zone_code || 'semua zona'}</p>
+                      <p className="font-black text-foreground-muted">{policy.service_code}</p>
+                      <p className="mt-1 text-xs text-foreground-muted">{policy.vehicle_type || 'semua kendaraan'} - {policy.zone_code || 'semua zona'}</p>
                     </div>
-                    <span className={cn('rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest', policy.active ? 'bg-emerald-500/10 text-emerald-300' : 'bg-zinc-800 text-zinc-500')}>
+                    <span className={cn('rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest', policy.active ? 'bg-success-surface text-success' : 'bg-surface-raised text-foreground-muted')}>
                       {policy.active ? 'active' : 'off'}
                     </span>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                    <div className="rounded-xl bg-white/[0.03] p-3">
-                      <p className="text-zinc-500">Min amount</p>
-                      <p className="mt-1 font-black text-zinc-100">{formatIdr(policy.min_margin_amount_idr)}</p>
+                    <div className="rounded-xl bg-surface/[0.03] p-3">
+                      <p className="text-foreground-muted">Min amount</p>
+                      <p className="mt-1 font-black text-foreground-muted">{formatIdr(policy.min_margin_amount_idr)}</p>
                     </div>
-                    <div className="rounded-xl bg-white/[0.03] p-3">
-                      <p className="text-zinc-500">Min percent</p>
-                      <p className="mt-1 font-black text-zinc-100">{Number(policy.min_margin_percent).toFixed(2)}%</p>
+                    <div className="rounded-xl bg-surface/[0.03] p-3">
+                      <p className="text-foreground-muted">Min percent</p>
+                      <p className="mt-1 font-black text-foreground-muted">{Number(policy.min_margin_percent).toFixed(2)}%</p>
                     </div>
                   </div>
                 </div>
@@ -658,19 +668,20 @@ export default function Promos() {
         </section>
       </div>
 
-      <section className="rounded-[36px] border border-white/10 bg-white/[0.03] p-6">
+      <section className="rounded-[36px] border border-border bg-surface/[0.03] p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-2xl font-black tracking-tight text-zinc-100">Campaign promo</h2>
-            <p className="mt-1 text-sm text-zinc-500">Lifecycle: draft - approval - publish - pause. Semua aksi dicatat di audit trail.</p>
+            <h2 className="text-2xl font-black tracking-tight text-foreground-muted">Campaign promo</h2>
+            <p className="mt-1 text-sm text-foreground-muted">Lifecycle: draft - approval - publish - pause. Semua aksi dicatat di audit trail.</p>
           </div>
           <div className="relative w-full md:w-96">
-            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" />
-            <input
-              value={search}
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-muted" aria-hidden="true" />
+          <input
+            aria-label="Search promo campaigns by code, status, or service"
+            value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Cari kode, status, atau service"
-              className="w-full rounded-2xl border border-white/10 bg-zinc-950 py-3 pl-11 pr-4 text-sm text-zinc-100 outline-none transition-all placeholder:text-zinc-700 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/10"
+              className="w-full rounded-2xl border border-border bg-background py-3 pl-11 pr-4 text-sm text-foreground-muted outline-none transition-all placeholder:text-foreground-muted focus:border-success focus:ring-2 focus:ring-success"
             />
           </div>
         </div>
@@ -678,16 +689,16 @@ export default function Promos() {
         <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
           {campaignsQuery.isLoading ? (
             Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="h-64 animate-pulse rounded-[32px] bg-white/[0.04]" />
+              <div key={index} className="h-64 animate-pulse rounded-[32px] bg-surface/[0.04]" />
             ))
           ) : campaignsQuery.isError ? (
             <div className="xl:col-span-2">
               <DataState title="Campaign gagal dimuat" message={queryErrorMessage(campaignsQuery.error, 'Promo campaign tidak tersedia.')} onRetry={() => campaignsQuery.refetch()} />
             </div>
           ) : filteredCampaigns.length === 0 ? (
-            <div className="xl:col-span-2 rounded-[32px] border border-dashed border-white/10 p-12 text-center">
-              <BadgePercent className="mx-auto h-10 w-10 text-zinc-700" />
-              <p className="mt-4 text-sm font-black uppercase tracking-widest text-zinc-500">Belum ada campaign promo</p>
+            <div className="xl:col-span-2 rounded-[32px] border border-dashed border-border p-12 text-center">
+              <BadgePercent className="mx-auto h-10 w-10 text-foreground-muted" aria-hidden="true" />
+              <p className="mt-4 text-sm font-black uppercase tracking-widest text-foreground-muted">Belum ada campaign promo</p>
             </div>
           ) : filteredCampaigns.map((campaign, index) => (
             <PromoCampaignCard
@@ -754,30 +765,30 @@ function PromoCampaignCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
-      className="rounded-[32px] border border-white/10 bg-zinc-950/80 p-6 shadow-xl shadow-black/10"
+      className="rounded-[32px] border border-border bg-surface-subtle p-6 shadow-xl shadow-scrim"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-lg font-black tracking-widest text-emerald-200">
+            <span className="rounded-2xl border border-success bg-success-surface px-4 py-2 text-lg font-black tracking-widest text-success">
               {campaign.code}
             </span>
             <PromoStatusPill status={campaign.status} />
             {campaign.risk_campaign && (
-              <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-red-300">
+              <span className="rounded-full border border-error bg-error-surface px-3 py-1 text-[10px] font-black uppercase tracking-widest text-error">
                 risk
               </span>
             )}
           </div>
-          <h3 className="mt-4 text-xl font-black tracking-tight text-zinc-100">{campaign.name}</h3>
-          <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-500">{campaign.description || 'Tidak ada deskripsi campaign.'}</p>
+          <h3 className="mt-4 text-xl font-black tracking-tight text-foreground-muted">{campaign.name}</h3>
+          <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground-muted">{campaign.description || 'Tidak ada deskripsi campaign.'}</p>
         </div>
-        <BadgePercent className="h-8 w-8 text-emerald-300/70" />
+        <BadgePercent className="h-8 w-8 text-success" aria-hidden="true" />
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
         {services.map((service) => (
-          <span key={service} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+          <span key={service} className="rounded-full border border-border bg-surface/[0.03] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground-muted">
             {service}
           </span>
         ))}
@@ -792,21 +803,21 @@ function PromoCampaignCard({
 
       <div className="mt-5">
         <div className="flex items-center justify-between text-xs">
-          <span className="font-bold text-zinc-500">Budget reserved + redeemed</span>
-          <span className="font-black text-zinc-200">{budgetUsage.toFixed(1)}%</span>
+          <span className="font-bold text-foreground-muted">Budget reserved + redeemed</span>
+          <span className="font-black text-foreground-muted">{budgetUsage.toFixed(1)}%</span>
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/[0.06]">
-          <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${budgetUsage}%` }} />
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface/[0.06]">
+          <div className="h-full rounded-full bg-success transition-all" style={{ width: `${budgetUsage}%` }} />
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-3 text-xs text-zinc-500 md:grid-cols-2">
-        <div className="flex items-center gap-2 rounded-2xl bg-white/[0.03] p-3">
-          <CalendarClock className="h-4 w-4 text-zinc-400" />
+      <div className="mt-5 grid grid-cols-1 gap-3 text-xs text-foreground-muted md:grid-cols-2">
+        <div className="flex items-center gap-2 rounded-2xl bg-surface/[0.03] p-3">
+          <CalendarClock className="h-4 w-4 text-foreground-muted" aria-hidden="true" />
           <span>{new Date(campaign.starts_at).toLocaleString('id-ID')}</span>
         </div>
-        <div className="flex items-center gap-2 rounded-2xl bg-white/[0.03] p-3">
-          <CalendarClock className="h-4 w-4 text-zinc-400" />
+        <div className="flex items-center gap-2 rounded-2xl bg-surface/[0.03] p-3">
+          <CalendarClock className="h-4 w-4 text-foreground-muted" aria-hidden="true" />
           <span>{new Date(campaign.ends_at).toLocaleString('id-ID')}</span>
         </div>
       </div>
@@ -820,10 +831,10 @@ function PromoCampaignCard({
       </div>
 
       {canNotify && (
-        <div className="mt-5 rounded-[26px] border border-emerald-500/10 bg-emerald-500/[0.04] p-4">
+        <div className="mt-5 rounded-[26px] border border-success bg-success/[0.04] p-4">
           <div className="flex items-center gap-2">
-            <BellRing className="h-4 w-4 text-emerald-300" />
-            <p className="text-xs font-black uppercase tracking-widest text-emerald-100">Campaign notification</p>
+            <BellRing className="h-4 w-4 text-success" aria-hidden="true" />
+            <p className="text-xs font-black uppercase tracking-widest text-success">Campaign notification</p>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <SelectField
@@ -840,7 +851,7 @@ function PromoCampaignCard({
                 type="datetime-local"
               />
             ) : (
-              <div className="rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-xs leading-5 text-zinc-500">
+              <div className="rounded-2xl border border-border bg-background px-4 py-3 text-xs leading-5 text-foreground-muted">
                 Push langsung tetap menghormati quiet hours. Mode none hanya mencatat audit tanpa mengirim pesan.
               </div>
             )}
@@ -868,13 +879,13 @@ function PromoCampaignCard({
 
 function PromoAnalyticsPanel({ analytics }: { analytics: PromoAnalytics }) {
   return (
-    <div className="mt-5 rounded-[26px] border border-white/10 bg-white/[0.03] p-4">
+    <div className="mt-5 rounded-[26px] border border-border bg-surface/[0.03] p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Audit & analytics</p>
-          <p className="mt-1 text-sm text-zinc-300">Budget, delivery, redemption, dan event terakhir dari backend.</p>
+          <p className="text-xs font-black uppercase tracking-widest text-foreground-muted">Audit & analytics</p>
+          <p className="mt-1 text-sm text-foreground-muted">Budget, delivery, redemption, dan event terakhir dari backend.</p>
         </div>
-        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-300">
+        <span className="rounded-full border border-success bg-success-surface px-3 py-1 text-[10px] font-black uppercase tracking-widest text-success">
           {analytics.status}
         </span>
       </div>
@@ -887,15 +898,15 @@ function PromoAnalyticsPanel({ analytics }: { analytics: PromoAnalytics }) {
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Redemption</p>
-          <p className="mt-2 text-sm text-zinc-300">
+        <div className="rounded-2xl border border-border bg-surface-subtle p-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Redemption</p>
+          <p className="mt-2 text-sm text-foreground-muted">
             Redeemed {analytics.redemption.redeemed} dari {analytics.redemption.total}, diskon terpakai {formatIdr(analytics.redemption.discount_redeemed_idr)}, margin rata-rata {analytics.redemption.average_margin_percent}%.
           </p>
         </div>
-        <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Delivery</p>
-          <p className="mt-2 text-sm text-zinc-300">
+        <div className="rounded-2xl border border-border bg-surface-subtle p-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Delivery</p>
+          <p className="mt-2 text-sm text-foreground-muted">
             Queued {analytics.delivery.queued}, failed {analytics.delivery.failed}, opened {analytics.delivery.opened}.
           </p>
         </div>
@@ -903,15 +914,15 @@ function PromoAnalyticsPanel({ analytics }: { analytics: PromoAnalytics }) {
 
       <div className="mt-4 max-h-56 space-y-2 overflow-y-auto pr-1">
         {analytics.audit_events.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/10 p-4 text-sm text-zinc-500">Belum ada audit event.</div>
+          <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-foreground-muted">Belum ada audit event.</div>
         ) : analytics.audit_events.map((event) => (
-          <div key={event.id} className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
+          <div key={event.id} className="rounded-2xl border border-border bg-surface-subtle p-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-black text-zinc-100">{event.action.split('_').join(' ')}</p>
-              <p className="text-[10px] font-bold text-zinc-500">{new Date(event.created_at).toLocaleString('id-ID')}</p>
+              <p className="text-sm font-black text-foreground-muted">{event.action.split('_').join(' ')}</p>
+              <p className="text-[10px] font-bold text-foreground-muted">{new Date(event.created_at).toLocaleString('id-ID')}</p>
             </div>
-            <p className="mt-1 text-xs text-zinc-500">{event.reason || 'Tidak ada catatan.'}</p>
-            <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-zinc-600">{event.actor_role || 'system'}</p>
+            <p className="mt-1 text-xs text-foreground-muted">{event.reason || 'Tidak ada catatan.'}</p>
+            <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted">{event.actor_role || 'system'}</p>
           </div>
         ))}
       </div>
@@ -921,12 +932,12 @@ function PromoAnalyticsPanel({ analytics }: { analytics: PromoAnalytics }) {
 
 function MiniMetric({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-      <div className="flex items-center gap-2 text-zinc-500">
-        <Icon className="h-3.5 w-3.5" />
+    <div className="rounded-2xl border border-border bg-surface/[0.03] p-3">
+      <div className="flex items-center gap-2 text-foreground-muted">
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
         <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
       </div>
-      <p className="mt-2 truncate text-sm font-black text-zinc-100">{value}</p>
+      <p className="mt-2 truncate text-sm font-black text-foreground-muted">{value}</p>
     </div>
   )
 }
@@ -940,11 +951,11 @@ function ActionButton({ label, icon: Icon, disabled, onClick, tone = 'safe' }: {
       className={cn(
         'inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-[11px] font-black uppercase tracking-widest transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50',
         tone === 'danger'
-          ? 'border-red-500/20 bg-red-500/10 text-red-100 hover:bg-red-500/20'
-          : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20'
+          ? 'border-error bg-error-surface text-error hover:bg-error-surface'
+          : 'border-success bg-success-surface text-success hover:bg-success-surface'
       )}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className="h-4 w-4" aria-hidden="true" />
       {label}
     </button>
   )
@@ -965,13 +976,13 @@ function TextField({
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-black uppercase tracking-widest text-zinc-500">{label}</span>
+      <span className="text-xs font-black uppercase tracking-widest text-foreground-muted">{label}</span>
       <input
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="mt-2 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition-all placeholder:text-zinc-700 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/10"
+        className="mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground-muted outline-none transition-all placeholder:text-foreground-muted focus:border-success focus:ring-2 focus:ring-success"
       />
     </label>
   )
@@ -990,11 +1001,11 @@ function SelectField({
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-black uppercase tracking-widest text-zinc-500">{label}</span>
+      <span className="text-xs font-black uppercase tracking-widest text-foreground-muted">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none transition-all focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/10"
+        className="mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground-muted outline-none transition-all focus:border-success focus:ring-2 focus:ring-success"
       >
         {options.map((option) => (
           <option key={option} value={option}>{option.replace('_', ' ')}</option>

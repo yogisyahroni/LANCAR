@@ -138,29 +138,29 @@ export function PayoutAccountsSection({ data }: { data: FinanceData }) {
             'Operational Cost': TrendingDown
           };
           const colors: Record<string, string> = {
-            'Gross Revenue': 'text-emerald-400',
+            'Gross Revenue': 'text-success',
             'Net Profit': 'text-primary-light',
-            'Operational Cost': 'text-red-400'
+            'Operational Cost': 'text-error'
           };
           const Icon = icons[stat.label] || DollarSign;
           
           return (
-            <div key={i} className="glass-card p-10 rounded-[48px] border-white/5 group hover:border-white/10 transition-all">
+            <div key={i} className="glass-card p-10 rounded-[48px] border-border group hover:border-border transition-all">
               <div className="flex items-start justify-between">
-                  <div className={cn("p-4 rounded-2xl bg-white/5", colors[stat.label])}>
-                    <Icon size={28} />
+                  <div className={cn("p-4 rounded-2xl bg-surface-subtle", colors[stat.label])}>
+                    <Icon size={28} aria-hidden="true" />
                   </div>
                   <div className={cn(
                     "flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full",
-                    stat.up ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                    stat.up ? "bg-success-surface text-success" : "bg-error-surface text-error"
                   )}>
-                    {stat.up ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                    {stat.up ? <ArrowUpRight size={10} aria-hidden="true" /> : <ArrowDownRight size={10} aria-hidden="true" />}
                     {stat.change}
                   </div>
               </div>
               <div className="mt-8">
-                  <p className="text-xs font-black text-zinc-600 uppercase tracking-widest">{stat.label}</p>
-                  <p className="text-4xl font-black text-zinc-100 mt-2 tracking-tighter">
+                  <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">{stat.label}</p>
+                  <p className="text-4xl font-black text-foreground-muted mt-2 tracking-tighter">
                     Rp {stat.value.toLocaleString()}
                   </p>
               </div>

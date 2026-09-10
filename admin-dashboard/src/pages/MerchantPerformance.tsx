@@ -38,15 +38,16 @@ export default function MerchantPerformance() {
     <div className="p-6 sm:p-8 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Merchant Performance</h1>
-          <p className="text-xs text-zinc-400 mt-1">Completion rate, prep time, dan rating merchant food delivery</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground-muted">Merchant Performance</h1>
+          <p className="text-xs text-foreground-muted mt-1">Completion rate, prep time, dan rating merchant food delivery</p>
         </div>
         <div className="relative w-full sm:w-80">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-muted"  aria-hidden="true"/>
           <input 
             type="text" 
+            aria-label="Search merchant performance by name, phone, or email"
             placeholder="Search by name, phone, or email..." 
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all font-medium text-zinc-200 placeholder:text-zinc-600 shadow-sm"
+            className="w-full bg-surface-subtle border border-border rounded-2xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all font-medium text-foreground-muted placeholder:text-foreground-muted shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -55,33 +56,33 @@ export default function MerchantPerformance() {
 
       {isLoading ? (
         <div className="glass-card rounded-3xl p-12 flex flex-col items-center justify-center space-y-4">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
-          <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Loading merchant performance...</p>
+          <Loader2 className="w-8 h-8 text-primary animate-spin" aria-hidden="true" />
+          <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest">Loading merchant performance...</p>
         </div>
       ) : error ? (
-        <div className="glass-card rounded-3xl p-8 border-red-500/20 bg-red-500/5 text-red-400 font-semibold text-center">
+        <div className="glass-card rounded-3xl p-8 border-error bg-error-surface text-error font-semibold text-center">
           Failed to load merchant performance
         </div>
       ) : !merchants || merchants.length === 0 ? (
         <div className="glass-card rounded-3xl p-12 text-center">
-          <Store className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
-          <p className="text-zinc-500 font-bold text-sm">No merchant performance records found</p>
+          <Store className="w-12 h-12 text-foreground-muted mx-auto mb-3" aria-hidden="true" />
+          <p className="text-foreground-muted font-bold text-sm">No merchant performance records found</p>
         </div>
       ) : (
-        <div className="glass-card rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
+        <div className="glass-card rounded-3xl overflow-hidden border border-border shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-white/5 text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em] bg-white/[0.02]">
-                  <th className="px-6 py-4">Merchant</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Completion</th>
-                  <th className="px-6 py-4">Avg Prep</th>
-                  <th className="px-6 py-4">Rating</th>
-                  <th className="px-6 py-4 text-right">Orders</th>
+                <tr className="border-b border-border text-foreground-muted text-[10px] font-black uppercase tracking-[0.2em] bg-surface/[0.02]">
+                  <th scope="col" className="px-6 py-4">Merchant</th>
+                  <th scope="col" className="px-6 py-4">Status</th>
+                  <th scope="col" className="px-6 py-4">Completion</th>
+                  <th scope="col" className="px-6 py-4">Avg Prep</th>
+                  <th scope="col" className="px-6 py-4">Rating</th>
+                  <th scope="col" className="px-6 py-4 text-right">Orders</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-border">
                 {merchants.map((m, idx) => {
                   const completion = Number(m?.completion_rate_pct || 0).toFixed(1);
                   const rating = Number(m?.avg_rating || 0).toFixed(1);
@@ -89,26 +90,26 @@ export default function MerchantPerformance() {
                   const open = m?.is_open;
                   const verified = String(m?.verification_status || '').toLowerCase();
                   return (
-                    <tr key={m?.merchant_id || idx} className="group hover:bg-white/[0.03] transition-all duration-200">
+                    <tr key={m?.merchant_id || idx} className="group hover:bg-surface/[0.03] transition-all duration-200">
                       <td className="px-6 py-5">
-                        <div className="font-bold text-zinc-100 text-sm">{m?.nama_toko || 'Unnamed'}</div>
-                        <div className="text-[11px] text-zinc-500 font-mono mt-0.5">{m?.merchant_id || 'N/A'}</div>
+                        <div className="font-bold text-foreground-muted text-sm">{m?.nama_toko || 'Unnamed'}</div>
+                        <div className="text-[11px] text-foreground-muted font-mono mt-0.5">{m?.merchant_id || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-5 whitespace-nowrap">
                         <span className={`px-3 py-1 inline-flex text-xs font-bold rounded-full border ${
                           verified === 'approved'
-                            ? (open ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-zinc-500/10 text-zinc-300 border-zinc-500/20')
-                            : verified === 'pending' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                            : 'bg-red-500/10 text-red-400 border-red-500/20'
+                            ? (open ? 'bg-success-surface text-success border-success' : 'bg-surface-subtle text-foreground-muted border-border')
+                            : verified === 'pending' ? 'bg-warning-surface text-warning border-warning'
+                            : 'bg-error-surface text-error border-error'
                         }`}>
                           {open ? 'BUKA' : 'TUTUP'} • {verified.toUpperCase()}
                         </span>
                       </td>
-                      <td className="px-6 py-5 whitespace-nowrap text-sm font-semibold text-zinc-300">{completion}%</td>
-                      <td className="px-6 py-5 whitespace-nowrap text-sm font-semibold text-zinc-300">{prep}</td>
-                      <td className="px-6 py-5 whitespace-nowrap text-sm font-semibold text-zinc-300">⭐ {rating} <span className="text-[11px] text-zinc-500">({m?.rating_count || 0})</span></td>
+                      <td className="px-6 py-5 whitespace-nowrap text-sm font-semibold text-foreground-muted">{completion}%</td>
+                      <td className="px-6 py-5 whitespace-nowrap text-sm font-semibold text-foreground-muted">{prep}</td>
+                      <td className="px-6 py-5 whitespace-nowrap text-sm font-semibold text-foreground-muted">⭐ {rating} <span className="text-[11px] text-foreground-muted">({m?.rating_count || 0})</span></td>
                       <td className="px-6 py-5 whitespace-nowrap text-right text-sm font-semibold text-primary-light">
-                        {m?.completed_orders || 0}<span className="text-zinc-600 font-normal"> / {m?.total_orders || 0}</span>
+                        {m?.completed_orders || 0}<span className="text-foreground-muted font-normal"> / {m?.total_orders || 0}</span>
                       </td>
                     </tr>
                   );

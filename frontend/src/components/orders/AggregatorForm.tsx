@@ -4,8 +4,9 @@ import React, { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import {
   Loader2, MapPin, ArrowRight, Check, Info, TrendingDown,
-  Package, Truck, ChevronRight, Plus, Navigation, X, Store
+  Package, Truck, ChevronRight, Plus, Navigation, X, Store, Bike
 } from "lucide-react";
+import { FocusTrap } from "@/components/a11y/FocusTrap";
 import {
   AggregatorCarrierQuote,
   capabilityLabel,
@@ -66,11 +67,11 @@ function calcVolumeCm3(l: number, w: number, h: number): number {
   return Math.max(0, l * w * h);
 }
 
-function getVehicleRec(volumeCm3: number, weightKg: number): { icon: string; label: string; color: string } {
-  if (weightKg > 30 || volumeCm3 > 500000) return { icon: "🚛", label: "Truk Besar",  color: "text-red-400" };
-  if (weightKg > 10 || volumeCm3 > 150000) return { icon: "📦", label: "Pickup/Van",  color: "text-orange-400" };
-  if (weightKg > 5  || volumeCm3 > 50000)  return { icon: "🏍️", label: "Motor Box",   color: "text-yellow-400" };
-  return { icon: "🛵", label: "Motor", color: "text-green-400" };
+function getVehicleRec(volumeCm3: number, weightKg: number): { icon: typeof Truck; label: string; color: string } {
+  if (weightKg > 30 || volumeCm3 > 500000) return { icon: Truck, label: "Truk Besar", color: "text-error" };
+  if (weightKg > 10 || volumeCm3 > 150000) return { icon: Package, label: "Pickup/Van", color: "text-accent" };
+  if (weightKg > 5 || volumeCm3 > 50000) return { icon: Bike, label: "Motor Box", color: "text-warning" };
+  return { icon: Bike, label: "Motor", color: "text-success" };
 }
 
 // ─── AddressModal (Tambah Alamat like Mengantar) ───────────────────
@@ -88,6 +89,16 @@ function AddressModal({
   });
   const [isLocating, setIsLocating] = useState(false);
   const [locMsg, setLocMsg] = useState<string | null>(null);
+  const invalidPhone = Boolean(form.phone && !/^(08|628|\+628)[0-9]{8,11}$/.test(form.phone));
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   const useMyLocation = async () => {
     if (!navigator.geolocation) {
@@ -138,25 +149,27 @@ function AddressModal({
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <button
         type="button"
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-scrim/60 backdrop-blur-sm"
         onClick={onClose}
         aria-label="Tutup"
       />
-      <div className="relative w-full max-w-lg rounded-t-2xl sm:rounded-2xl border border-white/10 bg-[#13131a] shadow-2xl overflow-hidden">
+      <FocusTrap active={isOpen} className="relative w-full max-w-lg">
+      <div role="dialog" aria-modal="true" aria-labelledby="aggregator-address-title" className="rounded-t-2xl sm:rounded-2xl border border-border bg-surface-raised shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
-              <Store className="h-5 w-5 text-primary" />
+              <Store className="h-5 w-5 text-primary"  aria-hidden="true" />
             </div>
-            <h3 className="text-base font-semibold text-foreground">Tambah Alamat</h3>
+            <h3 id="aggregator-address-title" className="text-base font-semibold text-foreground">Tambah Alamat</h3>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/10 transition-colors"
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Tutup form aggregator"
+              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-subtle transition-colors"
           >
-            <X className="h-4 w-4 text-muted-foreground" />
+            <X className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </button>
         </div>
 
@@ -164,13 +177,14 @@ function AddressModal({
         <div className="max-h-[80vh] overflow-y-auto px-5 py-4 space-y-4">
           {/* Nama Toko */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+            <label htmlFor="aggregator-shop-name" className="mb-1.5 block text-sm font-medium text-muted-foreground">
               Nama Toko
             </label>
             <input
+              id="aggregator-shop-name"
               value={form.shopName}
               onChange={(e) => setForm((p) => ({ ...p, shopName: e.target.value }))}
-              className="w-full rounded-lg border border-white/10 bg-background/60 px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-lg border border-border bg-background/60 px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               placeholder="Masukkan nama toko atau nama penjual"
             />
           </div>
@@ -178,39 +192,45 @@ function AddressModal({
           {/* Nama PJ + HP */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label htmlFor="aggregator-pic-name" className="mb-1.5 block text-sm font-medium text-muted-foreground">
                 Nama Penanggung Jawab
               </label>
               <input
+                id="aggregator-pic-name"
                 value={form.picName}
                 onChange={(e) => setForm((p) => ({ ...p, picName: e.target.value }))}
-                className="w-full rounded-lg border border-white/10 bg-background/60 px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-lg border border-border bg-background/60 px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="Nama penanggung jawab penjemputan"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label htmlFor="aggregator-phone" className="mb-1.5 block text-sm font-medium text-muted-foreground">
                 Nomor HP
               </label>
               <input
+                id="aggregator-phone"
                 value={form.phone}
                 onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value.replace(/[^0-9+]/g, '') }))}
                 type="tel"
-                className={`w-full rounded-lg border bg-background/60 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 ${form.phone && !/^(08|628|\+628)[0-9]{8,11}$/.test(form.phone) ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-white/10 focus:border-primary focus:ring-primary'}`}
+                aria-invalid={invalidPhone ? 'true' : 'false'}
+                aria-describedby={invalidPhone ? 'aggregator-phone-error' : undefined}
+                className={`w-full rounded-lg border bg-background/60 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 ${invalidPhone ? 'border-error focus:border-error focus:ring-error' : 'border-border focus:border-primary focus:ring-primary'}`}
                 placeholder="Nomor HP"
               />
+              {invalidPhone && <p id="aggregator-phone-error" className="mt-1 text-xs text-error" role="alert">Masukkan nomor HP Indonesia yang valid.</p>}
             </div>
           </div>
 
           {/* Provinsi/Kota/Kecamatan/Kelurahan/Kode Pos */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+            <label htmlFor="aggregator-city" className="mb-1.5 block text-sm font-medium text-muted-foreground">
               Provinsi / Kota / Kecamatan / Kelurahan / Kode Pos
             </label>
             <input
+              id="aggregator-city"
               value={form.city}
               onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
-              className="w-full rounded-lg border border-white/10 bg-background/60 px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-lg border border-border bg-background/60 px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               placeholder="Masukkan nama kota / kecamatan"
             />
           </div>
@@ -218,33 +238,34 @@ function AddressModal({
           {/* Alamat */}
           <div>
             <div className="mb-1.5 flex items-center justify-between">
-              <label className="text-sm font-medium text-muted-foreground">Alamat</label>
+              <label htmlFor="aggregator-address" className="text-sm font-medium text-muted-foreground">Alamat</label>
               <button
                 type="button"
                 onClick={useMyLocation}
                 className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
               >
                 {isLocating
-                  ? <Loader2 className="h-3 w-3 animate-spin" />
-                  : <Navigation className="h-3 w-3" />}
+                  ? <Loader2 className="h-3 w-3 animate-spin"  aria-hidden="true" />
+                  : <Navigation className="h-3 w-3"  aria-hidden="true" />}
                 Gunakan Lokasi Saya
               </button>
             </div>
             <textarea
+              id="aggregator-address"
               value={form.address}
               onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-background/60 px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+              className="w-full rounded-lg border border-border bg-background/60 px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
               placeholder="Contoh: Jalan Merpati No 123 RT 01 RW 01"
             />
             {locMsg && (
-              <p className="mt-1 text-xs text-amber-400">{locMsg}</p>
+              <p className="mt-1 text-xs text-warning">{locMsg}</p>
             )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="border-t border-white/10 px-5 py-4">
+        <div className="border-t border-border px-5 py-4">
           <button
             type="button"
             onClick={() => {
@@ -259,6 +280,7 @@ function AddressModal({
           </button>
         </div>
       </div>
+      </FocusTrap>
     </div>
   );
 }
@@ -287,6 +309,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
 
   const volumeCm3 = calcVolumeCm3(lengthCm, widthCm, heightCm);
   const vehicleRec = getVehicleRec(volumeCm3, weight);
+  const VehicleIcon = vehicleRec.icon;
   const selectedProvider = providers.find(p => p.code === selectedProviderId);
 
   useEffect(() => {
@@ -423,7 +446,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
       {/* STEP 1 — Pilih Ekspedisi */}
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-bold text-indigo-300">1</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-[10px] font-bold text-info">1</span>
           <label className="text-sm font-semibold text-foreground">Pilih Ekspedisi</label>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -442,17 +465,17 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
               className={[
                 "rounded-xl border-2 px-3 py-3.5 text-center transition-all duration-150",
                 selectedProviderId === provider.code
-                  ? "border-indigo-400 bg-indigo-400/10 shadow-lg scale-[1.02]"
-                  : "border-white/10 bg-background/40 hover:border-white/20 hover:bg-white/5",
+                  ? "border-info bg-info-surface shadow-lg scale-[1.02]"
+                  : "border-border bg-background/40 hover:border-border hover:bg-surface-subtle",
                 !isLogisticsProviderAvailable(provider) ? "cursor-not-allowed opacity-50" : ""
               ].join(" ")}
             >
               <span className="block text-sm font-bold text-foreground">
                 {provider.name}
               </span>
-              <span className={`mt-1 block text-[10px] ${isLogisticsProviderAvailable(provider) ? "text-emerald-300" : "text-amber-300"}`}>{providerAvailabilityMessage(provider)}</span>
+              <span className={`mt-1 block text-[10px] ${isLogisticsProviderAvailable(provider) ? "text-success" : "text-warning"}`}>{providerAvailabilityMessage(provider)}</span>
               {selectedProviderId === provider.code && (
-                <Check className="mx-auto mt-1 h-3 w-3 text-indigo-300" />
+                <Check className="mx-auto mt-1 h-3 w-3 text-info"  aria-hidden="true" />
               )}
             </button>
           ))}
@@ -463,13 +486,13 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
             <span className="font-semibold text-foreground">{selectedProvider.name}</span>
           </p>
         )}
-        {providerError && <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100" role="alert">{providerError}</p>}
+        {providerError && <p className="mt-2 rounded-lg border border-warning bg-warning-surface px-3 py-2 text-xs text-warning" role="alert">{providerError}</p>}
       </div>
 
       {/* STEP 2 — Alamat Pengirim (Mengantar-style) */}
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-bold text-indigo-300">2</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-[10px] font-bold text-info">2</span>
           <label className="text-sm font-semibold text-foreground">Alamat Pengirim</label>
         </div>
 
@@ -477,7 +500,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
           /* ── Filled state ── */
           <div className="flex items-start justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 p-4">
             <div className="flex items-start gap-3 min-w-0">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary"  aria-hidden="true" />
               <div className="min-w-0">
                 {pickupAddress.shopName && (
                   <p className="text-sm font-semibold text-foreground">{pickupAddress.shopName}</p>
@@ -494,20 +517,20 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
             <button
               type="button"
               onClick={() => setPickupAddress(null)}
-              className="shrink-0 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-muted-foreground hover:bg-white/10"
+              className="shrink-0 rounded-md border border-border bg-surface-subtle px-2.5 py-1 text-xs text-muted-foreground hover:bg-surface-subtle"
             >
               Ubah
             </button>
           </div>
         ) : (
           /* ── Empty state: Pilih Alamat + Batal + Tambah ── */
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+          <div className="rounded-xl border border-border bg-surface/[0.02] p-4">
             <p className="mb-3 text-xs text-muted-foreground">Pilih Alamat</p>
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => {}}
-                className="rounded-lg border border-white/15 bg-white/5 px-6 py-2.5 text-sm font-medium text-foreground hover:bg-white/10 transition-colors"
+                className="rounded-lg border border-border bg-surface-subtle px-6 py-2.5 text-sm font-medium text-foreground hover:bg-surface-subtle transition-colors"
               >
                 Batal
               </button>
@@ -516,7 +539,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
                 onClick={() => setIsAddressModalOpen(true)}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4"  aria-hidden="true" />
                 Tambah
               </button>
             </div>
@@ -527,18 +550,21 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
       {/* STEP 3 — Kota Asal & Tujuan */}
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-bold text-indigo-300">3</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-[10px] font-bold text-info">3</span>
           <label className="text-sm font-semibold text-foreground">Kota Asal &amp; Tujuan</label>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto_1fr] items-end">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Kota Asal</label>
+            <label htmlFor="aggregator-origin-city" className="mb-1.5 block text-xs font-medium text-muted-foreground">Kota Asal</label>
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-400" />
+              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-info"  aria-hidden="true" />
               <select
+                id="aggregator-origin-city"
+                aria-invalid={locationError ? 'true' : 'false'}
+                aria-describedby={locationError ? 'aggregator-location-error' : undefined}
                 value={originCode}
                 onChange={(e) => setOriginCode(e.target.value)}
-                className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full appearance-none rounded-lg border border-border bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
               >
                 <option value="">Pilih kota asal...</option>
                 {cities.filter(c => c.type === "origin" || c.type === "both").map(city => (
@@ -548,16 +574,19 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
             </div>
           </div>
           <div className="flex justify-center pb-2">
-            <ArrowRight className="h-5 w-5 text-muted-foreground" />
+            <ArrowRight className="h-5 w-5 text-muted-foreground"  aria-hidden="true" />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Kota Tujuan</label>
+            <label htmlFor="aggregator-destination-city" className="mb-1.5 block text-xs font-medium text-muted-foreground">Kota Tujuan</label>
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-emerald-400" />
+              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-success"  aria-hidden="true" />
               <select
+                id="aggregator-destination-city"
+                aria-invalid={locationError ? 'true' : 'false'}
+                aria-describedby={locationError ? 'aggregator-location-error' : undefined}
                 value={destCode}
                 onChange={(e) => setDestCode(e.target.value)}
-                className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-brand-emerald-400 focus:outline-none focus:ring-1 focus:ring-brand-emerald-400"
+                className="w-full appearance-none rounded-lg border border-border bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-success focus:outline-none focus:ring-1 focus:ring-focus-ring"
               >
                 <option value="">Pilih kota tujuan...</option>
                 {cities
@@ -570,7 +599,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
           </div>
         </div>
         {locationError && (
-          <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100" role="alert">
+          <p id="aggregator-location-error" className="mt-2 rounded-lg border border-warning bg-warning-surface px-3 py-2 text-xs text-warning" role="alert">
             {locationError}
           </p>
         )}
@@ -579,59 +608,64 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
       {/* STEP 4 — Berat & Dimensi */}
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-bold text-indigo-300">4</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-[10px] font-bold text-info">4</span>
           <label className="text-sm font-semibold text-foreground">Berat &amp; Dimensi Paket</label>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Berat (kg) *</label>
+            <label htmlFor="aggregator-weight" className="mb-1 block text-xs font-medium text-muted-foreground">Berat (kg) *</label>
             <input
+              id="aggregator-weight"
               type="number" min="0.1" max="50" step="0.1"
               value={weight}
               onChange={(e) => setWeight(Math.max(0.1, Number(e.target.value) || 0.1))}
-              className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Panjang (cm)</label>
+            <label htmlFor="aggregator-length" className="mb-1 block text-xs font-medium text-muted-foreground">Panjang (cm)</label>
             <input
+              id="aggregator-length"
               type="number" min="0" step="1"
               value={lengthCm || ""}
               onChange={(e) => setLengthCm(Number(e.target.value) || 0)}
-              className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
               placeholder="0"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Lebar (cm)</label>
+            <label htmlFor="aggregator-width" className="mb-1 block text-xs font-medium text-muted-foreground">Lebar (cm)</label>
             <input
+              id="aggregator-width"
               type="number" min="0" step="1"
               value={widthCm || ""}
               onChange={(e) => setWidthCm(Number(e.target.value) || 0)}
-              className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
               placeholder="0"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Tinggi (cm)</label>
+            <label htmlFor="aggregator-height" className="mb-1 block text-xs font-medium text-muted-foreground">Tinggi (cm)</label>
             <input
+              id="aggregator-height"
               type="number" min="0" step="1"
               value={heightCm || ""}
               onChange={(e) => setHeightCm(Number(e.target.value) || 0)}
-              className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
               placeholder="0"
             />
           </div>
         </div>
-        <div className="mt-3 flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-2.5">
-          <Truck className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <div className="mt-3 flex items-center gap-3 rounded-lg border border-border bg-surface/[0.02] px-4 py-2.5">
+          <Truck className="h-4 w-4 shrink-0 text-muted-foreground"  aria-hidden="true" />
           <div className="flex-1 text-xs text-muted-foreground">
             {volumeCm3 > 0 && (
               <span>Volume: <strong className="text-foreground">{volumeCm3.toLocaleString("id-ID")} cm³</strong> · </span>
             )}
             Rekomendasi kendaraan kurir:{" "}
             <span className={`font-semibold ${vehicleRec.color}`}>
-              {vehicleRec.icon} {vehicleRec.label}
+              <VehicleIcon className="mr-1 inline h-4 w-4 align-text-bottom" aria-hidden="true" />
+              {vehicleRec.label}
             </span>
           </div>
         </div>
@@ -641,21 +675,21 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
       {selectedProviderId && (
         <div>
           <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-bold text-indigo-300">5</span>
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-[10px] font-bold text-info">5</span>
             <label className="text-sm font-semibold text-foreground">
               Pilih Layanan {selectedProvider?.name}
             </label>
           </div>
 
           {isLoading ? (
-            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-background/40 px-4 py-5 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-background/40 px-4 py-5 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin"  aria-hidden="true" />
               Memuat layanan {selectedProvider?.name}...
             </div>
           ) : error ? (
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-100">
+            <div className="rounded-lg border border-warning bg-warning-surface px-4 py-4 text-sm text-warning">
               <div className="flex items-start gap-2">
-                <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                <Info className="mt-0.5 h-4 w-4 shrink-0"  aria-hidden="true" />
                 <div>
                   <p className="font-medium mb-1">Layanan belum tersedia</p>
                   <p className="text-xs opacity-80">{error}</p>
@@ -663,8 +697,8 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
               </div>
             </div>
           ) : !originCode || !destCode ? (
-            <div className="rounded-lg border border-white/10 bg-white/[0.02] px-6 py-5 text-center text-sm text-muted-foreground">
-              <ChevronRight className="mx-auto mb-2 h-5 w-5 opacity-40" />
+            <div className="rounded-lg border border-border bg-surface/[0.02] px-6 py-5 text-center text-sm text-muted-foreground">
+              <ChevronRight className="mx-auto mb-2 h-5 w-5 opacity-40"  aria-hidden="true" />
               Pilih kota asal dan tujuan untuk melihat tarif layanan.
             </div>
           ) : tariffs.length > 0 ? (
@@ -681,8 +715,8 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
                       "relative rounded-xl border p-4 text-left transition-all duration-150",
                       isSelected
                         ? "border-primary bg-primary/10 shadow-lg shadow-primary/5 scale-[1.01]"
-                        : "border-white/10 bg-background/35 hover:bg-white/5 hover:scale-[1.005]",
-                      isCheapest && !isSelected ? "ring-1 ring-brand-emerald-500/30" : "",
+                        : "border-border bg-background/35 hover:bg-surface-subtle hover:scale-[1.005]",
+                      isCheapest && !isSelected ? "ring-1 ring-focus-ring" : "",
                     ].join(" ")}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -697,13 +731,13 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
                           Limitasi: {tariff.limitations.length > 0 ? tariff.limitations.join(", ") : "detail belum diberikan provider"}
                         </div>
                       </div>
-                      {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                      {isSelected && <Check className="h-4 w-4 shrink-0 text-primary"  aria-hidden="true" />}
                     </div>
                     <div className="mt-3 flex items-end justify-between">
                       <div className="text-[11px] text-muted-foreground">
                         {isCheapest && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-brand-emerald-500/30 bg-brand-emerald-500/10 px-2 py-0.5 text-brand-emerald-200">
-                            <TrendingDown className="h-3 w-3" />
+                          <span className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-success">
+                            <TrendingDown className="h-3 w-3"  aria-hidden="true" />
                             Termurah
                           </span>
                         )}
@@ -718,8 +752,8 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
               })}
             </div>
           ) : (
-            <div className="rounded-lg border border-white/10 bg-white/[0.02] px-6 py-5 text-center text-sm text-muted-foreground">
-              <Package className="mx-auto mb-2 h-5 w-5 opacity-40" />
+            <div className="rounded-lg border border-border bg-surface/[0.02] px-6 py-5 text-center text-sm text-muted-foreground">
+              <Package className="mx-auto mb-2 h-5 w-5 opacity-40"  aria-hidden="true" />
               Lengkapi data kota dan berat untuk melihat layanan.
             </div>
           )}

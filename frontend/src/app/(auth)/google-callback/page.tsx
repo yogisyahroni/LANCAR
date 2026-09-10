@@ -164,7 +164,7 @@ function GoogleCallbackContent() {
   }, [searchParams, setAuth, setCompleting, setRequiresOtp, setRequiresPhone, setError, reset, router]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4">
+    <main className="min-h-screen bg-background flex flex-col justify-center items-center p-4">
       {/* Background decorative blurs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-primary/10 blur-[120px] rounded-full" />
@@ -180,7 +180,7 @@ function GoogleCallbackContent() {
         {status === 'processing' ? (
           <>
             <div className="h-14 w-14 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Loader2 className="h-7 w-7 text-primary animate-spin" />
+              <Loader2 className="h-7 w-7 text-primary animate-spin"  aria-hidden="true"/>
             </div>
             <h1 className="text-xl font-semibold tracking-tight text-foreground mb-2">
               Memverifikasi akun Google...
@@ -192,7 +192,7 @@ function GoogleCallbackContent() {
         ) : (
           <>
             <div className="h-14 w-14 bg-destructive/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <ShieldAlert className="h-7 w-7 text-destructive" />
+              <ShieldAlert className="h-7 w-7 text-destructive" aria-hidden="true" />
             </div>
             <h1 className="text-xl font-semibold tracking-tight text-foreground mb-2">
               Login Gagal
@@ -207,13 +207,13 @@ function GoogleCallbackContent() {
           </>
         )}
       </motion.div>
-    </div>
+    </main>
   );
 }
 
 export default function GoogleCallbackPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary"  aria-hidden="true"/></div>}>
       <GoogleCallbackContent />
     </Suspense>
   );

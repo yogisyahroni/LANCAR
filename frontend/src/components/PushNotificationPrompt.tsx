@@ -112,7 +112,7 @@ export default function PushNotificationPrompt() {
           <div className="flex items-start justify-between gap-4 select-none">
             <div className="flex items-center gap-3 select-none">
               <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary flex-shrink-0 select-none">
-                <BellRing className="h-5 w-5" />
+                <BellRing className="h-5 w-5"  aria-hidden="true"/>
               </div>
               <div className="select-none">
                 <h4 className="text-sm font-extrabold text-foreground tracking-tight select-none leading-none">
@@ -126,9 +126,11 @@ export default function PushNotificationPrompt() {
 
             <button
               onClick={handleDismiss}
+              type="button"
+              aria-label="Tutup pemberitahuan"
               className="p-1 text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg transition-all cursor-pointer select-none"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
 
@@ -136,16 +138,16 @@ export default function PushNotificationPrompt() {
             <button
               onClick={handleEnablePush}
               disabled={isLoading}
-              className="flex-1 py-2 bg-primary hover:bg-primary/90 disabled:opacity-70 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1 select-none"
+              className="flex-1 py-2 bg-primary hover:bg-primary/90 disabled:opacity-70 text-on-primary font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1 select-none"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
                   Mengaktifkan...
                 </>
               ) : (
                 <>
-                  <Check className="h-3.5 w-3.5" />
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
                   Izinkan Notifikasi
                 </>
               )}

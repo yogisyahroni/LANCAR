@@ -27,7 +27,7 @@ export function Shimmer({ className, ...props }: ShimmerProps) {
       {...props}
     >
       <div
-        className="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-transparent via-white/50 to-transparent dark:via-white/10"
+        className="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-transparent via-foreground/20 to-transparent"
         style={{ animation: "a11y-shimmer 1.5s ease-in-out infinite" }}
       />
     </div>

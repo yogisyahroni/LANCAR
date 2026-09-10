@@ -112,33 +112,33 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
 
   return (
     <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 md:p-6">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-scrim/80 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <FocusTrap className="relative z-10 outline-none w-full max-w-2xl">
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="bc-report-title"
-          className="glass-card w-full max-h-[90vh] overflow-y-auto rounded-[36px] border-white/10 shadow-2xl shadow-black/60 p-8 space-y-8"
+          className="glass-card w-full max-h-[90vh] overflow-y-auto rounded-[36px] border-border shadow-2xl shadow-scrim p-8 space-y-8"
         >
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 id="bc-report-title" className="text-xl font-black text-zinc-100 tracking-tight">
+              <h2 id="bc-report-title" className="text-xl font-black text-foreground-muted tracking-tight">
                 Delivery Report
               </h2>
-              <p className="text-xs text-zinc-500 mt-1 truncate max-w-sm">
+              <p className="text-xs text-foreground-muted mt-1 truncate max-w-sm">
                 {title || 'Detail pengiriman broadcast'}
               </p>
               {data && (
-                <p className="text-[10px] text-zinc-600 font-mono mt-1">{data.broadcast_id}</p>
+                <p className="text-[10px] text-foreground-muted font-mono mt-1">{data.broadcast_id}</p>
               )}
             </div>
             <button
               type="button"
               onClick={onClose}
               aria-label="Tutup laporan"
-              className="p-3 rounded-2xl bg-white/5 text-zinc-500 hover:text-white transition-all shrink-0"
+              className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all shrink-0"
             >
-              <X size={18} />
+              <X size={18} aria-hidden="true" />
             </button>
           </div>
 
@@ -152,18 +152,18 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
               <Skeleton className="h-40 rounded-[28px]" />
             </div>
           ) : isError ? (
-            <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-8 text-center space-y-3">
-              <AlertCircle size={32} className="mx-auto text-red-400" />
-              <p className="text-xs font-black uppercase tracking-widest text-zinc-200">
+            <div className="rounded-3xl border border-error bg-error-surface p-8 text-center space-y-3">
+              <AlertCircle size={32} className="mx-auto text-error"  aria-hidden="true"/>
+              <p className="text-xs font-black uppercase tracking-widest text-foreground-muted">
                 Laporan gagal dimuat
               </p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-foreground-muted">
                 {(error as any)?.response?.data?.message || (error as Error)?.message || 'Coba lagi nanti.'}
               </p>
               <button
                 type="button"
                 onClick={() => refetch()}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
               >
                 Retry
               </button>
@@ -177,19 +177,19 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
                     label: 'Total Target',
                     value: data.totals.total_targets,
                     icon: Send,
-                    color: 'text-zinc-300',
+                    color: 'text-foreground-muted',
                   },
                   {
                     label: 'Berhasil',
                     value: data.totals.sent_count,
                     icon: CheckCircle2,
-                    color: 'text-emerald-400',
+                    color: 'text-success',
                   },
                   {
                     label: 'Gagal',
                     value: data.totals.failed_count,
                     icon: AlertCircle,
-                    color: 'text-red-400',
+                    color: 'text-error',
                   },
                   {
                     label: 'Dibuka',
@@ -198,12 +198,12 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
                     color: 'text-primary-light',
                   },
                 ].map((stat) => (
-                  <div key={stat.label} className="rounded-[28px] bg-white/[0.03] border border-white/5 p-5">
-                    <stat.icon size={16} className={cn(stat.color)} />
-                    <p className="mt-3 text-2xl font-black text-zinc-100 tabular-nums">
+                  <div key={stat.label} className="rounded-[28px] bg-surface/[0.03] border border-border p-5">
+                    <stat.icon size={16} className={cn(stat.color)} aria-hidden="true" />
+                    <p className="mt-3 text-2xl font-black text-foreground-muted tabular-nums">
                       {stat.value.toLocaleString('id-ID')}
                     </p>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600 mt-1">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted mt-1">
                       {stat.label}
                     </p>
                   </div>
@@ -212,66 +212,66 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Success Rate</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Success Rate</span>
                   {successRate === null ? (
-                    <span className="text-xs font-bold text-zinc-600 italic">Belum ada percobaan kirim</span>
+                    <span className="text-xs font-bold text-foreground-muted italic">Belum ada percobaan kirim</span>
                   ) : (
                     <>
-                      <div className="w-40 h-2 rounded-full bg-white/5 overflow-hidden" role="presentation">
+                      <div className="w-40 h-2 rounded-full bg-surface-subtle overflow-hidden" role="presentation">
                         <div
                           className={cn(
                             'h-full rounded-full transition-all duration-500',
-                            successRate >= 90 ? 'bg-emerald-500' : successRate >= 70 ? 'bg-amber-500' : 'bg-red-500',
+                            successRate >= 90 ? 'bg-success' : successRate >= 70 ? 'bg-warning' : 'bg-error',
                           )}
                           style={{ width: `${successRate}%` }}
                         />
                       </div>
-                      <span className="text-sm font-black text-zinc-100 tabular-nums">{successRate}%</span>
+                      <span className="text-sm font-black text-foreground-muted tabular-nums">{successRate}%</span>
                     </>
                   )}
                 </div>
                 <button
                   type="button"
                   onClick={exportCsv}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-subtle border border-border text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:bg-surface-subtle transition-all"
                 >
-                  <Download size={14} />
+                  <Download size={14} aria-hidden="true" />
                   Export CSV
                 </button>
               </div>
 
               {/* Per-channel breakdown */}
               <section aria-labelledby="bc-report-channels" className="space-y-3">
-                <h3 id="bc-report-channels" className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-600">
+                <h3 id="bc-report-channels" className="text-[10px] font-black uppercase tracking-[0.22em] text-foreground-muted">
                   Breakdown per Channel
                 </h3>
                 {data.per_channel.length === 0 ? (
-                  <p className="text-xs text-zinc-600 italic rounded-2xl border border-dashed border-white/10 p-6 text-center">
+                  <p className="text-xs text-foreground-muted italic rounded-2xl border border-dashed border-border p-6 text-center">
                     Belum ada baris penerima untuk broadcast ini.
                   </p>
                 ) : (
-                  <div className="overflow-x-auto rounded-[28px] border border-white/5">
+                  <div className="overflow-x-auto rounded-[28px] border border-border">
                     <table className="w-full text-left">
                       <thead>
-                        <tr className="border-b border-white/5 bg-white/[0.01]">
+                        <tr className="border-b border-border bg-surface/[0.01]">
                           {['Channel', 'Pending', 'Sent', 'Failed', 'Opened'].map((head) => (
                             <th
                               key={head}
                               scope="col"
-                              className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-600"
+                              className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted"
                             >
                               {head}
                             </th>
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/5">
+                      <tbody className="divide-y divide-border">
                         {data.per_channel.map((row) => (
-                          <tr key={row.channel} className="hover:bg-white/[0.02] transition-colors">
-                            <td className="px-6 py-4 text-xs font-black text-zinc-200">{channelLabel(row.channel)}</td>
-                            <td className="px-6 py-4 text-xs font-bold text-zinc-400 tabular-nums">{row.pending}</td>
-                            <td className="px-6 py-4 text-xs font-bold text-emerald-400 tabular-nums">{row.sent}</td>
-                            <td className="px-6 py-4 text-xs font-bold text-red-400 tabular-nums">{row.failed}</td>
+                          <tr key={row.channel} className="hover:bg-surface/[0.02] transition-colors">
+                            <td className="px-6 py-4 text-xs font-black text-foreground-muted">{channelLabel(row.channel)}</td>
+                            <td className="px-6 py-4 text-xs font-bold text-foreground-muted tabular-nums">{row.pending}</td>
+                            <td className="px-6 py-4 text-xs font-bold text-success tabular-nums">{row.sent}</td>
+                            <td className="px-6 py-4 text-xs font-bold text-error tabular-nums">{row.failed}</td>
                             <td className="px-6 py-4 text-xs font-bold text-primary-light tabular-nums">{row.opened}</td>
                           </tr>
                         ))}
@@ -284,17 +284,17 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
               {/* Failed reasons (opsional dari backend) */}
               {failedReasons && failedReasons.length > 0 && (
                 <section aria-labelledby="bc-report-failed" className="space-y-3">
-                  <h3 id="bc-report-failed" className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-600">
+                  <h3 id="bc-report-failed" className="text-[10px] font-black uppercase tracking-[0.22em] text-foreground-muted">
                     Alasan Kegagalan
                   </h3>
                   <ul className="space-y-2">
                     {failedReasons.map((item, i) => (
                       <li
                         key={`${item.reason}-${i}`}
-                        className="flex items-center justify-between rounded-2xl bg-red-500/5 border border-red-500/15 px-4 py-3"
+                        className="flex items-center justify-between rounded-2xl bg-error-surface border border-error px-4 py-3"
                       >
-                        <span className="text-xs font-bold text-red-300 truncate">{item.reason}</span>
-                        <span className="text-xs font-black text-zinc-300 tabular-nums ml-4 shrink-0">
+                        <span className="text-xs font-bold text-error truncate">{item.reason}</span>
+                        <span className="text-xs font-black text-foreground-muted tabular-nums ml-4 shrink-0">
                           {item.count.toLocaleString('id-ID')}x
                         </span>
                       </li>
@@ -304,8 +304,8 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
               )}
 
               {data.status === 'sending' && (
-                <p className="flex items-center gap-2 text-[11px] font-bold text-blue-300">
-                  <Loader2 size={12} className="animate-spin" />
+                <p className="flex items-center gap-2 text-[11px] font-bold text-info">
+                  <Loader2 size={12} className="animate-spin" aria-hidden="true" />
                   Broadcast sedang diproses — laporan akan diperbarui otomatis.
                 </p>
               )}

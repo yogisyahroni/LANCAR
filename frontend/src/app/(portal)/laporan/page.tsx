@@ -83,7 +83,7 @@ const periodOptions: Array<{ value: ReportPeriod; label: string }> = [
   { value: 'q4', label: 'Q4' },
 ];
 
-const distributionColors = ['#009864', '#6366f1', '#f97316', '#0ea5e9', '#f43f5e', '#a855f7'];
+const distributionColors = ['var(--color-primary)', 'var(--color-info)', 'var(--color-accent)', 'var(--color-success)', 'var(--color-error)', 'var(--color-warning)'];
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('id-ID', {
   style: 'currency',
@@ -117,6 +117,21 @@ const defaultReportData: UmkmReportData = {
   export_rows: [],
 };
 
+function normalizeReportData(payload: unknown): UmkmReportData {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return defaultReportData;
+  const candidate = payload as Partial<UmkmReportData>;
+  return {
+    ...defaultReportData,
+    ...candidate,
+    range: { ...defaultReportData.range, ...(candidate.range || {}) },
+    summary: { ...defaultReportData.summary, ...(candidate.summary || {}) },
+    trend: Array.isArray(candidate.trend) ? candidate.trend : [],
+    model_distribution: Array.isArray(candidate.model_distribution) ? candidate.model_distribution : [],
+    destination_zones: Array.isArray(candidate.destination_zones) ? candidate.destination_zones : [],
+    export_rows: Array.isArray(candidate.export_rows) ? candidate.export_rows : [],
+  };
+}
+
 const chartWidth = 720;
 const chartHeight = 260;
 const chartPadding = 36;
@@ -139,15 +154,15 @@ const buildPolylinePoints = (values: number[]) => {
 function LoadingSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="h-24 rounded-[28px] border border-white/10 bg-white/5 animate-pulse" />
+      <div className="h-24 rounded-[28px] border border-border bg-surface-subtle animate-pulse" />
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         {Array.from({ length: 5 }).map((_, index) => (
-          <div key={index} className="h-36 rounded-[28px] border border-white/10 bg-white/5 animate-pulse" />
+          <div key={index} className="h-36 rounded-[28px] border border-border bg-surface-subtle animate-pulse" />
         ))}
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_0.7fr] gap-6">
-        <div className="h-96 rounded-[28px] border border-white/10 bg-white/5 animate-pulse" />
-        <div className="h-96 rounded-[28px] border border-white/10 bg-white/5 animate-pulse" />
+        <div className="h-96 rounded-[28px] border border-border bg-surface-subtle animate-pulse" />
+        <div className="h-96 rounded-[28px] border border-border bg-surface-subtle animate-pulse" />
       </div>
     </div>
   );
@@ -155,10 +170,10 @@ function LoadingSkeleton() {
 
 function EmptyPanel({ title, message }: { title: string; message: string }) {
   return (
-    <div className="flex min-h-[220px] flex-col items-center justify-center rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center">
-      <BarChart3 className="mb-4 h-10 w-10 text-zinc-600" />
-      <p className="text-lg font-semibold text-white">{title}</p>
-      <p className="mt-2 max-w-md text-sm text-zinc-500">{message}</p>
+    <div className="flex min-h-[220px] flex-col items-center justify-center rounded-3xl border border-border bg-surface/[0.03] p-8 text-center">
+      <BarChart3 className="mb-4 h-10 w-10 text-foreground-muted"  aria-hidden="true"/>
+      <p className="text-lg font-semibold text-foreground">{title}</p>
+      <p className="mt-2 max-w-md text-sm text-foreground-muted">{message}</p>
     </div>
   );
 }
@@ -174,22 +189,22 @@ function TrendLineChart({ data }: { data: ReportTrendPoint[] }) {
   const hasSpend = maxSpend > 0;
 
   return (
-    <div className="rounded-[28px] border border-white/10 bg-black/20 p-5">
-      <div className="mb-4 flex flex-wrap items-center gap-4 text-xs font-semibold text-zinc-400">
+    <div className="rounded-[28px] border border-border bg-surface-subtle p-5">
+      <div className="mb-4 flex flex-wrap items-center gap-4 text-xs font-semibold text-foreground-muted">
         <span className="inline-flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-brand-emerald-500" />
+          <span className="h-2.5 w-2.5 rounded-full bg-success" />
           Jumlah order
         </span>
         <span className="inline-flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" />
+          <span className="h-2.5 w-2.5 rounded-full bg-info" />
           Pengeluaran
         </span>
       </div>
       <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-[300px] w-full overflow-visible" role="img" aria-label="Tren order dan pengeluaran harian">
         <defs>
           <linearGradient id="umkmSpendGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#6366f1" stopOpacity="0.9" />
+            <stop offset="0%" stopColor="var(--color-info)" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="var(--color-info)" stopOpacity="0.9" />
           </linearGradient>
         </defs>
         {[0, 1, 2, 3].map((line) => {
@@ -201,7 +216,8 @@ function TrendLineChart({ data }: { data: ReportTrendPoint[] }) {
               x2={chartWidth - chartPadding}
               y1={y}
               y2={y}
-              stroke="rgba(148, 163, 184, 0.18)"
+              stroke="var(--color-border)"
+              strokeOpacity="0.5"
               strokeDasharray="6 8"
             />
           );
@@ -219,7 +235,7 @@ function TrendLineChart({ data }: { data: ReportTrendPoint[] }) {
         <polyline
           fill="none"
           points={orderPoints}
-          stroke="#009864"
+          stroke="var(--color-primary)"
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeWidth="4"
@@ -236,9 +252,9 @@ function TrendLineChart({ data }: { data: ReportTrendPoint[] }) {
 
           return (
             <g key={item.date}>
-              <circle cx={x} cy={y} r="5" fill="#050505" stroke="#009864" strokeWidth="3" />
+              <circle cx={x} cy={y} r="5" fill="var(--color-surface-raised)" stroke="var(--color-primary)" strokeWidth="3" />
               {shouldShowLabel && (
-                <text x={x} y={chartHeight - 8} textAnchor="middle" className="fill-zinc-500 text-[12px] font-semibold">
+                <text x={x} y={chartHeight - 8} textAnchor="middle" className="fill-foreground-muted text-[12px] font-semibold">
                   {item.label}
                 </text>
               )}
@@ -279,7 +295,7 @@ export default function UMKMReportsPage() {
       }
 
       const response = await api.get('/auth/web/reports/umkm', { params });
-      setReportData(response.data.data || defaultReportData);
+      setReportData(normalizeReportData(response.data?.data));
     } catch (error: any) {
       setReportData(defaultReportData);
       addNotification({
@@ -347,12 +363,12 @@ export default function UMKMReportsPage() {
         className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
       >
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.24em] text-brand-emerald-400">
-            <BarChart3 className="h-4 w-4" />
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-success bg-success-surface px-3 py-1 text-xs font-bold uppercase tracking-[0.24em] text-success">
+            <BarChart3 className="h-4 w-4" aria-hidden="true" />
             Database Report
           </div>
-          <h1 className="text-4xl font-bold tracking-tight text-white">Dashboard & Laporan UMKM</h1>
-          <p className="mt-2 max-w-3xl text-zinc-400">
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">Dashboard & Laporan UMKM</h1>
+          <p className="mt-2 max-w-3xl text-foreground-muted">
             Semua angka di halaman ini dihitung dari order customer aktif di database. Tidak ada data simulasi.
           </p>
         </div>
@@ -362,36 +378,36 @@ export default function UMKMReportsPage() {
             type="button"
             onClick={loadReport}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/10 active:scale-[0.98] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-3 text-sm font-semibold text-foreground transition-all duration-200 hover:bg-surface-subtle active:scale-[0.98] disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
             Sync DB
           </button>
           <button
             type="button"
             onClick={handleExportCsv}
             disabled={isExportingCsv || loading}
-            className="inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/10 active:scale-[0.98] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-3 text-sm font-semibold text-foreground transition-all duration-200 hover:bg-surface-subtle active:scale-[0.98] disabled:opacity-50"
           >
-            {isExportingCsv ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+            {isExportingCsv ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />}
             CSV
           </button>
           <button
             type="button"
             onClick={handlePrintReport}
-            className="inline-flex items-center gap-2 rounded-full bg-brand-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-emerald-950/30 transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
+            className="inline-flex items-center gap-2 rounded-full bg-success px-5 py-3 text-sm font-semibold text-on-success shadow-lg shadow-success/30 transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
           >
-            <FileText className="h-4 w-4" />
+            <FileText className="h-4 w-4" aria-hidden="true" />
             PDF Report
           </button>
         </div>
       </motion.div>
 
-      <section className="rounded-[32px] border border-white/15 bg-white/[0.03] p-5 shadow-sm">
+      <section className="rounded-[32px] border border-border bg-surface/[0.03] p-5 shadow-sm">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex items-center gap-2 text-sm font-bold text-white">
-              <Calendar className="h-4 w-4" />
+            <div className="inline-flex items-center gap-2 text-sm font-bold text-foreground">
+              <Calendar className="h-4 w-4" aria-hidden="true" />
               Pilihan Periode:
             </div>
             {periodOptions.map((option) => (
@@ -401,8 +417,8 @@ export default function UMKMReportsPage() {
                 onClick={() => setPeriod(option.value)}
                 className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
                   period === option.value
-                    ? 'bg-brand-emerald-600 text-white shadow-lg shadow-brand-emerald-950/30'
-                    : 'border border-white/15 text-zinc-200 hover:bg-white/10'
+                    ? 'bg-success text-on-success shadow-lg shadow-success/30'
+                    : 'border border-border text-foreground-secondary hover:bg-surface-subtle'
                 }`}
               >
                 {option.label}
@@ -413,8 +429,8 @@ export default function UMKMReportsPage() {
               onClick={() => setPeriod('custom')}
               className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
                 period === 'custom'
-                  ? 'bg-brand-emerald-600 text-white shadow-lg shadow-brand-emerald-950/30'
-                  : 'border border-white/15 text-zinc-200 hover:bg-white/10'
+                  ? 'bg-success text-on-success shadow-lg shadow-success/30'
+                    : 'border border-border text-foreground-secondary hover:bg-surface-subtle'
               }`}
             >
               Custom
@@ -423,23 +439,25 @@ export default function UMKMReportsPage() {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <input
+              aria-label="Tanggal mulai laporan"
               type="date"
               value={startDate}
               onChange={(event) => {
                 setStartDate(event.target.value);
                 setPeriod('custom');
               }}
-              className="rounded-full border border-white/15 bg-black/30 px-5 py-3 text-sm font-semibold text-white outline-none transition-all focus:border-brand-emerald-500"
+              className="rounded-full border border-border bg-scrim/30 px-5 py-3 text-sm font-semibold text-foreground outline-none transition-all focus:border-success"
             />
-            <span className="text-center text-sm font-bold text-zinc-500">s/d</span>
+            <span className="text-center text-sm font-bold text-foreground-muted">s/d</span>
             <input
+              aria-label="Tanggal akhir laporan"
               type="date"
               value={endDate}
               onChange={(event) => {
                 setEndDate(event.target.value);
                 setPeriod('custom');
               }}
-              className="rounded-full border border-white/15 bg-black/30 px-5 py-3 text-sm font-semibold text-white outline-none transition-all focus:border-brand-emerald-500"
+              className="rounded-full border border-border bg-scrim/30 px-5 py-3 text-sm font-semibold text-foreground outline-none transition-all focus:border-success"
             />
           </div>
         </div>
@@ -454,31 +472,31 @@ export default function UMKMReportsPage() {
               title="Total Order"
               value={formatNumber(reportData.summary.total_orders)}
               subtitle={reportData.range.start_date ? `${reportData.range.start_date} s/d ${reportData.range.end_date}` : 'Periode aktif'}
-              icon={<TrendingUp className="h-5 w-5 text-brand-emerald-400" />}
+              icon={<TrendingUp className="h-5 w-5 text-success" aria-hidden="true" />}
             />
             <SummaryCard
               title="Selesai"
               value={formatNumber(reportData.summary.completed_orders)}
               subtitle="Berhasil terkirim"
-              icon={<CheckCircle className="h-5 w-5 text-brand-emerald-400" />}
+              icon={<CheckCircle className="h-5 w-5 text-success" aria-hidden="true" />}
             />
             <SummaryCard
               title="Gagal"
               value={formatNumber(reportData.summary.failed_orders)}
               subtitle="Cancel, gagal, atau ditolak"
-              icon={<XCircle className="h-5 w-5 text-red-400" />}
+              icon={<XCircle className="h-5 w-5 text-error" aria-hidden="true" />}
             />
             <SummaryCard
               title="Total Biaya"
               value={formatCurrency(reportData.summary.total_spend)}
               subtitle="Akumulasi dari order DB"
-              icon={<Wallet className="h-5 w-5 text-indigo-400" />}
+              icon={<Wallet className="h-5 w-5 text-info" aria-hidden="true" />}
             />
             <SummaryCard
               title="Completion"
               value={formatPercent(reportData.summary.completion_rate)}
               subtitle="Selesai dibanding final status"
-              icon={<BarChart3 className="h-5 w-5 text-brand-emerald-400" />}
+              icon={<BarChart3 className="h-5 w-5 text-success"  aria-hidden="true"/>}
             />
           </section>
 
@@ -486,11 +504,11 @@ export default function UMKMReportsPage() {
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-[32px] border border-white/15 bg-white/[0.03] p-7"
+              className="rounded-[32px] border border-border bg-surface/[0.03] p-7"
             >
               <div className="mb-6">
-                <h2 className="text-xl font-bold tracking-tight text-white">Tren Order & Pengeluaran Harian</h2>
-                <p className="mt-1 text-sm text-zinc-400">
+                <h2 className="text-xl font-bold tracking-tight text-foreground">Tren Order & Pengeluaran Harian</h2>
+                <p className="mt-1 text-sm text-foreground-muted">
                   Rincian aktivitas harian periode {reportData.range.start_date || '-'} sampai {reportData.range.end_date || '-'}.
                 </p>
               </div>
@@ -500,28 +518,28 @@ export default function UMKMReportsPage() {
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-[32px] border border-white/15 bg-white/[0.03] p-7"
+              className="rounded-[32px] border border-border bg-surface/[0.03] p-7"
             >
-              <h2 className="text-xl font-bold tracking-tight text-white">Distribusi Model</h2>
-              <p className="mt-1 text-sm text-zinc-400">Pilihan model pengiriman dari order aktual.</p>
+              <h2 className="text-xl font-bold tracking-tight text-foreground">Distribusi Model</h2>
+              <p className="mt-1 text-sm text-foreground-muted">Pilihan model pengiriman dari order aktual.</p>
 
               {reportData.model_distribution.length === 0 ? (
                 <EmptyPanel title="Belum ada model" message="Distribusi model akan muncul setelah ada order pada periode ini." />
               ) : (
                 <div className="mt-6 space-y-4">
                   {reportData.model_distribution.map((item, index) => (
-                    <div key={item.name} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div key={item.name} className="rounded-2xl border border-border bg-surface-subtle p-4">
                       <div className="mb-3 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
                           <span
                             className="h-3 w-3 rounded-full"
                             style={{ backgroundColor: distributionColors[index % distributionColors.length] }}
                           />
-                          <p className="font-semibold text-white">{item.name}</p>
+                          <p className="font-semibold text-foreground">{item.name}</p>
                         </div>
-                        <p className="text-sm font-bold text-zinc-200">{formatNumber(item.count)} order</p>
+                        <p className="text-sm font-bold text-foreground-muted">{formatNumber(item.count)} order</p>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-2 overflow-hidden rounded-full bg-surface-subtle">
                         <div
                           className="h-full rounded-full transition-all duration-500"
                           style={{
@@ -530,7 +548,7 @@ export default function UMKMReportsPage() {
                           }}
                         />
                       </div>
-                      <p className="mt-2 text-xs font-semibold text-zinc-500">{formatCurrency(item.total_spend)}</p>
+                      <p className="mt-2 text-xs font-semibold text-foreground-muted">{formatCurrency(item.total_spend)}</p>
                     </div>
                   ))}
                 </div>
@@ -542,10 +560,10 @@ export default function UMKMReportsPage() {
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-[32px] border border-white/15 bg-white/[0.03] p-7"
+              className="rounded-[32px] border border-border bg-surface/[0.03] p-7"
             >
-              <h2 className="text-xl font-bold tracking-tight text-white">Top 5 Zona Tujuan</h2>
-              <p className="mt-1 text-sm text-zinc-400">Wilayah paling sering menerima paket berdasarkan alamat dropoff.</p>
+              <h2 className="text-xl font-bold tracking-tight text-foreground">Top 5 Zona Tujuan</h2>
+              <p className="mt-1 text-sm text-foreground-muted">Wilayah paling sering menerima paket berdasarkan alamat dropoff.</p>
               {reportData.destination_zones.length === 0 ? (
                 <EmptyPanel title="Belum ada zona" message="Zona tujuan akan muncul setelah ada alamat dropoff di order aktual." />
               ) : (
@@ -553,16 +571,16 @@ export default function UMKMReportsPage() {
                   {reportData.destination_zones.map((item) => (
                     <div key={item.zone}>
                       <div className="mb-2 flex items-center justify-between gap-4 text-sm font-semibold">
-                        <span className="text-white">{item.zone}</span>
-                        <span className="text-zinc-300">{formatNumber(item.order_count)} order</span>
+                        <span className="text-foreground">{item.zone}</span>
+                        <span className="text-foreground-muted">{formatNumber(item.order_count)} order</span>
                       </div>
-                      <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-2.5 overflow-hidden rounded-full bg-surface-subtle">
                         <div
-                          className="h-full rounded-full bg-brand-emerald-600 transition-all duration-500"
+                          className="h-full rounded-full bg-success transition-all duration-500"
                           style={{ width: `${Math.max((item.order_count / maxZoneCount) * 100, 3)}%` }}
                         />
                       </div>
-                      <p className="mt-1 text-xs font-semibold text-zinc-500">{formatCurrency(item.total_spend)}</p>
+                      <p className="mt-1 text-xs font-semibold text-foreground-muted">{formatCurrency(item.total_spend)}</p>
                     </div>
                   ))}
                 </div>
@@ -572,10 +590,10 @@ export default function UMKMReportsPage() {
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-[32px] border border-white/15 bg-white/[0.03] p-7"
+              className="rounded-[32px] border border-border bg-surface/[0.03] p-7"
             >
-              <h2 className="text-xl font-bold tracking-tight text-white">Rata-rata & Performa</h2>
-              <p className="mt-1 text-sm text-zinc-400">Metrik operasional dari order yang tersimpan di database.</p>
+              <h2 className="text-xl font-bold tracking-tight text-foreground">Rata-rata & Performa</h2>
+              <p className="mt-1 text-sm text-foreground-muted">Metrik operasional dari order yang tersimpan di database.</p>
               <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <MetricTile title="AVG Berat" value={`${reportData.summary.avg_weight.toFixed(2)} kg`} />
                 <MetricTile title="AVG Ongkos" value={formatCurrency(reportData.summary.avg_cost)} />
@@ -583,7 +601,7 @@ export default function UMKMReportsPage() {
                 <MetricTile title="Export Row" value={formatNumber(reportData.export_rows.length)} />
               </div>
               {!hasOrders && (
-                <div className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-semibold text-amber-200">
+                <div className="mt-6 rounded-2xl border border-warning bg-warning-surface p-4 text-sm font-semibold text-warning">
                   Belum ada order pada periode ini. Laporan tetap kosong agar tidak menampilkan data simulasi.
                 </div>
               )}
@@ -610,23 +628,23 @@ function SummaryCard({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-[28px] border border-white/15 bg-white/[0.03] p-6 transition-all duration-200 hover:bg-white/[0.05]"
+      className="rounded-[28px] border border-border bg-surface/[0.03] p-6 transition-all duration-200 hover:bg-surface/[0.05]"
     >
       <div className="mb-5 flex items-start justify-between gap-4">
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-400">{title}</p>
-        <div className="rounded-2xl bg-white/5 p-2">{icon}</div>
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-foreground-muted">{title}</p>
+        <div className="rounded-2xl bg-surface-subtle p-2">{icon}</div>
       </div>
-      <p className="break-words text-3xl font-bold tracking-tight text-white">{value}</p>
-      <p className="mt-3 text-sm font-semibold text-zinc-500">{subtitle}</p>
+      <p className="break-words text-3xl font-bold tracking-tight text-foreground">{value}</p>
+      <p className="mt-3 text-sm font-semibold text-foreground-muted">{subtitle}</p>
     </motion.div>
   );
 }
 
 function MetricTile({ title, value }: { title: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/15 bg-black/20 p-5">
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">{title}</p>
-      <p className="mt-3 text-2xl font-bold tracking-tight text-white">{value}</p>
+    <div className="rounded-2xl border border-border bg-surface-subtle p-5">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-foreground-muted">{title}</p>
+      <p className="mt-3 text-2xl font-bold tracking-tight text-foreground">{value}</p>
     </div>
   );
 }

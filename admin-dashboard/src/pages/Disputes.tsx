@@ -16,6 +16,7 @@ import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { toast } from 'sonner'
+import { StatusBadge } from '../components/StatusBadge'
 import DisputeChat from '../components/DisputeChat'
 import { useAuthStore } from '../store/useAuthStore'
 import { AdminPageSkeleton } from '../components/ui/Skeleton'
@@ -88,26 +89,26 @@ export default function Disputes() {
     <div className="space-y-8 animate-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">Dispute Management</h1>
-          <p className="text-zinc-500 mt-1">Review and resolve claims, damages, and delivery issues.</p>
+          <h1 className="text-3xl font-bold text-foreground-muted tracking-tight">Dispute Management</h1>
+          <p className="text-foreground-muted mt-1">Review and resolve claims, damages, and delivery issues.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-black uppercase tracking-widest flex items-center gap-2">
-            <AlertTriangle size={14} />
+          <div className="px-4 py-2 rounded-xl bg-error-surface border border-error text-error text-xs font-black uppercase tracking-widest flex items-center gap-2">
+            <AlertTriangle size={14}  aria-hidden="true"/>
             {stats?.pending || 0} Pending
           </div>
         </div>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-2 bg-white/[0.02] p-1.5 rounded-2xl border border-white/5 w-fit">
+      <div className="flex items-center gap-2 bg-surface/[0.02] p-1.5 rounded-2xl border border-border w-fit">
         {['All', 'Open', 'Investigating', 'Resolved'].map(t => (
           <button 
             key={t}
             onClick={() => { setFilter(t); setPage(1) }}
             className={cn(
               "px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-              filter === t ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+              filter === t ? "bg-primary text-on-primary shadow-lg shadow-primary/20" : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-subtle"
             )}
           >
             {t}
@@ -125,64 +126,57 @@ export default function Disputes() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.1 }}
               key={dispute.id}
-              className="glass-card p-8 rounded-[32px] border-white/5 hover:border-white/10 transition-all group relative overflow-hidden"
+              className="glass-card p-8 rounded-[32px] border-border hover:border-border transition-all group relative overflow-hidden"
             >
               <div className={cn(
                 "absolute left-0 top-0 bottom-0 w-1.5",
-                dispute.category?.toLowerCase().includes('damage') ? "bg-red-500" : 
-                dispute.category?.toLowerCase().includes('late') ? "bg-amber-500" :
+                dispute.category?.toLowerCase().includes('damage') ? "bg-error" :
+                dispute.category?.toLowerCase().includes('late') ? "bg-warning" :
                 // FOOD-BIKE-052: badge kategori food delivery
-                dispute.category?.toLowerCase().includes('makanan') ? "bg-emerald-500" :
-                dispute.category?.toLowerCase().includes('ghosting') ? "bg-purple-500" :
-                dispute.category?.toLowerCase().includes('coerced') ? "bg-rose-500" : "bg-primary"
+                dispute.category?.toLowerCase().includes('makanan') ? "bg-success" :
+                dispute.category?.toLowerCase().includes('ghosting') ? "bg-accent" :
+                dispute.category?.toLowerCase().includes('coerced') ? "bg-error" : "bg-primary"
               )} />
               
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
                 <div className="flex-1 space-y-4">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-black text-zinc-600 uppercase tracking-[0.2em]">{dispute.id.slice(0, 8)}</span>
-                    <span className="text-zinc-800">•</span>
+                    <span className="text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">{dispute.id.slice(0, 8)}</span>
+                    <span className="text-foreground-muted">•</span>
                     <span className="text-xs font-black text-primary-light uppercase tracking-widest">{dispute.order_number}</span>
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-zinc-100">{dispute.category}</h3>
-                    <p className="text-zinc-500 text-sm mt-1 max-w-2xl italic leading-relaxed">"{dispute.description}"</p>
+                    <h3 className="text-xl font-bold text-foreground-muted">{dispute.category}</h3>
+                    <p className="text-foreground-muted text-sm mt-1 max-w-2xl italic leading-relaxed">"{dispute.description}"</p>
                   </div>
                   <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
-                      <User size={14} className="text-zinc-600" />
-                      <span className="text-xs font-bold text-zinc-400">{dispute.customer_name}</span>
+                      <User size={14} className="text-foreground-muted" aria-hidden="true" />
+                      <span className="text-xs font-bold text-foreground-muted">{dispute.customer_name}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Clock size={14} className="text-zinc-600" />
-                      <span className="text-xs font-bold text-zinc-400">{new Date(dispute.created_at).toLocaleString()}</span>
+                      <Clock size={14} className="text-foreground-muted" aria-hidden="true" />
+                      <span className="text-xs font-bold text-foreground-muted">{new Date(dispute.created_at).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-10">
                   <div className="text-center">
-                    <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-2">Assignee</p>
-                    <span className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-zinc-700 text-zinc-500">
+                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest mb-2">Assignee</p>
+                    <span className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-border text-foreground-muted">
                       {dispute.assigned_to_name || 'Unassigned'}
                     </span>
                   </div>
                   <div className="text-center">
-                    <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-2">Status</p>
-                    <span className={cn(
-                      "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border",
-                      dispute.status === 'open' ? "border-zinc-700 text-zinc-500" :
-                      dispute.status === 'investigating' ? "border-amber-500/20 text-amber-400" :
-                      "border-emerald-500/20 text-emerald-400"
-                    )}>
-                      {dispute.status}
-                    </span>
+                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest mb-2">Status</p>
+                    <StatusBadge status={dispute.status} labelPrefix="Dispute status" className="rounded-lg text-[10px] uppercase tracking-widest" />
                   </div>
                   <button 
                     onClick={() => setSelectedDispute(dispute)}
-                    className="p-4 rounded-2xl bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-all border border-white/5"
+                    className="p-4 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all border border-border"
                   >
-                    <ExternalLink size={20} />
+                    <ExternalLink size={20} aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -194,24 +188,24 @@ export default function Disputes() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
-          <p className="text-sm text-zinc-500">
-            Showing <span className="text-zinc-300 font-bold">{((page - 1) * LIMIT) + 1}–{Math.min(page * LIMIT, total)}</span> of <span className="text-zinc-300 font-bold">{total}</span>
+          <p className="text-sm text-foreground-muted">
+            Showing <span className="text-foreground-muted font-bold">{((page - 1) * LIMIT) + 1}–{Math.min(page * LIMIT, total)}</span> of <span className="text-foreground-muted font-bold">{total}</span>
           </p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white text-sm font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground text-sm font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             >
               ← Prev
             </button>
-            <span className="px-4 py-2 text-sm text-zinc-400">
+            <span className="px-4 py-2 text-sm text-foreground-muted">
               Page {page} / {totalPages}
             </span>
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white text-sm font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground text-sm font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             >
               Next →
             </button>
@@ -228,51 +222,51 @@ export default function Disputes() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedDispute(null)}
-              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+              className="absolute inset-0 bg-scrim/90 backdrop-blur-md"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="glass-card w-full max-w-4xl max-h-[90vh] overflow-y-auto p-12 rounded-[48px] relative z-10 border-white/10"
+              className="glass-card w-full max-w-4xl max-h-[90vh] overflow-y-auto p-12 rounded-[48px] relative z-10 border-border"
             >
               <div className="space-y-12">
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-3 mb-2">
-                       <span className="text-xs font-black text-zinc-600 uppercase tracking-widest">{selectedDispute.id.slice(0, 8)}</span>
-                       <span className="text-zinc-800">/</span>
+                       <span className="text-xs font-black text-foreground-muted uppercase tracking-widest">{selectedDispute.id.slice(0, 8)}</span>
+                       <span className="text-foreground-muted">/</span>
                        <span className="text-xs font-black text-primary-light uppercase tracking-widest">{selectedDispute.order_number}</span>
                     </div>
-                    <h2 className="text-4xl font-black text-zinc-100 tracking-tighter">{selectedDispute.category}</h2>
+                    <h2 className="text-4xl font-black text-foreground-muted tracking-tighter">{selectedDispute.category}</h2>
                   </div>
-                  <button onClick={() => setSelectedDispute(null)} className="p-3 rounded-2xl bg-white/5 text-zinc-500 hover:text-white transition-all">
-                    <XCircle size={24} />
+                  <button onClick={() => setSelectedDispute(null)} className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
+                    <XCircle size={24} aria-hidden="true" />
                   </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                   <div className="space-y-8">
                     <div>
-                      <h4 className="text-xs font-black text-zinc-600 uppercase tracking-widest mb-4">Evidence & Photos</h4>
+                      <h4 className="text-xs font-black text-foreground-muted uppercase tracking-widest mb-4">Evidence & Photos</h4>
                       <div className="grid grid-cols-2 gap-4">
                         {selectedDispute.evidence_urls && selectedDispute.evidence_urls.length > 0 ? (
                           selectedDispute.evidence_urls.map((url: string, i: number) => (
-                            <div key={i} className="aspect-square rounded-3xl bg-zinc-900 border border-white/5 flex items-center justify-center group cursor-pointer overflow-hidden relative">
+                            <div key={i} className="aspect-square rounded-3xl bg-surface border border-border flex items-center justify-center group cursor-pointer overflow-hidden relative">
                               <img src={url} alt={`Evidence ${i}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
                             </div>
                           ))
                         ) : (
-                          <div className="aspect-square rounded-3xl bg-zinc-900 border border-white/5 flex items-center justify-center group cursor-pointer overflow-hidden relative">
-                             <ImageIcon size={32} className="text-zinc-800 group-hover:scale-110 transition-transform" />
+                          <div className="aspect-square rounded-3xl bg-surface border border-border flex items-center justify-center group cursor-pointer overflow-hidden relative">
+                             <ImageIcon size={32} className="text-foreground-muted group-hover:scale-110 transition-transform" aria-hidden="true" />
                              <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                             <p className="absolute bottom-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">No photos provided</p>
+                             <p className="absolute bottom-4 text-[10px] font-bold text-foreground-muted uppercase tracking-widest">No photos provided</p>
                           </div>
                         )}
                       </div>
                     </div>
-                    <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5">
-                      <p className="text-sm text-zinc-300 italic leading-relaxed">
+                    <div className="p-8 rounded-[32px] bg-surface/[0.02] border border-border">
+                      <p className="text-sm text-foreground-muted italic leading-relaxed">
                         "{selectedDispute.description}"
                       </p>
                     </div>
@@ -280,15 +274,15 @@ export default function Disputes() {
 
                   <div className="space-y-10">
                      <div className="space-y-4">
-                        <h4 className="text-xs font-black text-zinc-600 uppercase tracking-widest">Assign Specialist</h4>
-                        <div className="flex items-center gap-3 p-4 rounded-2xl bg-zinc-900 border border-white/5">
+                        <h4 className="text-xs font-black text-foreground-muted uppercase tracking-widest">Assign Specialist</h4>
+                        <div className="flex items-center gap-3 p-4 rounded-2xl bg-surface border border-border">
                            <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary-light">
-                              <User size={20} />
+                              <User size={20} aria-hidden="true" />
                            </div>
                            <select 
                             value={selectedDispute.assigned_to || ''}
                             onChange={(e) => assignMutation.mutate({ id: selectedDispute.id, adminId: e.target.value })}
-                            className="bg-transparent border-none text-zinc-200 text-sm font-bold focus:ring-0 w-full cursor-pointer"
+                            className="bg-transparent border-none text-foreground-muted text-sm font-bold focus:ring-0 w-full cursor-pointer"
                            >
                               <option value="">Unassigned</option>
                               {admins.map((admin: any) => (
@@ -299,14 +293,14 @@ export default function Disputes() {
                      </div>
 
                      <div className="space-y-6">
-                        <h4 className="text-xs font-black text-zinc-600 uppercase tracking-widest">Resolution Actions</h4>
+                        <h4 className="text-xs font-black text-foreground-muted uppercase tracking-widest">Resolution Actions</h4>
                         <div className="space-y-3">
                            <button 
                             disabled={resolveMutation.isPending}
                             onClick={() => resolveMutation.mutate({ id: selectedDispute.id, status: 'resolved' })}
-                            className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                            className="w-full py-4 rounded-2xl bg-success text-on-success font-black uppercase tracking-widest text-xs shadow-lg shadow-success hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                            >
-                              {resolveMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle size={18} />}
+                              {resolveMutation.isPending ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <CheckCircle size={18} aria-hidden="true" />}
                               Resolve & Close
                            </button>
                            <button 
@@ -314,18 +308,18 @@ export default function Disputes() {
                             className={cn(
                               "w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-3",
                               showChat 
-                                ? "bg-primary text-white shadow-lg shadow-primary/20" 
-                                : "bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20"
+                                ? "bg-primary text-on-primary shadow-lg shadow-primary/20"
+                                : "bg-warning-surface text-warning border border-warning hover:bg-warning-surface"
                             )}
                            >
-                              <MessageSquare size={18} />
+                              <MessageSquare size={18} aria-hidden="true" />
                               {showChat ? 'Chat Active' : 'Contact Customer'}
                            </button>
                            <button 
                             onClick={() => resolveMutation.mutate({ id: selectedDispute.id, status: 'investigating' })}
-                            className="w-full py-4 rounded-2xl bg-red-500/10 text-red-400 border border-red-500/20 font-black uppercase tracking-widest text-xs hover:bg-red-500/20 transition-all flex items-center justify-center gap-3"
+                            className="w-full py-4 rounded-2xl bg-error-surface text-error border border-error font-black uppercase tracking-widest text-xs hover:bg-error-surface transition-all flex items-center justify-center gap-3"
                            >
-                              <ShieldAlert size={18} />
+                              <ShieldAlert size={18} aria-hidden="true" />
                               Escalate / Investigate
                            </button>
                         </div>
@@ -339,7 +333,7 @@ export default function Disputes() {
                        initial={{ opacity: 0, height: 0 }}
                        animate={{ opacity: 1, height: 'auto' }}
                        exit={{ opacity: 0, height: 0 }}
-                       className="pt-12 border-t border-white/5 overflow-hidden"
+                       className="pt-12 border-t border-border overflow-hidden"
                      >
                        <DisputeChat 
                          disputeId={selectedDispute.id} 

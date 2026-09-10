@@ -112,27 +112,27 @@ export function TeamPanel({ data }: { data: SettingsData }) {
                 initial={{ opacity: 0, y: 10 }} 
                 animate={{ opacity: 1, y: 0 }} 
                 exit={{ opacity: 0, y: -10 }}
-                className="glass-card p-10 rounded-[48px] border-white/5 space-y-8"
+                className="glass-card p-10 rounded-[48px] border-border space-y-8"
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
-                    <Users className="text-primary-light" size={24} />
+                  <h3 className="text-xl font-black text-foreground-muted flex items-center gap-3 tracking-tight">
+                    <Users className="text-primary-light" size={24} aria-hidden="true" />
                     Admin Team
                   </h3>
                   <button 
                     onClick={() => setIsInviteModalOpen(true)}
                     className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary/10 text-primary-light border border-primary/20 font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all"
                   >
-                    <Plus size={14} />
+                    <Plus size={14} aria-hidden="true" />
                     Invite Admin
                   </button>
                 </div>
 
                 <div className="space-y-4">
                   {admins.length > 0 ? admins.map((member: any) => (
-                    <div key={member.id} className="flex items-center justify-between p-6 rounded-3xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all group">
+                    <div key={member.id} className="flex items-center justify-between p-6 rounded-3xl bg-surface/[0.02] border border-border hover:bg-surface/[0.04] transition-all group">
                       <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary/20 to-emerald-500/20 flex items-center justify-center text-primary-light font-black overflow-hidden text-sm">
+                        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary/20 to-success flex items-center justify-center text-primary-light font-black overflow-hidden text-sm">
                           {member.photo_url ? (
                             <img src={member.photo_url} alt={member.full_name} className="w-full h-full object-cover" />
                           ) : (
@@ -140,16 +140,16 @@ export function TeamPanel({ data }: { data: SettingsData }) {
                           )}
                         </div>
                         <div>
-                          <p className="text-sm font-black text-zinc-200">{member.full_name}</p>
-                          <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest">{member.role.replaceAll('_', ' ')}</p>
+                          <p className="text-sm font-black text-foreground-muted">{member.full_name}</p>
+                          <p className="text-xs text-foreground-muted font-medium uppercase tracking-widest">{member.role.replaceAll('_', ' ')}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
                          <button 
                            onClick={() => toast.info('Member permissions can be tuned in IAM section.')}
-                           className="p-2 text-zinc-500 hover:text-white transition-colors"
+                           className="p-2 text-foreground-muted hover:text-foreground transition-colors"
                          >
-                            <SettingsIcon size={18} />
+                            <SettingsIcon size={18} aria-hidden="true" />
                          </button>
                          <button 
                            onClick={() => {
@@ -157,14 +157,14 @@ export function TeamPanel({ data }: { data: SettingsData }) {
                                deleteAdminMutation.mutate(member.id)
                              }
                            }}
-                           className="p-2 text-zinc-500 hover:text-red-400 transition-colors"
+                           className="p-2 text-foreground-muted hover:text-error transition-colors"
                          >
-                            <Trash2 size={18} />
+                            <Trash2 size={18} aria-hidden="true" />
                          </button>
                       </div>
                     </div>
                   )) : (
-                    <div className="p-12 text-center text-zinc-500 font-bold uppercase tracking-widest text-xs">
+                    <div className="p-12 text-center text-foreground-muted font-bold uppercase tracking-widest text-xs">
                       No admins found
                     </div>
                   )}

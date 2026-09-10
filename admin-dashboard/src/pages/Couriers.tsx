@@ -31,6 +31,8 @@ import { api } from '../lib/api'
 import { adminApiRootUrl } from '../lib/runtimeConfig'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
+import { OrderStatusBadge } from '../components/OrderStatusBadge'
+import { StatusBadge } from '../components/StatusBadge'
 
 // Resolve relative /uploads/... paths to absolute API server URL
 const resolvePhotoUrl = (photoUrl: string | null | undefined): string | null => {
@@ -71,7 +73,7 @@ function AuthPhoto({
 }) {
   const { data: blobUrl, isLoading } = useAuthPhoto(photoUrl)
   if (!photoUrl) return <>{fallback}</>
-  if (isLoading) return <div className="w-full h-full bg-zinc-800 animate-pulse" />
+  if (isLoading) return <div className="w-full h-full bg-surface-raised animate-pulse" />
   if (!blobUrl) return <>{fallback}</>
   return <img src={blobUrl} alt={alt} className={className} />
 }
@@ -86,17 +88,17 @@ function CourierErrorRow({ title, message, onRetry, colSpan = 5 }: { title: stri
     <tr>
       <td colSpan={colSpan} className="px-8 py-20 text-center">
         <div className="flex flex-col items-center gap-4">
-          <AlertCircle className="w-10 h-10 text-red-400" />
+          <AlertCircle className="w-10 h-10 text-error" aria-hidden="true" />
           <div>
-            <p className="text-zinc-100 font-black uppercase tracking-widest text-xs">{title}</p>
-            <p className="text-zinc-600 text-xs mt-2">{message}</p>
+            <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">{title}</p>
+            <p className="text-foreground-muted text-xs mt-2">{message}</p>
           </div>
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={14} aria-hidden="true" />
             Retry
           </button>
         </div>
@@ -107,18 +109,18 @@ function CourierErrorRow({ title, message, onRetry, colSpan = 5 }: { title: stri
 
 function CourierPanelError({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
   return (
-    <div className="rounded-[32px] border border-red-500/20 bg-red-500/5 p-8 text-center space-y-4 md:col-span-4">
-      <AlertCircle className="w-10 h-10 text-red-400 mx-auto" />
+    <div className="rounded-[32px] border border-error bg-error-surface p-8 text-center space-y-4 md:col-span-4">
+      <AlertCircle className="w-10 h-10 text-error mx-auto" aria-hidden="true" />
       <div>
-        <p className="text-zinc-100 font-black uppercase tracking-widest text-xs">{title}</p>
-        <p className="text-zinc-600 text-xs mt-2">{message}</p>
+        <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">{title}</p>
+        <p className="text-foreground-muted text-xs mt-2">{message}</p>
       </div>
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
       >
-        <RefreshCw size={14} />
+        <RefreshCw size={14} aria-hidden="true" />
         Retry
       </button>
     </div>
@@ -393,16 +395,16 @@ export default function Couriers() {
     <div className="space-y-8 animate-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">Courier Management</h1>
-          <p className="text-zinc-500 mt-1">Manage, verify, and monitor courier performance across the fleet.</p>
+          <h1 className="text-3xl font-bold text-foreground-muted tracking-tight">Courier Management</h1>
+          <p className="text-foreground-muted mt-1">Manage, verify, and monitor courier performance across the fleet.</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={handleExport}
             disabled={isExporting}
-            className="px-6 py-3 rounded-2xl bg-primary text-white font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50"
+            className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50"
           >
-            {isExporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+            {isExporting ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : <Download size={18} aria-hidden="true" />}
             Export List
           </button>
         </div>
@@ -417,19 +419,19 @@ export default function Couriers() {
             onRetry={() => refetchStats()}
           />
         ) : [
-          { label: 'Total Couriers', value: stats?.total?.toLocaleString() ?? 'Tidak tersedia', icon: Users, color: 'text-zinc-400' },
-          { label: 'Active Now', value: stats?.active?.toLocaleString() ?? 'Tidak tersedia', icon: Truck, color: 'text-emerald-400' },
-          { label: 'Pending Verification', value: stats?.pending?.toLocaleString() ?? 'Tidak tersedia', icon: Clock, color: 'text-amber-400' },
-          { label: 'Suspended', value: stats?.suspended?.toLocaleString() ?? 'Tidak tersedia', icon: Ban, color: 'text-red-400' },
+          { label: 'Total Couriers', value: stats?.total?.toLocaleString() ?? 'Tidak tersedia', icon: Users, color: 'text-foreground-muted' },
+          { label: 'Active Now', value: stats?.active?.toLocaleString() ?? 'Tidak tersedia', icon: Truck, color: 'text-success' },
+          { label: 'Pending Verification', value: stats?.pending?.toLocaleString() ?? 'Tidak tersedia', icon: Clock, color: 'text-warning' },
+          { label: 'Suspended', value: stats?.suspended?.toLocaleString() ?? 'Tidak tersedia', icon: Ban, color: 'text-error' },
         ].map((stat, i) => (
-          <div key={i} className="glass-card p-6 rounded-3xl border-white/5 shadow-xl shadow-black/20">
+          <div key={i} className="glass-card p-6 rounded-3xl border-border shadow-xl shadow-scrim">
             <div className="flex items-center gap-4">
-              <div className={cn("p-3 rounded-2xl bg-white/5", stat.color)}>
-                <stat.icon size={24} />
+              <div className={cn("p-3 rounded-2xl bg-surface-subtle", stat.color)}>
+                <stat.icon size={24} aria-hidden="true" />
               </div>
               <div>
-                <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest">{stat.label}</p>
-                <p className="text-2xl font-black text-zinc-100 mt-1">{stat.value}</p>
+                <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest">{stat.label}</p>
+                <p className="text-2xl font-black text-foreground-muted mt-1">{stat.value}</p>
               </div>
             </div>
           </div>
@@ -437,15 +439,16 @@ export default function Couriers() {
       </div>
 
       {/* Filters & Search */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white/[0.02] p-4 rounded-[32px] border border-white/5">
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-surface/[0.02] p-4 rounded-[32px] border border-border">
         <div className="relative w-full md:w-96 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-primary-light transition-colors" size={18} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted group-focus-within:text-primary-light transition-colors" size={18} aria-hidden="true" />
           <input 
             type="text" 
+            aria-label="Search couriers by name, ID, or plate"
             placeholder="Search name, ID, or plate..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-zinc-600"
+            className="w-full bg-surface-subtle border border-border rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-foreground-muted"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -455,7 +458,7 @@ export default function Couriers() {
               onClick={() => setFilter(t)}
               className={cn(
                 "px-5 py-2.5 rounded-xl text-sm font-bold transition-all",
-                filter === t ? "bg-primary/20 text-primary-light border border-primary/20" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                filter === t ? "bg-primary/20 text-foreground border border-primary/20" : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-subtle"
               )}
             >
               {t}
@@ -464,15 +467,15 @@ export default function Couriers() {
         </div>
         
         {selectedCourierIds.length > 0 && (
-          <div className="flex items-center gap-3 border-l border-white/10 pl-4">
-            <span className="text-xs font-bold text-zinc-300">
+          <div className="flex items-center gap-3 border-l border-border pl-4">
+            <span className="text-xs font-bold text-foreground-muted">
               {selectedCourierIds.length} terpilih
             </span>
             <button
               onClick={() => setIsBroadcastModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-light transition-colors flex items-center gap-2"
+              className="px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary-light transition-colors flex items-center gap-2"
             >
-              <FileText size={14} />
+              <FileText size={14} aria-hidden="true" />
               Broadcast Undangan Basecamp
             </button>
           </div>
@@ -480,11 +483,11 @@ export default function Couriers() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="glass-card rounded-[32px] border-white/5 p-6">
+        <div className="glass-card rounded-[32px] border-border p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-zinc-600">Courier Type</p>
-              <h2 className="mt-2 text-xl font-black text-zinc-100">Pisahkan daftar kurir by role</h2>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-foreground-muted">Courier Type</p>
+              <h2 className="mt-2 text-xl font-black text-foreground-muted">Pisahkan daftar kurir by role</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               {[
@@ -501,7 +504,7 @@ export default function Couriers() {
                   }}
                   className={cn(
                     'rounded-xl px-4 py-2 text-sm font-bold transition',
-                    applicationChannel === key ? 'bg-primary text-white' : 'bg-white/5 text-zinc-500 hover:text-white'
+                    applicationChannel === key ? 'bg-primary text-on-primary' : 'bg-surface-subtle text-foreground-muted hover:text-foreground'
                   )}
                 >
                   {label}
@@ -511,14 +514,14 @@ export default function Couriers() {
           </div>
         </div>
 
-        <div className="glass-card rounded-[32px] border-white/5 p-6">
+        <div className="glass-card rounded-[32px] border-border p-6">
           <div className="flex items-start gap-4">
             <div className="rounded-2xl bg-primary/10 p-3 text-primary-light">
-              <Link2 size={22} />
+              <Link2 size={22} aria-hidden="true" />
             </div>
             <div className="flex-1">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-zinc-600">Share Registration Link</p>
-              <h2 className="mt-2 text-xl font-black text-zinc-100">Link daftar regular</h2>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-foreground-muted">Share Registration Link</p>
+              <h2 className="mt-2 text-xl font-black text-foreground-muted">Link daftar regular</h2>
               <div className="mt-4 flex gap-2">
                 {[
                   ['regular', 'Regular'],
@@ -529,29 +532,29 @@ export default function Couriers() {
                     onClick={() => setLinkChannel(key as 'regular')}
                     className={cn(
                       'rounded-xl px-3 py-2 text-xs font-black transition',
-                      linkChannel === key ? 'bg-primary text-white' : 'bg-white/5 text-zinc-500 hover:text-white'
+                      linkChannel === key ? 'bg-primary text-on-primary' : 'bg-surface-subtle text-foreground-muted hover:text-foreground'
                     )}
                   >
                     {label}
                   </button>
                 ))}
               </div>
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+              <div className="mt-4 rounded-2xl border border-border bg-surface/[0.03] p-3">
                 <label className="flex items-center justify-between gap-3">
                   <span>
-                    <span className="block text-xs font-black uppercase tracking-[0.18em] text-zinc-600">Masa aktif</span>
-                    <span className="mt-1 block text-sm font-bold text-zinc-300">Link otomatis off setelah melewati jumlah hari ini</span>
+                    <span className="block text-xs font-black uppercase tracking-[0.18em] text-foreground-muted">Masa aktif</span>
+                    <span className="mt-1 block text-sm font-bold text-foreground-muted">Link otomatis off setelah melewati jumlah hari ini</span>
                   </span>
-                  <div className="flex shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-zinc-950 px-3 py-2">
+                  <div className="flex shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
                     <input
                       type="number"
                       min={1}
                       max={365}
                       value={linkExpiryDays}
                       onChange={(event) => setLinkExpiryDays(event.target.value)}
-                      className="w-16 bg-transparent text-right text-sm font-black text-white outline-none"
+                      className="w-16 bg-transparent text-right text-sm font-black text-foreground outline-none"
                     />
-                    <span className="text-xs font-bold text-zinc-500">hari</span>
+                    <span className="text-xs font-bold text-foreground-muted">hari</span>
                   </div>
                 </label>
               </div>
@@ -566,9 +569,9 @@ export default function Couriers() {
                   createRegistrationLink.mutate()
                 }}
                 disabled={createRegistrationLink.isPending}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-black text-white transition hover:bg-primary-light disabled:opacity-50"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-black text-on-primary transition hover:bg-primary-light disabled:opacity-50"
               >
-                {createRegistrationLink.isPending ? <Loader2 size={16} className="animate-spin" /> : <Link2 size={16} />}
+                {createRegistrationLink.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Link2 size={16} aria-hidden="true" />}
                 Generate Link
               </button>
               {generatedLink && (
@@ -578,19 +581,19 @@ export default function Couriers() {
                     await navigator.clipboard.writeText(generatedLink)
                     toast.success('Link disalin')
                   }}
-                  className="mt-3 flex w-full items-center gap-2 rounded-2xl border border-white/10 bg-zinc-950 px-3 py-2 text-left text-xs text-zinc-400"
+                  className="mt-3 flex w-full items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2 text-left text-xs text-foreground-muted"
                 >
-                  <Copy size={14} className="shrink-0 text-primary-light" />
+                  <Copy size={14} className="shrink-0 text-primary-light" aria-hidden="true" />
                   <span className="truncate">{generatedLink}</span>
                 </button>
               )}
               {generatedLinkExpiresAt && (
-                <p className="mt-2 text-[11px] font-bold text-amber-300">
+                <p className="mt-2 text-[11px] font-bold text-warning">
                   Aktif sampai {new Date(generatedLinkExpiresAt).toLocaleString('id-ID')}. Setelah itu link off.
                 </p>
               )}
               {registrationLinks.length > 0 && (
-                <p className="mt-3 text-[11px] font-bold text-zinc-600">
+                <p className="mt-3 text-[11px] font-bold text-foreground-muted">
                   {registrationLinks.length} link terakhir tersimpan.
                 </p>
               )}
@@ -600,15 +603,16 @@ export default function Couriers() {
       </div>
 
       {/* Courier Table */}
-      <div className="glass-card rounded-[40px] border-white/5 overflow-hidden shadow-2xl shadow-black/40">
+      <div className="glass-card rounded-[40px] border-border overflow-hidden shadow-2xl shadow-scrim">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-white/5 bg-white/[0.01]">
-                <th className="px-6 py-6 w-12 text-center">
+              <tr className="border-b border-border bg-surface/[0.01]">
+                <th scope="col" className="px-6 py-6 w-12 text-center">
                   <input 
                     type="checkbox"
-                    className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-primary focus:ring-primary/50"
+                    aria-label="Select all couriers on this page"
+                    className="w-4 h-4 rounded border-border bg-surface text-primary focus:ring-primary/50"
                     checked={couriersData?.data?.length > 0 && selectedCourierIds.length === couriersData.data.length}
                     onChange={(e) => {
                       if (e.target.checked) {
@@ -619,20 +623,20 @@ export default function Couriers() {
                     }}
                   />
                 </th>
-                <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Courier</th>
-                <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Status</th>
-                <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Avg Rating</th>
-                <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Location</th>
-                <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Actions</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">Courier</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">Status</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">Avg Rating</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">Location</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-border">
               {isLoading ? (
                 <tr>
                   <td colSpan={6} className="px-8 py-20 text-center">
                     <div className="flex flex-col items-center gap-4">
-                      <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                      <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Loading fleet data...</p>
+                      <Loader2 className="w-8 h-8 text-primary animate-spin" aria-hidden="true" />
+                      <p className="text-foreground-muted font-bold uppercase tracking-widest text-xs">Loading fleet data...</p>
                     </div>
                   </td>
                 </tr>
@@ -649,12 +653,13 @@ export default function Couriers() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
                   key={courier.id} 
-                  className="hover:bg-white/[0.02] transition-colors group"
+                  className="hover:bg-surface/[0.02] transition-colors group"
                 >
                   <td className="px-6 py-6 text-center">
                     <input 
                       type="checkbox"
-                      className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-primary focus:ring-primary/50"
+                      aria-label={`Select courier ${courier.name || courier.id}`}
+                      className="w-4 h-4 rounded border-border bg-surface text-primary focus:ring-primary/50"
                       checked={selectedCourierIds.includes(courier.id)}
                       onChange={(e) => {
                         if (e.target.checked) {
@@ -667,50 +672,39 @@ export default function Couriers() {
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-2xl bg-zinc-800 flex items-center justify-center text-zinc-400 font-bold text-lg border border-white/5 group-hover:border-primary/20 transition-all uppercase">
+                      <div className="h-12 w-12 rounded-2xl bg-surface-raised flex items-center justify-center text-foreground-muted font-bold text-lg border border-border group-hover:border-primary/20 transition-all uppercase">
                         {courier.full_name?.charAt(0)}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="font-bold text-zinc-100">{courier.full_name}</p>
-                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-500 border border-white/5 uppercase font-bold">
+                          <p className="font-bold text-foreground-muted">{courier.full_name}</p>
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-surface-raised text-foreground-muted border border-border uppercase font-bold">
                             {courier.application_channel?.replace('_', ' ') || courier.vehicle_type || 'Belum tersedia'}
                           </span>
                         </div>
-                        <p className="text-xs text-zinc-500 mt-0.5">{courier.id.split('-')[0]} • {courier.plate_number || 'Plat belum tersedia'}</p>
+                        <p className="text-xs text-foreground-muted mt-0.5">{courier.id.split('-')[0]} • {courier.plate_number || 'Plat belum tersedia'}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <div className={cn(
-                      "inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                      courier.status === 'Active' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                      courier.status === 'Pending' ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
-                      "bg-red-500/10 text-red-400 border border-red-500/20"
-                    )}>
-                      <div className={cn("w-1.5 h-1.5 rounded-full", 
-                        courier.status === 'Active' ? "bg-emerald-400 animate-pulse" :
-                        courier.status === 'Pending' ? "bg-amber-400" : "bg-red-400"
-                      )} />
-                      {courier.status}
-                    </div>
+                    <StatusBadge status={courier.status} labelPrefix="Courier status" className="text-[10px] uppercase tracking-widest" />
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-white/5 flex items-center justify-center text-sm font-black text-zinc-100">
+                      <div className="w-10 h-10 rounded-xl bg-surface border border-border flex items-center justify-center text-sm font-black text-foreground-muted">
                         {Number.isFinite(Number(courier.avg_rating)) ? Number(courier.avg_rating).toFixed(1) : '—'}
                       </div>
-                      <div className="flex-1 max-w-[100px] h-1.5 bg-white/5 rounded-full overflow-hidden">
+                      <div className="flex-1 max-w-[100px] h-1.5 bg-surface-subtle rounded-full overflow-hidden">
                         <div 
-                          className={cn("h-full rounded-full", Number(courier.avg_rating) > 4.5 ? "bg-emerald-500" : Number(courier.avg_rating) > 3.5 ? "bg-amber-500" : "bg-red-500")}
+                          className={cn("h-full rounded-full", Number(courier.avg_rating) > 4.5 ? "bg-success" : Number(courier.avg_rating) > 3.5 ? "bg-warning" : "bg-error")}
                           style={{ width: `${Number.isFinite(Number(courier.avg_rating)) ? (Number(courier.avg_rating) / 5) * 100 : 0}%` }}
                         />
                       </div>
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <div className="flex items-center gap-2 text-zinc-400">
-                      <MapPin size={14} className="text-zinc-600" />
+                    <div className="flex items-center gap-2 text-foreground-muted">
+                      <MapPin size={14} className="text-foreground-muted" aria-hidden="true" />
                       <span className="text-sm font-medium">{courier.current_location || 'Lokasi belum tersedia'}</span>
                     </div>
                   </td>
@@ -718,23 +712,23 @@ export default function Couriers() {
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
                         onClick={() => setSelectedCourierId(courier.id)}
-                        className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white hover:bg-white/10 transition-all"
+                        className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all"
                       >
-                        <ExternalLink size={18} />
+                        <ExternalLink size={18} aria-hidden="true" />
                       </button>
                       {courier.status !== 'Suspended' ? (
                         <button 
                           onClick={() => updateStatus.mutate({ id: courier.id, status: 'Suspended' })}
-                          className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                          className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-error hover:bg-error-surface transition-all"
                         >
-                          <Ban size={18} />
+                          <Ban size={18} aria-hidden="true" />
                         </button>
                       ) : (
                         <button 
                           onClick={() => updateStatus.mutate({ id: courier.id, status: 'Active' })}
-                          className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
+                          className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-success hover:bg-success-surface transition-all"
                         >
-                          <CheckCircle size={18} />
+                          <CheckCircle size={18} aria-hidden="true" />
                         </button>
                       )}
                     </div>
@@ -743,8 +737,8 @@ export default function Couriers() {
               )) : (
                 <tr>
                   <td colSpan={6} className="px-8 py-20 text-center">
-                    <Package className="w-10 h-10 text-zinc-800 mx-auto mb-4" />
-                    <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Tidak ada kurir dari database untuk filter ini.</p>
+                    <Package className="w-10 h-10 text-foreground-muted mx-auto mb-4" aria-hidden="true" />
+                    <p className="text-foreground-muted font-bold uppercase tracking-widest text-xs">Tidak ada kurir dari database untuk filter ini.</p>
                   </td>
                 </tr>
               )}
@@ -753,17 +747,18 @@ export default function Couriers() {
         </div>
         
         {/* Pagination */}
-        <div className="px-8 py-6 border-t border-white/5 flex items-center justify-between bg-white/[0.01]">
-          <p className="text-xs text-zinc-600 font-bold uppercase tracking-widest">
+        <div className="px-8 py-6 border-t border-border flex items-center justify-between bg-surface/[0.01]">
+          <p className="text-xs text-foreground-muted font-bold uppercase tracking-widest">
             Showing {couriersData?.data?.length || 0} of {couriersData?.pagination?.total || 0} Couriers
           </p>
           <div className="flex items-center gap-2">
             <button 
+              aria-label="Previous courier page"
               disabled={page === 1}
               onClick={() => setPage(p => Math.max(1, p - 1))}
-              className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:bg-white/5 transition-all"
+              className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-surface-subtle transition-all"
             >
-              <ChevronLeft size={18} />
+              <ChevronLeft size={18} aria-hidden="true" />
             </button>
             <div className="flex items-center gap-1">
               {[...Array(couriersData?.pagination?.pages || 0)].map((_, i) => (
@@ -772,7 +767,7 @@ export default function Couriers() {
                   onClick={() => setPage(i + 1)}
                   className={cn(
                     "w-10 h-10 rounded-xl font-bold text-sm transition-all",
-                    page === i + 1 ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/5 text-zinc-500 hover:bg-white/10"
+                    page === i + 1 ? "bg-primary text-on-primary shadow-lg shadow-primary/20" : "bg-surface-subtle text-foreground-muted hover:bg-surface-subtle"
                   )}
                 >
                   {i + 1}
@@ -780,11 +775,12 @@ export default function Couriers() {
               ))}
             </div>
             <button 
+              aria-label="Next courier page"
               disabled={page === (couriersData?.pagination?.pages || 1)}
               onClick={() => setPage(p => p + 1)}
-              className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:bg-white/5 transition-all"
+              className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-surface-subtle transition-all"
             >
-              <ChevronRight size={18} />
+              <ChevronRight size={18} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -799,42 +795,42 @@ export default function Couriers() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsBroadcastModalOpen(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-scrim/80 backdrop-blur-sm"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="glass-card w-full max-w-lg p-8 rounded-[32px] relative z-10 border-white/10 shadow-3xl"
+              className="glass-card w-full max-w-lg p-8 rounded-[32px] relative z-10 border-border shadow-3xl"
             >
-              <h2 className="text-2xl font-black text-zinc-100">Broadcast Undangan Basecamp</h2>
-              <p className="text-sm text-zinc-400 mt-2">Kirim undangan ke {selectedCourierIds.length} kurir terpilih.</p>
+              <h2 className="text-2xl font-black text-foreground-muted">Broadcast Undangan Basecamp</h2>
+              <p className="text-sm text-foreground-muted mt-2">Kirim undangan ke {selectedCourierIds.length} kurir terpilih.</p>
 
               <div className="space-y-4 mt-6">
                 <div>
-                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest">Tanggal</label>
+                  <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Tanggal</label>
                   <input
                     type="date"
                     value={broadcastDate}
                     onChange={(e) => setBroadcastDate(e.target.value)}
-                    className="w-full mt-2 bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
+                    className="w-full mt-2 bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest">Jam</label>
+                  <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Jam</label>
                   <input
                     type="time"
                     value={broadcastTime}
                     onChange={(e) => setBroadcastTime(e.target.value)}
-                    className="w-full mt-2 bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
+                    className="w-full mt-2 bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest">Alamat Basecamp</label>
+                  <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Alamat Basecamp</label>
                   <textarea
                     value={broadcastAddress}
                     onChange={(e) => setBroadcastAddress(e.target.value)}
-                    className="w-full mt-2 bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
+                    className="w-full mt-2 bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors"
                     rows={3}
                     placeholder="Masukkan alamat lengkap..."
                   />
@@ -842,7 +838,7 @@ export default function Couriers() {
 
                 <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl mt-4">
                   <p className="text-xs font-black text-primary-light uppercase tracking-widest mb-2">Preview Pesan</p>
-                  <p className="text-sm text-zinc-300 italic">
+                  <p className="text-sm text-foreground-muted italic">
                     "Halo <span className="text-primary font-bold">{"{nama_kurir}"}</span>! Pendaftaran kamu sudah disetujui. Silakan datang ke basecamp untuk pengambilan atribut pada tanggal <span className="text-primary font-bold">{broadcastDate || '[Tanggal]'}</span> jam <span className="text-primary font-bold">{broadcastTime || '[Jam]'}</span>. Lokasi: <span className="text-primary font-bold">{broadcastAddress || '[Alamat]'}</span>."
                   </p>
                 </div>
@@ -851,16 +847,16 @@ export default function Couriers() {
               <div className="flex justify-end gap-3 mt-8">
                 <button
                   onClick={() => setIsBroadcastModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl font-bold text-sm text-zinc-400 hover:text-white transition-colors"
+                  className="px-5 py-2.5 rounded-xl font-bold text-sm text-foreground-muted hover:text-foreground transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   onClick={() => broadcastMutation.mutate()}
                   disabled={!broadcastDate || !broadcastTime || !broadcastAddress || broadcastMutation.isPending}
-                  className="px-5 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-light transition-colors disabled:opacity-50 flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-sm hover:bg-primary-light transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
-                  {broadcastMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                  {broadcastMutation.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <FileText size={16} aria-hidden="true" />}
                   Kirim Broadcast
                 </button>
               </div>
@@ -878,27 +874,27 @@ export default function Couriers() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => { stopWebcam(); setSelectedCourierId(null); setDetailTab('profile') }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-scrim/80 backdrop-blur-sm"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="glass-card w-full max-w-4xl max-h-[90vh] overflow-y-auto p-10 rounded-[48px] relative z-10 border-white/10 shadow-3xl shadow-black/60"
+              className="glass-card w-full max-w-4xl max-h-[90vh] overflow-y-auto p-10 rounded-[48px] relative z-10 border-border shadow-3xl shadow-scrim"
             >
               {/* Tab Switcher */}
               {!isLoadingDetail && courierDetail && (
-                <div className="flex gap-2 mb-8 border-b border-white/5 pb-px">
+                <div className="flex gap-2 mb-8 border-b border-border pb-px">
                   {(['profile', 'history', 'photo'] as const).map(tab => (
                     <button
                       key={tab}
                       onClick={() => { if (detailTab === 'photo' && tab !== 'photo') stopWebcam(); setDetailTab(tab); }}
                       className={cn(
                         'px-6 py-3 text-sm font-bold capitalize transition-all relative flex items-center gap-2',
-                        detailTab === tab ? 'text-primary-light' : 'text-zinc-500 hover:text-zinc-300'
+                        detailTab === tab ? 'text-primary-light' : 'text-foreground-muted hover:text-foreground-muted'
                       )}
                     >
-                      {tab === 'profile' ? <ShieldCheck size={15} /> : tab === 'history' ? <History size={15} /> : <Camera size={15} />}
+                      {tab === 'profile' ? <ShieldCheck size={15} aria-hidden="true" /> : tab === 'history' ? <History size={15} aria-hidden="true" /> : <Camera size={15} aria-hidden="true" />}
                       {tab === 'profile' ? 'Profile' : tab === 'history' ? 'Order History' : 'Profile Photo'}
                       {detailTab === tab && (
                         <motion.div layoutId="courierTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-light" />
@@ -910,13 +906,13 @@ export default function Couriers() {
 
               {isLoadingDetail ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
-                  <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                  <p className="text-zinc-500 font-black uppercase tracking-widest">Retrieving dossier...</p>
+                  <Loader2 className="w-12 h-12 text-primary animate-spin" aria-hidden="true" />
+                  <p className="text-foreground-muted font-black uppercase tracking-widest">Retrieving dossier...</p>
                 </div>
               ) : courierDetail && detailTab === 'profile' && (
                 <div className="flex flex-col md:flex-row gap-10">
                   <div className="md:w-1/3 space-y-6">
-                    <div className="aspect-square rounded-[32px] bg-zinc-900 border border-white/10 overflow-hidden flex items-center justify-center text-6xl font-black text-zinc-700 uppercase shadow-inner">
+                    <div className="aspect-square rounded-[32px] bg-surface border border-border overflow-hidden flex items-center justify-center text-6xl font-black text-foreground-muted uppercase shadow-inner">
                       <AuthPhoto
                         photoUrl={courierDetail.photo_url}
                         alt={courierDetail.full_name}
@@ -928,9 +924,9 @@ export default function Couriers() {
                         <button 
                           onClick={() => updateStatus.mutate({ id: courierDetail.id, status: 'Active' })}
                           disabled={updateStatus.isPending}
-                          className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest text-sm shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                          className="w-full py-4 rounded-2xl bg-success text-on-success font-black uppercase tracking-widest text-sm shadow-lg shadow-success hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                         >
-                          <CheckCircle size={20} />
+                          <CheckCircle size={20} aria-hidden="true" />
                           {updateStatus.isPending ? 'Processing...' : 'Verify Courier'}
                         </button>
                       )}
@@ -938,18 +934,18 @@ export default function Couriers() {
                         <button 
                           onClick={() => updateStatus.mutate({ id: courierDetail.id, status: 'Suspended' })}
                           disabled={updateStatus.isPending}
-                          className="w-full py-4 rounded-2xl bg-red-500/10 text-red-400 border border-red-500/20 font-black uppercase tracking-widest text-sm hover:bg-red-500/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                          className="w-full py-4 rounded-2xl bg-error-surface text-error border border-error font-black uppercase tracking-widest text-sm hover:bg-error-surface transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                         >
-                          <Ban size={20} />
+                          <Ban size={20} aria-hidden="true" />
                           {updateStatus.isPending ? 'Processing...' : 'Suspend Access'}
                         </button>
                       ) : (
                         <button 
                           onClick={() => updateStatus.mutate({ id: courierDetail.id, status: 'Active' })}
                           disabled={updateStatus.isPending}
-                          className="w-full py-4 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-widest text-sm hover:bg-emerald-500/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                          className="w-full py-4 rounded-2xl bg-success-surface text-success border border-success font-black uppercase tracking-widest text-sm hover:bg-success-surface transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                         >
-                          <CheckCircle size={20} />
+                          <CheckCircle size={20} aria-hidden="true" />
                           {updateStatus.isPending ? 'Processing...' : 'Activate Access'}
                         </button>
                       )}
@@ -957,20 +953,20 @@ export default function Couriers() {
                   </div>
 
                   <div className="md:w-2/3 space-y-10">
-                    <div className="flex items-start justify-between border-b border-white/5 pb-8">
+                    <div className="flex items-start justify-between border-b border-border pb-8">
                       <div>
-                        <h2 className="text-4xl font-black text-zinc-100 tracking-tighter">{courierDetail.full_name}</h2>
-                        <p className="text-zinc-500 font-medium mt-1">{courierDetail.id} • {courierDetail.plate_number || 'No Plate'}</p>
+                        <h2 className="text-4xl font-black text-foreground-muted tracking-tighter">{courierDetail.full_name}</h2>
+                        <p className="text-foreground-muted font-medium mt-1">{courierDetail.id} • {courierDetail.plate_number || 'No Plate'}</p>
                         <p className="text-xs text-primary-light font-bold mt-2 flex items-center gap-2">
-                          <MapPin size={12} />
+                          <MapPin size={12} aria-hidden="true" />
                           {courierDetail.current_location || 'Last location unknown'}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs font-black text-zinc-600 uppercase tracking-widest mb-1">Fleet Rating</p>
+                        <p className="text-xs font-black text-foreground-muted uppercase tracking-widest mb-1">Fleet Rating</p>
                         <div className="flex items-center gap-2">
                           <div className="px-3 py-1.5 rounded-xl bg-primary/10 text-primary-light border border-primary/20 flex items-center gap-2">
-                            <Star size={16} fill="currentColor" />
+                            <Star size={16} fill="currentColor" aria-hidden="true" />
                             <span className="font-black text-lg">{parseFloat(courierDetail.avg_rating || '0').toFixed(1)}</span>
                           </div>
                         </div>
@@ -978,58 +974,58 @@ export default function Couriers() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-6">
-                      <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 shadow-xl">
-                        <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest mb-4">Contact Info</p>
+                      <div className="p-6 rounded-3xl bg-surface/[0.02] border border-border shadow-xl">
+                        <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest mb-4">Contact Info</p>
                         <div className="space-y-4">
                           <div className="flex flex-col gap-1">
-                            <span className="text-[10px] text-zinc-500 font-black uppercase">Phone Number</span>
-                            <span className="text-sm font-bold text-zinc-100">{courierDetail.phone_number || 'Not provided'}</span>
+                            <span className="text-[10px] text-foreground-muted font-black uppercase">Phone Number</span>
+                            <span className="text-sm font-bold text-foreground-muted">{courierDetail.phone_number || 'Not provided'}</span>
                           </div>
                           <div className="flex flex-col gap-1">
-                            <span className="text-[10px] text-zinc-500 font-black uppercase">Email Address</span>
-                            <span className="text-sm font-bold text-zinc-100">{courierDetail.email || 'Not provided'}</span>
+                            <span className="text-[10px] text-foreground-muted font-black uppercase">Email Address</span>
+                            <span className="text-sm font-bold text-foreground-muted">{courierDetail.email || 'Not provided'}</span>
                           </div>
                         </div>
                       </div>
-                      <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 shadow-xl">
-                        <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest mb-4">Verification Artifacts</p>
+                      <div className="p-6 rounded-3xl bg-surface/[0.02] border border-border shadow-xl">
+                        <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest mb-4">Verification Artifacts</p>
                         <div className="space-y-3">
                           {courierDetail.documents?.map((doc: any, idx: number) => (
-                            <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                            <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-surface-subtle border border-border">
                               <div className="flex items-center gap-3">
-                                <FileText size={16} className="text-primary-light" />
-                                <span className="text-sm text-zinc-300 capitalize">{doc.type?.replace(/_/g, ' ')}</span>
+                                <FileText size={16} className="text-primary-light" aria-hidden="true" />
+                                <span className="text-sm text-foreground-muted capitalize">{doc.type?.replace(/_/g, ' ')}</span>
                               </div>
-                              <CheckCircle size={14} className="text-emerald-500" />
+                              <CheckCircle size={14} className="text-success" aria-hidden="true" />
                             </div>
                           )) || (
-                            <p className="text-xs text-zinc-600 italic">No documents uploaded</p>
+                            <p className="text-xs text-foreground-muted italic">No documents uploaded</p>
                           )}
                         </div>
                       </div>
                     </div>
 
                     <div>
-                      <h3 className="text-lg font-bold text-zinc-100 mb-6 flex items-center gap-2">
-                        <ShieldCheck className="text-primary-light" size={20} />
+                      <h3 className="text-lg font-bold text-foreground-muted mb-6 flex items-center gap-2">
+                        <ShieldCheck className="text-primary-light" size={20} aria-hidden="true" />
                         Fleet Feedback (Last 5)
                       </h3>
                       <div className="space-y-4">
                         {courierDetail.recent_ratings?.length > 0 ? courierDetail.recent_ratings.map((rating: any, i: number) => (
-                          <div key={i} className="flex items-start gap-4 p-4 rounded-2xl bg-white/[0.01] border border-white/5 group hover:bg-white/[0.03] transition-all">
-                            <div className="w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center text-primary-light font-black border border-white/5">
+                          <div key={i} className="flex items-start gap-4 p-4 rounded-2xl bg-surface/[0.01] border border-border group hover:bg-surface/[0.03] transition-all">
+                            <div className="w-10 h-10 rounded-xl bg-surface flex items-center justify-center text-primary-light font-black border border-border">
                               {rating.rating}
                             </div>
                             <div className="flex-1">
-                              <p className="text-sm text-zinc-300 font-medium italic">"{rating.comment || 'No comment provided'}"</p>
-                              <p className="text-[10px] text-zinc-600 mt-2 font-bold uppercase tracking-widest">
+                              <p className="text-sm text-foreground-muted font-medium italic">"{rating.comment || 'No comment provided'}"</p>
+                              <p className="text-[10px] text-foreground-muted mt-2 font-bold uppercase tracking-widest">
                                 Order #{rating.order_id?.split('-')[0]} • {new Date(rating.created_at).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
                         )) : (
-                          <div className="p-8 rounded-2xl bg-white/[0.01] border border-dashed border-white/10 text-center">
-                            <p className="text-sm text-zinc-600">No feedback found for this operative.</p>
+                          <div className="p-8 rounded-2xl bg-surface/[0.01] border border-dashed border-border text-center">
+                            <p className="text-sm text-foreground-muted">No feedback found for this operative.</p>
                           </div>
                         )}
                       </div>
@@ -1043,12 +1039,12 @@ export default function Couriers() {
                 <div>
                   {isLoadingHistory ? (
                     <div className="flex flex-col items-center py-16 gap-4">
-                      <Loader2 className="w-10 h-10 text-primary animate-spin" />
-                      <p className="text-zinc-500 text-sm uppercase tracking-widest font-bold">Loading history...</p>
+                      <Loader2 className="w-10 h-10 text-primary animate-spin" aria-hidden="true" />
+                      <p className="text-foreground-muted text-sm uppercase tracking-widest font-bold">Loading history...</p>
                     </div>
                   ) : courierHistory.length === 0 ? (
-                    <div className="text-center py-16 text-zinc-600">
-                      <Package size={48} className="mx-auto mb-4 opacity-30" />
+                    <div className="text-center py-16 text-foreground-muted">
+                      <Package size={48} className="mx-auto mb-4 opacity-30" aria-hidden="true" />
                       <p className="font-bold">No order history found.</p>
                       <p className="text-sm mt-1">This courier hasn't completed any legs yet.</p>
                     </div>
@@ -1060,33 +1056,27 @@ export default function Couriers() {
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.04 }}
-                          className="flex items-center justify-between p-5 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all"
+                          className="flex items-center justify-between p-5 rounded-2xl bg-surface/[0.02] border border-border hover:bg-surface/[0.04] transition-all"
                         >
                           <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center">
-                              <Package size={18} className="text-primary-light" />
+                            <div className="w-10 h-10 rounded-xl bg-surface border border-border flex items-center justify-center">
+                              <Package size={18} aria-hidden="true" className="text-primary-light" />
                             </div>
                             <div>
-                              <p className="text-sm font-bold text-zinc-100">
+                              <p className="text-sm font-bold text-foreground-muted">
                                 #{(order.id || '').split('-')[0]?.toUpperCase()}
                               </p>
-                              <p className="text-xs text-zinc-500 mt-0.5">
+                              <p className="text-xs text-foreground-muted mt-0.5">
                                 {order.pickup_address || 'N/A'} → {order.delivery_address || 'N/A'}
                               </p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className={cn(
-                              'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest',
-                              order.leg_status === 'delivered' || order.status === 'delivered'
-                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                : order.status === 'cancelled'
-                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            )}>
-                              {order.leg_status || order.status || 'unknown'}
-                            </div>
-                            <p className="text-xs text-zinc-600 mt-1">
+                            <OrderStatusBadge
+                              status={order.leg_status || order.status || 'unknown'}
+                              className="px-3 py-1 text-[10px]"
+                            />
+                            <p className="text-xs text-foreground-muted mt-1">
                               {order.created_at ? new Date(order.created_at).toLocaleDateString('id-ID') : '-'}
                             </p>
                           </div>
@@ -1102,16 +1092,16 @@ export default function Couriers() {
                 <div className="flex flex-col gap-8">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-xl font-black text-zinc-100">Set Courier Profile Photo</h3>
-                      <p className="text-zinc-500 text-sm mt-1">Photo ini akan digunakan saat dispatching order agar customer melihat foto verified dari basecamp.</p>
+                      <h3 className="text-xl font-black text-foreground-muted">Set Courier Profile Photo</h3>
+                      <p className="text-foreground-muted text-sm mt-1">Photo ini akan digunakan saat dispatching order agar customer melihat foto verified dari basecamp.</p>
                       {courierDetail.profile_photo_locked_at ? (
-                        <p className="text-emerald-400 text-xs mt-2 font-bold flex items-center gap-1">
-                          <CheckCircle size={12} />
+                        <p className="text-success text-xs mt-2 font-bold flex items-center gap-1">
+                          <CheckCircle size={12} aria-hidden="true" />
                           Locked at {new Date(courierDetail.profile_photo_locked_at).toLocaleString('id-ID')}
                         </p>
                       ) : (
-                        <p className="text-amber-400 text-xs mt-2 font-bold flex items-center gap-1">
-                          <AlertCircle size={12} />
+                        <p className="text-warning text-xs mt-2 font-bold flex items-center gap-1">
+                          <AlertCircle size={12} aria-hidden="true" />
                           Not Locked. Kurir tidak akan menerima order.
                         </p>
                       )}
@@ -1120,38 +1110,38 @@ export default function Couriers() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Current Photo / Webcam View */}
-                    <div className="glass-card p-6 rounded-[32px] border-white/5 flex flex-col items-center justify-center gap-6 min-h-[300px]">
+                    <div className="glass-card p-6 rounded-[32px] border-border flex flex-col items-center justify-center gap-6 min-h-[300px]">
                       {isWebcamActive ? (
-                        <div className="relative w-full aspect-[3/4] max-w-[280px] rounded-2xl overflow-hidden bg-black border-2 border-primary">
+                        <div className="relative w-full aspect-[3/4] max-w-[280px] rounded-2xl overflow-hidden bg-scrim border-2 border-primary">
                           <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
                           <canvas ref={canvasRef} className="hidden" />
                           <button
                             onClick={capturePhoto}
-                            className="absolute bottom-4 left-1/2 -translate-x-1/2 px-6 py-2 bg-primary text-white rounded-full font-bold shadow-lg"
+                            className="absolute bottom-4 left-1/2 -translate-x-1/2 px-6 py-2 bg-primary text-on-primary rounded-full font-bold shadow-lg"
                           >
                             Capture
                           </button>
                         </div>
                       ) : capturedPhoto ? (
-                        <div className="relative w-full aspect-[3/4] max-w-[280px] rounded-2xl overflow-hidden border border-white/10">
+                        <div className="relative w-full aspect-[3/4] max-w-[280px] rounded-2xl overflow-hidden border border-border">
                           <img src={capturedPhoto} alt="Captured" className="w-full h-full object-cover" />
                           <button
                             onClick={() => setCapturedPhoto(null)}
-                            className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white transition"
+                            className="absolute top-2 right-2 p-2 bg-scrim/50 hover:bg-scrim/80 rounded-full text-foreground transition"
                           >
-                            <RefreshCw size={16} />
+                            <RefreshCw size={16} aria-hidden="true" />
                           </button>
                         </div>
                       ) : courierDetail.photo_url ? (
-                        <div className="relative w-full aspect-[3/4] max-w-[280px] rounded-2xl overflow-hidden border border-white/10">
+                        <div className="relative w-full aspect-[3/4] max-w-[280px] rounded-2xl overflow-hidden border border-border">
                           <AuthPhoto
                             photoUrl={courierDetail.photo_url}
                             alt="Current Profile"
                           />
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center gap-3 text-zinc-600">
-                          <ImageIcon size={48} className="opacity-50" />
+                        <div className="flex flex-col items-center gap-3 text-foreground-muted">
+                          <ImageIcon size={48} className="opacity-50" aria-hidden="true" />
                           <p className="text-sm font-bold uppercase tracking-widest">No Photo Available</p>
                         </div>
                       )}
@@ -1165,7 +1155,7 @@ export default function Couriers() {
                             onClick={() => startWebcam()}
                             className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-primary/10 text-primary-light border border-primary/20 hover:bg-primary/20 transition-all font-bold"
                           >
-                            <Camera size={20} />
+                            <Camera size={20} aria-hidden="true" />
                             Take Photo with Webcam
                           </button>
                           
@@ -1176,8 +1166,8 @@ export default function Couriers() {
                               onChange={handleFileUpload}
                               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                             />
-                            <div className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all font-bold text-zinc-300">
-                              <Upload size={20} />
+                            <div className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-surface-subtle border border-border hover:bg-surface-subtle transition-all font-bold text-foreground-muted">
+                              <Upload size={20} aria-hidden="true" />
                               Upload File
                             </div>
                           </div>
@@ -1186,20 +1176,20 @@ export default function Couriers() {
 
                       {isWebcamActive && (
                         <div className="flex flex-col gap-4 justify-center w-full">
-                          <div className="p-4 rounded-2xl bg-zinc-900/80 border border-white/10 space-y-3">
-                            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-                              <Camera size={14} className="text-primary" />
+                          <div className="p-4 rounded-2xl bg-surface-subtle border border-border space-y-3">
+                            <label className="text-xs font-bold uppercase tracking-wider text-foreground-muted flex items-center gap-2">
+                              <Camera size={14} className="text-primary" aria-hidden="true" />
                               Pilih Perangkat Kamera
                             </label>
                             {videoDevices.length === 0 ? (
-                              <div className="text-xs text-zinc-500 py-1 font-medium">
+                              <div className="text-xs text-foreground-muted py-1 font-medium">
                                 Mendeteksi kamera eksternal & webcam...
                               </div>
                             ) : (
                               <select
                                 value={selectedDeviceId}
                                 onChange={(e) => switchCamera(e.target.value)}
-                                className="w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2.5 text-sm font-semibold text-zinc-100 focus:border-primary focus:outline-none transition-all cursor-pointer"
+                                className="w-full rounded-xl border border-border bg-scrim/60 px-3 py-2.5 text-sm font-semibold text-foreground-muted focus:border-primary focus:outline-none transition-all cursor-pointer"
                               >
                                 {videoDevices.map((device, idx) => (
                                   <option key={device.deviceId || idx} value={device.deviceId}>
@@ -1208,22 +1198,22 @@ export default function Couriers() {
                                 ))}
                               </select>
                             )}
-                            <p className="text-[11px] text-zinc-500 leading-relaxed">
+                            <p className="text-[11px] text-foreground-muted leading-relaxed">
                               Mendukung kamera eksternal (USB Webcam / kamera eksternal) atau kamera bawaan laptop/PC.
                             </p>
                           </div>
 
                           <button
                             onClick={capturePhoto}
-                            className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all font-bold"
+                            className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-primary text-on-primary shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all font-bold"
                           >
-                            <Camera size={20} />
+                            <Camera size={20} aria-hidden="true" />
                             Jepret Foto Sekarang
                           </button>
 
                           <button
                             onClick={stopWebcam}
-                            className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-zinc-400 hover:text-white transition-all font-semibold text-sm"
+                            className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl bg-surface-subtle border border-border hover:bg-surface-subtle text-foreground-muted hover:text-foreground transition-all font-semibold text-sm"
                           >
                             Tutup Kamera
                           </button>
@@ -1238,9 +1228,9 @@ export default function Couriers() {
                             uploadPhoto(blob);
                           }}
                           disabled={isUploadingPhoto}
-                          className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-all font-bold disabled:opacity-50"
+                          className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-success text-on-success shadow-lg hover:bg-success transition-all font-bold disabled:opacity-50"
                         >
-                          {isUploadingPhoto ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
+                          {isUploadingPhoto ? <Loader2 className="animate-spin" size={20} aria-hidden="true" /> : <CheckCircle size={20} aria-hidden="true" />}
                           Save & Lock Photo
                         </button>
                       )}

@@ -113,7 +113,7 @@ export const normalizeDesignTokens = (properties: Record<string, unknown> | unde
   }, { ...DEFAULT_DESIGN_TOKENS })
 }
 
-const inputClass = 'mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm font-bold text-zinc-100 disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'mt-2 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm font-bold text-foreground-muted disabled:cursor-not-allowed disabled:opacity-60'
 
 type Props = {
   value: DesignTokenValues
@@ -123,18 +123,18 @@ type Props = {
 
 export default function DesignTokenEditor({ value, disabled = false, onChange }: Props) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" aria-labelledby="design-token-editor-title">
+    <section className="rounded-3xl border border-border bg-surface/[0.03] p-5" aria-labelledby="design-token-editor-title">
       <div className="flex items-start gap-3">
-        <div className="rounded-xl bg-primary/10 p-2 text-primary-light"><ShieldCheck size={18} /></div>
+        <div className="rounded-xl bg-primary/10 p-2 text-primary-light"><ShieldCheck size={18} aria-hidden="true" /></div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-light">Bounded runtime theme</p>
-          <h2 id="design-token-editor-title" className="mt-1 text-lg font-black text-zinc-100">Campaign presentation tokens</h2>
-          <p className="mt-1 max-w-3xl text-xs leading-relaxed text-zinc-500">Only registered enum presets can be selected. The editor never accepts CSS, Kotlin, JavaScript, fonts or arbitrary color values.</p>
+          <h2 id="design-token-editor-title" className="mt-1 text-lg font-black text-foreground-muted">Campaign presentation tokens</h2>
+          <p className="mt-1 max-w-3xl text-xs leading-relaxed text-foreground-muted">Only registered enum presets can be selected. The editor never accepts CSS, Kotlin, JavaScript, fonts or arbitrary color values.</p>
         </div>
       </div>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         {DESIGN_TOKEN_DEFINITIONS.map((definition) => (
-          <label key={definition.key} className="rounded-2xl border border-white/10 bg-black/10 p-4 text-xs font-black text-zinc-300">
+          <label key={definition.key} className="rounded-2xl border border-border bg-surface-subtle p-4 text-xs font-black text-foreground-muted">
             <span>{definition.label}</span>
             <select
               className={inputClass}
@@ -144,7 +144,7 @@ export default function DesignTokenEditor({ value, disabled = false, onChange }:
             >
               {definition.options.map((option) => <option key={option} value={option}>{definition.labels[option]}</option>)}
             </select>
-            <span className="mt-2 block text-[11px] font-normal leading-relaxed text-zinc-600">{definition.description}</span>
+            <span className="mt-2 block text-[11px] font-normal leading-relaxed text-foreground-muted">{definition.description}</span>
           </label>
         ))}
       </div>
@@ -155,9 +155,9 @@ export default function DesignTokenEditor({ value, disabled = false, onChange }:
           ['Remote code and fonts', 'CSS/Kotlin/JavaScript instructions, arbitrary WebView content and font binaries are rejected.'],
           ['Marketing override boundary', 'Marketing operators can choose only the five bounded presets above; locked controls are server-enforced.'],
         ].map(([title, description]) => (
-          <div key={title} className="flex gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
-            <LockKeyhole size={16} className="mt-0.5 shrink-0 text-amber-300" />
-            <div><p className="text-xs font-black text-amber-100">{title}</p><p className="mt-1 text-[11px] leading-relaxed text-amber-200/70">{description}</p></div>
+          <div key={title} className="flex gap-3 rounded-2xl border border-warning bg-warning/[0.06] p-4">
+            <LockKeyhole size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden="true" />
+            <div><p className="text-xs font-black text-warning">{title}</p><p className="mt-1 text-[11px] leading-relaxed text-warning">{description}</p></div>
           </div>
         ))}
       </div>

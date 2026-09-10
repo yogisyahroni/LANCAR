@@ -130,24 +130,24 @@ export default function CourierMarketConfig() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.32em] text-primary-light">Courier Compliance Ops</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-zinc-100">Market & Localization</h1>
-          <p className="mt-2 max-w-3xl text-sm text-zinc-500">Atur kendaraan, dokumen, tax profile, payout method, currency, timezone, dan kebijakan cross-border. Perubahan requirement menaikkan kebutuhan re-verifikasi.</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-foreground-muted">Market & Localization</h1>
+          <p className="mt-2 max-w-3xl text-sm text-foreground-muted">Atur kendaraan, dokumen, tax profile, payout method, currency, timezone, dan kebijakan cross-border. Perubahan requirement menaikkan kebutuhan re-verifikasi.</p>
         </div>
-        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">Assignment market tidak bisa diubah langsung oleh courier.</div>
+        <div className="rounded-2xl border border-warning bg-warning-surface px-4 py-3 text-xs text-warning">Assignment market tidak bisa diubah langsung oleh courier.</div>
       </div>
 
       {isLoading ? <AdminPageSkeleton /> : (
         <>
           {canEdit && <section className="rounded-3xl border border-primary/20 bg-primary/5 p-5">
-            <h2 className="text-lg font-black text-white">Tambah market</h2>
-            <p className="mt-1 text-xs text-zinc-500">Market baru aktif tanpa assignment courier; vehicle, dokumen, tax, payout, dan verifikasi harus dikonfigurasi terlebih dahulu.</p>
+            <h2 className="text-lg font-black text-foreground">Tambah market</h2>
+            <p className="mt-1 text-xs text-foreground-muted">Market baru aktif tanpa assignment courier; vehicle, dokumen, tax, payout, dan verifikasi harus dikonfigurasi terlebih dahulu.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {(['market_code', 'country_code', 'currency_code', 'timezone', 'display_locale', 'policy_version'] as const).map((key) => (
-                <label key={key} className="space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{key}</span><input className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-primary" value={newMarket[key]} onChange={(event) => setNewMarket((current) => ({ ...current, [key]: event.target.value }))} /></label>
+                <label key={key} className="space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">{key}</span><input className="w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted outline-none focus:border-primary" value={newMarket[key]} onChange={(event) => setNewMarket((current) => ({ ...current, [key]: event.target.value }))} /></label>
               ))}
-              <label className="space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">currency minor unit</span><input className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-primary" type="number" min="0" max="3" value={newMarket.currency_minor_unit} onChange={(event) => setNewMarket((current) => ({ ...current, currency_minor_unit: Number(event.target.value) }))} /></label>
+              <label className="space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">currency minor unit</span><input className="w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted outline-none focus:border-primary" type="number" min="0" max="3" value={newMarket.currency_minor_unit} onChange={(event) => setNewMarket((current) => ({ ...current, currency_minor_unit: Number(event.target.value) }))} /></label>
             </div>
-            <button disabled={createMarket.isPending} onClick={() => createMarket.mutate()} className="mt-4 flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-white disabled:opacity-50"><Globe2 className="h-4 w-4" /> {createMarket.isPending ? 'Membuat…' : 'Buat market'}</button>
+            <button disabled={createMarket.isPending} onClick={() => createMarket.mutate()} className="mt-4 flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary disabled:opacity-50"><Globe2 className="h-4 w-4" aria-hidden="true" /> {createMarket.isPending ? 'Membuat…' : 'Buat market'}</button>
           </section>}
 
           <div className="grid gap-5 lg:grid-cols-2">
@@ -155,46 +155,46 @@ export default function CourierMarketConfig() {
             const draft = drafts[config.market_code] || toDraft(config)
             const update = (key: keyof Draft, value: string | number | boolean) => setDrafts((current) => ({ ...current, [config.market_code]: { ...draft, [key]: value } }))
             return (
-              <section key={config.market_code} className="rounded-3xl border border-white/10 bg-zinc-900/60 p-5">
+              <section key={config.market_code} className="rounded-3xl border border-border bg-surface-subtle p-5">
                 <div className="mb-5 flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary-light"><Globe2 className="h-5 w-5" /></div>
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary-light"><Globe2 className="h-5 w-5" aria-hidden="true" /></div>
                     <div>
-                      <h2 className="text-xl font-black text-white">{config.market_code}</h2>
-                      <p className="text-xs uppercase tracking-widest text-zinc-500">{config.country_code} · {config.courier_count || 0} courier · {config.reverification_count || 0} perlu reverify</p>
+                      <h2 className="text-xl font-black text-foreground">{config.market_code}</h2>
+                      <p className="text-xs uppercase tracking-widest text-foreground-muted">{config.country_code} · {config.courier_count || 0} courier · {config.reverification_count || 0} perlu reverify</p>
                     </div>
                   </div>
-                  {canEdit && <button onClick={() => updateMarket.mutate(draft)} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-white hover:bg-primary-dark"><Save className="h-4 w-4" /> Simpan</button>}
+                  {canEdit && <button onClick={() => updateMarket.mutate(draft)} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary hover:bg-primary-dark"><Save className="h-4 w-4" aria-hidden="true" /> Simpan</button>}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {(['country_code', 'currency_code', 'currency_minor_unit', 'timezone', 'display_locale', 'policy_version'] as const).map((key) => (
-                    <label key={key} className="space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{key}</span><input className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-primary" type={key === 'currency_minor_unit' ? 'number' : 'text'} value={draft[key]} onChange={(event) => update(key, key === 'currency_minor_unit' ? Number(event.target.value) : event.target.value)} /></label>
+                    <label key={key} className="space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">{key}</span><input className="w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted outline-none focus:border-primary" type={key === 'currency_minor_unit' ? 'number' : 'text'} value={draft[key]} onChange={(event) => update(key, key === 'currency_minor_unit' ? Number(event.target.value) : event.target.value)} /></label>
                   ))}
                   {(['required_vehicle_types', 'required_document_types', 'required_payout_methods'] as const).map((key) => (
-                    <label key={key} className="space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{key.replaceAll('_', ' ')}</span><input className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-primary" placeholder="pisahkan dengan koma" value={draft[key]} onChange={(event) => update(key, event.target.value)} /></label>
+                    <label key={key} className="space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">{key.replaceAll('_', ' ')}</span><input className="w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted outline-none focus:border-primary" placeholder="pisahkan dengan koma" value={draft[key]} onChange={(event) => update(key, event.target.value)} /></label>
                   ))}
                 </div>
-                <label className="mt-3 block space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">required tax profile (JSON)</span><textarea className="min-h-20 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-zinc-100 outline-none focus:border-primary" value={draft.required_tax_profile} onChange={(event) => update('required_tax_profile', event.target.value)} /></label>
-                <div className="mt-4 flex flex-wrap gap-4 text-sm text-zinc-300">
+                <label className="mt-3 block space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">required tax profile (JSON)</span><textarea className="min-h-20 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 font-mono text-xs text-foreground-muted outline-none focus:border-primary" value={draft.required_tax_profile} onChange={(event) => update('required_tax_profile', event.target.value)} /></label>
+                <div className="mt-4 flex flex-wrap gap-4 text-sm text-foreground-muted">
                   <label className="flex items-center gap-2"><input type="checkbox" checked={draft.cross_border_supported} onChange={(event) => update('cross_border_supported', event.target.checked)} /> Cross-border policy enabled</label>
                   <label className="flex items-center gap-2"><input type="checkbox" checked={draft.is_active} onChange={(event) => update('is_active', event.target.checked)} /> Market active</label>
                 </div>
-                <p className="mt-4 flex items-center gap-2 text-xs text-zinc-500"><ShieldCheck className="h-4 w-4 text-emerald-300" /> Cross-border enabled tidak otomatis memberi izin courier; tetap perlu decision per courier.</p>
+                <p className="mt-4 flex items-center gap-2 text-xs text-foreground-muted"><ShieldCheck className="h-4 w-4 text-success" aria-hidden="true" /> Cross-border enabled tidak otomatis memberi izin courier; tetap perlu decision per courier.</p>
               </section>
             )
           })}
           </div>
 
-          <section className="rounded-3xl border border-white/10 bg-zinc-900/60 p-5">
+          <section className="rounded-3xl border border-border bg-surface-subtle p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div><h2 className="text-xl font-black text-white">Pending market change requests</h2><p className="mt-1 text-xs text-zinc-500">Approval memindahkan assignment hanya setelah courier offline, tidak punya job aktif, dan target policy lulus verifikasi.</p></div>
-              <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-200">{changeRequests.length} pending</span>
+              <div><h2 className="text-xl font-black text-foreground">Pending market change requests</h2><p className="mt-1 text-xs text-foreground-muted">Approval memindahkan assignment hanya setelah courier offline, tidak punya job aktif, dan target policy lulus verifikasi.</p></div>
+              <span className="rounded-full bg-warning-surface px-3 py-1 text-xs font-bold text-warning">{changeRequests.length} pending</span>
             </div>
             <div className="mt-4 space-y-3">
-              {changeRequests.length === 0 && <p className="rounded-2xl border border-dashed border-white/10 p-4 text-sm text-zinc-500">Tidak ada request menunggu review.</p>}
-              {changeRequests.map((request) => <div key={request.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div><p className="font-bold text-zinc-100">{request.courier_name || request.courier_profile_id} · {request.from_market_code} → {request.target_market_code}</p><p className="mt-1 text-xs text-zinc-500">{request.reason || 'Tidak ada alasan tambahan'} · {new Date(request.requested_at).toLocaleString()}</p></div>
-                {canReview && <div className="flex gap-2"><button onClick={() => reviewRequest.mutate({ id: request.id, status: 'approved' })} className="flex items-center gap-1 rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-bold text-emerald-200"><CheckCircle2 className="h-4 w-4" /> Approve</button><button onClick={() => reviewRequest.mutate({ id: request.id, status: 'rejected' })} className="flex items-center gap-1 rounded-lg bg-rose-500/15 px-3 py-2 text-xs font-bold text-rose-200"><XCircle className="h-4 w-4" /> Reject</button></div>}
+              {changeRequests.length === 0 && <p className="rounded-2xl border border-dashed border-border p-4 text-sm text-foreground-muted">Tidak ada request menunggu review.</p>}
+              {changeRequests.map((request) => <div key={request.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface-subtle p-4">
+                <div><p className="font-bold text-foreground-muted">{request.courier_name || request.courier_profile_id} · {request.from_market_code} → {request.target_market_code}</p><p className="mt-1 text-xs text-foreground-muted">{request.reason || 'Tidak ada alasan tambahan'} · {new Date(request.requested_at).toLocaleString()}</p></div>
+                {canReview && <div className="flex gap-2"><button onClick={() => reviewRequest.mutate({ id: request.id, status: 'approved' })} className="flex items-center gap-1 rounded-lg bg-success-surface px-3 py-2 text-xs font-bold text-success"><CheckCircle2 className="h-4 w-4"  aria-hidden="true"/> Approve</button><button onClick={() => reviewRequest.mutate({ id: request.id, status: 'rejected' })} className="flex items-center gap-1 rounded-lg bg-error/15 px-3 py-2 text-xs font-bold text-error"><XCircle className="h-4 w-4" aria-hidden="true" /> Reject</button></div>}
               </div>)}
             </div>
           </section>

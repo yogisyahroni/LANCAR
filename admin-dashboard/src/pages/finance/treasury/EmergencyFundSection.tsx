@@ -130,24 +130,24 @@ export function EmergencyFundSection({ data }: { data: FinanceData }) {
 
   return (
     <>
-      <div className="glass-card p-10 rounded-[48px] border-amber-500/10 bg-amber-500/[0.02] overflow-hidden relative">
+      <div className="glass-card p-10 rounded-[48px] border-warning bg-warning/[0.02] overflow-hidden relative">
          <div className="absolute top-0 right-0 p-10 opacity-5">
-            <CloudRain size={160} />
+            <CloudRain size={160} aria-hidden="true" />
          </div>
          <div className="flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
             <div className="space-y-4 max-w-md">
-               <div className="flex items-center gap-3 text-amber-400">
-                  <ShieldAlert size={28} />
+               <div className="flex items-center gap-3 text-warning">
+                  <ShieldAlert size={28} aria-hidden="true" />
                   <h3 className="text-2xl font-black italic uppercase tracking-tight">Emergency Fund</h3>
                </div>
-               <p className="text-sm text-zinc-400 leading-relaxed font-medium">
+               <p className="text-sm text-foreground-muted leading-relaxed font-medium">
                   Reserved for weather spikes and high-demand surge coverage. This fund ensures courier satisfaction during extreme conditions.
                </p>
             </div>
             <div className="flex flex-col items-center md:items-end gap-6">
                <div className="text-center md:text-right">
-                  <p className="text-[10px] font-black text-amber-500/60 uppercase tracking-[0.2em] mb-2">Available Balance</p>
-                  <p className="text-5xl font-black text-zinc-100 tracking-tighter">Rp {emergencyFund.toLocaleString()}</p>
+                  <p className="text-[10px] font-black text-warning uppercase tracking-[0.2em] mb-2">Available Balance</p>
+                  <p className="text-5xl font-black text-foreground-muted tracking-tighter">Rp {emergencyFund.toLocaleString()}</p>
                </div>
                <div className="flex gap-3">
                   <button 
@@ -158,7 +158,7 @@ export function EmergencyFundSection({ data }: { data: FinanceData }) {
                       }
                     }}
                     disabled={topUpMutation.isPending}
-                    className="px-6 py-3 rounded-2xl bg-amber-500 text-black font-black text-xs uppercase tracking-widest hover:bg-amber-400 transition-all disabled:opacity-50"
+                    className="px-6 py-3 rounded-2xl bg-warning text-on-warning font-black text-xs uppercase tracking-widest hover:bg-warning transition-all disabled:opacity-50"
                   >
                      {topUpMutation.isPending ? 'Topping up...' : 'Top Up Reserves'}
                   </button>
@@ -167,7 +167,7 @@ export function EmergencyFundSection({ data }: { data: FinanceData }) {
                       // Navigate to audit logs and filter by finance
                       window.location.hash = '/audit-logs'
                     }}
-                    className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+                    className="px-6 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-widest hover:bg-surface-subtle transition-all"
                   >
                      View Usage History
                   </button>

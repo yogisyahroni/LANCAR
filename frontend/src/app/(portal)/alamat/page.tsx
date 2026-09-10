@@ -454,7 +454,7 @@ export default function AddressBookPage() {
         {/* Action button: add address & import Excel/CSV */}
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border/40 hover:bg-muted text-foreground font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-sm select-none">
-            <Upload className="h-3.5 w-3.5" /> Import Excel/CSV
+            <Upload className="h-3.5 w-3.5" aria-hidden="true" /> Import Excel/CSV
             <input
               type="file"
               accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -467,13 +467,13 @@ export default function AddressBookPage() {
             className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border/40 hover:bg-muted text-foreground font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-sm select-none"
             title="Unduh Template CSV untuk Alamat"
           >
-            <Download className="h-3.5 w-3.5" /> Template
+            <Download className="h-3.5 w-3.5" aria-hidden="true" /> Template
           </button>
           <button
             onClick={openAddModal}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
           >
-            <Plus className="h-4 w-4" /> Tambah Alamat
+            <Plus className="h-4 w-4" aria-hidden="true" /> Tambah Alamat
           </button>
         </div>
       </motion.div>
@@ -482,31 +482,32 @@ export default function AddressBookPage() {
         <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 space-y-4" role="dialog" aria-label="Preview import alamat">
           <div className="flex items-start justify-between gap-4">
             <div><p className="text-sm font-bold text-foreground">Preview {importFileName}</p><p className="text-xs text-muted-foreground mt-1">{importPreview.filter(row => row.payload).length} valid · {importPreview.filter(row => row.error).length} perlu diperbaiki</p></div>
-            <button type="button" onClick={() => setImportPreview(null)} className="p-1.5 rounded-lg hover:bg-muted" aria-label="Tutup preview"><X className="h-4 w-4" /></button>
+            <button type="button" onClick={() => setImportPreview(null)} className="p-1.5 rounded-lg hover:bg-muted" aria-label="Tutup preview"><X className="h-4 w-4" aria-hidden="true" /></button>
           </div>
           <div className="max-h-64 overflow-auto rounded-xl border border-border/40 bg-card/60">
-            <table className="w-full text-xs"><thead className="sticky top-0 bg-card text-muted-foreground"><tr><th className="p-3 text-left">Baris</th><th className="p-3 text-left">Label</th><th className="p-3 text-left">Penerima</th><th className="p-3 text-left">Status</th></tr></thead><tbody>{importPreview.map(row => <tr key={row.rowNumber} className="border-t border-border/30"><td className="p-3">{row.rowNumber}</td><td className="p-3">{row.label || '-'}</td><td className="p-3">{row.recipientName || '-'}</td><td className={`p-3 ${row.error ? 'text-destructive' : 'text-success'}`}>{row.error || 'Valid'}</td></tr>)}</tbody></table>
+            <table className="w-full text-xs"><thead className="sticky top-0 bg-card text-muted-foreground"><tr><th scope="col" className="p-3 text-left">Baris</th><th scope="col" className="p-3 text-left">Label</th><th scope="col" className="p-3 text-left">Penerima</th><th scope="col" className="p-3 text-left">Status</th></tr></thead><tbody>{importPreview.map(row => <tr key={row.rowNumber} className="border-t border-border/30"><td className="p-3">{row.rowNumber}</td><td className="p-3">{row.label || '-'}</td><td className="p-3">{row.recipientName || '-'}</td><td className={`p-3 ${row.error ? 'text-destructive' : 'text-success'}`}>{row.error || 'Valid'}</td></tr>)}</tbody></table>
           </div>
-          <div className="flex justify-end gap-3"><button type="button" onClick={() => setImportPreview(null)} className="px-4 py-2 text-xs font-semibold text-muted-foreground">Batal</button><button type="button" disabled={isImporting || !importPreview.some(row => row.payload)} onClick={confirmAddressImport} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white disabled:opacity-50"><CheckCircle className="h-3.5 w-3.5" />{isImporting ? 'Menyimpan...' : 'Import baris valid'}</button></div>
+          <div className="flex justify-end gap-3"><button type="button" onClick={() => setImportPreview(null)} className="px-4 py-2 text-xs font-semibold text-muted-foreground">Batal</button><button type="button" disabled={isImporting || !importPreview.some(row => row.payload)} onClick={confirmAddressImport} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-on-primary disabled:opacity-50"><CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />{isImporting ? 'Menyimpan...' : 'Import baris valid'}</button></div>
         </div>
       )}
 
       {/* Filter search Bar */}
       <div className="relative select-none">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground select-none" />
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground select-none" aria-hidden="true" />
         <input
           type="text"
+          aria-label="Cari alamat"
           placeholder="Cari label, penerima, atau rincian alamat..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-card/60 backdrop-blur-md border border-border/40 pl-10 pr-4 py-2.5 rounded-xl text-sm text-foreground focus:outline-none focus:border-primary/60 transition-all select-none"
+          className="w-full bg-surface-raised border border-input-border pl-10 pr-4 py-2.5 rounded-xl text-sm text-foreground focus:outline-none focus:border-primary/60 transition-all select-none"
         />
       </div>
 
       {loadError && (
         <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <HelpCircle className="h-5 w-5 text-destructive mt-0.5" />
+            <HelpCircle className="h-5 w-5 text-destructive mt-0.5" aria-hidden="true" />
             <div>
               <p className="text-sm font-bold text-foreground">Alamat gagal dimuat dari database</p>
               <p className="text-xs text-muted-foreground mt-1">{loadError}</p>
@@ -529,7 +530,7 @@ export default function AddressBookPage() {
             key={addr.id}
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            className={`p-5 border bg-card/40 backdrop-blur-xl rounded-2xl flex flex-col justify-between gap-4 h-56 transition-all shadow-sm hover:shadow-md hover:border-primary/30 relative select-none ${
+            className={`p-5 border border-border bg-surface-raised rounded-2xl flex flex-col justify-between gap-4 h-56 transition-all shadow-sm hover:shadow-md hover:border-primary/30 relative select-none ${
               addr.is_default ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20' : 'border-border/40'
             }`}
           >
@@ -542,7 +543,7 @@ export default function AddressBookPage() {
                   </h3>
                   {addr.is_default && (
                     <span className="flex items-center gap-1 text-[9px] font-bold bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full select-none uppercase">
-                      <Star className="h-2.5 w-2.5 fill-primary text-primary" /> Default
+                      <Star className="h-2.5 w-2.5 fill-primary text-primary" aria-hidden="true" /> Default
                     </span>
                   )}
                 </div>
@@ -558,14 +559,14 @@ export default function AddressBookPage() {
                   className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-all cursor-pointer select-none"
                   title="Edit Alamat"
                 >
-                  <Edit2 className="h-3.5 w-3.5" />
+                  <Edit2 className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
                 <button
                   onClick={() => openDeleteModal(addr.id)}
                   className="p-1.5 hover:bg-muted text-destructive hover:text-destructive/80 rounded-lg transition-all cursor-pointer select-none"
                   title="Hapus Alamat"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -630,7 +631,7 @@ export default function AddressBookPage() {
                   onClick={() => setIsFormOpen(false)}
                   className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-all cursor-pointer select-none"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
 
@@ -684,7 +685,7 @@ export default function AddressBookPage() {
                 {/* Simulated drag pin map verification section */}
                 <div className="p-3 bg-muted/40 border border-border/40 rounded-xl space-y-2 select-none">
                   <span className="text-xs font-bold text-muted-foreground flex items-center gap-1.5 select-none">
-                    <MapPin className="h-3.5 w-3.5 text-primary" /> Koordinat Lokasi Peta (Geo Position)
+                    <MapPin className="h-3.5 w-3.5 text-primary"  aria-hidden="true"/> Koordinat Lokasi Peta (Geo Position)
                   </span>
                   <div className="grid grid-cols-2 gap-3.5 select-none">
                     <div>
@@ -733,9 +734,9 @@ export default function AddressBookPage() {
                   </button>
                   <button
                     type="submit"
-                    className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
                   >
-                    <CheckCircle className="h-3.5 w-3.5" /> Simpan Alamat
+                    <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> Simpan Alamat
                   </button>
                 </div>
               </form>
@@ -773,7 +774,7 @@ export default function AddressBookPage() {
                 </button>
                 <button
                   onClick={handleConfirmDelete}
-                  className="px-4 py-2 bg-destructive hover:bg-destructive/90 text-white font-bold text-xs rounded-xl shadow-md shadow-destructive/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
+                  className="px-4 py-2 bg-destructive hover:bg-destructive/90 text-foreground font-bold text-xs rounded-xl shadow-md shadow-destructive/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
                 >
                   Hapus
                 </button>

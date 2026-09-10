@@ -90,7 +90,7 @@ export default function ForgotPinPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-8">
+    <main className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-8">
       {/* Background Decorative Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-primary/10 blur-[120px] rounded-full" />
@@ -106,7 +106,7 @@ export default function ForgotPinPage() {
         <div className="bg-card/40 backdrop-blur-xl border border-border/40 rounded-2xl p-8 shadow-2xl">
           <div className="flex flex-col items-center mb-6">
             <div className="h-12 w-12 bg-destructive/20 rounded-xl flex items-center justify-center mb-4">
-              <ShieldAlert className="h-6 w-6 text-destructive" />
+              <ShieldAlert className="h-6 w-6 text-destructive" aria-hidden="true" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Reset your PIN</h1>
             <p className="text-sm text-muted-foreground mt-2 text-center">
@@ -150,7 +150,7 @@ export default function ForgotPinPage() {
                       className="px-3 bg-secondary text-secondary-foreground text-xs font-medium rounded-lg hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSendingOtp ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin"  aria-hidden="true"/>
                       ) : countdown > 0 ? (
                         `Resend (${countdown}s)`
                       ) : (
@@ -184,7 +184,7 @@ export default function ForgotPinPage() {
                   className="w-full bg-primary text-primary-foreground font-medium py-2 px-4 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-70 flex items-center justify-center mt-4"
                 >
                   {isSubmitting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin"  aria-hidden="true"/>
                   ) : (
                     'Verify Identity'
                   )}
@@ -231,7 +231,7 @@ export default function ForgotPinPage() {
                   className="w-full bg-primary text-primary-foreground font-medium py-2 px-4 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center disabled:opacity-70 mt-4"
                 >
                   {isSubmitting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin"  aria-hidden="true"/>
                   ) : (
                     'Reset PIN'
                   )}
@@ -248,6 +248,6 @@ export default function ForgotPinPage() {
           </div>
         </div>
       </motion.div>
-    </div>
+    </main>
   );
 }

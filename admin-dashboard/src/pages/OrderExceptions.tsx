@@ -45,9 +45,9 @@ const categories: Array<{ value: '' | ExceptionCategory; label: string }> = [
 ]
 
 const severityClass: Record<OperationalException['severity'], string> = {
-  critical: 'border-red-500/30 bg-red-500/10 text-red-300',
-  high: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
-  medium: 'border-sky-500/30 bg-sky-500/10 text-sky-300',
+  critical: 'border-error bg-error-surface text-error',
+  high: 'border-warning bg-warning-surface text-warning',
+  medium: 'border-info bg-info-surface text-info',
 }
 
 export default function OrderExceptions() {
@@ -72,12 +72,12 @@ export default function OrderExceptions() {
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-3 text-red-300">
-              <AlertTriangle size={22} />
+            <div className="rounded-2xl border border-error bg-error-surface p-3 text-error">
+              <AlertTriangle size={22}  aria-hidden="true"/>
             </div>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-zinc-100">Order Exceptions</h1>
-              <p className="mt-1 text-zinc-500">One operational queue for orders that need human action.</p>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground-muted">Order Exceptions</h1>
+              <p className="mt-1 text-foreground-muted">One operational queue for orders that need human action.</p>
             </div>
           </div>
         </div>
@@ -85,7 +85,7 @@ export default function OrderExceptions() {
           <select
             value={category}
             onChange={(event) => setCategory(event.target.value as '' | ExceptionCategory)}
-            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="rounded-xl border border-border bg-surface-subtle px-4 py-2.5 text-sm text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
             aria-label="Filter exception category"
           >
             {categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
@@ -93,79 +93,79 @@ export default function OrderExceptions() {
           <button
             type="button"
             onClick={() => exceptionsQuery.refetch()}
-            className="flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-white/5"
+            className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground-muted transition hover:bg-surface-subtle"
           >
-            <RefreshCw size={16} className={exceptionsQuery.isFetching ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={exceptionsQuery.isFetching ? 'animate-spin' : ''} aria-hidden="true" />
             Refresh
           </button>
         </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="glass-card rounded-2xl border-white/10 p-5">
-          <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Total open signals</p>
-          <p className="mt-2 text-3xl font-black text-zinc-100">{exceptionsQuery.data?.total ?? '—'}</p>
+        <div className="glass-card rounded-2xl border-border p-5">
+          <p className="text-xs font-bold uppercase tracking-widest text-foreground-muted">Total open signals</p>
+          <p className="mt-2 text-3xl font-black text-foreground-muted">{exceptionsQuery.data?.total ?? '—'}</p>
         </div>
-        <div className="glass-card rounded-2xl border-red-500/20 p-5">
-          <p className="text-xs font-bold uppercase tracking-widest text-red-300/70">Critical</p>
-          <p className="mt-2 text-3xl font-black text-red-300">{criticalCount}</p>
+        <div className="glass-card rounded-2xl border-error p-5">
+          <p className="text-xs font-bold uppercase tracking-widest text-error">Critical</p>
+          <p className="mt-2 text-3xl font-black text-error">{criticalCount}</p>
         </div>
-        <div className="glass-card rounded-2xl border-amber-500/20 p-5">
-          <p className="text-xs font-bold uppercase tracking-widest text-amber-300/70">High priority</p>
-          <p className="mt-2 text-3xl font-black text-amber-300">{highCount}</p>
+        <div className="glass-card rounded-2xl border-warning p-5">
+          <p className="text-xs font-bold uppercase tracking-widest text-warning">High priority</p>
+          <p className="mt-2 text-3xl font-black text-warning">{highCount}</p>
         </div>
       </div>
 
-      <div className="glass-card overflow-hidden rounded-3xl border-white/10">
+      <div className="glass-card overflow-hidden rounded-3xl border-border">
         {exceptionsQuery.isLoading ? (
-          <div className="p-12 text-center text-sm text-zinc-500">Loading operational exceptions…</div>
+          <div className="p-12 text-center text-sm text-foreground-muted">Loading operational exceptions…</div>
         ) : exceptionsQuery.isError ? (
-          <div className="p-12 text-center text-sm text-red-300">Exception queue unavailable. Retry after checking admin-service health.</div>
+          <div className="p-12 text-center text-sm text-error">Exception queue unavailable. Retry after checking admin-service health.</div>
         ) : data.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="font-semibold text-zinc-200">No open exceptions</p>
-            <p className="mt-2 text-sm text-zinc-500">The queue is clear for the selected filter.</p>
+            <p className="font-semibold text-foreground-muted">No open exceptions</p>
+            <p className="mt-2 text-sm text-foreground-muted">The queue is clear for the selected filter.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-left text-sm">
-              <thead className="border-b border-white/10 bg-white/[0.03] text-[10px] uppercase tracking-widest text-zinc-500">
+              <thead className="border-b border-border bg-surface/[0.03] text-[10px] uppercase tracking-widest text-foreground-muted">
                 <tr>
-                  <th className="px-6 py-4">Exception</th>
-                  <th className="px-6 py-4">Order</th>
-                  <th className="px-6 py-4">Age</th>
-                  <th className="px-6 py-4">Next action</th>
-                  <th className="px-6 py-4" aria-label="Open order" />
+                  <th scope="col" className="px-6 py-4">Exception</th>
+                  <th scope="col" className="px-6 py-4">Order</th>
+                  <th scope="col" className="px-6 py-4">Age</th>
+                  <th scope="col" className="px-6 py-4">Next action</th>
+                  <th scope="col" className="px-6 py-4" aria-label="Open order" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-border">
                 {data.map((item, index) => (
-                  <tr key={`${item.category}-${item.order_id ?? item.provider ?? 'unknown'}-${item.occurred_at}-${index}`} className="transition hover:bg-white/[0.03]">
+                  <tr key={`${item.category}-${item.order_id ?? item.provider ?? 'unknown'}-${item.occurred_at}-${index}`} className="transition hover:bg-surface/[0.03]">
                     <td className="px-6 py-5 align-top">
                       <div className="flex items-start gap-3">
                         <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${severityClass[item.severity]}`}>
                           {item.severity}
                         </span>
                         <div>
-                          <p className="font-semibold text-zinc-100">{item.title}</p>
-                          <p className="mt-1 max-w-md text-xs leading-relaxed text-zinc-500">{item.summary}</p>
-                          {item.provider && <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-zinc-600">Provider: {item.provider}</p>}
+                          <p className="font-semibold text-foreground-muted">{item.title}</p>
+                          <p className="mt-1 max-w-md text-xs leading-relaxed text-foreground-muted">{item.summary}</p>
+                          {item.provider && <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Provider: {item.provider}</p>}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-5 align-top">
                       {item.order_id ? (
                         <Link to="/orders" className="inline-flex items-center gap-1.5 font-semibold text-primary-light hover:underline" title="Open Orders Management">
-                          {item.order_number || item.order_id.slice(0, 8)} <ExternalLink size={13} />
+                          {item.order_number || item.order_id.slice(0, 8)} <ExternalLink size={13} aria-hidden="true" />
                         </Link>
-                      ) : <span className="text-zinc-600">No linked order</span>}
-                      {item.order_status && <p className="mt-1 text-xs uppercase tracking-wider text-zinc-600">{item.order_status}</p>}
+                      ) : <span className="text-foreground-muted">No linked order</span>}
+                      {item.order_status && <p className="mt-1 text-xs uppercase tracking-wider text-foreground-muted">{item.order_status}</p>}
                     </td>
-                    <td className="px-6 py-5 align-top text-zinc-400">
-                      <span className="inline-flex items-center gap-1.5"><Clock3 size={14} /> {item.age_minutes}m</span>
+                    <td className="px-6 py-5 align-top text-foreground-muted">
+                      <span className="inline-flex items-center gap-1.5"><Clock3 size={14} aria-hidden="true" /> {item.age_minutes}m</span>
                     </td>
-                    <td className="max-w-sm px-6 py-5 align-top text-xs leading-relaxed text-zinc-400">{item.next_action}</td>
-                    <td className="px-6 py-5 align-top text-right text-[10px] text-zinc-600">
+                    <td className="max-w-sm px-6 py-5 align-top text-xs leading-relaxed text-foreground-muted">{item.next_action}</td>
+                    <td className="px-6 py-5 align-top text-right text-[10px] text-foreground-muted">
                       {new Date(item.occurred_at).toLocaleString('id-ID')}
                     </td>
                   </tr>

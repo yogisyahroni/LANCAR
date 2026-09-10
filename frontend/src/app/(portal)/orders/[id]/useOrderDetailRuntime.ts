@@ -62,13 +62,14 @@ export function useOrderDetailRuntime(id: string) {
     if (showLoader) setLoadError(null);
     try {
       const res = await api.get(`/auth/web/orders/${id}`);
-      if (res.data?.success) {
+      if (res.data?.success && res.data.order && typeof res.data.order === 'object') {
         setOrder({ ...res.data.order, food_items: res.data.food_items || res.data.order?.food_items || [] });
         setEvents(res.data.events || []);
         setCarrierEvents(res.data.carrier_events || []);
         setProofs(res.data.proofs || []);
         if (showLoader) void fetchOrderChats();
       } else if (showLoader) {
+        setOrder(null);
         throw new Error('Customer order detail response was not successful');
       }
     } catch (error) {

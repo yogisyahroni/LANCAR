@@ -15,6 +15,7 @@ import {
   User,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
 import { customerApiUrl } from '@/lib/runtimeConfig';
 
 const RESI_PATTERN = /^[A-Za-z0-9-]{1,40}$/;
@@ -115,11 +116,11 @@ function StatusStepper({ data }: { data: PublicResiData }) {
 
   if (['cancelled', 'failed', 'canceled'].includes(normalized)) {
     return (
-      <div className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
+      <div className="flex items-start gap-3 rounded-xl border border-error bg-error-surface p-4">
+        <AlertTriangle aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-error" />
         <div>
-          <p className="text-sm font-bold text-red-200">Kiriman tidak aktif</p>
-          <p className="mt-1 text-xs text-red-200/80">
+          <p className="text-sm font-bold text-error">Kiriman tidak aktif</p>
+          <p className="mt-1 text-xs text-error">
             {data.status_label || 'Pesanan dibatalkan atau gagal diproses.'}
           </p>
         </div>
@@ -143,15 +144,15 @@ function StatusStepper({ data }: { data: PublicResiData }) {
                 aria-current={isCurrent ? 'step' : undefined}
                 className={
                   reached
-                    ? 'flex h-8 w-8 items-center justify-center rounded-full bg-brand-emerald-500 text-slate-950'
-                    : 'flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/[0.04] text-slate-500'
+                    ? 'flex h-8 w-8 items-center justify-center rounded-full bg-success text-on-success'
+                    : 'flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface/[0.04] text-foreground-muted'
                 }
               >
-                {reached ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-4 w-4" />}
+                {reached ? <CheckCircle2 aria-hidden="true" className="h-5 w-5" /> : <Circle aria-hidden="true" className="h-4 w-4" />}
               </span>
               <span
                 className={`max-w-[72px] text-center text-[10px] font-semibold leading-tight sm:max-w-none sm:text-xs ${
-                  reached ? 'text-brand-emerald-300' : 'text-slate-500'
+                  reached ? 'text-success' : 'text-foreground-muted'
                 }`}
               >
                 {step.label}
@@ -161,7 +162,7 @@ function StatusStepper({ data }: { data: PublicResiData }) {
               <div
                 aria-hidden="true"
                 className={`mx-1 mb-4 h-0.5 flex-1 rounded sm:mx-2 ${
-                  currentIndex > index ? 'bg-brand-emerald-500' : 'bg-white/10'
+                  currentIndex > index ? 'bg-success' : 'bg-surface-subtle'
                 }`}
               />
             )}
@@ -176,9 +177,9 @@ function StatusStepper({ data }: { data: PublicResiData }) {
 function ResiSkeleton() {
   return (
     <div className="space-y-5">
-      <Skeleton className="h-16 w-full bg-white/10" />
-      <Skeleton className="h-28 w-full bg-white/10" />
-      <Skeleton className="h-48 w-full bg-white/10" />
+      <Skeleton className="h-16 w-full bg-surface-subtle" />
+      <Skeleton className="h-28 w-full bg-surface-subtle" />
+      <Skeleton className="h-48 w-full bg-surface-subtle" />
     </div>
   );
 }
@@ -221,30 +222,30 @@ function CekResiContent() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-5 py-8">
         <header className="mb-6 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <img src="/tembusweb.svg" alt="TEMBUS" className="h-8 object-contain" />
           </Link>
-          <nav className="flex items-center gap-3 text-sm">
-            <Link href="/" className="text-slate-300 transition-colors hover:text-white">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-3 text-sm">
+            <Link href="/" className="text-foreground-muted transition-colors hover:text-foreground">
               Beranda
             </Link>
             <Link
               href="/login"
-              className="rounded-xl border border-white/10 px-3.5 py-1.5 font-bold text-slate-200 transition-all hover:bg-white/5"
+              className="rounded-xl border border-border px-3.5 py-1.5 font-bold text-foreground-muted transition-all hover:bg-surface-subtle"
             >
               Masuk
             </Link>
           </nav>
         </header>
 
-        <div className="rounded-3xl border border-brand-emerald-500/20 bg-brand-emerald-500/10 p-3 text-brand-emerald-300 w-fit">
-          <PackageSearch className="h-7 w-7" />
+        <div className="rounded-3xl border border-success/20 bg-success/10 p-3 text-success w-fit">
+          <PackageSearch aria-hidden="true" className="h-7 w-7" />
         </div>
         <h1 className="mt-4 text-3xl font-black tracking-tight">Lacak Kiriman</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-400">
+        <p className="mt-2 text-sm leading-6 text-foreground-muted">
           Masukkan nomor resi untuk melihat status dan riwayat perjalanan paketmu.
         </p>
 
@@ -252,7 +253,7 @@ function CekResiContent() {
         <form onSubmit={handleSubmit} className="mt-6" noValidate>
           <label
             htmlFor="cek-resi-input"
-            className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-400"
+            className="mb-2 block text-xs font-bold uppercase tracking-widest text-foreground-muted"
           >
             Nomor Resi
           </label>
@@ -267,23 +268,23 @@ function CekResiContent() {
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Contoh: TB-12345678"
               aria-describedby="cek-resi-help"
-              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold uppercase tracking-wide outline-none transition-all placeholder:normal-case placeholder:text-slate-500 focus:border-brand-emerald-400/60 focus:ring-2 focus:ring-brand-emerald-500/20"
+              className="min-w-0 flex-1 rounded-xl border border-border bg-surface/[0.06] px-4 py-3 text-sm font-semibold uppercase tracking-wide outline-none transition-all placeholder:normal-case placeholder:text-foreground-muted focus:border-success/60 focus:ring-2 focus:ring-focus-ring"
             />
             <button
               type="submit"
               disabled={state.kind === 'loading'}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-emerald-500 px-6 py-3 text-sm font-black text-slate-950 transition-all hover:bg-brand-emerald-400 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-success px-6 py-3 text-sm font-black text-on-success transition-all hover:bg-success active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
             >
               {state.kind === 'loading' ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Mencari…
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> Mencari…
                 </>
               ) : (
                 'Cari'
               )}
             </button>
           </div>
-          <p id="cek-resi-help" className="mt-2 text-xs text-slate-500">
+          <p id="cek-resi-help" className="mt-2 text-xs text-foreground-muted">
             Hanya huruf, angka, dan tanda hubung (maksimal 40 karakter).
           </p>
         </form>
@@ -293,17 +294,17 @@ function CekResiContent() {
           {state.kind === 'loading' && <ResiSkeleton />}
 
           {state.kind === 'idle' && (
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-sm text-slate-400">
+            <div className="rounded-3xl border border-border bg-surface/[0.04] p-6 text-sm text-foreground-muted">
               Hasil pelacakan akan muncul di sini setelah kamu mencari nomor resi.
             </div>
           )}
 
           {(state.kind === 'not_found') && (
-            <div className="flex items-start gap-3 rounded-3xl border border-white/10 bg-white/[0.04] p-6">
-              <SearchX className="mt-0.5 h-6 w-6 shrink-0 text-orange-300" />
+            <div role="alert" aria-live="assertive" className="flex items-start gap-3 rounded-3xl border border-border bg-surface/[0.04] p-6">
+              <SearchX aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-accent" />
               <div>
                 <h2 className="text-lg font-black">Resi tidak ditemukan</h2>
-                <p className="mt-1.5 text-sm leading-6 text-slate-300">
+                <p className="mt-1.5 text-sm leading-6 text-foreground-muted">
                   Pastikan nomor resi sudah benar, atau hubungi pengirim untuk konfirmasi.
                 </p>
               </div>
@@ -311,11 +312,11 @@ function CekResiContent() {
           )}
 
           {state.kind === 'unavailable' && (
-            <div className="flex items-start gap-3 rounded-3xl border border-white/10 bg-white/[0.04] p-6">
-              <Clock className="mt-0.5 h-6 w-6 shrink-0 text-amber-300" />
+            <div role="status" aria-live="polite" className="flex items-start gap-3 rounded-3xl border border-border bg-surface/[0.04] p-6">
+              <Clock aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-warning" />
               <div>
                 <h2 className="text-lg font-black">Layanan sedang dipersiapkan</h2>
-                <p className="mt-1.5 text-sm leading-6 text-slate-300">
+                <p className="mt-1.5 text-sm leading-6 text-foreground-muted">
                   {state.message ||
                     'Pelacakan resi publik belum tersedia. Coba lagi beberapa saat kemudian.'}
                 </p>
@@ -324,11 +325,11 @@ function CekResiContent() {
           )}
 
           {state.kind === 'error' && (
-            <div className="flex items-start gap-3 rounded-3xl border border-red-500/20 bg-red-500/10 p-6">
-              <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-red-300" />
+            <div role="alert" aria-live="assertive" className="flex items-start gap-3 rounded-3xl border border-error bg-error-surface p-6">
+              <AlertTriangle aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-error" />
               <div>
-                <h2 className="text-lg font-bold text-red-200">Gagal memuat</h2>
-                <p className="mt-1.5 text-sm leading-6 text-red-200/90">{state.message}</p>
+                <h2 className="text-lg font-bold text-error">Gagal memuat</h2>
+                <p className="mt-1.5 text-sm leading-6 text-error">{state.message}</p>
               </div>
             </div>
           )}
@@ -336,35 +337,37 @@ function CekResiContent() {
           {state.kind === 'found' && (
             <div className="space-y-5">
               {/* Summary card */}
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+              <div className="rounded-3xl border border-border bg-surface/[0.04] p-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-xs uppercase tracking-widest text-slate-500">Nomor resi</p>
+                    <p className="text-xs uppercase tracking-widest text-foreground-muted">Nomor resi</p>
                     <h2 className="mt-1 break-all text-2xl font-black tracking-tight">{state.data.resi}</h2>
                   </div>
-                  <span className="rounded-full bg-brand-emerald-400/15 px-4 py-2 text-sm font-bold text-brand-emerald-200">
-                    {state.data.status_label || state.data.status || 'Menunggu update'}
-                  </span>
+                  <OrderStatusBadge
+                    status={state.data.status}
+                    label={state.data.status_label || undefined}
+                    className="px-4 py-2 text-sm"
+                  />
                 </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl bg-slate-900 p-4">
-                    <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-500">
-                      <MapPin className="h-3.5 w-3.5" /> Rute
+                  <div className="rounded-2xl bg-surface p-4">
+                    <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-foreground-muted">
+                      <MapPin aria-hidden="true" className="h-3.5 w-3.5" /> Rute
                     </p>
                     <p className="mt-1.5 text-sm font-semibold">
                       {state.data.origin_city || '-'} → {state.data.destination_city || '-'}
                     </p>
                   </div>
-                  <div className="rounded-2xl bg-slate-900 p-4">
-                    <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-500">
-                      <Clock className="h-3.5 w-3.5" /> Estimasi tiba
+                  <div className="rounded-2xl bg-surface p-4">
+                    <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-foreground-muted">
+                        <Clock aria-hidden="true" className="h-3.5 w-3.5" /> Estimasi tiba
                     </p>
                     <p className="mt-1.5 text-sm font-semibold">{formatTime(state.data.estimated_delivery_at)}</p>
                   </div>
                   {state.data.courier_first_name && (
-                    <div className="rounded-2xl bg-slate-900 p-4">
-                      <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-500">
-                        <User className="h-3.5 w-3.5" /> Kurir
+                    <div className="rounded-2xl bg-surface p-4">
+                      <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-foreground-muted">
+                        <User aria-hidden="true" className="h-3.5 w-3.5" /> Kurir
                       </p>
                       <p className="mt-1.5 text-sm font-semibold">{state.data.courier_first_name}</p>
                     </div>
@@ -373,13 +376,13 @@ function CekResiContent() {
               </div>
 
               {/* Stepper */}
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+              <div className="rounded-3xl border border-border bg-surface/[0.04] p-6">
                 <h3 className="mb-5 text-lg font-black">Status Pengiriman</h3>
                 <StatusStepper data={state.data} />
               </div>
 
               {/* Timeline */}
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+              <div className="rounded-3xl border border-border bg-surface/[0.04] p-6">
                 <h3 className="mb-4 text-lg font-black">Riwayat Perjalanan</h3>
                 {state.data.timeline && state.data.timeline.length > 0 ? (
                   <ol className="space-y-4">
@@ -389,21 +392,21 @@ function CekResiContent() {
                         <li key={`${entry.status}-${index}`} className="flex gap-3">
                           <span
                             className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
-                              isFirst ? 'bg-brand-emerald-400 ring-4 ring-brand-emerald-500/20' : 'bg-slate-600'
+                              isFirst ? 'bg-success ring-4 ring-focus-ring' : 'bg-surface-subtle'
                             }`}
                           />
                           <div>
-                            <p className={`text-sm ${isFirst ? 'font-bold text-brand-emerald-200' : 'font-semibold text-slate-200'}`}>
+                            <p className={`text-sm ${isFirst ? 'font-bold text-success' : 'font-semibold text-foreground-muted'}`}>
                               {entry.label || entry.status}
                             </p>
-                            <p className="text-xs text-slate-500">{formatTime(entry.at)}</p>
+                            <p className="text-xs text-foreground-muted">{formatTime(entry.at)}</p>
                           </div>
                         </li>
                       );
                     })}
                   </ol>
                 ) : (
-                  <p className="text-sm text-slate-400">Belum ada riwayat perjalanan.</p>
+                  <p className="text-sm text-foreground-muted">Belum ada riwayat perjalanan.</p>
                 )}
               </div>
             </div>
@@ -411,11 +414,11 @@ function CekResiContent() {
         </div>
 
         {/* CTA login */}
-        <div className="mt-10 rounded-3xl border border-brand-emerald-500/20 bg-gradient-to-br from-brand-emerald-500/10 via-white/[0.02] to-transparent p-6 text-center">
-          <p className="text-sm text-slate-300">Ingin melihat detail order lengkap?</p>
+        <div className="mt-10 rounded-3xl border border-success/20 bg-gradient-to-br from-primary/10 via-foreground/20/[0.02] to-transparent p-6 text-center">
+          <p className="text-sm text-foreground-muted">Ingin melihat detail order lengkap?</p>
           <Link
             href="/login"
-            className="mt-3 inline-flex items-center justify-center rounded-xl bg-brand-emerald-500 px-6 py-3 text-sm font-black text-slate-950 transition-all hover:bg-brand-emerald-400 active:scale-[0.98]"
+            className="mt-3 inline-flex items-center justify-center rounded-xl bg-success px-6 py-3 text-sm font-black text-on-success transition-all hover:bg-success active:scale-[0.98]"
           >
             Masuk untuk detail lengkap
           </Link>
@@ -428,10 +431,10 @@ function CekResiContent() {
 export default function CekResiPage() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen bg-slate-950 px-5 py-8">
+      <main className="min-h-screen bg-background px-5 py-8" aria-hidden="true">
         <div className="mx-auto w-full max-w-3xl space-y-5">
-          <Skeleton className="h-16 w-full bg-white/10" />
-          <Skeleton className="h-24 w-full bg-white/10" />
+          <Skeleton className="h-16 w-full bg-surface-subtle" />
+          <Skeleton className="h-24 w-full bg-surface-subtle" />
           <ResiSkeleton />
         </div>
       </main>

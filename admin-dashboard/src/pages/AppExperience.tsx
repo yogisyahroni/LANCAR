@@ -71,12 +71,12 @@ const errorMessage = (error: unknown) => {
 };
 const statusClass = (status: string) =>
   ({
-    draft: "bg-amber-500/10 text-amber-300",
-    scheduled: "bg-sky-500/10 text-sky-300",
-    live: "bg-emerald-500/10 text-emerald-300",
-    paused: "bg-red-500/10 text-red-300",
-    expired: "bg-zinc-800 text-zinc-400",
-  })[status] ?? "bg-zinc-800 text-zinc-400";
+    draft: "bg-warning-surface text-warning",
+    scheduled: "bg-info-surface text-info",
+    live: "bg-success-surface text-success",
+    paused: "bg-error-surface text-error",
+    expired: "bg-surface-raised text-foreground-muted",
+  })[status] ?? "bg-surface-raised text-foreground-muted";
 
 type PreviewAudience = {
   market_code: string;
@@ -637,12 +637,12 @@ export default function AppExperience() {
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <Sparkles className="text-primary-light" size={26} />
-            <h1 className="text-3xl font-black tracking-tight text-zinc-100">
+            <Sparkles className="text-primary-light" size={26}  aria-hidden="true" />
+            <h1 className="text-3xl font-black tracking-tight text-foreground-muted">
               {activeSection} · App Experience
             </h1>
           </div>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-500">
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-foreground-muted">
             Create approved banners and home layouts, preview an audience, pass
             maker-checker approval for broad campaigns, then publish, pause,
             retire or roll back safely.
@@ -652,9 +652,9 @@ export default function AppExperience() {
           <button
             type="button"
             onClick={() => manifestsQuery.refetch()}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-300"
+            className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-3 text-xs font-black uppercase tracking-widest text-foreground-muted"
           >
-            <RefreshCw size={14} /> Refresh
+            <RefreshCw size={14}  aria-hidden="true" /> Refresh
           </button>
           {selected && canEdit ? (
             <button
@@ -662,39 +662,39 @@ export default function AppExperience() {
               onClick={duplicate}
               className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-primary-light"
             >
-              <Copy size={14} /> Duplicate
+              <Copy size={14}  aria-hidden="true" /> Duplicate
             </button>
           ) : null}
           {canEdit ? (
             <button
               type="button"
               onClick={startNew}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-white"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-on-primary"
             >
-              <FilePlus2 size={14} /> New campaign
+              <FilePlus2 size={14}  aria-hidden="true" /> New campaign
             </button>
           ) : null}
         </div>
       </div>
       <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
         <aside
-          className="space-y-4 rounded-3xl border border-white/10 bg-white/[0.03] p-4"
+          className="space-y-4 rounded-3xl border border-border bg-surface/[0.03] p-4"
           aria-labelledby="experience-list-title"
         >
           <div className="flex items-center justify-between">
             <h2
               id="experience-list-title"
-              className="text-sm font-black uppercase tracking-wider text-zinc-300"
+              className="text-sm font-black uppercase tracking-wider text-foreground-muted"
             >
               Manifest revisions
             </h2>
-            <Layers3 size={17} className="text-zinc-600" />
+            <Layers3 size={17} className="text-foreground-muted"  aria-hidden="true" />
           </div>
           {manifestsQuery.isLoading ? (
-            <p className="p-4 text-sm text-zinc-600">Loading campaigns...</p>
+            <p className="p-4 text-sm text-foreground-muted">Loading campaigns...</p>
           ) : null}
           {manifestsQuery.isError ? (
-            <p className="p-4 text-sm text-red-300">
+            <p className="p-4 text-sm text-error">
               Campaign list failed to load.
             </p>
           ) : null}
@@ -706,10 +706,10 @@ export default function AppExperience() {
                   type="button"
                   key={manifest.id}
                   onClick={() => selectManifest(manifest)}
-                  className={`w-full rounded-2xl border p-3 text-left transition ${manifest.manifest_id === selectedId ? "border-primary/50 bg-primary/10" : "border-white/10 bg-black/10 hover:border-white/20"}`}
+                  className={`w-full rounded-2xl border p-3 text-left transition ${manifest.manifest_id === selectedId ? "border-primary/50 bg-primary/10" : "border-border bg-surface-subtle hover:border-border"}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate font-mono text-[10px] text-zinc-500">
+                    <span className="truncate font-mono text-[10px] text-foreground-muted">
                       {manifest.manifest_id.slice(0, 8)}…
                     </span>
                     <span
@@ -718,10 +718,10 @@ export default function AppExperience() {
                       {status}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm font-black text-zinc-200">
+                  <p className="mt-2 text-sm font-black text-foreground-muted">
                     {campaignNameForManifest(manifest)}
                   </p>
-                  <p className="mt-1 text-[10px] text-zinc-500">
+                  <p className="mt-1 text-[10px] text-foreground-muted">
                     r{manifest.revision} · {manifest.market_code} ·{" "}
                     {manifest.surface}
                   </p>
@@ -732,12 +732,12 @@ export default function AppExperience() {
           {!manifestsQuery.isLoading &&
           !manifestsQuery.isError &&
           (manifestsQuery.data ?? []).length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-zinc-600">
+            <div className="rounded-2xl border border-dashed border-border p-5 text-center text-xs text-foreground-muted">
               No manifest yet. Create the first campaign.
             </div>
           ) : null}
         </aside>
-        <main className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-6">
           {mode === "new" || form.manifest_id ? (
             <AppExperienceEditor
               value={form}
@@ -782,18 +782,18 @@ export default function AppExperience() {
             />
           ) : null}
           <section
-            className="rounded-3xl border border-white/10 bg-white/[0.03] p-5"
+            className="rounded-3xl border border-border bg-surface/[0.03] p-5"
             aria-labelledby="preview-controls-title"
           >
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <h2
                   id="preview-controls-title"
-                  className="text-base font-black text-zinc-100"
+                  className="text-base font-black text-foreground-muted"
                 >
                   Preview and release controls
                 </h2>
-                <p className="mt-1 max-w-2xl text-xs text-zinc-500">
+                <p className="mt-1 max-w-2xl text-xs text-foreground-muted">
                   Simulate the saved draft through the production resolver:
                   market, locale, device, schema capability, version, theme and
                   audience profile.
@@ -810,7 +810,7 @@ export default function AppExperience() {
                   onClick={() => previewMutation.mutate()}
                   className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary-light disabled:opacity-50"
                 >
-                  <Eye size={14} />{" "}
+                  <Eye size={14}  aria-hidden="true" />{" "}
                   {previewMutation.isPending
                     ? "Previewing..."
                     : "Preview resolver"}
@@ -823,9 +823,9 @@ export default function AppExperience() {
                     type="button"
                     disabled={actionBusy || !canSubmitApproval}
                     onClick={() => submitApprovalMutation.mutate()}
-                    className="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-amber-200 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl border border-warning bg-warning-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-warning disabled:opacity-50"
                   >
-                    <ClipboardCheck size={14} /> Submit approval
+                    <ClipboardCheck size={14}  aria-hidden="true" /> Submit approval
                   </button>
                 ) : null}
                 {actionManifest?.requires_approval &&
@@ -834,9 +834,9 @@ export default function AppExperience() {
                     type="button"
                     disabled={actionBusy || !canApprove}
                     onClick={() => approveMutation.mutate()}
-                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-300 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl border border-success bg-success-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-success disabled:opacity-50"
                   >
-                    <ShieldCheck size={14} /> Approve
+                    <ShieldCheck size={14}  aria-hidden="true" /> Approve
                   </button>
                 ) : null}
                 <button
@@ -849,9 +849,9 @@ export default function AppExperience() {
                     actionManifest.state !== "draft"
                   }
                   onClick={publish}
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl bg-success px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-success disabled:opacity-50"
                 >
-                  <Send size={14} />{" "}
+                  <Send size={14}  aria-hidden="true" />{" "}
                   {previewReady ? "Publish" : "Preview before publish"}
                 </button>
                 {actionManifest?.state === "published" && canKill ? (
@@ -863,9 +863,9 @@ export default function AppExperience() {
                         ? restoreMutation.mutate()
                         : killMutation.mutate()
                     }
-                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest disabled:opacity-50 ${actionManifest.kill_switch_active ? "border-amber-500/30 bg-amber-500/10 text-amber-300" : "border-red-500/30 bg-red-500/10 text-red-300"}`}
+                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest disabled:opacity-50 ${actionManifest.kill_switch_active ? "border-warning bg-warning-surface text-warning" : "border-error bg-error-surface text-error"}`}
                   >
-                    <Ban size={14} />{" "}
+                    <Ban size={14}  aria-hidden="true" />{" "}
                         {actionManifest.kill_switch_active ? 'Resume' : 'Pause'}
                   </button>
                 ) : null}
@@ -881,18 +881,18 @@ export default function AppExperience() {
                       )
                         retireMutation.mutate();
                     }}
-                    className="inline-flex items-center gap-2 rounded-xl border border-zinc-500/30 bg-zinc-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted disabled:opacity-50"
                   >
-                    <Archive size={14} /> Retire
+                    <Archive size={14}  aria-hidden="true" /> Retire
                   </button>
                 ) : null}
               </div>
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-5">
-              <label className="text-xs font-bold text-zinc-400">
+              <label className="text-xs font-bold text-foreground-muted">
                 Preview market
                 <input
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted"
                   value={previewAudience.market_code}
                   onChange={(event) =>
                     setPreviewAudience({
@@ -902,10 +902,10 @@ export default function AppExperience() {
                   }
                 />
               </label>
-              <label className="text-xs font-bold text-zinc-400">
+              <label className="text-xs font-bold text-foreground-muted">
                 Locale
                 <input
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted"
                   value={previewAudience.locale}
                   onChange={(event) =>
                     setPreviewAudience({
@@ -915,10 +915,10 @@ export default function AppExperience() {
                   }
                 />
               </label>
-              <label className="text-xs font-bold text-zinc-400">
+              <label className="text-xs font-bold text-foreground-muted">
                 App version
                 <input
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted"
                   value={previewAudience.app_version}
                   onChange={(event) =>
                     setPreviewAudience({
@@ -928,10 +928,10 @@ export default function AppExperience() {
                   }
                 />
               </label>
-              <label className="text-xs font-bold text-zinc-400">
+              <label className="text-xs font-bold text-foreground-muted">
                 Preview user ID (rollout)
                 <input
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted"
                   value={previewAudience.user_id}
                   onChange={(event) =>
                     setPreviewAudience({
@@ -942,10 +942,10 @@ export default function AppExperience() {
                   placeholder="authenticated-user-id"
                 />
               </label>
-              <label className="text-xs font-bold text-zinc-400">
+              <label className="text-xs font-bold text-foreground-muted">
                 Test cohort
                 <input
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted"
                   value={previewAudience.cohort}
                   onChange={(event) =>
                     setPreviewAudience({
@@ -956,10 +956,10 @@ export default function AppExperience() {
                   placeholder="internal-test"
                 />
               </label>
-              <label className="text-xs font-bold text-zinc-400">
+              <label className="text-xs font-bold text-foreground-muted">
                 City
                 <input
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted"
                   value={previewAudience.city_code}
                   onChange={(event) =>
                     setPreviewAudience({
@@ -970,10 +970,10 @@ export default function AppExperience() {
                   placeholder="city-code"
                 />
               </label>
-              <label className="text-xs font-bold text-zinc-400">
+              <label className="text-xs font-bold text-foreground-muted">
                 Zone
                 <input
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted"
                   value={previewAudience.zone_code}
                   onChange={(event) =>
                     setPreviewAudience({
@@ -984,13 +984,13 @@ export default function AppExperience() {
                   placeholder="zone-code"
                 />
               </label>
-              <label className="text-xs font-bold text-zinc-400">
+              <label className="text-xs font-bold text-foreground-muted">
                 Schema capability
                 <input
                   type="number"
                   min="1"
                   max="10"
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted"
                   value={previewAudience.schema_version}
                   onChange={(event) =>
                     setPreviewAudience({
@@ -1000,10 +1000,10 @@ export default function AppExperience() {
                   }
                 />
               </label>
-              <label className="text-xs font-bold text-zinc-400">
+              <label className="text-xs font-bold text-foreground-muted">
                 Device size
                 <select
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted"
                   value={previewAudience.device_preset}
                   onChange={(event) =>
                     setPreviewAudience({
@@ -1018,10 +1018,10 @@ export default function AppExperience() {
                   <option value="desktop">Desktop</option>
                 </select>
               </label>
-              <label className="text-xs font-bold text-zinc-400">
+              <label className="text-xs font-bold text-foreground-muted">
                 Theme
                 <select
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted"
                   value={previewAudience.theme_mode}
                   onChange={(event) =>
                     setPreviewAudience({
@@ -1036,10 +1036,10 @@ export default function AppExperience() {
                   <option value="dark">Dark</option>
                 </select>
               </label>
-              <label className="text-xs font-bold text-zinc-400">
+              <label className="text-xs font-bold text-foreground-muted">
                 Profile
                 <select
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted"
                   value={previewAudience.user_status}
                   onChange={(event) =>
                     setPreviewAudience({
@@ -1055,7 +1055,7 @@ export default function AppExperience() {
                 </select>
               </label>
             </div>
-            <div className="mt-4 flex flex-wrap gap-1 rounded-xl border border-white/10 bg-black/10 p-1">
+            <div className="mt-4 flex flex-wrap gap-1 rounded-xl border border-border bg-surface-subtle p-1">
               {(
                 [
                   "customer_android",
@@ -1068,7 +1068,7 @@ export default function AppExperience() {
                   type="button"
                   key={surface}
                   onClick={() => updateScope({ ...scope, surface })}
-                  className={`rounded-lg px-3 py-2 text-xs font-bold ${previewSurface === surface ? "bg-primary text-white" : "text-zinc-500"}`}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold ${previewSurface === surface ? "bg-primary text-on-primary" : "text-on-primary"}`}
                 >
                   {surface.replace("_", " ").replace("_", " ")}
                 </button>
@@ -1077,17 +1077,17 @@ export default function AppExperience() {
           </section>
           {audienceWorkspace ? (
             <section
-              className="rounded-3xl border border-white/10 bg-white/[0.03] p-5"
+              className="rounded-3xl border border-border bg-surface/[0.03] p-5"
               aria-labelledby="audience-case-title"
             >
               <div>
                 <h2
                   id="audience-case-title"
-                  className="text-base font-black text-zinc-100"
+                  className="text-base font-black text-foreground-muted"
                 >
                   Matching / non-matching audience cases
                 </h2>
-                <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+                <p className="mt-1 text-xs leading-relaxed text-foreground-muted">
                   Run both cases against the same server preview resolver before
                   publish. For partial rollout, provide a stable preview user ID
                   above.
@@ -1102,7 +1102,7 @@ export default function AppExperience() {
                     actionManifest.state !== "draft"
                   }
                   onClick={() => audiencePairMutation.mutate(false)}
-                  className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-300 disabled:opacity-50"
+                  className="rounded-xl border border-success bg-success-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-success disabled:opacity-50"
                 >
                   {audiencePairMutation.isPending
                     ? "Simulating..."
@@ -1116,7 +1116,7 @@ export default function AppExperience() {
                     actionManifest.state !== "draft"
                   }
                   onClick={() => audiencePairMutation.mutate(true)}
-                  className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-amber-300 disabled:opacity-50"
+                  className="rounded-xl border border-warning bg-warning-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-warning disabled:opacity-50"
                 >
                   Simulate non-matching
                 </button>
@@ -1134,13 +1134,13 @@ export default function AppExperience() {
                 ).map(([key, label, result]) => (
                   <div
                     key={key}
-                    className="rounded-2xl border border-white/10 bg-black/10 p-3 text-xs"
+                    className="rounded-2xl border border-border bg-surface-subtle p-3 text-xs"
                   >
-                    <p className="font-black uppercase tracking-widest text-zinc-500">
+                    <p className="font-black uppercase tracking-widest text-foreground-muted">
                       {label}
                     </p>
                     <p
-                      className={`mt-2 font-black ${result?.matched ? "text-emerald-300" : result ? "text-amber-300" : "text-zinc-600"}`}
+                      className={`mt-2 font-black ${result?.matched ? "text-success" : result ? "text-warning" : "text-foreground-muted"}`}
                     >
                       {result
                         ? result.matched
@@ -1149,7 +1149,7 @@ export default function AppExperience() {
                         : "Not run"}
                     </p>
                     {result?.selected_manifest ? (
-                      <p className="mt-1 text-zinc-500">
+                      <p className="mt-1 text-foreground-muted">
                         revision {result.selected_manifest.revision ?? "—"}
                       </p>
                     ) : null}
@@ -1172,7 +1172,7 @@ export default function AppExperience() {
           />
           <RevisionDiffPreview result={previewResult} />
           {selectedId && historyQuery.isLoading ? (
-            <div className="rounded-3xl border border-white/10 p-6 text-sm text-zinc-600">
+            <div className="rounded-3xl border border-border p-6 text-sm text-foreground-muted">
               Loading revision history...
             </div>
           ) : null}
@@ -1196,34 +1196,34 @@ export default function AppExperience() {
             />
           ) : null}
           {actionManifest ? (
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-black/10 p-4 text-xs text-zinc-500">
-              <Check size={15} className="text-emerald-400" />
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface-subtle p-4 text-xs text-foreground-muted">
+              <Check size={15} className="text-success"  aria-hidden="true" />
               State:{" "}
-              <strong className="text-zinc-300">{actionManifest.state}</strong>
+              <strong className="text-foreground-muted">{actionManifest.state}</strong>
               <span>·</span>Approval:{" "}
-              <strong className="text-zinc-300">
+              <strong className="text-foreground-muted">
                 {actionManifest.requires_approval
                   ? actionManifest.approval_status
                   : "not required"}
               </strong>
               <span>·</span>Rollout:{" "}
-              <strong className="text-zinc-300">
+              <strong className="text-foreground-muted">
                 {actionManifest.rollout_stage}
                 {actionManifest.canary_cohort
                   ? ` / ${actionManifest.canary_cohort}`
                   : ""}
               </strong>
               {actionManifest.kill_switch_active ? (
-                <span className="text-red-300">· exposure disabled</span>
+                <span className="text-error">· exposure disabled</span>
               ) : null}
               {hasAudienceConstraints(form.targeting) ? (
                 <span className="text-primary-light">· targeted</span>
               ) : (
-                <span className="text-amber-300">· broad audience</span>
+                <span className="text-warning">· broad audience</span>
               )}
             </div>
           ) : null}
-        </main>
+        </div>
       </div>
     </div>
   );

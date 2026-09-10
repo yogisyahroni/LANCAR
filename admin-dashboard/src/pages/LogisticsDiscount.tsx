@@ -80,8 +80,8 @@ export default function LogisticsDiscount() {
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center text-zinc-400">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+      <div className="flex h-full items-center justify-center text-foreground-muted">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" />
         Loading logistics providers...
       </div>
     )
@@ -91,7 +91,7 @@ export default function LogisticsDiscount() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Logistics Discounts & Margins</h1>
-        <p className="mt-2 text-sm text-zinc-400">
+        <p className="mt-2 text-sm text-foreground-muted">
           Atur diskon volume dari JNE/J&T dan margin platform (markup) yang dikenakan ke customer.
         </p>
       </div>
@@ -106,52 +106,52 @@ export default function LogisticsDiscount() {
                 'rounded-2xl border p-5 transition-all',
                 editingProvider?.code === provider.code
                   ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
-                  : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
+                  : 'border-border bg-surface/[0.03] hover:bg-surface/[0.06]'
               )}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="rounded-xl bg-white/5 p-3 text-primary-light">
-                    <Truck size={24} />
+                  <div className="rounded-xl bg-surface-subtle p-3 text-primary-light">
+                    <Truck size={24} aria-hidden="true" />
                   </div>
                   <div>
                     <div className="flex items-center gap-3">
-                      <h3 className="font-bold text-zinc-100 text-lg">{provider.name}</h3>
+                      <h3 className="font-bold text-foreground-muted text-lg">{provider.name}</h3>
                       <span className={cn(
                         'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase',
-                        provider.is_active ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
+                        provider.is_active ? 'bg-success-surface text-success' : 'bg-error-surface text-error'
                       )}>
                         {provider.is_active ? 'Active' : 'Off'}
                       </span>
                     </div>
-                    <p className="text-xs text-zinc-500 uppercase tracking-wider mt-1">{provider.code}</p>
+                    <p className="text-xs text-foreground-muted uppercase tracking-wider mt-1">{provider.code}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => handleEdit(provider)}
-                  className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold text-zinc-300 transition hover:bg-white/10"
+                  className="rounded-xl bg-surface-subtle px-4 py-2 text-sm font-bold text-foreground-muted transition hover:bg-surface-subtle"
                 >
                   Edit Config
                 </button>
               </div>
 
-              <div className="mt-5 grid grid-cols-3 gap-4 border-t border-white/5 pt-5">
+              <div className="mt-5 grid grid-cols-3 gap-4 border-t border-border pt-5">
                 <div>
-                  <p className="text-xs text-zinc-500 font-bold uppercase">Discount from 3PL</p>
-                  <p className="mt-1 text-xl font-bold text-emerald-400">{provider.discount_pct}%</p>
+                  <p className="text-xs text-foreground-muted font-bold uppercase">Discount from 3PL</p>
+                  <p className="mt-1 text-xl font-bold text-success">{provider.discount_pct}%</p>
                 </div>
                 <div>
-                  <p className="text-xs text-zinc-500 font-bold uppercase">Platform Markup</p>
-                  <p className="mt-1 text-xl font-bold text-blue-400">{provider.markup_pct}%</p>
+                  <p className="text-xs text-foreground-muted font-bold uppercase">Platform Markup</p>
+                  <p className="mt-1 text-xl font-bold text-info">{provider.markup_pct}%</p>
                 </div>
                 <div>
-                  <p className="text-xs text-zinc-500 font-bold uppercase">Priority Level</p>
-                  <p className="mt-1 text-xl font-bold text-zinc-300">{provider.priority}</p>
+                  <p className="text-xs text-foreground-muted font-bold uppercase">Priority Level</p>
+                  <p className="mt-1 text-xl font-bold text-foreground-muted">{provider.priority}</p>
                 </div>
               </div>
               {provider.discount_notes && (
-                <div className="mt-4 rounded-xl bg-zinc-950 px-4 py-3 text-sm text-zinc-400">
-                  <span className="font-bold text-zinc-300">Notes: </span> {provider.discount_notes}
+                <div className="mt-4 rounded-xl bg-background px-4 py-3 text-sm text-foreground-muted">
+                  <span className="font-bold text-foreground-muted">Notes: </span> {provider.discount_notes}
                 </div>
               )}
             </div>
@@ -161,66 +161,66 @@ export default function LogisticsDiscount() {
         {/* Editor Sidebar */}
         <div>
           {editingProvider ? (
-            <div className="sticky top-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <div className="sticky top-6 rounded-3xl border border-border bg-surface/[0.03] p-6">
               <div className="mb-6">
                 <h2 className="text-xl font-bold">Edit {editingProvider.name}</h2>
-                <p className="text-xs text-zinc-400 mt-1">Konfigurasi diskon & markup</p>
+                <p className="text-xs text-foreground-muted mt-1">Konfigurasi diskon & markup</p>
               </div>
 
               <div className="space-y-4">
                 <label className="block">
-                  <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-zinc-500">Discount from 3PL (%)</span>
+                  <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-foreground-muted">Discount from 3PL (%)</span>
                   <div className="relative">
                     <input
                       type="number"
                       step="0.1"
                       value={discountPct}
                       onChange={(e) => setDiscountPct(Number(e.target.value))}
-                      className="w-full rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-primary pl-10"
+                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary pl-10"
                     />
-                    <Percent className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
+                    <Percent className="absolute left-3 top-3 h-4 w-4 text-foreground-muted" aria-hidden="true" />
                   </div>
-                  <p className="text-[10px] text-zinc-500 mt-1">Diskon dari harga publish JNE/JNT</p>
+                  <p className="text-[10px] text-foreground-muted mt-1">Diskon dari harga publish JNE/JNT</p>
                 </label>
 
                 <label className="block">
-                  <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-zinc-500">Platform Markup (%)</span>
+                  <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-foreground-muted">Platform Markup (%)</span>
                   <div className="relative">
                     <input
                       type="number"
                       step="0.1"
                       value={markupPct}
                       onChange={(e) => setMarkupPct(Number(e.target.value))}
-                      className="w-full rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-primary pl-10"
+                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary pl-10"
                     />
-                    <Percent className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
+                    <Percent className="absolute left-3 top-3 h-4 w-4 text-foreground-muted" aria-hidden="true" />
                   </div>
-                  <p className="text-[10px] text-zinc-500 mt-1">Margin yang dikenakan dari harga nett</p>
+                  <p className="text-[10px] text-foreground-muted mt-1">Margin yang dikenakan dari harga nett</p>
                 </label>
                 
                 <label className="block">
-                  <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-zinc-500">Priority</span>
+                  <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-foreground-muted">Priority</span>
                   <input
                     type="number"
                     value={priority}
                     onChange={(e) => setPriority(Number(e.target.value))}
-                    className="w-full rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-primary"
+                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary"
                   />
                 </label>
 
                 <label className="block">
-                  <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-zinc-500">Discount Notes (Optional)</span>
+                  <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-foreground-muted">Discount Notes (Optional)</span>
                   <textarea
                     value={discountNotes}
                     onChange={(e) => setDiscountNotes(e.target.value)}
                     rows={2}
-                    className="w-full resize-none rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-primary"
+                    className="w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary"
                     placeholder="e.g. Contract vol 2026"
                   />
                 </label>
 
-                <label className="flex items-center justify-between rounded-xl border border-white/10 bg-zinc-950 px-4 py-3">
-                  <span className="text-sm font-medium text-zinc-300">Active</span>
+                <label className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+                  <span className="text-sm font-medium text-foreground-muted">Active</span>
                   <input
                     type="checkbox"
                     checked={isActive}
@@ -231,35 +231,35 @@ export default function LogisticsDiscount() {
               </div>
 
               {/* Preview Kalkulasi */}
-              <div className="mt-6 rounded-2xl border border-white/10 bg-zinc-950 p-4">
-                <p className="text-xs font-bold uppercase text-zinc-500 mb-3">Live Calculation Preview</p>
+              <div className="mt-6 rounded-2xl border border-border bg-background p-4">
+                <p className="text-xs font-bold uppercase text-foreground-muted mb-3">Live Calculation Preview</p>
                 
-                <div className="flex justify-between items-center text-sm mb-2 text-zinc-400">
+                <div className="flex justify-between items-center text-sm mb-2 text-foreground-muted">
                   <span>Gross Tariff (3PL Publish)</span>
                   <span>Rp {previewGross.toLocaleString('id-ID')}</span>
                 </div>
                 
-                <div className="flex justify-between items-center text-sm mb-2 text-emerald-400">
+                <div className="flex justify-between items-center text-sm mb-2 text-success">
                   <span>Discount ({discountPct}%)</span>
                   <span>- Rp {(previewGross * (discountPct/100)).toLocaleString('id-ID')}</span>
                 </div>
 
-                <div className="flex justify-between items-center text-sm font-bold border-t border-white/10 pt-2 mb-2">
+                <div className="flex justify-between items-center text-sm font-bold border-t border-border pt-2 mb-2">
                   <span>TEMBUS Net Cost</span>
                   <span>Rp {netCost.toLocaleString('id-ID')}</span>
                 </div>
 
-                <div className="flex justify-between items-center text-sm mb-2 text-blue-400">
+                <div className="flex justify-between items-center text-sm mb-2 text-info">
                   <span>Markup ({markupPct}%)</span>
                   <span>+ Rp {(netCost * (markupPct/100)).toLocaleString('id-ID')}</span>
                 </div>
 
-                <div className="flex justify-between items-center text-base font-bold border-t border-white/10 pt-2 text-primary-light">
+                <div className="flex justify-between items-center text-base font-bold border-t border-border pt-2 text-primary-light">
                   <span>Final Price to User</span>
                   <span>Rp {userPrice.toLocaleString('id-ID')}</span>
                 </div>
 
-                <div className="mt-3 bg-emerald-500/10 text-emerald-400 text-xs px-3 py-2 rounded-lg text-center font-bold border border-emerald-500/20">
+                <div className="mt-3 bg-success-surface text-success text-xs px-3 py-2 rounded-lg text-center font-bold border border-success">
                   TEMBUS Margin: Rp {margin.toLocaleString('id-ID')}
                 </div>
               </div>
@@ -268,7 +268,7 @@ export default function LogisticsDiscount() {
                 <button
                   type="button"
                   onClick={() => setEditingProvider(null)}
-                  className="flex-1 rounded-xl bg-white/5 px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-white/10"
+                  className="flex-1 rounded-xl bg-surface-subtle px-4 py-3 text-sm font-bold text-foreground-muted transition hover:bg-surface-subtle"
                 >
                   Cancel
                 </button>
@@ -276,19 +276,19 @@ export default function LogisticsDiscount() {
                   type="button"
                   onClick={handleSave}
                   disabled={mutation.isPending}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white transition hover:bg-primary/90 disabled:opacity-60"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-on-primary transition hover:bg-primary/90 disabled:opacity-60"
                 >
-                  {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
                   Save Settings
                 </button>
               </div>
             </div>
           ) : (
-            <div className="flex h-[400px] items-center justify-center rounded-3xl border border-white/10 border-dashed bg-white/[0.02]">
+            <div className="flex h-[400px] items-center justify-center rounded-3xl border border-border border-dashed bg-surface/[0.02]">
               <div className="text-center px-6">
-                <AlertCircle className="mx-auto h-8 w-8 text-zinc-500 mb-3" />
-                <p className="text-sm font-bold text-zinc-300">No Provider Selected</p>
-                <p className="mt-1 text-xs text-zinc-500">Pilih provider di samping untuk mengatur diskon dan margin.</p>
+                <AlertCircle className="mx-auto h-8 w-8 text-foreground-muted mb-3"  aria-hidden="true"/>
+                <p className="text-sm font-bold text-foreground-muted">No Provider Selected</p>
+                <p className="mt-1 text-xs text-foreground-muted">Pilih provider di samping untuk mengatur diskon dan margin.</p>
               </div>
             </div>
           )}

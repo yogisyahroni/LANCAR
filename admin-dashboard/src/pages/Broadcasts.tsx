@@ -19,6 +19,7 @@ import { useBroadcasts, useCancelBroadcast } from './broadcasts/hooks/useBroadca
 import BroadcastComposer from './broadcasts/BroadcastComposer'
 import BroadcastDeliveryReport from './broadcasts/BroadcastDeliveryReport'
 import { Skeleton } from '../components/ui/Skeleton'
+import { StatusBadge } from '../components/StatusBadge'
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'Semua' },
@@ -29,23 +30,6 @@ const STATUS_FILTERS = [
   { value: 'failed', label: 'Failed' },
   { value: 'cancelled', label: 'Cancelled' },
 ]
-
-const statusBadgeClass = (status: string) => {
-  switch (status) {
-    case 'draft':
-      return 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
-    case 'scheduled':
-      return 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-    case 'sending':
-      return 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-    case 'sent':
-      return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-    case 'failed':
-      return 'bg-red-500/10 text-red-400 border-red-500/20'
-    default:
-      return 'bg-zinc-800 text-zinc-500 border-white/10'
-  }
-}
 
 const successRateOf = (row: BroadcastRow): number | null => {
   const attempted = (row.sent_count ?? 0) + (row.failed_count ?? 0)
@@ -120,24 +104,24 @@ export default function Broadcasts() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-zinc-100 tracking-tight italic uppercase flex items-center gap-3">
-            <Megaphone size={26} />
+          <h1 className="text-3xl font-black text-foreground-muted tracking-tight italic uppercase flex items-center gap-3">
+            <Megaphone size={26} aria-hidden="true" />
             Broadcast Center
           </h1>
-          <p className="text-zinc-500 mt-1">Kirim pengumuman massal ke kurir &amp; pelanggan lewat push dan in-app.</p>
+          <p className="text-foreground-muted mt-1">Kirim pengumuman massal ke kurir &amp; pelanggan lewat push dan in-app.</p>
         </div>
         <button
           type="button"
           onClick={openComposer}
-          className="px-6 py-3 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+          className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
         >
-          <Plus size={18} />
+          <Plus size={18} aria-hidden="true" />
           Buat Broadcast Baru
         </button>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between bg-white/[0.02] p-4 rounded-[28px] border border-white/5">
+      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between bg-surface/[0.02] p-4 rounded-[28px] border border-border">
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter status broadcast">
           {STATUS_FILTERS.map((f) => (
             <button
@@ -151,8 +135,8 @@ export default function Broadcasts() {
               className={cn(
                 'px-4 py-2 rounded-xl text-xs font-black transition-all',
                 statusFilter === f.value
-                  ? 'bg-primary/20 text-primary-light border border-primary/20'
-                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5 border border-transparent',
+                    ? 'bg-primary-soft text-foreground border border-primary/20'
+                  : 'text-foreground-muted hover:text-foreground-muted hover:bg-surface-subtle border border-transparent',
               )}
             >
               {f.label}
@@ -161,23 +145,23 @@ export default function Broadcasts() {
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label htmlFor="bc-from-date" className="text-[9px] font-black uppercase tracking-widest text-zinc-600 block">Dari</label>
+            <label htmlFor="bc-from-date" className="text-[9px] font-black uppercase tracking-widest text-foreground-muted block">Dari</label>
             <input
               id="bc-from-date"
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="bg-surface-subtle border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
           <div className="space-y-1">
-            <label htmlFor="bc-to-date" className="text-[9px] font-black uppercase tracking-widest text-zinc-600 block">Sampai</label>
+            <label htmlFor="bc-to-date" className="text-[9px] font-black uppercase tracking-widest text-foreground-muted block">Sampai</label>
             <input
               id="bc-to-date"
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="bg-surface-subtle border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
           {(fromDate || toDate) && (
@@ -187,7 +171,7 @@ export default function Broadcasts() {
                 setFromDate('')
                 setToDate('')
               }}
-              className="pb-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-red-400 transition-colors"
+              className="pb-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted hover:text-error transition-colors"
             >
               Reset
             </button>
@@ -196,23 +180,23 @@ export default function Broadcasts() {
       </div>
 
       {/* Table */}
-      <div className="glass-card rounded-[40px] border-white/5 overflow-hidden shadow-2xl shadow-black/40">
+      <div className="glass-card rounded-[40px] border-border overflow-hidden shadow-2xl shadow-scrim">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-white/5 bg-white/[0.01]">
+              <tr className="border-b border-border bg-surface/[0.01]">
                 {['Judul', 'Status', 'Targets', 'Success Rate', 'Dibuat Oleh', 'Waktu', 'Aksi'].map((head) => (
                   <th
                     key={head}
                     scope="col"
-                    className="px-6 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]"
+                    className="px-6 py-6 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]"
                   >
                     {head}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-border">
               {listQuery.isLoading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i}>
@@ -224,17 +208,17 @@ export default function Broadcasts() {
               ) : listQuery.isError ? (
                 <tr>
                   <td colSpan={7} className="px-8 py-16 text-center space-y-4">
-                    <AlertCircle className="w-10 h-10 mx-auto text-red-400" />
-                    <p className="text-zinc-100 font-black uppercase tracking-widest text-xs">Daftar broadcast gagal dimuat</p>
-                    <p className="text-zinc-600 text-xs">
+                    <AlertCircle className="w-10 h-10 mx-auto text-error"  aria-hidden="true"/>
+                    <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">Daftar broadcast gagal dimuat</p>
+                    <p className="text-foreground-muted text-xs">
                       {(listQuery.error as any)?.response?.data?.message || 'Coba muat ulang.'}
                     </p>
                     <button
                       type="button"
                       onClick={() => listQuery.refetch()}
-                      className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+                      className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
                     >
-                      <RefreshCw size={14} />
+                      <RefreshCw size={14} aria-hidden="true" />
                       Retry
                     </button>
                   </td>
@@ -249,62 +233,54 @@ export default function Broadcasts() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.04 }}
                       key={row.id}
-                      className="hover:bg-white/[0.02] transition-colors group"
+                      className="hover:bg-surface/[0.02] transition-colors group"
                     >
                       <td className="px-6 py-6 max-w-xs">
-                        <p className="font-bold text-zinc-100 truncate">{row.title}</p>
-                        <p className="text-[11px] text-zinc-600 mt-1 line-clamp-1">{row.body}</p>
+                        <p className="font-bold text-foreground-muted truncate">{row.title}</p>
+                        <p className="text-[11px] text-foreground-muted mt-1 line-clamp-1">{row.body}</p>
                         <div className="flex gap-1.5 mt-2">
-                          <span className="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-500 border border-white/5 text-[9px] uppercase font-bold">
+                          <span className="px-2 py-0.5 rounded-md bg-surface-raised text-foreground-muted border border-border text-[9px] uppercase font-bold">
                             {row.category}
                           </span>
-                          <span className="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-500 border border-white/5 text-[9px] uppercase font-bold">
+                          <span className="px-2 py-0.5 rounded-md bg-surface-raised text-foreground-muted border border-border text-[9px] uppercase font-bold">
                             {row.target_type}
                           </span>
                         </div>
                       </td>
                       <td className="px-6 py-6">
-                        <span className={cn(
-                          'inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border',
-                          statusBadgeClass(row.status),
-                        )}>
-                          {row.status === 'sending' && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                          )}
-                          {row.status}
-                        </span>
+                        <StatusBadge status={row.status} labelPrefix="Broadcast status" className="text-[10px] uppercase tracking-widest" />
                         {row.scheduled_at && row.status === 'scheduled' && (
-                          <p className="text-[10px] text-amber-300/70 mt-2 flex items-center gap-1">
-                            <Calendar size={10} /> {new Date(row.scheduled_at).toLocaleString('id-ID')}
+                          <p className="text-[10px] text-warning mt-2 flex items-center gap-1">
+                            <Calendar size={10} aria-hidden="true" /> {new Date(row.scheduled_at).toLocaleString('id-ID')}
                           </p>
                         )}
                       </td>
                       <td className="px-6 py-6">
-                        <p className="text-sm font-black text-zinc-100 tabular-nums">
+                        <p className="text-sm font-black text-foreground-muted tabular-nums">
                           {(row.total_targets ?? 0).toLocaleString('id-ID')}
                         </p>
-                        <p className="text-[10px] text-zinc-600 tabular-nums mt-0.5">
+                        <p className="text-[10px] text-foreground-muted tabular-nums mt-0.5">
                           {row.sent_count ?? 0} terkirim • {row.opened_count ?? 0} dibuka
                         </p>
                       </td>
                       <td className="px-6 py-6">
                         {rate === null ? (
-                          <span className="text-xs text-zinc-600 font-bold italic">—</span>
+                          <span className="text-xs text-foreground-muted font-bold italic">—</span>
                         ) : (
                           <>
                             <span
                               className={cn(
                                 'text-sm font-black tabular-nums',
-                                rate >= 90 ? 'text-emerald-400' : rate >= 70 ? 'text-amber-400' : 'text-red-400',
+                                rate >= 90 ? 'text-success' : rate >= 70 ? 'text-warning' : 'text-error',
                               )}
                             >
                               {rate}%
                             </span>
-                            <div className="w-20 h-1.5 bg-white/5 rounded-full overflow-hidden mt-2">
+                            <div className="w-20 h-1.5 bg-surface-subtle rounded-full overflow-hidden mt-2">
                               <div
                                 className={cn(
                                   'h-full rounded-full',
-                                  rate >= 90 ? 'bg-emerald-500' : rate >= 70 ? 'bg-amber-500' : 'bg-red-500',
+                                  rate >= 90 ? 'bg-success' : rate >= 70 ? 'bg-warning' : 'bg-error',
                                 )}
                                 style={{ width: `${rate}%` }}
                               />
@@ -313,11 +289,11 @@ export default function Broadcasts() {
                         )}
                       </td>
                       <td className="px-6 py-6">
-                        <p className="text-xs font-bold text-zinc-300">{row.created_by_name || 'Sistem'}</p>
+                        <p className="text-xs font-bold text-foreground-muted">{row.created_by_name || 'Sistem'}</p>
                       </td>
                       <td className="px-6 py-6">
-                        <p className="text-xs text-zinc-400">{new Date(row.created_at).toLocaleDateString('id-ID')}</p>
-                        <p className="text-[10px] text-zinc-600 mt-0.5">
+                        <p className="text-xs text-foreground-muted">{new Date(row.created_at).toLocaleDateString('id-ID')}</p>
+                        <p className="text-[10px] text-foreground-muted mt-0.5">
                           {new Date(row.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </td>
@@ -328,18 +304,18 @@ export default function Broadcasts() {
                             onClick={() => setReportId(row.id)}
                             title="Lihat report"
                             aria-label={`Lihat report ${row.title}`}
-                            className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-primary-light hover:bg-white/10 transition-all"
+                            className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-primary-light hover:bg-surface-subtle transition-all"
                           >
-                            <BarChart3 size={16} />
+                            <BarChart3 size={16} aria-hidden="true" />
                           </button>
                           <button
                             type="button"
                             onClick={() => duplicate(row)}
                             title="Duplikat sebagai draft baru"
                             aria-label={`Duplikat ${row.title}`}
-                            className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white hover:bg-white/10 transition-all"
+                            className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all"
                           >
-                            <Copy size={16} />
+                            <Copy size={16} aria-hidden="true" />
                           </button>
                           {cancellable && (
                             <button
@@ -348,12 +324,12 @@ export default function Broadcasts() {
                               disabled={cancelMutation.isPending}
                               title={row.status === 'scheduled' ? 'Batalkan jadwal' : 'Hapus draft'}
                               aria-label={`Batalkan ${row.title}`}
-                              className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50"
+                              className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-error hover:bg-error-surface transition-all disabled:opacity-50"
                             >
                               {cancelMutation.isPending && cancelMutation.variables === row.id ? (
-                                <Loader2 size={16} className="animate-spin" />
+                                <Loader2 size={16} className="animate-spin" aria-hidden="true" />
                               ) : (
-                                <XCircle size={16} />
+                                <XCircle size={16} aria-hidden="true" />
                               )}
                             </button>
                           )}
@@ -365,16 +341,16 @@ export default function Broadcasts() {
               ) : (
                 <tr>
                   <td colSpan={7} className="px-8 py-20 text-center space-y-4">
-                    <Megaphone className="w-10 h-10 mx-auto text-zinc-800" />
-                    <p className="text-zinc-500 font-black uppercase tracking-widest text-xs">
+                    <Megaphone className="w-10 h-10 mx-auto text-foreground-muted" aria-hidden="true" />
+                    <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">
                       Belum ada broadcast untuk filter ini.
                     </p>
                     <button
                       type="button"
                       onClick={openComposer}
-                      className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-400 text-[10px] font-black uppercase tracking-widest hover:text-white transition-all"
+                      className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:text-foreground transition-all"
                     >
-                      <Plus size={14} />
+                      <Plus size={14} aria-hidden="true" />
                       Buat broadcast pertama
                     </button>
                   </td>
@@ -386,8 +362,8 @@ export default function Broadcasts() {
 
         {/* Pagination */}
         {!listQuery.isLoading && !listQuery.isError && (listQuery.data?.total ?? 0) > 0 && (
-          <div className="px-8 py-6 border-t border-white/5 flex items-center justify-between bg-white/[0.01]">
-            <p className="text-xs text-zinc-600 font-bold uppercase tracking-widest">
+          <div className="px-8 py-6 border-t border-border flex items-center justify-between bg-surface/[0.01]">
+            <p className="text-xs text-foreground-muted font-bold uppercase tracking-widest">
               Halaman {page} dari {totalPages} • {(listQuery.data?.total ?? 0).toLocaleString('id-ID')} broadcast
             </p>
             <div className="flex items-center gap-2">
@@ -396,19 +372,19 @@ export default function Broadcasts() {
                 disabled={page === 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 aria-label="Halaman sebelumnya"
-                className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white disabled:opacity-30 transition-all"
+                className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-30 transition-all"
               >
-                <ChevronLeft size={18} />
+                <ChevronLeft size={18} aria-hidden="true" />
               </button>
-              <span className="text-sm font-black text-zinc-300 px-2 tabular-nums">{page}</span>
+              <span className="text-sm font-black text-foreground-muted px-2 tabular-nums">{page}</span>
               <button
                 type="button"
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
                 aria-label="Halaman berikutnya"
-                className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white disabled:opacity-30 transition-all"
+                className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-30 transition-all"
               >
-                <ChevronRight size={18} />
+                <ChevronRight size={18} aria-hidden="true" />
               </button>
             </div>
           </div>

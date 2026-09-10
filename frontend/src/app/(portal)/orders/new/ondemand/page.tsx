@@ -619,32 +619,32 @@ export default function NewOrderPage() {
           <div
             className="px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-default bg-card text-foreground shadow-sm"
           >
-            🚀 Instan (On-Demand)
+            Instan (On-Demand)
           </div>
           <Link
             href="/orders/new/aggregator"
             className="px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer text-muted-foreground hover:text-foreground"
           >
-            📦 Ekspedisi (Aggregator)
+            Ekspedisi (Aggregator)
           </Link>
         </div>
       </div>
 
       {coverageError && (
-        <div className="mb-6 p-6 rounded-2xl bg-red-500/10 border border-red-500/20 backdrop-blur-md flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-200">
-          <div className="p-3 bg-red-500/20 rounded-xl text-red-400">
-            <Info className="h-6 w-6" />
+        <div className="mb-6 p-6 rounded-2xl bg-error-surface border border-error backdrop-blur-md flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-200">
+          <div className="p-3 bg-error-surface rounded-xl text-error">
+            <Info className="h-6 w-6"  aria-hidden="true" />
           </div>
           <div>
-            <h4 className="font-bold text-zinc-100 tracking-tight">Harga Belum Bisa Dihitung</h4>
+            <h4 className="font-bold text-foreground-muted tracking-tight">Harga Belum Bisa Dihitung</h4>
             <p className="text-sm text-muted-foreground mt-1">{coverageError}</p>
           </div>
         </div>
       )}
 
       {transactionNotice && (
-        <div role="status" className={`mb-6 flex items-start gap-3 rounded-2xl border p-4 text-sm ${transactionPending ? "border-amber-500/30 bg-amber-500/10 text-amber-100" : "border-brand-emerald-500/20 bg-brand-emerald-500/10 text-brand-emerald-100"}`}>
-          <Info className="mt-0.5 h-5 w-5 shrink-0" />
+        <div role="status" className={`mb-6 flex items-start gap-3 rounded-2xl border p-4 text-sm ${transactionPending ? "border-warning bg-warning-surface text-warning" : "border-success/20 bg-success/10 text-success"}`}>
+          <Info className="mt-0.5 h-5 w-5 shrink-0"  aria-hidden="true" />
           <p>{transactionNotice}</p>
         </div>
       )}

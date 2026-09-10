@@ -165,12 +165,12 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
 
   if (submitState === 'success') {
     return (
-      <div className="rounded-[2rem] border border-brand-emerald-100 bg-white p-7 shadow-lg">
-        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-brand-emerald-50 text-brand-emerald-600">
-          <CheckCircle2 className="h-9 w-9" />
+      <div className="rounded-[2rem] border border-success bg-surface p-7 shadow-lg">
+        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-success text-on-success">
+          <CheckCircle2 className="h-9 w-9"  aria-hidden="true"/>
         </div>
-        <h2 className="mt-6 text-2xl font-black tracking-tight text-slate-950">Lokasi sudah diterima</h2>
-        <p className="mt-3 text-sm leading-6 text-slate-600">
+        <h2 className="mt-6 text-2xl font-black tracking-tight text-foreground-muted">Lokasi sudah diterima</h2>
+        <p className="mt-3 text-sm leading-6 text-foreground-muted">
           {message} Pemesan akan memakai detail ini untuk melanjutkan pengiriman.
         </p>
       </div>
@@ -178,32 +178,32 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
   }
 
   return (
-    <form onSubmit={submitLocation} className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-lg sm:p-7">
-      <div className="mb-6 rounded-3xl bg-slate-50 p-5">
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-brand-emerald-700">Pickup</p>
-        <p className="mt-2 text-base font-black text-slate-950">{initialRequest.pickup_address}</p>
+    <form onSubmit={submitLocation} className="rounded-[2rem] border border-border bg-surface p-5 shadow-lg sm:p-7">
+      <div className="mb-6 rounded-3xl bg-surface-subtle p-5">
+        <p className="text-xs font-bold uppercase tracking-[0.22em] text-success">Pickup</p>
+        <p className="mt-2 text-base font-black text-foreground-muted">{initialRequest.pickup_address}</p>
       </div>
 
       <div className="space-y-4">
         <label className="block">
-          <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-800">
-            <MapPin className="h-4 w-4 text-orange-500" />
+          <span className="mb-2 flex items-center gap-2 text-sm font-bold text-foreground-muted">
+            <MapPin className="h-4 w-4 text-accent" aria-hidden="true" />
             Alamat penerima
           </span>
           <textarea
             value={address}
             onChange={(event) => updateAddress(event.target.value)}
-            className="min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-brand-emerald-500 focus:ring-4 focus:ring-brand-emerald-100"
+            className="min-h-28 w-full rounded-2xl border border-border bg-surface px-4 py-3 text-base text-foreground-muted outline-none transition focus:border-success focus:ring-4 focus:ring-focus-ring"
             placeholder="Nama gedung, jalan, nomor, patokan, kecamatan, kota"
             required
           />
         </label>
 
-        <div className="rounded-2xl border border-brand-emerald-100 bg-brand-emerald-50/70 p-4">
+        <div className="rounded-2xl border border-success bg-success/70 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-black text-slate-950">Titik lokasi otomatis</p>
-              <p className="mt-1 text-sm leading-5 text-slate-600">
+              <p className="text-sm font-black text-foreground-muted">Titik lokasi otomatis</p>
+              <p className="mt-1 text-sm leading-5 text-foreground-muted">
                 Kami akan menentukan titik dari alamat. Gunakan lokasi perangkat jika penerima sedang berada di alamat tujuan.
               </p>
             </div>
@@ -211,67 +211,67 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
               type="button"
               onClick={useDeviceLocation}
               disabled={isLocating || submitState === 'submitting'}
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-brand-emerald-700 shadow-sm ring-1 ring-brand-emerald-100 transition hover:bg-brand-emerald-100 active:scale-[0.98] disabled:text-slate-400"
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-surface px-4 text-sm font-black text-success shadow-sm ring-1 ring-border transition hover:bg-success hover:text-on-success active:scale-[0.98] disabled:text-foreground-muted"
             >
-              {isLocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+              {isLocating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <LocateFixed className="h-4 w-4" aria-hidden="true" />}
               Lokasi saya
             </button>
           </div>
           {resolvedLocation ? (
-            <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-brand-emerald-800">
+            <p className="mt-3 rounded-2xl bg-surface px-4 py-3 text-sm font-bold text-success">
               Titik siap dipakai dari {locationSource === 'device' ? 'lokasi perangkat' : 'alamat yang diisi'}.
             </p>
           ) : null}
         </div>
 
         <label className="block">
-          <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-800">
-            <UserRound className="h-4 w-4 text-slate-500" />
+          <span className="mb-2 flex items-center gap-2 text-sm font-bold text-foreground-muted">
+            <UserRound className="h-4 w-4 text-foreground-muted" aria-hidden="true" />
             Nama penerima
           </span>
           <input
             value={contactName}
             onChange={(event) => setContactName(event.target.value)}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-brand-emerald-500 focus:ring-4 focus:ring-brand-emerald-100"
+            className="w-full rounded-2xl border border-border bg-surface px-4 py-3 text-base text-foreground-muted outline-none transition focus:border-success focus:ring-4 focus:ring-focus-ring"
             placeholder="Nama penerima"
           />
         </label>
 
         <label className="block">
-          <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-800">
-            <Phone className="h-4 w-4 text-slate-500" />
+          <span className="mb-2 flex items-center gap-2 text-sm font-bold text-foreground-muted">
+            <Phone className="h-4 w-4 text-foreground-muted" aria-hidden="true" />
             Nomor handphone
           </span>
           <input
             value={contactPhone}
             onChange={(event) => setContactPhone(event.target.value)}
             inputMode="tel"
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-brand-emerald-500 focus:ring-4 focus:ring-brand-emerald-100"
+            className="w-full rounded-2xl border border-border bg-surface px-4 py-3 text-base text-foreground-muted outline-none transition focus:border-success focus:ring-4 focus:ring-focus-ring"
             placeholder="08xxxxxxxxxx"
           />
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-bold text-slate-800">Catatan lokasi</span>
+          <span className="mb-2 block text-sm font-bold text-foreground-muted">Catatan lokasi</span>
           <input
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-brand-emerald-500 focus:ring-4 focus:ring-brand-emerald-100"
+            className="w-full rounded-2xl border border-border bg-surface px-4 py-3 text-base text-foreground-muted outline-none transition focus:border-success focus:ring-4 focus:ring-focus-ring"
             placeholder="Contoh: titip ke resepsionis, lobby tower A"
           />
         </label>
       </div>
 
       {message ? (
-        <p className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{message}</p>
+        <p className="mt-5 rounded-2xl bg-error px-4 py-3 text-sm font-semibold text-error">{message}</p>
       ) : null}
 
       <button
         type="submit"
         disabled={!canSubmit || submitState === 'submitting'}
-        className="mt-6 flex h-14 w-full items-center justify-center rounded-2xl bg-brand-emerald-600 text-base font-black text-white shadow-lg shadow-brand-emerald-600/20 transition active:scale-[0.98] disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+        className="mt-6 flex h-14 w-full items-center justify-center rounded-2xl bg-success text-base font-black text-on-success shadow-lg shadow-success/20 transition active:scale-[0.98] disabled:bg-surface-subtle disabled:text-foreground-muted disabled:shadow-none"
       >
-        {submitState === 'submitting' ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Kirim lokasi'}
+        {submitState === 'submitting' ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : 'Kirim lokasi'}
       </button>
     </form>
   );

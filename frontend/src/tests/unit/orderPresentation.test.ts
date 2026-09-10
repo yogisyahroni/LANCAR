@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   deliveryStateLabel,
+  getOrderStatusPresentation,
   getOrderServicePresentation,
   getPaymentStatePresentation,
 } from "@/components/orders/orderPresentation";
+import { Truck } from "lucide-react";
 
 describe("customer order service presentation", () => {
   it("keeps LANCAR first-mile and external carrier distinct for aggregator orders", () => {
@@ -31,6 +33,7 @@ describe("customer order service presentation", () => {
   it("uses the canonical category before legacy model hints", () => {
     expect(getOrderServicePresentation({ service_category: "food", model: "p2p" }).kind).toBe("food");
     expect(getOrderServicePresentation({ service_category: "towing" }).label).toBe("Towing");
+    expect(getOrderServicePresentation({ service_category: "towing", logistics_provider: "roadside" }).kind).toBe("service");
     expect(getOrderServicePresentation({ service_category: "future_service" }).kind).toBe("unknown");
   });
 
@@ -61,5 +64,13 @@ describe("customer order service presentation", () => {
     expect(getPaymentStatePresentation("unknown").label).toBe("Status pembayaran belum tersedia");
     expect(deliveryStateLabel("out_for_delivery")).toBe("Out For Delivery");
     expect(deliveryStateLabel(null)).toBe("Status pengiriman belum tersedia");
+  });
+
+  it("keeps order status meaning available as label and icon, not color alone", () => {
+    expect(getOrderStatusPresentation("in_transit").label).toBe("Dalam perjalanan");
+    expect(getOrderStatusPresentation("in_transit").icon).toBe(Truck);
+    expect(getOrderStatusPresentation("cancelled").label).toBe("Dibatalkan");
+    expect(getOrderStatusPresentation("no_courier_found").label).toBe("Kurir belum ditemukan");
+    expect(getOrderStatusPresentation(null).label).toBe("Status belum tersedia");
   });
 });

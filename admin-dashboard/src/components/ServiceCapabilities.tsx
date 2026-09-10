@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Settings, Save, Loader2, Check, X } from 'lucide-react'
+import { Settings, Save, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
-import { cn } from '../lib/utils'
+import { StatusBadge } from './StatusBadge'
 
 type ServiceCapability = {
   service_code: string
@@ -65,16 +65,16 @@ export default function ServiceCapabilities({ courierId, capabilities }: Courier
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-          <Settings size={20} />
+        <h3 className="text-lg font-bold text-foreground-muted flex items-center gap-2">
+          <Settings size={20}  aria-hidden="true"/>
           Service Capabilities
         </h3>
         <button
           onClick={() => updateMutation.mutate()}
           disabled={updateMutation.isPending}
-          className="px-4 py-2 rounded-xl bg-primary text-white font-bold text-sm flex items-center gap-2 disabled:opacity-50"
+          className="px-4 py-2 rounded-xl bg-primary text-on-primary font-bold text-sm flex items-center gap-2 disabled:opacity-50"
         >
-          {updateMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          {updateMutation.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Save size={16} aria-hidden="true" />}
           Save Changes
         </button>
       </div>
@@ -85,25 +85,25 @@ export default function ServiceCapabilities({ courierId, capabilities }: Courier
           const existingCap = capabilities.find(c => c.service_code === service.code)
           
           return (
-            <div key={service.code} className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between">
+            <div key={service.code} className="p-4 rounded-xl bg-surface/[0.02] border border-border flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
                   checked={isSelected}
                   onChange={() => toggleService(service.code)}
-                  className="rounded border-white/20 bg-white/5 text-primary focus:ring-primary"
+                  className="rounded border-border bg-surface-subtle text-primary focus:ring-primary"
                 />
                 <div>
-                  <p className="text-sm font-bold text-zinc-100">{service.name}</p>
+                  <p className="text-sm font-bold text-foreground-muted">{service.name}</p>
                   {existingCap && (
-                    <p className="text-xs text-zinc-500">Status: {existingCap.status}</p>
+                    <StatusBadge status={existingCap.status} labelPrefix="Capability status" className="mt-1 text-[10px]" />
                   )}
                 </div>
               </div>
               
               {isSelected && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-zinc-500">Harga:</span>
+                  <span className="text-xs text-foreground-muted">Harga:</span>
                   <input
                     type="number"
                     value={prices[service.code] || ''}
@@ -112,7 +112,7 @@ export default function ServiceCapabilities({ courierId, capabilities }: Courier
                       [service.code]: parseInt(e.target.value) || 0
                     }))}
                     placeholder="Rp"
-                    className="w-32 bg-white/5 border border-white/10 rounded-lg p-2 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-32 bg-surface-subtle border border-border rounded-lg p-2 text-sm text-foreground-muted focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
               )}

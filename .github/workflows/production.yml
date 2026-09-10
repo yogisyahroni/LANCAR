@@ -59,6 +59,14 @@ jobs:
       - name: Install dependencies
         working-directory: ./frontend
         run: npm ci
+      - name: Color token contrast guard
+        run: node scripts/a11y/check-color-tokens.mjs
+      - name: Theme hardcode guard
+        run: node scripts/a11y/check-theme-hardcoded-classes.mjs
+      - name: Iconography guard
+        run: node scripts/a11y/check-iconography.mjs
+      - name: Table semantics guard
+        run: node scripts/a11y/check-table-semantics.mjs
       - name: Run Linter
         working-directory: ./frontend
         run: npm run lint
@@ -89,6 +97,14 @@ jobs:
       - name: Install dependencies
         working-directory: ./admin-dashboard
         run: npm ci
+      - name: Color token contrast guard
+        run: node scripts/a11y/check-color-tokens.mjs
+      - name: Theme hardcode guard
+        run: node scripts/a11y/check-theme-hardcoded-classes.mjs
+      - name: Iconography guard
+        run: node scripts/a11y/check-iconography.mjs
+      - name: Table semantics guard
+        run: node scripts/a11y/check-table-semantics.mjs
       - name: Run Linter
         working-directory: ./admin-dashboard
         run: npm run lint
@@ -99,6 +115,15 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api.bawain.my.id/api/v1' }}
           VITE_WS_URL: ${{ vars.VITE_WS_URL || 'wss://api.bawain.my.id' }}
           VITE_SOCKET_URL: ${{ vars.VITE_SOCKET_URL || 'https://api.bawain.my.id' }}
+      - name: Install Playwright Chromium for Admin a11y
+        working-directory: ./admin-dashboard
+        run: npx playwright install --with-deps chromium
+      - name: Run Admin automated WCAG theme matrix
+        working-directory: ./admin-dashboard
+        run: npm run test:e2e:a11y
+      - name: Run Admin visual theme regression
+        working-directory: ./admin-dashboard
+        run: npm run test:e2e:visual
 
   admin-service:
     name: Admin Service Test
@@ -918,6 +943,13 @@ jobs:
           BASE_URL: ${{ vars.PROD_URL }}
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+      - name: Run automated WCAG theme matrix
+        if: steps.check_url.outputs.skip == 'false'
+        working-directory: ./frontend
+        run: npx playwright test e2e/accessibility.spec.ts --project=chromium --grep=@a11y
+        env:
+          BASE_URL: ${{ vars.PROD_URL }}
 
       - name: Upload Playwright Report
         if: always() && steps.check_url.outputs.skip == 'false'

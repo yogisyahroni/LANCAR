@@ -446,7 +446,7 @@ export default function ProfilPage() {
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40'
               }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4" aria-hidden="true" />
               {item.label}
             </button>
           );
@@ -477,8 +477,8 @@ export default function ProfilPage() {
                   </div>
 
                   {/* Photo Edit upload button trigger overlay */}
-                  <label className="absolute bottom-2 right-2 p-2 bg-card border border-border/40 hover:bg-muted text-foreground rounded-xl shadow-md transition-all cursor-pointer hover:scale-105 active:scale-95 select-none">
-                    <Camera className="h-4 w-4" />
+                  <label aria-label="Unggah foto profil" className="absolute bottom-2 right-2 p-2 bg-card border border-border/40 hover:bg-muted text-foreground rounded-xl shadow-md transition-all cursor-pointer hover:scale-105 active:scale-95 select-none">
+                    <Camera className="h-4 w-4" aria-hidden="true" />
                     <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />
                   </label>
                 </div>
@@ -487,8 +487,9 @@ export default function ProfilPage() {
                 <form onSubmit={handleSaveAccount} className="flex-1 w-full space-y-4 select-none">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 select-none">
                     <div>
-                      <label className="text-xs font-bold text-muted-foreground select-none">Nama Lengkap</label>
+                      <label htmlFor="profile-name" className="text-xs font-bold text-muted-foreground select-none">Nama Lengkap</label>
                       <input
+                        id="profile-name"
                         type="text"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
@@ -496,8 +497,9 @@ export default function ProfilPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-muted-foreground select-none">Nomor HP</label>
+                      <label htmlFor="profile-phone" className="text-xs font-bold text-muted-foreground select-none">Nomor HP</label>
                       <input
+                        id="profile-phone"
                         type="text"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
@@ -507,8 +509,9 @@ export default function ProfilPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground select-none">Alamat Email</label>
+                    <label htmlFor="profile-email" className="text-xs font-bold text-muted-foreground select-none">Alamat Email</label>
                     <input
+                      id="profile-email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -518,8 +521,9 @@ export default function ProfilPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 select-none">
                     <div>
-                      <label className="text-xs font-bold text-muted-foreground select-none">Nama Toko</label>
+                      <label htmlFor="profile-store-name" className="text-xs font-bold text-muted-foreground select-none">Nama Toko</label>
                       <input
+                        id="profile-store-name"
                         type="text"
                         value={storeName}
                         onChange={(e) => setStoreName(e.target.value)}
@@ -528,8 +532,9 @@ export default function ProfilPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-muted-foreground select-none">Nama Pengirim (Resi)</label>
+                      <label htmlFor="profile-awb-sender-name" className="text-xs font-bold text-muted-foreground select-none">Nama Pengirim (Resi)</label>
                       <input
+                        id="profile-awb-sender-name"
                         type="text"
                         value={awbSenderName}
                         onChange={(e) => setAwbSenderName(e.target.value)}
@@ -543,8 +548,9 @@ export default function ProfilPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground select-none">Default Pickup Address</label>
+                    <label htmlFor="profile-default-pickup-address" className="text-xs font-bold text-muted-foreground select-none">Default Pickup Address</label>
                     <input
+                      id="profile-default-pickup-address"
                       type="text"
                       value={defaultPickupAddress}
                       onChange={(e) => setDefaultPickupAddress(e.target.value)}
@@ -557,7 +563,7 @@ export default function ProfilPage() {
                   <div className="p-4 bg-muted/40 border border-border/40 rounded-xl space-y-2 select-none">
                     <div className="flex justify-between items-center select-none">
                       <span className="text-xs font-bold text-foreground flex items-center gap-1 select-none">
-                        <Award className="h-4 w-4 text-primary" /> Loyalty Tier: Standard Member
+                        <Award className="h-4 w-4 text-primary" aria-hidden="true" /> Loyalty Tier: Standard Member
                       </span>
                       <span className="text-xs text-primary font-bold select-none">Bronze Level</span>
                     </div>
@@ -572,9 +578,9 @@ export default function ProfilPage() {
                   <div className="flex justify-end pt-2 select-none">
                     <button
                       type="submit"
-                      className="flex items-center gap-1.5 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
+                      className="flex items-center gap-1.5 px-4 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
                     >
-                      <CheckCircle className="h-4 w-4" /> Simpan Perubahan
+                      <CheckCircle className="h-4 w-4" aria-hidden="true" /> Simpan Perubahan
                     </button>
                   </div>
                 </form>
@@ -594,7 +600,7 @@ export default function ProfilPage() {
               <div className="p-6 rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm space-y-6">
                 <div>
                   <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                    <Wallet className="h-5 w-5 text-primary" />
+                    <Wallet className="h-5 w-5 text-primary" aria-hidden="true" />
                     Rekening Bank Pencairan (Settlement & Escrow)
                   </h3>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -604,8 +610,9 @@ export default function ProfilPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground">Nama Bank</label>
+                    <label htmlFor="profile-bank-name" className="text-xs font-bold text-muted-foreground">Nama Bank</label>
                     <input
+                      id="profile-bank-name"
                       type="text"
                       placeholder="Contoh: BCA / Mandiri / BRI / BNI"
                       value={bankName}
@@ -614,8 +621,9 @@ export default function ProfilPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground">Nomor Rekening</label>
+                    <label htmlFor="profile-bank-account-number" className="text-xs font-bold text-muted-foreground">Nomor Rekening</label>
                     <input
+                      id="profile-bank-account-number"
                       type="text"
                       placeholder="Contoh: 1234567890"
                       value={bankAccountNumber}
@@ -624,8 +632,9 @@ export default function ProfilPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground">Atas Nama Pemilik Rekening</label>
+                    <label htmlFor="profile-bank-account-holder" className="text-xs font-bold text-muted-foreground">Atas Nama Pemilik Rekening</label>
                     <input
+                      id="profile-bank-account-holder"
                       type="text"
                       placeholder="Nama sesuai buku rekening"
                       value={bankAccountHolder}
@@ -640,16 +649,16 @@ export default function ProfilPage() {
                     type="button"
                     onClick={handleSaveBank}
                     disabled={isSavingBank}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                   >
                     {isSavingBank ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                         Menyimpan...
                       </>
                     ) : (
                       <>
-                        <CheckCircle className="h-4 w-4" />
+                        <CheckCircle className="h-4 w-4" aria-hidden="true" />
                         Simpan Rekening Pencairan
                       </>
                     )}
@@ -677,8 +686,9 @@ export default function ProfilPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground select-none">PIN Lama</label>
+                    <label htmlFor="profile-current-pin" className="text-xs font-bold text-muted-foreground select-none">PIN Lama</label>
                     <input
+                      id="profile-current-pin"
                       type="password"
                       maxLength={6}
                       placeholder="Masukkan PIN saat ini"
@@ -690,8 +700,9 @@ export default function ProfilPage() {
 
                   <div className="grid grid-cols-2 gap-4 select-none">
                     <div>
-                      <label className="text-xs font-bold text-muted-foreground select-none">PIN Baru</label>
+                      <label htmlFor="profile-new-pin" className="text-xs font-bold text-muted-foreground select-none">PIN Baru</label>
                       <input
+                        id="profile-new-pin"
                         type="password"
                         maxLength={6}
                         placeholder="6 digit angka"
@@ -701,8 +712,9 @@ export default function ProfilPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-muted-foreground select-none">Ulangi PIN Baru</label>
+                      <label htmlFor="profile-confirm-pin" className="text-xs font-bold text-muted-foreground select-none">Ulangi PIN Baru</label>
                       <input
+                        id="profile-confirm-pin"
                         type="password"
                         maxLength={6}
                         placeholder="Ulangi PIN baru"
@@ -716,9 +728,9 @@ export default function ProfilPage() {
                   <div className="flex justify-end select-none">
                     <button
                       type="submit"
-                      className="flex items-center gap-1.5 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
+                      className="flex items-center gap-1.5 px-4 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
                     >
-                      <Key className="h-3.5 w-3.5" /> Simpan PIN
+                      <Key className="h-3.5 w-3.5" aria-hidden="true" /> Simpan PIN
                     </button>
                   </div>
                 </form>
@@ -749,7 +761,7 @@ export default function ProfilPage() {
                         }`}
                       >
                         <div className="flex items-center gap-3 select-none">
-                          <Smartphone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <Smartphone className="h-4 w-4 text-muted-foreground flex-shrink-0" aria-hidden="true" />
                           <div className="select-none">
                             <h4 className="text-xs font-bold text-foreground truncate max-w-[200px] select-none">
                               {item.device}
@@ -761,7 +773,7 @@ export default function ProfilPage() {
                         </div>
 
                         {item.is_current ? (
-                          <span className="text-[9px] bg-brand-emerald-500/10 text-brand-emerald-500 border border-brand-emerald-500/20 font-bold px-1.5 py-0.5 rounded-full select-none uppercase">
+                          <span className="text-[9px] bg-success/10 text-success border border-success/20 font-bold px-1.5 py-0.5 rounded-full select-none uppercase">
                             Sesi Aktif
                           </span>
                         ) : (
@@ -804,8 +816,8 @@ export default function ProfilPage() {
                       disabled={isPushLoading}
                       className="cursor-pointer select-none disabled:opacity-50 flex items-center gap-2"
                     >
-                      {isPushLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-                      {pushEnabled ? <ToggleRight className="h-7 w-7 text-primary" /> : <ToggleLeft className="h-7 w-7 text-muted-foreground" />}
+                      {isPushLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />}
+                      {pushEnabled ? <ToggleRight className="h-7 w-7 text-primary" aria-hidden="true" /> : <ToggleLeft className="h-7 w-7 text-muted-foreground" aria-hidden="true" />}
                     </button>
                   </div>
 
@@ -820,7 +832,7 @@ export default function ProfilPage() {
                         onClick={() => setWaEnabled(!waEnabled)}
                         className="cursor-pointer select-none"
                       >
-                        {waEnabled ? <ToggleRight className="h-7 w-7 text-primary" /> : <ToggleLeft className="h-7 w-7 text-muted-foreground" />}
+                        {waEnabled ? <ToggleRight className="h-7 w-7 text-primary" aria-hidden="true" /> : <ToggleLeft className="h-7 w-7 text-muted-foreground" aria-hidden="true" />}
                       </button>
                     </div>
 
@@ -835,7 +847,7 @@ export default function ProfilPage() {
                               onClick={() => setWaDetailLevel(lvl as any)}
                               className={`px-3 py-1.5 text-[10px] font-bold rounded-xl capitalize transition-all select-none cursor-pointer ${
                                 waDetailLevel === lvl
-                                  ? 'bg-primary text-white shadow-sm'
+                                  ? 'bg-primary text-on-primary shadow-sm'
                                   : 'bg-muted/60 text-muted-foreground border border-border/40'
                               }`}
                             >
@@ -857,7 +869,7 @@ export default function ProfilPage() {
                       onClick={() => setEmailEnabled(!emailEnabled)}
                       className="cursor-pointer select-none"
                     >
-                      {emailEnabled ? <ToggleRight className="h-7 w-7 text-primary" /> : <ToggleLeft className="h-7 w-7 text-muted-foreground" />}
+                      {emailEnabled ? <ToggleRight className="h-7 w-7 text-primary" aria-hidden="true" /> : <ToggleLeft className="h-7 w-7 text-muted-foreground" aria-hidden="true" />}
                     </button>
                   </div>
                 </div>
@@ -866,9 +878,9 @@ export default function ProfilPage() {
               <div className="flex justify-end pt-2 select-none">
                 <button
                   onClick={() => addNotification({ title: 'Sukses', message: 'Preferensi notifikasi berhasil disimpan.', type: 'success' })}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
                 >
-                  <CheckCircle className="h-3.5 w-3.5" /> Simpan Pengaturan
+                  <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> Simpan Pengaturan
                 </button>
               </div>
             </motion.div>
@@ -898,17 +910,19 @@ export default function ProfilPage() {
                       <div className="flex items-center gap-1 select-none">
                         <button
                           onClick={handleCopyCode}
+                          type="button"
+                          aria-label="Salin kode referral"
                           className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-all cursor-pointer select-none"
                           title="Salin Kode"
                         >
-                          <Copy className="h-4 w-4" />
+                          <Copy className="h-4 w-4" aria-hidden="true" />
                         </button>
                         <button
                           onClick={() => addNotification({ title: 'Tershare', message: 'Kode referral siap dibagikan ke media sosial.', type: 'info' })}
                           className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-all cursor-pointer select-none"
                           title="Share Kode"
                         >
-                          <Share2 className="h-4 w-4" />
+                          <Share2 className="h-4 w-4" aria-hidden="true" />
                         </button>
                       </div>
                     </div>
@@ -934,7 +948,7 @@ export default function ProfilPage() {
 
                     <div className="p-3.5 bg-muted/40 border border-border/40 rounded-xl space-y-1 select-none">
                       <span className="text-[10px] font-bold text-muted-foreground select-none uppercase block">Sudah Dicairkan</span>
-                      <p className="text-lg font-bold text-brand-emerald-500 select-none">
+                      <p className="text-lg font-bold text-success select-none">
                         Rp{claimedRewards.toLocaleString('id-ID')}
                       </p>
                       <p className="text-[9px] text-muted-foreground select-none">Telah cair ke dompet</p>
@@ -950,7 +964,7 @@ export default function ProfilPage() {
                     </div>
                     <button
                       onClick={handleClaimRewards}
-                      className="px-3.5 py-2 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
+                      className="px-3.5 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
                     >
                       Cairkan Bonus
                     </button>
@@ -982,9 +996,11 @@ export default function ProfilPage() {
                 <button
                   onClick={handleCloseCrop}
                   disabled={isUploadingPhoto}
+                  type="button"
+                  aria-label="Tutup editor foto profil"
                   className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-all cursor-pointer select-none"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
 
@@ -1007,11 +1023,11 @@ export default function ProfilPage() {
                 <button
                   onClick={handleConfirmCrop}
                   disabled={isUploadingPhoto}
-                  className="px-4 py-2 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
+                  className="px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
                 >
                   {isUploadingPhoto ? (
                     <span className="inline-flex items-center gap-2">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Mengunggah
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Mengunggah
                     </span>
                   ) : (
                     'Gunakan Foto'

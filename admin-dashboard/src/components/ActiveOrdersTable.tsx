@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Search, 
@@ -28,6 +28,9 @@ import { adminApiRootUrl } from '../lib/runtimeConfig'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { Skeleton } from './ui/Skeleton'
+import { FocusTrap } from './a11y/FocusTrap'
+import { OrderStatusBadge } from './OrderStatusBadge'
+import { StatusBadge } from './StatusBadge'
 
 // FB-123: scheduled_at (ISO UTC) → jam lokal "HH:mm".
 const formatScheduledTime = (iso?: string | null) => {
@@ -89,17 +92,17 @@ function InitialsAvatar({ name }: { name?: string | null }) {
 function ErrorState({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
   return (
     <div className="py-20 text-center space-y-4">
-      <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
+      <AlertCircle aria-hidden="true" className="w-12 h-12 text-error mx-auto" />
       <div>
-        <p className="text-zinc-200 font-black uppercase tracking-widest text-xs">{title}</p>
-        <p className="text-zinc-600 text-sm mt-2">{message}</p>
+        <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">{title}</p>
+        <p className="text-foreground-muted text-sm mt-2">{message}</p>
       </div>
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
       >
-        <RefreshCw size={14} />
+        <RefreshCw size={14} aria-hidden="true" />
         Retry
       </button>
     </div>
@@ -251,19 +254,19 @@ const buildOperationalTimeline = (orderDetail: any): OperationalTimelineItem[] =
 function ProviderRawEventsPanel({ events }: { events: any[] }) {
   if (!events.length) return null
   return (
-    <div className="space-y-4 p-8 rounded-[40px] bg-zinc-900 border border-amber-500/20 shadow-inner">
+    <div className="space-y-4 p-8 rounded-[40px] bg-surface border border-warning shadow-inner">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black text-amber-200 uppercase tracking-widest">Provider Raw Events</p>
-        <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-black text-amber-200">Ops only · {events.length}</span>
+        <p className="text-[10px] font-black text-warning uppercase tracking-widest">Provider Raw Events</p>
+        <span className="px-3 py-1 rounded-full bg-warning-surface border border-warning text-[10px] font-black text-warning">Ops only · {events.length}</span>
       </div>
       <div className="space-y-3">
         {events.map((event: any, index: number) => (
-          <details key={event.id || index} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-            <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-black text-zinc-200">
+          <details key={event.id || index} className="rounded-2xl border border-border bg-surface/[0.03] p-4">
+            <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-black text-foreground-muted">
               <span>{event.provider || 'Provider'} · {event.event_id || 'Event'} · {event.raw_status || event.canonical_status || 'UNKNOWN'}</span>
-              <span className="text-[10px] text-zinc-500">Raw payload</span>
+              <span className="text-[10px] text-foreground-muted">Raw payload</span>
             </summary>
-            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-black/30 p-3 text-[10px] leading-relaxed text-zinc-400">{event.raw_payload || 'Payload raw tidak tersedia.'}</pre>
+            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-scrim/30 p-3 text-[10px] leading-relaxed text-foreground-muted">{event.raw_payload || 'Payload raw tidak tersedia.'}</pre>
           </details>
         ))}
       </div>
@@ -273,8 +276,8 @@ function ProviderRawEventsPanel({ events }: { events: any[] }) {
 
 const stuckBadgeTone = (severity?: string | null) =>
   severity === 'critical'
-    ? 'bg-red-500/10 border-red-500/25 text-red-300'
-    : 'bg-amber-500/10 border-amber-500/25 text-amber-300'
+    ? 'bg-error-surface border-error text-error'
+    : 'bg-warning-surface border-warning text-warning'
 
 type ReportProof = {
   label: string
@@ -285,9 +288,9 @@ function ServiceReportProofGrid({ proofs }: { proofs: ReportProof[] }) {
   const visibleProofs = proofs.filter((proof) => proof.url)
   if (!visibleProofs.length) {
     return (
-      <div className="rounded-2xl bg-zinc-800 border border-white/10 p-5 text-center">
-        <ImageIcon size={24} className="mx-auto text-zinc-700 mb-2" />
-        <span className="text-[10px] font-black text-zinc-700 uppercase tracking-[0.2em] block">Belum ada foto report</span>
+      <div className="rounded-2xl bg-surface-raised border border-border p-5 text-center">
+        <ImageIcon size={24} aria-hidden="true" className="mx-auto text-foreground-muted mb-2" />
+        <span className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] block">Belum ada foto report</span>
       </div>
     )
   }
@@ -301,12 +304,12 @@ function ServiceReportProofGrid({ proofs }: { proofs: ReportProof[] }) {
             key={proof.label}
             type="button"
             onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
-            className="group text-left rounded-2xl overflow-hidden border border-white/10 bg-white/[0.03] hover:border-primary/40 transition-all"
+            className="group text-left rounded-2xl overflow-hidden border border-border bg-surface/[0.03] hover:border-primary/40 transition-all"
           >
             <img src={url} className="w-full h-32 object-cover opacity-90 group-hover:opacity-100 transition-opacity" alt={proof.label} />
             <div className="p-3 flex items-center justify-between gap-3">
-              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{proof.label}</span>
-              <ImageIcon size={14} className="text-zinc-600 group-hover:text-primary-light transition-colors" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">{proof.label}</span>
+              <ImageIcon size={14} aria-hidden="true" className="text-foreground-muted group-hover:text-primary-light transition-colors" />
             </div>
           </button>
         )
@@ -318,21 +321,21 @@ function ServiceReportProofGrid({ proofs }: { proofs: ReportProof[] }) {
 function TambalBanReportPanel({ report }: { report: any }) {
   if (!report) return null;
   return (
-    <div className="p-8 rounded-[40px] bg-zinc-900 border border-white/5 space-y-6 shadow-inner">
+    <div className="p-8 rounded-[40px] bg-surface border border-border space-y-6 shadow-inner">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-          <AlertCircle size={14} className="text-orange-500" />
+        <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+          <AlertCircle size={14} aria-hidden="true" className="text-accent" />
           Laporan Tambal Ban
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Kondisi Awal</p>
-          <p className="text-sm font-black text-zinc-100 mt-1">{report.tire_condition_before || report.damage_type || 'N/A'}</p>
+        <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Kondisi Awal</p>
+          <p className="text-sm font-black text-foreground-muted mt-1">{report.tire_condition_before || report.damage_type || 'N/A'}</p>
         </div>
-        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Kondisi Akhir</p>
-          <p className="text-sm font-black text-zinc-100 mt-1">{report.tire_condition_after || report.description || 'N/A'}</p>
+        <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Kondisi Akhir</p>
+          <p className="text-sm font-black text-foreground-muted mt-1">{report.tire_condition_after || report.description || 'N/A'}</p>
         </div>
       </div>
       <ServiceReportProofGrid
@@ -341,9 +344,9 @@ function TambalBanReportPanel({ report }: { report: any }) {
           { label: 'Foto ban sesudah', url: report.tire_photo_after_url },
         ]}
       />
-      <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Catatan Teknisi</p>
-        <p className="text-sm font-black text-zinc-100 mt-1">{report.notes || report.technician_notes || '-'}</p>
+      <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+        <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Catatan Teknisi</p>
+        <p className="text-sm font-black text-foreground-muted mt-1">{report.notes || report.technician_notes || '-'}</p>
       </div>
     </div>
   )
@@ -352,21 +355,21 @@ function TambalBanReportPanel({ report }: { report: any }) {
 function TowingReportPanel({ report }: { report: any }) {
   if (!report) return null;
   return (
-    <div className="p-8 rounded-[40px] bg-zinc-900 border border-white/5 space-y-6 shadow-inner">
+    <div className="p-8 rounded-[40px] bg-surface border border-border space-y-6 shadow-inner">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-          <Truck size={14} className="text-blue-500" />
+        <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+          <Truck size={14} aria-hidden="true" className="text-info" />
           Laporan Towing
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Kondisi Awal</p>
-          <p className="text-sm font-black text-zinc-100 mt-1">{report.vehicle_condition_before || report.vehicle_condition || 'N/A'}</p>
+        <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Kondisi Awal</p>
+          <p className="text-sm font-black text-foreground-muted mt-1">{report.vehicle_condition_before || report.vehicle_condition || 'N/A'}</p>
         </div>
-        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Odometer</p>
-          <p className="text-sm font-black text-zinc-100 mt-1">{report.odometer_reading ?? report.odometer_after ?? 'N/A'}</p>
+        <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Odometer</p>
+          <p className="text-sm font-black text-foreground-muted mt-1">{report.odometer_reading ?? report.odometer_after ?? 'N/A'}</p>
         </div>
       </div>
       <ServiceReportProofGrid
@@ -385,12 +388,12 @@ function TowingReportPanel({ report }: { report: any }) {
           className="w-full rounded-2xl bg-primary/10 border border-primary/20 p-3 text-left flex items-center justify-between gap-3 hover:bg-primary/15 transition-colors"
         >
           <span className="text-[10px] font-black uppercase tracking-widest text-primary-light">Buka tanda tangan customer</span>
-          <FileSignature size={16} className="text-primary-light" />
+          <FileSignature size={16} className="text-primary-light" aria-hidden="true" />
         </button>
       )}
-      <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Catatan Driver</p>
-        <p className="text-sm font-black text-zinc-100 mt-1">{report.notes || report.driver_notes || '-'}</p>
+      <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+        <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Catatan Driver</p>
+        <p className="text-sm font-black text-foreground-muted mt-1">{report.notes || report.driver_notes || '-'}</p>
       </div>
     </div>
   )
@@ -407,32 +410,32 @@ function RouteTelemetryPanel({ orderDetail }: { orderDetail: any }) {
   const formatCoord = (lat: number | null, lng: number | null) => lat !== null && lng !== null ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : 'Belum tersedia'
 
   return (
-    <div className="h-72 rounded-[40px] bg-zinc-900 border border-white/5 relative overflow-hidden shadow-2xl p-8 flex flex-col justify-between">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(0,100,55,0.16),transparent_35%),linear-gradient(135deg,rgba(255,255,255,0.04),transparent)]" />
+    <div className="h-72 rounded-[40px] bg-surface border border-border relative overflow-hidden shadow-2xl p-8 flex flex-col justify-between">
+      <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-br from-primary/15 via-surface-subtle to-transparent" />
       <div className="relative space-y-5">
         <div>
-          <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Route Telemetry</p>
-          <p className="text-sm font-black text-white leading-none">
+          <p className="text-[10px] font-black text-foreground-secondary uppercase tracking-widest mb-1">Route Telemetry</p>
+          <p className="text-sm font-black text-foreground leading-none">
             {hasRoute ? 'Koordinat berasal dari database order' : 'Route snapshot belum tersedia dari database'}
           </p>
         </div>
         <div className="grid grid-cols-1 gap-3">
-          <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Pickup</p>
-            <p className="text-xs font-mono text-zinc-300 mt-1">{formatCoord(pickupLat, pickupLng)}</p>
+          <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Pickup</p>
+            <p className="text-xs font-mono text-foreground-muted mt-1">{formatCoord(pickupLat, pickupLng)}</p>
           </div>
-          <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Dropoff</p>
-            <p className="text-xs font-mono text-zinc-300 mt-1">{formatCoord(dropoffLat, dropoffLng)}</p>
+          <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Dropoff</p>
+            <p className="text-xs font-mono text-foreground-muted mt-1">{formatCoord(dropoffLat, dropoffLng)}</p>
           </div>
           <div className="rounded-2xl bg-primary/10 border border-primary/20 p-3">
             <p className="text-[10px] font-black uppercase tracking-widest text-primary-light">Courier Live</p>
-            <p className="text-xs font-mono text-zinc-200 mt-1">{formatCoord(courierLat, courierLng)}</p>
+            <p className="text-xs font-mono text-foreground-muted mt-1">{formatCoord(courierLat, courierLng)}</p>
           </div>
         </div>
       </div>
-      <div className="relative flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-600">
-        <MapPin size={14} className={hasRoute ? 'text-primary-light' : 'text-zinc-700'} />
+      <div className="relative flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+        <MapPin size={14} aria-hidden="true" className={hasRoute ? 'text-primary-light' : 'text-foreground-muted'} />
         Route geometry tetap berasal dari snapshot order; GPS trail ada di panel evidence.
       </div>
     </div>
@@ -450,11 +453,11 @@ function GpsTrailPanel({ orderDetail }: { orderDetail: any }) {
   }
 
   return (
-    <div className="rounded-[40px] bg-zinc-900 border border-white/5 p-8 space-y-5 shadow-inner">
+    <div className="rounded-[40px] bg-surface border border-border p-8 space-y-5 shadow-inner">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">GPS Evidence Trail</p>
-          <p className="mt-1 text-sm font-black text-white">{trail.length ? 'Breadcrumb trusted courier' : 'Belum ada GPS trail trusted'}</p>
+          <p className="text-[10px] font-black text-foreground-secondary uppercase tracking-widest">GPS Evidence Trail</p>
+          <p className="mt-1 text-sm font-black text-foreground">{trail.length ? 'Breadcrumb trusted courier' : 'Belum ada GPS trail trusted'}</p>
         </div>
         <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary-light">
           {trail.length} titik
@@ -472,23 +475,23 @@ function GpsTrailPanel({ orderDetail }: { orderDetail: any }) {
             className="w-full accent-emerald-500"
           />
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Posisi dipilih</p>
-              <p className="mt-1 text-xs font-mono text-zinc-200">{formatPoint(selected)}</p>
+            <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Posisi dipilih</p>
+              <p className="mt-1 text-xs font-mono text-foreground-muted">{formatPoint(selected)}</p>
             </div>
-            <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Waktu</p>
-              <p className="mt-1 text-xs text-zinc-200">{selected?.recorded_at ? format(new Date(selected.recorded_at), 'dd MMM yyyy HH:mm:ss') : 'Tidak tersedia'}</p>
+            <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Waktu</p>
+              <p className="mt-1 text-xs text-foreground-muted">{selected?.recorded_at ? format(new Date(selected.recorded_at), 'dd MMM yyyy HH:mm:ss') : 'Tidak tersedia'}</p>
             </div>
-            <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Akurasi / kecepatan</p>
-              <p className="mt-1 text-xs text-zinc-200">{selected?.accuracy_m ?? '—'} m • {selected?.speed_kmh ?? '—'} km/j</p>
+            <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Akurasi / kecepatan</p>
+              <p className="mt-1 text-xs text-foreground-muted">{selected?.accuracy_m ?? '—'} m • {selected?.speed_kmh ?? '—'} km/j</p>
             </div>
           </div>
-          <p className="text-[10px] leading-relaxed text-zinc-500">Slider memutar titik GPS yang tersimpan di `courier_locations`; telemetry spoofed dikeluarkan dari hasil.</p>
+          <p className="text-[10px] leading-relaxed text-foreground-muted">Slider memutar titik GPS yang tersimpan di `courier_locations`; telemetry spoofed dikeluarkan dari hasil.</p>
         </>
       ) : (
-        <p className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-zinc-500">Trail hanya muncul jika courier mengirim telemetry untuk order ini.</p>
+        <p className="rounded-2xl border border-dashed border-border p-5 text-center text-xs text-foreground-muted">Trail hanya muncul jika courier mengirim telemetry untuk order ini.</p>
       )}
     </div>
   )
@@ -508,10 +511,10 @@ function OperationalMonitoringPanel({ orderDetail }: { orderDetail: any }) {
   const pickupReadyPackages = packages.filter((item: any) => item.pickup_scan_verified_at && item.pickup_photo_verified_at).length
 
   return (
-    <div className="p-8 rounded-[40px] bg-white/[0.02] border border-white/5 space-y-6 shadow-inner">
+    <div className="p-8 rounded-[40px] bg-surface/[0.02] border border-border space-y-6 shadow-inner">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-          <BarChart3 size={14} className="text-primary-light" />
+        <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+          <BarChart3 size={14} className="text-primary-light" aria-hidden="true" />
           Courier V2 Monitoring
         </p>
         <span className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-black text-primary-light">
@@ -520,84 +523,70 @@ function OperationalMonitoringPanel({ orderDetail }: { orderDetail: any }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Packages</p>
-          <p className="text-lg font-black text-zinc-100 mt-1">{packages.length}</p>
-          <p className="text-[10px] text-zinc-500 font-bold">{pickupReadyPackages} pickup verified</p>
+        <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Packages</p>
+          <p className="text-lg font-black text-foreground-muted mt-1">{packages.length}</p>
+          <p className="text-[10px] text-foreground-muted font-bold">{pickupReadyPackages} pickup verified</p>
         </div>
-        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">POD</p>
-          <p className="text-lg font-black text-zinc-100 mt-1">{acceptedPackages}/{packages.length || 1}</p>
-          <p className="text-[10px] text-zinc-500 font-bold">same-order scope</p>
+        <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">POD</p>
+          <p className="text-lg font-black text-foreground-muted mt-1">{acceptedPackages}/{packages.length || 1}</p>
+          <p className="text-[10px] text-foreground-muted font-bold">same-order scope</p>
         </div>
       </div>
 
       <div className="rounded-[28px] bg-primary/5 border border-primary/10 p-4 space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-black text-zinc-100 uppercase tracking-widest">Dispatch Decision</p>
-            <p className="text-sm text-zinc-400 mt-1">{selectedDispatch?.courier_name || 'Belum ada offer dispatch'}</p>
+            <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Dispatch Decision</p>
+            <p className="text-sm text-foreground-muted mt-1">{selectedDispatch?.courier_name || 'Belum ada offer dispatch'}</p>
           </div>
-          <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-zinc-400">
-            {selectedDispatch?.status || 'pending'}
-          </span>
+          <StatusBadge status={selectedDispatch?.status || 'pending'} labelPrefix="Dispatch status" className="text-[10px]" />
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-2xl bg-white/[0.03] p-2">
-            <p className="text-[10px] text-zinc-600 font-black uppercase">Rank</p>
-            <p className="text-xs text-zinc-200 font-black">{selectedDispatch?.rank_number ?? '---'}</p>
+          <div className="rounded-2xl bg-surface/[0.03] p-2">
+            <p className="text-[10px] text-foreground-muted font-black uppercase">Rank</p>
+            <p className="text-xs text-foreground-muted font-black">{selectedDispatch?.rank_number ?? '---'}</p>
           </div>
-          <div className="rounded-2xl bg-white/[0.03] p-2">
-            <p className="text-[10px] text-zinc-600 font-black uppercase">Score</p>
-            <p className="text-xs text-zinc-200 font-black">{readNumber(selectedDispatch?.score)?.toFixed(1) || '---'}</p>
+          <div className="rounded-2xl bg-surface/[0.03] p-2">
+            <p className="text-[10px] text-foreground-muted font-black uppercase">Score</p>
+            <p className="text-xs text-foreground-muted font-black">{readNumber(selectedDispatch?.score)?.toFixed(1) || '---'}</p>
           </div>
-          <div className="rounded-2xl bg-white/[0.03] p-2">
-            <p className="text-[10px] text-zinc-600 font-black uppercase">Distance</p>
-            <p className="text-xs text-zinc-200 font-black">{selectedDispatch?.distance_m ? `${selectedDispatch.distance_m}m` : '---'}</p>
+          <div className="rounded-2xl bg-surface/[0.03] p-2">
+            <p className="text-[10px] text-foreground-muted font-black uppercase">Distance</p>
+            <p className="text-xs text-foreground-muted font-black">{selectedDispatch?.distance_m ? `${selectedDispatch.distance_m}m` : '---'}</p>
           </div>
         </div>
-        <p className="text-[10px] leading-relaxed text-zinc-500 font-bold">
+        <p className="text-[10px] leading-relaxed text-foreground-muted font-bold">
           {dispatchMetadata.assignment_policy || dispatchMetadata.route_policy || 'Dispatch metadata belum tersedia dari route matcher.'}
         </p>
       </div>
 
-      <div className="rounded-[28px] bg-white/[0.03] border border-white/10 p-4 space-y-3">
+      <div className="rounded-[28px] bg-surface/[0.03] border border-border p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-black text-zinc-100 uppercase tracking-widest">Proof Risk</p>
-          <span className={cn(
-            "px-3 py-1 rounded-full border text-[10px] font-black uppercase",
-            latestProofAttempt?.proof_status === 'accepted'
-              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"
-              : latestProofAttempt ? "bg-red-500/10 border-red-500/20 text-red-300" : "bg-white/5 border-white/10 text-zinc-500"
-          )}>
-            {latestProofAttempt?.proof_status || 'no attempt'}
-          </span>
+          <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Proof Risk</p>
+          <StatusBadge status={latestProofAttempt?.proof_status || 'no_attempt'} labelPrefix="Proof status" className="text-[10px]" />
         </div>
-        <p className="text-xs text-zinc-400 leading-relaxed">
+        <p className="text-xs text-foreground-muted leading-relaxed">
           {latestProofAttempt
             ? `${latestProofAttempt.proof_step} • ${latestProofAttempt.distance_m ?? '---'}m/${latestProofAttempt.radius_m ?? '---'}m • accuracy ${latestProofAttempt.accuracy_m ?? '---'}m`
             : 'Proof attempt belum masuk.'}
         </p>
         {latestProofAttempt?.override_reason && (
-          <p className="text-[10px] text-amber-200 font-bold">Override: {latestProofAttempt.override_reason}</p>
+          <p className="text-[10px] text-warning font-bold">Override: {latestProofAttempt.override_reason}</p>
         )}
-        <p className="text-[10px] text-zinc-600 font-bold">
+        <p className="text-[10px] text-foreground-muted font-bold">
           Policy: {proofPolicy.proof_gps_override_policy || proofPolicy.pod_label || 'snapshot belum tersedia'}
         </p>
       </div>
 
-      <div className="rounded-[28px] bg-white/[0.03] border border-white/10 p-4 space-y-2">
+      <div className="rounded-[28px] bg-surface/[0.03] border border-border p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-black text-zinc-100 uppercase tracking-widest">Face Verification</p>
-          <span className="text-[10px] text-zinc-500 font-black uppercase">{formatShortTime(latestFaceVerification?.created_at)}</span>
+          <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Face Verification</p>
+          <span className="text-[10px] text-foreground-muted font-black uppercase">{formatShortTime(latestFaceVerification?.created_at)}</span>
         </div>
-        <p className={cn(
-          "text-sm font-black",
-          latestFaceVerification?.status === 'verified' ? "text-emerald-300" : latestFaceVerification ? "text-amber-300" : "text-zinc-500"
-        )}>
-          {latestFaceVerification?.status || 'Belum ada verifikasi wajah'}
-        </p>
-        <p className="text-[10px] text-zinc-600 font-bold">
+        <StatusBadge status={latestFaceVerification?.status || 'no_verification'} labelPrefix="Face verification status" className="text-[10px]" />
+        <p className="text-[10px] text-foreground-muted font-bold">
           {latestFaceVerification
             ? `${latestFaceVerification.verification_type} • liveness ${latestFaceVerification.liveness_score ?? '---'}`
             : 'Pickup dan POD wajib face verification sebelum bukti diterima server.'}
@@ -610,12 +599,12 @@ function OperationalMonitoringPanel({ orderDetail }: { orderDetail: any }) {
 function StuckDiagnosticsPanel({ orderDetail }: { orderDetail: any }) {
   if (!orderDetail?.stuck_reason) {
     return (
-      <div className="p-6 rounded-[32px] bg-emerald-500/5 border border-emerald-500/10 space-y-2">
-        <p className="text-[10px] font-black text-emerald-300 uppercase tracking-widest flex items-center gap-2">
-          <AlertCircle size={14} />
+      <div className="p-6 rounded-[32px] bg-success-surface border border-success space-y-2">
+        <p className="text-[10px] font-black text-success uppercase tracking-widest flex items-center gap-2">
+          <AlertCircle size={14} aria-hidden="true" />
           Stuck Diagnostics
         </p>
-        <p className="text-xs text-zinc-500 font-bold leading-relaxed">
+        <p className="text-xs text-foreground-muted font-bold leading-relaxed">
           Tidak ada stuck signal dari dispatch, proof, service report, atau settlement.
         </p>
       </div>
@@ -626,15 +615,15 @@ function StuckDiagnosticsPanel({ orderDetail }: { orderDetail: any }) {
     <div className={cn(
       'p-6 rounded-[32px] border space-y-4',
       orderDetail.stuck_severity === 'critical'
-        ? 'bg-red-500/5 border-red-500/15'
-        : 'bg-amber-500/5 border-amber-500/15'
+        ? 'bg-error-surface border-error'
+        : 'bg-warning-surface border-warning'
     )}>
       <div className="flex items-start justify-between gap-4">
         <p className={cn(
           'text-[10px] font-black uppercase tracking-widest flex items-center gap-2',
-          orderDetail.stuck_severity === 'critical' ? 'text-red-300' : 'text-amber-300'
+          orderDetail.stuck_severity === 'critical' ? 'text-error' : 'text-warning'
         )}>
-          <AlertCircle size={14} />
+          <AlertCircle size={14} aria-hidden="true" />
           Stuck Diagnostics
         </p>
         <span className={cn('px-3 py-1 rounded-full border text-[10px] font-black uppercase', stuckBadgeTone(orderDetail.stuck_severity))}>
@@ -642,12 +631,12 @@ function StuckDiagnosticsPanel({ orderDetail }: { orderDetail: any }) {
         </span>
       </div>
       <div>
-        <p className="text-sm font-black text-zinc-100">{orderDetail.stuck_label || orderDetail.stuck_reason}</p>
-        <p className="mt-1 text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
+        <p className="text-sm font-black text-foreground-muted">{orderDetail.stuck_label || orderDetail.stuck_reason}</p>
+        <p className="mt-1 text-[10px] text-foreground-muted font-bold uppercase tracking-widest">
           Since {formatStuckSince(orderDetail.stuck_since)}
         </p>
       </div>
-      <p className="text-xs text-zinc-500 font-bold leading-relaxed">
+      <p className="text-xs text-foreground-muted font-bold leading-relaxed">
         Buka event stream, dispatch decision, proof risk, dan evidence vault di panel ini sebelum reassign atau flag issue.
       </p>
     </div>
@@ -684,36 +673,36 @@ function SupportResolutionPanel({ orderDetail }: { orderDetail: any }) {
     || 'Reason belum tersedia dari API'
 
   return (
-    <div className="p-6 rounded-[32px] bg-red-500/5 border border-red-500/10 space-y-5">
+    <div className="p-6 rounded-[32px] bg-error-surface border border-error space-y-5">
       <div className="flex items-start justify-between gap-4">
-        <p className="text-[10px] font-black text-red-300 uppercase tracking-widest flex items-center gap-2">
-          <AlertCircle size={14} />
+        <p className="text-[10px] font-black text-error uppercase tracking-widest flex items-center gap-2">
+          <AlertCircle size={14} aria-hidden="true" />
           Support Case
         </p>
-        <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-zinc-500 uppercase">
+        <span className="px-3 py-1 rounded-full bg-surface-subtle border border-border text-[10px] font-black text-foreground-muted uppercase">
           {status || 'review'}
         </span>
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs font-black text-zinc-100 uppercase tracking-widest">Reason</p>
-        <p className="text-xs text-zinc-400 font-bold leading-relaxed">{reason}</p>
+        <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Reason</p>
+        <p className="text-xs text-foreground-muted font-bold leading-relaxed">{reason}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Proof</p>
-          <p className="text-sm font-black text-zinc-100 mt-1">{cancellationProofs.length}</p>
+        <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Proof</p>
+          <p className="text-sm font-black text-foreground-muted mt-1">{cancellationProofs.length}</p>
         </div>
-        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Audit Events</p>
-          <p className="text-sm font-black text-zinc-100 mt-1">{supportEvents.length}</p>
+        <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Audit Events</p>
+          <p className="text-sm font-black text-foreground-muted mt-1">{supportEvents.length}</p>
         </div>
       </div>
 
-      <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Location</p>
-        <p className="text-xs font-mono text-zinc-300 mt-1">
+      <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
+        <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Location</p>
+        <p className="text-xs font-mono text-foreground-muted mt-1">
           {latitude !== null && longitude !== null ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : 'Belum ada koordinat bukti'}
         </p>
       </div>
@@ -722,10 +711,10 @@ function SupportResolutionPanel({ orderDetail }: { orderDetail: any }) {
         <button
           type="button"
           onClick={() => window.open(uploadUrl(latestProof.photo_url), '_blank', 'noopener,noreferrer')}
-          className="w-full rounded-2xl bg-red-500/10 border border-red-500/20 p-3 text-left flex items-center justify-between gap-3 hover:bg-red-500/15 transition-colors"
+          className="w-full rounded-2xl bg-error-surface border border-error p-3 text-left flex items-center justify-between gap-3 hover:bg-error-surface transition-colors"
         >
-          <span className="text-[10px] font-black uppercase tracking-widest text-red-200">Buka proof cancellation</span>
-          <ImageIcon size={16} className="text-red-200" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-error">Buka proof cancellation</span>
+          <ImageIcon size={16} aria-hidden="true" className="text-error" />
         </button>
       )}
     </div>
@@ -749,6 +738,20 @@ export default function ActiveOrdersTable() {
   const [forceCancelRefundMode, setForceCancelRefundMode] = useState<'none' | 'full' | 'partial'>('none')
   const [forceCancelItems, setForceCancelItems] = useState<Record<string, number>>({})
   const limit = 10
+
+  useEffect(() => {
+    if (!selectedOrderId && !showForceCancel) return undefined
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      if (showForceCancel) {
+        setShowForceCancel(false)
+        return
+      }
+      setSelectedOrderId(null)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [selectedOrderId, showForceCancel])
 
   // Fetch Orders — auto-refetch every 10s for near-realtime updates
   const { data: ordersData, isLoading: isLoadingOrders, isError: isOrdersError, error: ordersError, refetch: refetchOrders } = useQuery({
@@ -848,23 +851,24 @@ export default function ActiveOrdersTable() {
     index === self.findIndex((o: any) => o.id === order.id)
   )
   const total = ordersData?.total || 0
-  const totalPages = Math.ceil(total / limit)
+  const totalPages = Math.max(1, Math.ceil(total / limit))
   const operationalTimeline = useMemo(() => buildOperationalTimeline(orderDetail), [orderDetail])
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
+          <Search aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-foreground-muted" />
           <input 
             type="text" 
+            aria-label="Search orders by ID, customer, or courier"
             placeholder="Search by ID, Customer, or Courier..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value)
               setPage(1)
             }}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all font-medium text-zinc-200"
+            className="w-full bg-surface-subtle border border-border rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all font-medium text-foreground-muted"
           />
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
@@ -877,18 +881,18 @@ export default function ActiveOrdersTable() {
             className={cn(
               'flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 border rounded-2xl text-sm font-black uppercase tracking-widest transition-all',
               stuckFilter === 'risk'
-                ? 'bg-amber-500/10 border-amber-500/25 text-amber-300'
-                : 'bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white'
+                ? 'bg-warning-surface border-warning text-warning'
+                : 'bg-surface-subtle border-border text-foreground-muted hover:bg-surface-subtle hover:text-foreground'
             )}
           >
-            <Filter size={18} />
+            <Filter aria-hidden="true" size={18} />
             Stuck
           </button>
-          <button 
+          <button type="button" aria-label="Refresh orders"
             onClick={() => refetchOrders()}
             className="p-3 bg-primary/10 border border-primary/20 rounded-2xl text-primary-light hover:bg-primary/20 transition-all"
           >
-            <Clock size={20} />
+            <Clock aria-hidden="true" size={20} />
           </button>
         </div>
       </div>
@@ -905,8 +909,8 @@ export default function ActiveOrdersTable() {
             className={cn(
               'h-9 px-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all',
               stuckFilter === filter.value
-                ? 'bg-primary text-white border-primary shadow-lg shadow-primary/10'
-                : 'bg-white/[0.03] border-white/10 text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.06]'
+                ? 'bg-primary text-on-primary border-primary shadow-lg shadow-primary/10'
+                : 'bg-surface/[0.03] border-border text-foreground-muted hover:text-foreground-muted hover:bg-surface/[0.06]'
             )}
           >
             {filter.label}
@@ -914,47 +918,47 @@ export default function ActiveOrdersTable() {
         ))}
       </div>
 
-      <div className="mb-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 rounded-3xl border border-white/5 bg-white/[0.02] p-4">
+      <div className="mb-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 rounded-3xl border border-border bg-surface/[0.02] p-4">
         <input
           aria-label="Filter service"
           value={serviceFilter}
           onChange={(e) => { setServiceFilter(e.target.value); setPage(1) }}
           placeholder="Service / category"
-          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="bg-surface-subtle border border-border rounded-xl px-3 py-2 text-xs text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
         <input
           aria-label="Filter subtype"
           value={subtypeFilter}
           onChange={(e) => { setSubtypeFilter(e.target.value); setPage(1) }}
           placeholder="Service subtype"
-          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="bg-surface-subtle border border-border rounded-xl px-3 py-2 text-xs text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
         <input
           aria-label="Filter provider"
           value={providerFilter}
           onChange={(e) => { setProviderFilter(e.target.value); setPage(1) }}
           placeholder="Provider / carrier"
-          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="bg-surface-subtle border border-border rounded-xl px-3 py-2 text-xs text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
         <input
           aria-label="Filter merchant"
           value={merchantFilter}
           onChange={(e) => { setMerchantFilter(e.target.value); setPage(1) }}
           placeholder="Merchant ID / name"
-          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="bg-surface-subtle border border-border rounded-xl px-3 py-2 text-xs text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
         <input
           aria-label="Filter courier"
           value={courierFilter}
           onChange={(e) => { setCourierFilter(e.target.value); setPage(1) }}
           placeholder="Courier ID / name"
-          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="bg-surface-subtle border border-border rounded-xl px-3 py-2 text-xs text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
         <select
           aria-label="Filter payment state"
           value={paymentStateFilter}
           onChange={(e) => { setPaymentStateFilter(e.target.value); setPage(1) }}
-          className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="bg-surface border border-border rounded-xl px-3 py-2 text-xs text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
         >
           <option value="">All payment states</option>
           <option value="pending">Pending</option>
@@ -968,7 +972,7 @@ export default function ActiveOrdersTable() {
         {isLoadingOrders ? (
           <div className="py-20 flex flex-col items-center justify-center space-y-4">
             <Skeleton className="h-10 w-10 rounded-full" />
-            <p className="text-xs font-black text-zinc-500 uppercase tracking-widest">Scanning Grid...</p>
+            <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Scanning Grid...</p>
           </div>
         ) : isOrdersError ? (
           <ErrorState
@@ -978,73 +982,71 @@ export default function ActiveOrdersTable() {
           />
         ) : orders.length === 0 ? (
           <div className="py-20 text-center">
-            <Package className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
-            <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">No active orders found</p>
+            <Package aria-hidden="true" className="w-12 h-12 text-foreground-muted mx-auto mb-4" />
+            <p className="text-foreground-muted font-bold uppercase tracking-widest text-xs">No active orders found</p>
           </div>
         ) : (
-          <table className="w-full text-left">
+          <table className="w-full text-left" aria-label="Active orders">
+            <caption className="sr-only">Active orders with customer, courier, status, risk, and revenue details</caption>
             <thead>
-              <tr className="border-b border-white/5 text-zinc-600 text-[10px] font-black uppercase tracking-[0.2em]">
-                <th className="px-6 py-4">ID & Model</th>
-                <th className="px-6 py-4">Customer</th>
-                <th className="px-6 py-4">Courier</th>
-                <th className="px-6 py-4">Status & Risk</th>
-                <th className="px-6 py-4 text-right">Revenue</th>
+              <tr className="sticky top-0 z-10 border-b border-border bg-surface-raised text-foreground-muted text-[10px] font-black uppercase tracking-[0.2em]">
+                <th scope="col" className="px-6 py-4">ID & Model</th>
+                <th scope="col" className="px-6 py-4">Customer</th>
+                <th scope="col" className="px-6 py-4">Courier</th>
+                <th scope="col" className="px-6 py-4">Status & Risk</th>
+                <th scope="col" className="px-6 py-4 text-right">Revenue</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-border">
               {orders.map((order: any, i: number) => (
                 <motion.tr 
                   key={`order-${order.id}-${i}`}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.03 }}
-                  className="group hover:bg-white/[0.03] transition-all cursor-pointer border-l-2 border-transparent hover:border-primary"
+                  tabIndex={0}
+                  aria-label={`Open order ${order.id}`}
+                  className="group hover:bg-surface/[0.03] transition-all cursor-pointer border-l-2 border-transparent hover:border-primary"
                   onClick={() => setSelectedOrderId(order.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setSelectedOrderId(order.id);
+                    }
+                  }}
                 >
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-4">
                       <div className={cn(
                         "h-10 w-10 rounded-xl flex items-center justify-center transition-all shadow-lg",
-                        "bg-emerald-500/10 text-emerald-400"
+                        "bg-success-surface text-success"
                       )}>
-                        <Package size={18} />
+                        <Package size={18} aria-hidden="true" />
                       </div>
                       <div>
-                        <span className="font-black text-zinc-100 block text-sm tracking-tight">{order.id}</span>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{order.model} · {displayServiceCategory(order.service_category, order.service_code)}</span>
+                        <span className="font-black text-foreground-muted block text-sm tracking-tight">{order.id}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">{order.model} · {displayServiceCategory(order.service_category, order.service_code)}</span>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-5">
-                    <p className="text-sm font-bold text-zinc-300">{order.customer_name || 'Customer belum tersedia dari API'}</p>
-                    <p className="text-[10px] text-zinc-600 font-medium">{order.customer_phone || order.customer_email || 'Profil customer belum tersinkron'}</p>
+                    <p className="text-sm font-bold text-foreground-muted">{order.customer_name || 'Customer belum tersedia dari API'}</p>
+                    <p className="text-[10px] text-foreground-muted font-medium">{order.customer_phone || order.customer_email || 'Profil customer belum tersinkron'}</p>
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
                       <InitialsAvatar name={order.courier_name} />
-                      <span className="text-zinc-300 text-sm font-black">{order.courier_name || 'Kurir belum ditugaskan'}</span>
+                      <span className="text-foreground-muted text-sm font-black">{order.courier_name || 'Kurir belum ditugaskan'}</span>
                     </div>
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "w-2 h-2 rounded-full",
-                        order.status === 'delivered' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" :
-                        order.status === 'delayed' || order.status === 'failed' ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" :
-                        order.status === 'scheduled' ? "bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]" :
-                        "bg-primary animate-pulse shadow-[0_0_8px_rgba(0,100,55,0.5)]"
-                      )} />
-                      <span className={cn(
-                        "text-xs font-black uppercase tracking-widest",
-                        order.status === 'delayed' ? "text-red-400" :
-                        order.status === 'scheduled' ? "text-violet-300" : "text-zinc-200"
-                      )}>{order.status}</span>
+                      <OrderStatusBadge status={order.status} />
                       {/* FB-123: badge Terjadwal hanya untuk order yang MASIH terjadwal
                           (AUDIT-FIX: setelah aktivasi status berubah tapi scheduled_at
                           masih terisi → badge tidak boleh muncul di non-scheduled) */}
                       {order.status === 'scheduled' && order.scheduled_at && (
-                        <span className="text-[10px] font-bold bg-violet-500/10 text-violet-300 border border-violet-500/30 rounded-full px-2 py-0.5 ml-1">
+                        <span className="text-[10px] font-bold bg-info/10 text-info border border-info/30 rounded-full px-2 py-0.5 ml-1">
                           Terjadwal {formatScheduledTime(order.scheduled_at)}
                         </span>
                       )}
@@ -1052,15 +1054,15 @@ export default function ActiveOrdersTable() {
                     {order.stuck_reason && (
                       <div className="mt-2">
                         <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest', stuckBadgeTone(order.stuck_severity))}>
-                          <AlertCircle size={12} />
+                          <AlertCircle aria-hidden="true" size={12} />
                           {order.stuck_label || order.stuck_reason}
                         </span>
                       </div>
                     )}
-                    <p className="mt-2 text-[10px] text-zinc-600 font-bold uppercase tracking-widest">Payment: {order.payment_status || 'unrecorded'}</p>
+                    <p className="mt-2 text-[10px] text-foreground-muted font-bold uppercase tracking-widest">Payment: <StatusBadge status={order.payment_status || 'unrecorded'} labelPrefix="Payment status" className="ml-1 text-[10px] normal-case tracking-normal" /></p>
                   </td>
                   <td className="px-6 py-5 text-right">
-                    <span className="text-sm font-black text-zinc-100">Rp {parseInt(order.total_amount).toLocaleString()}</span>
+                    <span className="text-sm font-black text-foreground-muted">Rp {parseInt(order.total_amount).toLocaleString()}</span>
                   </td>
                 </motion.tr>
               ))}
@@ -1069,38 +1071,40 @@ export default function ActiveOrdersTable() {
         )}
       </div>
 
-      <div className="mt-8 pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
-        <p className="text-[10px] text-zinc-500 uppercase tracking-[0.2em] font-black">
+      <div className="mt-8 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-6">
+        <p className="text-[10px] text-foreground-muted uppercase tracking-[0.2em] font-black">
           {isLoadingOrders ? 'Calculating Grid...' : `Displaying ${orders.length} of ${total} logical units`}
         </p>
         <div className="flex items-center gap-2">
-          <button 
+          <button
+            type="button"
+            aria-label="Previous orders page"
             disabled={page === 1}
             onClick={() => setPage(p => Math.max(1, p - 1))}
-            className="p-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 disabled:opacity-20 hover:text-white transition-all"
+            className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted disabled:opacity-20 hover:text-foreground transition-all"
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={20} aria-hidden="true" />
           </button>
           <div className="flex items-center gap-1">
              {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => (
-               <button
+               <button type="button" aria-label={`Orders page ${i + 1}`} aria-current={page === i + 1 ? 'page' : undefined}
                  key={i}
                  onClick={() => setPage(i + 1)}
                  className={cn(
                    "w-10 h-10 rounded-xl text-xs font-black transition-all",
-                   page === i + 1 ? "bg-primary text-white shadow-lg" : "text-zinc-500 hover:bg-white/5"
+                   page === i + 1 ? "bg-primary text-on-primary shadow-lg" : "text-foreground-muted hover:bg-surface-subtle"
                  )}
                >
                  {i + 1}
                </button>
              ))}
           </div>
-          <button 
+          <button type="button" aria-label="Next orders page"
             disabled={page === totalPages}
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            className="p-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 disabled:opacity-20 hover:text-white transition-all"
+            className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted disabled:opacity-20 hover:text-foreground transition-all"
           >
-            <ChevronRight size={20} />
+            <ChevronRight size={20} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -1114,14 +1118,18 @@ export default function ActiveOrdersTable() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedOrderId(null)}
-              className="absolute inset-0 bg-zinc-950/90 backdrop-blur-xl"
+              className="absolute inset-0 bg-surface-subtle backdrop-blur-xl"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="glass-card w-full max-w-6xl max-h-[90vh] overflow-hidden rounded-[48px] relative z-10 border-white/10 flex flex-col shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="admin-order-detail-title"
+              className="glass-card w-full max-w-6xl max-h-[90vh] overflow-hidden rounded-[48px] relative z-10 border-border flex flex-col shadow-2xl"
             >
+              <FocusTrap active={Boolean(selectedOrderId) && !showForceCancel} className="flex min-h-0 flex-1 flex-col">
               {isLoadingDetail ? (
                 <div className="flex-1 flex flex-col items-center justify-center space-y-6 py-40">
                   <Skeleton className="h-16 w-16 rounded-full" />
@@ -1140,56 +1148,51 @@ export default function ActiveOrdersTable() {
                       <div className="flex-1 space-y-12">
                         <div className="flex items-start gap-8">
                           <div className={cn(
-                            "h-20 w-20 rounded-[32px] flex items-center justify-center text-white shadow-2xl transition-all shrink-0",
-                            "bg-emerald-500 shadow-emerald-500/20"
+                            "h-20 w-20 rounded-[32px] flex items-center justify-center text-foreground shadow-2xl transition-all shrink-0",
+                            "bg-success shadow-success"
                           )}>
-                            <Package size={40} />
+                            <Package size={40} aria-hidden="true" />
                           </div>
                           <div className="space-y-1">
                             <div className="flex items-center gap-4">
-                              <h2 className="text-5xl font-black text-zinc-100 tracking-tighter">{orderDetail.id}</h2>
+                              <h2 id="admin-order-detail-title" className="text-5xl font-black text-foreground-muted tracking-tighter">{orderDetail.id}</h2>
                               <div className="flex gap-2">
-                                <span className="px-4 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10 text-[10px] font-black uppercase tracking-widest">
+                                <span className="px-4 py-1.5 rounded-full bg-surface-subtle text-foreground-muted border border-border text-[10px] font-black uppercase tracking-widest">
                                   {orderDetail.model}
                                 </span>
-                                <span className="px-4 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10 text-[10px] font-black uppercase tracking-widest">
+                                <span className="px-4 py-1.5 rounded-full bg-surface-subtle text-foreground-muted border border-border text-[10px] font-black uppercase tracking-widest">
                                   {displayServiceCategory(orderDetail.service_category, orderDetail.service_code)}
                                 </span>
-                                <span className={cn(
-                                  "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border",
-                                  orderDetail.status === 'delivered' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-primary/10 text-primary-light border-primary/20"
-                                )}>
-                                  {orderDetail.status}
-                                </span>
+                                <OrderStatusBadge status={orderDetail.status} className="px-4 py-1.5 text-[10px]" />
                               </div>
                             </div>
-                            <p className="text-zinc-500 font-bold flex items-center gap-2 tracking-tight">
-                              <Calendar size={14} />
+                            <p className="text-foreground-muted font-bold flex items-center gap-2 tracking-tight">
+                              <Calendar size={14} aria-hidden="true" />
                               Created on {format(new Date(orderDetail.created_at), 'MMMM dd, yyyy HH:mm')}
                             </p>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          <div className="space-y-6 p-8 rounded-[40px] bg-white/[0.02] border border-white/5 shadow-inner">
-                            <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-                              <Users size={14} className="text-primary-light" />
+                          <div className="space-y-6 p-8 rounded-[40px] bg-surface/[0.02] border border-border shadow-inner">
+                            <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                              <Users size={14} aria-hidden="true" className="text-primary-light" />
                               Participants
                             </p>
                             <div className="space-y-6">
                               <div className="flex items-center justify-between group">
-                                <span className="text-sm text-zinc-500 font-bold italic group-hover:text-zinc-400 transition-colors">Customer</span>
+                                <span className="text-sm text-foreground-muted font-bold italic group-hover:text-foreground-muted transition-colors">Customer</span>
                                 <div className="text-right">
-                                  <p className="text-sm font-black text-zinc-100">{orderDetail.customer_name}</p>
-                                  <p className="text-[10px] text-zinc-600 font-medium">{orderDetail.customer_phone}</p>
+                                  <p className="text-sm font-black text-foreground-muted">{orderDetail.customer_name}</p>
+                                  <p className="text-[10px] text-foreground-muted font-medium">{orderDetail.customer_phone}</p>
                                 </div>
                               </div>
                               <div className="flex items-center justify-between group">
-                                <span className="text-sm text-zinc-500 font-bold italic group-hover:text-zinc-400 transition-colors">Current Courier</span>
+                                <span className="text-sm text-foreground-muted font-bold italic group-hover:text-foreground-muted transition-colors">Current Courier</span>
                                 <div className="flex items-center gap-3">
                                   <div className="text-right">
-                                  <p className="text-sm font-black text-zinc-100">{orderDetail.courier_name || 'Kurir belum ditugaskan'}</p>
-                                  <p className="text-[10px] text-zinc-600 font-medium">{orderDetail.courier_phone || '---'}</p>
+                                  <p className="text-sm font-black text-foreground-muted">{orderDetail.courier_name || 'Kurir belum ditugaskan'}</p>
+                                  <p className="text-[10px] text-foreground-muted font-medium">{orderDetail.courier_phone || '---'}</p>
                                 </div>
                                   <InitialsAvatar name={orderDetail.courier_name} />
                                 </div>
@@ -1197,23 +1200,23 @@ export default function ActiveOrdersTable() {
                             </div>
                           </div>
                           
-                          <div className="space-y-6 p-8 rounded-[40px] bg-white/[0.02] border border-white/5 shadow-inner">
-                            <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-                              <BarChart3 size={14} className="text-primary-light" />
+                          <div className="space-y-6 p-8 rounded-[40px] bg-surface/[0.02] border border-border shadow-inner">
+                            <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                              <BarChart3 size={14} className="text-primary-light" aria-hidden="true" />
                               Financial Overview
                             </p>
                             <div className="space-y-6">
                               <div className="flex items-center justify-between">
-                                <span className="text-sm text-zinc-500 font-bold italic">Base Fare</span>
-                                <span className="text-sm font-black text-zinc-100">Rp {parseInt(orderDetail.base_fare).toLocaleString()}</span>
+                                <span className="text-sm text-foreground-muted font-bold italic">Base Fare</span>
+                                <span className="text-sm font-black text-foreground-muted">Rp {parseInt(orderDetail.base_fare).toLocaleString()}</span>
                               </div>
                               <div className="flex items-center justify-between">
-                                <span className="text-sm text-zinc-500 font-bold italic">Platform Fee</span>
-                                <span className="text-sm font-black text-zinc-400">Rp {parseInt(orderDetail.platform_fee).toLocaleString()}</span>
+                                <span className="text-sm text-foreground-muted font-bold italic">Platform Fee</span>
+                                <span className="text-sm font-black text-foreground-muted">Rp {parseInt(orderDetail.platform_fee).toLocaleString()}</span>
                               </div>
-                              <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                              <div className="flex items-center justify-between pt-4 border-t border-border">
                                 <span className="text-sm font-black text-primary-light uppercase tracking-widest">Total Amount</span>
-                                <span className="text-xl font-black text-zinc-100">Rp {parseInt(orderDetail.total_amount).toLocaleString()}</span>
+                                <span className="text-xl font-black text-foreground-muted">Rp {parseInt(orderDetail.total_amount).toLocaleString()}</span>
                               </div>
                             </div>
                           </div>
@@ -1221,33 +1224,33 @@ export default function ActiveOrdersTable() {
 
                         {/* FB-110: rincian food (merchant + item + timeline masak) */}
                         {orderDetail.food_items?.length > 0 && (
-                          <div className="space-y-6 p-8 rounded-[40px] bg-white/[0.02] border border-white/5 shadow-inner">
-                            <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-                              <UtensilsCrossed size={14} className="text-primary-light" />
+                          <div className="space-y-6 p-8 rounded-[40px] bg-surface/[0.02] border border-border shadow-inner">
+                            <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                              <UtensilsCrossed size={14} className="text-primary-light" aria-hidden="true" />
                               Food Order Detail
                             </p>
                             {orderDetail.food_merchant && (
                               <div className="space-y-4">
                                 <div className="flex items-center justify-between group">
-                                  <span className="text-sm text-zinc-500 font-bold italic group-hover:text-zinc-400 transition-colors flex items-center gap-2">
-                                    <Store size={14} className="text-primary-light" /> Merchant
+                                  <span className="text-sm text-foreground-muted font-bold italic group-hover:text-foreground-muted transition-colors flex items-center gap-2">
+                                    <Store size={14} className="text-primary-light" aria-hidden="true" /> Merchant
                                   </span>
                                   <div className="text-right">
-                                    <p className="text-sm font-black text-zinc-100">{orderDetail.food_merchant.merchant_name}</p>
-                                    <p className="text-[10px] text-zinc-600 font-medium">{orderDetail.food_merchant.merchant_address}</p>
+                                    <p className="text-sm font-black text-foreground-muted">{orderDetail.food_merchant.merchant_name}</p>
+                                    <p className="text-[10px] text-foreground-muted font-medium">{orderDetail.food_merchant.merchant_address}</p>
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-sm text-zinc-500 font-bold italic">Diterima Merchant</span>
-                                  <span className="text-sm font-black text-zinc-100">
+                                  <span className="text-sm text-foreground-muted font-bold italic">Diterima Merchant</span>
+                                  <span className="text-sm font-black text-foreground-muted">
                                     {orderDetail.food_merchant.merchant_accepted_at
                                       ? format(new Date(orderDetail.food_merchant.merchant_accepted_at), 'dd MMM yyyy HH:mm')
                                       : '—'}
                                   </span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-sm text-zinc-500 font-bold italic">Makanan Siap</span>
-                                  <span className="text-sm font-black text-zinc-100">
+                                  <span className="text-sm text-foreground-muted font-bold italic">Makanan Siap</span>
+                                  <span className="text-sm font-black text-foreground-muted">
                                     {orderDetail.food_merchant.food_ready_at
                                       ? format(new Date(orderDetail.food_merchant.food_ready_at), 'dd MMM yyyy HH:mm')
                                       : '—'}
@@ -1257,13 +1260,13 @@ export default function ActiveOrdersTable() {
                             )}
                             <div className="pt-2 space-y-3">
                               {orderDetail.food_items.map((item: any, idx: number) => (
-                                <div key={idx} className="flex items-start justify-between gap-4 border-t border-white/5 pt-3">
+                                <div key={idx} className="flex items-start justify-between gap-4 border-t border-border pt-3">
                                   <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-black text-zinc-100">
+                                    <p className="text-sm font-black text-foreground-muted">
                                       {item.quantity}× {item.item_name}
                                     </p>
                                     {Array.isArray(item.variants) && item.variants.length > 0 && (
-                                      <p className="mt-1 text-[10px] text-zinc-500 font-bold leading-relaxed">
+                                      <p className="mt-1 text-[10px] text-foreground-muted font-bold leading-relaxed">
                                         {item.variants.map((variant: any) => {
                                           const variantName = String(variant.variant_name || '').trim();
                                           const optionName = String(variant.option_name || '').trim();
@@ -1272,10 +1275,10 @@ export default function ActiveOrdersTable() {
                                       </p>
                                     )}
                                     {item.notes && (
-                                      <p className="text-[10px] text-zinc-600 font-medium">Catatan: {item.notes}</p>
+                                      <p className="text-[10px] text-foreground-muted font-medium">Catatan: {item.notes}</p>
                                     )}
                                   </div>
-                                  <span className="shrink-0 text-sm font-black text-zinc-100">Rp {parseInt(item.subtotal).toLocaleString()}</span>
+                                  <span className="shrink-0 text-sm font-black text-foreground-muted">Rp {parseInt(item.subtotal).toLocaleString()}</span>
                                 </div>
                               ))}
                             </div>
@@ -1283,8 +1286,8 @@ export default function ActiveOrdersTable() {
                         )}
 
                         <div className="space-y-10">
-                          <h3 className="text-2xl font-black text-zinc-100 tracking-tight flex items-center gap-4">
-                            <Clock className="text-primary-light" size={28} />
+                          <h3 className="text-2xl font-black text-foreground-muted tracking-tight flex items-center gap-4">
+                            <Clock aria-hidden="true" className="text-primary-light" size={28} />
                             Logical Event Stream
                           </h3>
                           <div className="relative pl-12 space-y-12">
@@ -1292,25 +1295,25 @@ export default function ActiveOrdersTable() {
                             {operationalTimeline.map((event, i) => (
                               <div key={event.id} className="relative">
                                 <div className={cn(
-                                  "absolute -left-[33px] top-1 w-4 h-4 rounded-full border-4 border-zinc-950",
-                                  event.tone === 'success' ? "bg-emerald-400" : event.tone === 'danger' ? "bg-red-400" : event.tone === 'warning' ? "bg-amber-400" : event.tone === 'provider' ? "bg-blue-400" : i === 0 ? "bg-primary shadow-[0_0_15px_rgba(0,100,55,0.8)]" : "bg-zinc-700"
+                                  "absolute -left-[33px] top-1 w-4 h-4 rounded-full border-4 border-border",
+                                  event.tone === 'success' ? "bg-success" : event.tone === 'danger' ? "bg-error" : event.tone === 'warning' ? "bg-warning" : event.tone === 'provider' ? "bg-info" : i === 0 ? "bg-primary shadow-primary" : "bg-surface-subtle"
                                 )} />
                                 <div className="flex items-start justify-between">
                                   <div className="space-y-1">
-                                    <p className={cn("text-lg font-black tracking-tight", i === 0 ? "text-zinc-100" : "text-zinc-300")}>
+                                    <p className={cn("text-lg font-black tracking-tight", i === 0 ? "text-foreground-muted" : "text-foreground-muted")}>
                                       {event.label}
                                     </p>
-                                    <p className="text-xs text-zinc-500 font-bold italic leading-relaxed">{event.description}</p>
-                                    {event.actor && <p className="text-[10px] text-zinc-600 font-mono">Actor: {event.actor}</p>}
+                                    <p className="text-xs text-foreground-muted font-bold italic leading-relaxed">{event.description}</p>
+                                    {event.actor && <p className="text-[10px] text-foreground-muted font-mono">Actor: {event.actor}</p>}
                                   </div>
-                                  <p className="text-sm font-black text-zinc-600 font-mono bg-white/5 px-3 py-1 rounded-lg">
+                                  <p className="text-sm font-black text-foreground-muted font-mono bg-surface-subtle px-3 py-1 rounded-lg">
                                     {event.createdAt && !Number.isNaN(new Date(event.createdAt).getTime()) ? format(new Date(event.createdAt), 'HH:mm:ss') : 'Waktu N/A'}
                                   </p>
                                 </div>
                               </div>
                             ))}
                             {!operationalTimeline.length && (
-                              <p className="text-zinc-600 font-bold italic text-sm">No events recorded yet.</p>
+                              <p className="text-foreground-muted font-bold italic text-sm">No events recorded yet.</p>
                             )}
                           </div>
                         </div>
@@ -1318,8 +1321,8 @@ export default function ActiveOrdersTable() {
 
                       <div className="lg:w-96 space-y-10">
                         <div className="space-y-4">
-                           <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-                             <MapPin size={14} className="text-primary-light" />
+                           <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                             <MapPin size={14} aria-hidden="true" className="text-primary-light" />
                              Dynamic Map View
                            </p>
                            <RouteTelemetryPanel orderDetail={orderDetail} />
@@ -1337,9 +1340,9 @@ export default function ActiveOrdersTable() {
                               }
                             }}
                             disabled={reassignMutation.isPending}
-                            className="w-full py-6 rounded-[32px] bg-primary text-white font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                            className="w-full py-6 rounded-[32px] bg-primary text-on-primary font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                           >
-                            {reassignMutation.isPending ? <Loader2 size={20} className="animate-spin" /> : <Truck size={20} />}
+                            {reassignMutation.isPending ? <Loader2 size={20} aria-hidden="true" className="animate-spin" /> : <Truck size={20} aria-hidden="true" />}
                             Manual Reassign
                           </button>
                           <button 
@@ -1350,18 +1353,18 @@ export default function ActiveOrdersTable() {
                               }
                             }}
                             disabled={flagIssueMutation.isPending}
-                            className="w-full py-6 rounded-[32px] bg-red-500/10 text-red-400 border border-red-500/20 font-black uppercase tracking-[0.2em] text-[10px] hover:bg-red-500/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                            className="w-full py-6 rounded-[32px] bg-error-surface text-error border border-error font-black uppercase tracking-[0.2em] text-[10px] hover:bg-error-surface transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                           >
-                            {flagIssueMutation.isPending ? <Loader2 size={20} className="animate-spin" /> : <AlertCircle size={20} />}
+                            {flagIssueMutation.isPending ? <Loader2 size={20} aria-hidden="true" className="animate-spin" /> : <AlertCircle size={20} aria-hidden="true" />}
                             Flag Issue
                           </button>
                           {!['cancelled', 'failed', 'completed', 'delivered', 'pod_completed'].includes(String(orderDetail.status).toLowerCase()) && (
                             <button
                               type="button"
                               onClick={() => setShowForceCancel(true)}
-                              className="w-full py-6 rounded-[32px] bg-red-500/10 text-red-300 border border-red-500/30 font-black uppercase tracking-[0.2em] text-[10px] hover:bg-red-500/20 transition-all flex items-center justify-center gap-3"
+                              className="w-full py-6 rounded-[32px] bg-error-surface text-error border border-error font-black uppercase tracking-[0.2em] text-[10px] hover:bg-error-surface transition-all flex items-center justify-center gap-3"
                             >
-                              <Ban size={20} />
+                              <Ban size={20} aria-hidden="true" />
                               Force Cancel + Refund
                             </button>
                           )}
@@ -1374,32 +1377,32 @@ export default function ActiveOrdersTable() {
                         <GpsTrailPanel orderDetail={orderDetail} />
                         <ProviderRawEventsPanel events={Array.isArray(orderDetail.carrier_events) ? orderDetail.carrier_events : []} />
 
-                        <div className="p-8 rounded-[40px] bg-zinc-900 border border-white/5 space-y-6 shadow-inner">
+                        <div className="p-8 rounded-[40px] bg-surface border border-border space-y-6 shadow-inner">
                           <div className="flex items-center justify-between gap-3">
-                            <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Evidence Vault</p>
-                            <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-zinc-500">
+                            <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Evidence Vault</p>
+                            <span className="px-3 py-1 rounded-full bg-surface-subtle border border-border text-[10px] font-black text-foreground-muted">
                               {orderDetail.proofs?.length || 0} proof
                             </span>
                           </div>
                           {orderDetail.proofs?.length ? (
                             <div className="space-y-4">
                               {orderDetail.proofs.map((proof: any) => (
-                                <div key={proof.id} className="rounded-[28px] bg-white/[0.03] border border-white/10 p-4 space-y-3">
+                                <div key={proof.id} className="rounded-[28px] bg-surface/[0.03] border border-border p-4 space-y-3">
                                   <div className="flex items-start justify-between gap-4">
                       <div>
-                                      <p className="text-sm font-black text-zinc-100">{proof.proof_label || proof.scan_type}</p>
-                                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
+                                      <p className="text-sm font-black text-foreground-muted">{proof.proof_label || proof.scan_type}</p>
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">
                                         {proof.proof_category || 'operational'} {proof.recorded_at ? `• ${format(new Date(proof.recorded_at), 'HH:mm')}` : ''}
                                       </p>
                                     </div>
                                     {proof.reason_code && (
-                                      <span className="px-3 py-1 rounded-full bg-red-500/10 text-red-300 border border-red-500/20 text-[10px] font-black uppercase">
+                                      <span className="px-3 py-1 rounded-full bg-error-surface text-error border border-error text-[10px] font-black uppercase">
                                         {proof.reason_code.replace(/_/g, ' ')}
                                       </span>
                                     )}
                                   </div>
                                   {(proof.reason_note || proof.override_reason) && (
-                                    <p className="text-xs text-zinc-400 leading-relaxed">
+                                    <p className="text-xs text-foreground-muted leading-relaxed">
                                       {proof.reason_note || proof.override_reason}
                                     </p>
                                   )}
@@ -1407,31 +1410,31 @@ export default function ActiveOrdersTable() {
                                     <button
                                       type="button"
                                       onClick={() => window.open(uploadUrl(proof.photo_url), '_blank', 'noopener,noreferrer')}
-                                      className="w-full aspect-video rounded-2xl overflow-hidden border border-white/10 bg-zinc-800"
+                                      className="w-full aspect-video rounded-2xl overflow-hidden border border-border bg-surface-raised"
                                     >
                                       <img src={uploadUrl(proof.photo_url)} className="w-full h-full object-cover" alt={proof.proof_label || proof.scan_type} />
                                     </button>
                                   ) : (
-                                    <div className="rounded-2xl bg-zinc-800 border border-white/10 p-5 text-center">
-                                      <Package size={24} className="mx-auto text-zinc-700 mb-2" />
-                                      <span className="text-[10px] font-black text-zinc-700 uppercase tracking-[0.2em] block">No Photo</span>
+                                    <div className="rounded-2xl bg-surface-raised border border-border p-5 text-center">
+                                      <Package size={24} aria-hidden="true" className="mx-auto text-foreground-muted mb-2" />
+                                      <span className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] block">No Photo</span>
                                     </div>
                                   )}
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <div className="aspect-square rounded-[32px] bg-zinc-800 border border-white/10 flex items-center justify-center group overflow-hidden relative">
+                            <div className="aspect-square rounded-[32px] bg-surface-raised border border-border flex items-center justify-center group overflow-hidden relative">
                               <div className="text-center space-y-2">
-                                <Package size={32} className="mx-auto text-zinc-700 group-hover:text-primary transition-colors" />
-                                <span className="text-[10px] font-black text-zinc-700 group-hover:text-zinc-500 transition-colors uppercase tracking-[0.2em] block">No Photo</span>
+                                <Package size={32} aria-hidden="true" className="mx-auto text-foreground-muted group-hover:text-primary transition-colors" />
+                                <span className="text-[10px] font-black text-foreground-muted group-hover:text-foreground-muted transition-colors uppercase tracking-[0.2em] block">No Photo</span>
                               </div>
                             </div>
                           )}
                           {orderDetail.safety_events?.length ? (
-                            <div className="rounded-[28px] bg-red-500/5 border border-red-500/10 p-4 space-y-2">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-red-300">Operational Review</p>
-                              <p className="text-xs text-zinc-400">
+                            <div className="rounded-[28px] bg-error-surface border border-error p-4 space-y-2">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-error">Operational Review</p>
+                              <p className="text-xs text-foreground-muted">
                                 {orderDetail.safety_events[0].message || 'Ada event operasional terkait order ini.'}
                               </p>
                             </div>
@@ -1440,10 +1443,10 @@ export default function ActiveOrdersTable() {
                       </div>
                     </div>
                   </div>
-                  <div className="p-10 bg-white/[0.02] border-t border-white/5 flex justify-end">
+                  <div className="p-10 bg-surface/[0.02] border-t border-border flex justify-end">
                     <button 
                       onClick={() => setSelectedOrderId(null)}
-                      className="px-12 py-5 rounded-2xl bg-zinc-800 text-zinc-400 font-black uppercase tracking-widest text-[10px] hover:bg-zinc-700 hover:text-white transition-all border border-white/5"
+                      className="px-12 py-5 rounded-2xl bg-surface-raised text-foreground-muted font-black uppercase tracking-widest text-[10px] hover:bg-surface-subtle hover:text-foreground transition-all border border-border"
                     >
                       Close Context
                     </button>
@@ -1451,11 +1454,12 @@ export default function ActiveOrdersTable() {
                 </>
               ) : (
                 <div className="p-20 text-center space-y-4">
-                  <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
-                  <p className="text-zinc-500 font-black uppercase tracking-widest text-xs">Failed to load order metadata</p>
+                  <AlertCircle aria-hidden="true" className="w-12 h-12 text-error mx-auto" />
+                  <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">Failed to load order metadata</p>
                   <button onClick={() => setSelectedOrderId(null)} className="text-primary-light font-bold text-xs uppercase tracking-widest">Return to Grid</button>
                 </div>
               )}
+              </FocusTrap>
             </motion.div>
           </div>
         )}
@@ -1469,8 +1473,9 @@ export default function ActiveOrdersTable() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => !forceCancelMutation.isPending && setShowForceCancel(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-scrim/80 backdrop-blur-sm"
             />
+            <FocusTrap active={showForceCancel} className="relative z-10 w-full max-w-xl">
             <motion.form
               initial={{ opacity: 0, scale: 0.96, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1488,19 +1493,22 @@ export default function ActiveOrdersTable() {
                 }
                 forceCancelMutation.mutate()
               }}
-              className="glass-card w-full max-w-xl p-8 rounded-[32px] relative z-10 border-red-500/30 shadow-2xl space-y-6"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="force-cancel-title"
+              className="glass-card w-full p-8 rounded-[32px] border-error shadow-2xl space-y-6"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300">Admin action • audited</p>
-                  <h2 className="mt-2 text-2xl font-black text-zinc-100">Force cancel order?</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-zinc-500">Status order akan menjadi cancelled. Tindakan ini tidak tersedia untuk order terminal dan wajib memakai TOTP di backend.</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-error">Admin action • audited</p>
+                  <h2 id="force-cancel-title" className="mt-2 text-2xl font-black text-foreground-muted">Force cancel order?</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-foreground-muted">Status order akan menjadi cancelled. Tindakan ini tidak tersedia untuk order terminal dan wajib memakai TOTP di backend.</p>
                 </div>
-                <Ban className="shrink-0 text-red-300" size={24} />
+                <Ban aria-hidden="true" className="shrink-0 text-error" size={24} />
               </div>
 
               <label className="block space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Reason (min. 10 karakter)</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Reason (min. 10 karakter)</span>
                 <textarea
                   required
                   minLength={10}
@@ -1508,16 +1516,16 @@ export default function ActiveOrdersTable() {
                   onChange={(event) => setForceCancelReason(event.target.value)}
                   rows={3}
                   placeholder="Contoh: merchant tidak dapat memenuhi pesanan dan customer perlu dipulihkan dananya"
-                  className="w-full resize-none rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-200 outline-none focus:ring-2 focus:ring-red-500/40"
+                  className="w-full resize-none rounded-2xl border border-border bg-surface-subtle px-4 py-3 text-sm text-foreground-muted outline-none focus:ring-2 focus:ring-error"
                 />
               </label>
 
               <label className="block space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Refund mode</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Refund mode</span>
                 <select
                   value={forceCancelRefundMode}
                   onChange={(event) => setForceCancelRefundMode(event.target.value as 'none' | 'full' | 'partial')}
-                  className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-zinc-200 outline-none focus:ring-2 focus:ring-red-500/40"
+                  className="w-full rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-foreground-muted outline-none focus:ring-2 focus:ring-error"
                 >
                   <option value="none">Tidak ada refund</option>
                   <option value="full">Refund penuh</option>
@@ -1526,14 +1534,14 @@ export default function ActiveOrdersTable() {
               </label>
 
               {forceCancelRefundMode === 'partial' && (
-                <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Item yang direfund</p>
+                <div className="space-y-3 rounded-2xl border border-border bg-surface/[0.03] p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Item yang direfund</p>
                   {Array.isArray(orderDetail.food_items) && orderDetail.food_items.length > 0 ? orderDetail.food_items.map((item: any, index: number) => {
                     const itemId = String(item.id || item.menu_item_id || item.item_id || '')
                     const maxQuantity = Math.max(1, Number(item.quantity) || 1)
                     if (!itemId) return null
                     return (
-                      <label key={`${itemId}-${index}`} className="flex items-center justify-between gap-3 text-sm text-zinc-300">
+                      <label key={`${itemId}-${index}`} className="flex items-center justify-between gap-3 text-sm text-foreground-muted">
                         <span className="min-w-0 truncate">{item.quantity || 1}× {item.item_name || 'Item menu'}</span>
                         <input
                           type="number"
@@ -1541,22 +1549,23 @@ export default function ActiveOrdersTable() {
                           max={maxQuantity}
                           value={forceCancelItems[itemId] || 0}
                           onChange={(event) => setForceCancelItems((current) => ({ ...current, [itemId]: Math.min(maxQuantity, Math.max(0, Number(event.target.value) || 0)) }))}
-                          className="w-20 rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-center text-sm text-zinc-200"
+                          className="w-20 rounded-xl border border-border bg-surface px-3 py-2 text-center text-sm text-foreground-muted"
                         />
                       </label>
                     )
-                  }) : <p className="text-xs text-zinc-500">Detail item makanan belum tersedia dari API order ini.</p>}
+                  }) : <p className="text-xs text-foreground-muted">Detail item makanan belum tersedia dari API order ini.</p>}
                 </div>
               )}
 
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" disabled={forceCancelMutation.isPending} onClick={() => setShowForceCancel(false)} className="rounded-2xl border border-white/10 px-5 py-3 text-xs font-black uppercase tracking-widest text-zinc-400 hover:bg-white/5 disabled:opacity-50">Batal</button>
-                <button type="submit" disabled={forceCancelMutation.isPending} className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-red-600/20 hover:bg-red-500 disabled:opacity-50">
-                  {forceCancelMutation.isPending && <Loader2 size={15} className="animate-spin" />}
+                <button type="button" disabled={forceCancelMutation.isPending} onClick={() => setShowForceCancel(false)} className="rounded-2xl border border-border px-5 py-3 text-xs font-black uppercase tracking-widest text-foreground-muted hover:bg-surface-subtle disabled:opacity-50">Batal</button>
+                <button type="submit" disabled={forceCancelMutation.isPending} className="inline-flex items-center gap-2 rounded-2xl bg-error px-5 py-3 text-xs font-black uppercase tracking-widest text-on-error shadow-lg shadow-error hover:bg-error disabled:opacity-50">
+                  {forceCancelMutation.isPending && <Loader2 size={15} aria-hidden="true" className="animate-spin" />}
                   Konfirmasi cancel
                 </button>
               </div>
             </motion.form>
+            </FocusTrap>
           </div>
         )}
       </AnimatePresence>

@@ -7,6 +7,8 @@ export interface Notification {
   title: string;
   message: string;
   type: NotificationType;
+  /** Keep critical context visible until the user explicitly dismisses it. */
+  persist?: boolean;
 }
 
 interface NotificationStore {
@@ -30,12 +32,15 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
   addNotification: (n) => {
     const id = createNotificationId();
     set((state) => ({ notifications: [...state.notifications, { ...n, id }] }));
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-      set((state) => ({
-        notifications: state.notifications.filter((item) => item.id !== id),
-      }));
-    }, 5000);
+    if (!n.persist) {
+      // Auto-remove routine messages after five seconds. Critical context is
+      // explicitly dismissed by the user so it cannot disappear mid-task.
+      setTimeout(() => {
+        set((state) => ({
+          notifications: state.notifications.filter((item) => item.id !== id),
+        }));
+      }, 5000);
+    }
   },
   removeNotification: (id) =>
     set((state) => ({

@@ -229,24 +229,25 @@ export function UploadStep({ onComplete, resumeJobId = null }: UploadStepProps) 
           onClick={downloadTemplate}
           className="inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/15"
         >
-          <Download className="h-4 w-4" />
+          <Download className="h-4 w-4" aria-hidden="true" />
           Download Template Excel Standar
         </button>
       </div>
 
       {/* Service Selection */}
-      <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+      <section className="space-y-4 rounded-xl border border-border bg-surface-subtle p-6 backdrop-blur-sm">
         <h3 className="flex items-center gap-2 text-lg font-semibold">
-          <UploadCloud className="h-5 w-5 text-primary" />
+          <UploadCloud className="h-5 w-5 text-primary"  aria-hidden="true"/>
           Pilih Layanan Pengiriman
         </h3>
         <div className="space-y-3">
-          <label className="text-sm font-medium text-muted-foreground">Jenis Layanan Default</label>
+          <label htmlFor="bulk-service-code" className="text-sm font-medium text-muted-foreground">Jenis Layanan Default</label>
           <select
+            id="bulk-service-code"
             value={serviceCode}
             onChange={(e) => setServiceCode(e.target.value)}
             disabled={isUploading}
-            className="w-full rounded-lg border border-white/10 bg-background/50 py-3 px-4 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-lg border border-border bg-background/50 py-3 px-4 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           >
             <option value="tembus_instant">Tembus Instant (P2P)</option>
             <option value="tembus_sameday">Tembus Sameday (Max 5 Drop, Multidrop)</option>
@@ -256,20 +257,21 @@ export function UploadStep({ onComplete, resumeJobId = null }: UploadStepProps) 
       </section>
 
       {/* Pickup Info */}
-      <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+      <section className="space-y-4 rounded-xl border border-border bg-surface-subtle p-6 backdrop-blur-sm">
         <h3 className="flex items-center gap-2 text-lg font-semibold">
-          <MapPin className="h-5 w-5 text-primary" />
+          <MapPin className="h-5 w-5 text-primary" aria-hidden="true" />
           Detail Pengambilan Semua Paket (Pickup)
         </h3>
 
         <div className="space-y-3">
-          <label className="text-sm font-medium text-muted-foreground">Alamat Lengkap</label>
+          <label htmlFor="bulk-pickup-address" className="text-sm font-medium text-muted-foreground">Alamat Lengkap</label>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <input
+              id="bulk-pickup-address"
               value={pickupAddress}
               onChange={(e) => setPickupAddress(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-background/50 py-3 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-lg border border-border bg-background/50 py-3 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               placeholder="Cari lokasi bangunan, jalan..."
               disabled={isUploading}
             />
@@ -277,10 +279,10 @@ export function UploadStep({ onComplete, resumeJobId = null }: UploadStepProps) 
           <button
             type="button"
             onClick={useCurrentLocation}
-            className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-subtle px-3 py-1.5 text-xs font-medium hover:bg-surface-subtle"
             disabled={isUploading}
           >
-            {isLocating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
+            {isLocating ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Navigation className="h-3.5 w-3.5" aria-hidden="true" />}
             Gunakan Lokasi Saya
           </button>
           <p className="text-xs text-muted-foreground">
@@ -295,20 +297,20 @@ export function UploadStep({ onComplete, resumeJobId = null }: UploadStepProps) 
       <div
         {...getRootProps()}
         className={`relative overflow-hidden border-2 border-dashed rounded-2xl p-10 transition-all duration-200 ease-in-out cursor-pointer flex flex-col items-center justify-center text-center ${
-          isDragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-white/5'
+          isDragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-surface-subtle'
         } ${isUploading && !pollingJobId ? 'opacity-50 pointer-events-none' : ''}`}
       >
-        <input {...getInputProps()} />
+        <input {...getInputProps({ 'aria-label': 'Pilih file CSV untuk upload massal' })} />
 
         {pollingJobId ? (
           <div className="flex flex-col items-center gap-4 w-full max-w-md mx-auto">
-            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            <Loader2 className="w-10 h-10 text-primary animate-spin" aria-hidden="true" />
             <div className="w-full space-y-2">
               <div className="flex justify-between text-sm font-medium">
                 <span>Memproses Data...</span>
                 <span>{progress.processed} / {progress.total} Baris</span>
               </div>
-              <div className="w-full bg-white/10 rounded-full h-2.5 overflow-hidden">
+              <div className="w-full bg-surface-subtle rounded-full h-2.5 overflow-hidden">
                 <div 
                   className="bg-primary h-2.5 rounded-full transition-all duration-500 ease-out" 
                   style={{ width: `${progress.total > 0 ? (progress.processed / progress.total) * 100 : 0}%` }}
@@ -320,7 +322,7 @@ export function UploadStep({ onComplete, resumeJobId = null }: UploadStepProps) 
         ) : file ? (
           <div className="flex flex-col items-center gap-3">
             <div className="p-3 bg-primary/10 rounded-full">
-              <CheckCircle2 className="w-8 h-8 text-primary" />
+              <CheckCircle2 className="w-8 h-8 text-primary" aria-hidden="true" />
             </div>
             <div>
               <p className="font-medium text-foreground">{file.name}</p>
@@ -331,7 +333,7 @@ export function UploadStep({ onComplete, resumeJobId = null }: UploadStepProps) 
         ) : (
           <div className="flex flex-col items-center gap-4">
             <div className="p-4 bg-muted rounded-full">
-              <UploadCloud className="w-10 h-10 text-muted-foreground" />
+              <UploadCloud className="w-10 h-10 text-muted-foreground"  aria-hidden="true"/>
             </div>
             <div>
               <p className="font-semibold text-foreground text-lg">Tarik &amp; Lepas file Excel di sini</p>
@@ -343,7 +345,7 @@ export function UploadStep({ onComplete, resumeJobId = null }: UploadStepProps) 
 
       {error && (
         <div className="flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-lg text-sm">
-          <AlertCircle className="w-4 h-4" />
+          <AlertCircle className="w-4 h-4" aria-hidden="true" />
           <p>{error}</p>
         </div>
       )}
@@ -361,12 +363,12 @@ export function UploadStep({ onComplete, resumeJobId = null }: UploadStepProps) 
         >
           {isUploading ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
               {pollingJobId ? `Memproses (${progress.processed}/${progress.total})...` : 'Mengunggah...'}
             </>
           ) : (
             <>
-              <CheckCircle2 className="w-5 h-5" />
+              <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
               Mulai Validasi
             </>
           )}

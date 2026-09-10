@@ -7,6 +7,7 @@ type RuntimeManifest = {
   locale: string;
   surface: 'customer_web';
   sections: Array<{ id: string; component: string; properties: Record<string, unknown> }>;
+  asset_references?: Array<{ asset_id: string; uri: string }>;
   checksum: string;
 };
 
@@ -35,19 +36,29 @@ const manifestFor = (revision: number, title: string): RuntimeManifest => ({
     component: 'notice',
     properties: { title, body: 'Presentation-only runtime content.' },
   }],
-});
+  asset_references: [],
+  });
 
 const installApiContract = async (
   page: Page,
   manifest: RuntimeManifest | null,
 ): Promise<void> => {
-  await page.route('**/api/v1/**', async (route: Route) => {
+  await page.route('**/*', async (route: Route) => {
     const url = new URL(route.request().url());
-    const path = url.pathname.replace('/api/v1', '');
-    if (path === '/auth/web/me') {
+    const requestUrl = route.request().url();
+    if (requestUrl.includes('/auth/web/me')) {
       await route.fulfill({ json: { success: true, user: { id: 'runtime-user', name: 'Runtime User' } } });
       return;
     }
+    if (requestUrl.includes('/auth/web/notifications')) {
+      await route.fulfill({ json: { success: true, notifications: [] } });
+      return;
+    }
+    if (!/^\/(?:api\/v1\/)?(?:auth|experience)\//.test(url.pathname)) {
+      await route.continue();
+      return;
+    }
+    const path = url.pathname.replace(/^\/api\/v1/, '');
     if (path === '/auth/web/orders') {
       await route.fulfill({ json: { success: true, orders: [activeOrder] } });
       return;
@@ -89,7 +100,7 @@ test.describe('Runtime experience contract', () => {
   test('updates a compatible revision without an app release and keeps the active order visible', async ({ page }) => {
     let revision = 1;
     await installApiContract(page, manifestFor(1, 'Revision satu'));
-    await page.route('**/api/v1/experience/manifest**', async (route) => {
+    await page.route('**/experience/manifest**', async (route) => {
       const manifest = manifestFor(revision, revision === 1 ? 'Revision satu' : 'Revision dua');
       await route.fulfill({ json: { success: true, data: manifest }, headers: { ETag: `"${manifest.checksum}"` } });
     });
@@ -112,5 +123,56 @@ test.describe('Runtime experience contract', () => {
     await expect(page.getByText('LCR-RUNTIME-001')).toBeVisible();
     await expect(page.getByText('Order Aktif Terbaru')).toBeVisible();
     await expect(page.getByText('Tidak ada order aktif.')).not.toBeVisible();
+  });
+
+  test('runtime campaign media keeps informative copy outside the image and preserves alt semantics', async ({ page }) => {
+    const mediaManifest: RuntimeManifest = {
+      ...manifestFor(1, 'Media campaign'),
+      sections: [{
+        id: 'media-hero',
+        component: 'hero_banner',
+        properties: {
+          title: 'Informative campaign title',
+          body: 'Copy remains readable outside arbitrary campaign art.',
+          image_asset_id: 'hero-asset',
+          alt_label: 'Illustrative food delivery banner',
+        },
+      }],
+      asset_references: [{ asset_id: 'hero-asset', uri: 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=' }],
+    };
+    await installApiContract(page, mediaManifest);
+    await page.goto('/dashboard');
+
+    const image = page.getByRole('img', { name: 'Illustrative food delivery banner' });
+    const title = page.getByRole('heading', { name: 'Informative campaign title' });
+    await expect(image).toBeVisible();
+    await expect(title).toBeVisible();
+    const [imageBox, titleBox] = await Promise.all([image.boundingBox(), title.boundingBox()]);
+    expect(imageBox).not.toBeNull();
+    expect(titleBox).not.toBeNull();
+    expect((imageBox?.y ?? 0) + (imageBox?.height ?? 0)).toBeLessThanOrEqual(titleBox?.y ?? 0);
+    await expect(image).not.toHaveAttribute('aria-hidden', 'true');
+  });
+
+  test('runtime decorative campaign media is hidden from assistive technology', async ({ page }) => {
+    const decorativeManifest: RuntimeManifest = {
+      ...manifestFor(1, 'Decorative campaign'),
+      sections: [{
+        id: 'decorative-hero',
+        component: 'hero_banner',
+        properties: {
+          title: 'Decorative campaign title',
+          image_asset_id: 'decorative-asset',
+          image_decorative: true,
+        },
+      }],
+      asset_references: [{ asset_id: 'decorative-asset', uri: 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=' }],
+    };
+    await installApiContract(page, decorativeManifest);
+    await page.goto('/dashboard');
+
+    const image = page.locator('img[aria-hidden="true"]');
+    await expect(image).toHaveCount(1);
+    await expect(image).toHaveAttribute('alt', '');
   });
 });

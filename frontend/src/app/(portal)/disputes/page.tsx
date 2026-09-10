@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { createElement, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { 
   AlertTriangle, 
+  CircleHelp,
   MessageSquare, 
   Clock, 
   CheckCircle, 
@@ -12,12 +13,41 @@ import {
   Loader2,
   ChevronRight,
   X,
+  XCircle,
   RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import DisputeChat from '@/components/DisputeChat';
 import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
+
+const getDisputeStatusPresentation = (status?: string) => {
+  const normalizedStatus = (status || '').toLowerCase();
+  switch (normalizedStatus) {
+    case 'open': return { label: 'Terbuka', icon: MessageSquare, className: 'bg-info-surface text-info border-info' };
+    case 'investigating':
+    case 'in_review': return { label: 'Sedang ditinjau', icon: Clock, className: 'bg-warning-surface text-warning border-warning' };
+    case 'attention_required': return { label: 'Butuh perhatian', icon: AlertTriangle, className: 'bg-error-surface text-error border-error' };
+    case 'resolved': return { label: 'Selesai', icon: CheckCircle, className: 'bg-success-surface text-success border-success' };
+    case 'closed': return { label: 'Ditutup', icon: XCircle, className: 'bg-surface-subtle text-foreground-muted border-border' };
+    case 'rejected': return { label: 'Ditolak', icon: XCircle, className: 'bg-error-surface text-error border-error' };
+    default: return {
+      label: status ? status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : 'Status belum tersedia',
+      icon: CircleHelp,
+      className: 'bg-surface-subtle text-foreground-muted border-border',
+    };
+  }
+};
+
+function DisputeStatusBadge({ status }: { status?: string }) {
+  const presentation = getDisputeStatusPresentation(status);
+  return (
+    <span aria-label={`Status dispute: ${presentation.label}`} className={cn('inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-[10px] font-black', presentation.className)}>
+      {createElement(presentation.icon, { size: 13, 'aria-hidden': true })}
+      {presentation.label}
+    </span>
+  );
+}
 
 export default function DisputesPage() {
   const [selectedDispute, setSelectedDispute] = useState<any>(null);
@@ -45,16 +75,6 @@ export default function DisputesPage() {
   });
   const errorMessage = (error as any)?.response?.data?.message || (error as any)?.message || 'Data dispute belum bisa dimuat dari database.';
 
-  const getStatusClass = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'open': return 'bg-info/10 text-info border-info/20';
-      case 'investigating': return 'bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse';
-      case 'resolved': return 'bg-green-500/10 text-green-500 border-green-500/20';
-      case 'closed': return 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20';
-      default: return 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20';
-    }
-  };
-
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -63,9 +83,10 @@ export default function DisputesPage() {
           <p className="text-muted-foreground text-sm mt-1">Lacak status klaim dan hubungi admin untuk bantuan teknis.</p>
         </div>
         <div className="relative w-full md:w-64">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input 
             type="text" 
+            aria-label="Cari dispute berdasarkan nomor order"
             placeholder="Cari No. Order..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -86,10 +107,10 @@ export default function DisputesPage() {
         <button
           onClick={() => setFilterMode('attention')}
           className={`px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
-            filterMode === 'attention' ? 'bg-rose-500/10 text-rose-500 shadow-sm' : 'text-muted-foreground hover:text-rose-500'
+            filterMode === 'attention' ? 'bg-error/10 text-error shadow-sm' : 'text-muted-foreground hover:text-error'
           }`}
         >
-          <AlertTriangle className="h-4 w-4" />
+          <AlertTriangle aria-hidden="true" className="h-4 w-4" />
           Butuh Perhatian (Aggregator)
         </button>
       </div>
@@ -98,7 +119,7 @@ export default function DisputesPage() {
         <CustomerPageSkeleton />
       ) : isError ? (
         <div className="p-16 text-center bg-destructive/5 border border-destructive/20 rounded-[32px] flex flex-col items-center gap-4">
-          <AlertTriangle size={48} className="text-destructive" />
+          <AlertTriangle aria-hidden="true" size={48} className="text-destructive" />
           <div>
             <p className="text-lg font-bold text-foreground">Dispute gagal dimuat</p>
             <p className="text-sm text-muted-foreground mt-1">{errorMessage}</p>
@@ -108,13 +129,13 @@ export default function DisputesPage() {
             onClick={() => refetch()}
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-bold hover:bg-destructive/20 transition-all"
           >
-            <RefreshCw size={14} />
+            <RefreshCw aria-hidden="true" size={14} />
             Coba Lagi
           </button>
         </div>
       ) : filteredDisputes.length === 0 ? (
         <div className="p-16 text-center bg-muted/20 border border-dashed border-border rounded-[32px] flex flex-col items-center gap-4">
-          <AlertTriangle size={48} className="text-muted-foreground opacity-20" />
+          <AlertTriangle aria-hidden="true" size={48} className="text-muted-foreground opacity-20" />
           <p className="text-lg font-bold text-foreground">Tidak ada dispute ditemukan</p>
           <p className="text-sm text-muted-foreground">Tiket bantuan Anda akan muncul di sini jika Anda mengajukan klaim atas pesanan.</p>
         </div>
@@ -124,7 +145,7 @@ export default function DisputesPage() {
             <motion.div 
               key={dispute.id}
               whileHover={{ scale: 1.01 }}
-              className="p-6 bg-card/50 backdrop-blur-sm rounded-[24px] border border-border hover:border-primary/30 transition-all cursor-pointer group"
+              className="p-6 bg-surface-raised rounded-[24px] border border-border hover:border-primary/30 transition-all cursor-pointer group"
               onClick={() => setSelectedDispute(dispute)}
             >
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -146,14 +167,9 @@ export default function DisputesPage() {
                 <div className="flex items-center gap-6">
                   <div className="text-right hidden md:block">
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Status</p>
-                    <span className={cn(
-                      "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border",
-                      getStatusClass(dispute.status)
-                    )}>
-                      {dispute.status}
-                    </span>
+                    <DisputeStatusBadge status={dispute.status} />
                   </div>
-                  <ChevronRight size={20} className="text-muted-foreground group-hover:text-primary transition-all" />
+                  <ChevronRight aria-hidden="true" size={20} className="text-muted-foreground group-hover:text-primary transition-all" />
                 </div>
               </div>
             </motion.div>
@@ -170,7 +186,7 @@ export default function DisputesPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedDispute(null)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+              className="absolute inset-0 bg-scrim/60 backdrop-blur-md"
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -183,13 +199,13 @@ export default function DisputesPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                        <span className="text-xs font-black text-primary uppercase tracking-widest">{selectedDispute.order_number}</span>
-                       <span className="text-zinc-500">/</span>
-                       <span className="text-xs font-black text-muted-foreground uppercase tracking-widest">{selectedDispute.status}</span>
+                       <span className="text-foreground-muted">/</span>
+                       <DisputeStatusBadge status={selectedDispute.status} />
                     </div>
                     <h2 className="text-3xl font-black text-foreground tracking-tight">{selectedDispute.category}</h2>
                   </div>
                   <button onClick={() => setSelectedDispute(null)} className="p-3 rounded-2xl bg-muted hover:bg-muted/80 text-muted-foreground transition-all">
-                    <X size={24} />
+                    <X aria-hidden="true" size={24} />
                   </button>
                 </div>
 
@@ -206,10 +222,10 @@ export default function DisputesPage() {
                     
                     {selectedDispute.resolution_note && (
                       <div className="space-y-4 animate-in slide-in-from-left duration-300">
-                        <h4 className="text-xs font-black text-green-500 uppercase tracking-widest flex items-center gap-2">
-                          <CheckCircle size={14} /> Solusi dari Admin
+                        <h4 className="text-xs font-black text-success uppercase tracking-widest flex items-center gap-2">
+                          <CheckCircle aria-hidden="true" size={14} /> Solusi dari Admin
                         </h4>
-                        <div className="p-6 rounded-3xl bg-green-500/5 border border-green-500/20">
+                        <div className="p-6 rounded-3xl bg-success-surface border border-success">
                           <p className="text-sm text-foreground leading-relaxed">
                             {selectedDispute.resolution_note}
                           </p>
@@ -219,7 +235,7 @@ export default function DisputesPage() {
 
                     <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/20 border border-border">
                       <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                        <Clock size={16} />
+                        <Clock aria-hidden="true" size={16} />
                       </div>
                       <div className="text-xs">
                         <p className="font-bold text-foreground">Terakhir diperbarui</p>

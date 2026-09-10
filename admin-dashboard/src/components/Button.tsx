@@ -11,11 +11,11 @@ interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', isLoading, children, ...props }, ref) => {
     const variants = {
-      primary: 'bg-primary text-white hover:bg-primary-dark shadow-lg shadow-primary/20',
-      secondary: 'bg-primary-light text-white hover:bg-emerald-600',
-      ghost: 'bg-transparent hover:bg-white/10 text-zinc-300',
-      outline: 'bg-transparent border border-white/20 hover:border-primary/50 text-zinc-300',
-      glass: 'glass-button text-white',
+      primary: 'bg-primary text-on-primary hover:bg-primary-dark shadow-lg shadow-primary/20',
+      secondary: 'bg-primary-light text-on-primary hover:bg-primary',
+      ghost: 'bg-transparent hover:bg-surface-subtle text-foreground-secondary',
+      outline: 'bg-transparent border border-border-strong hover:border-primary/50 text-foreground-secondary',
+      glass: 'glass-button text-foreground',
     }
 
     const sizes = {
@@ -38,7 +38,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {isLoading ? (
-          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-border border-t-foreground" />
         ) : null}
         {children}
       </motion.button>

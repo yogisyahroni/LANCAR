@@ -65,29 +65,29 @@ export default function SettlementConfig() {
   return (
     <div className="space-y-8 animate-in">
       <div>
-        <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">Settlement Configuration</h1>
-        <p className="text-zinc-500 mt-1">Configure commission basis and settlement rules per service.</p>
+        <h1 className="text-3xl font-bold text-foreground-muted tracking-tight">Settlement Configuration</h1>
+        <p className="text-foreground-muted mt-1">Configure commission basis and settlement rules per service.</p>
       </div>
 
-      <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-6">
+      <div className="glass-card p-8 rounded-[40px] border-border space-y-6">
         <div className="flex items-center gap-3">
-          <Settings className="text-primary-light" size={24} />
-          <h2 className="text-xl font-black text-zinc-100">Service Settlement Rules</h2>
+          <Settings className="text-primary-light" size={24}  aria-hidden="true"/>
+          <h2 className="text-xl font-black text-foreground-muted">Service Settlement Rules</h2>
         </div>
 
         <div className="space-y-4">
           {configs.map((config, index) => (
-            <div key={config.id} className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 space-y-4">
+            <div key={config.id} className="p-6 rounded-3xl bg-surface/[0.02] border border-border space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-bold text-zinc-100">{config.service_code}</h3>
-                  <p className="text-sm text-zinc-500">{config.service_category}</p>
+                  <h3 className="text-lg font-bold text-foreground-muted">{config.service_code}</h3>
+                  <p className="text-sm text-foreground-muted">{config.service_category}</p>
                 </div>
                 <span className={cn(
                   "px-3 py-1 rounded-full text-xs font-bold",
                   config.commission_basis === 'per_km' 
-                    ? "bg-emerald-500/20 text-emerald-400" 
-                    : "bg-amber-500/20 text-amber-400"
+                    ? "bg-success-surface text-success"
+                    : "bg-warning-surface text-warning"
                 )}>
                   {config.commission_basis === 'per_km' ? 'Model B (Per KM)' : 'Model A (Pool)'}
                 </span>
@@ -95,11 +95,11 @@ export default function SettlementConfig() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-zinc-600 uppercase">Commission Basis</label>
+                  <label className="text-xs font-black text-foreground-muted uppercase">Commission Basis</label>
                   <select
                     value={config.commission_basis}
                     onChange={(e) => handleUpdate(index, 'commission_basis', e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full bg-surface-subtle border border-border rounded-xl p-3 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
                     <option value="pool">Pool (20% from entire pool)</option>
                     <option value="per_km">Per KM (20% from base_fare + per_km only)</option>
@@ -107,49 +107,49 @@ export default function SettlementConfig() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-zinc-600 uppercase">Commission %</label>
+                  <label className="text-xs font-black text-foreground-muted uppercase">Commission %</label>
                   <div className="relative">
                     <input
                       type="number"
                       value={config.platform_commission_pct}
                       onChange={(e) => handleUpdate(index, 'platform_commission_pct', parseFloat(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 pl-10 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="w-full bg-surface-subtle border border-border rounded-xl p-3 pl-10 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
-                    <Percent size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <Percent size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-muted" aria-hidden="true" />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-zinc-600 uppercase">MDR %</label>
+                  <label className="text-xs font-black text-foreground-muted uppercase">MDR %</label>
                   <div className="relative">
                     <input
                       type="number"
                       value={config.mdr_pct}
                       onChange={(e) => handleUpdate(index, 'mdr_pct', parseFloat(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 pl-10 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="w-full bg-surface-subtle border border-border rounded-xl p-3 pl-10 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40"
                       step="0.1"
                     />
-                    <Percent size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <Percent size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-muted" aria-hidden="true" />
                   </div>
                 </div>
               </div>
 
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm text-zinc-400">
+                <label className="flex items-center gap-2 text-sm text-foreground-muted">
                   <input
                     type="checkbox"
                     checked={config.courier_keeps_service_fee}
                     onChange={(e) => handleUpdate(index, 'courier_keeps_service_fee', e.target.checked)}
-                    className="rounded border-white/20 bg-white/5 text-primary focus:ring-primary"
+                    className="rounded border-border bg-surface-subtle text-primary focus:ring-primary"
                   />
                   Courier keeps 100% service fee
                 </label>
-                <label className="flex items-center gap-2 text-sm text-zinc-400">
+                <label className="flex items-center gap-2 text-sm text-foreground-muted">
                   <input
                     type="checkbox"
                     checked={config.courier_keeps_toll}
                     onChange={(e) => handleUpdate(index, 'courier_keeps_toll', e.target.checked)}
-                    className="rounded border-white/20 bg-white/5 text-primary focus:ring-primary"
+                    className="rounded border-border bg-surface-subtle text-primary focus:ring-primary"
                   />
                   Courier keeps 100% toll
                 </label>
@@ -159,14 +159,14 @@ export default function SettlementConfig() {
         </div>
       </div>
 
-      <div className="glass-card p-6 rounded-[32px] border-white/5">
+      <div className="glass-card p-6 rounded-[32px] border-border">
         <div className="flex items-start gap-3">
-          <Info className="text-primary-light mt-0.5" size={18} />
-          <div className="text-sm text-zinc-400 leading-relaxed">
-            <p className="font-bold text-zinc-200 mb-2">Settlement Model Reference:</p>
+          <Info className="text-primary-light mt-0.5" size={18} aria-hidden="true" />
+          <div className="text-sm text-foreground-muted leading-relaxed">
+            <p className="font-bold text-foreground-muted mb-2">Settlement Model Reference:</p>
             <ul className="space-y-1 list-disc list-inside">
-              <li><strong className="text-zinc-200">Model A (Pool):</strong> Commission 20% dari seluruh Operational Pool (untuk ondemand/regular)</li>
-              <li><strong className="text-zinc-200">Model B (Per KM):</strong> Commission 20% hanya dari (BaseFare + PerKM × Jarak) — untuk tambal ban & towing</li>
+              <li><strong className="text-foreground-muted">Model A (Pool):</strong> Commission 20% dari seluruh Operational Pool (untuk ondemand/regular)</li>
+              <li><strong className="text-foreground-muted">Model B (Per KM):</strong> Commission 20% hanya dari (BaseFare + PerKM × Jarak) — untuk tambal ban & towing</li>
               <li>MDR & PPN selalu dibayar oleh customer (bukan dari uang kurir)</li>
               <li>Harga Jasa (yang kurir set sendiri) = 100% masuk ke kurir</li>
             </ul>

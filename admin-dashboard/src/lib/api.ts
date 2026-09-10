@@ -85,7 +85,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     attachErrorReference(error)
-    if (error.response?.status === 401) {
+    const isLoginRequest = typeof error.config?.url === 'string' && error.config.url.includes('/auth/web/login')
+    if (error.response?.status === 401 && !isLoginRequest) {
       // Clear any stale state and redirect to login
       window.location.href = '/login'
     }

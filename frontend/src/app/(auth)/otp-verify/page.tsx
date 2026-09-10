@@ -185,7 +185,7 @@ function OtpVerifyContent() {
   const channelLabel = preferredChannel === 'sms' ? 'SMS' : 'WhatsApp';
 
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-8">
+    <main className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-8">
       {/* Background blurs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-primary/10 blur-[120px] rounded-full" />
@@ -205,12 +205,11 @@ function OtpVerifyContent() {
               animate={success ? { scale: [1, 1.2, 1] } : {}}
               transition={{ duration: 0.4 }}
               className={`h-14 w-14 rounded-2xl flex items-center justify-center mb-5 transition-colors ${
-                success ? 'bg-green-500/20' : 'bg-primary/20'
+                success ? 'bg-success-surface' : 'bg-primary/20'
               }`}
             >
               <ShieldCheck
-                className={`h-7 w-7 transition-colors ${success ? 'text-green-500' : 'text-primary'}`}
-              />
+                className={`h-7 w-7 transition-colors ${success ? 'text-success' : 'text-primary'}`} aria-hidden="true" />
             </motion.div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground text-center">
               Verifikasi Kode OTP
@@ -251,7 +250,7 @@ function OtpVerifyContent() {
           >
             {isVerifying ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin"  aria-hidden="true"/>
                 Memverifikasi...
               </>
             ) : success ? (
@@ -270,9 +269,9 @@ function OtpVerifyContent() {
               className="text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 mx-auto"
             >
               {isResending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin"  aria-hidden="true"/>
               ) : (
-                <RefreshCw className="h-3.5 w-3.5" />
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
               )}
               {countdown > 0
                 ? `Kirim ulang dalam ${countdown}s`
@@ -296,13 +295,13 @@ function OtpVerifyContent() {
           </div>
         </div>
       </motion.div>
-    </div>
+    </main>
   );
 }
 
 export default function OtpVerifyPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary"  aria-hidden="true"/></div>}>
       <OtpVerifyContent />
     </Suspense>
   );

@@ -32,7 +32,7 @@ export default function ResiCheckWidget() {
     <form onSubmit={handleSubmit} className="w-full" noValidate>
       <label
         htmlFor="landing-resi-input"
-        className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-400"
+        className="mb-2 block text-xs font-bold uppercase tracking-widest text-foreground-muted"
       >
         {t('landing.trackLabel')}
       </label>
@@ -51,17 +51,17 @@ export default function ResiCheckWidget() {
             if (error) setError(null);
           }}
           placeholder={t('landing.trackPlaceholder')}
-          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold uppercase tracking-wide text-white outline-none transition-all placeholder:normal-case placeholder:text-slate-500 focus:border-brand-emerald-400/60 focus:ring-2 focus:ring-brand-emerald-500/20"
+          className="min-w-0 flex-1 rounded-xl border border-border bg-surface/[0.06] px-4 py-3 text-sm font-semibold uppercase tracking-wide text-foreground outline-none transition-all placeholder:normal-case placeholder:text-foreground-muted focus:border-success/60 focus:ring-2 focus:ring-focus-ring"
         />
         <button
           type="submit"
-          className="flex items-center justify-center gap-2 rounded-xl bg-brand-emerald-500 px-5 py-3 text-sm font-black text-slate-950 transition-all hover:bg-brand-emerald-400 active:scale-[0.98]"
+          className="flex items-center justify-center gap-2 rounded-xl bg-success px-5 py-3 text-sm font-black text-on-success transition-all hover:bg-success active:scale-[0.98]"
         >
-          <PackageSearch className="h-4 w-4" />
+          <PackageSearch className="h-4 w-4"  aria-hidden="true"/>
           {t('landing.trackSubmit')}
         </button>
       </div>
-      <p id="landing-resi-error" role={error ? 'alert' : undefined} className="mt-2 min-h-[1rem] text-xs font-medium text-amber-300">
+      <p id="landing-resi-error" role={error ? 'alert' : undefined} className="mt-2 min-h-[1rem] text-xs font-medium text-warning">
         {error}
       </p>
     </form>

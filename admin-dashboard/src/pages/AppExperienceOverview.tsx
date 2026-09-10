@@ -27,6 +27,7 @@ import {
   type ExperienceManifest,
   type ExperienceSurface,
 } from "../components/experience/types";
+import { StatusBadge } from "../components/StatusBadge";
 
 type OverviewFilters = {
   market_code: string;
@@ -218,18 +219,6 @@ const statusFor = (manifest: ExperienceManifest, now: number): string => {
   return manifest.state.toUpperCase();
 };
 
-const statusStyles: Record<string, string> = {
-  LIVE: "bg-emerald-500/10 text-emerald-300",
-  SCHEDULED: "bg-blue-500/10 text-blue-300",
-  CANARY: "bg-violet-500/10 text-violet-300",
-  DRAFT: "bg-amber-500/10 text-amber-300",
-  AWAITING_APPROVAL: "bg-orange-500/10 text-orange-200",
-  ROLLED_BACK: "bg-zinc-700 text-zinc-300",
-  EXPIRED: "bg-red-500/10 text-red-300",
-  KILL_SWITCHED: "bg-red-500/10 text-red-200",
-  SUPERSEDED: "bg-zinc-800 text-zinc-500",
-};
-
 const formatDate = (value: string | null | undefined) =>
   value ? new Date(value).toLocaleString("id-ID") : "—";
 
@@ -238,7 +227,7 @@ function MetricCard({
   value,
   detail,
   icon: Icon,
-  tone = "text-zinc-100",
+  tone = "text-foreground-muted",
 }: {
   label: string;
   value: number | string;
@@ -247,15 +236,15 @@ function MetricCard({
   tone?: string;
 }) {
   return (
-    <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+    <article className="rounded-2xl border border-border bg-surface/[0.03] p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+        <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">
           {label}
         </p>
-        <Icon size={16} className="text-zinc-600" />
+        <Icon size={16} className="text-foreground-muted" aria-hidden="true" />
       </div>
       <p className={`mt-3 text-3xl font-black ${tone}`}>{value}</p>
-      <p className="mt-1 text-xs text-zinc-500">{detail}</p>
+      <p className="mt-1 text-xs text-foreground-muted">{detail}</p>
     </article>
   );
 }
@@ -277,7 +266,7 @@ function FindingLink({ finding }: { finding: Finding }) {
       <span>
         {label} · r{finding.revision}
       </span>
-      <ExternalLink size={12} />
+      <ExternalLink size={12} aria-hidden="true" />
     </Link>
   );
 }
@@ -296,7 +285,8 @@ export default function AppExperienceOverview() {
   const [filters, setFilters] = useState<OverviewFilters>(defaultFilters);
   const [auditFilters, setAuditFilters] =
     useState<AuditFilters>(defaultAuditFilters);
-  const [guardrailDraft, setGuardrailDraft] = useState<GuardrailPolicyDraft | null>(null);
+  const [guardrailDraft, setGuardrailDraft] =
+    useState<GuardrailPolicyDraft | null>(null);
   const params = useMemo(
     () =>
       Object.fromEntries(
@@ -358,8 +348,15 @@ export default function AppExperienceOverview() {
       window_hours: String(policy?.window_hours ?? 1),
     };
   };
-  const updateGuardrailDraft = (field: keyof GuardrailPolicyDraft, value: string) => {
-    setGuardrailDraft((current) => ({ ...currentGuardrailDraft(), ...current, [field]: value }));
+  const updateGuardrailDraft = (
+    field: keyof GuardrailPolicyDraft,
+    value: string,
+  ) => {
+    setGuardrailDraft((current) => ({
+      ...currentGuardrailDraft(),
+      ...current,
+      [field]: value,
+    }));
   };
 
   const rollbackMutation = useMutation({
@@ -378,14 +375,27 @@ export default function AppExperienceOverview() {
         { headers: { "X-Idempotency-Key": requestKey("rollback") } },
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["experience-overview-health"] });
-      queryClient.invalidateQueries({ queryKey: ["experience-overview-manifests"] });
-      queryClient.invalidateQueries({ queryKey: ["experience-overview-audit"] });
+      queryClient.invalidateQueries({
+        queryKey: ["experience-overview-health"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["experience-overview-manifests"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["experience-overview-audit"],
+      });
       toast.success("Known-good revision restored");
     },
     onError: (error: unknown) => {
-      const response = error as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(response.response?.data?.message || response.message || "Rollback failed");
+      const response = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      toast.error(
+        response.response?.data?.message ||
+          response.message ||
+          "Rollback failed",
+      );
     },
   });
 
@@ -395,18 +405,29 @@ export default function AppExperienceOverview() {
         "/admin/experience/guardrail-policy",
         {
           min_events: Number(currentGuardrailDraft().min_events),
-          max_failure_rate_pct: Number(currentGuardrailDraft().max_failure_rate_pct),
+          max_failure_rate_pct: Number(
+            currentGuardrailDraft().max_failure_rate_pct,
+          ),
           window_hours: Number(currentGuardrailDraft().window_hours),
         },
         { headers: { "X-Idempotency-Key": requestKey("guardrail-policy") } },
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["experience-overview-health"] });
+      queryClient.invalidateQueries({
+        queryKey: ["experience-overview-health"],
+      });
       toast.success("Reliability guardrail policy updated and audited");
     },
     onError: (error: unknown) => {
-      const response = error as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(response.response?.data?.message || response.message || "Guardrail policy update failed");
+      const response = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      toast.error(
+        response.response?.data?.message ||
+          response.message ||
+          "Guardrail policy update failed",
+      );
     },
   });
 
@@ -462,17 +483,18 @@ export default function AppExperienceOverview() {
     ? "UNKNOWN"
     : health.reliability_total === 0
       ? "NO TELEMETRY"
-      : health.reliability_failure_rate_pct >= (policy?.max_failure_rate_pct ?? 10)
+      : health.reliability_failure_rate_pct >=
+          (policy?.max_failure_rate_pct ?? 10)
         ? "DEGRADED"
         : health.reliability_failures > 0
           ? "WATCH"
           : "HEALTHY";
   const healthTone =
     healthStatus === "HEALTHY"
-      ? "text-emerald-300"
+      ? "text-success"
       : healthStatus === "UNKNOWN" || healthStatus === "NO TELEMETRY"
-        ? "text-zinc-300"
-        : "text-orange-300";
+        ? "text-foreground-muted"
+        : "text-accent";
   const latestActivity = (auditQuery.data ?? []).find(
     (event) => event.action === "published" || event.action === "rolled_back",
   );
@@ -517,7 +539,7 @@ export default function AppExperienceOverview() {
           });
         });
     });
-    healthQuery.data?.breakdown
+    (healthQuery.data?.breakdown ?? [])
       .filter((item) => item.reliability_failures > 0)
       .forEach((item) => {
         result.push({
@@ -544,7 +566,12 @@ export default function AppExperienceOverview() {
     setAuditFilters(defaultAuditFilters);
   };
   const requestHealthRollback = (finding: Finding) => {
-    if (!canRollback || finding.rollback_target_revision == null || finding.manifest_id === "unknown") return;
+    if (
+      !canRollback ||
+      finding.rollback_target_revision == null ||
+      finding.manifest_id === "unknown"
+    )
+      return;
     const reason = window.prompt(
       `Rollback ${finding.manifest_id} revision ${finding.revision} to known-good revision ${finding.rollback_target_revision}. Reason:`,
       "Reliability guardrail breach observed in App Experience health",
@@ -563,16 +590,16 @@ export default function AppExperienceOverview() {
 
   return (
     <div className="space-y-6 animate-in">
-      <section className="rounded-3xl border border-primary/25 bg-primary/10 p-5">
+      <section className="rounded-3xl border border-primary/25 bg-primary-soft p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-light">
               Operational cockpit
             </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-zinc-100">
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-foreground-muted">
               App Experience Overview
             </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-foreground-muted">
               A scoped view of presentation manifests, rollout exposure,
               approval work and runtime health. This view never treats one
               market configuration as global.
@@ -585,13 +612,13 @@ export default function AppExperienceOverview() {
               auditQuery.refetch();
               healthQuery.refetch();
             }}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-300"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-xs font-black uppercase tracking-widest text-foreground-muted"
           >
-            <RefreshCw size={14} /> Refresh cockpit
+            <RefreshCw size={14} aria-hidden="true" /> Refresh cockpit
           </button>
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
             Country / market
             <input
               required
@@ -599,40 +626,40 @@ export default function AppExperienceOverview() {
               onChange={(event) =>
                 updateFilter("market_code", event.target.value)
               }
-              className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-zinc-100"
+              className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-foreground-muted"
               placeholder="id-jk"
             />
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
             City
             <input
               value={filters.city_code}
               onChange={(event) =>
                 updateFilter("city_code", event.target.value)
               }
-              className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-zinc-100"
+              className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-foreground-muted"
               placeholder="jakarta-selatan"
             />
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
             Zone
             <input
               value={filters.zone_code}
               onChange={(event) =>
                 updateFilter("zone_code", event.target.value)
               }
-              className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-zinc-100"
+              className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-foreground-muted"
               placeholder="zone-south"
             />
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
             Surface
             <select
               value={filters.surface}
               onChange={(event) =>
                 updateFilter("surface", event.target.value as ExperienceSurface)
               }
-              className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-zinc-100"
+              className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-foreground-muted"
             >
               {Object.entries(surfaceLabels).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -641,29 +668,29 @@ export default function AppExperienceOverview() {
               ))}
             </select>
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
             Locale
             <input
               value={filters.locale}
               onChange={(event) => updateFilter("locale", event.target.value)}
-              className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-zinc-100"
+              className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-foreground-muted"
               placeholder="id-ID"
             />
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
             App version
             <input
               value={filters.app_version}
               onChange={(event) =>
                 updateFilter("app_version", event.target.value)
               }
-              className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-zinc-100"
+              className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-foreground-muted"
               placeholder="1.0.0"
             />
           </label>
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs font-bold text-primary-light">
+          <p className="text-xs font-bold text-foreground">
             Viewing scope: {filters.market_code || "not selected"} ·{" "}
             {surfaceLabels[filters.surface]} · {filters.locale || "all locales"}{" "}
             ·{" "}
@@ -676,18 +703,19 @@ export default function AppExperienceOverview() {
           <button
             type="button"
             onClick={resetFilters}
-            className="text-xs font-bold text-zinc-500 hover:text-zinc-200"
+            className="text-xs font-bold text-foreground-muted hover:text-foreground-muted"
           >
             Reset filters
           </button>
         </div>
       </section>
       {manifestsQuery.isError || auditQuery.isError || healthQuery.isError ? (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-200">
+        <div className="rounded-2xl border border-error bg-error-surface p-4 text-sm text-error">
           <div className="flex items-center gap-2 font-black">
-            <XCircle size={17} /> Overview data could not be loaded
+            <XCircle size={17} aria-hidden="true" /> Overview data could not be
+            loaded
           </div>
-          <p className="mt-1 text-xs text-red-300/80">
+          <p className="mt-1 text-xs text-error">
             Check the selected scope and retry. The backend rejects unscoped or
             invalid market filters.
           </p>
@@ -699,81 +727,81 @@ export default function AppExperienceOverview() {
           value={live.length}
           detail="published and exposed now"
           icon={CheckCircle2}
-          tone="text-emerald-300"
+          tone="text-success"
         />
         <MetricCard
           label="Scheduled"
           value={scheduled.length}
           detail="future start window"
           icon={Clock3}
-          tone="text-blue-300"
+          tone="text-info"
         />
         <MetricCard
           label="Expiring soon"
           value={expiring.length}
           detail="next 72 hours"
           icon={AlertTriangle}
-          tone="text-orange-300"
+          tone="text-accent"
         />
         <MetricCard
           label="Canary / staged"
           value={canary.length}
           detail="active canary exposure"
           icon={GitBranch}
-          tone="text-violet-300"
+          tone="text-info"
         />
         <MetricCard
           label="Kill switches"
           value={killSwitches.length}
           detail="published exposure disabled"
           icon={ShieldAlert}
-          tone="text-red-300"
+          tone="text-error"
         />
         <MetricCard
           label="Awaiting approval"
           value={awaitingApproval.length}
           detail="maker-checker queue"
           icon={Target}
-          tone="text-amber-300"
+          tone="text-warning"
         />
       </div>
       <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="rounded-3xl border border-border bg-surface/[0.03] p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-base font-black text-zinc-100">
+              <h2 className="text-base font-black text-foreground-muted">
                 Manifest fetch / render health
               </h2>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-foreground-muted">
                 24-hour runtime telemetry for the selected market, surface and
                 app version.
               </p>
             </div>
             <span
-              className={`rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ${healthStatus === "HEALTHY" ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}
+              className={`rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ${healthStatus === "HEALTHY" ? "bg-success-surface text-success" : "bg-warning-surface text-warning"}`}
             >
               {healthStatus}
             </span>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-4">
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-zinc-600">
+              <p className="text-[10px] uppercase tracking-widest text-foreground-muted">
                 Reliability events
               </p>
-              <p className="mt-1 text-xl font-black text-zinc-200">
+              <p className="mt-1 text-xl font-black text-foreground-muted">
                 {health?.reliability_total ?? "—"}
               </p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-zinc-600">
+              <p className="text-[10px] uppercase tracking-widest text-foreground-muted">
                 Failures
               </p>
-              <p className="mt-1 text-xl font-black text-orange-300">
+              <p className="mt-1 text-xl font-black text-accent">
                 {health?.reliability_failures ?? "—"}
               </p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-zinc-600">
+              <p className="text-[10px] uppercase tracking-widest text-foreground-muted">
                 Failure rate
               </p>
               <p className={`mt-1 text-xl font-black ${healthTone}`}>
@@ -781,15 +809,15 @@ export default function AppExperienceOverview() {
               </p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-zinc-600">
+              <p className="text-[10px] uppercase tracking-widest text-foreground-muted">
                 Fetch success
               </p>
-              <p className="mt-1 text-xl font-black text-zinc-200">
+              <p className="mt-1 text-xl font-black text-foreground-muted">
                 {health?.fetch_success ?? "—"}
               </p>
             </div>
           </div>
-          <div className="mt-5 flex flex-wrap gap-2 text-[11px] text-zinc-500">
+          <div className="mt-5 flex flex-wrap gap-2 text-[11px] text-foreground-muted">
             <span>cache hit: {health?.cache_hit ?? "—"}</span>
             <span>· parse fallback: {health?.parse_failure ?? "—"}</span>
             <span>· schema fallback: {health?.schema_fallback ?? "—"}</span>
@@ -798,24 +826,24 @@ export default function AppExperienceOverview() {
             <span>· deep link: {health?.deeplink_failure ?? "—"}</span>
           </div>
         </div>
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="rounded-3xl border border-border bg-surface/[0.03] p-5">
           <div className="flex items-center gap-3">
-            <Zap size={18} className="text-primary-light" />
+            <Zap size={18} className="text-primary-light" aria-hidden="true" />
             <div>
-              <h2 className="text-base font-black text-zinc-100">
+              <h2 className="text-base font-black text-foreground-muted">
                 Latest release activity
               </h2>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-foreground-muted">
                 Publish and rollback activity in the selected scope.
               </p>
             </div>
           </div>
           {latestActivity ? (
-            <div className="mt-6 rounded-2xl border border-white/10 bg-black/10 p-4">
+            <div className="mt-6 rounded-2xl border border-border bg-surface-subtle p-4">
               <p className="text-xs font-black uppercase tracking-widest text-primary-light">
                 {latestActivity.action}
               </p>
-              <p className="mt-2 text-sm font-bold text-zinc-200">
+              <p className="mt-2 text-sm font-bold text-foreground-muted">
                 <Link
                   to={`/app-experience/revisions?manifest_id=${latestActivity.manifest_id}&revision=${latestActivity.revision}`}
                   className="hover:underline"
@@ -823,31 +851,38 @@ export default function AppExperienceOverview() {
                   Revision {latestActivity.revision}
                 </Link>
               </p>
-              <p className="mt-2 text-xs text-zinc-500">
+              <p className="mt-2 text-xs text-foreground-muted">
                 {latestActivity.actor_id || "system"} ·{" "}
                 {formatDate(latestActivity.created_at)}
               </p>
             </div>
           ) : (
-            <p className="mt-6 text-sm text-zinc-600">
+            <p className="mt-6 text-sm text-foreground-muted">
               No publish or rollback event in this scope.
             </p>
           )}
         </div>
       </section>
       <section
-        className="rounded-3xl border border-white/10 bg-white/[0.03] p-5"
+        className="rounded-3xl border border-border bg-surface/[0.03] p-5"
         aria-labelledby="experience-analytics-release-title"
       >
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
             <div className="flex items-center gap-3">
-              <Target size={18} className="text-primary-light" />
+              <Target
+                size={18}
+                className="text-primary-light"
+                aria-hidden="true"
+              />
               <div>
-                <h2 id="experience-analytics-release-title" className="text-base font-black text-zinc-100">
+                <h2
+                  id="experience-analytics-release-title"
+                  className="text-base font-black text-foreground-muted"
+                >
                   Marketing performance
                 </h2>
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-foreground-muted">
                   Impression, click and dismiss are presentation metrics only;
                   they never improve or hide reliability health.
                 </p>
@@ -859,7 +894,7 @@ export default function AppExperienceOverview() {
                 value={health?.impressions ?? "—"}
                 detail="campaign exposures"
                 icon={Target}
-                tone="text-sky-300"
+                tone="text-info"
               />
               <MetricCard
                 label="Clicks"
@@ -873,96 +908,141 @@ export default function AppExperienceOverview() {
                 value={health?.dismissals ?? "—"}
                 detail="campaign dismissals"
                 icon={XCircle}
-                tone="text-orange-300"
+                tone="text-accent"
               />
               <MetricCard
                 label="CTR"
-                value={health && health.impressions > 0 ? `${((health.clicks / health.impressions) * 100).toFixed(2)}%` : "—"}
+                value={
+                  health && health.impressions > 0
+                    ? `${((health.clicks / health.impressions) * 100).toFixed(2)}%`
+                    : "—"
+                }
                 detail="clicks / impressions"
                 icon={GitBranch}
-                tone="text-violet-300"
+                tone="text-info"
               />
             </div>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+          <div className="rounded-2xl border border-border bg-surface-subtle p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-base font-black text-zinc-100">Reliability guardrail policy</h2>
-                <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-                  Policy v{policy?.version ?? "—"}; every change
-                  writes before/after values to the administrative audit log.
+                <h2 className="text-base font-black text-foreground-muted">
+                  Reliability guardrail policy
+                </h2>
+                <p className="mt-1 text-xs leading-relaxed text-foreground-muted">
+                  Policy v{policy?.version ?? "—"}; every change writes
+                  before/after values to the administrative audit log.
                 </p>
               </div>
-              <ShieldAlert size={18} className="text-orange-300" />
+              <ShieldAlert
+                size={18}
+                className="text-accent"
+                aria-hidden="true"
+              />
             </div>
-            <form className="mt-4 grid gap-3 sm:grid-cols-3" onSubmit={saveGuardrailPolicy}>
-              <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
+            <form
+              className="mt-4 grid gap-3 sm:grid-cols-3"
+              onSubmit={saveGuardrailPolicy}
+            >
+              <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
                 Minimum events
                 <input
                   type="number"
                   min="1"
                   max="1000000"
-                  disabled={!canEditGuardrail || guardrailPolicyMutation.isPending}
+                  disabled={
+                    !canEditGuardrail || guardrailPolicyMutation.isPending
+                  }
                   value={currentGuardrailDraft().min_events}
-                  onChange={(event) => updateGuardrailDraft("min_events", event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-100 disabled:opacity-50"
+                  onChange={(event) =>
+                    updateGuardrailDraft("min_events", event.target.value)
+                  }
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs text-foreground-muted disabled:opacity-50"
                 />
               </label>
-              <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
+              <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
                 Max failure %
                 <input
                   type="number"
                   min="0"
                   max="100"
                   step="0.01"
-                  disabled={!canEditGuardrail || guardrailPolicyMutation.isPending}
+                  disabled={
+                    !canEditGuardrail || guardrailPolicyMutation.isPending
+                  }
                   value={currentGuardrailDraft().max_failure_rate_pct}
-                  onChange={(event) => updateGuardrailDraft("max_failure_rate_pct", event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-100 disabled:opacity-50"
+                  onChange={(event) =>
+                    updateGuardrailDraft(
+                      "max_failure_rate_pct",
+                      event.target.value,
+                    )
+                  }
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs text-foreground-muted disabled:opacity-50"
                 />
               </label>
-              <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
+              <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
                 Window hours
                 <input
                   type="number"
                   min="1"
                   max="168"
                   step="0.25"
-                  disabled={!canEditGuardrail || guardrailPolicyMutation.isPending}
+                  disabled={
+                    !canEditGuardrail || guardrailPolicyMutation.isPending
+                  }
                   value={currentGuardrailDraft().window_hours}
-                  onChange={(event) => updateGuardrailDraft("window_hours", event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-100 disabled:opacity-50"
+                  onChange={(event) =>
+                    updateGuardrailDraft("window_hours", event.target.value)
+                  }
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs text-foreground-muted disabled:opacity-50"
                 />
               </label>
               <div className="sm:col-span-3 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-[11px] text-zinc-600">
-                  Marketing metrics excluded: always enforced · last update {formatDate(policy?.updated_at)}
+                <p className="text-[11px] text-foreground-muted">
+                  Marketing metrics excluded: always enforced · last update{" "}
+                  {formatDate(policy?.updated_at)}
                 </p>
                 {canEditGuardrail ? (
                   <button
                     type="submit"
                     disabled={guardrailPolicyMutation.isPending}
-                    className="rounded-xl bg-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50"
+                    className="rounded-xl bg-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-primary disabled:opacity-50"
                   >
-                    {guardrailPolicyMutation.isPending ? "Saving…" : "Save audited policy"}
+                    {guardrailPolicyMutation.isPending
+                      ? "Saving…"
+                      : "Save audited policy"}
                   </button>
                 ) : (
-                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Read-only policy</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+                    Read-only policy
+                  </span>
                 )}
               </div>
             </form>
           </div>
         </div>
-        <div className="mt-5 overflow-x-auto rounded-2xl border border-white/10">
+        <div role="region" aria-label="Experience runtime health table" tabIndex={0} className="mt-5 overflow-x-auto rounded-2xl border border-border">
           <table className="min-w-[980px] w-full text-left text-xs">
-            <thead className="border-b border-white/10 text-[10px] uppercase tracking-widest text-zinc-600">
+            <thead className="border-b border-border text-[10px] uppercase tracking-widest text-foreground-muted">
               <tr>
-                <th className="px-3 py-3">Live revision / campaign</th>
-                <th className="px-3 py-3">Market / app</th>
-                <th className="px-3 py-3">Reliability</th>
-                <th className="px-3 py-3">Fetch latency</th>
-                <th className="px-3 py-3">Marketing</th>
-                <th className="px-3 py-3">Action</th>
+                <th scope="col" className="px-3 py-3">
+                  Live revision / campaign
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Market / app
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Reliability
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Fetch latency
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Marketing
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -974,28 +1054,53 @@ export default function AppExperienceOverview() {
                   revision: row.manifest_revision,
                   rollback_target_revision: row.rollback_target_revision,
                 };
-                const ctr = row.impressions > 0 ? `${((row.clicks / row.impressions) * 100).toFixed(2)}%` : "—";
+                const ctr =
+                  row.impressions > 0
+                    ? `${((row.clicks / row.impressions) * 100).toFixed(2)}%`
+                    : "—";
                 return (
-                  <tr key={`${row.manifest_id}-${row.manifest_revision}-${row.market_code}-${row.app_version}`} className="border-b border-white/5 text-zinc-300">
-                    <td className="px-3 py-3"><FindingLink finding={rowFinding} /></td>
-                    <td className="px-3 py-3">{row.market_code} · {row.app_version}</td>
-                    <td className={`px-3 py-3 font-black ${row.reliability_failure_rate_pct >= (policy?.max_failure_rate_pct ?? 10) ? "text-red-300" : "text-emerald-300"}`}>
-                      {row.reliability_failures}/{row.reliability_total} · {row.reliability_failure_rate_pct}%
-                    </td>
-                    <td className="px-3 py-3">{row.fetch_latency_avg_ms} ms avg</td>
-                    <td className="px-3 py-3">{row.impressions} / {row.clicks} / {row.dismissals} · {ctr} CTR</td>
+                  <tr
+                    key={`${row.manifest_id}-${row.manifest_revision}-${row.market_code}-${row.app_version}`}
+                    className="border-b border-border text-foreground-muted"
+                  >
                     <td className="px-3 py-3">
-                      {canRollback && row.reliability_failures > 0 && row.rollback_target_revision != null && row.manifest_id !== "unknown" ? (
+                      <FindingLink finding={rowFinding} />
+                    </td>
+                    <td className="px-3 py-3">
+                      {row.market_code} · {row.app_version}
+                    </td>
+                    <td
+                      className={`px-3 py-3 font-black ${row.reliability_failure_rate_pct >= (policy?.max_failure_rate_pct ?? 10) ? "text-error" : "text-success"}`}
+                    >
+                      {row.reliability_failures}/{row.reliability_total} ·{" "}
+                      {row.reliability_failure_rate_pct}%
+                    </td>
+                    <td className="px-3 py-3">
+                      {row.fetch_latency_avg_ms} ms avg
+                    </td>
+                    <td className="px-3 py-3">
+                      {row.impressions} / {row.clicks} / {row.dismissals} ·{" "}
+                      {ctr} CTR
+                    </td>
+                    <td className="px-3 py-3">
+                      {canRollback &&
+                      row.reliability_failures > 0 &&
+                      row.rollback_target_revision != null &&
+                      row.manifest_id !== "unknown" ? (
                         <button
                           type="button"
                           disabled={rollbackMutation.isPending}
                           onClick={() => requestHealthRollback(rowFinding)}
-                          className="rounded-lg border border-orange-400/30 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-orange-200 disabled:opacity-50"
+                          className="rounded-lg border border-accent px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-accent disabled:opacity-50"
                         >
                           Rollback r{row.rollback_target_revision}
                         </button>
                       ) : (
-                        <span className="text-[10px] text-zinc-600">{row.reliability_failures > 0 ? "No compatible target" : "—"}</span>
+                        <span className="text-[10px] text-foreground-muted">
+                          {row.reliability_failures > 0
+                            ? "No compatible target"
+                            : "—"}
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -1003,33 +1108,44 @@ export default function AppExperienceOverview() {
               })}
             </tbody>
           </table>
-          {(healthQuery.data?.breakdown ?? []).length === 0 ? <p className="p-5 text-center text-sm text-zinc-600">No revision telemetry in this scope.</p> : null}
+          {(healthQuery.data?.breakdown ?? []).length === 0 ? (
+            <p className="p-5 text-center text-sm text-foreground-muted">
+              No revision telemetry in this scope.
+            </p>
+          ) : null}
         </div>
       </section>
       <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="rounded-3xl border border-border bg-surface/[0.03] p-5">
           <div className="flex items-center gap-3">
-            <Smartphone size={18} className="text-primary-light" />
+            <Smartphone
+              size={18}
+              className="text-primary-light"
+              aria-hidden="true"
+            />
             <div>
-              <h2 className="text-base font-black text-zinc-100">
+              <h2 className="text-base font-black text-foreground-muted">
                 App-version distribution
               </h2>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-foreground-muted">
                 Manifest minimums compared with the selected client version.
               </p>
             </div>
           </div>
           {unsupported.length > 0 ? (
-            <div className="mt-5 rounded-2xl border border-orange-500/20 bg-orange-500/5 p-4">
-              <p className="text-2xl font-black text-orange-300">
+            <div className="mt-5 rounded-2xl border border-accent bg-accent-surface p-4">
+              <p className="text-2xl font-black text-accent">
                 {unsupported.length}
               </p>
-              <p className="mt-1 text-xs text-orange-200">
+              <p className="mt-1 text-xs text-accent">
                 revision(s) require a newer app than v{filters.app_version}
               </p>
               <div className="mt-3 space-y-2">
                 {unsupported.slice(0, 5).map((manifest) => (
-                  <p key={manifest.id} className="text-xs text-zinc-400">
+                  <p
+                    key={manifest.id}
+                    className="text-xs text-foreground-muted"
+                  >
                     <FindingLink
                       finding={{
                         kind: "schema",
@@ -1044,22 +1160,22 @@ export default function AppExperienceOverview() {
               </div>
             </div>
           ) : (
-            <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-emerald-200">
+            <div className="mt-5 rounded-2xl border border-success bg-success-surface p-4 text-sm text-success">
               All scoped revisions support v{filters.app_version}.
             </div>
           )}
         </div>
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="rounded-3xl border border-border bg-surface/[0.03] p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-base font-black text-zinc-100">
+              <h2 className="text-base font-black text-foreground-muted">
                 Warnings requiring action
               </h2>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-foreground-muted">
                 Each item points to its offending revision, campaign or asset.
               </p>
             </div>
-            <span className="rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+            <span className="rounded-full bg-surface-subtle px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-foreground-muted">
               {findings.length}
             </span>
           </div>
@@ -1068,77 +1184,219 @@ export default function AppExperienceOverview() {
               {findings.map((finding, index) => (
                 <div
                   key={`${finding.kind}-${finding.manifest_id}-${finding.revision}-${finding.asset_id || finding.deep_link || index}`}
-                  className="flex flex-col gap-2 rounded-xl border border-white/10 bg-black/10 p-3 text-xs sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-2 rounded-xl border border-border bg-surface-subtle p-3 text-xs sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex items-start gap-2">
                     <AlertTriangle
                       size={14}
-                      className="mt-0.5 shrink-0 text-orange-300"
+                      className="mt-0.5 shrink-0 text-accent"
+                      aria-hidden="true"
                     />
-                    <span className="text-zinc-400">{finding.message}</span>
+                    <span className="text-foreground-muted">
+                      {finding.message}
+                    </span>
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-3">
                     <FindingLink finding={finding} />
-                    {finding.kind === "runtime"
-                      && canRollback
-                      && finding.rollback_target_revision != null
-                      && finding.manifest_id !== "unknown" ? (
-                        <button
-                          type="button"
-                          disabled={rollbackMutation.isPending}
-                          onClick={() => requestHealthRollback(finding)}
-                          className="rounded-lg border border-orange-400/30 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-orange-200 disabled:opacity-50"
-                        >
-                          Rollback r{finding.rollback_target_revision}
-                        </button>
-                      ) : null}
+                    {finding.kind === "runtime" &&
+                    canRollback &&
+                    finding.rollback_target_revision != null &&
+                    finding.manifest_id !== "unknown" ? (
+                      <button
+                        type="button"
+                        disabled={rollbackMutation.isPending}
+                        onClick={() => requestHealthRollback(finding)}
+                        className="rounded-lg border border-accent px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-accent disabled:opacity-50"
+                      >
+                        Rollback r{finding.rollback_target_revision}
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="mt-5 flex items-center gap-2 text-sm text-emerald-300">
-              <CheckCircle2 size={16} /> No broken schema, assets, deep links or
-              runtime warnings in scope.
+            <div className="mt-5 flex items-center gap-2 text-sm text-success">
+              <CheckCircle2 size={16} aria-hidden="true" /> No broken schema,
+              assets, deep links or runtime warnings in scope.
             </div>
           )}
         </div>
       </section>
-      <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" aria-labelledby="experience-audit-history-title">
+      <section
+        className="rounded-3xl border border-border bg-surface/[0.03] p-5"
+        aria-labelledby="experience-audit-history-title"
+      >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 id="experience-audit-history-title" className="text-base font-black text-zinc-100">Audit history</h2>
-            <p className="mt-1 text-xs text-zinc-500">Filter every draft, approval, publication, pause/kill-switch and rollback decision by campaign, actor, date or action.</p>
+            <h2
+              id="experience-audit-history-title"
+              className="text-base font-black text-foreground-muted"
+            >
+              Audit history
+            </h2>
+            <p className="mt-1 text-xs text-foreground-muted">
+              Filter every draft, approval, publication, pause/kill-switch and
+              rollback decision by campaign, actor, date or action.
+            </p>
           </div>
-          <span className="text-xs font-bold text-zinc-500">{auditQuery.data?.length ?? 0} event(s)</span>
+          <span className="text-xs font-bold text-foreground-muted">
+            {auditQuery.data?.length ?? 0} event(s)
+          </span>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Campaign / manifest<select value={auditFilters.manifest_id} onChange={(event) => updateAuditFilter('manifest_id', event.target.value)} className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-zinc-100"><option value="">All campaigns</option>{Array.from(new Map(rawManifests.map((manifest) => [manifest.manifest_id, campaignNameForManifest(manifest)])).entries()).map(([manifestId, name]) => <option key={manifestId} value={manifestId}>{name} · {manifestId.slice(0, 8)}…</option>)}</select></label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Actor UUID<input value={auditFilters.actor_id} onChange={(event) => updateAuditFilter('actor_id', event.target.value)} className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-zinc-100" placeholder="all actors" /></label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Action<select value={auditFilters.action} onChange={(event) => updateAuditFilter('action', event.target.value)} className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-zinc-100"><option value="">All actions</option>{auditActions.map((action) => <option key={action} value={action}>{action}</option>)}</select></label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">From<input type="date" value={auditFilters.date_from.slice(0, 10)} onChange={(event) => updateAuditFilter('date_from', event.target.value ? `${event.target.value}T00:00:00.000Z` : '')} className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-zinc-100" /></label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">To<input type="date" value={auditFilters.date_to.slice(0, 10)} onChange={(event) => updateAuditFilter('date_to', event.target.value ? `${event.target.value}T23:59:59.999Z` : '')} className="mt-1 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-zinc-100" /></label>
+          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+            Campaign / manifest
+            <select
+              value={auditFilters.manifest_id}
+              onChange={(event) =>
+                updateAuditFilter("manifest_id", event.target.value)
+              }
+              className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-foreground-muted"
+            >
+              <option value="">All campaigns</option>
+              {Array.from(
+                new Map(
+                  rawManifests.map((manifest) => [
+                    manifest.manifest_id,
+                    campaignNameForManifest(manifest),
+                  ]),
+                ).entries(),
+              ).map(([manifestId, name]) => (
+                <option key={manifestId} value={manifestId}>
+                  {name} · {manifestId.slice(0, 8)}…
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+            Actor UUID
+            <input
+              value={auditFilters.actor_id}
+              onChange={(event) =>
+                updateAuditFilter("actor_id", event.target.value)
+              }
+              className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-foreground-muted"
+              placeholder="all actors"
+            />
+          </label>
+          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+            Action
+            <select
+              value={auditFilters.action}
+              onChange={(event) =>
+                updateAuditFilter("action", event.target.value)
+              }
+              className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-foreground-muted"
+            >
+              <option value="">All actions</option>
+              {auditActions.map((action) => (
+                <option key={action} value={action}>
+                  {action}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+            From
+            <input
+              type="date"
+              value={auditFilters.date_from.slice(0, 10)}
+              onChange={(event) =>
+                updateAuditFilter(
+                  "date_from",
+                  event.target.value
+                    ? `${event.target.value}T00:00:00.000Z`
+                    : "",
+                )
+              }
+              className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-foreground-muted"
+            />
+          </label>
+          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+            To
+            <input
+              type="date"
+              value={auditFilters.date_to.slice(0, 10)}
+              onChange={(event) =>
+                updateAuditFilter(
+                  "date_to",
+                  event.target.value
+                    ? `${event.target.value}T23:59:59.999Z`
+                    : "",
+                )
+              }
+              className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-foreground-muted"
+            />
+          </label>
         </div>
-        <div className="mt-4 overflow-x-auto">
+        <div role="region" aria-label="Experience audit history table" tabIndex={0} className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-xs">
-            <thead className="border-b border-white/10 text-[10px] uppercase tracking-widest text-zinc-600"><tr><th className="px-3 py-3">Campaign / revision</th><th className="px-3 py-3">Action</th><th className="px-3 py-3">Actor / timestamp</th><th className="px-3 py-3">Reason</th></tr></thead>
-            <tbody>{(auditQuery.data ?? []).slice(0, 100).map((event) => <tr key={event.id} className="border-b border-white/5"><td className="px-3 py-3"><Link to={`/app-experience/revisions?manifest_id=${event.manifest_id}&revision=${event.revision}`} className="font-bold text-zinc-200 hover:text-primary-light hover:underline">Revision {event.revision}</Link><p className="mt-1 font-mono text-[10px] text-zinc-600">{event.manifest_id.slice(0, 8)}…</p></td><td className="px-3 py-3 font-black uppercase tracking-wider text-primary-light">{event.action}</td><td className="px-3 py-3 text-zinc-500"><span className="font-mono text-zinc-400">{event.actor_id || 'system'}</span><p className="mt-1">{formatDate(event.created_at)}</p></td><td className="max-w-md px-3 py-3 text-zinc-500">{event.reason || '—'}</td></tr>)}</tbody>
+            <thead className="border-b border-border text-[10px] uppercase tracking-widest text-foreground-muted">
+              <tr>
+                <th scope="col" className="px-3 py-3">
+                  Campaign / revision
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Action
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Actor / timestamp
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Reason
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {(auditQuery.data ?? []).slice(0, 100).map((event) => (
+                <tr key={event.id} className="border-b border-border">
+                  <td className="px-3 py-3">
+                    <Link
+                      to={`/app-experience/revisions?manifest_id=${event.manifest_id}&revision=${event.revision}`}
+                      className="font-bold text-foreground-muted hover:text-primary-light hover:underline"
+                    >
+                      Revision {event.revision}
+                    </Link>
+                    <p className="mt-1 font-mono text-[10px] text-foreground-muted">
+                      {event.manifest_id.slice(0, 8)}…
+                    </p>
+                  </td>
+                  <td className="px-3 py-3 font-black uppercase tracking-wider text-primary-light">
+                    {event.action}
+                  </td>
+                  <td className="px-3 py-3 text-foreground-muted">
+                    <span className="font-mono text-foreground-muted">
+                      {event.actor_id || "system"}
+                    </span>
+                    <p className="mt-1">{formatDate(event.created_at)}</p>
+                  </td>
+                  <td className="max-w-md px-3 py-3 text-foreground-muted">
+                    {event.reason || "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
-          {auditQuery.data?.length === 0 && !auditQuery.isLoading ? <p className="py-8 text-center text-sm text-zinc-600">No audit event matches the selected filters.</p> : null}
+          {auditQuery.data?.length === 0 && !auditQuery.isLoading ? (
+            <p className="py-8 text-center text-sm text-foreground-muted">
+              No audit event matches the selected filters.
+            </p>
+          ) : null}
         </div>
       </section>
-      <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+      <section className="rounded-3xl border border-border bg-surface/[0.03] p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-base font-black text-zinc-100">
+            <h2 className="text-base font-black text-foreground-muted">
               Active revision by market / surface
             </h2>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-foreground-muted">
               The table is explicitly scoped to {filters.market_code} ·{" "}
               {surfaceLabels[filters.surface]}.
             </p>
           </div>
-          <span className="text-xs font-bold text-zinc-500">
+          <span className="text-xs font-bold text-foreground-muted">
             {displayManifests.length} revision(s) in view
           </span>
         </div>
@@ -1155,72 +1413,84 @@ export default function AppExperienceOverview() {
           ].map((status) => (
             <div
               key={status}
-              className="rounded-xl border border-white/10 bg-black/10 px-3 py-2"
+              className="rounded-xl border border-border bg-surface-subtle px-3 py-2"
             >
-              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                {status.replace("_", " ")}
-              </p>
-              <p className="mt-1 text-lg font-black text-zinc-200">
+              <StatusBadge
+                status={status}
+                labelPrefix="Revision status"
+                className="text-[10px] uppercase tracking-widest"
+              />
+              <p className="mt-1 text-lg font-black text-foreground-muted">
                 {states[status] ?? 0}
               </p>
             </div>
           ))}
         </div>
-        <div className="mt-4 overflow-x-auto">
+        <div role="region" aria-label="Active experience revisions table" tabIndex={0} className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-xs">
-            <thead className="border-b border-white/10 text-[10px] uppercase tracking-widest text-zinc-600">
+            <thead className="border-b border-border text-[10px] uppercase tracking-widest text-foreground-muted">
               <tr>
-                <th className="px-3 py-3">Campaign / revision</th>
-                <th className="px-3 py-3">Status</th>
-                <th className="px-3 py-3">Locale / app</th>
-                <th className="px-3 py-3">Schedule</th>
-                <th className="px-3 py-3">Updated</th>
+                <th scope="col" className="px-3 py-3">
+                  Campaign / revision
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Status
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Locale / app
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Schedule
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Updated
+                </th>
               </tr>
             </thead>
             <tbody>
               {displayManifests.slice(0, 20).map((manifest) => {
                 const status = statusFor(manifest, now);
                 return (
-                  <tr key={manifest.id} className="border-b border-white/5">
+                  <tr key={manifest.id} className="border-b border-border">
                     <td className="px-3 py-3">
                       <Link
                         to={`/app-experience/revisions?manifest_id=${manifest.manifest_id}&revision=${manifest.revision}`}
-                        className="font-bold text-zinc-200 hover:text-primary-light hover:underline"
+                        className="font-bold text-foreground-muted hover:text-primary-light hover:underline"
                       >
                         {titleFor(manifest)}
                       </Link>
-                      <p className="mt-1 font-mono text-[10px] text-zinc-600">
+                      <p className="mt-1 font-mono text-[10px] text-foreground-muted">
                         {manifest.manifest_id.slice(0, 8)}… · r
                         {manifest.revision}
                       </p>
                     </td>
                     <td className="px-3 py-3">
-                      <span
-                        className={`rounded-full px-2 py-1 text-[10px] font-black tracking-widest ${statusStyles[status] || "bg-zinc-800 text-zinc-400"}`}
-                      >
-                        {status.replace("_", " ")}
-                      </span>
+                      <StatusBadge
+                        status={status}
+                        labelPrefix="Revision status"
+                        className="text-[10px] tracking-widest"
+                      />
                       {manifest.kill_switch_active ? (
-                        <p className="mt-1 text-[10px] text-red-300">
+                        <p className="mt-1 text-[10px] text-error">
                           kill switch active
                         </p>
                       ) : null}
                     </td>
-                    <td className="px-3 py-3 text-zinc-400">
+                    <td className="px-3 py-3 text-foreground-muted">
                       {manifest.locale} · v{manifest.min_app_version}
                       {manifest.max_app_version
                         ? `–${manifest.max_app_version}`
                         : "+"}
                     </td>
-                    <td className="px-3 py-3 text-zinc-500">
+                    <td className="px-3 py-3 text-foreground-muted">
                       {formatDate(manifest.starts_at)}
                       {manifest.ends_at
                         ? ` → ${formatDate(manifest.ends_at)}`
                         : ""}
                     </td>
-                    <td className="px-3 py-3 text-zinc-500">
+                    <td className="px-3 py-3 text-foreground-muted">
                       {formatDate(manifest.updated_at)}
-                      <p className="mt-1 text-[10px] text-zinc-600">
+                      <p className="mt-1 text-[10px] text-foreground-muted">
                         {manifest.updated_by || manifest.created_by || "system"}
                       </p>
                     </td>
@@ -1230,7 +1500,7 @@ export default function AppExperienceOverview() {
             </tbody>
           </table>
           {displayManifests.length === 0 && !manifestsQuery.isLoading ? (
-            <p className="py-8 text-center text-sm text-zinc-600">
+            <p className="py-8 text-center text-sm text-foreground-muted">
               No revision matches the selected scope.
             </p>
           ) : null}

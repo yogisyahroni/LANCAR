@@ -65,6 +65,7 @@ import { EXPERIENCE_CAPABILITIES, hasExperiencePermission, type ExperienceCapabi
 
 import { useEffect } from 'react'
 import { useAuthStore } from './store/useAuthStore'
+import { useTheme } from './providers/ThemeProvider'
 
 const queryClient = new QueryClient()
 
@@ -105,9 +106,11 @@ const ProtectedExperienceManifest = () => (
 )
 
 function App() {
+  const { resolvedTheme } = useTheme()
+
   return (
     <QueryClientProvider client={queryClient}>
-      <Toaster position="top-right" theme="dark" richColors closeButton />
+      <Toaster position="top-right" theme={resolvedTheme} richColors closeButton duration={6000} />
       <Router>
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" />} />

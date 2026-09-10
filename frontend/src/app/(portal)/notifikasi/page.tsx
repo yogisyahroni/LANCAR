@@ -190,10 +190,10 @@ export default function NotifikasiPage() {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight text-foreground">
-            <span className="relative rounded-2xl bg-primary-soft p-2.5 text-primary dark:bg-primary/20 dark:text-brand-emerald-300">
-              <Bell className="h-6 w-6" />
+            <span className="relative rounded-2xl bg-primary-soft p-2.5 text-primary dark:bg-primary/20 dark:text-success">
+              <Bell className="h-6 w-6"  aria-hidden="true"/>
               {unreadCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-black text-white">
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-black text-on-accent">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
@@ -211,18 +211,18 @@ export default function NotifikasiPage() {
             type="button"
             onClick={() => void handleMarkAllRead()}
             disabled={isMutating || unreadCount === 0}
-            className="flex items-center gap-2 rounded-xl border border-black/10 bg-black/5 px-4 py-2.5 text-sm font-bold text-zinc-600 transition-all hover:bg-black/10 disabled:pointer-events-none disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10"
+            className="flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-4 py-2.5 text-sm font-bold text-foreground-muted transition-all hover:bg-surface-subtle disabled:pointer-events-none disabled:opacity-40 dark:border-border dark:bg-surface-subtle dark:text-foreground-muted dark:hover:bg-surface-subtle"
           >
-            <CheckCheck className={`h-4 w-4 ${isMutating ? 'animate-pulse' : ''}`} />
+            <CheckCheck className={`h-4 w-4 ${isMutating ? 'animate-pulse' : ''}`} aria-hidden="true" />
             Tandai Dibaca
           </button>
           <button
             type="button"
             onClick={() => void handleClearAll()}
             disabled={isMutating || notifications.length === 0}
-            className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-bold text-red-600 transition-all hover:bg-red-500/20 disabled:pointer-events-none disabled:opacity-40 dark:text-red-300"
+            className="flex items-center gap-2 rounded-xl border border-error bg-error-surface px-4 py-2.5 text-sm font-bold text-error transition-all hover:bg-error-surface disabled:pointer-events-none disabled:opacity-40 dark:text-error"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
             Hapus Semua
           </button>
         </div>
@@ -245,11 +245,11 @@ export default function NotifikasiPage() {
               }}
               className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
                 isActive
-                  ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                  : 'border border-black/10 bg-black/5 text-zinc-600 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-zinc-400 dark:hover:bg-white/10'
+                  ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
+                  : 'border border-border bg-surface-subtle text-foreground-secondary hover:bg-surface-raised dark:border-border dark:bg-surface-subtle dark:text-foreground-secondary dark:hover:bg-surface-raised'
               }`}
             >
-              <meta.icon className="h-3.5 w-3.5" />
+              <meta.icon className="h-3.5 w-3.5" aria-hidden="true" />
               {meta.label}
             </button>
           );
@@ -267,7 +267,7 @@ export default function NotifikasiPage() {
         </ul>
       ) : visible.length === 0 ? (
         <div className="glass-card flex flex-col items-center rounded-2xl p-12 text-center">
-          <BellOff className="h-10 w-10 text-muted-foreground" />
+          <BellOff className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
           <p className="mt-4 text-sm font-semibold text-foreground">
             {activeCategory === 'semua' ? 'Belum ada notifikasi' : `Tidak ada notifikasi ${CATEGORY_META[activeCategory].label.toLowerCase()}`}
           </p>
@@ -297,8 +297,8 @@ export default function NotifikasiPage() {
                       onClick={() => void handleItemClick(notif)}
                       className={`w-full rounded-2xl border p-4 text-left transition-all ${
                         notif.is_read
-                          ? 'border-transparent bg-transparent hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'
-                          : 'border-black/10 bg-white/60 backdrop-blur-md hover:border-primary/30 dark:border-white/10 dark:bg-white/5'
+                          ? 'border-transparent bg-transparent hover:bg-scrim/[0.03] dark:hover:bg-surface/[0.03]'
+                          : 'border-border bg-surface-subtle backdrop-blur-md hover:border-primary/30 dark:border-border dark:bg-surface-subtle'
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -306,7 +306,7 @@ export default function NotifikasiPage() {
                           className={`mt-0.5 shrink-0 rounded-xl p-2 ${
                             notif.is_read
                               ? 'text-muted-foreground'
-                              : 'bg-primary-soft text-primary dark:bg-brand-emerald-500/15 dark:text-brand-emerald-300'
+                              : 'bg-primary-soft text-primary dark:bg-success/15 dark:text-success'
                           }`}
                         >
                           <CategoryIcon className="h-4 w-4" />
@@ -337,7 +337,7 @@ export default function NotifikasiPage() {
               <button
                 type="button"
                 onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
-                className="rounded-xl border border-black/10 bg-black/5 px-6 py-3 text-sm font-bold text-zinc-600 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10"
+                className="rounded-xl border border-border bg-surface-subtle px-6 py-3 text-sm font-bold text-foreground-muted transition-all hover:bg-surface-subtle dark:border-border dark:bg-surface-subtle dark:text-foreground-muted dark:hover:bg-surface-subtle"
               >
                 Muat Lebih Banyak ({filtered.length - visibleCount} lagi)
               </button>

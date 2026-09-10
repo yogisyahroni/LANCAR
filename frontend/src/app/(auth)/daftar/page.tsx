@@ -436,7 +436,7 @@ function RegisterContent() {
       : email;
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6">
+    <main className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6">
       {/* Background blurs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-primary/10 blur-[120px] rounded-full" />
@@ -454,7 +454,7 @@ function RegisterContent() {
           <div className="mb-6 flex items-start gap-4">
             {flow === 'google' ? (
               <div className="h-14 w-14 rounded-2xl bg-primary/15 flex items-center justify-center shrink-0">
-                <svg className="h-7 w-7" viewBox="0 0 24 24">
+                <svg aria-hidden="true" className="h-7 w-7" viewBox="0 0 24 24">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
@@ -462,7 +462,7 @@ function RegisterContent() {
                 </svg>
               </div>
             ) : (
-              <img src="/tembusweb.svg" alt="Tembus Logo" className="h-14 object-contain shrink-0 drop-shadow-md" />
+              <img src="/tembusweb.svg" alt="Tembus Logo" className="h-14 w-14 object-contain shrink-0 drop-shadow-md sm:w-auto" />
             )}
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -484,7 +484,7 @@ function RegisterContent() {
               className="mb-5 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 flex items-center gap-3"
             >
               <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                <UserRound className="h-4 w-4 text-primary" />
+                <UserRound className="h-4 w-4 text-primary" aria-hidden="true" />
               </div>
               <div className="min-w-0">
                 {fullName && <p className="text-sm font-semibold text-foreground truncate">{fullName}</p>}
@@ -508,16 +508,16 @@ function RegisterContent() {
                     isActive
                       ? 'border-primary bg-primary/10'
                       : isDone
-                      ? 'border-green-500/30 bg-green-500/5'
+                      ? 'border-success bg-success-surface'
                       : 'border-border bg-muted/20'
                   }`}
                 >
                   {isDone ? (
-                    <CheckCircle2 className="mb-1.5 h-4 w-4 text-green-500" />
+                    <CheckCircle2 className="mb-1.5 h-4 w-4 text-success" aria-hidden="true" />
                   ) : i === 0 ? (
-                    <UserRound className="mb-1.5 h-4 w-4 text-primary" />
+                    <UserRound className="mb-1.5 h-4 w-4 text-primary" aria-hidden="true" />
                   ) : (
-                    <ShieldCheck className="mb-1.5 h-4 w-4 text-primary" />
+                    <ShieldCheck className="mb-1.5 h-4 w-4 text-primary" aria-hidden="true" />
                   )}
                   <p className="text-sm font-semibold text-foreground">{label}</p>
                 </div>
@@ -556,14 +556,14 @@ function RegisterContent() {
                   <>
                     <Field
                       label="Nama lengkap"
-                      icon={<UserRound className="h-4 w-4 text-muted-foreground" />}
+                      icon={<UserRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
                       value={fullName}
                       onChange={setFullName}
                       placeholder="Yogi Customer"
                     />
                     <Field
                       label="Email"
-                      icon={<Mail className="h-4 w-4 text-muted-foreground" />}
+                      icon={<Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
                       value={email}
                       onChange={setEmail}
                       type="email"
@@ -574,7 +574,7 @@ function RegisterContent() {
 
                 <Field
                   label="Nomor handphone"
-                  icon={<Phone className="h-4 w-4 text-muted-foreground" />}
+                  icon={<Phone className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
                   value={phoneNumber}
                   onChange={(v) => {
                     if (/^[0-9+\-\s]*$/.test(v)) setPhoneNumber(v);
@@ -589,7 +589,7 @@ function RegisterContent() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field
                       label="Password"
-                      icon={<ShieldCheck className="h-4 w-4 text-muted-foreground" />}
+                      icon={<ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
                       value={password}
                       onChange={setPassword}
                       type="password"
@@ -597,7 +597,7 @@ function RegisterContent() {
                     />
                     <Field
                       label="Konfirmasi password"
-                      icon={<ShieldCheck className="h-4 w-4 text-muted-foreground" />}
+                      icon={<ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
                       value={confirmPassword}
                       onChange={setConfirmPassword}
                       type="password"
@@ -620,9 +620,9 @@ function RegisterContent() {
                   className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-5 py-4 font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
                 >
                   {isSubmitting ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
                   ) : (
-                    <ArrowRight className="h-5 w-5" />
+                    <ArrowRight className="h-5 w-5"  aria-hidden="true"/>
                   )}
                   {flow === 'google'
                     ? (googleOtpRequired === false ? 'Simpan & Lanjutkan' : 'Kirim Kode OTP')
@@ -644,7 +644,7 @@ function RegisterContent() {
                 {/* OTP sent notice */}
                 <div className="rounded-2xl border border-border bg-muted/20 p-4">
                   <div className="flex items-center gap-3 mb-2">
-                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0" aria-hidden="true" />
                     <p className="font-semibold text-foreground text-sm">OTP terkirim</p>
                   </div>
                   <p className="text-sm leading-6 text-muted-foreground">
@@ -667,9 +667,9 @@ function RegisterContent() {
                   className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-5 py-4 font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
                 >
                   {isSubmitting ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
                   ) : (
-                    <ShieldCheck className="h-5 w-5" />
+                    <ShieldCheck className="h-5 w-5" aria-hidden="true" />
                   )}
                   Verifikasi dan Masuk
                 </button>
@@ -682,7 +682,7 @@ function RegisterContent() {
                   disabled={countdown > 0 || isSubmitting}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-semibold text-foreground transition-all hover:bg-muted/40 active:scale-[0.98] disabled:opacity-50"
                 >
-                  <RefreshCw className="h-4 w-4" />
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
                   {countdown > 0 ? `Kirim ulang dalam ${countdown}s` : 'Kirim ulang OTP'}
                 </button>
 
@@ -715,13 +715,13 @@ function RegisterContent() {
           </div>
         </div>
       </motion.div>
-    </div>
+    </main>
   );
 }
 
 export default function RegisterPage() {
   return (
-    <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+    <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" /></div>}>
       <RegisterContent />
     </React.Suspense>
   );

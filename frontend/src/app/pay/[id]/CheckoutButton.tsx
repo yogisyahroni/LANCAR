@@ -81,9 +81,9 @@ export default function CheckoutButton({ paymentLinkId }: CheckoutButtonProps) {
       className="w-full py-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-2xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-lg shadow-primary/25 disabled:opacity-70 disabled:hover:scale-100"
     >
       {isLoading ? (
-        <Loader2 className="w-5 h-5 animate-spin" />
+        <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
       ) : (
-        <CreditCard className="w-5 h-5" />
+        <CreditCard className="w-5 h-5"  aria-hidden="true"/>
       )}
       {isLoading ? 'Memproses...' : 'Bayar Sekarang'}
     </button>

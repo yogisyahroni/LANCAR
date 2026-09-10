@@ -25,8 +25,8 @@ export function SettingsContent() {
     <div className="space-y-8 animate-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">System Settings</h1>
-          <p className="text-zinc-500 mt-1">Manage platform configuration, feature flags, and dynamic parameters.</p>
+          <h1 className="text-3xl font-bold text-foreground-muted tracking-tight">System Settings</h1>
+          <p className="text-foreground-muted mt-1">Manage platform configuration, feature flags, and dynamic parameters.</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
@@ -34,9 +34,9 @@ export function SettingsContent() {
               queryClient.invalidateQueries()
               toast.info('Syncing latest configuration...')
             }}
-            className="px-8 py-3 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+            className="px-8 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
           >
-            <Save size={18} />
+            <Save size={18}  aria-hidden="true"/>
             Sync Now
           </button>
         </div>
@@ -52,11 +52,11 @@ export function SettingsContent() {
               className={cn(
                 "w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-200 group text-left",
                 activeTab === tab.id 
-                  ? "bg-primary text-white shadow-lg shadow-primary/10" 
-                  : "text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+                  ? "bg-primary text-on-primary shadow-lg shadow-primary/10"
+                  : "text-foreground-muted hover:bg-surface-subtle hover:text-foreground-muted"
               )}
             >
-              <tab.icon size={20} className={cn(activeTab === tab.id ? "text-white" : "group-hover:text-primary-light")} />
+              <tab.icon size={20} className={cn(activeTab === tab.id ? "text-foreground" : "group-hover:text-primary-light")} aria-hidden="true" />
               <span className="font-bold text-sm uppercase tracking-widest">{tab.id}</span>
             </button>
           ))}

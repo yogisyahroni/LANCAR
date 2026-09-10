@@ -62,7 +62,7 @@ export default function Notifications() {
   if (isLoading) {
     return (
       <div className="h-[80vh] flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <Loader2 className="w-12 h-12 text-primary animate-spin" aria-hidden="true" />
       </div>
     );
   }
@@ -85,11 +85,11 @@ export default function Notifications() {
     <div className="space-y-8 animate-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-zinc-100 tracking-tight italic uppercase">Communication Hub</h1>
-          <p className="text-zinc-500 mt-1">Manage automated triggers and notification templates.</p>
+          <h1 className="text-3xl font-black text-foreground-muted tracking-tight italic uppercase">Communication Hub</h1>
+          <p className="text-foreground-muted mt-1">Manage automated triggers and notification templates.</p>
         </div>
-        <button className="px-6 py-3 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
-          <Plus size={18} />
+        <button className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+          <Plus size={18}  aria-hidden="true"/>
           Add Trigger
         </button>
       </div>
@@ -97,7 +97,7 @@ export default function Notifications() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left: Trigger List */}
         <div className="lg:col-span-4 space-y-3">
-          <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-2">Trigger Events</p>
+          <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest px-2">Trigger Events</p>
           <div className="space-y-2">
             {templates?.map((t: any) => (
               <motion.div 
@@ -107,7 +107,7 @@ export default function Notifications() {
                   "p-5 rounded-3xl border cursor-pointer transition-all flex items-center justify-between group",
                   selectedId === t.id 
                     ? "bg-primary/10 border-primary/20 text-primary-light shadow-lg shadow-primary/5" 
-                    : "bg-white/5 border-white/5 text-zinc-400 hover:border-white/10 hover:text-zinc-200"
+                    : "bg-surface-subtle border-border text-foreground-muted hover:border-border hover:text-foreground-muted"
                 )}
               >
                 <div>
@@ -115,9 +115,9 @@ export default function Notifications() {
                    <h3 className="font-bold">{t.trigger}</h3>
                 </div>
                 <div className="flex gap-1.5">
-                   {t.channels?.includes('PUSH') && <Smartphone size={14} className="opacity-40" />}
-                   {t.channels?.includes('EMAIL') && <Mail size={14} className="opacity-40" />}
-                   {t.channels?.includes('SMS') && <MessageSquare size={14} className="opacity-40" />}
+                   {t.channels?.includes('PUSH') && <Smartphone size={14} className="opacity-40" aria-hidden="true" />}
+                   {t.channels?.includes('EMAIL') && <Mail size={14} className="opacity-40" aria-hidden="true" />}
+                   {t.channels?.includes('SMS') && <MessageSquare size={14} className="opacity-40" aria-hidden="true" />}
                 </div>
               </motion.div>
             ))}
@@ -125,13 +125,13 @@ export default function Notifications() {
         </div>
 
         {/* Right: Template Editor */}
-        <div className="lg:col-span-8 glass-card p-10 rounded-[48px] border-white/5 space-y-10">
+        <div className="lg:col-span-8 glass-card p-10 rounded-[48px] border-border space-y-10">
            {selectedTemplate ? (
              <>
                <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                     <h3 className="text-xl font-black text-zinc-100">{selectedTemplate.trigger}</h3>
-                     <p className="text-xs text-zinc-500">Configure messaging for this event</p>
+                     <h3 className="text-xl font-black text-foreground-muted">{selectedTemplate.trigger}</h3>
+                     <p className="text-xs text-foreground-muted">Configure messaging for this event</p>
                   </div>
                   <div className="flex items-center gap-2">
                      <button 
@@ -140,16 +140,16 @@ export default function Notifications() {
                           content: selectedTemplate.content,
                           channels: selectedTemplate.channels || []
                         })}
-                        className="p-3 rounded-xl bg-white/5 text-zinc-500 hover:text-white transition-all"
+                        className="p-3 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all"
                       >
-                        <RotateCcw size={18} />
+                        <RotateCcw size={18} aria-hidden="true" />
                      </button>
                      <button 
                         onClick={handleSave}
                         disabled={updateMutation.isPending}
-                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-500 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-400 transition-all disabled:opacity-50"
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-success text-on-success font-black text-xs uppercase tracking-widest hover:bg-success transition-all disabled:opacity-50"
                       >
-                        {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save size={18} />}
+                        {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Save size={18} aria-hidden="true" />}
                         Save Changes
                      </button>
                   </div>
@@ -158,7 +158,7 @@ export default function Notifications() {
                <div className="space-y-8">
                   {/* Channels */}
                   <div className="space-y-4">
-                     <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Active Channels</p>
+                     <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Active Channels</p>
                      <div className="flex gap-4">
                         {[
                           { id: 'PUSH', icon: Smartphone, label: 'Push' },
@@ -172,10 +172,10 @@ export default function Notifications() {
                               "flex-1 flex items-center justify-center gap-3 p-4 rounded-2xl border transition-all",
                               formData.channels.includes(ch.id)
                                 ? "bg-primary/5 border-primary/20 text-primary-light"
-                                : "bg-white/5 border-white/5 text-zinc-500 grayscale opacity-50"
+                                : "bg-surface-subtle border-border text-foreground-muted grayscale opacity-50"
                             )}
                           >
-                            <ch.icon size={18} />
+                            <ch.icon size={18} aria-hidden="true" />
                             <span className="text-[10px] font-black uppercase tracking-widest">{ch.label}</span>
                           </button>
                         ))}
@@ -184,21 +184,21 @@ export default function Notifications() {
 
                   {/* Subject */}
                   <div className="space-y-3">
-                     <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Message Subject</label>
+                     <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Message Subject</label>
                      <input 
                         type="text" 
                         value={formData.subject}
                         onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        className="w-full bg-surface-subtle border border-border rounded-2xl p-4 text-sm font-bold text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                      />
                   </div>
 
                   {/* Content */}
                   <div className="space-y-3">
                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Template Content</label>
-                        <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 text-zinc-500">
-                           <Code size={12} />
+                        <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Template Content</label>
+                        <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-surface-subtle text-foreground-muted">
+                           <Code size={12} aria-hidden="true" />
                            <span className="text-[9px] font-black uppercase tracking-widest">Dynamic Vars</span>
                         </div>
                      </div>
@@ -206,14 +206,14 @@ export default function Notifications() {
                         rows={6}
                         value={formData.content}
                         onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-sm font-medium text-zinc-300 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none leading-relaxed"
+                        className="w-full bg-surface-subtle border border-border rounded-2xl p-6 text-sm font-medium text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none leading-relaxed"
                      />
                      <div className="flex flex-wrap gap-2 pt-2">
                         {['{order_id}', '{customer_name}', '{pickup}', '{courier_name}', '{eta}'].map(v => (
                           <span 
                             key={v} 
                             onClick={() => setFormData(prev => ({ ...prev, content: prev.content + v }))}
-                            className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-white/5 text-[10px] font-mono text-primary-light/60 hover:text-primary-light hover:border-primary/20 cursor-pointer transition-all"
+                            className="px-3 py-1.5 rounded-lg bg-surface border border-border text-[10px] font-mono text-primary-light/60 hover:text-primary-light hover:border-primary/20 cursor-pointer transition-all"
                           >
                              {v}
                           </span>
@@ -223,7 +223,7 @@ export default function Notifications() {
                </div>
              </>
            ) : (
-             <div className="h-[400px] flex items-center justify-center text-zinc-600 font-black uppercase tracking-widest italic">
+             <div className="h-[400px] flex items-center justify-center text-foreground-muted font-black uppercase tracking-widest italic">
                 Select a trigger to edit template
              </div>
            )}

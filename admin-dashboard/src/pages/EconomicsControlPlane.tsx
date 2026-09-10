@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from 'sonner'
+import { StatusBadge } from '../components/StatusBadge'
 
 type Revision = {
   id: string
@@ -153,88 +154,88 @@ export default function EconomicsControlPlane() {
     <div className="space-y-8 animate-in">
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-zinc-100 tracking-tight flex items-center gap-3">
-            <ShieldCheck size={28} className="text-primary-light" />
+          <h1 className="text-3xl font-black text-foreground-muted tracking-tight flex items-center gap-3">
+            <ShieldCheck size={28} className="text-primary-light" aria-hidden="true" />
             Economics Control Plane
           </h1>
-          <p className="text-zinc-500 mt-1">Draft → preview/simulate → maker-checker approval → publish atau rollback.</p>
+          <p className="text-foreground-muted mt-1">Draft → preview/simulate → maker-checker approval → publish atau rollback.</p>
         </div>
-        <button type="button" onClick={() => revisionsQuery.refetch()} className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-black uppercase tracking-widest text-zinc-300">
-          <RefreshCw size={15} /> Refresh
+        <button type="button" onClick={() => revisionsQuery.refetch()} className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-surface-subtle border border-border text-xs font-black uppercase tracking-widest text-foreground-muted">
+          <RefreshCw size={15} aria-hidden="true" /> Refresh
         </button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_1.4fr] gap-8 items-start">
-        <section className="glass-card rounded-[40px] border-white/5 p-8 space-y-6">
+        <section className="glass-card rounded-[40px] border-border p-8 space-y-6">
           <div>
-            <h2 className="text-lg font-black text-zinc-100">New policy draft</h2>
-            <p className="text-xs text-zinc-500 mt-1">Publish hanya tersedia untuk super_admin dan selalu menyimpan snapshot rollback.</p>
+            <h2 className="text-lg font-black text-foreground-muted">New policy draft</h2>
+            <p className="text-xs text-foreground-muted mt-1">Publish hanya tersedia untuk super_admin dan selalu menyimpan snapshot rollback.</p>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <label className="text-xs font-bold text-zinc-500">Type
-              <select value={policyType} onChange={(event) => setPolicyType(event.target.value as 'pricing' | 'surge')} className="mt-2 w-full bg-white/5 border border-white/10 rounded-xl p-3 text-zinc-200">
+            <label className="text-xs font-bold text-foreground-muted">Type
+              <select value={policyType} onChange={(event) => setPolicyType(event.target.value as 'pricing' | 'surge')} className="mt-2 w-full bg-surface-subtle border border-border rounded-xl p-3 text-foreground-muted">
                 <option value="pricing">Pricing</option><option value="surge">Surge</option>
               </select>
             </label>
-            <label className="text-xs font-bold text-zinc-500">Market code
-              <input value={marketCode} onChange={(event) => setMarketCode(event.target.value)} className="mt-2 w-full bg-white/5 border border-white/10 rounded-xl p-3 text-zinc-200" />
+            <label className="text-xs font-bold text-foreground-muted">Market code
+              <input value={marketCode} onChange={(event) => setMarketCode(event.target.value)} className="mt-2 w-full bg-surface-subtle border border-border rounded-xl p-3 text-foreground-muted" />
             </label>
-            <label className="text-xs font-bold text-zinc-500">Service code
-              <input value={serviceCode} onChange={(event) => setServiceCode(event.target.value)} className="mt-2 w-full bg-white/5 border border-white/10 rounded-xl p-3 text-zinc-200" />
+            <label className="text-xs font-bold text-foreground-muted">Service code
+              <input value={serviceCode} onChange={(event) => setServiceCode(event.target.value)} className="mt-2 w-full bg-surface-subtle border border-border rounded-xl p-3 text-foreground-muted" />
             </label>
-            <label className="text-xs font-bold text-zinc-500">Policy version
-              <input value={policyVersion} onChange={(event) => setPolicyVersion(event.target.value)} className="mt-2 w-full bg-white/5 border border-white/10 rounded-xl p-3 text-zinc-200" />
+            <label className="text-xs font-bold text-foreground-muted">Policy version
+              <input value={policyVersion} onChange={(event) => setPolicyVersion(event.target.value)} className="mt-2 w-full bg-surface-subtle border border-border rounded-xl p-3 text-foreground-muted" />
             </label>
           </div>
-          <label className="block text-xs font-bold text-zinc-500">Business reason
-            <textarea value={businessReason} onChange={(event) => setBusinessReason(event.target.value)} rows={3} placeholder="Mengapa policy ini diubah?" className="mt-2 w-full bg-white/5 border border-white/10 rounded-xl p-3 text-zinc-200 placeholder:text-zinc-700" />
+          <label className="block text-xs font-bold text-foreground-muted">Business reason
+            <textarea value={businessReason} onChange={(event) => setBusinessReason(event.target.value)} rows={3} placeholder="Mengapa policy ini diubah?" className="mt-2 w-full bg-surface-subtle border border-border rounded-xl p-3 text-foreground-muted placeholder:text-foreground-muted" />
           </label>
-          <label className="block text-xs font-bold text-zinc-500">Policy payload (JSON)
-            <textarea value={payloadText} onChange={(event) => setPayloadText(event.target.value)} rows={12} spellCheck={false} className="mt-2 w-full bg-black/20 border border-white/10 rounded-xl p-3 text-xs font-mono text-zinc-200" />
+          <label className="block text-xs font-bold text-foreground-muted">Policy payload (JSON)
+            <textarea value={payloadText} onChange={(event) => setPayloadText(event.target.value)} rows={12} spellCheck={false} className="mt-2 w-full bg-surface-subtle border border-border rounded-xl p-3 text-xs font-mono text-foreground-muted" />
           </label>
-          <button type="button" onClick={submitDraft} disabled={createMutation.isPending} className="w-full inline-flex justify-center items-center gap-2 px-5 py-3 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest disabled:opacity-50">
-            {createMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} Save draft
+          <button type="button" onClick={submitDraft} disabled={createMutation.isPending} className="w-full inline-flex justify-center items-center gap-2 px-5 py-3 rounded-xl bg-primary text-on-primary text-xs font-black uppercase tracking-widest disabled:opacity-50">
+            {createMutation.isPending ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Send size={15} aria-hidden="true" />} Save draft
           </button>
         </section>
 
         <section className="space-y-6">
-          <div className="glass-card rounded-[40px] border-white/5 overflow-hidden">
-            <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between"><h2 className="text-lg font-black text-zinc-100">Revision workflow</h2><span className="text-xs text-zinc-500">{revisionsQuery.data?.length ?? 0} revisions</span></div>
-            {revisionsQuery.isError ? <div className="p-10 text-center text-sm text-red-300"><AlertCircle className="mx-auto mb-3" />Gagal memuat revision policy.</div> : revisionsQuery.isLoading ? <div className="p-10 text-center"><Loader2 className="mx-auto animate-spin text-primary" /></div> : (revisionsQuery.data?.length ?? 0) === 0 ? <div className="p-10 text-center text-sm text-zinc-500">Belum ada draft policy.</div> : (
-              <div className="divide-y divide-white/5">
+          <div className="glass-card rounded-[40px] border-border overflow-hidden">
+            <div className="px-8 py-6 border-b border-border flex items-center justify-between"><h2 className="text-lg font-black text-foreground-muted">Revision workflow</h2><span className="text-xs text-foreground-muted">{revisionsQuery.data?.length ?? 0} revisions</span></div>
+            {revisionsQuery.isError ? <div className="p-10 text-center text-sm text-error"><AlertCircle className="mx-auto mb-3"  aria-hidden="true"/>Gagal memuat revision policy.</div> : revisionsQuery.isLoading ? <div className="p-10 text-center"><Loader2 className="mx-auto animate-spin text-primary" aria-hidden="true" /></div> : (revisionsQuery.data?.length ?? 0) === 0 ? <div className="p-10 text-center text-sm text-foreground-muted">Belum ada draft policy.</div> : (
+              <div className="divide-y divide-border">
                 {revisionsQuery.data?.map((revision) => (
                   <div key={revision.id} className={`p-6 space-y-4 ${selectedId === revision.id ? 'bg-primary/5' : ''}`}>
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div><p className="font-black text-zinc-100">{revision.policy_type} · {revision.service_code}</p><p className="text-[11px] font-mono text-zinc-500">{revision.policy_version} · {revision.market_code}</p></div>
-                      <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-zinc-300">{revision.status}</span>
+                      <div><p className="font-black text-foreground-muted">{revision.policy_type} · {revision.service_code}</p><p className="text-[11px] font-mono text-foreground-muted">{revision.policy_version} · {revision.market_code}</p></div>
+                      <StatusBadge status={revision.status} labelPrefix="Policy revision status" className="rounded-lg text-[10px] uppercase tracking-widest" />
                     </div>
-                    <p className="text-xs text-zinc-400">{revision.business_reason}</p>
+                    <p className="text-xs text-foreground-muted">{revision.business_reason}</p>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => setSelectedId(revision.id)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 text-[10px] font-black uppercase tracking-widest text-zinc-300"><Eye size={13} /> Preview</button>
-                      {(revision.status === 'draft' || revision.status === 'approved') && <button type="button" onClick={() => { setSelectedId(revision.id); actionMutation.mutate({ id: revision.id, action: 'simulate' }) }} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-sky-500/10 text-[10px] font-black uppercase tracking-widest text-sky-300"><Play size={13} /> Simulate</button>}
-                      {revision.status === 'draft' && <button type="button" onClick={() => actionMutation.mutate({ id: revision.id, action: 'approve' })} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/10 text-[10px] font-black uppercase tracking-widest text-emerald-300"><CheckCircle2 size={13} /> Approve</button>}
-                      {revision.status === 'approved' && <button type="button" onClick={() => actionMutation.mutate({ id: revision.id, action: 'publish' })} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/15 text-[10px] font-black uppercase tracking-widest text-primary-light"><Send size={13} /> Publish</button>}
-                      {revision.status === 'published' && <button type="button" onClick={() => setSelectedId(revision.id)} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 text-[10px] font-black uppercase tracking-widest text-amber-300 disabled:opacity-40"><RotateCcw size={13} /> Rollback</button>}
+                      <button type="button" onClick={() => setSelectedId(revision.id)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-subtle text-[10px] font-black uppercase tracking-widest text-foreground-muted"><Eye size={13} aria-hidden="true" /> Preview</button>
+                      {(revision.status === 'draft' || revision.status === 'approved') && <button type="button" onClick={() => { setSelectedId(revision.id); actionMutation.mutate({ id: revision.id, action: 'simulate' }) }} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-info-surface text-[10px] font-black uppercase tracking-widest text-info"><Play size={13} aria-hidden="true" /> Simulate</button>}
+                      {revision.status === 'draft' && <button type="button" onClick={() => actionMutation.mutate({ id: revision.id, action: 'approve' })} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-success-surface text-[10px] font-black uppercase tracking-widest text-success"><CheckCircle2 size={13} aria-hidden="true" /> Approve</button>}
+                      {revision.status === 'approved' && <button type="button" onClick={() => actionMutation.mutate({ id: revision.id, action: 'publish' })} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/15 text-[10px] font-black uppercase tracking-widest text-primary-light"><Send size={13} aria-hidden="true" /> Publish</button>}
+                      {revision.status === 'published' && <button type="button" onClick={() => setSelectedId(revision.id)} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-warning-surface text-[10px] font-black uppercase tracking-widest text-warning disabled:opacity-40"><RotateCcw size={13} aria-hidden="true" /> Rollback</button>}
                     </div>
-                    {revision.status === 'published' && selectedId === revision.id && <input value={rollbackReason} onChange={(event) => setRollbackReason(event.target.value)} placeholder="Business reason rollback" className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-xs text-zinc-200" />}
-                    {revision.status === 'published' && selectedId === revision.id && rollbackReason.trim() && <button type="button" onClick={() => actionMutation.mutate({ id: revision.id, action: 'rollback', body: { business_reason: rollbackReason } })} className="text-[10px] text-amber-300 underline">Konfirmasi rollback {revision.policy_version}</button>}
+                    {revision.status === 'published' && selectedId === revision.id && <input value={rollbackReason} onChange={(event) => setRollbackReason(event.target.value)} placeholder="Business reason rollback" className="w-full bg-surface-subtle border border-border rounded-lg p-2.5 text-xs text-foreground-muted" />}
+                    {revision.status === 'published' && selectedId === revision.id && rollbackReason.trim() && <button type="button" onClick={() => actionMutation.mutate({ id: revision.id, action: 'rollback', body: { business_reason: rollbackReason } })} className="text-[10px] text-warning underline">Konfirmasi rollback {revision.policy_version}</button>}
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {selected && <div className="glass-card rounded-[40px] border-white/5 p-8 space-y-6">
-            <div className="flex items-center justify-between"><div><h2 className="text-lg font-black text-zinc-100">Preview & simulation</h2><p className="text-xs text-zinc-500 mt-1">{selected.runtime_config_key}</p></div><button type="button" onClick={() => previewQuery.refetch()} className="text-zinc-400 hover:text-white"><Play size={18} /></button></div>
-            {previewQuery.isLoading ? <Loader2 className="animate-spin text-primary" /> : previewQuery.isError ? <p className="text-sm text-red-300">Preview gagal dimuat.</p> : <>
+          {selected && <div className="glass-card rounded-[40px] border-border p-8 space-y-6">
+            <div className="flex items-center justify-between"><div><h2 className="text-lg font-black text-foreground-muted">Preview & simulation</h2><p className="text-xs text-foreground-muted mt-1">{selected.runtime_config_key}</p></div><button type="button" onClick={() => previewQuery.refetch()} className="text-foreground-muted hover:text-foreground"><Play size={18} aria-hidden="true" /></button></div>
+            {previewQuery.isLoading ? <Loader2 className="animate-spin text-primary" aria-hidden="true" /> : previewQuery.isError ? <p className="text-sm text-error">Preview gagal dimuat.</p> : <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-white/5 rounded-xl p-3"><p className="text-[10px] uppercase text-zinc-500">Market</p><p className="font-black text-zinc-200">{previewQuery.data?.affected_scope?.market_codes.join(', ')}</p></div>
-                <div className="bg-white/5 rounded-xl p-3"><p className="text-[10px] uppercase text-zinc-500">Zone</p><p className="font-black text-zinc-200">{previewQuery.data?.affected_scope?.zone_ids.length ? 'Scoped' : 'Global'}</p></div>
-                <div className="bg-white/5 rounded-xl p-3"><p className="text-[10px] uppercase text-zinc-500">Service</p><p className="font-black text-zinc-200">{previewQuery.data?.affected_scope?.service_codes.join(', ')}</p></div>
-                <div className="bg-white/5 rounded-xl p-3"><p className="text-[10px] uppercase text-zinc-500">Active orders</p><p className="font-black text-zinc-200">{previewQuery.data?.affected_scope?.active_order_count ?? 0}</p></div>
+                <div className="bg-surface-subtle rounded-xl p-3"><p className="text-[10px] uppercase text-foreground-muted">Market</p><p className="font-black text-foreground-muted">{previewQuery.data?.affected_scope?.market_codes.join(', ')}</p></div>
+                <div className="bg-surface-subtle rounded-xl p-3"><p className="text-[10px] uppercase text-foreground-muted">Zone</p><p className="font-black text-foreground-muted">{previewQuery.data?.affected_scope?.zone_ids.length ? 'Scoped' : 'Global'}</p></div>
+                <div className="bg-surface-subtle rounded-xl p-3"><p className="text-[10px] uppercase text-foreground-muted">Service</p><p className="font-black text-foreground-muted">{previewQuery.data?.affected_scope?.service_codes.join(', ')}</p></div>
+                <div className="bg-surface-subtle rounded-xl p-3"><p className="text-[10px] uppercase text-foreground-muted">Active orders</p><p className="font-black text-foreground-muted">{previewQuery.data?.affected_scope?.active_order_count ?? 0}</p></div>
               </div>
-              <div><p className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-3">Example quotes</p><p className="text-xs text-zinc-500 mb-3">{previewQuery.data?.example_quotes?.label}</p><div className="space-y-2">{previewQuery.data?.example_quotes?.candidate_quotes.map((quote) => <div key={quote.distance_km} className="flex justify-between bg-white/5 rounded-xl p-3 text-xs"><span className="text-zinc-400">{quote.distance_km} km · x{quote.applied_multiplier}</span><span className="font-black text-zinc-200">{formatIdr(quote.candidate_quote_idr)}</span></div>)}</div></div>
-              <div className="flex items-center gap-2 text-xs text-emerald-300"><ShieldCheck size={15} /> Protected floor/ceiling divalidasi server-side sebelum approve/publish.</div>
+              <div><p className="text-xs font-black uppercase tracking-widest text-foreground-muted mb-3">Example quotes</p><p className="text-xs text-foreground-muted mb-3">{previewQuery.data?.example_quotes?.label}</p><div className="space-y-2">{previewQuery.data?.example_quotes?.candidate_quotes.map((quote) => <div key={quote.distance_km} className="flex justify-between bg-surface-subtle rounded-xl p-3 text-xs"><span className="text-foreground-muted">{quote.distance_km} km · x{quote.applied_multiplier}</span><span className="font-black text-foreground-muted">{formatIdr(quote.candidate_quote_idr)}</span></div>)}</div></div>
+              <div className="flex items-center gap-2 text-xs text-success"><ShieldCheck size={15} aria-hidden="true" /> Protected floor/ceiling divalidasi server-side sebelum approve/publish.</div>
             </>}
           </div>}
         </section>

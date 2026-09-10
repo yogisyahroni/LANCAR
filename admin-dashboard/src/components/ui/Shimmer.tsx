@@ -21,11 +21,11 @@ export function Shimmer({ className, ...props }: ShimmerProps) {
   return (
     <div
       aria-hidden="true"
-      className={cn('relative overflow-hidden rounded-xl bg-white/10', className)}
+      className={cn('relative overflow-hidden rounded-xl bg-surface-subtle', className)}
       {...props}
     >
       <div
-        className="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-transparent via-white/15 to-transparent"
+        className="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-transparent via-foreground/20 to-transparent"
         style={{ animation: 'a11y-shimmer 1.5s ease-in-out infinite' }}
       />
     </div>

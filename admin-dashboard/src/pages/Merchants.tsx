@@ -138,12 +138,12 @@ export default function Merchants() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-100">Merchant Review</h1>
-          <p className="mt-2 text-sm text-zinc-500">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground-muted">Merchant Review</h1>
+          <p className="mt-2 text-sm text-foreground-muted">
             Review pendaftaran merchant food delivery sebelum toko bisa terima order.
           </p>
         </div>
-        <div className="flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+        <div className="flex rounded-2xl border border-border bg-surface/[0.03] p-1">
           {['SUBMITTED', 'VERIFYING', 'ACTIVE', 'REJECTED', 'SUSPENDED', 'all'].map((item) => (
             <button
               key={item}
@@ -151,7 +151,7 @@ export default function Merchants() {
               onClick={() => { setStatus(item); setSelected(null) }}
               className={cn(
                 'rounded-xl px-3 py-2 text-sm font-bold transition',
-                status === item ? 'bg-primary text-white' : 'text-zinc-400 hover:text-white'
+                status === item ? 'bg-primary text-on-primary' : 'text-foreground-muted hover:text-foreground'
               )}
             >
               {item === 'all' ? 'Semua' : lifecycleLabel(item)}
@@ -162,11 +162,12 @@ export default function Merchants() {
 
       {/* A2: filter jenis usaha merchant (perorangan / perusahaan) */}
       <div className="flex items-center gap-2">
-        <span className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">Jenis</span>
+        <span className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Jenis</span>
         <select
+          aria-label="Filter merchants by business type"
           value={businessType}
           onChange={(e) => { setBusinessType(e.target.value); setSelected(null) }}
-          className="rounded-xl border border-white/10 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 focus:outline-none"
+          className="rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted focus:outline-none"
         >
           <option value="all">Semua</option>
           <option value="perorangan">Perorangan</option>
@@ -175,37 +176,38 @@ export default function Merchants() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03]">
-          <div className="border-b border-white/10 p-5">
-            <p className="text-sm font-bold text-zinc-100">{filtered.length} merchant</p>
-            <p className="mt-1 text-xs text-zinc-500">Klik merchant untuk membuka detail review.</p>
+        <div className="rounded-3xl border border-border bg-surface/[0.03]">
+          <div className="border-b border-border p-5">
+            <p className="text-sm font-bold text-foreground-muted">{filtered.length} merchant</p>
+            <p className="mt-1 text-xs text-foreground-muted">Klik merchant untuk membuka detail review.</p>
             {/* FB-125: pencarian merchant by nama/telepon/email */}
-            <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-zinc-950/60 px-3 py-2">
-              <Search className="h-4 w-4 shrink-0 text-zinc-500" />
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-3 py-2">
+              <Search className="h-4 w-4 shrink-0 text-foreground-muted" aria-hidden="true" />
               <input
                 type="text"
+                aria-label="Search merchants by name, phone, or email"
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setSelected(null) }}
                 placeholder="Cari nama toko / telepon / email…"
-                className="w-full bg-transparent text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
+                className="w-full bg-transparent text-sm text-foreground-muted placeholder:text-foreground-muted focus:outline-none"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch('')}
-                  className="text-zinc-500 hover:text-zinc-300"
+                  className="text-foreground-muted hover:text-foreground-muted"
                   aria-label="Bersihkan pencarian"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               )}
             </div>
           </div>
           <div className="max-h-[640px] overflow-y-auto p-3">
             {isLoading ? (
-              <div className="p-6 text-sm text-zinc-500">Loading merchants...</div>
+              <div className="p-6 text-sm text-foreground-muted">Loading merchants...</div>
             ) : filtered.length === 0 ? (
-              <div className="p-6 text-sm text-zinc-500">
+              <div className="p-6 text-sm text-foreground-muted">
                 {query ? 'Tidak ada merchant yang cocok dengan pencarian.' : 'Belum ada merchant pada status ini.'}
               </div>
             ) : filtered.map((item: any) => (
@@ -215,29 +217,29 @@ export default function Merchants() {
                 onClick={() => setSelected(item)}
                 className={cn(
                   'mb-2 w-full rounded-2xl border p-4 text-left transition',
-                  active?.id === item.id ? 'border-primary bg-primary/10' : 'border-white/10 bg-zinc-950/50 hover:bg-white/[0.06]'
+                  active?.id === item.id ? 'border-primary bg-primary/10' : 'border-border bg-surface-subtle hover:bg-surface/[0.06]'
                 )}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-bold text-zinc-100">{item.nama_toko}</p>
-                    <p className="mt-1 text-xs text-zinc-500">{item.phone || item.email || '—'}</p>
+                    <p className="font-bold text-foreground-muted">{item.nama_toko}</p>
+                    <p className="mt-1 text-xs text-foreground-muted">{item.phone || item.email || '—'}</p>
                   </div>
                   {item.onboarding_status === 'ACTIVE'
-                    ? <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                    ? <CheckCircle2 className="h-5 w-5 text-success" aria-hidden="true" />
                     : item.onboarding_status === 'REJECTED' || item.onboarding_status === 'SUSPENDED'
-                      ? <XCircle className="h-5 w-5 text-red-400" />
-                      : <AlertTriangle className="h-5 w-5 text-amber-300" />}
+                      ? <XCircle className="h-5 w-5 text-error" aria-hidden="true" />
+                      : <AlertTriangle className="h-5 w-5 text-warning"  aria-hidden="true"/>}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase">
-                  <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{lifecycleLabel(item.onboarding_status)}</span>
-                  <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.is_open ? 'Buka' : 'Tutup'}</span>
+                  <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">{lifecycleLabel(item.onboarding_status)}</span>
+                  <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">{item.is_open ? 'Buka' : 'Tutup'}</span>
                   {/* ADR 003: status halal */}
                   <span className={cn(
                     'rounded-full px-2 py-1',
-                    item.halal_status === 'halal_certified' && 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
-                    item.halal_status === 'non_halal' && 'border border-zinc-500/30 bg-zinc-500/10 text-zinc-300',
-                    (!item.halal_status || item.halal_status === 'unknown') && 'border border-white/10 text-zinc-500'
+                    item.halal_status === 'halal_certified' && 'border border-success bg-success-surface text-success',
+                    item.halal_status === 'non_halal' && 'border border-border bg-surface-subtle text-foreground-muted',
+                    (!item.halal_status || item.halal_status === 'unknown') && 'border border-border text-foreground-muted'
                   )}>
                     {item.halal_status === 'halal_certified' ? 'Halal ✓' : item.halal_status === 'non_halal' ? 'Non-Halal' : 'Halal: Belum'}
                   </span>
@@ -247,33 +249,33 @@ export default function Merchants() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-3xl border border-border bg-surface/[0.03] p-6">
           {!active ? (
-            <div className="flex min-h-[520px] items-center justify-center text-zinc-500">Pilih merchant untuk review.</div>
+            <div className="flex min-h-[520px] items-center justify-center text-foreground-muted">Pilih merchant untuk review.</div>
           ) : (
             <div className="space-y-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">Merchant</p>
-                  <h2 className="mt-1 text-2xl font-bold text-zinc-100">{active.nama_toko}</h2>
-                  <p className="mt-1 text-sm text-zinc-500">{active.alamat}</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Merchant</p>
+                  <h2 className="mt-1 text-2xl font-bold text-foreground-muted">{active.nama_toko}</h2>
+                  <p className="mt-1 text-sm text-foreground-muted">{active.alamat}</p>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">
-                      <Clock className="mr-1 inline h-3 w-3" />
+                    <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">
+                      <Clock className="mr-1 inline h-3 w-3" aria-hidden="true" />
                       {active.jam_buka || '?'} – {active.jam_tutup || '?'}
                     </span>
-                    <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">
+                    <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">
                       Completion {active.completion_rate_pct ?? 0}%
                     </span>
-                    <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">
+                    <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">
                       {lifecycleLabel(active.onboarding_status)} · {active.market_code || 'ID-JK'}
                     </span>
                     {/* ADR 003: status halal merchant */}
                     <span className={cn(
                       'rounded-full px-2 py-1 font-bold',
-                      active.halal_status === 'halal_certified' && 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
-                      active.halal_status === 'non_halal' && 'border border-zinc-500/30 bg-zinc-500/10 text-zinc-300',
-                      (!active.halal_status || active.halal_status === 'unknown') && 'border border-white/10 text-zinc-500'
+                      active.halal_status === 'halal_certified' && 'border border-success bg-success-surface text-success',
+                      active.halal_status === 'non_halal' && 'border border-border bg-surface-subtle text-foreground-muted',
+                      (!active.halal_status || active.halal_status === 'unknown') && 'border border-border text-foreground-muted'
                     )}>
                       {active.halal_status === 'halal_certified'
                         ? '✓ Bersertifikat Halal'
@@ -282,7 +284,7 @@ export default function Merchants() {
                           : 'Halal: Belum ditentukan'}
                     </span>
                     {active.lokasi_lat != null && (
-                      <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">
+                      <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">
                         {active.lokasi_lat.toFixed(4)}, {active.lokasi_lng?.toFixed(4)}
                       </span>
                     )}
@@ -295,14 +297,14 @@ export default function Merchants() {
                         type="button"
                         onClick={() => startVerification.mutate(active.id)}
                         disabled={startVerification.isPending}
-                        className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white transition hover:bg-primary/80 disabled:opacity-50"
+                        className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary transition hover:bg-primary/80 disabled:opacity-50"
                       >
                         {startVerification.isPending ? 'Memulai...' : 'Mulai verifikasi'}
                       </button>
                       <button
                         type="button"
                         onClick={() => { setShowReject(true); setRejectReason('') }}
-                        className="rounded-xl bg-red-500/10 px-4 py-2 text-sm font-bold text-red-300 transition hover:bg-red-500/20"
+                        className="rounded-xl bg-error-surface px-4 py-2 text-sm font-bold text-error transition hover:bg-error-surface"
                       >
                         Tolak
                       </button>
@@ -314,14 +316,14 @@ export default function Merchants() {
                         type="button"
                         onClick={() => approve.mutate(active.id)}
                         disabled={approve.isPending}
-                        className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-400 disabled:opacity-50"
+                        className="rounded-xl bg-success px-4 py-2 text-sm font-bold text-on-success transition hover:bg-success disabled:opacity-50"
                       >
                         {approve.isPending ? 'Mengaktifkan...' : 'Aktifkan'}
                       </button>
                       <button
                         type="button"
                         onClick={() => { setShowReject(true); setRejectReason('') }}
-                        className="rounded-xl bg-red-500/10 px-4 py-2 text-sm font-bold text-red-300 transition hover:bg-red-500/20"
+                        className="rounded-xl bg-error-surface px-4 py-2 text-sm font-bold text-error transition hover:bg-error-surface"
                       >
                         Tolak
                       </button>
@@ -335,7 +337,7 @@ export default function Merchants() {
                         if (reason) suspend.mutate({ id: active.id, reason })
                       }}
                       disabled={suspend.isPending}
-                      className="rounded-xl bg-amber-500/10 px-4 py-2 text-sm font-bold text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-50"
+                      className="rounded-xl bg-warning-surface px-4 py-2 text-sm font-bold text-warning transition hover:bg-warning-surface disabled:opacity-50"
                     >
                       {suspend.isPending ? 'Memproses...' : 'Suspend'}
                     </button>
@@ -343,7 +345,7 @@ export default function Merchants() {
                   {['DRAFT', 'REJECTED', 'SUSPENDED'].includes(active.onboarding_status) && (
                     <span className={cn(
                       'rounded-xl px-4 py-2 text-sm font-bold',
-                      active.onboarding_status === 'REJECTED' ? 'bg-red-500/10 text-red-300' : 'bg-amber-500/10 text-amber-300'
+                      active.onboarding_status === 'REJECTED' ? 'bg-error-surface text-error' : 'bg-warning-surface text-warning'
                     )}>
                       {lifecycleLabel(active.onboarding_status)}
                     </span>
@@ -352,13 +354,13 @@ export default function Merchants() {
               </div>
 
               {showReject && (
-                <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
-                  <p className="text-sm font-bold text-red-300">Alasan penolakan</p>
+                <div className="rounded-2xl border border-error bg-error-surface p-4">
+                  <p className="text-sm font-bold text-error">Alasan penolakan</p>
                   <textarea
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
                     rows={2}
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-zinc-950 p-3 text-sm text-zinc-100 outline-none focus:border-red-400"
+                    className="mt-2 w-full rounded-xl border border-border bg-background p-3 text-sm text-foreground-muted outline-none focus:border-error"
                     placeholder="Contoh: dokumen tidak jelas, nama toko menyesatkan..."
                   />
                   <div className="mt-3 flex gap-2">
@@ -366,14 +368,14 @@ export default function Merchants() {
                       type="button"
                       onClick={() => reject.mutate({ id: active.id, reason: rejectReason })}
                       disabled={reject.isPending || !rejectReason.trim()}
-                      className="rounded-xl bg-red-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-400 disabled:opacity-50"
+                      className="rounded-xl bg-error px-4 py-2 text-sm font-bold text-on-error transition hover:bg-error disabled:opacity-50"
                     >
                       {reject.isPending ? 'Menolak...' : 'Konfirmasi Tolak'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowReject(false)}
-                      className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-zinc-400 hover:text-white"
+                      className="rounded-xl border border-border px-4 py-2 text-sm font-bold text-foreground-muted hover:text-foreground"
                     >
                       Batal
                     </button>
@@ -382,15 +384,15 @@ export default function Merchants() {
               )}
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">Requirement verifikasi market</p>
+                <p className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Requirement verifikasi market</p>
                 {(detail?.verification_requirements || []).length === 0 ? (
-                  <p className="mt-2 text-sm text-amber-300">Tidak ada requirement aktif untuk market ini; aktivasi akan ditolak aman.</p>
+                  <p className="mt-2 text-sm text-warning">Tidak ada requirement aktif untuk market ini; aktivasi akan ditolak aman.</p>
                 ) : (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(detail?.verification_requirements || []).map((requirement: any) => (
                       <span key={requirement.id} className={cn(
                         'rounded-full border px-3 py-1 text-xs font-semibold',
-                        requirement.document_present ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'
+                        requirement.document_present ? 'border-success bg-success-surface text-success' : 'border-warning bg-warning-surface text-warning'
                       )}>
                         {docTypeLabels[requirement.document_type] || requirement.document_type}: {requirement.document_present ? 'ada' : 'belum ada'}
                       </span>
@@ -400,29 +402,29 @@ export default function Merchants() {
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-zinc-950/50 p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Profil legal & payout</p>
+                <div className="rounded-2xl border border-border bg-surface-subtle p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-foreground-muted">Profil legal & payout</p>
                   <dl className="mt-3 space-y-2 text-sm">
-                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Badan usaha</dt><dd className="text-right text-zinc-200">{merchantDetail?.legal_entity_type || merchantDetail?.business_type || '—'}</dd></div>
-                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Nama legal</dt><dd className="text-right text-zinc-200">{merchantDetail?.legal_name || merchantDetail?.nama_toko || '—'}</dd></div>
-                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Payout reference</dt><dd className="max-w-[65%] truncate text-right text-zinc-200">{merchantDetail?.payout_account_reference || '—'}</dd></div>
-                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Bank</dt><dd className="text-right text-zinc-200">{merchantDetail?.bank_name || '—'}{merchantDetail?.bank_account_verified ? ' · terverifikasi' : ''}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Badan usaha</dt><dd className="text-right text-foreground-muted">{merchantDetail?.legal_entity_type || merchantDetail?.business_type || '—'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Nama legal</dt><dd className="text-right text-foreground-muted">{merchantDetail?.legal_name || merchantDetail?.nama_toko || '—'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Payout reference</dt><dd className="max-w-[65%] truncate text-right text-foreground-muted">{merchantDetail?.payout_account_reference || '—'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Bank</dt><dd className="text-right text-foreground-muted">{merchantDetail?.bank_name || '—'}{merchantDetail?.bank_account_verified ? ' · terverifikasi' : ''}</dd></div>
                   </dl>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-zinc-950/50 p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Commercial terms food</p>
+                <div className="rounded-2xl border border-border bg-surface-subtle p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-foreground-muted">Commercial terms food</p>
                   <dl className="mt-3 space-y-2 text-sm">
-                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Contract version</dt><dd className="text-right text-zinc-200">{merchantDetail?.commercial_contract_version || 'Belum ada contract approved'}</dd></div>
-                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Effective from</dt><dd className="text-right text-zinc-200">{merchantDetail?.commercial_contract_effective_from ? new Date(merchantDetail.commercial_contract_effective_from).toLocaleString('id-ID') : '—'}</dd></div>
-                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Market</dt><dd className="text-right text-zinc-200">{merchantDetail?.market_code || '—'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Contract version</dt><dd className="text-right text-foreground-muted">{merchantDetail?.commercial_contract_version || 'Belum ada contract approved'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Effective from</dt><dd className="text-right text-foreground-muted">{merchantDetail?.commercial_contract_effective_from ? new Date(merchantDetail.commercial_contract_effective_from).toLocaleString('id-ID') : '—'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Market</dt><dd className="text-right text-foreground-muted">{merchantDetail?.market_code || '—'}</dd></div>
                   </dl>
                 </div>
               </div>
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">Dokumen Verifikasi</p>
+                <p className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Dokumen Verifikasi</p>
                 {documents.length === 0 ? (
-                  <p className="mt-2 text-sm text-zinc-500">Belum ada dokumen.</p>
+                  <p className="mt-2 text-sm text-foreground-muted">Belum ada dokumen.</p>
                 ) : (
                   <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {documents.map((doc: any) => (
@@ -431,14 +433,14 @@ export default function Merchants() {
                         href={resolveUploadUrl(doc.file_url)}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center gap-3 rounded-2xl border border-white/10 bg-zinc-950/50 p-3 transition hover:bg-white/[0.06]"
+                        className="flex items-center gap-3 rounded-2xl border border-border bg-surface-subtle p-3 transition hover:bg-surface/[0.06]"
                       >
-                        <FileCheck2 className="h-5 w-5 shrink-0 text-primary" />
+                        <FileCheck2 className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-zinc-100">{docTypeLabels[doc.doc_type] || doc.doc_type}</p>
-                          <p className="text-xs text-zinc-500">{new Date(doc.uploaded_at).toLocaleString('id-ID')}</p>
+                          <p className="truncate text-sm font-bold text-foreground-muted">{docTypeLabels[doc.doc_type] || doc.doc_type}</p>
+                          <p className="text-xs text-foreground-muted">{new Date(doc.uploaded_at).toLocaleString('id-ID')}</p>
                         </div>
-                        <ExternalLink className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <ExternalLink className="h-4 w-4 shrink-0 text-foreground-muted" aria-hidden="true" />
                       </a>
                     ))}
                   </div>
@@ -446,25 +448,25 @@ export default function Merchants() {
               </div>
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">Menu ({(Array.isArray(menuItems) ? menuItems.length : 0)} item)</p>
+                <p className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Menu ({(Array.isArray(menuItems) ? menuItems.length : 0)} item)</p>
                 {!hasMenu ? (
-                  <p className="mt-2 text-sm text-zinc-500">Belum ada menu.</p>
+                  <p className="mt-2 text-sm text-foreground-muted">Belum ada menu.</p>
                 ) : (
                   <div className="mt-3 space-y-2">
                     {menuItems.map((item: any) => (
-                      <div key={item.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-950/50 p-3">
+                      <div key={item.id} className="flex items-center justify-between rounded-2xl border border-border bg-surface-subtle p-3">
                         <div>
-                          <p className="text-sm font-bold text-zinc-100">{item.nama}</p>
-                          <p className="text-xs text-zinc-500">{item.kategori || 'Tanpa kategori'} • prep {item.prep_time_minutes || 15} mnt</p>
+                          <p className="text-sm font-bold text-foreground-muted">{item.nama}</p>
+                          <p className="text-xs text-foreground-muted">{item.kategori || 'Tanpa kategori'} • prep {item.prep_time_minutes || 15} mnt</p>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className={cn(
                             'rounded-full px-2 py-1 text-[10px] font-bold uppercase',
-                            item.is_available ? 'bg-emerald-500/10 text-emerald-300' : 'bg-zinc-700/40 text-zinc-400'
+                            item.is_available ? 'bg-success-surface text-success' : 'bg-surface-subtle text-foreground-muted'
                           )}>
                             {item.is_available ? 'Tersedia' : 'Habis'}
                           </span>
-                          <span className="text-sm font-bold text-zinc-100">{formatIDR(item.harga)}</span>
+                          <span className="text-sm font-bold text-foreground-muted">{formatIDR(item.harga)}</span>
                         </div>
                       </div>
                     ))}

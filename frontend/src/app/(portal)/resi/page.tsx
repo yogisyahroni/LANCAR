@@ -24,6 +24,7 @@ import {
 import Link from 'next/link';
 import { OrderPriceBreakdown } from '@/components/orders/OrderPriceBreakdown';
 import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
+import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
 import { AsyncRecoveryState } from '@/components/ui/AsyncRecoveryState';
 
 interface Order {
@@ -265,9 +266,9 @@ export default function ResiPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             onClick={handleDownloadZip}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-primary/20 select-none cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-semibold text-sm rounded-xl transition-all shadow-md shadow-primary/20 select-none cursor-pointer"
           >
-            <Download className="h-4 w-4" />
+            <Download className="h-4 w-4" aria-hidden="true" />
             Download {selectedOrderIds.length} Resi (ZIP)
           </motion.button>
         )}
@@ -277,7 +278,7 @@ export default function ResiPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Search Input */}
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none select-none" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none select-none"  aria-hidden="true"/>
           <label htmlFor="resi-search" className="sr-only">Cari nomor resi atau nama penerima</label>
           <input
             id="resi-search"
@@ -285,37 +286,41 @@ export default function ResiPage() {
             placeholder="Cari No. Resi atau nama penerima..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-            className="w-full bg-card/60 backdrop-blur-md border border-border/40 pl-10 pr-4 py-2.5 rounded-xl text-sm text-foreground focus:outline-none focus:border-primary/60 transition-all select-none"
+            className="w-full bg-surface-raised border border-input-border pl-10 pr-4 py-2.5 rounded-xl text-sm text-foreground focus:outline-none focus:border-primary/60 transition-all select-none"
           />
         </div>
 
         {/* Filter Status */}
         <div className="relative">
-          <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none select-none" />
+          <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none select-none" aria-hidden="true" />
+          <label htmlFor="resi-status" className="sr-only">Filter status resi</label>
           <select
+            id="resi-status"
             value={status}
             onChange={(e) => { setStatus(e.target.value); setCurrentPage(1); }}
-            className="w-full bg-zinc-900/90 border border-white/10 pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-all select-none appearance-none cursor-pointer shadow-sm"
+            className="w-full bg-surface-subtle border border-border pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-all select-none appearance-none cursor-pointer shadow-sm"
           >
-            <option value="all" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Semua Status</option>
-            <option value="pickup" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Pickup</option>
-            <option value="in_transit" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Dalam Perjalanan</option>
-            <option value="completed" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Selesai</option>
-            <option value="cancelled" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Dibatalkan</option>
+            <option value="all" className="bg-surface text-foreground-muted font-medium py-1.5">Semua Status</option>
+            <option value="pickup" className="bg-surface text-foreground-muted font-medium py-1.5">Pickup</option>
+            <option value="in_transit" className="bg-surface text-foreground-muted font-medium py-1.5">Dalam Perjalanan</option>
+            <option value="completed" className="bg-surface text-foreground-muted font-medium py-1.5">Selesai</option>
+            <option value="cancelled" className="bg-surface text-foreground-muted font-medium py-1.5">Dibatalkan</option>
           </select>
         </div>
 
         {/* Filter Model */}
         <div className="relative">
-          <Layers className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none select-none" />
+          <Layers className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none select-none" aria-hidden="true" />
+          <label htmlFor="resi-model" className="sr-only">Filter jenis layanan resi</label>
           <select
+            id="resi-model"
             value={model}
             onChange={(e) => { setModel(e.target.value); setCurrentPage(1); }}
-            className="w-full bg-zinc-900/90 border border-white/10 pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-all select-none appearance-none cursor-pointer shadow-sm"
+            className="w-full bg-surface-subtle border border-border pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-all select-none appearance-none cursor-pointer shadow-sm"
           >
-            <option value="all" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Semua Jenis Layanan</option>
-            <option value="p2p" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Paket Instan</option>
-            <option value="hub_and_spoke" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Ekspedisi Antar-Kota</option>
+            <option value="all" className="bg-surface text-foreground-muted font-medium py-1.5">Semua Jenis Layanan</option>
+            <option value="p2p" className="bg-surface text-foreground-muted font-medium py-1.5">Paket Instan</option>
+            <option value="hub_and_spoke" className="bg-surface text-foreground-muted font-medium py-1.5">Ekspedisi Antar-Kota</option>
           </select>
         </div>
       </div>
@@ -325,13 +330,13 @@ export default function ResiPage() {
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.2 }}
-        className="bg-card/40 backdrop-blur-xl border border-border/40 rounded-2xl shadow-sm overflow-hidden"
+        className="bg-surface-raised border border-border rounded-2xl shadow-sm overflow-hidden"
       >
         <div className="overflow-x-auto select-none">
           <table className="w-full text-left border-collapse select-none">
             <thead>
               <tr className="bg-muted/40 border-b border-border/40 text-xs font-bold text-muted-foreground tracking-tight select-none">
-                <th className="px-5 py-3.5 w-12 text-center select-none">
+                <th scope="col" className="px-5 py-3.5 w-12 text-center select-none">
                   <input
                     aria-label="Pilih semua resi"
                     type="checkbox"
@@ -340,13 +345,13 @@ export default function ResiPage() {
                     className="rounded border-border h-4 w-4 cursor-pointer select-none"
                   />
                 </th>
-                <th className="px-5 py-3.5 select-none">No. Resi</th>
-                <th className="px-5 py-3.5 select-none">Penerima</th>
-                <th className="px-5 py-3.5 select-none">Layanan</th>
-                <th className="px-5 py-3.5 select-none">Status</th>
-                <th className="px-5 py-3.5 select-none">Harga</th>
-                <th className="px-5 py-3.5 select-none">Created At</th>
-                <th className="px-5 py-3.5 text-right select-none">Aksi</th>
+                <th scope="col" className="px-5 py-3.5 select-none">No. Resi</th>
+                <th scope="col" className="px-5 py-3.5 select-none">Penerima</th>
+                <th scope="col" className="px-5 py-3.5 select-none">Layanan</th>
+                <th scope="col" className="px-5 py-3.5 select-none">Status</th>
+                <th scope="col" className="px-5 py-3.5 select-none">Harga</th>
+                <th scope="col" className="px-5 py-3.5 select-none">Created At</th>
+                <th scope="col" className="px-5 py-3.5 text-right select-none">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40 text-sm font-medium text-foreground select-none">
@@ -360,6 +365,7 @@ export default function ResiPage() {
                     <td className="px-5 py-3.5 text-center select-none">
                       <input
                         type="checkbox"
+                        aria-label={`Pilih resi ${order.order_number}`}
                         checked={isSelected}
                         onChange={() => toggleSelectOrder(order.id)}
                         className="rounded border-border h-4 w-4 cursor-pointer select-none"
@@ -385,9 +391,7 @@ export default function ResiPage() {
                       />
                     </td>
                     <td className="px-5 py-3.5 select-none">
-                      <span className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary font-bold rounded-full shadow-sm capitalize select-none">
-                        {order.status.replace('_', ' ')}
-                      </span>
+                      <OrderStatusBadge status={order.status} className="px-2 py-0.5 text-[10px]" />
                     </td>
                     <td className="px-5 py-3.5 text-xs select-none truncate">
                       <OrderPriceBreakdown compact totalPriceIdr={order.total_price_idr} paymentStatus={order.payment_status} deliveryStatus={order.status} />
@@ -400,9 +404,10 @@ export default function ResiPage() {
                         <Link
                           href={`/resi/${order.id}`}
                           className="p-1.5 hover:bg-muted rounded-lg text-primary hover:text-primary/80 transition-all select-none cursor-pointer"
+                          aria-label={`Lihat detail resi ${order.order_number}`}
                           title="Lihat Detail Resi"
                         >
-                          <Eye className="h-4 w-4 shrink-0" />
+                          <Eye className="h-4 w-4 shrink-0" aria-hidden="true" />
                         </Link>
                       </div>
                     </td>
@@ -424,7 +429,7 @@ export default function ResiPage() {
 
       {/* Premium Pagination */}
       {filteredOrders.length > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-border/40 rounded-2xl p-4 bg-card/20 backdrop-blur-sm select-none">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-border rounded-2xl p-4 bg-surface-raised select-none">
           <p className="text-xs font-medium text-muted-foreground tracking-wider uppercase">
             Showing {Math.min((currentPage - 1) * pageSize + 1, filteredOrders.length)} - {Math.min(currentPage * pageSize, filteredOrders.length)} of {filteredOrders.length} resi
           </p>
@@ -432,9 +437,9 @@ export default function ResiPage() {
             <button
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              className="px-3.5 py-2 border border-border/40 bg-card/40 rounded-xl text-sm font-semibold text-foreground hover:bg-card hover:border-primary/40 transition duration-200 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer shadow-sm"
+              className="px-3.5 py-2 border border-border bg-surface-raised rounded-xl text-sm font-semibold text-foreground hover:bg-surface-subtle hover:border-primary/40 transition duration-200 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
-              <ChevronLeft className="h-4 w-4" /> Prev
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Prev
             </button>
             
             <div className="flex items-center gap-1 px-1">
@@ -450,8 +455,8 @@ export default function ResiPage() {
                       onClick={() => setCurrentPage(page)}
                       className={`w-8 h-8 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
                         currentPage === page
-                          ? 'bg-primary text-white shadow-md shadow-primary/20 scale-105'
-                          : 'bg-card/40 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-card'
+                          ? 'bg-primary text-on-primary shadow-md shadow-primary/20 scale-105'
+                          : 'bg-surface-raised border border-border text-muted-foreground hover:text-foreground hover:bg-surface-subtle'
                       }`}
                     >
                       {page}
@@ -470,9 +475,9 @@ export default function ResiPage() {
             <button
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-              className="px-3.5 py-2 border border-border/40 bg-card/40 rounded-xl text-sm font-semibold text-foreground hover:bg-card hover:border-primary/40 transition duration-200 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer shadow-sm"
+            className="px-3.5 py-2 border border-border bg-surface-raised rounded-xl text-sm font-semibold text-foreground hover:bg-surface-subtle hover:border-primary/40 transition duration-200 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
-              Next <ChevronRight className="h-4 w-4" />
+              Next <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -495,7 +500,7 @@ export default function ResiPage() {
             >
               <div className="flex items-center justify-between select-none">
                 <h3 className="text-base font-bold text-foreground">Status ZIP Download</h3>
-                {!isZipFinished && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                {!isZipFinished && <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />}
               </div>
               <p className="text-xs text-muted-foreground select-none">
                 {isZipFinished 
@@ -521,9 +526,9 @@ export default function ResiPage() {
                 {isZipFinished && (
                   <button
                     onClick={executeZipDownload}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
                   >
-                    <Download className="h-3.5 w-3.5" /> Unduh ZIP
+                    <Download className="h-3.5 w-3.5" aria-hidden="true" /> Unduh ZIP
                   </button>
                 )}
               </div>

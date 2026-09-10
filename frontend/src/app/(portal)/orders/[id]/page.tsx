@@ -40,17 +40,6 @@ export default function OrderDetailPage() {
     const baseUrl = String(api.defaults.baseURL || '').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
     return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
   };
-  const getStatusBadgeClass = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'created': case 'pending': return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
-      case 'picked_up': case 'in_transit': case 'delivering': return 'bg-info/10 text-info border-info/20 animate-pulse';
-      case 'completed': case 'delivered': return 'bg-green-500/10 text-green-500 border-green-500/20';
-      case 'cancelled': return 'bg-red-500/10 text-red-500 border-red-500/20';
-      case 'no_courier_found': return 'bg-orange-500/10 text-orange-400 border-orange-500/30 animate-pulse';
-      default: return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
-    }
-  };
-
   const proofGroups = {
     pickup: proofs.filter((proof) => proof.proof_category === 'pickup'),
     pod: proofs.filter((proof) => proof.proof_category === 'pod'),
@@ -91,8 +80,8 @@ export default function OrderDetailPage() {
         {loadError ? (
           <AsyncRecoveryState title="Detail order belum tersedia" message={loadError} onRetry={() => void runtime.refresh()} retrying={loading} />
         ) : (
-          <div className="flex flex-col items-center space-y-4 rounded-2xl border border-white/10 bg-card p-12 text-center">
-            <AlertTriangle className="h-10 w-10 text-red-500" aria-hidden="true" />
+          <div className="flex flex-col items-center space-y-4 rounded-2xl border border-border bg-card p-12 text-center">
+            <AlertTriangle className="h-10 w-10 text-error" aria-hidden="true" />
             <h3 className="text-xl font-bold">Order tidak ditemukan</h3>
             <p className="text-sm text-muted-foreground">Detail order yang Anda cari mungkin telah dihapus atau tidak dapat diakses.</p>
             <Link href="/orders" className="text-sm font-semibold text-primary underline">Kembali ke Daftar Order</Link>
@@ -112,7 +101,7 @@ export default function OrderDetailPage() {
     chatInput={chatInput} chatsLoading={chatsLoading} fileInputRef={fileInputRef} chatScrollRef={chatScrollRef}
     selectedFile={selectedFile} previewImage={previewImage} id={id} uploadUrl={uploadUrl}
     formatDate={formatDate} formatPrice={formatPrice} formatTrackingTime={formatTrackingTime}
-    getStatusBadgeClass={getStatusBadgeClass} addNotification={addNotification}
+    addNotification={addNotification}
     handleCreatePublicTrackingLink={handleCreatePublicTrackingLink} handleDownloadResi={handleDownloadResi}
     handleReportIssue={handleReportIssue} handleRetryMatching={handleRetryMatching}
     handleCancelOrder={handleCancelOrder} handleSendMessage={handleSendMessage}

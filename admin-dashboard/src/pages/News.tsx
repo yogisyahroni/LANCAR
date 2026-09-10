@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { Newspaper, Plus, Loader2, Trash2, Edit, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { StatusBadge } from '../components/StatusBadge';
 
 export default function News() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -125,20 +126,20 @@ export default function News() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Manajemen Berita</h1>
-          <p className="text-zinc-400 mt-1">Kelola berita dan update untuk ditampilkan di landing page</p>
+          <p className="text-foreground-muted mt-1">Kelola berita dan update untuk ditampilkan di landing page</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-xl hover:bg-primary/90 transition-colors"
         >
-          <Plus size={20} />
+          <Plus size={20} aria-hidden="true" />
           Tambah Berita
         </button>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -147,10 +148,10 @@ export default function News() {
               key={item.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 flex flex-col"
+              className="bg-surface-subtle backdrop-blur-xl border border-border rounded-2xl p-6 flex flex-col"
             >
               {item.image_url && (
-                <div className="mb-4 rounded-xl overflow-hidden h-40 bg-zinc-800">
+                <div className="mb-4 rounded-xl overflow-hidden h-40 bg-surface-raised">
                   <img src={item.image_url} alt={item.title} className="w-full h-full object-cover" />
                 </div>
               )}
@@ -158,27 +159,22 @@ export default function News() {
                 <div>
                   <h3 className="font-bold text-lg">{item.title}</h3>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                      item.status === 'published' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 
-                      'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-                    }`}>
-                      {item.status}
-                    </span>
-                    <span className="text-xs text-zinc-500">
+                    <StatusBadge status={item.status} labelPrefix="News status" className="text-[10px] uppercase tracking-widest" />
+                    <span className="text-xs text-foreground-muted">
                       {new Date(item.created_at).toLocaleDateString('id-ID')}
                     </span>
                   </div>
                 </div>
               </div>
-              <p className="text-sm text-zinc-400 line-clamp-3 mb-6 flex-1">
+              <p className="text-sm text-foreground-muted line-clamp-3 mb-6 flex-1">
                 {item.content}
               </p>
-              <div className="flex items-center gap-2 mt-auto pt-4 border-t border-white/5">
+              <div className="flex items-center gap-2 mt-auto pt-4 border-t border-border">
                 <button
                   onClick={() => openEditModal(item)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-sm"
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-surface-subtle hover:bg-surface-subtle rounded-xl transition-colors text-sm"
                 >
-                  <Edit size={16} /> Edit
+                  <Edit size={16} aria-hidden="true" /> Edit
                 </button>
                 <button
                   onClick={() => {
@@ -186,15 +182,15 @@ export default function News() {
                       deleteMutation.mutate(item.id);
                     }
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition-colors text-sm"
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-error-surface hover:bg-error-surface text-error rounded-xl transition-colors text-sm"
                 >
-                  <Trash2 size={16} /> Hapus
+                  <Trash2 size={16} aria-hidden="true" /> Hapus
                 </button>
               </div>
             </motion.div>
           ))}
           {(!news || news.length === 0) && (
-            <div className="col-span-full py-12 text-center text-zinc-500">
+            <div className="col-span-full py-12 text-center text-foreground-muted">
               Belum ada berita.
             </div>
           )}
@@ -203,17 +199,17 @@ export default function News() {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-scrim/60 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col"
+            className="bg-background border border-border rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col"
           >
-            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+            <div className="p-6 border-b border-border flex items-center justify-between">
               <h2 className="text-xl font-bold">
                 {editingId ? 'Edit Berita' : 'Tambah Berita'}
               </h2>
-              <button onClick={closeModal} className="text-zinc-500 hover:text-white">
+              <button onClick={closeModal} className="text-foreground-muted hover:text-foreground">
                 ✕
               </button>
             </div>
@@ -221,18 +217,18 @@ export default function News() {
             <div className="p-6 overflow-y-auto flex-1">
               <form id="news-form" onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">Judul</label>
+                  <label className="block text-sm font-medium text-foreground-muted mb-1.5">Judul</label>
                   <input
                     type="text"
                     required
                     value={formData.title}
                     onChange={e => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary"
+                    className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">Gambar (Opsional)</label>
+                  <label className="block text-sm font-medium text-foreground-muted mb-1.5">Gambar (Opsional)</label>
                   <div className="flex items-center gap-4">
                     <input
                       type="file"
@@ -248,26 +244,26 @@ export default function News() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 border border-white/10 hover:bg-white/5 rounded-xl transition-colors"
+                      className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border hover:bg-surface-subtle rounded-xl transition-colors"
                     >
-                      <ImageIcon size={18} />
+                      <ImageIcon size={18} aria-hidden="true" />
                       {imageFile ? imageFile.name : 'Pilih Gambar'}
                     </button>
                     {imageFile && (
-                      <button type="button" onClick={() => setImageFile(null)} className="text-red-400 text-sm hover:underline">
+                      <button type="button" onClick={() => setImageFile(null)} className="text-error text-sm hover:underline">
                         Hapus
                       </button>
                     )}
                   </div>
-                  <p className="text-xs text-zinc-500 mt-2">Format didukung: JPG, PNG, WEBP. Maks 5MB.</p>
+                  <p className="text-xs text-foreground-muted mt-2">Format didukung: JPG, PNG, WEBP. Maks 5MB.</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">Status</label>
+                  <label className="block text-sm font-medium text-foreground-muted mb-1.5">Status</label>
                   <select
                     value={formData.status}
                     onChange={e => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary"
+                    className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-primary"
                   >
                     <option value="draft">Draft</option>
                     <option value="published">Published</option>
@@ -275,23 +271,23 @@ export default function News() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">Konten</label>
+                  <label className="block text-sm font-medium text-foreground-muted mb-1.5">Konten</label>
                   <textarea
                     required
                     rows={8}
                     value={formData.content}
                     onChange={e => setFormData({ ...formData, content: e.target.value })}
-                    className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary resize-y"
+                    className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-primary resize-y"
                   />
                 </div>
               </form>
             </div>
 
-            <div className="p-6 border-t border-white/5 flex justify-end gap-3 bg-zinc-900/50">
+            <div className="p-6 border-t border-border flex justify-end gap-3 bg-surface-subtle">
               <button
                 type="button"
                 onClick={closeModal}
-                className="px-4 py-2 hover:bg-white/5 rounded-xl transition-colors"
+                className="px-4 py-2 hover:bg-surface-subtle rounded-xl transition-colors"
               >
                 Batal
               </button>
@@ -299,9 +295,9 @@ export default function News() {
                 form="news-form"
                 type="submit"
                 disabled={createMutation.isPending || updateMutation.isPending}
-                className="px-6 py-2 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-2 bg-primary text-on-primary rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {(createMutation.isPending || updateMutation.isPending) && <Loader2 size={16} className="animate-spin" />}
+                {(createMutation.isPending || updateMutation.isPending) && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
                 Simpan
               </button>
             </div>

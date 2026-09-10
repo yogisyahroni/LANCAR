@@ -233,20 +233,20 @@ export function PaymentModal({
             aria-modal="true"
             aria-labelledby="payment-modal-title"
             tabIndex={-1}
-            className="relative max-h-[min(90vh,720px)] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-background/95 shadow-2xl backdrop-blur-md"
+            className="relative max-h-[min(90vh,720px)] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-background/95 shadow-2xl backdrop-blur-md"
           >
-            <div className="flex items-start justify-between border-b border-white/10 p-5">
+            <div className="flex items-start justify-between border-b border-border p-5">
               <div>
                 <h2 id="payment-modal-title" className="text-xl font-bold tracking-tight text-foreground">{t('payment.title')}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">{t('payment.description')}</p>
               </div>
-              <button ref={closeButtonRef} type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-full p-2 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={t('payment.close')}>
-                <X className="h-4 w-4" />
+              <button ref={closeButtonRef} type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-full p-2 hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={t('payment.close')}>
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
 
             <div className="p-6 sm:p-8">
-              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="rounded-xl border border-border bg-surface-subtle p-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{t('payment.total')}</span>
                   <span className="font-bold text-foreground">{formatCurrency(amount, 'IDR', locale)}</span>
@@ -258,15 +258,15 @@ export function PaymentModal({
               </div>
 
               {message && (
-                <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200" role="status" aria-live="polite">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="mt-4 flex items-start gap-2 rounded-lg border border-warning bg-warning-surface p-3 text-sm text-warning" role="status" aria-live="polite">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                   {message}
                 </div>
               )}
 
               {state === "paid" && (
-                <div className="mt-4 flex items-center gap-2 rounded-lg border border-success/20 bg-success/10 p-3 text-sm text-brand-emerald-300">
-                  <CheckCircle2 className="h-4 w-4" />
+                <div className="mt-4 flex items-center gap-2 rounded-lg border border-success/20 bg-success/10 p-3 text-sm text-success">
+                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                   {t('payment.confirmed')}
                 </div>
               )}
@@ -278,7 +278,7 @@ export function PaymentModal({
                   disabled={!snapReady || state === "loading_snap" || state === "opened"}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {state === "loading_snap" || state === "opened" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                  {state === "loading_snap" || state === "opened" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <CreditCard className="h-4 w-4" aria-hidden="true" />}
                   {state === "loading_snap" ? t('payment.loading') : t('payment.payWith')}
                 </button>
                 {state === "pending" && (
@@ -286,9 +286,9 @@ export function PaymentModal({
                     type="button"
                     onClick={() => void confirmPaid()}
                     disabled={isChecking}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 py-3 text-sm font-semibold text-amber-100 transition-all hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-warning bg-warning-surface py-3 text-sm font-semibold text-warning transition-all hover:bg-warning-surface disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {isChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {isChecking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                     {isChecking ? t('payment.checking') : t('payment.checkAgain')}
                   </button>
                 )}
@@ -297,16 +297,16 @@ export function PaymentModal({
                     href={redirectUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 py-3 text-sm font-semibold text-foreground transition-all hover:bg-white/10"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface-subtle py-3 text-sm font-semibold text-foreground transition-all hover:bg-surface-subtle"
                   >
-                    <ExternalLink className="h-4 w-4" />
+                    <ExternalLink className="h-4 w-4" aria-hidden="true" />
                     {t('payment.openPage')}
                   </a>
                 )}
                 <button
                   type="button"
                   onClick={onClose}
-                  className="w-full rounded-lg bg-white/5 py-3 text-sm font-semibold text-muted-foreground transition-all hover:bg-white/10"
+                  className="w-full rounded-lg bg-surface-subtle py-3 text-sm font-semibold text-muted-foreground transition-all hover:bg-surface-subtle"
                 >
                   {t('common.close')}
                 </button>

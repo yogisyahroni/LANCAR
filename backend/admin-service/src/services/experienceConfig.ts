@@ -384,6 +384,7 @@ const promoItemSchema = z.object({
   badge: text(40).optional(),
   alt_label: text(160).optional(),
   image_asset_id: identifier.optional(),
+  image_decorative: z.boolean().optional(),
   localized_copy: localizedCopyReferenceSchema,
   ...ctaFields,
 }).strict().refine(
@@ -392,7 +393,11 @@ const promoItemSchema = z.object({
 ).refine(
   (value) => !(value.deep_link && value.external_url),
   'Promo item must contain only one CTA target',
-);
+).superRefine((value, context) => {
+  if (value.image_asset_id && !value.image_decorative && !value.alt_label) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['alt_label'], message: 'Image asset requires alt_label or explicit image_decorative=true' });
+  }
+});
 
 const quickActionSchema = z.object({
   id: identifier,
@@ -487,6 +492,7 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
     badge: text(40).optional(),
     alt_label: text(160).optional(),
     image_asset_id: identifier.optional(),
+    image_decorative: z.boolean().optional(),
     frequency_cap_hours: z.coerce.number().int().min(0).max(720).optional(),
     max_impressions: z.coerce.number().int().min(1).max(100).optional(),
     localized_copy: localizedCopyReferenceSchema,
@@ -497,7 +503,11 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
   ).refine(
     (value) => !value.placement || value.placement === 'hero' || value.placement === 'header',
     { path: ['placement'], message: 'Hero banner placement must be hero or header' },
-  ),
+  ).superRefine((value, context) => {
+    if (value.image_asset_id && !value.image_decorative && !value.alt_label) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['alt_label'], message: 'Image asset requires alt_label or explicit image_decorative=true' });
+    }
+  }),
   campaign_strip: z.object({
     campaign_id: identifier.optional(),
     campaign_name: text(160).optional(),
@@ -507,6 +517,7 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
     badge: text(40).optional(),
     alt_label: text(160).optional(),
     image_asset_id: identifier.optional(),
+    image_decorative: z.boolean().optional(),
     frequency_cap_hours: z.coerce.number().int().min(0).max(720).optional(),
     max_impressions: z.coerce.number().int().min(1).max(100).optional(),
     localized_copy: localizedCopyReferenceSchema,
@@ -517,7 +528,11 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
   ).refine(
     (value) => !value.placement || value.placement === 'campaign_strip',
     { path: ['placement'], message: 'Campaign strip placement must be campaign_strip' },
-  ),
+  ).superRefine((value, context) => {
+    if (value.image_asset_id && !value.image_decorative && !value.alt_label) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['alt_label'], message: 'Image asset requires alt_label or explicit image_decorative=true' });
+    }
+  }),
   promo_carousel: z.object({
     campaign_name: text(160).optional(),
     placement: placementSchema.optional(),
@@ -601,6 +616,32 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
 };
 
 const componentValues = new Set<string>(Object.keys(componentSchemas));
+
+export type ExperienceComponentAccessibilityContract = {
+  accessible_name_fields: readonly string[];
+  media_semantics: 'none' | 'alt_label_or_decorative';
+  static_fallback: boolean;
+  presentation_only: boolean;
+};
+
+/**
+ * Every remotely approved component must declare how its accessible name,
+ * media semantics and non-animated fallback are provided. The exhaustive
+ * Record makes adding a new ExperienceComponent without this contract a
+ * compile-time failure; parseComponent also checks the registry at runtime.
+ */
+export const EXPERIENCE_COMPONENT_ACCESSIBILITY_CONTRACT: Record<ExperienceComponent, ExperienceComponentAccessibilityContract> = {
+  hero_banner: { accessible_name_fields: ['title', 'localized_copy.title'], media_semantics: 'alt_label_or_decorative', static_fallback: true, presentation_only: true },
+  campaign_strip: { accessible_name_fields: ['title', 'localized_copy.title'], media_semantics: 'alt_label_or_decorative', static_fallback: true, presentation_only: true },
+  promo_carousel: { accessible_name_fields: ['items[].title', 'items[].localized_copy.title'], media_semantics: 'alt_label_or_decorative', static_fallback: true, presentation_only: true },
+  service_grid: { accessible_name_fields: ['title', 'cards[].code', 'service_entries[].label'], media_semantics: 'none', static_fallback: true, presentation_only: true },
+  info_card: { accessible_name_fields: ['title', 'localized_copy.title', 'body', 'localized_copy.body'], media_semantics: 'none', static_fallback: true, presentation_only: true },
+  quick_actions: { accessible_name_fields: ['actions[].label', 'actions[].localized_copy.label'], media_semantics: 'none', static_fallback: true, presentation_only: true },
+  notice: { accessible_name_fields: ['title', 'localized_copy.title', 'body', 'localized_copy.body'], media_semantics: 'none', static_fallback: true, presentation_only: true },
+  spacer: { accessible_name_fields: [], media_semantics: 'none', static_fallback: true, presentation_only: true },
+  campaign_intro: { accessible_name_fields: ['title', 'localized_copy.title', 'dismissible'], media_semantics: 'none', static_fallback: true, presentation_only: true },
+  design_tokens: { accessible_name_fields: [], media_semantics: 'none', static_fallback: true, presentation_only: true },
+};
 
 /**
  * A manifest is resolved per surface, but a shared component registry alone
@@ -783,6 +824,9 @@ const parseComponent = (value: unknown, index: number, surface: ExperienceSurfac
   }
   if (!componentValues.has(component)) {
     throw new ExperienceManifestError('EXPERIENCE_COMPONENT_NOT_ALLOWED', 400, `sections[${index}].component is not allowlisted`);
+  }
+  if (!Object.prototype.hasOwnProperty.call(EXPERIENCE_COMPONENT_ACCESSIBILITY_CONTRACT, component)) {
+    throw new ExperienceManifestError('EXPERIENCE_COMPONENT_ACCESSIBILITY_CONTRACT_MISSING', 400, `sections[${index}].component has no accessibility contract`);
   }
   if (!EXPERIENCE_SURFACE_COMPONENTS[surface].includes(component as ExperienceComponent)) {
     throw new ExperienceManifestError(

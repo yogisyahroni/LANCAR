@@ -114,20 +114,20 @@ export function SLAConfigPanel({ data }: { data: SettingsData }) {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-8"
               >
-                <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-10">
+                <div className="glass-card p-10 rounded-[48px] border-border space-y-10">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
-                      <Timer className="text-primary-light" size={24} />
+                    <h3 className="text-xl font-black text-foreground-muted flex items-center gap-3 tracking-tight">
+                      <Timer className="text-primary-light" size={24} aria-hidden="true" />
                       SLA Thresholds
                     </h3>
-                    <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-fit">
+                    <div className="flex bg-surface-subtle p-1 rounded-2xl border border-border w-fit">
                       {['P2P'].map(model => (
                         <button 
                           key={model}
                           onClick={() => setActiveModel(model)}
                           className={cn(
                             "px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                            activeModel === model ? "bg-primary text-white shadow-lg" : "text-zinc-600 hover:text-zinc-300"
+                            activeModel === model ? "bg-primary text-on-primary shadow-lg" : "text-foreground-muted hover:text-foreground-muted"
                           )}
                         >
                           {model}
@@ -138,12 +138,12 @@ export function SLAConfigPanel({ data }: { data: SettingsData }) {
 
                   <div className="space-y-6">
                     {slaData[activeModel as keyof typeof slaData]?.map((item: any, i: number) => (
-                      <div key={i} className="p-6 rounded-[32px] bg-white/[0.02] border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <p className="text-sm font-black text-zinc-200 uppercase tracking-widest">{item.stage}</p>
+                      <div key={i} className="p-6 rounded-[32px] bg-surface/[0.02] border border-border flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <p className="text-sm font-black text-foreground-muted uppercase tracking-widest">{item.stage}</p>
                         <div className="flex items-center gap-4">
                            <div className="space-y-1">
-                              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block">Target</label>
-                              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
+                              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest block">Target</label>
+                              <div className="flex items-center gap-2 bg-surface-subtle border border-border rounded-xl px-4 py-2">
                                 <input 
                                   type="text" 
                                   defaultValue={item.target} 
@@ -152,14 +152,14 @@ export function SLAConfigPanel({ data }: { data: SettingsData }) {
                                     newSlaData[activeModel as keyof typeof slaData][i].target = e.target.value;
                                     updateConfigMutation.mutate({ key: 'sla_config', value: newSlaData });
                                   }}
-                                  className="bg-transparent w-10 text-xs font-bold text-zinc-100 focus:outline-none" 
+                                  className="bg-transparent w-10 text-xs font-bold text-foreground-muted focus:outline-none"
                                 />
-                                <Clock size={12} className="text-zinc-600" />
+                                <Clock size={12} className="text-foreground-muted" aria-hidden="true" />
                               </div>
                            </div>
                            <div className="space-y-1">
-                              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block">Critical</label>
-                              <div className="flex items-center gap-2 bg-red-500/5 border border-red-500/10 rounded-xl px-4 py-2">
+                              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest block">Critical</label>
+                              <div className="flex items-center gap-2 bg-error-surface border border-error rounded-xl px-4 py-2">
                                 <input 
                                   type="text" 
                                   defaultValue={item.critical} 
@@ -168,9 +168,9 @@ export function SLAConfigPanel({ data }: { data: SettingsData }) {
                                     newSlaData[activeModel as keyof typeof slaData][i].critical = e.target.value;
                                     updateConfigMutation.mutate({ key: 'sla_config', value: newSlaData });
                                   }}
-                                  className="bg-transparent w-10 text-xs font-bold text-red-400 focus:outline-none" 
+                                  className="bg-transparent w-10 text-xs font-bold text-error focus:outline-none"
                                 />
-                                <ShieldAlert size={12} className="text-red-500/40" />
+                                <ShieldAlert size={12} className="text-error" aria-hidden="true" />
                               </div>
                            </div>
                         </div>
@@ -178,9 +178,9 @@ export function SLAConfigPanel({ data }: { data: SettingsData }) {
                     ))}
                   </div>
 
-                  <div className="pt-6 border-t border-white/5 flex items-center gap-3">
-                     <Target size={18} className="text-amber-500" />
-                     <p className="text-[10px] text-zinc-500 italic font-medium">SLA targets are dynamically adjusted during peak hours and weather surges.</p>
+                  <div className="pt-6 border-t border-border flex items-center gap-3">
+                     <Target size={18} className="text-warning" aria-hidden="true" />
+                     <p className="text-[10px] text-foreground-muted italic font-medium">SLA targets are dynamically adjusted during peak hours and weather surges.</p>
                   </div>
                 </div>
               </motion.div>

@@ -47,31 +47,31 @@ export default function SLAConfig() {
     <div className="space-y-8 animate-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-zinc-100 tracking-tight italic uppercase">SLA Thresholds</h1>
-          <p className="text-zinc-500 mt-1">Configure service level agreements and automated alert triggers.</p>
+          <h1 className="text-3xl font-black text-foreground-muted tracking-tight italic uppercase">SLA Thresholds</h1>
+          <p className="text-foreground-muted mt-1">Configure service level agreements and automated alert triggers.</p>
         </div>
         <div className="flex items-center gap-3">
            <button 
              onClick={() => queryClient.invalidateQueries({ queryKey: ['sla', activeModel] })}
-             className="p-3 rounded-xl bg-white/5 text-zinc-500 hover:text-white transition-all"
+             className="p-3 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all"
            >
-              <RotateCcw size={18} />
+              <RotateCcw size={18} aria-hidden="true" />
            </button>
-           <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all">
-              <Save size={18} />
+           <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all">
+              <Save size={18} aria-hidden="true" />
               Deploy Config
            </button>
         </div>
       </div>
 
-      <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-fit">
+      <div className="flex bg-surface-subtle p-1 rounded-2xl border border-border w-fit">
         {['p2p'].map(model => (
           <button 
             key={model}
             onClick={() => setActiveModel(model)}
             className={cn(
               "px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-              activeModel === model ? "bg-primary text-white shadow-lg" : "text-zinc-600 hover:text-zinc-300"
+              activeModel === model ? "bg-primary text-on-primary shadow-lg" : "text-foreground-muted hover:text-foreground-muted"
             )}
           >
             P2P Model
@@ -88,22 +88,22 @@ export default function SLAConfig() {
                initial={{ opacity: 0, y: 10 }}
                animate={{ opacity: 1, y: 0 }}
                transition={{ delay: i * 0.1 }}
-               className="glass-card p-8 rounded-[40px] border-white/5 hover:border-white/10 transition-all group"
+               className="glass-card p-8 rounded-[40px] border-border hover:border-border transition-all group"
              >
                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div className="space-y-2">
-                     <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-white/5 text-primary-light">
-                           <Timer size={20} />
+                     <h3 className="text-xl font-black text-foreground-muted flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-surface-subtle text-primary-light">
+                           <Timer size={20} aria-hidden="true" />
                         </div>
                         {item.stage_name}
                      </h3>
-                     <p className="text-sm text-zinc-500 max-w-md">{item.description}</p>
+                     <p className="text-sm text-foreground-muted max-w-md">{item.description}</p>
                   </div>
                   <div className="flex items-center gap-4">
                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Target (Soft)</label>
-                        <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
+                        <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Target (Soft)</label>
+                        <div className="flex items-center gap-3 bg-surface-subtle border border-border rounded-xl px-4 py-3">
                            <input 
                              type="number" 
                              defaultValue={item.target_minutes} 
@@ -111,15 +111,15 @@ export default function SLAConfig() {
                                const val = Number(e.target.value);
                                if (!isNaN(val)) updateMutation.mutate({ id: item.id, target_minutes: val, critical_minutes: item.critical_minutes });
                              }}
-                             className="bg-transparent w-12 text-sm font-bold text-zinc-100 focus:outline-none" 
+                             className="bg-transparent w-12 text-sm font-bold text-foreground-muted focus:outline-none"
                            />
-                           <span className="text-[10px] text-zinc-600 font-bold uppercase">Min</span>
-                           <Clock size={14} className="text-zinc-600" />
+                           <span className="text-[10px] text-foreground-muted font-bold uppercase">Min</span>
+                           <Clock size={14} className="text-foreground-muted"  aria-hidden="true"/>
                         </div>
                      </div>
                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-red-500/60 uppercase tracking-widest">Critical (Hard)</label>
-                        <div className="flex items-center gap-3 bg-red-500/5 border border-red-500/10 rounded-xl px-4 py-3">
+                        <label className="text-[10px] font-black text-error uppercase tracking-widest">Critical (Hard)</label>
+                        <div className="flex items-center gap-3 bg-error-surface border border-error rounded-xl px-4 py-3">
                            <input 
                              type="number" 
                              defaultValue={item.critical_minutes} 
@@ -127,10 +127,10 @@ export default function SLAConfig() {
                                const val = Number(e.target.value);
                                if (!isNaN(val)) updateMutation.mutate({ id: item.id, critical_minutes: val, target_minutes: item.target_minutes });
                              }}
-                             className="bg-transparent w-12 text-sm font-bold text-red-400 focus:outline-none" 
+                             className="bg-transparent w-12 text-sm font-bold text-error focus:outline-none"
                            />
-                           <span className="text-[10px] text-red-500/40 font-bold uppercase">Min</span>
-                           <ShieldAlert size={14} className="text-red-500/40" />
+                           <span className="text-[10px] text-error font-bold uppercase">Min</span>
+                           <ShieldAlert size={14} className="text-error" aria-hidden="true" />
                         </div>
                      </div>
                   </div>
@@ -138,7 +138,7 @@ export default function SLAConfig() {
              </motion.div>
            ))}
            {(!configs || configs.length === 0) && (
-             <div className="py-20 text-center text-zinc-500 font-bold italic uppercase tracking-widest italic">
+             <div className="py-20 text-center text-foreground-muted font-bold italic uppercase tracking-widest italic">
                No SLA configurations found for this model
              </div>
            )}
@@ -146,45 +146,45 @@ export default function SLAConfig() {
 
         {/* Right: Automation Settings */}
         <div className="lg:col-span-4 space-y-8">
-           <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
-              <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3">
-                 <Zap className="text-amber-400" size={24} />
+           <div className="glass-card p-10 rounded-[48px] border-border space-y-8">
+              <h3 className="text-xl font-black text-foreground-muted flex items-center gap-3">
+                 <Zap className="text-warning" size={24} aria-hidden="true" />
                  Auto-Assignment
               </h3>
               <div className="space-y-6">
                  <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                       <p className="text-xs font-bold text-zinc-400">Min. Confidence Score</p>
+                       <p className="text-xs font-bold text-foreground-muted">Min. Confidence Score</p>
                        <p className="text-xs font-black text-primary-light">85%</p>
                     </div>
-                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-surface-subtle rounded-full overflow-hidden">
                        <div className="h-full bg-primary w-[85%] rounded-full" />
                     </div>
-                    <p className="text-[10px] text-zinc-600 italic">Couriers with lower scores will require manual approval.</p>
+                    <p className="text-[10px] text-foreground-muted italic">Couriers with lower scores will require manual approval.</p>
                  </div>
 
                  <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                       <p className="text-xs font-bold text-zinc-400">Assignment Radius</p>
+                       <p className="text-xs font-bold text-foreground-muted">Assignment Radius</p>
                        <p className="text-xs font-black text-primary-light">3.5 KM</p>
                     </div>
-                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-surface-subtle rounded-full overflow-hidden">
                        <div className="h-full bg-primary w-[60%] rounded-full" />
                     </div>
                  </div>
               </div>
            </div>
 
-           <div className="glass-card p-10 rounded-[48px] border-emerald-500/10 bg-emerald-500/[0.02] space-y-6">
-              <div className="flex items-center gap-3 text-emerald-400">
-                 <Target size={20} />
+           <div className="glass-card p-10 rounded-[48px] border-success bg-success/[0.02] space-y-6">
+              <div className="flex items-center gap-3 text-success">
+                 <Target size={20} aria-hidden="true" />
                  <h4 className="font-black text-xs uppercase tracking-widest">Optimized Mode</h4>
               </div>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                 Settings currently aligned with <span className="text-zinc-200 font-bold">Peak Hour Strategy</span>. 
+              <p className="text-xs text-foreground-muted leading-relaxed">
+                 Settings currently aligned with <span className="text-foreground-muted font-bold">Peak Hour Strategy</span>.
                  SLA targets are automatically extended by 15% during heavy rain or demand spikes.
               </p>
-              <button className="w-full py-4 rounded-2xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all">
+              <button className="w-full py-4 rounded-2xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground text-[10px] font-black uppercase tracking-widest transition-all">
                  Review Peak Rules
               </button>
            </div>

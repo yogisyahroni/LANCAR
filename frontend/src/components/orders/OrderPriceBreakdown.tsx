@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import { CreditCard, Truck } from "lucide-react";
 import { deliveryStateKey, deliveryStateLabel, getPaymentStatePresentation } from "./orderPresentation";
 import { useI18n } from '@/components/i18n/I18nProvider';
@@ -20,18 +21,21 @@ export function OrderPriceBreakdown({ totalPriceIdr, paymentStatus, deliveryStat
   const deliveryKey = deliveryStateKey(deliveryStatus);
 
   return (
-    <div className={`space-y-2 ${compact ? "text-xs" : "rounded-xl border border-white/10 bg-background/30 p-4"}`} aria-label={t('order.moneyStatus')}>
+    <div className={`space-y-2 ${compact ? "text-xs" : "rounded-xl border border-border bg-background/30 p-4"}`} aria-label={t('order.moneyStatus')}>
       <div className="flex items-center justify-between gap-3">
         <span className="inline-flex items-center gap-1.5 text-muted-foreground"><CreditCard className="h-3.5 w-3.5" aria-hidden="true" /> {t('order.payment')}</span>
-        <span className={`rounded-full border px-2 py-0.5 font-semibold ${payment.className}`}>{t(payment.labelKey)}</span>
+        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-semibold ${payment.className}`}>
+          {createElement(payment.icon, { className: "h-3 w-3 shrink-0", "aria-hidden": true })}
+          {t(payment.labelKey)}
+        </span>
       </div>
       <div className="flex items-center justify-between gap-3">
         <span className="inline-flex items-center gap-1.5 text-muted-foreground"><Truck className="h-3.5 w-3.5" aria-hidden="true" /> {t('order.delivery')}</span>
         <span className="font-semibold text-foreground">{deliveryKey ? t(deliveryKey) : deliveryStateLabel(deliveryStatus)}</span>
       </div>
-      <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-2">
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-2">
         <span className="text-muted-foreground">{t('order.total')}</span>
-        <span className="font-bold text-brand-emerald-300">{formattedTotal}</span>
+        <span className="font-bold text-success">{formattedTotal}</span>
       </div>
     </div>
   );

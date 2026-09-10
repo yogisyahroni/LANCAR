@@ -19,7 +19,21 @@ import {
   Navigation,
   Sparkles,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  Bike,
+  CarFront,
+  Truck,
+  Banknote,
+  CreditCard,
+  RefreshCw,
+  Gift,
+  Pencil,
+  ClipboardList,
+  Upload,
+  FileText,
+  Trash2,
+  Eye,
+  Download
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AddressPicker } from "./AddressPicker";
@@ -647,9 +661,9 @@ export function AggregatorWizard() {
       {/* Stepper Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between relative">
-          <div className="absolute left-0 top-1/2 h-0.5 w-full -translate-y-1/2 bg-white/10" />
+          <div className="absolute left-0 top-1/2 h-0.5 w-full -translate-y-1/2 bg-surface-subtle" />
           <div 
-            className="absolute left-0 top-1/2 h-0.5 -translate-y-1/2 bg-indigo-500 transition-all duration-300" 
+            className="absolute left-0 top-1/2 h-0.5 -translate-y-1/2 bg-info transition-all duration-300"
             style={{ width: `${((step - 1) / 3) * 100}%` }}
           />
           
@@ -660,8 +674,8 @@ export function AggregatorWizard() {
             { num: 4, label: "Review & Bayar" },
           ].map((s) => (
             <div key={s.num} className="relative z-10 flex flex-col items-center gap-2 bg-background px-2">
-              <div className={`flex h-8 w-8 items-center justify-center rounded-full border-2 font-bold text-sm transition-colors ${step >= s.num ? "border-indigo-500 bg-indigo-500 text-white" : "border-white/20 bg-background text-muted-foreground"}`}>
-                {step > s.num ? <Check className="h-4 w-4" /> : s.num}
+              <div className={`flex h-8 w-8 items-center justify-center rounded-full border-2 font-bold text-sm transition-colors ${step >= s.num ? "border-info bg-info text-on-info" : "border-border bg-background text-muted-foreground"}`}>
+                {step > s.num ? <Check className="h-4 w-4" aria-hidden="true" /> : s.num}
               </div>
               <span className={`text-xs font-medium ${step >= s.num ? "text-foreground" : "text-muted-foreground"}`}>{s.label}</span>
             </div>
@@ -671,19 +685,19 @@ export function AggregatorWizard() {
 
       {(recoveryNotice || submitError) && (
         <div className={`mb-6 rounded-lg border px-4 py-3 text-sm ${submitError
-          ? "border-red-500/30 bg-red-500/10 text-red-200"
-          : "border-indigo-500/30 bg-indigo-500/10 text-indigo-200"}`} role="status">
+          ? "border-error bg-error-surface text-error"
+          : "border-info bg-info-surface text-info"}`} role="status">
           {submitError || recoveryNotice}
         </div>
       )}
 
       {cityError && (
-        <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100" role="alert">
+        <div className="mb-6 rounded-lg border border-warning bg-warning-surface px-4 py-3 text-sm text-warning" role="alert">
           {cityError}
         </div>
       )}
       {providerError && (
-        <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100" role="alert">
+        <div className="mb-6 rounded-lg border border-warning bg-warning-surface px-4 py-3 text-sm text-warning" role="alert">
           {providerError}
         </div>
       )}
@@ -712,36 +726,36 @@ export function AggregatorWizard() {
                       className={[
                         "rounded-xl border-2 px-4 py-4 text-center transition-all",
                         currentProvider === provider.code
-                          ? "border-indigo-400 bg-white/10 shadow-lg shadow-white/5"
-                          : "border-white/10 bg-background/40 hover:bg-white/5 hover:border-white/20",
+                          ? "border-info bg-surface-subtle shadow-lg shadow-surface-raised"
+                          : "border-border bg-background/40 hover:bg-surface-subtle hover:border-border",
                         !isLogisticsProviderAvailable(provider) ? "cursor-not-allowed opacity-50" : ""
                       ].join(" ")}
                     >
                       <span className="block font-bold text-foreground">{provider.name}</span>
                       <span className="mt-1 block text-[10px] text-muted-foreground">{provider.capabilities?.length ? provider.capabilities.map(capabilityLabel).join(" · ") : "Capability belum diberikan"}</span>
-                      <span className={`mt-1 block text-[10px] ${provider.tracking_degraded ? "text-amber-300" : "text-muted-foreground"}`}>{provider.tracking_degraded ? "Tracking degraded · manual" : `Tracking: ${provider.tracking_mode || "belum ditentukan"}`}</span>
-                      <span className={`mt-1 block text-[10px] ${isLogisticsProviderAvailable(provider) ? "text-emerald-300" : "text-amber-300"}`}>{providerAvailabilityMessage(provider)}</span>
+                      <span className={`mt-1 block text-[10px] ${provider.tracking_degraded ? "text-warning" : "text-muted-foreground"}`}>{provider.tracking_degraded ? "Tracking degraded · manual" : `Tracking: ${provider.tracking_mode || "belum ditentukan"}`}</span>
+                      <span className={`mt-1 block text-[10px] ${isLogisticsProviderAvailable(provider) ? "text-success" : "text-warning"}`}>{providerAvailabilityMessage(provider)}</span>
                     </button>
                   ))}
                 </div>
                 {errors.provider && <p className="mt-2 text-xs text-destructive">{errors.provider.message}</p>}
               </div>
 
-              <div className="rounded-xl border border-indigo-400/20 bg-indigo-400/5 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-200">Tahap first-mile</p>
+              <div className="rounded-xl border border-info bg-info-surface p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-info">Tahap first-mile</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg border border-indigo-400/30 bg-indigo-400/10 p-3">
-                    <p className="text-sm font-semibold text-indigo-100">Pickup oleh LANCAR</p>
-                    <p className="mt-1 text-xs text-indigo-100/70">Alamat dan koordinat pickup disiapkan untuk proses serah-terima.</p>
+                  <div className="rounded-lg border border-info bg-info-surface p-3">
+                    <p className="text-sm font-semibold text-info">Pickup oleh LANCAR</p>
+                    <p className="mt-1 text-xs text-info">Alamat dan koordinat pickup disiapkan untuk proses serah-terima.</p>
                   </div>
-                  <div className="rounded-lg border border-white/10 bg-background/30 p-3">
+                  <div className="rounded-lg border border-border bg-background/30 p-3">
                     <p className="text-sm font-semibold text-foreground">Handoff ke {currentProvider ? currentProvider.toUpperCase() : "carrier"}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{carrierHandoffSupported ? "Capability shipment provider aktif; AWB dan status carrier diproses setelah order tersimpan." : "Provider belum mendeklarasikan capability shipment."}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="h-px bg-white/10" />
+              <div className="h-px bg-surface-subtle" />
 
               {/* 2. Detail Pengirim */}
               <div>
@@ -760,39 +774,42 @@ export function AggregatorWizard() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Kota area pickup provider</label>
+                    <label htmlFor="aggregator-wizard-origin-code" className="mb-1.5 block text-sm font-medium text-muted-foreground">Kota area pickup provider</label>
                     <select
+                      id="aggregator-wizard-origin-code"
                       {...register("origin_code")}
+                      aria-invalid={errors.origin_code ? "true" : "false"}
+                      aria-describedby={errors.origin_code ? "aggregator-wizard-origin-error" : undefined}
                       disabled={!currentProvider || cities.length === 0}
-                      className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full appearance-none rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <option value="">{currentProvider ? "Pilih kota asal..." : "Pilih ekspedisi dahulu"}</option>
                       {cities.filter((city) => city.type === "origin" || city.type === "both").map((city) => (
                         <option key={city.code} value={city.code}>{city.name}</option>
                       ))}
                     </select>
-                    {errors.origin_code && <p className="mt-1 text-xs text-destructive">{errors.origin_code.message}</p>}
+                    {errors.origin_code && <p id="aggregator-wizard-origin-error" className="mt-1 text-xs text-destructive">{errors.origin_code.message}</p>}
                   </div>
                 </div>
               </div>
 
-              <div className="h-px bg-white/10" />
+              <div className="h-px bg-surface-subtle" />
 
               {/* 3. Jadwal Penjemputan */}
               <div>
                 <label className="mb-3 block text-base font-semibold text-foreground">3. Jadwal Penjemputan</label>
                 <div className="grid grid-cols-2 gap-3">
-                  <label className={`cursor-pointer rounded-xl border px-4 py-3 transition-colors ${scheduleType === "now" ? "border-indigo-500 bg-indigo-500/10 text-indigo-100" : "border-white/10 bg-background/50 hover:bg-white/5 text-muted-foreground"}`}>
+                  <label className={`cursor-pointer rounded-xl border px-4 py-3 transition-colors ${scheduleType === "now" ? "border-info bg-info-surface text-info" : "border-border bg-background/50 hover:bg-surface-subtle text-muted-foreground"}`}>
                     <div className="flex items-center gap-2">
                       <input type="radio" value="now" {...register("schedule_type")} className="hidden" />
-                      <Clock className="h-4 w-4" />
+                    <Clock className="h-4 w-4" aria-hidden="true" />
                       <span className="font-semibold text-sm">Sekarang</span>
                     </div>
                   </label>
-                  <label className={`cursor-pointer rounded-xl border px-4 py-3 transition-colors ${scheduleType === "scheduled" ? "border-indigo-500 bg-indigo-500/10 text-indigo-100" : "border-white/10 bg-background/50 hover:bg-white/5 text-muted-foreground"}`}>
+                  <label className={`cursor-pointer rounded-xl border px-4 py-3 transition-colors ${scheduleType === "scheduled" ? "border-info bg-info-surface text-info" : "border-border bg-background/50 hover:bg-surface-subtle text-muted-foreground"}`}>
                     <div className="flex items-center gap-2">
                       <input type="radio" value="scheduled" {...register("schedule_type")} className="hidden" />
-                      <CalendarDays className="h-4 w-4" />
+                      <CalendarDays className="h-4 w-4" aria-hidden="true" />
                       <span className="font-semibold text-sm">Terjadwal</span>
                     </div>
                   </label>
@@ -802,14 +819,14 @@ export function AggregatorWizard() {
                     <input
                       type="datetime-local"
                       {...register("scheduled_at")}
-                      className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400 [color-scheme:dark]"
+                      className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info [color-scheme:dark]"
                     />
                     {errors.scheduled_at && <p className="mt-1 text-xs text-destructive">{errors.scheduled_at.message}</p>}
                   </div>
                 )}
               </div>
 
-              <div className="h-px bg-white/10" />
+              <div className="h-px bg-surface-subtle" />
 
               {/* 4. Volume / Kendaraan */}
               <div>
@@ -824,16 +841,16 @@ export function AggregatorWizard() {
                       className={[
                         "relative flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors",
                         watch("vehicle_type") === vt
-                          ? "border-indigo-500 bg-indigo-500/10 text-indigo-100"
-                          : "border-white/10 bg-background/50 hover:bg-white/5 text-muted-foreground",
+                          ? "border-info bg-info-surface text-info"
+                          : "border-border bg-background/50 hover:bg-surface-subtle text-muted-foreground",
                       ].join(" ")}
                     >
                       {watch("vehicle_type") === vt && (
-                        <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-brand-emerald-500 flex items-center justify-center">
-                          <Check className="h-2.5 w-2.5 text-white" />
+                        <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-success flex items-center justify-center">
+                          <Check className="h-2.5 w-2.5 text-foreground" aria-hidden="true" />
                         </span>
                       )}
-                      <span>{vt === "Motor" ? "🏍️" : vt === "Mobil" ? "🚗" : "🚚"}</span>
+                      {vt === "Motor" ? <Bike className="h-4 w-4" aria-hidden="true" /> : vt === "Mobil" ? <CarFront className="h-4 w-4" aria-hidden="true" /> : <Truck className="h-4 w-4" aria-hidden="true" />}
                       {vt}
                     </button>
                   ))}
@@ -849,19 +866,19 @@ export function AggregatorWizard() {
             <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-4">
 
               {/* ── Pick Up Summary Card (always visible in Step 2) ── */}
-              <div className="rounded-xl border border-white/10 bg-white/5">
+              <div className="rounded-xl border border-border bg-surface-subtle">
                 {/* Header */}
-                <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/20">
-                    <Package className="h-4 w-4 text-indigo-400" />
+                <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-info-surface">
+                    <Package className="h-4 w-4 text-info" aria-hidden="true" />
                   </div>
                   <span className="font-bold">Pick Up</span>
                 </div>
 
                 {/* Courier row */}
-                <div className="flex items-start gap-4 border-b border-white/10 px-5 py-3">
+                <div className="flex items-start gap-4 border-b border-border px-5 py-3">
                   <span className="w-24 shrink-0 text-xs text-muted-foreground flex items-center gap-1.5 pt-1">
-                    <span className="text-base">🔄</span> Select Courier
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" /> Select Courier
                   </span>
                   <div className="flex flex-wrap gap-2">
                     {providers.map(p => (
@@ -870,13 +887,13 @@ export function AggregatorWizard() {
                         className={[
                           "relative inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
                           watch("provider") === p.code
-                            ? "border-indigo-400 text-indigo-200 bg-white/5"
-                            : "border-white/10 text-muted-foreground",
+                            ? "border-info text-info bg-surface-subtle"
+                            : "border-border text-muted-foreground",
                         ].join(" ")}
                       >
                         {watch("provider") === p.code && (
-                          <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-brand-emerald-500 flex items-center justify-center">
-                            <Check className="h-2 w-2 text-white" />
+                          <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-success flex items-center justify-center">
+                            <Check className="h-2 w-2 text-foreground" aria-hidden="true" />
                           </span>
                         )}
                         {p.name}
@@ -886,51 +903,51 @@ export function AggregatorWizard() {
                 </div>
 
                 {/* Tipe */}
-                <div className="flex items-center gap-4 border-b border-white/10 px-5 py-3">
+                <div className="flex items-center gap-4 border-b border-border px-5 py-3">
                   <span className="w-24 shrink-0 text-xs text-muted-foreground flex items-center gap-1.5">
-                    <span className="text-base">🎁</span> Tipe
+                    <Gift className="h-4 w-4" aria-hidden="true" /> Tipe
                   </span>
                   <span className="flex-1 text-sm">
                     {watch("schedule_type") === "now" ? "Penjemputan Sekarang" : "Penjemputan Terjadwal"}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="h-5 w-5 rounded-full bg-brand-emerald-500/20 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-brand-emerald-400" />
+                    <span className="h-5 w-5 rounded-full bg-success/20 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-success" aria-hidden="true" />
                     </span>
-                    <button type="button" onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground">
-                      <span className="text-xs">✏️</span>
+                    <button type="button" onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground" aria-label="Ubah tipe penjemputan">
+                      <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
 
                 {/* Alamat */}
-                <div className="flex items-start gap-4 border-b border-white/10 px-5 py-3">
+                <div className="flex items-start gap-4 border-b border-border px-5 py-3">
                   <span className="w-24 shrink-0 text-xs text-muted-foreground flex items-center gap-1.5 pt-0.5">
-                    <MapPin className="h-3.5 w-3.5" /> Alamat
+                    <MapPin className="h-3.5 w-3.5" aria-hidden="true" /> Alamat
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-indigo-300 truncate">{watch("pickup_address") || "—"}</p>
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">📍 Belum Pinpoint</p>
+                    <p className="text-sm text-info truncate">{watch("pickup_address") || "—"}</p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">Lokasi belum dipinpoint</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="h-5 w-5 rounded-full bg-brand-emerald-500/20 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-brand-emerald-400" />
+                    <span className="h-5 w-5 rounded-full bg-success/20 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-success" aria-hidden="true" />
                     </span>
-                    <button type="button" onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground">
-                      <span className="text-xs">✏️</span>
+                    <button type="button" onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground" aria-label="Ubah alamat pickup">
+                      <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
 
                 {/* Waktu */}
                 {watch("schedule_type") === "scheduled" && (
-                  <div className="flex items-center gap-4 border-b border-white/10 px-5 py-3">
+                  <div className="flex items-center gap-4 border-b border-border px-5 py-3">
                     <span className="w-24 shrink-0 text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5" /> Waktu
+                    <Clock className="h-3.5 w-3.5" aria-hidden="true" /> Waktu
                     </span>
                     <span className="flex-1 text-sm">{watch("scheduled_at") || "—"}</span>
-                    <span className="h-5 w-5 rounded-full bg-brand-emerald-500/20 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-brand-emerald-400" />
+                    <span className="h-5 w-5 rounded-full bg-success/20 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-success" aria-hidden="true" />
                     </span>
                   </div>
                 )}
@@ -938,13 +955,13 @@ export function AggregatorWizard() {
                 {/* Volume */}
                 <div className="flex items-center gap-4 px-5 py-3">
                   <span className="w-24 shrink-0 text-xs text-muted-foreground flex items-center gap-1.5">
-                    <Package className="h-3.5 w-3.5" /> Volume
+                    <Package className="h-3.5 w-3.5" aria-hidden="true" /> Volume
                   </span>
                   <span className="flex-1 text-sm text-muted-foreground">
                     Parcel dapat diangkut dengan {watch("vehicle_type") === "Motor" ? "sepeda" : watch("vehicle_type") === "Mobil" ? "mobil" : "truk"}
                   </span>
-                  <span className="h-5 w-5 rounded-full bg-brand-emerald-500/20 flex items-center justify-center">
-                    <Check className="h-3 w-3 text-brand-emerald-400" />
+                  <span className="h-5 w-5 rounded-full bg-success/20 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-success" aria-hidden="true" />
                   </span>
                 </div>
               </div>
@@ -955,20 +972,20 @@ export function AggregatorWizard() {
                   <button
                     type="button"
                     onClick={() => setOrderMode("manual")}
-                    className="group flex flex-col items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/5 p-8 transition-all hover:border-indigo-500/50 hover:bg-indigo-500/5"
+                    className="group flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-surface-subtle p-8 transition-all hover:border-info hover:bg-info-surface"
                   >
-                    <div className="h-14 w-14 rounded-xl bg-amber-500/20 flex items-center justify-center transition-transform group-hover:scale-110">
-                      <span className="text-3xl">📋</span>
+                    <div className="h-14 w-14 rounded-xl bg-warning-surface flex items-center justify-center transition-transform group-hover:scale-110">
+                      <ClipboardList className="h-8 w-8 text-warning" aria-hidden="true" />
                     </div>
                     <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground">Membuat orderan secara manual</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setOrderMode("upload")}
-                    className="group flex flex-col items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/5 p-8 transition-all hover:border-indigo-500/50 hover:bg-indigo-500/5"
+                    className="group flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-surface-subtle p-8 transition-all hover:border-info hover:bg-info-surface"
                   >
                     <div className="h-14 w-14 rounded-xl bg-primary/20 flex items-center justify-center transition-transform group-hover:scale-110">
-                      <span className="text-3xl">📤</span>
+                      <Upload className="h-8 w-8 text-primary" aria-hidden="true" />
                     </div>
                     <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground">Upload file orderan</span>
                   </button>
@@ -981,14 +998,14 @@ export function AggregatorWizard() {
 
                   {/* LEFT: Main Order Form */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 rounded-t-xl border border-white/10 bg-white/5 px-5 pt-5 pb-4">
-                      <div className="h-9 w-9 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
-                        <Package className="h-5 w-5 text-amber-400" />
+                    <div className="flex items-center gap-3 rounded-t-xl border border-border bg-surface-subtle px-5 pt-5 pb-4">
+                      <div className="h-9 w-9 rounded-lg bg-warning-surface flex items-center justify-center shrink-0">
+                        <Package className="h-5 w-5 text-warning" aria-hidden="true" />
                       </div>
                       <h3 className="font-bold text-base">Pesanan 1</h3>
                     </div>
 
-                    <div className="border-x border-b border-white/10 rounded-b-xl bg-white/[0.03] p-5 space-y-5">
+                    <div className="border-x border-b border-border rounded-b-xl bg-surface/[0.03] p-5 space-y-5">
 
                       {/* 1. Nama + HP */}
                       <div className="grid grid-cols-2 gap-4">
@@ -997,7 +1014,7 @@ export function AggregatorWizard() {
                           <input
                             {...register("recipient_name")}
                             placeholder="Contoh: Budi Santoso"
-                            className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
                           />
                           {errors.recipient_name && <p className="mt-1 text-xs text-destructive">{errors.recipient_name.message}</p>}
                         </div>
@@ -1007,7 +1024,7 @@ export function AggregatorWizard() {
                             {...register("recipient_phone")}
                             type="tel"
                             placeholder="08123456789"
-                            className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
                           />
                           {errors.recipient_phone && <p className="mt-1 text-xs text-destructive">{errors.recipient_phone.message}</p>}
                         </div>
@@ -1029,13 +1046,16 @@ export function AggregatorWizard() {
 
                       {/* 3. Provinsi / Kota */}
                       <div>
-                        <label className="mb-1 block text-sm font-medium text-muted-foreground">Provinsi / Kota / Kecamatan / Kelurahan / Kode Pos</label>
+                        <label htmlFor="aggregator-wizard-destination-code" className="mb-1 block text-sm font-medium text-muted-foreground">Provinsi / Kota / Kecamatan / Kelurahan / Kode Pos</label>
                         <p className="mb-2 text-xs text-muted-foreground/70">Masukkan nama kota / kecamatan (setidaknya 4 karakter)</p>
                         <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-emerald-400" />
+                          <MapPin aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-success" />
                           <select
+                            id="aggregator-wizard-destination-code"
                             {...register("destination_code")}
-                            className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            aria-invalid={errors.destination_code ? "true" : "false"}
+                            aria-describedby={errors.destination_code ? "aggregator-wizard-destination-error" : undefined}
+                            className="w-full appearance-none rounded-lg border border-border bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
                           >
                             <option value="">Pilih kota / kecamatan...</option>
                             {cities.filter(c => (c.type === "destination" || c.type === "both") && c.code !== watch("origin_code")).map(city => (
@@ -1043,10 +1063,10 @@ export function AggregatorWizard() {
                             ))}
                           </select>
                         </div>
-                        {errors.destination_code && <p className="mt-1 text-xs text-destructive">{errors.destination_code.message}</p>}
+                        {errors.destination_code && <p id="aggregator-wizard-destination-error" className="mt-1 text-xs text-destructive">{errors.destination_code.message}</p>}
                       </div>
 
-                      <div className="h-px bg-white/10" />
+                      <div className="h-px bg-surface-subtle" />
 
                       {/* 4. Payment + Nilai Barang */}
                       <div className="grid grid-cols-2 gap-4">
@@ -1061,16 +1081,16 @@ export function AggregatorWizard() {
                                 className={[
                                   "relative flex-1 flex items-center justify-center gap-1.5 rounded-lg border py-2.5 text-sm font-medium transition-all",
                                   paymentType === pt
-                                    ? "border-indigo-500 bg-indigo-500/15 text-indigo-300"
-                                    : "border-white/10 bg-background/40 text-muted-foreground hover:bg-white/5",
+                                    ? "border-info bg-info-surface text-info"
+                                    : "border-border bg-background/40 text-muted-foreground hover:bg-surface-subtle",
                                 ].join(" ")}
                               >
                                 {paymentType === pt && (
-                                  <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-indigo-500 flex items-center justify-center">
-                                    <Check className="h-2 w-2 text-white" />
+                                  <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-info flex items-center justify-center">
+                                    <Check className="h-2 w-2 text-foreground" aria-hidden="true" />
                                   </span>
                                 )}
-                                <span className="text-xs">{pt === "COD" ? "💸" : "💳"}</span>
+                                {pt === "COD" ? <Banknote className="h-4 w-4" aria-hidden="true" /> : <CreditCard className="h-4 w-4" aria-hidden="true" />}
                                 {pt === "COD" ? "COD" : "Non - COD"}
                               </button>
                             ))}
@@ -1081,14 +1101,14 @@ export function AggregatorWizard() {
                         </div>
                         <div>
                           <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                            {paymentType === "COD" ? "Nilai COD" : "Nilai Barang"} <Info className="h-3.5 w-3.5" />
+                            {paymentType === "COD" ? "Nilai COD" : "Nilai Barang"} <Info className="h-3.5 w-3.5" aria-hidden="true" />
                           </label>
                           <input
                             {...register("item_value", { valueAsNumber: true })}
                             type="number"
                             min="0"
                             placeholder="1000"
-                            className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
                           />
                         </div>
                       </div>
@@ -1102,19 +1122,19 @@ export function AggregatorWizard() {
                             type="number"
                             min="0.1"
                             step="0.1"
-                            className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
                           />
                           {errors.weight_kg && <p className="mt-1 text-xs text-destructive">{errors.weight_kg.message}</p>}
                         </div>
                         <div>
                           <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                            Jumlah (Quantity) <Info className="h-3.5 w-3.5" />
+                            Jumlah (Quantity) <Info className="h-3.5 w-3.5" aria-hidden="true" />
                           </label>
                           <input
                             {...register("quantity", { valueAsNumber: true })}
                             type="number"
                             min="1"
-                            className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
                           />
                         </div>
                       </div>
@@ -1122,12 +1142,12 @@ export function AggregatorWizard() {
                       {/* 6. Isi Parcel */}
                       <div>
                         <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                          Isi Parcel / Nama Produk <Info className="h-3.5 w-3.5" />
+                          Isi Parcel / Nama Produk <Info className="h-3.5 w-3.5" aria-hidden="true" />
                         </label>
                         <input
                           {...register("item_description")}
                           placeholder="Con. Baju Biru, ukuran L"
-                          className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                          className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
                         />
                         {errors.item_description && <p className="mt-1 text-xs text-destructive">{errors.item_description.message}</p>}
                       </div>
@@ -1137,10 +1157,10 @@ export function AggregatorWizard() {
                         <input
                           type="checkbox"
                           {...register("dangerous_goods")}
-                          className="h-4 w-4 rounded border-white/20 bg-background accent-indigo-500"
+                          className="h-4 w-4 rounded border-border bg-background accent-indigo-500"
                         />
                         <span className="text-muted-foreground">Tandai Sebagai Barang Berbahaya</span>
-                        <Info className="h-3.5 w-3.5 text-muted-foreground/60" />
+                        <Info className="h-3.5 w-3.5 text-muted-foreground/60" aria-hidden="true" />
                       </label>
 
                       {/* 8. Instruksi Pengiriman */}
@@ -1150,12 +1170,12 @@ export function AggregatorWizard() {
                           {...register("delivery_notes")}
                           rows={2}
                           placeholder="Tolong penerima dihubungi dahulu sebelum paket dikirim."
-                          className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm resize-none focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                          className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm resize-none focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
                         />
                       </div>
 
                       {/* 9. Rincian Pembayaran */}
-                      <div className="rounded-lg border border-white/10 bg-background/30 p-4">
+                      <div className="rounded-lg border border-border bg-background/30 p-4">
                         <p className="mb-3 text-sm font-semibold">Rincian Pembayaran</p>
                         <div className="space-y-1.5 text-sm">
                           <div className="flex justify-between text-muted-foreground">
@@ -1163,7 +1183,7 @@ export function AggregatorWizard() {
                             <span>Rp-</span>
                           </div>
                           <div className="flex justify-between text-muted-foreground">
-                            <span className="flex items-center gap-1">Estimasi Biaya Pengiriman Khusus Mengantar <Info className="h-3 w-3" /></span>
+                            <span className="flex items-center gap-1">Estimasi Biaya Pengiriman Khusus Mengantar <Info className="h-3 w-3" aria-hidden="true" /></span>
                             <span>Rp-</span>
                           </div>
                           <div className="flex justify-between text-muted-foreground">
@@ -1174,7 +1194,7 @@ export function AggregatorWizard() {
                       </div>
 
                       {/* Hapus Pesanan */}
-                      <div className="border-t border-white/10 pt-4 text-right">
+                      <div className="border-t border-border pt-4 text-right">
                         <button type="button" className="text-sm text-destructive hover:underline">Hapus Pesanan</button>
                       </div>
 
@@ -1183,35 +1203,35 @@ export function AggregatorWizard() {
 
                   {/* RIGHT: Total Pesanan Panel */}
                   <div className="w-52 shrink-0">
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-4 sticky top-4">
+                    <div className="rounded-xl border border-border bg-surface-subtle p-4 sticky top-4">
                       <div className="mb-4 flex items-center justify-between">
                         <span className="text-sm font-semibold">Total Pesanan</span>
-                        <span className="rounded-md bg-indigo-500/20 px-2 py-0.5 text-sm font-bold text-indigo-300">1</span>
+                        <span className="rounded-md bg-info-surface px-2 py-0.5 text-sm font-bold text-info">1</span>
                       </div>
                       <div className="mb-4 space-y-2">
-                        <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-3">
+                        <div className="rounded-lg border border-info bg-info-surface p-3">
                           <div className="flex items-start justify-between">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium">Pesanan 1</p>
                               <p className="truncate text-xs text-muted-foreground">{watch("recipient_name") || "—"}</p>
                               <p className="truncate text-xs text-muted-foreground">{watch("recipient_phone") || "—"}</p>
                             </div>
-                            <span className="ml-2 shrink-0 text-xs text-amber-400">Editing</span>
+                            <span className="ml-2 shrink-0 text-xs text-warning">Editing</span>
                           </div>
                         </div>
                       </div>
-                      <button type="button" className="mb-4 flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300">
+                      <button type="button" className="mb-4 flex items-center gap-1 text-sm text-info hover:text-info">
                         <span className="text-base font-bold">+</span> Tambah Pesanan
                       </button>
-                      <div className="h-px bg-white/10 mb-4" />
+                      <div className="h-px bg-surface-subtle mb-4" />
                       <div className="space-y-2">
-                        <button type="button" className="w-full rounded-lg border border-white/20 bg-background/40 py-2 text-sm font-medium hover:bg-white/5 transition-colors">
+                        <button type="button" className="w-full rounded-lg border border-border bg-background/40 py-2 text-sm font-medium hover:bg-surface-subtle transition-colors">
                           Simpan Draft
                         </button>
                         <button
                           type="button"
                           onClick={onNextStep}
-                          className="w-full rounded-lg bg-indigo-600 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors"
+                          className="w-full rounded-lg bg-info py-2 text-sm font-semibold text-on-info hover:bg-info transition-colors"
                         >
                           Simpan &amp; Lanjutkan
                         </button>
@@ -1225,14 +1245,14 @@ export function AggregatorWizard() {
               {orderMode === "upload" && (
                 <div className="space-y-4">
                   {/* Template Selector */}
-                  <div className="rounded-xl border border-white/10 bg-white/5">
-                    <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-                      <div className="h-8 w-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
-                        <span className="text-lg">📄</span>
+                  <div className="rounded-xl border border-border bg-surface-subtle">
+                    <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+                      <div className="h-8 w-8 rounded-lg bg-accent-surface flex items-center justify-center">
+                        <FileText className="h-5 w-5 text-accent" aria-hidden="true" />
                       </div>
                       <span className="font-semibold">Pilih Template Pemetaan</span>
                     </div>
-                    <div className="divide-y divide-white/10">
+                    <div className="divide-y divide-border">
                       {[
                         { id: "default", name: "Default Template", tag: "Simple" },
                         { id: "cargo", name: "Default Template Cargo Ex", tag: "Cargo" },
@@ -1241,46 +1261,46 @@ export function AggregatorWizard() {
                         <div key={tpl.id} className="flex items-center gap-3 px-5 py-3">
                           <input type="radio" name="template" value={tpl.id} className="accent-indigo-500" />
                           <span className="flex-1 text-sm">{tpl.name}</span>
-                          <span className="rounded-full border border-white/20 px-2 py-0.5 text-xs text-muted-foreground">{tpl.tag}</span>
+                          <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">{tpl.tag}</span>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <button type="button" className="hover:text-foreground">🗑️</button>
-                            <button type="button" className="hover:text-foreground">✏️</button>
-                            <button type="button" className="hover:text-foreground">👁️</button>
-                            <button type="button" className="hover:text-foreground">⬇️</button>
+                            <button type="button" className="hover:text-foreground" aria-label={`Hapus template ${tpl.name}`}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
+                            <button type="button" className="hover:text-foreground" aria-label={`Edit template ${tpl.name}`}><Pencil className="h-4 w-4" aria-hidden="true" /></button>
+                            <button type="button" className="hover:text-foreground" aria-label={`Preview template ${tpl.name}`}><Eye className="h-4 w-4" aria-hidden="true" /></button>
+                            <button type="button" className="hover:text-foreground" aria-label={`Download template ${tpl.name}`}><Download className="h-4 w-4" aria-hidden="true" /></button>
                           </div>
                         </div>
                       ))}
                     </div>
-                    <div className="flex items-center justify-between px-5 py-4 border-t border-white/10">
+                    <div className="flex items-center justify-between px-5 py-4 border-t border-border">
                       <span className="text-sm text-muted-foreground">Jumlah COD Dideteksi 0</span>
-                      <button type="button" className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-sm hover:bg-white/5">
+                      <button type="button" className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-surface-subtle">
                         <span>+</span> Buat Template Baru
                       </button>
                     </div>
                   </div>
 
                   {/* Upload Drop Zone */}
-                  <div className={`rounded-xl border-2 border-dashed border-white/20 bg-white/5 p-8 text-center transition-colors ${isUploading ? 'opacity-75 cursor-not-allowed' : ''}`}>
+                  <div className={`rounded-xl border-2 border-dashed border-border bg-surface-subtle p-8 text-center transition-colors ${isUploading ? 'opacity-75 cursor-not-allowed' : ''}`}>
                     {isUploading ? (
                       <div className="flex flex-col items-center justify-center">
-                        <Loader2 className="mb-4 h-10 w-10 animate-spin text-indigo-400" />
+                        <Loader2 className="mb-4 h-10 w-10 animate-spin text-info" aria-hidden="true" />
                         <p className="font-semibold text-sm mb-2">Memproses File ({uploadProgress}%)</p>
-                        <div className="w-full max-w-xs bg-white/10 rounded-full h-2 mb-2">
-                          <div className="bg-indigo-500 h-2 rounded-full transition-all" style={{ width: `${uploadProgress}%` }}></div>
+                        <div className="w-full max-w-xs bg-surface-subtle rounded-full h-2 mb-2">
+                          <div className="bg-info h-2 rounded-full transition-all" style={{ width: `${uploadProgress}%` }}></div>
                         </div>
                         <p className="text-xs text-muted-foreground">Mohon tunggu, jangan tutup halaman ini...</p>
                       </div>
                     ) : (
                       <>
                         <div className="mb-4 flex justify-center">
-                          <div className="h-16 w-16 rounded-xl bg-orange-500/20 flex items-center justify-center">
-                            <span className="text-3xl">📤</span>
+                          <div className="h-16 w-16 rounded-xl bg-accent-surface flex items-center justify-center">
+                            <Upload className="h-8 w-8 text-accent" aria-hidden="true" />
                           </div>
                         </div>
                         <p className="mb-1 font-semibold">Upload a CSV or Excel</p>
                         <p className="mb-3 text-sm text-muted-foreground">
                           Drag &amp; Drop, atau{" "}
-                          <label className="cursor-pointer text-indigo-400 underline hover:text-indigo-300">
+                          <label className="cursor-pointer text-info underline hover:text-info">
                             Browse Files
                             <input 
                               type="file" 
@@ -1297,7 +1317,7 @@ export function AggregatorWizard() {
                   </div>
                   {uploadError && (
                     <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-center gap-2">
-                      <Info className="h-4 w-4 shrink-0" />
+                      <Info className="h-4 w-4 shrink-0" aria-hidden="true" />
                       {uploadError}
                     </div>
                   )}
@@ -1318,7 +1338,7 @@ export function AggregatorWizard() {
                           if (bulkRows.length > 0) setStep(4);
                         }}
                         disabled={bulkRows.length === 0}
-                        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
+                        className="rounded-lg bg-info px-4 py-2 text-sm font-semibold text-on-info hover:bg-info transition-colors disabled:opacity-50"
                       >
                         Lanjut Review
                       </button>
@@ -1337,20 +1357,20 @@ export function AggregatorWizard() {
           {step === 3 && orderMode !== "upload" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               
-              <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+              <div className="rounded-xl border border-border bg-surface-subtle p-5">
                 <h3 className="mb-4 font-semibold">Ringkasan Rute</h3>
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Dari</p>
                     <p className="font-medium">{cities.find(c => c.code === watch("origin_code"))?.name ?? "Data kota belum tersedia"}</p>
                   </div>
-                  <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                  <ArrowRight className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Tujuan</p>
                     <p className="font-medium">{cities.find(c => c.code === watch("destination_code"))?.name ?? "Data kota belum tersedia"}</p>
                   </div>
                 </div>
-                <div className="mt-4 flex gap-6 border-t border-white/10 pt-4 text-sm">
+                <div className="mt-4 flex gap-6 border-t border-border pt-4 text-sm">
                   <div>
                     <p className="text-xs text-muted-foreground">Provider</p>
                     <p className="font-medium uppercase">{watch("provider")}</p>
@@ -1366,15 +1386,15 @@ export function AggregatorWizard() {
                 <label className="mb-3 block text-base font-semibold text-foreground">Pilih Layanan</label>
                 
                 {isLoadingTariff ? (
-                  <div className="space-y-3 rounded-lg border border-white/10 bg-background/40 p-4" aria-busy="true" aria-label="Menghitung ongkir">
-                    <Skeleton className="h-4 w-44 bg-white/10" />
-                    <Skeleton className="h-12 w-full bg-white/10" />
-                    <Skeleton className="h-12 w-full bg-white/10" />
+                  <div className="space-y-3 rounded-lg border border-border bg-background/40 p-4" aria-busy="true" aria-label="Menghitung ongkir">
+                    <Skeleton className="h-4 w-44 bg-surface-subtle" />
+                    <Skeleton className="h-12 w-full bg-surface-subtle" />
+                    <Skeleton className="h-12 w-full bg-surface-subtle" />
                   </div>
                 ) : tariffError ? (
-                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-100">
+                  <div className="rounded-lg border border-warning bg-warning-surface px-4 py-4 text-sm text-warning">
                     <div className="flex items-start gap-2">
-                      <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                      <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                       <span>{tariffError}</span>
                     </div>
                   </div>
@@ -1393,13 +1413,13 @@ export function AggregatorWizard() {
                           className={[
                             "relative rounded-xl border p-4 text-left transition-all",
                             isSelected 
-                              ? "border-indigo-500 bg-indigo-500/10 shadow-lg shadow-indigo-500/10" 
-                              : "border-white/10 bg-background/40 hover:bg-white/5",
+                              ? "border-info bg-info-surface shadow-lg shadow-info"
+                              : "border-border bg-background/40 hover:bg-surface-subtle",
                           ].join(" ")}
                         >
                           <div className="flex justify-between">
                             <p className="font-bold text-foreground">{tariff.service_name}</p>
-                            {isSelected && <Check className="h-4 w-4 text-indigo-400" />}
+                            {isSelected && <Check className="h-4 w-4 text-info" aria-hidden="true" />}
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">{tariff.provider_name} · {tariff.etd ? `Estimasi ${tariff.etd}` : "ETA belum diberikan provider"}</p>
                           <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground/80">
@@ -1410,7 +1430,7 @@ export function AggregatorWizard() {
                             <div>
                               <span className="text-muted-foreground">Capability: </span>
                               {tariff.capabilities.length > 0 ? tariff.capabilities.map((capability) => (
-                                <span key={capability} className="mr-1 inline-flex rounded-full border border-indigo-400/30 bg-indigo-400/10 px-1.5 py-0.5 text-indigo-200">{capabilityLabel(capability)}</span>
+                                <span key={capability} className="mr-1 inline-flex rounded-full border border-info bg-info-surface px-1.5 py-0.5 text-info">{capabilityLabel(capability)}</span>
                               )) : <span className="text-muted-foreground">belum diberikan provider</span>}
                             </div>
                             <div className="text-muted-foreground">
@@ -1420,11 +1440,11 @@ export function AggregatorWizard() {
                           <div className="mt-3 flex items-end justify-between">
                             <div className="text-[10px]">
                               {idx === 0 && (
-                                <span className="rounded border border-brand-emerald-500/30 bg-brand-emerald-500/10 px-1.5 py-0.5 text-brand-emerald-300">Termurah</span>
+                                <span className="rounded border border-success/30 bg-success/10 px-1.5 py-0.5 text-success">Termurah</span>
                               )}
                             </div>
                             <div className="text-right">
-                              <p className="text-sm font-bold text-indigo-400">{formatPrice(tariff.price)}</p>
+                              <p className="text-sm font-bold text-info">{formatPrice(tariff.price)}</p>
                               {tariff.net_price ? <p className="text-[11px] text-muted-foreground">Net {formatPrice(tariff.net_price)}</p> : <p className="text-[11px] text-muted-foreground">Net belum diberikan provider</p>}
                             </div>
                           </div>
@@ -1440,9 +1460,9 @@ export function AggregatorWizard() {
 
           {step === 4 && orderMode !== "upload" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="rounded-xl border border-brand-emerald-500/30 bg-brand-emerald-500/5 p-5">
+              <div className="rounded-xl border border-success/30 bg-success/5 p-5">
                 <h3 className="mb-4 flex items-center gap-2 font-semibold">
-                  <Check className="h-5 w-5 text-brand-emerald-400" />
+                  <Check className="h-5 w-5 text-success" aria-hidden="true" />
                   Review &amp; Bayar
                 </h3>
                 <div className="grid gap-4 text-sm sm:grid-cols-2">
@@ -1452,7 +1472,7 @@ export function AggregatorWizard() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Tarif provider</p>
-                    <p className="font-semibold text-brand-emerald-300">{formatPrice(Number(watch("tariff_idr") || 0))}</p>
+                    <p className="font-semibold text-success">{formatPrice(Number(watch("tariff_idr") || 0))}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Berat tagihan / ETA</p>
@@ -1467,7 +1487,7 @@ export function AggregatorWizard() {
                     <p className="font-medium">{watch("recipient_name")} · {watch("recipient_phone")}</p>
                   </div>
                 </div>
-                <p className="mt-5 border-t border-white/10 pt-4 text-xs text-muted-foreground">
+                <p className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">
                   Order baru dianggap berhasil setelah server mengembalikan referensi order tersimpan. Pembayaran dilanjutkan setelah itu.
                 </p>
               </div>
@@ -1476,27 +1496,27 @@ export function AggregatorWizard() {
 
           {(step === 3 || step === 4) && orderMode === "upload" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+              <div className="rounded-xl border border-border bg-surface-subtle p-5">
                 <h3 className="mb-4 font-semibold flex items-center justify-between">
                   <span>Validasi Order Massal</span>
-                  <span className="text-sm rounded bg-indigo-500/20 text-indigo-300 px-2 py-1">{bulkRows.length} Order</span>
+                  <span className="text-sm rounded bg-info-surface text-info px-2 py-1">{bulkRows.length} Order</span>
                 </h3>
                 
                 {bulkRows.length > 0 ? (
-                  <div className="overflow-x-auto rounded-lg border border-white/10">
+                  <div className="overflow-x-auto rounded-lg border border-border">
                     <table className="w-full text-left text-sm text-muted-foreground">
-                      <thead className="bg-white/5 text-xs uppercase text-foreground">
+                      <thead className="bg-surface-subtle text-xs uppercase text-foreground">
                         <tr>
-                          <th className="px-4 py-3">Penerima</th>
-                          <th className="px-4 py-3">Tujuan</th>
-                          <th className="px-4 py-3 text-center">Berat</th>
-                          <th className="px-4 py-3">Layanan</th>
-                          <th className="px-4 py-3 text-right">Tarif</th>
+                          <th scope="col" className="px-4 py-3">Penerima</th>
+                          <th scope="col" className="px-4 py-3">Tujuan</th>
+                          <th scope="col" className="px-4 py-3 text-center">Berat</th>
+                          <th scope="col" className="px-4 py-3">Layanan</th>
+                          <th scope="col" className="px-4 py-3 text-right">Tarif</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/10">
+                      <tbody className="divide-y divide-border">
                         {bulkRows.slice(0, 10).map((row: any, i: number) => (
-                          <tr key={i} className="hover:bg-white/5">
+                          <tr key={i} className="hover:bg-surface-subtle">
                             <td className="px-4 py-3">
                               <p className="font-medium text-foreground">{row.recipient_name}</p>
                               <p className="text-xs">{row.recipient_phone}</p>
@@ -1504,7 +1524,7 @@ export function AggregatorWizard() {
                             <td className="px-4 py-3 truncate max-w-[150px]" title={row.dropoff_address}>{row.dropoff_address}</td>
                             <td className="px-4 py-3 text-center">{row.weight_kg} kg</td>
                             <td className="px-4 py-3 font-medium uppercase text-xs">{row.price_breakdown?.service_code || 'TBD'}</td>
-                            <td className="px-4 py-3 font-medium text-indigo-400 text-right">
+                            <td className="px-4 py-3 font-medium text-info text-right">
                               {row.price_breakdown?.total_price_idr ? formatPrice(row.price_breakdown.total_price_idr) : 'N/A'}
                             </td>
                           </tr>
@@ -1517,7 +1537,7 @@ export function AggregatorWizard() {
                 )}
                 
                 {bulkRows.length > 10 && (
-                  <p className="text-xs text-center text-muted-foreground mt-3 pt-3 border-t border-white/10">
+                  <p className="text-xs text-center text-muted-foreground mt-3 pt-3 border-t border-border">
                     Menampilkan 10 dari total {bulkRows.length} order.
                   </p>
                 )}
@@ -1526,14 +1546,14 @@ export function AggregatorWizard() {
           )}
 
           {/* Stepper Footer Controls */}
-          <div className="sticky bottom-0 z-20 -mx-2 mt-8 flex items-center justify-between border-t border-white/10 bg-background/95 px-2 py-4 pt-6 backdrop-blur-md sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:pt-6">
+          <div className="sticky bottom-0 z-20 -mx-2 mt-8 flex items-center justify-between border-t border-border bg-background/95 px-2 py-4 pt-6 backdrop-blur-md sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:pt-6">
             {step > 1 ? (
               <button
                 type="button"
                 onClick={onPrevStep}
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-surface-subtle hover:text-foreground transition-colors"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 Kembali
               </button>
             ) : <div />}
@@ -1542,22 +1562,22 @@ export function AggregatorWizard() {
               <button
                 type="button"
                 onClick={onNextStep}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-600 transition-colors"
+                className="inline-flex items-center gap-2 rounded-lg bg-info px-6 py-2.5 text-sm font-semibold text-on-info hover:bg-info transition-colors"
               >
                 Selanjutnya
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </button>
             ) : (
               <button
                 type="submit"
                 disabled={isSubmitting || (orderMode === "upload" ? bulkRows.length === 0 : (!createdOrder && (isLoadingTariff || tariffs.length === 0)))}
-                className="inline-flex min-w-[160px] items-center justify-center gap-2 rounded-lg bg-brand-emerald-500 px-6 py-2.5 text-sm font-bold text-white hover:bg-brand-emerald-600 transition-colors disabled:opacity-50"
+                className="inline-flex min-w-[160px] items-center justify-center gap-2 rounded-lg bg-success px-6 py-2.5 text-sm font-bold text-on-success hover:bg-success transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                 ) : (
                   <>
-                    <Check className="h-4 w-4" />
+                    <Check className="h-4 w-4" aria-hidden="true" />
                     {createdOrder ? "Lanjutkan Pembayaran" : "Buat Pesanan"}
                   </>
                 )}

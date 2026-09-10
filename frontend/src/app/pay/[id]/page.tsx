@@ -56,31 +56,31 @@ export default async function PaymentLinkPage({ params }: { params: Promise<{ id
   };
 
   return (
-    <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[#1E293B]/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
+    <main className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md bg-surface-raised backdrop-blur-xl border border-border rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
         
         {/* Header Status */}
-        <div className={`p-6 text-center ${isPaid ? 'bg-brand-emerald-500/10' : isExpired ? 'bg-red-500/10' : 'bg-primary/10'}`}>
+        <div className={`p-6 text-center ${isPaid ? 'bg-success/10' : isExpired ? 'bg-error-surface' : 'bg-primary/10'}`}>
           {isPaid ? (
-            <div className="flex flex-col items-center text-brand-emerald-500">
-              <CheckCircle2 className="w-16 h-16 mb-2" />
-              <h2 className="text-2xl font-bold">Pembayaran Berhasil</h2>
+            <div className="flex flex-col items-center text-success">
+              <CheckCircle2 className="w-16 h-16 mb-2" aria-hidden="true" />
+              <h1 className="text-2xl font-bold">Pembayaran Berhasil</h1>
               <p className="text-sm opacity-80 mt-1 text-center">
                 Pesanan Anda sedang diproses. <br/>
                 Silakan pantau status pengiriman pada live tracking.
               </p>
             </div>
           ) : isExpired ? (
-            <div className="flex flex-col items-center text-red-500">
-              <Clock className="w-16 h-16 mb-2" />
-              <h2 className="text-2xl font-bold">Link Kedaluwarsa</h2>
+            <div className="flex flex-col items-center text-error">
+              <Clock className="w-16 h-16 mb-2" aria-hidden="true" />
+              <h1 className="text-2xl font-bold">Link Kedaluwarsa</h1>
               <p className="text-sm opacity-80 mt-1">Silakan minta link baru kepada penjual</p>
             </div>
           ) : (
             <div className="flex flex-col items-center text-primary">
-              <ShieldCheck className="w-16 h-16 mb-2" />
-              <h2 className="text-2xl font-bold">Selesaikan Pembayaran</h2>
-              <p className="text-sm text-muted-foreground mt-1 text-white/70">Aman & Terverifikasi oleh TEMBUS</p>
+              <ShieldCheck className="w-16 h-16 mb-2" aria-hidden="true" />
+              <h1 className="text-2xl font-bold">Selesaikan Pembayaran</h1>
+              <p className="text-sm text-muted-foreground mt-1 text-foreground-secondary">Aman & Terverifikasi oleh TEMBUS</p>
             </div>
           )}
         </div>
@@ -88,7 +88,7 @@ export default async function PaymentLinkPage({ params }: { params: Promise<{ id
         {/* Item Details */}
         <div className="p-6 space-y-6">
           <div className="flex gap-4">
-            <div className="w-24 h-24 rounded-2xl bg-white/5 border border-white/10 overflow-hidden shrink-0">
+            <div className="w-24 h-24 rounded-2xl bg-surface-subtle border border-border overflow-hidden shrink-0">
               <Image 
                 src={link.item_image_url || '/placeholder-item.png'} 
                 alt={link.item_name}
@@ -100,37 +100,37 @@ export default async function PaymentLinkPage({ params }: { params: Promise<{ id
             <div className="flex flex-col justify-center">
               {link.store_name && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold mb-1 uppercase tracking-wider">
-                  <Package className="w-3.5 h-3.5" />
+                  <Package className="w-3.5 h-3.5" aria-hidden="true" />
                   {link.store_name}
                 </div>
               )}
-              <h3 className="text-xl font-bold text-white line-clamp-2">{link.item_name}</h3>
+              <h3 className="text-xl font-bold text-foreground line-clamp-2">{link.item_name}</h3>
               <p className="text-primary font-semibold mt-1">{formatPrice(link.item_price)}</p>
             </div>
           </div>
 
           <div className="space-y-4">
-            <div className="flex gap-3 bg-white/5 p-4 rounded-2xl border border-white/5">
-              <MapPin className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+            <div className="flex gap-3 bg-surface-subtle p-4 rounded-2xl border border-border">
+              <MapPin className="w-5 h-5 text-primary shrink-0 mt-0.5" aria-hidden="true" />
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Tujuan Pengiriman</p>
-                <p className="text-sm text-white mt-1 leading-relaxed">{link.dropoff_address}</p>
+                <p className="text-sm text-foreground mt-1 leading-relaxed">{link.dropoff_address}</p>
               </div>
             </div>
 
-            <div className="bg-white/5 rounded-2xl border border-white/5 p-4 space-y-3">
+            <div className="bg-surface-subtle rounded-2xl border border-border p-4 space-y-3">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Harga Barang</span>
-                <span className="text-white font-medium">{formatPrice(link.item_price)}</span>
+                <span className="text-foreground font-medium">{formatPrice(link.item_price)}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground flex items-center gap-1">
-                  <Truck className="w-4 h-4" /> Ongkir TEMBUS {link.service_code && `(${link.service_code.replace(/_/g, ' ').toUpperCase()})`}
+                  <Truck className="w-4 h-4" aria-hidden="true" /> Ongkir TEMBUS {link.service_code && `(${link.service_code.replace(/_/g, ' ').toUpperCase()})`}
                 </span>
-                <span className="text-white font-medium">{formatPrice(link.delivery_fee_amount)}</span>
+                <span className="text-foreground font-medium">{formatPrice(link.delivery_fee_amount)}</span>
               </div>
-              <div className="pt-3 border-t border-white/10 flex justify-between items-center">
-                <span className="text-white font-bold">Total Pembayaran</span>
+              <div className="pt-3 border-t border-border flex justify-between items-center">
+                <span className="text-foreground font-bold">Total Pembayaran</span>
                 <span className="text-xl font-extrabold text-primary">{formatPrice(totalPrice)}</span>
               </div>
             </div>
@@ -145,22 +145,22 @@ export default async function PaymentLinkPage({ params }: { params: Promise<{ id
             <div className="mt-4">
               <a 
                 href={`/track/${link.order_id}`}
-                className="w-full flex items-center justify-center gap-2 bg-brand-emerald-500 text-white font-bold py-4 rounded-2xl hover:bg-brand-emerald-600 transition-colors shadow-lg shadow-brand-emerald-500/20"
+                className="w-full flex items-center justify-center gap-2 bg-success text-on-success font-bold py-4 rounded-2xl hover:bg-success transition-colors shadow-lg shadow-success/20"
               >
-                <MapPin className="w-5 h-5" />
+                <MapPin className="w-5 h-5" aria-hidden="true" />
                 Lacak Pesanan (Live Tracking)
               </a>
             </div>
           )}
 
           {/* Powered By */}
-          <div className="text-center pt-4 border-t border-white/10">
+          <div className="text-center pt-4 border-t border-border">
             <p className="text-xs text-muted-foreground">
-              Powered securely by <span className="font-bold text-white">TEMBUS</span>
+              Powered securely by <span className="font-bold text-foreground">TEMBUS</span>
             </p>
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

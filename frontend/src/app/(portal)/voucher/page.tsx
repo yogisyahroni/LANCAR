@@ -178,8 +178,8 @@ export default function VoucherPage() {
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight text-foreground">
-            <span className="rounded-2xl bg-primary-soft p-2.5 text-primary dark:bg-primary/20 dark:text-brand-emerald-300">
-              <Ticket className="h-6 w-6" />
+            <span className="rounded-2xl bg-primary-soft p-2.5 text-primary dark:bg-primary/20 dark:text-success">
+              <Ticket className="h-6 w-6" aria-hidden="true" />
             </span>
             Voucher &amp; Promo
           </h1>
@@ -192,9 +192,9 @@ export default function VoucherPage() {
           onClick={() => void fetchPromos()}
           disabled={isLoading}
           aria-label="Muat ulang daftar promo"
-          className="flex items-center gap-2 rounded-xl border border-black/10 bg-black/5 px-4 py-2.5 text-sm font-bold text-zinc-600 transition-all hover:bg-black/10 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10"
+          className="flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-4 py-2.5 text-sm font-bold text-foreground-muted transition-all hover:bg-surface-subtle disabled:opacity-50 dark:border-border dark:bg-surface-subtle dark:text-foreground-muted dark:hover:bg-surface-subtle"
         >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
           Muat Ulang
         </button>
       </div>
@@ -202,7 +202,7 @@ export default function VoucherPage() {
       {/* Check code input */}
       <section className="glass-card rounded-2xl p-5" aria-labelledby="cek-kode-title">
         <h2 id="cek-kode-title" className="flex items-center gap-2 text-sm font-bold text-foreground">
-          <BadgePercent className="h-4 w-4 text-brand-emerald-500" />
+          <BadgePercent className="h-4 w-4 text-success"  aria-hidden="true"/>
           Punya kode voucher?
         </h2>
         <form
@@ -229,14 +229,14 @@ export default function VoucherPage() {
             placeholder="KETIK KODE DI SINI"
             aria-describedby="voucher-check-message"
             aria-invalid={checkMessage && !checkMessage.ok ? true : undefined}
-            className="min-w-0 flex-1 rounded-xl border border-black/10 bg-background px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-foreground outline-none transition-all placeholder:normal-case placeholder:text-muted-foreground focus:border-brand-emerald-400/60 focus:ring-2 focus:ring-brand-emerald-500/20"
+            className="min-w-0 flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-foreground outline-none transition-all placeholder:normal-case placeholder:text-muted-foreground focus:border-success/60 focus:ring-2 focus:ring-focus-ring"
           />
           <button
             type="submit"
             disabled={isChecking}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-5 py-2.5 text-sm font-bold text-brand-emerald-700 transition-all hover:bg-brand-emerald-500/20 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 dark:text-brand-emerald-200"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-success bg-success-surface px-5 py-2.5 text-sm font-bold text-success transition-all hover:bg-success-surface active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 dark:text-success"
           >
-            {isChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cek Kode'}
+            {isChecking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : 'Cek Kode'}
           </button>
         </form>
         {checkMessage && (
@@ -245,8 +245,8 @@ export default function VoucherPage() {
             role={checkMessage.ok ? 'status' : 'alert'}
             className={`mt-3 rounded-lg px-3 py-2 text-xs font-medium ${
               checkMessage.ok
-                ? 'border border-brand-emerald-500/20 bg-brand-emerald-500/10 text-brand-emerald-700 dark:text-brand-emerald-200'
-                : 'border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-200'
+                ? 'border border-success bg-success-surface text-success dark:text-success'
+                : 'border border-warning bg-warning-surface text-warning dark:text-warning'
             }`}
           >
             {checkMessage.text}
@@ -268,7 +268,7 @@ export default function VoucherPage() {
           </div>
         ) : loadFailed ? (
           <div className="glass-card rounded-2xl p-8 text-center">
-            <Ticket className="mx-auto h-8 w-8 text-muted-foreground" />
+            <Ticket className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
             <p className="mt-3 text-sm font-semibold text-foreground">Gagal memuat promo</p>
             <p className="mt-1 text-xs text-muted-foreground">
               Layanan promo sedang tidak tersedia. Coba muat ulang beberapa saat lagi.
@@ -276,7 +276,7 @@ export default function VoucherPage() {
           </div>
         ) : promos.length === 0 ? (
           <div className="glass-card rounded-2xl p-8 text-center">
-            <Ticket className="mx-auto h-8 w-8 text-muted-foreground" />
+            <Ticket className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
             <p className="mt-3 text-sm font-semibold text-foreground">Belum ada promo aktif</p>
             <p className="mt-1 text-xs text-muted-foreground">
               Pantau halaman ini secara berkala untuk promo terbaru.
@@ -302,13 +302,13 @@ export default function VoucherPage() {
                   <article className="glass-card relative h-full overflow-hidden rounded-2xl p-5">
                     <div
                       aria-hidden="true"
-                      className="absolute right-0 top-0 h-16 w-16 translate-x-6 -translate-y-6 rounded-full bg-primary/10 dark:bg-brand-emerald-500/10"
+                      className="absolute right-0 top-0 h-16 w-16 translate-x-6 -translate-y-6 rounded-full bg-primary/10 dark:bg-success/10"
                     />
                     <div className="flex items-start justify-between gap-2">
-                      <span className="inline-flex items-center rounded-full border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-brand-emerald-700 dark:text-brand-emerald-200">
+                      <span className="inline-flex items-center rounded-full border border-success bg-success-surface px-3 py-1 text-xs font-black uppercase tracking-wider text-success dark:text-success">
                         {promo.code}
                       </span>
-                      <BadgePercent className="h-5 w-5 shrink-0 text-brand-emerald-500" />
+                      <BadgePercent className="h-5 w-5 shrink-0 text-success"  aria-hidden="true"/>
                     </div>
                     <h3 className="mt-3 line-clamp-2 text-sm font-bold text-foreground">{promo.name}</h3>
                     {promo.description && (
@@ -320,21 +320,21 @@ export default function VoucherPage() {
                       {minSpend !== null && minSpend > 0 && (
                         <div className="flex items-center gap-1.5">
                           <dt className="sr-only">Minimum belanja</dt>
-                          <Wallet className="h-3.5 w-3.5 shrink-0" />
+                          <Wallet className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                           <dd>Min. transaksi Rp {minSpend.toLocaleString('id-ID')}</dd>
                         </div>
                       )}
                       {expiry && (
                         <div className="flex items-center gap-1.5">
                           <dt className="sr-only">Berlaku sampai</dt>
-                          <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+                          <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                           <dd>Berlaku s.d. {expiry}</dd>
                         </div>
                       )}
                     </dl>
                     <Link
                       href={`/orders/new?promo=${encodeURIComponent(promo.code)}`}
-                      className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-black text-white transition-all hover:bg-primary-light active:scale-[0.98]"
+                      className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-black text-on-primary transition-all hover:bg-primary-light active:scale-[0.98]"
                     >
                       Pakai Sekarang
                     </Link>

@@ -31,6 +31,14 @@ import { useNotificationStore } from '@/store/useNotificationStore';
 import { ShippingSelector } from '@/components/ShippingSelector';
 import { TariffRequest, TariffResponse } from '@/hooks/useLogisticsTariff';
 
+const paymentLinkStatusLabel = (status: unknown) => {
+  const normalized = String(status || '').trim().toUpperCase();
+  if (normalized === 'PAID') return 'Sudah dibayar';
+  if (normalized === 'EXPIRED') return 'Kedaluwarsa';
+  if (normalized === 'PENDING') return 'Menunggu pembayaran';
+  return normalized ? normalized.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : 'Status belum tersedia';
+};
+
 const queryErrorMessage = (error: any, fallback: string) =>
   error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback;
 
@@ -39,12 +47,12 @@ function PaymentLinkDataState({ title, message, onRetry, tone = 'muted' }: { tit
   return (
     <div className={cn(
       "col-span-full py-20 text-center space-y-4 rounded-[40px] border",
-      isError ? "bg-red-500/5 border-red-500/20" : "glass-card border-dashed border-black/10 dark:border-white/10"
+      isError ? "bg-error-surface border-error" : "glass-card border-dashed border-border dark:border-border"
     )}>
-      <AlertCircle className={cn("mx-auto", isError ? "text-red-400" : "text-zinc-400")} size={48} />
+      <AlertCircle className={cn("mx-auto", isError ? "text-error" : "text-foreground-muted")} size={48} aria-hidden="true" />
       <div>
-        <p className="text-zinc-600 dark:text-zinc-200 font-black italic uppercase tracking-widest">{title}</p>
-        <p className="text-xs text-zinc-500 mt-2">{message}</p>
+        <p className="text-foreground-muted dark:text-foreground-muted font-black italic uppercase tracking-widest">{title}</p>
+        <p className="text-xs text-foreground-muted mt-2">{message}</p>
       </div>
       {onRetry && (
         <button
@@ -52,10 +60,10 @@ function PaymentLinkDataState({ title, message, onRetry, tone = 'muted' }: { tit
           onClick={onRetry}
           className={cn(
             "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all",
-            isError ? "bg-red-500/10 border-red-500/20 text-red-500 dark:text-red-300 hover:bg-red-500/20" : "bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 text-zinc-500 hover:text-foreground"
+            isError ? "bg-error-surface border-error text-error dark:text-error hover:bg-error-surface" : "bg-surface-subtle dark:bg-surface-subtle border-border dark:border-border text-foreground-muted hover:text-foreground"
           )}
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={14} aria-hidden="true" />
           Retry
         </button>
       )}
@@ -124,22 +132,23 @@ export default function PaymentLinksPage() {
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="px-6 py-3 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+          className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
         >
-          <Plus size={18} />
+          <Plus size={18} aria-hidden="true" />
           Create Link
         </button>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:w-96 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary-light transition-colors" size={18} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary-light transition-colors" size={18} aria-hidden="true" />
           <input 
             type="text" 
+            aria-label="Search payment links by item name or ID"
             placeholder="Search by item name or ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-muted-foreground"
+            className="w-full bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-muted-foreground"
           />
         </div>
       </div>
@@ -163,10 +172,10 @@ export default function PaymentLinksPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
               key={link.id}
-              className="glass-card p-8 rounded-[40px] border-black/5 dark:border-white/5 group hover:border-black/10 dark:hover:border-white/10 transition-all overflow-hidden relative"
+              className="glass-card p-8 rounded-[40px] border-border dark:border-border group hover:border-border dark:hover:border-border transition-all overflow-hidden relative"
             >
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                 <LinkIcon size={120} />
+                 <LinkIcon size={120} aria-hidden="true" />
               </div>
 
               <div className="flex items-start justify-between relative z-10">
@@ -175,17 +184,20 @@ export default function PaymentLinksPage() {
                     <div className="px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary-light font-black text-sm tracking-wider font-mono">
                       {link.id.split('-')[0]}...
                     </div>
-                    <span className={cn(
-                      "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                      isPaid ? "bg-brand-emerald-500/10 text-brand-emerald-600 dark:text-brand-emerald-400" :
-                      isExpired ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                    <span
+                      aria-label={`Status payment link: ${paymentLinkStatusLabel(link.status)}`}
+                      className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                      isPaid ? "bg-success/10 text-success dark:text-success" :
+                      isExpired ? "bg-error-surface text-error dark:text-error" : "bg-warning-surface text-warning dark:text-warning"
                     )}>
-                      {link.status}
+                      {isPaid ? <CheckCircle2 size={12} aria-hidden="true" /> : isExpired ? <AlertCircle size={12} aria-hidden="true" /> : <Clock size={12} aria-hidden="true" />}
+                      {paymentLinkStatusLabel(link.status)}
                     </span>
                   </div>
                   <div className="flex gap-4">
                     {link.item_image_url && (
-                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 shrink-0">
+                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border shrink-0">
                             <img src={link.item_image_url} alt={link.item_name} className="w-full h-full object-cover" />
                         </div>
                     )}
@@ -199,24 +211,24 @@ export default function PaymentLinksPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-8 mt-8 pt-8 border-t border-black/5 dark:border-white/5 relative z-10">
+              <div className="grid grid-cols-2 gap-8 mt-8 pt-8 border-t border-border dark:border-border relative z-10">
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                       <MapPin size={12} /> Destination
+                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                       <MapPin size={12} aria-hidden="true" /> Destination
                     </p>
-                    <p className="text-xs font-bold text-foreground mt-3 tracking-tight line-clamp-2">
+                    <p className="text-xs font-bold text-foreground mt-3 tracking-tight line-clamp-2" title={link.dropoff_address || undefined}>
                       {link.dropoff_address}
                     </p>
                  </div>
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                       <Clock size={12} /> Expiration
+                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                       <Clock size={12} aria-hidden="true" /> Expiration
                     </p>
                     <p className="text-xs font-bold text-foreground mt-3">{new Date(link.expired_at).toLocaleDateString()} {new Date(link.expired_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     <div className="flex items-center gap-1.5 mt-2">
                        <p className={cn(
                          "text-[10px] font-black uppercase tracking-wider",
-                         !isExpired ? "text-primary-light" : "text-red-500"
+                         !isExpired ? "text-primary-light" : "text-error"
                        )}>
                         {!isExpired ? 'Active' : 'Expired'}
                        </p>
@@ -230,11 +242,11 @@ export default function PaymentLinksPage() {
                    disabled={isExpired || isPaid}
                    className={cn(
                        "flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border flex items-center justify-center gap-2",
-                       copiedId === link.id ? "bg-brand-emerald-500/20 text-brand-emerald-600 dark:text-brand-emerald-400 border-brand-emerald-500/30" : "bg-black/5 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-primary/20 hover:text-primary-light border-black/5 dark:border-white/5 hover:border-primary/20",
+                       copiedId === link.id ? "bg-success/20 text-success dark:text-success border-success/30" : "bg-surface-subtle dark:bg-surface-subtle text-foreground-muted dark:text-foreground-muted hover:bg-primary/20 hover:text-primary-light border-border dark:border-border hover:border-primary/20",
                        (isExpired || isPaid) ? "opacity-50 cursor-not-allowed" : ""
                    )}
                  >
-                    {copiedId === link.id ? <Check size={16} /> : <Copy size={16} />}
+                    {copiedId === link.id ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
                     {copiedId === link.id ? 'Copied!' : 'Copy Link'}
                  </button>
               </div>
@@ -242,9 +254,9 @@ export default function PaymentLinksPage() {
           )
         })}
         {!isError && (!filteredLinks || filteredLinks.length === 0) && (
-          <div className="col-span-full py-20 text-center space-y-4 glass-card rounded-[40px] border-dashed border-black/10 dark:border-white/10">
-            <LinkIcon className="mx-auto text-zinc-400" size={48} />
-            <p className="text-zinc-500 font-black italic uppercase tracking-widest">
+          <div className="col-span-full py-20 text-center space-y-4 glass-card rounded-[40px] border-dashed border-border dark:border-border">
+            <LinkIcon className="mx-auto text-foreground-muted" size={48} aria-hidden="true" />
+            <p className="text-foreground-muted font-black italic uppercase tracking-widest">
               No payment links generated yet
             </p>
           </div>
@@ -428,11 +440,11 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-scrim/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-2xl bg-background border border-black/10 dark:border-white/10 rounded-[48px] overflow-hidden shadow-2xl shadow-primary/10 my-8"
+        className="w-full max-w-2xl bg-background border border-border dark:border-border rounded-[48px] overflow-hidden shadow-2xl shadow-primary/10 my-8"
       >
         <div className="p-10 space-y-8">
           <div className="flex items-center justify-between">
@@ -442,18 +454,18 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
               </h2>
               <p className="text-muted-foreground text-xs mt-1 font-medium">Create a new invoice for your customer.</p>
             </div>
-            <button onClick={onClose} className="p-3 rounded-2xl bg-black/5 dark:bg-white/5 text-zinc-500 hover:text-foreground transition-all">
-              <X size={20} />
+            <button type="button" onClick={onClose} aria-label="Tutup detail tautan pembayaran" className="p-3 rounded-2xl bg-surface-subtle dark:bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
+              <X size={20} aria-hidden="true" />
             </button>
           </div>
 
           <div className="mb-8 flex items-center gap-3 bg-primary/10 border border-primary/20 p-4 rounded-2xl">
             <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
-              <Store size={20} />
+              <Store size={20} aria-hidden="true" />
             </div>
             <div>
               <p className="text-[10px] font-black text-primary/80 uppercase tracking-[0.2em]">Toko Pengirim</p>
-              <h3 className="text-lg font-bold text-white tracking-tight">{user?.store_name || 'Toko Anda'}</h3>
+              <h3 className="text-lg font-bold text-foreground tracking-tight">{user?.store_name || 'Toko Anda'}</h3>
             </div>
           </div>
 
@@ -462,7 +474,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
               <div className="grid grid-cols-2 gap-8">
                 <div className="space-y-2 col-span-2 relative">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><Package size={14}/> Item Name</label>
+                    <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><Package size={14} aria-hidden="true" /> Item Name</label>
                     <a href="/products" target="_blank" className="text-[10px] font-black text-primary hover:underline flex items-center gap-1">
                       + Kelola Katalog / Excel Bulk
                     </a>
@@ -476,7 +488,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                     onFocus={() => setShowProductDropdown(true)}
                     onBlur={() => setTimeout(() => setShowProductDropdown(false), 200)}
                     placeholder="e.g. Kue Kering Lebaran"
-                    className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                    className="w-full bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border rounded-2xl py-4 px-6 text-foreground font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                   />
                   {showProductDropdown && products.filter(p => p.item_name.toLowerCase().includes(formData.item_name.toLowerCase())).length > 0 && (
                     <div className="absolute z-10 w-full mt-2 bg-card border border-border rounded-xl shadow-lg max-h-60 overflow-y-auto">
@@ -498,7 +510,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                             <img src={product.image_url} alt={product.item_name} className="w-10 h-10 object-cover rounded-md border border-border" />
                           ) : (
                             <div className="w-10 h-10 bg-muted flex items-center justify-center rounded-md border border-border text-muted-foreground shrink-0">
-                              <Package size={16} />
+                              <Package size={16} aria-hidden="true" />
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
@@ -515,19 +527,19 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><Weight size={14}/> Berat (kg)</label>
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><Weight size={14} aria-hidden="true" /> Berat (kg)</label>
                   <input 
                     type="number"
                     min="1"
                     value={formData.weight}
                     onChange={e => setFormData({ ...formData, weight: parseFloat(e.target.value) || 1 })}
-                    className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                    className="w-full bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border rounded-2xl py-4 px-6 text-foreground font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><UploadCloud size={14}/> Item Image</label>
-                  <label className="flex items-center justify-center w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 border-dashed rounded-2xl py-4 px-6 cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-all text-sm font-semibold text-muted-foreground hover:text-foreground">
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><UploadCloud size={14} aria-hidden="true" /> Item Image</label>
+                  <label className="flex items-center justify-center w-full bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border border-dashed rounded-2xl py-4 px-6 cursor-pointer hover:bg-surface-subtle dark:hover:bg-surface-subtle transition-all text-sm font-semibold text-muted-foreground hover:text-foreground">
                     <input 
                       type="file" 
                       accept="image/*" 
@@ -540,20 +552,20 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                   </label>
                 </div>
 
-                <div className="space-y-2 col-span-2 border-t border-black/10 dark:border-white/10 pt-6">
-                  <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">Origin & Destination</h3>
+                <div className="space-y-2 col-span-2 border-t border-border dark:border-border pt-6">
+                  <h3 className="text-xs font-black text-foreground-muted uppercase tracking-widest mb-4">Origin & Destination</h3>
                 </div>
 
                 <div className="space-y-2 col-span-2">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center justify-between">
-                    <span className="flex items-center gap-2"><MapPin size={14}/> Pickup Address (Your Store)</span>
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center justify-between">
+                    <span className="flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Pickup Address (Your Store)</span>
                     <button 
                       type="button" 
                       onClick={handleGetCurrentLocation}
                       disabled={isLocating}
                       className="text-primary hover:text-primary-light flex items-center gap-1 font-bold bg-primary/10 px-3 py-1.5 rounded-lg transition-all"
                     >
-                      {isLocating ? <Loader2 size={12} className="animate-spin" /> : <Navigation size={12} />}
+                      {isLocating ? <Loader2 size={12} className="animate-spin" aria-hidden="true" /> : <Navigation size={12} aria-hidden="true" />}
                       Gunakan Lokasi Saat Ini
                     </button>
                   </label>
@@ -562,43 +574,43 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                     onChange={e => { setFormData({ ...formData, pickup_address: e.target.value }); setGeocodeError(''); }}
                     placeholder="Alamat lengkap tokomu beserta patokan..."
                     rows={2}
-                    className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                    className="w-full bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border rounded-2xl py-4 px-6 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
                   />
                 </div>
 
                 <div className="space-y-2 col-span-2">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14}/> Dropoff Address (Customer)</label>
+                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Dropoff Address (Customer)</label>
                   <textarea 
                     value={formData.dropoff_address}
                     onChange={e => { setFormData({ ...formData, dropoff_address: e.target.value }); setGeocodeError(''); }}
                     placeholder="Alamat lengkap pembeli beserta patokan..."
                     rows={3}
-                    className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                    className="w-full bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border rounded-2xl py-4 px-6 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
                   />
                 </div>
               </div>
 
               {geocodeError && (
-                <div className="px-6 py-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500 mt-6">
-                  <AlertCircle size={18} />
+                <div className="px-6 py-4 bg-error-surface border border-error rounded-2xl flex items-center gap-3 text-error mt-6">
+                  <AlertCircle size={18} aria-hidden="true" />
                   <p className="text-xs font-bold">{geocodeError}</p>
                 </div>
               )}
 
-              <div className="pt-8 border-t border-black/10 dark:border-white/10 flex items-center justify-end mt-8">
+              <div className="pt-8 border-t border-border dark:border-border flex items-center justify-end mt-8">
                 <div className="flex gap-4">
                   <button 
                     onClick={() => { setStep(1); onClose(); }}
-                    className="px-8 py-4 rounded-2xl bg-black/5 dark:bg-white/5 text-zinc-500 font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
+                    className="px-8 py-4 rounded-2xl bg-surface-subtle dark:bg-surface-subtle text-foreground-muted font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
                   >
                     Cancel
                   </button>
                   <button 
                     onClick={handleNextStep}
                     disabled={isGeocoding || !formData.item_name || !formData.dropoff_address || !formData.pickup_address || (!selectedFile && !formData.item_image_url)}
-                    className="px-10 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isGeocoding ? <Loader2 className="animate-spin" size={16} /> : null}
+                    {isGeocoding ? <Loader2 className="animate-spin" size={16} aria-hidden="true" /> : null}
                     {isGeocoding ? 'Loading...' : 'Lanjut Pilih Kurir'}
                   </button>
                 </div>
@@ -615,16 +627,16 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
               </div>
 
               {geocodeError && (
-                <div className="px-6 py-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500 mb-6">
-                  <AlertCircle size={18} />
+                <div className="px-6 py-4 bg-error-surface border border-error rounded-2xl flex items-center gap-3 text-error mb-6">
+                  <AlertCircle size={18} aria-hidden="true" />
                   <p className="text-xs font-bold">{geocodeError}</p>
                 </div>
               )}
 
-              <div className="pt-8 border-t border-black/10 dark:border-white/10 flex items-center justify-between">
+              <div className="pt-8 border-t border-border dark:border-border flex items-center justify-between">
                 <button 
                   onClick={() => setStep(1)}
-                  className="px-8 py-4 rounded-2xl bg-black/5 dark:bg-white/5 text-zinc-500 font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
+                  className="px-8 py-4 rounded-2xl bg-surface-subtle dark:bg-surface-subtle text-foreground-muted font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
                 >
                   Kembali
                 </button>
@@ -632,9 +644,9 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                   <button 
                     onClick={handleGenerateLink}
                     disabled={isSaving || isGeocoding || !selectedTariff}
-                    className="px-10 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {(isSaving || isGeocoding) ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+                    {(isSaving || isGeocoding) ? <Loader2 className="animate-spin" size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
                     {(isSaving || isGeocoding) ? 'Loading...' : 'Generate Link'}
                   </button>
                 </div>

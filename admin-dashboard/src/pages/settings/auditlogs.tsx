@@ -114,10 +114,10 @@ export function AuditLogsPanel({ data }: { data: SettingsData }) {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-6"
               >
-                <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
+                <div className="glass-card p-10 rounded-[48px] border-border space-y-8">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
-                      <History className="text-amber-400" size={24} />
+                    <h3 className="text-xl font-black text-foreground-muted flex items-center gap-3 tracking-tight">
+                      <History className="text-warning" size={24} aria-hidden="true" />
                       System Audit Logs
                     </h3>
                     <div className="flex gap-2">
@@ -129,43 +129,43 @@ export function AuditLogsPanel({ data }: { data: SettingsData }) {
                     <table className="w-full border-separate border-spacing-y-3">
                       <thead>
                         <tr className="text-left">
-                          <th className="px-6 py-2 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Event</th>
-                          <th className="px-6 py-2 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Modified By</th>
-                          <th className="px-6 py-2 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Reason</th>
-                          <th className="px-6 py-2 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Timestamp</th>
+                          <th scope="col" className="px-6 py-2 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Event</th>
+                          <th scope="col" className="px-6 py-2 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Modified By</th>
+                          <th scope="col" className="px-6 py-2 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Reason</th>
+                          <th scope="col" className="px-6 py-2 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Timestamp</th>
                         </tr>
                       </thead>
                       <tbody>
                         {auditLogs.map((log: any) => (
                           <tr key={log.id} className="group">
-                            <td className="px-6 py-4 bg-white/[0.02] border-y border-l border-white/5 rounded-l-2xl">
+                            <td className="px-6 py-4 bg-surface/[0.02] border-y border-l border-border rounded-l-2xl">
                               <div className="flex items-center gap-3">
                                 <div className={cn(
                                   "p-2 rounded-lg",
-                                  log.is_enabled ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
+                                  log.is_enabled ? "bg-success-surface text-success" : "bg-error-surface text-error"
                                 )}>
-                                  {log.is_enabled ? <Zap size={14} /> : <Lock size={14} />}
+                                  {log.is_enabled ? <Zap size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
                                 </div>
                                 <div>
-                                  <p className="text-xs font-black text-zinc-200">{log.key}</p>
-                                  <p className="text-[10px] text-zinc-500 font-medium">Flag status: {log.is_enabled ? 'Enabled' : 'Disabled'}</p>
+                                  <p className="text-xs font-black text-foreground-muted">{log.key}</p>
+                                  <p className="text-[10px] text-foreground-muted font-medium">Flag status: {log.is_enabled ? 'Enabled' : 'Disabled'}</p>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 bg-white/[0.02] border-y border-white/5">
+                            <td className="px-6 py-4 bg-surface/[0.02] border-y border-border">
                                <div className="flex items-center gap-2">
                                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-black text-primary uppercase">
                                    {log.updated_by?.substring(0, 2) || 'AD'}
                                  </div>
-                                 <span className="text-[10px] font-bold text-zinc-400 tracking-tight">{log.updated_by || 'System'}</span>
+                                 <span className="text-[10px] font-bold text-foreground-muted tracking-tight">{log.updated_by || 'System'}</span>
                                </div>
                             </td>
-                            <td className="px-6 py-4 bg-white/[0.02] border-y border-white/5">
-                               <p className="text-[10px] font-medium text-zinc-500 line-clamp-1 max-w-[200px]">{log.change_reason}</p>
+                            <td className="px-6 py-4 bg-surface/[0.02] border-y border-border">
+                               <p className="text-[10px] font-medium text-foreground-muted line-clamp-1 max-w-[200px]">{log.change_reason}</p>
                             </td>
-                            <td className="px-6 py-4 bg-white/[0.02] border-y border-r border-white/5 rounded-r-2xl">
-                               <div className="flex items-center gap-2 text-zinc-500">
-                                 <Clock size={12} />
+                            <td className="px-6 py-4 bg-surface/[0.02] border-y border-r border-border rounded-r-2xl">
+                               <div className="flex items-center gap-2 text-foreground-muted">
+                                 <Clock size={12} aria-hidden="true" />
                                  <span className="text-[10px] font-bold uppercase tracking-tight">
                                    {new Date(log.created_at).toLocaleString('en-GB', { 
                                      day: '2-digit', 
@@ -182,10 +182,10 @@ export function AuditLogsPanel({ data }: { data: SettingsData }) {
                     </table>
                     {auditLogs.length === 0 && (
                       <div className="p-20 text-center space-y-4">
-                        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto text-zinc-600">
-                          <History size={32} />
+                        <div className="w-16 h-16 rounded-full bg-surface-subtle flex items-center justify-center mx-auto text-foreground-muted">
+                          <History size={32} aria-hidden="true" />
                         </div>
-                        <p className="text-xs font-black text-zinc-500 uppercase tracking-widest">No audit events recorded</p>
+                        <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">No audit events recorded</p>
                       </div>
                     )}
                   </div>

@@ -21,7 +21,9 @@ type MapsRuntimeConfig = {
 export const TOMTOM_RASTER_ATTRIBUTION = '&copy; <a href="https://www.tomtom.com/" rel="noreferrer">TomTom</a>'
 export const CARTO_DARK_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+export const CARTO_LIGHT_ATTRIBUTION = CARTO_DARK_ATTRIBUTION
 export const CARTO_DARK_TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+export const CARTO_LIGHT_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
 
 export type TomTomRasterStyle = 'main' | 'night'
 
@@ -52,7 +54,7 @@ export function isTomTomRuntimeReady(config?: MapsRuntimeConfig | null) {
 
 export function TomTomRuntimeUnavailable({ message }: { message?: string }) {
   return (
-    <div className="absolute inset-x-4 top-20 z-[1000] rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100 shadow-lg shadow-black/20 backdrop-blur-xl">
+    <div className="absolute inset-x-4 top-20 z-[1000] rounded-2xl border border-warning bg-warning-surface p-4 text-sm text-warning shadow-lg shadow-scrim backdrop-blur-xl">
       {message || 'Peta sedang dialihkan ke mode aman. Data koordinat dan kontrol operasional tetap tersedia.'}
     </div>
   )

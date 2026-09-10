@@ -1,21 +1,17 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Store, UserCircle2, XCircle, CheckCircle2, Clock } from 'lucide-react'
+import { Store, UserCircle2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
+import { StatusBadge } from '../components/StatusBadge'
 
-const statusStyle: Record<string, string> = {
-  active: 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
-  pending: 'border border-amber-500/30 bg-amber-500/10 text-amber-300',
-  revoked: 'border border-zinc-500/30 bg-zinc-500/10 text-zinc-400',
-}
 const roleStyle: Record<string, string> = {
-  manager: 'text-sky-300',
-  cashier: 'text-zinc-300',
-  kasir: 'text-zinc-300',
-  kitchen: 'text-violet-300',
-  marketing: 'text-amber-300',
-  finance: 'text-emerald-300',
+  manager: 'text-info',
+  cashier: 'text-foreground-muted',
+  kasir: 'text-foreground-muted',
+  kitchen: 'text-info',
+  marketing: 'text-warning',
+  finance: 'text-success',
 }
 
 export default function MerchantStaff() {
@@ -40,28 +36,28 @@ export default function MerchantStaff() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-100">Oversight Staff Merchant</h1>
-        <p className="mt-2 text-sm text-zinc-500">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground-muted">Oversight Staff Merchant</h1>
+        <p className="mt-2 text-sm text-foreground-muted">
           Pengawasan seluruh staff merchant lintas toko (akses super-admin).
         </p>
       </div>
 
-      <div className="flex flex-wrap items-end gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <label className="flex flex-col gap-1 text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">
+      <div className="flex flex-wrap items-end gap-4 rounded-2xl border border-border bg-surface/[0.03] p-4">
+        <label className="flex flex-col gap-1 text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">
           Merchant ID
           <input
             value={merchantId}
             onChange={(e) => setMerchantId(e.target.value)}
             placeholder="kosongkan = semua"
-            className="w-72 rounded-xl border border-white/10 bg-zinc-950/60 px-3 py-2 text-sm normal-case text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
+            className="w-72 rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm normal-case text-foreground-muted placeholder:text-foreground-muted focus:outline-none"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">
+        <label className="flex flex-col gap-1 text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">
           Role
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="rounded-xl border border-white/10 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 focus:outline-none"
+            className="rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted focus:outline-none"
           >
             <option value="all">Semua</option>
             <option value="manager">Manager</option>
@@ -71,12 +67,12 @@ export default function MerchantStaff() {
             <option value="finance">Finance</option>
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">
+        <label className="flex flex-col gap-1 text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">
           Status
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="rounded-xl border border-white/10 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 focus:outline-none"
+            className="rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted focus:outline-none"
           >
             <option value="all">Semua</option>
             <option value="active">Active</option>
@@ -86,39 +82,34 @@ export default function MerchantStaff() {
         </label>
       </div>
 
-      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-        <p className="mb-3 text-sm font-bold text-zinc-100">{staff.length} staff</p>
+      <div className="rounded-3xl border border-border bg-surface/[0.03] p-5">
+        <p className="mb-3 text-sm font-bold text-foreground-muted">{staff.length} staff</p>
         {isLoading ? (
-          <p className="text-sm text-zinc-500">Loading...</p>
+          <p className="text-sm text-foreground-muted">Loading...</p>
         ) : staff.length === 0 ? (
-          <p className="text-sm text-zinc-500">Belum ada staff merchant (atau filter tidak cocok).</p>
+          <p className="text-sm text-foreground-muted">Belum ada staff merchant (atau filter tidak cocok).</p>
         ) : (
           <div className="space-y-2">
             {staff.map((s: any) => (
               <div
                 key={s.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-zinc-950/50 p-4"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface-subtle p-4"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <UserCircle2 className="h-5 w-5 shrink-0 text-zinc-500" />
+                  <UserCircle2 className="h-5 w-5 shrink-0 text-foreground-muted" aria-hidden="true" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-zinc-100">
+                    <p className="truncate text-sm font-bold text-foreground-muted">
                       {s.staff_name || s.staff_email || s.staff_phone || '(belum accept)'}
                     </p>
-                    <p className="truncate text-xs text-zinc-500">
-                      <Store className="mr-1 inline h-3 w-3" />
+                    <p className="truncate text-xs text-foreground-muted">
+                      <Store className="mr-1 inline h-3 w-3"  aria-hidden="true"/>
                       {s.merchant_name || s.merchant_id}
                     </p>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase">
-                  <span className={cn('rounded-full px-2 py-1', roleStyle[s.role] || 'text-zinc-400')}>{s.role}</span>
-                  <span className={cn('rounded-full px-2 py-1', statusStyle[s.status] || 'border border-white/10 text-zinc-500')}>
-                    {s.status === 'active' && <CheckCircle2 className="mr-1 inline h-3 w-3" />}
-                    {s.status === 'pending' && <Clock className="mr-1 inline h-3 w-3" />}
-                    {s.status === 'revoked' && <XCircle className="mr-1 inline h-3 w-3" />}
-                    {s.status}
-                  </span>
+                  <span className={cn('rounded-full px-2 py-1', roleStyle[s.role] || 'text-foreground-muted')}>{s.role}</span>
+                  <StatusBadge status={s.status} labelPrefix="Staff status" className="text-[10px]" />
                 </div>
               </div>
             ))}

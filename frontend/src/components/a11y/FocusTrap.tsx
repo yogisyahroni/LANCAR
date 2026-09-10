@@ -44,8 +44,21 @@ export function FocusTrap({ active = true, className, children }: FocusTrapProps
     const container = containerRef.current;
     if (!container) return undefined;
 
-    const focusables = getFocusableElements();
-    (focusables[0] ?? container).focus();
+    const focusFirstAvailable = () => {
+      const current = document.activeElement;
+      const focusables = getFocusableElements();
+      if (focusables.length > 0 && (current === container || !container.contains(current))) {
+        focusables[0].focus();
+        return;
+      }
+      if (focusables.length === 0 && current !== container && !container.contains(current)) {
+        container.focus();
+      }
+    };
+
+    focusFirstAvailable();
+    const observer = new MutationObserver(focusFirstAvailable);
+    observer.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "hidden", "class", "style"] });
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Tab") return;
@@ -76,6 +89,7 @@ export function FocusTrap({ active = true, className, children }: FocusTrapProps
 
     return () => {
       container.removeEventListener("keydown", handleKeyDown, true);
+      observer.disconnect();
       previouslyFocusedRef.current?.focus();
     };
   }, [active, getFocusableElements]);

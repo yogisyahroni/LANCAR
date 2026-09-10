@@ -18,12 +18,12 @@ export default function NewEkspedisiOrderPage() {
             href="/orders/new/ondemand"
             className="px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer text-muted-foreground hover:text-foreground"
           >
-            🚀 Instan (On-Demand)
+            Instan (On-Demand)
           </Link>
           <div
             className="px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-default bg-card text-foreground shadow-sm"
           >
-            📦 Ekspedisi (Aggregator)
+            Ekspedisi (Aggregator)
           </div>
         </div>
       </div>

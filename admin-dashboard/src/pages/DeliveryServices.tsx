@@ -422,8 +422,8 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center text-zinc-400">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+      <div className="flex h-full items-center justify-center text-foreground-muted">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" />
         Loading delivery services...
       </div>
     )
@@ -434,7 +434,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
       {!embedded && (
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Delivery Services</h1>
-          <p className="mt-2 text-sm text-zinc-400">
+          <p className="mt-2 text-sm text-foreground-muted">
             Atur product catalog, kategori layanan, tarif, limit, dan aturan scan yang dipakai customer app.
           </p>
         </div>
@@ -451,16 +451,16 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
               className={cn(
                 'rounded-2xl border p-4 text-left transition',
                 selectedCategory === category.code
-                  ? 'border-primary bg-primary/10 text-zinc-100'
-                  : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06]'
+                  ? 'border-primary bg-primary/10 text-on-primary'
+                  : 'border-border bg-surface/[0.03] text-foreground-muted hover:bg-surface/[0.06]'
               )}
             >
               <div className="flex items-center justify-between gap-3">
-                <Tags className="h-4 w-4 text-primary-light" />
-                <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold">{count}</span>
+                <Tags className="h-4 w-4 text-primary-light" aria-hidden="true" />
+                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-bold">{count}</span>
               </div>
               <p className="mt-3 text-sm font-bold">{category.label}</p>
-              <p className="mt-1 line-clamp-2 text-xs text-zinc-500">{category.description}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-foreground-muted">{category.description}</p>
             </button>
           )
         })}
@@ -473,12 +473,12 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
             onClick={startNewService}
             className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-primary/40 bg-primary/10 px-4 py-3 text-sm font-bold text-primary-light transition hover:bg-primary/15"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4" aria-hidden="true" />
             Tambah Service {displayLabel(selectedCategory, serviceCategories)}
           </button>
 
           {visibleServices.length === 0 && (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-zinc-500">
+            <div className="rounded-2xl border border-border bg-surface/[0.03] p-4 text-sm text-foreground-muted">
               Belum ada service di kategori ini. Buat service baru lalu simpan.
             </div>
           )}
@@ -492,30 +492,30 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
                 'w-full rounded-2xl border p-4 text-left transition-all',
                 selectedCode === service.code
                   ? 'border-primary bg-primary/10 shadow-lg shadow-primary/10'
-                  : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
+                  : 'border-border bg-surface/[0.03] hover:bg-surface/[0.06]'
               )}
             >
               <div className="flex items-start gap-3">
-                <div className="rounded-xl bg-white/5 p-2 text-primary-light">
-                  <Truck size={18} />
+                <div className="rounded-xl bg-surface-subtle p-2 text-primary-light">
+                  <Truck size={18} aria-hidden="true" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="font-bold text-zinc-100">{service.name}</p>
+                    <p className="font-bold text-foreground-muted">{service.name}</p>
                     <span className={cn(
                       'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase',
-                      service.is_enabled ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
+                      service.is_enabled ? 'bg-success-surface text-success' : 'bg-error-surface text-error'
                     )}>
                       {service.is_enabled ? 'Active' : 'Off'}
                     </span>
                   </div>
-                  <p className="mt-1 line-clamp-2 text-xs text-zinc-500">{service.description}</p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-zinc-400">
-                    <span className="rounded-full border border-white/10 px-2 py-1">{displayLabel(service.service_category || 'on_demand', serviceCategories)}</span>
-                    <span className="rounded-full border border-white/10 px-2 py-1">{displayLabel(service.service_family, serviceFamilies)}</span>
-                    <span className="rounded-full border border-white/10 px-2 py-1">{service.route_model}</span>
-                    <span className="rounded-full border border-white/10 px-2 py-1">{service.max_eta_minutes} min</span>
-                    <span className="rounded-full border border-white/10 px-2 py-1">{service.requires_dimension_scan ? 'scan' : 'tier'}</span>
+                  <p className="mt-1 line-clamp-2 text-xs text-foreground-muted">{service.description}</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-foreground-muted">
+                    <span className="rounded-full border border-border px-2 py-1">{displayLabel(service.service_category || 'on_demand', serviceCategories)}</span>
+                    <span className="rounded-full border border-border px-2 py-1">{displayLabel(service.service_family, serviceFamilies)}</span>
+                    <span className="rounded-full border border-border px-2 py-1">{service.route_model}</span>
+                    <span className="rounded-full border border-border px-2 py-1">{service.max_eta_minutes} min</span>
+                    <span className="rounded-full border border-border px-2 py-1">{service.requires_dimension_scan ? 'scan' : 'tier'}</span>
                   </div>
                 </div>
               </div>
@@ -523,10 +523,10 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
           ))}
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-3xl border border-border bg-surface/[0.03] p-6">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">{form.code || 'new_service'}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-foreground-muted">{form.code || 'new_service'}</p>
               <h2 className="mt-1 text-2xl font-bold">{form.name || 'New Delivery Service'}</h2>
             </div>
             <div className="flex items-center gap-3">
@@ -540,9 +540,9 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
                       }
                     }}
                     disabled={toggleMutation.isPending}
-                    className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-white/10"
+                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-4 py-3 text-sm font-bold text-foreground-muted transition hover:bg-surface-subtle"
                   >
-                    {toggleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
+                    {toggleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Power className="h-4 w-4" aria-hidden="true" />}
                     {form.is_enabled ? 'Nonaktifkan' : 'Aktifkan'}
                   </button>
                   <button
@@ -553,9 +553,9 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
                       }
                     }}
                     disabled={deleteMutation.isPending}
-                    className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-500 transition hover:bg-red-500/20"
+                    className="inline-flex items-center gap-2 rounded-xl border border-error bg-error-surface px-4 py-3 text-sm font-bold text-error transition hover:bg-error-surface"
                   >
-                    {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Trash2 className="h-4 w-4" aria-hidden="true" />}
                     Delete
                   </button>
                 </>
@@ -564,9 +564,9 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
                 type="button"
                 onClick={save}
                 disabled={mutation.isPending}
-                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary/90 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary transition hover:bg-primary/90 disabled:opacity-60"
               >
-                {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
                 {isNewService ? 'Create Service' : 'Save Config'}
               </button>
             </div>
@@ -596,10 +596,10 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
             <NumberInput label="Service Multiplier" value={form.service_multiplier} onChange={(v) => updateField('service_multiplier', v)} step="0.01" />
           </div>
 
-          <div className="mt-6 rounded-2xl border border-white/10 bg-zinc-950/70 p-5">
+          <div className="mt-6 rounded-2xl border border-border bg-surface-subtle p-5">
             <div className="mb-4">
-              <p className="text-sm font-bold text-zinc-100">Settlement & Courier Payout</p>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="text-sm font-bold text-foreground-muted">Settlement & Courier Payout</p>
+              <p className="mt-1 text-xs text-foreground-muted">
                 Customer tetap melihat total tagihan. Kurir melihat estimasi pendapatan dari konfigurasi ini.
               </p>
             </div>
@@ -626,10 +626,10 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
             <Toggle label="Pickup Verification" checked={form.requires_pickup_verification} onChange={(v) => updateField('requires_pickup_verification', v)} />
           </div>
 
-          <div className="mt-6 rounded-2xl border border-white/10 bg-zinc-950/70 p-5">
+          <div className="mt-6 rounded-2xl border border-border bg-surface-subtle p-5">
             <div className="mb-4">
-              <p className="text-sm font-bold text-zinc-100">Courier V2 Operational Policy</p>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="text-sm font-bold text-foreground-muted">Courier V2 Operational Policy</p>
+              <p className="mt-1 text-xs text-foreground-muted">
                 Aturan ini dipakai backend untuk kapasitas paket, offer saat kurir aktif, geofence proof, dan face verification.
               </p>
             </div>
@@ -662,9 +662,9 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
             </div>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100">
+          <div className="mt-6 rounded-2xl border border-warning bg-warning-surface p-4 text-sm text-warning">
             <div className="flex items-start gap-3">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning"  aria-hidden="true"/>
               <p>
                 On Demand adalah operational category untuk offer terima/tolak ala GoSend. REG dan YES masuk Network
                 Semua layanan aktif memakai route model P2P. Mode kurir dipisah lewat kategori On Demand atau Regular.
@@ -689,12 +689,12 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
 function TextInput({ label, value, onChange, disabled = false }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-zinc-500">{label}</span>
+      <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-foreground-muted">{label}</span>
       <input
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="w-full rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
       />
     </label>
   )
@@ -703,8 +703,8 @@ function TextInput({ label, value, onChange, disabled = false }: { label: string
 function NumberInput({ label, value, onChange, step = '1' }: { label: string; value: number; onChange: (value: number) => void; step?: string }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-zinc-500">{label}</span>
-      <input type="number" step={step} value={value ?? 0} onChange={(e) => onChange(Number(e.target.value))} className="w-full rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-primary" />
+      <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-foreground-muted">{label}</span>
+      <input type="number" step={step} value={value ?? 0} onChange={(e) => onChange(Number(e.target.value))} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary" />
     </label>
   )
 }
@@ -724,8 +724,8 @@ function SelectInput({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-zinc-500">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-primary">
+      <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-foreground-muted">{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary">
         {options.map((option) => <option key={option} value={option}>{displayLabel(option, labels)}</option>)}
       </select>
     </label>
@@ -734,8 +734,8 @@ function SelectInput({
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
   return (
-    <label className="flex items-center justify-between rounded-xl border border-white/10 bg-zinc-950 px-4 py-3">
-      <span className="text-sm font-medium text-zinc-300">{label}</span>
+    <label className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+      <span className="text-sm font-medium text-foreground-muted">{label}</span>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-primary" />
     </label>
   )
@@ -744,8 +744,8 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 function JsonInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-zinc-500">{label}</span>
-      <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={10} className="w-full resize-y rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 font-mono text-xs outline-none focus:border-primary" />
+      <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-foreground-muted">{label}</span>
+      <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={10} className="w-full resize-y rounded-xl border border-border bg-background px-4 py-3 font-mono text-xs outline-none focus:border-primary" />
     </label>
   )
 }

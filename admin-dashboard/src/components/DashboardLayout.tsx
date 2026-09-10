@@ -40,6 +40,11 @@ import {
   Megaphone,
   Globe2,
   Beaker,
+  Sun,
+  Moon,
+  Monitor,
+  MessageSquareWarning,
+  WalletCards,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router'
@@ -53,6 +58,7 @@ import { APP_EXPERIENCE_NAVIGATION } from '../config/appExperienceNavigation'
 import { hasExperiencePermission } from '../lib/experiencePermissions'
 
 import { createPortal } from 'react-dom'
+import { useTheme } from '../providers/ThemeProvider'
 
 interface SidebarItemProps {
   icon: any
@@ -66,17 +72,17 @@ const SidebarItem = ({ icon: Icon, label, path, collapsed }: SidebarItemProps) =
   const active = location.pathname === path
 
   return (
-    <Link to={path}>
+    <Link to={path} aria-label={collapsed ? label : undefined} title={collapsed ? label : undefined} aria-current={active ? 'page' : undefined} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
       <motion.div
         whileHover={{ x: 4 }}
         className={cn(
           "flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 group mb-1",
           active 
-            ? "bg-primary text-white shadow-lg shadow-primary/20" 
-            : "text-zinc-400 hover:bg-white/5 hover:text-white"
+            ? "bg-primary text-on-primary shadow-lg shadow-primary/20"
+            : "text-foreground-muted hover:bg-surface-subtle hover:text-foreground"
         )}
       >
-        <Icon className={cn("h-5 w-5 flex-shrink-0", active ? "text-white" : "group-hover:text-primary-light")} />
+        <Icon aria-hidden="true" className={cn("h-5 w-5 flex-shrink-0", active ? "text-on-primary" : "group-hover:text-primary-light")} />
         {!collapsed && <span className="font-medium whitespace-nowrap">{label}</span>}
       </motion.div>
     </Link>
@@ -100,12 +106,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const socket = useSocket()
   const navigate = useNavigate()
   const location = useLocation()
+  const { theme, resolvedTheme, setTheme } = useTheme()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isDesktopViewport, setIsDesktopViewport] = useState(false)
   const [isNotifOpen, setIsNotifOpen] = useState(false)
   const [notifications, setNotifications] = useState<DBNotification[]>([])
   const [activeToasts, setActiveToasts] = useState<DBNotification[]>([])
+
+  const cycleTheme = () => {
+    setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')
+  }
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     "UTAMA": true,
@@ -158,15 +169,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         // 2. Trigger Custom Toast Popup (Like Customer Side)
         setActiveToasts(prev => [notif, ...prev])
         
-        // Auto-remove toast after 6 seconds
-        setTimeout(() => {
-          removeToast(notif.id)
-        }, 6000)
+        // Critical alerts remain in page context until explicitly dismissed;
+        // ordinary notifications stay perceivable for six seconds.
+        if (notif.type !== 'critical') {
+          setTimeout(() => {
+            removeToast(notif.id)
+          }, 6000)
+        }
 
-        // 3. Keep Sonner as backup/standard fallback
-        toast.info(notif.title, {
-          description: notif.body,
-        })
+        // 3. Keep Sonner as a semantic backup/standard fallback. Critical
+        // notifications must not be downgraded to an informational announcement.
+        const notify = notif.type === 'success'
+          ? toast.success
+          : ['error', 'critical'].includes(notif.type)
+            ? toast.error
+            : notif.type === 'warning'
+              ? toast.warning
+              : toast.info
+        notify(notif.title, { description: notif.body })
       }
 
       socket.on('new_notification', handleNewNotif)
@@ -208,7 +228,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: Package, label: "Orders", path: "/orders" },
         { icon: AlertTriangle, label: "Exception Queue", path: "/orders/exceptions" },
         { icon: Layers, label: "Warehouse Ops", path: "/warehouse-operations" },
-        { icon: AlertTriangle, label: "Disputes", path: "/disputes" },
+        { icon: MessageSquareWarning, label: "Disputes", path: "/disputes" },
         { icon: ShieldCheck, label: "Support Cases", path: "/cases" },
       ]
     },
@@ -220,7 +240,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: Store, label: "Merchants", path: "/merchants" },
         { icon: UserCircle2, label: "Staff Oversight", path: "/merchant-staff", allowedRoles: ['super_admin'] }, // A3
         { icon: TrendingUp, label: "Courier Performance", path: "/courier-performance" },
-        { icon: Store, label: "Merchant Performance", path: "/merchant-performance" }, // FOOD-BIKE-051
+        { icon: BarChart3, label: "Merchant Performance", path: "/merchant-performance" }, // FOOD-BIKE-051
         { icon: ShieldOff, label: "Driver Wallet Hold", path: "/driver-wallet-holds" }, // FOOD-BIKE-054
         { icon: ShieldAlert, label: "Face Verifications", path: "/courier-face-verifications" },
         { icon: ShieldAlert, label: "Courier Safety", path: "/courier-safety-events" },
@@ -236,10 +256,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       items: [
         { icon: DollarSign, label: "Finance & Payouts", path: "/finance" },
         { icon: Receipt, label: "Chart of Accounts", path: "/chart-of-accounts", allowedRoles: ['super_admin', 'finance_admin', 'finance'] },
-        { icon: Receipt, label: "Tax Center", path: "/tax-center" },
-        { icon: DollarSign, label: "Tariff Engine", path: "/tariff-engine" },
-        { icon: DollarSign, label: "Merchant Escrow", path: "/merchant-settlements" },
-        { icon: DollarSign, label: "Pricing & Tariffs", path: "/pricing" },
+        { icon: Calculator, label: "Tax Center", path: "/tax-center" },
+        { icon: Calculator, label: "Tariff Engine", path: "/tariff-engine" },
+        { icon: WalletCards, label: "Merchant Escrow", path: "/merchant-settlements" },
+        { icon: BadgePercent, label: "Pricing & Tariffs", path: "/pricing" },
         { icon: ShieldCheck, label: "Economics Control Plane", path: "/economics", allowedRoles: ['super_admin', 'ops_admin', 'finance_admin', 'finance'] },
         { icon: Calculator, label: "OPEX / CAPEX (AI)", path: "/cost-intelligence", allowedRoles: ['super_admin'] },
         { icon: BadgePercent, label: "Logistics Margin", path: "/logistics-discount", restrictedRoles: ['cs_agent'] },
@@ -334,23 +354,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return (
         <div key={group.title} className="mb-2">
           {!collapsed ? (
-            <div
+            <button
+              type="button"
               onClick={() => toggleGroup(group.title)}
-              className="flex items-center justify-between px-3 py-2 cursor-pointer rounded-lg hover:bg-white/5 transition-colors select-none group"
+              aria-expanded={isOpen}
+              className="w-full flex items-center justify-between px-3 py-2 cursor-pointer rounded-lg hover:bg-surface-subtle transition-colors select-none group text-left"
             >
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400 group-hover:text-zinc-200">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-foreground-muted group-hover:text-foreground">
                 {group.title}
               </span>
               <ChevronDown
                 size={14}
                 className={cn(
-                  "text-zinc-500 transition-transform duration-200",
+                  "text-foreground-muted transition-transform duration-200",
                   !isOpen && "-rotate-90"
-                )}
-              />
-            </div>
+                )} aria-hidden="true" />
+            </button>
           ) : (
-            <div className="my-2 px-2 border-t border-white/10" />
+            <div className="my-2 px-2 border-t border-border" />
           )}
 
           {(!collapsed ? isOpen : true) && (
@@ -366,7 +387,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex overflow-hidden">
+    <div className="min-h-screen bg-background text-foreground flex overflow-hidden">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[200] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-3 focus:text-on-primary">
+        Skip to main content
+      </a>
       {/* Background decoration */}
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none opacity-20">
         <div className="absolute top-[-10%] right-[-10%] w-[30%] h-[30%] bg-primary/20 rounded-full blur-[100px]" />
@@ -383,44 +407,72 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               animate={{ opacity: 1, x: 0, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.1 } }}
               whileHover={{ scale: 1.02 }}
-              className="p-4 bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl pointer-events-auto flex justify-between gap-4 group cursor-pointer"
-              onClick={() => {
-                if (toastNotif.deep_link) navigate(toastNotif.deep_link)
-                removeToast(toastNotif.id)
-              }}
+              role={['error', 'critical'].includes(toastNotif.type) ? 'alert' : 'status'}
+              aria-live={['error', 'critical'].includes(toastNotif.type) ? 'assertive' : 'polite'}
+              aria-atomic="true"
+              className="p-4 bg-surface-raised border border-border rounded-2xl shadow-2xl pointer-events-auto flex justify-between gap-4 group"
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <div className="p-2 rounded-xl bg-primary/20 text-primary-light shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]">
-                    <Bell size={14} className="animate-bounce" />
+                  <div className={cn(
+                    "p-2 rounded-xl",
+                    ['error', 'critical'].includes(toastNotif.type)
+                      ? "bg-error-surface text-error"
+                      : toastNotif.type === 'warning'
+                        ? "bg-warning-surface text-warning"
+                        : toastNotif.type === 'success'
+                          ? "bg-success-surface text-success"
+                          : "bg-info-surface text-info",
+                  )}>
+                    {['error', 'critical'].includes(toastNotif.type)
+                      ? <AlertTriangle size={14} aria-hidden="true" />
+                      : <Bell size={14} className="animate-bounce" aria-hidden="true" />}
                   </div>
-                  <h4 className="text-[14px] font-black text-zinc-100 uppercase tracking-tighter truncate">
+                  <h4 className="text-[14px] font-black text-foreground uppercase tracking-tighter truncate">
                     {toastNotif.title || 'Notification'}
                   </h4>
                 </div>
-                <p className="text-[12px] text-zinc-400 mt-2 leading-relaxed font-medium">
+                <p className="text-[12px] text-foreground-secondary mt-2 leading-relaxed font-medium">
                   {toastNotif.body}
                 </p>
                 <div className="mt-3 flex items-center gap-3">
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/5 border border-white/5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary-light animate-pulse" />
-                    <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Baru Saja</span>
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-subtle border border-border">
+                    <span className={cn(
+                      "h-1.5 w-1.5 rounded-full animate-pulse",
+                      ['error', 'critical'].includes(toastNotif.type)
+                        ? "bg-error"
+                        : toastNotif.type === 'warning'
+                          ? "bg-warning"
+                          : toastNotif.type === 'success'
+                            ? "bg-success"
+                            : "bg-info",
+                    )} />
+                    <span className="text-[9px] text-foreground-muted font-bold uppercase tracking-widest">Baru Saja</span>
                   </div>
                   {toastNotif.deep_link && (
-                    <span className="text-[9px] text-primary-light font-black uppercase tracking-widest flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                      Lihat Detail <ChevronRight size={10} />
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (toastNotif.deep_link) navigate(toastNotif.deep_link)
+                        removeToast(toastNotif.id)
+                      }}
+                      className="inline-flex items-center gap-1 text-[9px] text-primary-light font-black uppercase tracking-widest hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    >
+                      Lihat Detail <ChevronRight size={10} aria-hidden="true" />
+                    </button>
                   )}
                 </div>
               </div>
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation()
                   removeToast(toastNotif.id)
                 }}
-                className="p-1.5 h-7 w-7 flex items-center justify-center rounded-xl text-zinc-600 hover:bg-white/10 hover:text-white transition-all shrink-0"
+                aria-label="Dismiss notification"
+                className="p-1.5 h-7 w-7 flex items-center justify-center rounded-xl text-foreground-muted hover:bg-surface-subtle hover:text-foreground transition-all shrink-0"
               >
-                <X size={14} />
+                <X size={14} aria-hidden="true" />
               </button>
             </motion.div>
           ))}
@@ -430,7 +482,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <motion.aside
         initial={false}
         animate={{ width: isCollapsed ? 80 : 280 }}
-        className="hidden lg:flex flex-col border-r border-white/5 bg-zinc-950/50 backdrop-blur-xl relative z-30"
+        className="hidden lg:flex flex-col border-r border-border bg-surface relative z-30"
       >
         <div className="p-6 h-20 flex items-center justify-between">
           {!isCollapsed ? (
@@ -448,16 +500,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}
         </div>
 
-        <nav className="flex-1 px-3 space-y-1 mt-4 overflow-y-auto overflow-x-hidden">
+        <nav
+          aria-label="Navigasi utama Admin"
+          className="flex-1 px-3 space-y-1 mt-4 overflow-y-auto overflow-x-hidden"
+        >
           {renderNavGroups(isCollapsed)}
         </nav>
 
-        <div className="p-4 border-t border-white/5">
+        <div className="p-4 border-t border-border">
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="w-full flex items-center justify-center p-3 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all group"
+            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="w-full flex items-center justify-center p-3 rounded-xl bg-surface-subtle hover:bg-border text-foreground-muted hover:text-foreground transition-all group"
           >
-            <ChevronLeft className={cn("h-5 w-5 transition-transform duration-300 group-hover:scale-110", isCollapsed && "rotate-180")} />
+            <ChevronLeft aria-hidden="true" className={cn("h-5 w-5 transition-transform duration-300 group-hover:scale-110", isCollapsed && "rotate-180")} />
           </button>
         </div>
       </motion.aside>
@@ -470,24 +526,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden"
+              className="fixed inset-0 bg-scrim/60 z-[100] lg:hidden"
             />
             <motion.aside
               initial={{ x: -280 }}
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 left-0 bottom-0 w-[280px] bg-zinc-950 z-[101] lg:hidden flex flex-col p-6 overflow-y-auto"
+              className="fixed top-0 left-0 bottom-0 w-[280px] bg-background z-[101] lg:hidden flex flex-col p-6 overflow-y-auto border-r border-border"
             >
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <img src="/tembusweb.svg" alt="Tembus Logo" className="h-10 object-contain drop-shadow-md" />
                 </div>
-                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-zinc-500">
-                  <X size={24} />
+                <button type="button" onClick={() => setIsMobileMenuOpen(false)} aria-label="Close navigation" className="p-2 text-foreground-muted hover:text-foreground rounded-lg">
+                  <X size={24} aria-hidden="true" />
                 </button>
               </div>
-              <nav className="space-y-1">
+              <nav aria-label="Navigasi mobile Admin" className="space-y-1">
                 {renderNavGroups(false)}
               </nav>
             </motion.aside>
@@ -495,27 +551,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
       </AnimatePresence>
 
-      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <header className="h-20 border-b border-white/5 bg-zinc-950/50 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-[999]">
+      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        <header className="h-20 border-b border-border bg-surface flex items-center justify-between px-6 sticky top-0 z-[999]">
           <div className="flex items-center gap-4 flex-1 min-w-0">
             <button 
               type="button"
-              className="lg:hidden p-2 text-zinc-400 hover:text-white"
+              aria-label="Open navigation"
+              className="lg:hidden p-2 text-foreground-muted hover:text-foreground rounded-lg"
               onClick={() => setIsMobileMenuOpen(true)}
             >
-              <Menu className="h-6 w-6" />
+              <Menu className="h-6 w-6" aria-hidden="true" />
             </button>
             <div className="relative max-w-md w-full hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-muted" />
               <input 
                 type="text" 
+                aria-label="Search analytics, orders, or couriers"
                 placeholder="Search analytics, orders, or couriers..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-zinc-600"
+                className="w-full bg-surface-subtle border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-focus-ring transition-all placeholder:text-foreground-muted text-foreground"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-4 flex-shrink-0">
+            <button
+              type="button"
+              onClick={cycleTheme}
+              aria-pressed={theme === 'dark'}
+              aria-label={`Theme ${theme}; resolved ${resolvedTheme}. Activate to cycle theme.`}
+              title={`Theme: ${theme}`}
+              className="p-2.5 rounded-xl text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-colors"
+            >
+              {theme === 'system' ? <Monitor className="h-5 w-5" aria-hidden="true" /> : resolvedTheme === 'dark' ? <Sun className="h-5 w-5" aria-hidden="true" /> : <Moon className="h-5 w-5" aria-hidden="true" />}
+            </button>
             <div className="relative">
               <button 
                 type="button"
@@ -524,13 +592,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   "p-2.5 rounded-xl transition-all duration-200",
                   isNotifOpen 
                     ? "bg-primary/20 text-primary-light" 
-                    : "text-zinc-400 hover:text-white hover:bg-white/5"
+                    : "text-foreground-muted hover:text-foreground hover:bg-surface-subtle"
                 )}
                 aria-label="Notifications"
               >
-                <Bell className={cn("h-5 w-5 transition-transform", isNotifOpen && "scale-110")} />
+                <Bell className={cn("h-5 w-5 transition-transform", isNotifOpen && "scale-110")} aria-hidden="true" />
                 {notifications.some(n => !n.is_read) && (
-                  <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-zinc-950 animate-pulse" />
+                  <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-success rounded-full border-2 border-border animate-pulse" />
                 )}
               </button>
 
@@ -546,12 +614,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-3 w-80 bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-3xl p-4 flex flex-col max-h-[500px] z-20 shadow-2xl shadow-black/80 overflow-hidden"
+                      className="absolute right-0 mt-3 w-80 bg-surface-raised border border-border rounded-3xl p-4 flex flex-col max-h-[500px] z-20 shadow-2xl shadow-scrim overflow-hidden"
                     >
-                      <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-3">
+                      <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
                         <div className="flex items-center gap-2">
-                          <Bell size={14} className="text-primary-light" />
-                          <span className="text-[11px] font-black text-zinc-300 uppercase tracking-[0.2em]">Notifications</span>
+                          <Bell size={14} className="text-primary-light" aria-hidden="true" />
+                          <span className="text-[11px] font-black text-foreground-muted uppercase tracking-[0.2em]">Notifications</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <button 
@@ -561,12 +629,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 setNotifications([])
                               } catch (e) { clientLog.error('Failed to clear notifications', { error: e }) }
                             }}
-                            className="text-[9px] font-bold text-primary-light hover:text-white uppercase tracking-wider transition-colors"
+                            className="text-[9px] font-bold text-primary-light hover:text-foreground uppercase tracking-wider transition-colors"
                           >
                             Clear All
                           </button>
-                          <button onClick={() => setIsNotifOpen(false)}>
-                            <X size={14} className="text-zinc-500 hover:text-white transition-colors" />
+                          <button type="button" onClick={() => setIsNotifOpen(false)} aria-label="Close notifications">
+                            <X size={14} aria-hidden="true" className="text-foreground-muted hover:text-foreground transition-colors" />
                           </button>
                         </div>
                       </div>
@@ -574,11 +642,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <div className="overflow-y-auto space-y-2 flex-1 scrollbar-hide pr-1">
                         {notifications.length > 0 ? (
                           notifications.map((notif) => (
-                            <div 
+                            <button
+                              type="button"
                               key={notif.id} 
                               className={cn(
-                                "p-3.5 rounded-2xl border transition-all cursor-pointer group relative",
-                                notif.is_read ? "bg-white/2 border-transparent opacity-60" : "bg-white/5 border-white/5 shadow-lg hover:bg-white/10"
+                                "w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer group relative",
+                                notif.is_read ? "bg-surface-subtle border-transparent opacity-60" : "bg-surface-subtle border-border shadow-lg hover:bg-surface-subtle"
                               )}
                               onClick={async () => {
                                 if (!notif.is_read) {
@@ -596,26 +665,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                               }}
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <h4 className="text-[11px] font-black text-zinc-100 uppercase tracking-widest">{notif.title}</h4>
-                                {!notif.is_read && <span className="w-2 h-2 bg-emerald-500 rounded-full mt-1 shrink-0 animate-pulse" />}
+                                <h4 className="text-[11px] font-black text-foreground-muted uppercase tracking-widest">{notif.title}</h4>
+                                {!notif.is_read && <span className="w-2 h-2 bg-success rounded-full mt-1 shrink-0 animate-pulse" />}
                               </div>
-                              <p className="text-[11px] text-zinc-400 mt-1.5 leading-relaxed line-clamp-2 font-medium">{notif.body}</p>
+                              <p className="text-[11px] text-foreground-muted mt-1.5 leading-relaxed line-clamp-2 font-medium">{notif.body}</p>
                               <div className="flex items-center justify-between mt-3">
-                                <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest bg-black/20 px-1.5 py-0.5 rounded">
+                                <span className="text-[9px] text-foreground-muted font-bold uppercase tracking-widest bg-surface-subtle px-1.5 py-0.5 rounded">
                                   {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                                 {notif.type === 'dispute_chat' && (
-                                  <span className="text-[8px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded-full uppercase font-black tracking-[0.1em] border border-red-500/20">Dispute</span>
+                                  <span className="text-[8px] bg-error-surface text-error px-2 py-0.5 rounded-full uppercase font-black tracking-[0.1em] border border-error">Dispute</span>
                                 )}
                               </div>
-                            </div>
+                            </button>
                           ))
                         ) : (
                           <div className="flex flex-col items-center justify-center py-12 text-center opacity-40">
-                            <div className="h-14 w-14 bg-white/5 rounded-full flex items-center justify-center mb-4 border border-white/5">
-                              <Bell className="h-7 w-7 text-zinc-400" />
+                            <div className="h-14 w-14 bg-surface-subtle rounded-full flex items-center justify-center mb-4 border border-border">
+                              <Bell className="h-7 w-7 text-foreground-muted" aria-hidden="true" />
                             </div>
-                            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">No new notifications</p>
+                            <p className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">No new notifications</p>
                           </div>
                         )}
                       </div>
@@ -625,24 +694,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </AnimatePresence>
             </div>
 
-            <div className="h-8 w-px bg-white/10 mx-2" />
-            <div className="flex items-center gap-3 group p-1.5 hover:bg-white/5 rounded-xl transition-all">
+            <div className="h-8 w-px bg-surface-subtle mx-2" />
+            <div className="flex items-center gap-3 group p-1.5 hover:bg-surface-subtle rounded-xl transition-all">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-zinc-200 group-hover:text-primary-light transition-colors">{user?.name || 'Admin Tembus'}</p>
-                <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">{user?.role === 'superadmin' ? 'Super Admin' : 'Admin'}</p>
+                <p className="text-sm font-bold text-foreground-muted group-hover:text-primary-light transition-colors">{user?.name || 'Admin Tembus'}</p>
+                <p className="text-[10px] uppercase tracking-widest text-foreground-muted font-bold">{user?.role === 'superadmin' ? 'Super Admin' : 'Admin'}</p>
               </div>
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 p-[1px] shadow-lg shadow-primary/10">
-                <div className="h-full w-full rounded-[11px] bg-zinc-900 flex items-center justify-center overflow-hidden">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-success p-[1px] shadow-lg shadow-primary/10">
+                <div className="h-full w-full rounded-[11px] bg-surface flex items-center justify-center overflow-hidden">
                    <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Admin')}&background=006437&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
                 </div>
               </div>
             </div>
             <button 
-              className="p-2.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
+              className="p-2.5 text-on-error hover:text-error hover:bg-error-surface rounded-xl transition-all"
               onClick={() => logout()}
               title="Logout"
             >
-              <LogOut size={20} />
+              <LogOut size={20} aria-hidden="true" />
             </button>
           </div>
         </header>

@@ -38,6 +38,14 @@ jobs:
       - name: Install dependencies
         working-directory: ./frontend
         run: npm ci
+      - name: Color token contrast guard
+        run: node scripts/a11y/check-color-tokens.mjs
+      - name: Theme hardcode guard
+        run: node scripts/a11y/check-theme-hardcoded-classes.mjs
+      - name: Iconography guard
+        run: node scripts/a11y/check-iconography.mjs
+      - name: Table semantics guard
+        run: node scripts/a11y/check-table-semantics.mjs
       - name: Run Linter
         working-directory: ./frontend
         run: npm run lint
@@ -801,6 +809,13 @@ jobs:
           BASE_URL: ${{ vars.STAGING_URL }}
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+      - name: Run automated WCAG theme matrix
+        if: steps.check_url.outputs.skip == 'false'
+        working-directory: ./frontend
+        run: npx playwright test e2e/accessibility.spec.ts --project=chromium --grep=@a11y
+        env:
+          BASE_URL: ${{ vars.STAGING_URL }}
 
       - name: Upload Playwright Report
         if: always() && steps.check_url.outputs.skip == 'false'

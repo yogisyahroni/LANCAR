@@ -31,9 +31,9 @@ const ACTION_CONFIG = {
     title: 'Konfirmasi Approve Payout',
     description: 'Tindakan ini akan menyetujui payout dan memicu disbursement ke rekening kurir.',
     buttonLabel: 'Ya, Approve Payout',
-    buttonClass: 'bg-emerald-600 hover:bg-emerald-500 text-white',
+    buttonClass: 'bg-success hover:bg-success text-on-success',
     icon: CheckCircle2,
-    iconClass: 'text-emerald-400',
+    iconClass: 'text-success',
     severity: 'success' as const,
     defaultReason: 'Payout disetujui setelah verifikasi manual oleh treasury',
   },
@@ -41,9 +41,9 @@ const ACTION_CONFIG = {
     title: 'Konfirmasi Reject Payout',
     description: 'Tindakan ini akan menolak payout. Kurir dapat mengajukan ulang.',
     buttonLabel: 'Ya, Reject Payout',
-    buttonClass: 'bg-red-600 hover:bg-red-500 text-white',
+    buttonClass: 'bg-error hover:bg-error text-on-error',
     icon: XCircle,
-    iconClass: 'text-red-400',
+    iconClass: 'text-error',
     severity: 'danger' as const,
     defaultReason: 'Ditolak oleh treasury — verifikasi data lebih lanjut diperlukan',
   },
@@ -51,9 +51,9 @@ const ACTION_CONFIG = {
     title: 'Konfirmasi Suspend Akun Payout',
     description: 'Tindakan ini akan menangguhkan akun payout kurir. Semua payout akan diblokir sampai akun aktif kembali.',
     buttonLabel: 'Ya, Suspend Akun',
-    buttonClass: 'bg-amber-600 hover:bg-amber-500 text-white',
+    buttonClass: 'bg-warning hover:bg-warning text-on-warning',
     icon: Ban,
-    iconClass: 'text-amber-400',
+    iconClass: 'text-warning',
     severity: 'warning' as const,
     defaultReason: 'Akun payout ditangguhkan karena indikasi aktivitas mencurigakan',
   },
@@ -89,7 +89,9 @@ export function ConfirmPayoutModal({
   const config = ACTION_CONFIG[action];
   const [reason, setReason] = useState(config.defaultReason);
   const [reasonError, setReasonError] = useState('');
+  const dialogRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const Icon = config.icon;
 
   // Reset reason when action changes
@@ -98,20 +100,38 @@ export function ConfirmPayoutModal({
     setReasonError('');
   }, [action, isOpen]);
 
-  // Focus textarea when modal opens
+  // Focus and trap keyboard navigation while the confirmation dialog is open.
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => textareaRef.current?.focus(), 50);
-    }
-  }, [isOpen]);
-
-  // Close on Escape key
-  useEffect(() => {
+    if (!isOpen) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    const focusTimer = window.setTimeout(() => textareaRef.current?.focus(), 50);
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isPending) onCancel();
+      if (e.key === 'Escape' && !isPending) {
+        e.preventDefault();
+        onCancel();
+        return;
+      }
+      if (e.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), textarea:not([disabled]), input:not([disabled])',
+      ));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
-    if (isOpen) document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    document.addEventListener('keydown', handler);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', handler);
+      previousFocusRef.current?.focus();
+    };
   }, [isOpen, isPending, onCancel]);
 
   if (!isOpen) return null;
@@ -139,30 +159,30 @@ export function ConfirmPayoutModal({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-scrim/70 backdrop-blur-sm"
         onClick={!isPending ? onCancel : undefined}
       />
 
       {/* Modal card */}
-      <div className="relative w-full max-w-md bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
+      <div ref={dialogRef} className="relative w-full max-w-md bg-surface border border-border rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-start gap-4 p-6 border-b border-zinc-800">
+        <div className="flex items-start gap-4 p-6 border-b border-border">
           <div className={cn(
             'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center',
-            config.severity === 'success' ? 'bg-emerald-500/15' :
-            config.severity === 'danger' ? 'bg-red-500/15' :
-            'bg-amber-500/15'
+            config.severity === 'success' ? 'bg-success-surface' :
+            config.severity === 'danger' ? 'bg-error-surface' :
+            'bg-warning-surface'
           )}>
-            <Icon className={cn('w-5 h-5', config.iconClass)} />
+            <Icon aria-hidden="true" className={cn('w-5 h-5', config.iconClass)} />
           </div>
           <div>
             <h2
               id="payout-modal-title"
-              className="text-base font-bold text-zinc-100"
+              className="text-base font-bold text-foreground-muted"
             >
               {config.title}
             </h2>
-            <p className="text-sm text-zinc-400 mt-0.5">
+            <p className="text-sm text-foreground-muted mt-0.5">
               {config.description}
             </p>
           </div>
@@ -171,33 +191,33 @@ export function ConfirmPayoutModal({
         {/* Context info */}
         <div className="p-6 space-y-4">
           {/* Payout details */}
-          <div className="rounded-xl bg-zinc-800/50 border border-zinc-700/50 divide-y divide-zinc-700/50">
+          <div className="rounded-xl bg-surface-subtle border border-border divide-y divide-border">
             {courierName && (
               <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-xs text-zinc-500 uppercase tracking-wider">Kurir</span>
-                <span className="text-sm font-semibold text-zinc-200">{courierName}</span>
+                <span className="text-xs text-foreground-muted uppercase tracking-wider">Kurir</span>
+                <span className="text-sm font-semibold text-foreground-muted">{courierName}</span>
               </div>
             )}
             {formattedAmount && (
               <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-xs text-zinc-500 uppercase tracking-wider">Nominal</span>
+                <span className="text-xs text-foreground-muted uppercase tracking-wider">Nominal</span>
                 <span className={cn(
                   'text-sm font-bold',
-                  action === 'approve' ? 'text-emerald-400' : 'text-zinc-200'
+                  action === 'approve' ? 'text-success' : 'text-foreground-muted'
                 )}>{formattedAmount}</span>
               </div>
             )}
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-xs text-zinc-500 uppercase tracking-wider">Review ID</span>
-              <span className="text-xs font-mono text-zinc-400">{reviewId.slice(0, 12)}…</span>
+              <span className="text-xs text-foreground-muted uppercase tracking-wider">Review ID</span>
+              <span className="text-xs font-mono text-foreground-muted">{reviewId.slice(0, 12)}…</span>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-xs text-zinc-500 uppercase tracking-wider">Tindakan</span>
+              <span className="text-xs text-foreground-muted uppercase tracking-wider">Tindakan</span>
               <span className={cn(
                 'text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded',
-                config.severity === 'success' ? 'bg-emerald-500/15 text-emerald-400' :
-                config.severity === 'danger' ? 'bg-red-500/15 text-red-400' :
-                'bg-amber-500/15 text-amber-400'
+                config.severity === 'success' ? 'bg-success-surface text-success' :
+                config.severity === 'danger' ? 'bg-error-surface text-error' :
+                'bg-warning-surface text-warning'
               )}>
                 {action}
               </span>
@@ -208,9 +228,9 @@ export function ConfirmPayoutModal({
           <div>
             <label
               htmlFor="payout-reason"
-              className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2"
+              className="block text-xs font-semibold text-foreground-muted uppercase tracking-wider mb-2"
             >
-              Alasan Review <span className="text-red-400">*</span>
+              Alasan Review <span className="text-error">*</span>
             </label>
             <textarea
               id="payout-reason"
@@ -225,29 +245,29 @@ export function ConfirmPayoutModal({
               maxLength={500}
               placeholder="Masukkan alasan review yang jelas dan terperinci..."
               className={cn(
-                'w-full rounded-xl bg-zinc-800 border px-4 py-3 text-sm text-zinc-100',
-                'placeholder:text-zinc-600 resize-none',
+                'w-full rounded-xl bg-surface-raised border px-4 py-3 text-sm text-foreground-muted',
+                'placeholder:text-foreground-muted resize-none',
                 'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
-                reasonError ? 'border-red-500/70' : 'border-zinc-700'
+                reasonError ? 'border-error' : 'border-border'
               )}
             />
             {reasonError && (
-              <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" />
+              <p className="mt-1 text-xs text-error flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3"  aria-hidden="true"/>
                 {reasonError}
               </p>
             )}
-            <p className="mt-1 text-xs text-zinc-600 text-right">
+            <p className="mt-1 text-xs text-foreground-muted text-right">
               {reason.length}/500
             </p>
           </div>
 
           {/* High-value warning */}
           {formattedAmount && amountIdr && amountIdr >= 5_000_000 && action === 'approve' && (
-            <div className="flex items-start gap-3 rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3">
-              <ShieldCheck className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-300">
+            <div className="flex items-start gap-3 rounded-xl bg-warning-surface border border-warning px-4 py-3">
+              <ShieldCheck className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <p className="text-xs text-warning">
                 <strong>Nominal besar (&ge;Rp 5jt).</strong> Pastikan Anda telah memverifikasi
                 identitas kurir, history pengiriman, dan tidak ada tanda fraud sebelum approve.
               </p>
@@ -261,7 +281,7 @@ export function ConfirmPayoutModal({
             type="button"
             onClick={onCancel}
             disabled={isPending}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-all disabled:opacity-50"
+            className="px-4 py-2 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground-muted hover:bg-surface-raised transition-all disabled:opacity-50"
           >
             Batal
           </button>
@@ -278,12 +298,12 @@ export function ConfirmPayoutModal({
           >
             {isPending ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                 Memproses...
               </>
             ) : (
               <>
-                <Icon className="w-4 h-4" />
+                <Icon aria-hidden="true" className="w-4 h-4" />
                 {config.buttonLabel}
               </>
             )}

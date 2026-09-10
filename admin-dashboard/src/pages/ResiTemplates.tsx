@@ -248,11 +248,11 @@ const ResiTemplates = () => {
     <div className="p-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Resi Template Designer</h1>
-          <p className="text-zinc-400 mt-1">Design and manage AWB (Resi) print layouts for customers (Drag & Drop)</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Resi Template Designer</h1>
+          <p className="text-foreground-muted mt-1">Design and manage AWB (Resi) print layouts for customers (Drag & Drop)</p>
         </div>
         <Button onClick={() => handleOpenModal()}>
-          <Plus className="w-4 h-4 mr-2" />
+          <Plus className="w-4 h-4 mr-2"  aria-hidden="true"/>
           New Template
         </Button>
       </div>
@@ -263,9 +263,9 @@ const ResiTemplates = () => {
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
         ) : templates.length === 0 ? (
-          <div className="col-span-full py-20 text-center bg-white/5 border border-white/10 rounded-2xl">
-            <Code2 className="w-12 h-12 text-zinc-500 mx-auto mb-4" />
-            <p className="text-zinc-400">No templates found. Create one to get started.</p>
+          <div className="col-span-full py-20 text-center bg-surface-subtle border border-border rounded-2xl">
+            <Code2 className="w-12 h-12 text-foreground-muted mx-auto mb-4" aria-hidden="true" />
+            <p className="text-foreground-muted">No templates found. Create one to get started.</p>
           </div>
         ) : (
           templates.map((t) => (
@@ -273,18 +273,18 @@ const ResiTemplates = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               key={t.id} 
-              className={`bg-white/5 border rounded-2xl p-6 relative overflow-hidden transition-colors ${t.is_active ? 'border-primary/50' : 'border-white/10'}`}
+              className={`bg-surface-subtle border rounded-2xl p-6 relative overflow-hidden transition-colors ${t.is_active ? 'border-primary/50' : 'border-border'}`}
             >
               {t.is_active && (
-                <div className="absolute top-0 right-0 bg-primary text-primary-dark text-xs font-bold px-3 py-1 rounded-bl-xl">
+                <div className="absolute top-0 right-0 bg-primary text-on-primary text-xs font-bold px-3 py-1 rounded-bl-xl">
                   ACTIVE
                 </div>
               )}
               
               <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-xl font-bold text-white truncate">{t.name}</h3>
+                <h3 className="text-xl font-bold text-foreground truncate">{t.name}</h3>
                 {t.provider_code && (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-800 text-zinc-300 uppercase">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface-raised text-foreground-muted uppercase">
                     {t.provider_code}
                   </span>
                 )}
@@ -295,8 +295,8 @@ const ResiTemplates = () => {
                 )}
               </div>
               
-              <div className="bg-zinc-950 p-3 rounded-lg mb-4 text-xs font-mono text-zinc-400 h-32 overflow-hidden relative">
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-zinc-950 pointer-events-none" />
+              <div className="bg-background p-3 rounded-lg mb-4 text-xs font-mono text-foreground-muted h-32 overflow-hidden relative">
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-surface-subtle pointer-events-none" />
                 {JSON.stringify(t.layout_config, null, 2)}
               </div>
 
@@ -307,11 +307,11 @@ const ResiTemplates = () => {
                   </Button>
                 )}
                 <Button variant="outline" size="sm" onClick={() => handleOpenModal(t)} className={t.is_active ? 'flex-1' : ''}>
-                  <Edit2 className="w-4 h-4" />
+                  <Edit2 className="w-4 h-4" aria-hidden="true" />
                 </Button>
                 {!t.is_active && (
-                  <Button variant="outline" size="sm" onClick={() => handleDelete(t.id)} className="text-red-400 hover:text-red-300">
-                    <Trash2 className="w-4 h-4" />
+                  <Button variant="outline" size="sm" onClick={() => handleDelete(t.id)} className="text-error hover:text-error">
+                    <Trash2 className="w-4 h-4" aria-hidden="true" />
                   </Button>
                 )}
               </div>
@@ -327,28 +327,28 @@ const ResiTemplates = () => {
               initial={{ opacity: 0 }} 
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }} 
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-scrim/60 backdrop-blur-sm"
               onClick={handleCloseModal}
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-6xl z-10 overflow-hidden flex flex-col h-[90vh]"
+              className="bg-surface border border-border rounded-2xl w-full max-w-6xl z-10 overflow-hidden flex flex-col h-[90vh]"
             >
-              <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/5">
+              <div className="p-4 border-b border-border flex justify-between items-center bg-surface-subtle">
                 <div className="flex items-center gap-4 flex-1">
                   <input 
                     type="text" 
                     value={name}
                     onChange={e => setName(e.target.value)}
-                    className="bg-transparent text-xl font-bold text-white focus:outline-none border-b border-transparent focus:border-primary px-2 py-1 flex-1 max-w-sm"
+                    className="bg-transparent text-xl font-bold text-foreground focus:outline-none border-b border-transparent focus:border-primary px-2 py-1 flex-1 max-w-sm"
                     placeholder="Template Name..."
                   />
                   <select
                     value={providerCode}
                     onChange={e => setProviderCode(e.target.value)}
-                    className="bg-zinc-800 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-primary"
+                    className="bg-surface-raised border border-border rounded-lg px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
                   >
                     <option value="">(Default) Semua Provider</option>
                     {providers.map(p => (
@@ -356,50 +356,50 @@ const ResiTemplates = () => {
                     ))}
                   </select>
                 </div>
-                <button onClick={handleCloseModal} className="text-zinc-400 hover:text-white">
-                  <XCircle className="w-6 h-6" />
+                <button type="button" onClick={handleCloseModal} aria-label="Tutup editor template resi" className="text-foreground-muted hover:text-foreground">
+                  <XCircle className="w-6 h-6" aria-hidden="true" />
                 </button>
               </div>
 
               <div className="flex-1 flex overflow-hidden">
                 {/* Toolbox */}
-                <div className="w-64 border-r border-white/5 bg-zinc-950 p-4 overflow-y-auto">
-                  <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-4">Elements</h3>
+                <div className="w-64 border-r border-border bg-background p-4 overflow-y-auto">
+                  <h3 className="text-xs font-bold text-foreground-muted uppercase tracking-wider mb-4">Elements</h3>
                   <div className="space-y-2">
                     {TOOLBOX_ITEMS.map(item => (
                       <div 
                         key={item.type}
                         draggable
                         onDragStart={(e) => onDragStart(e, item.type, item.defaultVal)}
-                        className="flex items-center gap-3 bg-zinc-900 p-3 rounded-xl border border-white/5 cursor-grab active:cursor-grabbing hover:border-primary/50 transition-colors"
+                        className="flex items-center gap-3 bg-surface p-3 rounded-xl border border-border cursor-grab active:cursor-grabbing hover:border-primary/50 transition-colors"
                       >
-                        <item.icon className="w-5 h-5 text-primary" />
-                        <span className="text-sm font-medium text-white">{item.label}</span>
-                        <GripVertical className="w-4 h-4 text-zinc-600 ml-auto" />
+                        <item.icon className="w-5 h-5 text-primary" aria-hidden="true" />
+                        <span className="text-sm font-medium text-foreground">{item.label}</span>
+                        <GripVertical className="w-4 h-4 text-foreground-muted ml-auto" aria-hidden="true" />
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-8 border-t border-white/5 pt-4">
+                  <div className="mt-8 border-t border-border pt-4">
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input 
                         type="checkbox" 
                         checked={isActive}
                         onChange={e => setIsActive(e.target.checked)}
-                        className="w-4 h-4 rounded border-white/10 bg-zinc-950 text-primary"
+                        className="w-4 h-4 rounded border-border bg-background text-primary"
                       />
-                      <span className="text-sm text-white font-medium">Set as Active</span>
+                      <span className="text-sm text-foreground font-medium">Set as Active</span>
                     </label>
                   </div>
                 </div>
 
                 {/* Canvas Area */}
-                <div className="flex-1 bg-zinc-900/50 p-8 overflow-auto flex items-start justify-center">
+                <div className="flex-1 bg-surface-subtle p-8 overflow-auto flex items-start justify-center">
                   <div 
                     ref={canvasRef}
                     onDrop={onCanvasDrop}
                     onDragOver={onCanvasDragOver}
-                    className="bg-white relative shadow-2xl overflow-hidden"
+                    className="bg-surface relative shadow-2xl overflow-hidden"
                     style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
                   >
                     {elements.map(el => (
@@ -425,17 +425,17 @@ const ResiTemplates = () => {
                       >
                         {el.type === 'text' && <span style={{ fontSize: el.fontSize || 14, color: '#000', whiteSpace: 'nowrap', fontWeight: el.fontWeight || 'normal' }}>{resolvePreviewValue(el.value)}</span>}
                         {el.type === 'qrcode' && (
-                          <div style={{ width: el.width || 80, height: el.height || 80 }} className="bg-white border border-zinc-900 flex flex-col items-center justify-center p-1 text-center font-mono overflow-hidden">
-                            <QrCode style={{ width: (el.width || 80) - 20, height: (el.height || 80) - 20 }} className="text-zinc-900" />
+                          <div style={{ width: el.width || 80, height: el.height || 80 }} className="bg-surface border border-border flex flex-col items-center justify-center p-1 text-center font-mono overflow-hidden">
+                            <QrCode style={{ width: (el.width || 80) - 20, height: (el.height || 80) - 20 }} className="text-foreground-muted" aria-hidden="true" />
                           </div>
                         )}
                         {el.type === 'barcode' && (
-                          <div style={{ width: el.width, height: el.height }} className="bg-white flex items-center justify-center overflow-hidden">
+                          <div style={{ width: el.width, height: el.height }} className="bg-surface flex items-center justify-center overflow-hidden">
                             <Barcode value={resolvePreviewValue(el.value) || 'JP1234567890'} width={el.barWidth || 1.5} height={el.height || 40} fontSize={10} displayValue={false} margin={0} />
                           </div>
                         )}
                         {el.type === 'logo' && (
-                          <div style={{ width: el.width || 120, height: el.height || 32 }} className="bg-zinc-100 border border-zinc-400 flex items-center justify-center text-[11px] text-zinc-700 font-bold tracking-wide rounded">
+                          <div style={{ width: el.width || 120, height: el.height || 32 }} className="bg-surface-subtle border border-border flex items-center justify-center text-[11px] text-foreground-muted font-bold tracking-wide rounded">
                             LOGO KURIR
                           </div>
                         )}
@@ -448,25 +448,25 @@ const ResiTemplates = () => {
                           />
                         )}
                         {el.type === 'eco_icon' && (
-                          <div className="w-10 h-10 bg-green-100 border border-green-500 rounded-full flex items-center justify-center text-green-600">
-                            <Leaf className="w-6 h-6" />
+                          <div className="w-10 h-10 bg-success border border-success rounded-full flex items-center justify-center text-success">
+                            <Leaf className="w-6 h-6" aria-hidden="true" />
                           </div>
                         )}
                         {el.type === 'fragile_badge' && (
-                          <div className="w-10 h-10 bg-red-100 border border-red-500 rounded-full flex items-center justify-center text-red-600">
-                            <AlertTriangle className="w-6 h-6" />
+                          <div className="w-10 h-10 bg-error border border-error rounded-full flex items-center justify-center text-error">
+                            <AlertTriangle className="w-6 h-6" aria-hidden="true" />
                           </div>
                         )}
                         {el.type === 'box' && (
-                          <div style={{ width: el.width || 100, height: el.height || 50 }} className="border-2 border-black bg-transparent">
+                          <div style={{ width: el.width || 100, height: el.height || 50 }} className="border-2 border-border bg-transparent">
                           </div>
                         )}
                         {el.type === 'h_line' && (
-                          <div style={{ width: el.width || 200, height: Math.max(1, el.height || 2) }} className="bg-black">
+                          <div style={{ width: el.width || 200, height: Math.max(1, el.height || 2) }} className="bg-scrim">
                           </div>
                         )}
                         {el.type === 'v_line' && (
-                          <div style={{ width: Math.max(1, el.width || 2), height: el.height || 200 }} className="bg-black">
+                          <div style={{ width: Math.max(1, el.width || 2), height: el.height || 200 }} className="bg-scrim">
                           </div>
                         )}
                         {el.type === 'tembus_logo' && (
@@ -483,100 +483,100 @@ const ResiTemplates = () => {
                 </div>
 
                 {/* Properties Panel */}
-                <div className="w-64 border-l border-white/5 bg-zinc-950 p-4 overflow-y-auto">
-                  <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-4">Properties</h3>
+                <div className="w-64 border-l border-border bg-background p-4 overflow-y-auto">
+                  <h3 className="text-xs font-bold text-foreground-muted uppercase tracking-wider mb-4">Properties</h3>
                   {selectedElementId ? (() => {
                     const el = elements.find(x => x.id === selectedElementId)!;
                     return (
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-xs font-medium text-zinc-400 mb-1">Value (e.g. {'{'}{'{'} awb_number {'}'}{'}'})</label>
+                          <label className="block text-xs font-medium text-foreground-muted mb-1">Value (e.g. {'{'}{'{'} awb_number {'}'}{'}'})</label>
                           <input 
                             type="text"
                             value={el.value}
                             onChange={(e) => updateElement(el.id, { value: e.target.value })}
-                            className="w-full bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-sm text-white"
+                            className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
                           />
                         </div>
                         {el.type === 'text' && (
                           <div>
-                            <label className="block text-xs font-medium text-zinc-400 mb-1">Font Size</label>
+                            <label className="block text-xs font-medium text-foreground-muted mb-1">Font Size</label>
                             <input 
                               type="number"
                               value={el.fontSize || 14}
                               onChange={(e) => updateElement(el.id, { fontSize: parseInt(e.target.value) })}
-                              className="w-full bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-sm text-white"
+                              className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
                             />
                           </div>
                         )}
                         {['box', 'h_line', 'v_line', 'image', 'qrcode', 'barcode', 'logo', 'tembus_logo'].includes(el.type) && (
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="block text-xs font-medium text-zinc-400 mb-1">Width (px)</label>
+                              <label className="block text-xs font-medium text-foreground-muted mb-1">Width (px)</label>
                               <input 
                                 type="number"
                                 value={el.width || 100}
                                 onChange={(e) => updateElement(el.id, { width: parseInt(e.target.value) })}
-                                className="w-full bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-sm text-white"
+                                className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
                               />
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-zinc-400 mb-1">Height (px)</label>
+                              <label className="block text-xs font-medium text-foreground-muted mb-1">Height (px)</label>
                               <input 
                                 type="number"
                                 value={el.height || 50}
                                 onChange={(e) => updateElement(el.id, { height: parseInt(e.target.value) })}
-                                className="w-full bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-sm text-white"
+                                className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
                               />
                             </div>
                           </div>
                         )}
                         {el.type === 'barcode' && (
                           <div>
-                            <label className="block text-xs font-medium text-zinc-400 mb-1">Bar Width (1.0 - 3.0)</label>
+                            <label className="block text-xs font-medium text-foreground-muted mb-1">Bar Width (1.0 - 3.0)</label>
                             <input 
                               type="number"
                               step="0.1"
                               value={el.barWidth || 1.5}
                               onChange={(e) => updateElement(el.id, { barWidth: parseFloat(e.target.value) })}
-                              className="w-full bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-sm text-white"
+                              className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
                             />
                           </div>
                         )}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-xs font-medium text-zinc-400 mb-1">X Position</label>
+                            <label className="block text-xs font-medium text-foreground-muted mb-1">X Position</label>
                             <input 
                               type="number"
                               value={Math.round(el.x)}
                               onChange={(e) => updateElement(el.id, { x: parseInt(e.target.value) })}
-                              className="w-full bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-sm text-white"
+                              className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-zinc-400 mb-1">Y Position</label>
+                            <label className="block text-xs font-medium text-foreground-muted mb-1">Y Position</label>
                             <input 
                               type="number"
                               value={Math.round(el.y)}
                               onChange={(e) => updateElement(el.id, { y: parseInt(e.target.value) })}
-                              className="w-full bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-sm text-white"
+                              className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
                             />
                           </div>
                         </div>
-                        <div className="pt-4 mt-4 border-t border-white/5">
-                          <Button variant="outline" size="sm" onClick={() => removeElement(el.id)} className="w-full text-red-400">
+                        <div className="pt-4 mt-4 border-t border-border">
+                          <Button variant="outline" size="sm" onClick={() => removeElement(el.id)} className="w-full text-error">
                             Delete Element
                           </Button>
                         </div>
                       </div>
                     )
                   })() : (
-                    <p className="text-sm text-zinc-500 text-center mt-10">Select an element to edit properties</p>
+                    <p className="text-sm text-foreground-muted text-center mt-10">Select an element to edit properties</p>
                   )}
 
-                  <div className="mt-8 pt-4 border-t border-white/5">
-                    <h4 className="text-[10px] font-bold text-zinc-500 uppercase mb-2 tracking-wider">Available Variables</h4>
-                    <ul className="text-[10px] text-zinc-400 space-y-1 font-mono h-40 overflow-y-auto">
+                  <div className="mt-8 pt-4 border-t border-border">
+                    <h4 className="text-[10px] font-bold text-foreground-muted uppercase mb-2 tracking-wider">Available Variables</h4>
+                    <ul className="text-[10px] text-foreground-muted space-y-1 font-mono h-40 overflow-y-auto">
                       <li>{'{'}{'{'}order_number{'}'}{'}'}</li>
                       <li>{'{'}{'{'}awb_number{'}'}{'}'}</li>
                       <li>{'{'}{'{'}provider_name{'}'}{'}'}</li>
@@ -599,7 +599,7 @@ const ResiTemplates = () => {
                 </div>
               </div>
 
-              <div className="p-4 border-t border-white/5 bg-zinc-950 flex justify-end gap-3">
+              <div className="p-4 border-t border-border bg-background flex justify-end gap-3">
                 <Button variant="outline" onClick={handleCloseModal}>Cancel</Button>
                 <Button onClick={handleSubmit}>Save Template</Button>
               </div>

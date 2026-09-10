@@ -1,33 +1,200 @@
 @import "tailwindcss";
 
-@theme {
-  --color-primary: #003A20;
-  --color-primary-light: #007A42;
-  --color-primary-dark: #003A20;
-  --color-primary-soft: #E8F5EE;
-  --color-primary-pale: #F4FBF7;
-  --color-accent: #F97316;
-  --color-accent-dark: #C95A00;
-  --color-accent-light: #FB923C;
-  --color-accent-soft: #FFF1E6;
-  --color-accent-pale: #FFF8F2;
-  --color-success: #16A34A;
-  --color-warning: #F59E0B;
-  --color-error: #DC2626;
-  --color-info: #2563EB;
-  
+@theme inline {
+  --color-primary: var(--token-primary);
+  --color-primary-light: var(--token-primary-light);
+  --color-primary-dark: var(--token-primary-dark);
+  --color-primary-soft: var(--token-primary-soft);
+  --color-primary-pale: var(--token-primary-pale);
+  --color-accent: var(--token-accent);
+  --color-accent-dark: var(--token-accent-dark);
+  --color-accent-light: var(--token-accent-light);
+  --color-accent-soft: var(--token-accent-soft);
+  --color-accent-pale: var(--token-accent-pale);
+  --color-accent-surface: var(--token-accent-soft);
+  --color-success: var(--token-success);
+  --color-warning: var(--token-warning);
+  --color-error: var(--token-error);
+  --color-info: var(--token-info);
+  --color-on-primary: var(--token-on-primary);
+  --color-on-accent: var(--token-on-accent);
+  --color-on-success: var(--token-on-success);
+  --color-on-warning: var(--token-on-warning);
+  --color-on-error: var(--token-on-error);
+  --color-on-info: var(--token-on-info);
+  --color-primary-foreground: var(--token-on-primary);
+  --color-destructive: var(--token-error);
+  --color-destructive-foreground: var(--token-on-error);
+  --color-success-surface: var(--token-success-surface);
+  --color-warning-surface: var(--token-warning-surface);
+  --color-error-surface: var(--token-error-surface);
+  --color-info-surface: var(--token-info-surface);
+  --color-selection: var(--token-selection);
+  --color-scrim: var(--token-scrim);
+  --color-background: var(--token-background);
+  --color-foreground: var(--token-foreground);
+  --color-card: var(--token-surface);
+  --color-card-foreground: var(--token-foreground);
+  --color-popover: var(--token-surface-raised);
+  --color-popover-foreground: var(--token-foreground);
+  --color-muted: var(--token-surface-subtle);
+  --color-muted-foreground: var(--token-foreground-muted);
+  --color-border: var(--token-border);
+  --color-input: var(--token-input-border);
+  --color-ring: var(--token-focus-ring);
+  --color-surface: var(--token-surface);
+  --color-surface-raised: var(--token-surface-raised);
+  --color-surface-subtle: var(--token-surface-subtle);
+  --color-foreground-secondary: var(--token-foreground-secondary);
+  --color-foreground-muted: var(--token-foreground-muted);
+  --color-border-strong: var(--token-border-strong);
+  --color-input-background: var(--token-input-background);
+  --color-input-border: var(--token-input-border);
+  --color-focus-ring: var(--token-focus-ring);
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  
-  --radius-xl: 0.5rem;
-  --radius-2xl: 0.5rem;
-  
-  --animate-in: animate-in 0.3s ease-out;
-  --animate-out: animate-out 0.3s ease-in;
+  /* Shared readable type scale; dense operations still retain a readable floor. */
+  --type-display-size: clamp(2.25rem, 5vw, 3.75rem);
+  --type-page-title-size: clamp(1.75rem, 3vw, 2.25rem);
+  --type-section-title-size: 1.25rem;
+  --type-body-size: 1rem;
+  --type-body-small-size: 0.875rem;
+  --type-label-size: 0.8125rem;
+  --type-caption-size: 0.75rem;
+  --type-table-cell-size: 0.8125rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.75rem;
 }
 
 @layer base {
+  :root {
+    color-scheme: light;
+    --token-background: #F7F8F7;
+    --token-surface: #FFFFFF;
+    --token-surface-raised: #FFFFFF;
+    --token-surface-subtle: #EEF3EF;
+    --token-foreground: #14211A;
+    --token-foreground-secondary: #415047;
+    --token-foreground-muted: #5F6B63;
+    --token-border: #C7D1CA;
+    --token-border-strong: #718078;
+    --token-input-background: #FFFFFF;
+    --token-input-border: #66756C;
+    --token-focus-ring: #9A3412;
+    --token-primary: #006437;
+    --token-primary-light: #007A42;
+    --token-primary-dark: #003A20;
+    --token-primary-soft: #E8F5EE;
+    --token-primary-pale: #F4FBF7;
+    --token-on-primary: #FFFFFF;
+    --token-accent: #C2410C;
+    --token-accent-dark: #9A3412;
+    --token-accent-light: #EA580C;
+    --token-accent-soft: #FFF1E6;
+    --token-accent-pale: #FFF8F2;
+    --token-on-accent: #FFFFFF;
+    --token-success: #15803D;
+    --token-on-success: #FFFFFF;
+    --token-success-surface: #DCFCE7;
+    --token-warning: #B45309;
+    --token-on-warning: #FFFFFF;
+    --token-warning-surface: #FEF3C7;
+    --token-error: #B91C1C;
+    --token-on-error: #FFFFFF;
+    --token-error-surface: #FEE2E2;
+    --token-info: #1D4ED8;
+    --token-on-info: #FFFFFF;
+    --token-info-surface: #DBEAFE;
+    --token-selection: #B7E4C7;
+    --token-scrim: #14211A;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --token-background: #0B120E;
+    --token-surface: #142019;
+    --token-surface-raised: #1B2921;
+    --token-surface-subtle: #203329;
+    --token-foreground: #F4F7F5;
+    --token-foreground-secondary: #D0DBD3;
+    --token-foreground-muted: #D0DBD3;
+    --token-border: #4B5D52;
+    --token-border-strong: #71877A;
+    --token-input-background: #142019;
+    --token-input-border: #71877A;
+    --token-focus-ring: #FDBA74;
+    --token-primary: #6EE7B7;
+    --token-primary-light: #A7F3D0;
+    --token-primary-dark: #007A42;
+    --token-primary-soft: #123B25;
+    --token-primary-pale: #0D3322;
+    --token-on-primary: #032318;
+    --token-accent: #FB923C;
+    --token-accent-dark: #C2410C;
+    --token-accent-light: #FDBA74;
+    --token-accent-soft: #4A3210;
+    --token-accent-pale: #3D2414;
+    --token-on-accent: #241000;
+    --token-success: #4ADE80;
+    --token-on-success: #032318;
+    --token-success-surface: #123B25;
+    --token-warning: #FBBF24;
+    --token-on-warning: #241000;
+    --token-warning-surface: #4A3210;
+    --token-error: #F87171;
+    --token-on-error: #2A0808;
+    --token-error-surface: #4A1717;
+    --token-info: #60A5FA;
+    --token-on-info: #071A35;
+    --token-info-surface: #132E52;
+    --token-selection: #1A7A4C;
+    --token-scrim: #000000;
+  }
+
+  /* App Experience can preview Light while the Admin shell is currently dark. */
+  .theme-preview-light {
+    color-scheme: light;
+    --token-background: #F7F8F7;
+    --token-surface: #FFFFFF;
+    --token-surface-raised: #FFFFFF;
+    --token-surface-subtle: #EEF3EF;
+    --token-foreground: #14211A;
+    --token-foreground-secondary: #415047;
+    --token-foreground-muted: #5F6B63;
+    --token-border: #C7D1CA;
+    --token-border-strong: #718078;
+    --token-input-background: #FFFFFF;
+    --token-input-border: #66756C;
+    --token-focus-ring: #9A3412;
+    --token-primary: #006437;
+    --token-primary-light: #007A42;
+    --token-primary-dark: #003A20;
+    --token-primary-soft: #E8F5EE;
+    --token-primary-pale: #F4FBF7;
+    --token-on-primary: #FFFFFF;
+    --token-accent: #C2410C;
+    --token-accent-dark: #9A3412;
+    --token-accent-light: #EA580C;
+    --token-accent-soft: #FFF1E6;
+    --token-accent-pale: #FFF8F2;
+    --token-on-accent: #FFFFFF;
+    --token-success: #15803D;
+    --token-on-success: #FFFFFF;
+    --token-success-surface: #DCFCE7;
+    --token-warning: #B45309;
+    --token-on-warning: #FFFFFF;
+    --token-warning-surface: #FEF3C7;
+    --token-error: #B91C1C;
+    --token-on-error: #FFFFFF;
+    --token-error-surface: #FEE2E2;
+    --token-info: #1D4ED8;
+    --token-on-info: #FFFFFF;
+    --token-info-surface: #DBEAFE;
+    --token-selection: #B7E4C7;
+    --token-scrim: #14211A;
+  }
+
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 3px solid var(--token-focus-ring);
     outline-offset: 2px;
   }
 
@@ -41,41 +208,63 @@
       scroll-behavior: auto !important;
     }
   }
+}
 
-  :root {
-    --background: 120 7% 97%;
-    --foreground: 144 24% 10%;
-  }
-
-  .dark {
-    --background: 140 24% 6%;
-    --foreground: 150 16% 96%;
-  }
+html,
+body {
+  min-height: 100%;
+  background: var(--token-background);
 }
 
 body {
-  @apply bg-[#0B120E] text-[#F4F7F5] antialiased selection:bg-primary/30 selection:text-primary-light;
+  @apply bg-background text-foreground antialiased;
   font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: 1.5;
+  color: var(--token-foreground);
 }
 
+/* Body-copy links retain a non-color affordance in both operational themes. */
+main p a,
+main li a,
+main dd a {
+  text-decoration-line: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+::selection {
+  background: var(--token-selection);
+  color: var(--token-foreground);
+}
+
+/* Operational Admin surfaces are solid. Transparency is opt-in for media only. */
 .glass-card {
-  @apply bg-white/5 backdrop-blur-md border border-white/10 shadow-xl;
+  background: var(--token-surface-raised);
+  border: 1px solid var(--token-border);
+  box-shadow: 0 10px 24px rgb(20 33 26 / 0.08);
+}
+
+.dark .glass-card {
+  box-shadow: 0 14px 30px rgb(0 0 0 / 0.3);
+}
+
+.glass-card--decorative {
+  background: color-mix(in srgb, var(--token-surface-raised) 82%, transparent);
+  backdrop-filter: blur(16px);
 }
 
 .glass-button {
-  @apply bg-primary/20 backdrop-blur-sm border border-primary/30 hover:bg-primary/30 transition-all duration-200 active:scale-95;
+  background: color-mix(in srgb, var(--token-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--token-primary) 32%, transparent);
 }
 
-.text-gradient {
-  @apply bg-gradient-to-r from-primary-light to-primary-soft bg-clip-text text-transparent font-bold;
+.glass-button:hover {
+  background: color-mix(in srgb, var(--token-primary) 20%, transparent);
 }
 
-@keyframes animate-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes animate-out {
-  from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(10px); }
+select,
+select option {
+  background-color: var(--token-input-background);
+  color: var(--token-foreground);
 }

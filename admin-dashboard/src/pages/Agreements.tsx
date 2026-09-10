@@ -68,11 +68,11 @@ const agreementTypeLabel = (type: string): string => {
 
 const agreementTypeBadge = (type: string) => {
   const colors: Record<string, string> = {
-    mitra_agreement: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
-    customer_tos: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
-    privacy_policy: 'bg-purple-500/10 text-purple-300 border-purple-500/20',
+    mitra_agreement: 'bg-success-surface text-success border-success',
+    customer_tos: 'bg-info-surface text-info border-info',
+    privacy_policy: 'bg-accent-surface text-accent border-accent',
   }
-  const color = colors[type] ?? 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
+  const color = colors[type] ?? 'bg-surface-subtle text-foreground-muted border-border'
   return (
     <span className={cn('text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border', color)}>
       {agreementTypeLabel(type)}
@@ -82,7 +82,7 @@ const agreementTypeBadge = (type: string) => {
 
 const userTypeBadge = (type: string) => {
   const colors: Record<string, string> = {
-    courier: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+    courier: 'bg-warning-surface text-warning border-warning',
     customer: 'bg-primary/10 text-primary-light border-primary/20',
   }
   const labels: Record<string, string> = {
@@ -163,16 +163,16 @@ export default function Agreements() {
         className="flex items-center justify-between"
       >
         <div>
-          <h1 className="text-2xl font-black uppercase tracking-tight text-zinc-100">
+          <h1 className="text-2xl font-black uppercase tracking-tight text-foreground-muted">
             <span className="text-primary-light">Perjanjian</span> Hukum
           </h1>
-          <p className="text-zinc-500 mt-1">Kelola & tinjau perjanjian hukum mitra dan pelanggan</p>
+          <p className="text-foreground-muted mt-1">Kelola & tinjau perjanjian hukum mitra dan pelanggan</p>
         </div>
         <button
           onClick={() => refetch()}
-          className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+          className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:bg-surface-subtle transition-all"
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={14} aria-hidden="true" />
           Refresh
         </button>
       </motion.div>
@@ -185,28 +185,31 @@ export default function Agreements() {
         className="flex flex-wrap items-center gap-4"
       >
         <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-muted" aria-hidden="true" />
           <input
             type="text"
+            aria-label="Search agreements by name or email"
             placeholder="Cari nama atau email..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-            className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-zinc-600"
+            className="w-full bg-surface-subtle border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-foreground-muted"
           />
         </div>
         <select
+          aria-label="Filter agreements by user type"
           value={filterUserType}
           onChange={(e) => { setFilterUserType(e.target.value); setPage(1) }}
-          className="bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 text-zinc-300"
+          className="bg-surface-subtle border border-border rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 text-foreground-muted"
         >
           <option value="">Semua Tipe User</option>
           <option value="courier">Kurir</option>
           <option value="customer">Pelanggan</option>
         </select>
         <select
+          aria-label="Filter agreements by agreement type"
           value={filterAgreementType}
           onChange={(e) => { setFilterAgreementType(e.target.value); setPage(1) }}
-          className="bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 text-zinc-300"
+          className="bg-surface-subtle border border-border rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 text-foreground-muted"
         >
           <option value="">Semua Perjanjian</option>
           <option value="mitra_agreement">Perjanjian Mitra</option>
@@ -220,21 +223,21 @@ export default function Agreements() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="rounded-[32px] border border-white/5 bg-zinc-900/30 backdrop-blur-sm overflow-hidden"
+        className="rounded-[32px] border border-border bg-surface-subtle backdrop-blur-sm overflow-hidden"
       >
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-white/5">
-                <th className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">User</th>
-                <th className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">Tipe</th>
-                <th className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">Jenis Perjanjian</th>
-                <th className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">Ditandatangani</th>
-                <th className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">IP</th>
-                <th className="text-right px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">Aksi</th>
+              <tr className="border-b border-border">
+                <th scope="col" className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted">User</th>
+                <th scope="col" className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted">Tipe</th>
+                <th scope="col" className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted">Jenis Perjanjian</th>
+                <th scope="col" className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted">Ditandatangani</th>
+                <th scope="col" className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted">IP</th>
+                <th scope="col" className="text-right px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-border">
               {isLoading ? (
                 <tr>
                   <td colSpan={6} className="px-8 py-20 text-center">
@@ -248,16 +251,16 @@ export default function Agreements() {
                 <tr>
                   <td colSpan={6} className="px-8 py-20 text-center">
                     <div className="flex flex-col items-center gap-4">
-                      <AlertCircle className="w-10 h-10 text-red-400" />
+                      <AlertCircle className="w-10 h-10 text-error" aria-hidden="true" />
                       <div>
-                        <p className="text-zinc-100 font-black uppercase tracking-widest text-xs">GAGAL MEMUAT DATA</p>
-                        <p className="text-zinc-600 text-xs mt-2">{(error as any)?.response?.data?.error || 'Terjadi kesalahan server'}</p>
+                        <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">GAGAL MEMUAT DATA</p>
+                        <p className="text-foreground-muted text-xs mt-2">{(error as any)?.response?.data?.error || 'Terjadi kesalahan server'}</p>
                       </div>
                       <button
                         onClick={() => refetch()}
-                        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+                        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
                       >
-                        <RefreshCw size={14} />
+                        <RefreshCw size={14} aria-hidden="true" />
                         Retry
                       </button>
                     </div>
@@ -266,10 +269,10 @@ export default function Agreements() {
               ) : agreements.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-8 py-20 text-center">
-                    <div className="flex flex-col items-center gap-4 opacity-40">
-                      <FileWarning className="w-12 h-12 text-zinc-500" />
-                      <p className="text-zinc-400 font-black uppercase tracking-widest text-xs">Belum ada perjanjian</p>
-                      <p className="text-zinc-600 text-xs">Perjanjian akan muncul setelah user menyetujui syarat & ketentuan</p>
+                    <div className="flex flex-col items-center gap-4">
+                      <FileWarning className="w-12 h-12 text-foreground-muted" aria-hidden="true" />
+                      <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">Belum ada perjanjian</p>
+                      <p className="text-foreground-muted text-xs">Perjanjian akan muncul setelah user menyetujui syarat & ketentuan</p>
                     </div>
                   </td>
                 </tr>
@@ -280,17 +283,17 @@ export default function Agreements() {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.02 }}
-                    className="hover:bg-white/5 transition-colors cursor-pointer"
+                    className="hover:bg-surface-subtle transition-colors cursor-pointer"
                     onClick={() => setSelectedId(agreement.id)}
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/30 to-emerald-600/30 flex items-center justify-center">
-                          <User className="h-4 w-4 text-primary-light" />
+                        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/30 to-success flex items-center justify-center">
+                          <User className="h-4 w-4 text-primary-light" aria-hidden="true" />
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-zinc-200">{agreement.user_name || '—'}</p>
-                          <p className="text-[10px] text-zinc-500 font-medium">{agreement.user_phone || agreement.user_email || '—'}</p>
+                          <p className="text-sm font-bold text-foreground-muted">{agreement.user_name || '—'}</p>
+                          <p className="text-[10px] text-foreground-muted font-medium">{agreement.user_phone || agreement.user_email || '—'}</p>
                         </div>
                       </div>
                     </td>
@@ -298,17 +301,17 @@ export default function Agreements() {
                     <td className="px-6 py-4">{agreementTypeBadge(agreement.agreement_type)}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <Calendar className="h-3.5 w-3.5 text-zinc-500" />
-                        <span className="text-sm text-zinc-300">
+                        <Calendar className="h-3.5 w-3.5 text-foreground-muted" aria-hidden="true" />
+                        <span className="text-sm text-foreground-muted">
                           {format(parseISO(agreement.agreed_at), 'dd MMM yyyy, HH:mm', { locale: id })}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       {agreement.agreed_ip ? (
-                        <span className="text-xs text-zinc-500 font-mono">{agreement.agreed_ip}</span>
+                        <span className="text-xs text-foreground-muted font-mono">{agreement.agreed_ip}</span>
                       ) : (
-                        <span className="text-xs text-zinc-600">—</span>
+                        <span className="text-xs text-foreground-muted">—</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -318,17 +321,17 @@ export default function Agreements() {
                           className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary-light hover:bg-primary/20 transition-all"
                           title="Lihat Dokumen"
                         >
-                          <Eye size={14} />
+                          <Eye size={14} aria-hidden="true" />
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             setSelectedId(agreement.id)
                           }}
-                          className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white transition-all"
+                          className="p-2.5 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:bg-surface-subtle hover:text-foreground transition-all"
                           title="Detail"
                         >
-                          <FileText size={14} />
+                          <FileText size={14}  aria-hidden="true"/>
                         </button>
                       </div>
                     </td>
@@ -341,17 +344,17 @@ export default function Agreements() {
 
         {/* Pagination */}
         {total > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-white/5">
-            <p className="text-[10px] text-zinc-500 font-medium">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-border">
+            <p className="text-[10px] text-foreground-muted font-medium">
               Menampilkan {(page - 1) * limit + 1}–{Math.min(page * limit, total)} dari {total} perjanjian
             </p>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="p-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:bg-surface-subtle disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
-                <ChevronLeft size={14} />
+                <ChevronLeft size={14} aria-hidden="true" />
               </button>
               {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                 const start = Math.max(1, page - 2)
@@ -364,8 +367,8 @@ export default function Agreements() {
                     className={cn(
                       'w-8 h-8 rounded-xl text-[11px] font-black transition-all',
                       p === page
-                        ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                        : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                        ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
+                        : 'bg-surface-subtle text-foreground-muted hover:bg-surface-subtle'
                     )}
                   >
                     {p}
@@ -375,9 +378,9 @@ export default function Agreements() {
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="p-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:bg-surface-subtle disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
-                <ChevronRight size={14} />
+                <ChevronRight size={14} aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -393,62 +396,62 @@ export default function Agreements() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedId(null)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+              className="fixed inset-0 bg-scrim/60 backdrop-blur-sm z-50"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed inset-4 md:inset-auto md:top-[10%] md:left-1/2 md:-translate-x-1/2 md:w-[600px] md:max-h-[75vh] bg-zinc-900 border border-white/10 rounded-[32px] z-50 flex flex-col overflow-hidden shadow-2xl shadow-black/80"
+              className="fixed inset-4 md:inset-auto md:top-[10%] md:left-1/2 md:-translate-x-1/2 md:w-[600px] md:max-h-[75vh] bg-surface border border-border rounded-[32px] z-50 flex flex-col overflow-hidden shadow-2xl shadow-scrim"
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-border">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-primary/10 text-primary-light">
-                    <FileText size={16} />
+                    <FileText size={16}  aria-hidden="true"/>
                   </div>
                   <div>
-                    <h2 className="text-sm font-black uppercase tracking-wider text-zinc-100">Detail Perjanjian</h2>
-                    <p className="text-[10px] text-zinc-500 font-medium">ID: {detail.id.slice(0, 8)}...</p>
+                    <h2 className="text-sm font-black uppercase tracking-wider text-foreground-muted">Detail Perjanjian</h2>
+                    <p className="text-[10px] text-foreground-muted font-medium">ID: {detail.id.slice(0, 8)}...</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setSelectedId(null)}
-                  className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/10 transition-all"
+                  className="p-2 rounded-xl text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all"
                 >
-                  <X size={16} />
+                  <X size={16} aria-hidden="true" />
                 </button>
               </div>
 
               {/* Modal Body */}
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
                 <div className="grid grid-cols-2 gap-4">
-                  <DetailField icon={<User size={14} />} label="Nama" value={detail.user_name || '—'} />
-                  <DetailField icon={<Smartphone size={14} />} label="No. HP" value={detail.user_phone || '—'} />
-                  <DetailField icon={<Globe size={14} />} label="Email" value={detail.user_email || '—'} />
-                  <DetailField icon={<Scale size={14} />} label="Tipe User" value={detail.user_type === 'courier' ? 'Kurir' : 'Pelanggan'} />
+                  <DetailField icon={<User size={14} aria-hidden="true" />} label="Nama" value={detail.user_name || '—'} />
+                  <DetailField icon={<Smartphone size={14} aria-hidden="true" />} label="No. HP" value={detail.user_phone || '—'} />
+                  <DetailField icon={<Globe size={14} aria-hidden="true" />} label="Email" value={detail.user_email || '—'} />
+                  <DetailField icon={<Scale size={14} aria-hidden="true" />} label="Tipe User" value={detail.user_type === 'courier' ? 'Kurir' : 'Pelanggan'} />
                 </div>
 
-                <div className="border-t border-white/5 pt-5 space-y-3">
-                  <DetailField icon={<FileText size={14} />} label="Jenis Perjanjian" value={agreementTypeLabel(detail.agreement_type)} />
-                  <DetailField icon={<Calendar size={14} />} label="Ditandatangani" value={format(parseISO(detail.agreed_at), 'dd MMMM yyyy HH:mm', { locale: id })} />
-                  {detail.agreed_ip && <DetailField icon={<Globe size={14} />} label="IP Address" value={detail.agreed_ip} />}
+                <div className="border-t border-border pt-5 space-y-3">
+                  <DetailField icon={<FileText size={14}  aria-hidden="true"/>} label="Jenis Perjanjian" value={agreementTypeLabel(detail.agreement_type)} />
+                  <DetailField icon={<Calendar size={14} aria-hidden="true" />} label="Ditandatangani" value={format(parseISO(detail.agreed_at), 'dd MMMM yyyy HH:mm', { locale: id })} />
+                  {detail.agreed_ip && <DetailField icon={<Globe size={14} aria-hidden="true" />} label="IP Address" value={detail.agreed_ip} />}
                   {detail.user_agent && (
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1 flex items-center gap-1.5">
-                        <Smartphone size={12} /> User Agent
+                      <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted mb-1 flex items-center gap-1.5">
+                        <Smartphone size={12} aria-hidden="true" /> User Agent
                       </p>
-                      <p className="text-xs text-zinc-400 break-all font-mono bg-zinc-800/50 rounded-xl p-3">{detail.user_agent}</p>
+                      <p className="text-xs text-foreground-muted break-all font-mono bg-surface-subtle rounded-xl p-3">{detail.user_agent}</p>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Modal Footer */}
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/5 bg-zinc-900/50">
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-surface-subtle">
                 <button
                   onClick={() => setSelectedId(null)}
-                  className="px-5 py-2.5 rounded-xl bg-white/5 text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                  className="px-5 py-2.5 rounded-xl bg-surface-subtle text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:bg-surface-subtle transition-all"
                 >
                   Tutup
                 </button>
@@ -456,16 +459,16 @@ export default function Agreements() {
                   onClick={() => openPDFView(detail)}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary-light text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all"
                 >
-                  <Eye size={14} />
+                  <Eye size={14} aria-hidden="true" />
                   Lihat Dokumen
                 </button>
                 <a
                   href={pdfUrl(detail)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all"
                 >
-                  <Download size={14} />
+                  <Download size={14} aria-hidden="true" />
                   Download
                 </a>
               </div>
@@ -483,25 +486,25 @@ export default function Agreements() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowPDF(false)}
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+              className="fixed inset-0 bg-scrim/80 backdrop-blur-sm z-50"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed inset-4 md:inset-8 bg-zinc-900 border border-white/10 rounded-[32px] z-50 flex flex-col overflow-hidden shadow-2xl shadow-black/80"
+              className="fixed inset-4 md:inset-8 bg-surface border border-border rounded-[32px] z-50 flex flex-col overflow-hidden shadow-2xl shadow-scrim"
             >
               {/* PDF Toolbar Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-zinc-900/80">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-subtle">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="p-2 rounded-xl bg-primary/10 text-primary-light">
-                    <FileText size={16} />
+                    <FileText size={16}  aria-hidden="true"/>
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-sm font-black uppercase tracking-wider text-zinc-100 truncate">
+                    <h2 className="text-sm font-black uppercase tracking-wider text-foreground-muted truncate">
                       {agreementTypeLabel(pdfViewAgreement.agreement_type)}
                     </h2>
-                    <p className="text-[10px] text-zinc-500 font-medium truncate">
+                    <p className="text-[10px] text-foreground-muted font-medium truncate">
                       {pdfViewAgreement.user_name || pdfViewAgreement.user_phone}
                     </p>
                   </div>
@@ -509,10 +512,10 @@ export default function Agreements() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => window.open(pdfUrl(pdfViewAgreement), '_blank')}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-subtle text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:bg-surface-subtle transition-all"
                     title="Buka di tab baru"
                   >
-                    <ExternalLink size={14} />
+                    <ExternalLink size={14} aria-hidden="true" />
                     Tab Baru
                   </button>
                   <a
@@ -521,7 +524,7 @@ export default function Agreements() {
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary-light text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all"
                     title="Download PDF"
                   >
-                    <Download size={14} />
+                    <Download size={14} aria-hidden="true" />
                     Download
                   </a>
                   <button
@@ -532,23 +535,23 @@ export default function Agreements() {
                         w.onload = () => w.print()
                       }
                     }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:bg-surface-subtle transition-all"
                     title="Cetak"
                   >
-                    <Printer size={14} />
+                    <Printer size={14} aria-hidden="true" />
                     Cetak
                   </button>
                   <button
                     onClick={() => setShowPDF(false)}
-                    className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/10 transition-all"
+                    className="p-2 rounded-xl text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all"
                   >
-                    <X size={18} />
+                    <X size={18} aria-hidden="true" />
                   </button>
                 </div>
               </div>
 
               {/* PDF Viewer */}
-              <div className="flex-1 bg-zinc-950 relative">
+              <div className="flex-1 bg-background relative">
                 <iframe
                   src={pdfUrl(pdfViewAgreement)}
                   className="w-full h-full border-0"
@@ -569,10 +572,10 @@ export default function Agreements() {
 function DetailField({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="space-y-1">
-      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+      <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted flex items-center gap-1.5">
         {icon} {label}
       </p>
-      <p className="text-sm text-zinc-200 font-semibold">{value}</p>
+      <p className="text-sm text-foreground-muted font-semibold">{value}</p>
     </div>
   )
 }

@@ -234,14 +234,14 @@ export default function ProductsPage() {
             onClick={() => setIsBulkOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium text-sm"
           >
-            <Upload className="w-4 h-4" />
+            <Upload className="w-4 h-4" aria-hidden="true" />
             Import CSV
           </button>
           <button
             onClick={openAddForm}
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium text-sm"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4" aria-hidden="true" />
             Tambah Produk
           </button>
         </div>
@@ -250,9 +250,10 @@ export default function ProductsPage() {
       <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
         <div className="p-4 border-b border-border bg-muted/20 flex flex-col sm:flex-row gap-4 items-center justify-between">
           <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
             <input
               type="text"
+              aria-label="Cari produk berdasarkan nama atau SKU"
               placeholder="Cari berdasarkan nama atau SKU..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -266,7 +267,7 @@ export default function ProductsPage() {
         ) : loadError ? (
           <div className="p-12 text-center">
             <div className="w-12 h-12 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto mb-4">
-              <X className="w-6 h-6" />
+              <X className="w-6 h-6" aria-hidden="true" />
             </div>
             <p className="text-destructive font-medium mb-2">Gagal Memuat Data</p>
             <p className="text-muted-foreground text-sm max-w-md mx-auto">{loadError}</p>
@@ -280,9 +281,9 @@ export default function ProductsPage() {
         ) : filteredProducts.length === 0 ? (
           <div className="p-12 text-center">
             <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
-              <Package className="w-8 h-8" />
+              <Package className="w-8 h-8"  aria-hidden="true"/>
             </div>
-            <h3 className="text-lg font-semibold mb-2">Belum ada produk</h3>
+            <h2 className="text-lg font-semibold mb-2">Belum ada produk</h2>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               {search ? 'Tidak ada produk yang cocok dengan pencarian Anda.' : 'Tambahkan produk ke katalog Anda untuk mempercepat pembuatan resi dan transaksi.'}
             </p>
@@ -291,7 +292,7 @@ export default function ProductsPage() {
                 onClick={openAddForm}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4" aria-hidden="true" />
                 Tambah Produk Pertama
               </button>
             )}
@@ -301,12 +302,12 @@ export default function ProductsPage() {
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-muted-foreground bg-muted/50 uppercase border-b border-border">
                 <tr>
-                  <th className="px-6 py-4 font-medium">Gambar</th>
-                  <th className="px-6 py-4 font-medium">Produk</th>
-                  <th className="px-6 py-4 font-medium">SKU</th>
-                  <th className="px-6 py-4 font-medium">Harga (Rp)</th>
-                  <th className="px-6 py-4 font-medium">Berat (Kg)</th>
-                  <th className="px-6 py-4 font-medium text-right">Aksi</th>
+                  <th scope="col" className="px-6 py-4 font-medium">Gambar</th>
+                  <th scope="col" className="px-6 py-4 font-medium">Produk</th>
+                  <th scope="col" className="px-6 py-4 font-medium">SKU</th>
+                  <th scope="col" className="px-6 py-4 font-medium">Harga (Rp)</th>
+                  <th scope="col" className="px-6 py-4 font-medium">Berat (Kg)</th>
+                  <th scope="col" className="px-6 py-4 font-medium text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -322,7 +323,7 @@ export default function ProductsPage() {
                         <img src={prod.image_url} alt={prod.item_name} className="w-10 h-10 object-cover rounded-md border border-border" />
                       ) : (
                         <div className="w-10 h-10 bg-muted flex items-center justify-center rounded-md border border-border text-muted-foreground">
-                          <ImageIcon className="w-4 h-4" />
+                          <ImageIcon className="w-4 h-4" aria-hidden="true" />
                         </div>
                       )}
                     </td>
@@ -337,7 +338,7 @@ export default function ProductsPage() {
                           className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
                           title="Edit"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Edit2 className="w-4 h-4" aria-hidden="true" />
                         </button>
                         <button
                           onClick={() => {
@@ -347,7 +348,7 @@ export default function ProductsPage() {
                           className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                           title="Hapus"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" aria-hidden="true" />
                         </button>
                       </div>
                     </td>
@@ -377,7 +378,7 @@ export default function ProductsPage() {
                   onClick={() => setIsFormOpen(false)}
                   className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5" aria-hidden="true" />
                 </button>
               </div>
 
@@ -461,7 +462,7 @@ export default function ProductsPage() {
                   disabled={isSubmitting}
                   className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors text-sm font-medium inline-flex items-center gap-2"
                 >
-                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
                   {isSubmitting ? 'Menyimpan...' : 'Simpan Produk'}
                 </button>
               </div>
@@ -482,14 +483,14 @@ export default function ProductsPage() {
             >
               <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <FileSpreadsheet className="w-5 h-5 text-primary" />
+                  <FileSpreadsheet className="w-5 h-5 text-primary" aria-hidden="true" />
                   Import CSV
                 </h2>
                 <button
                   onClick={() => setIsBulkOpen(false)}
                   className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5" aria-hidden="true" />
                 </button>
               </div>
 
@@ -503,7 +504,7 @@ export default function ProductsPage() {
                     onClick={downloadTemplate}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-lg transition-colors text-sm font-medium"
                   >
-                    <Download className="w-4 h-4" />
+                    <Download className="w-4 h-4" aria-hidden="true" />
                     Download Template
                   </button>
                 </div>
@@ -540,14 +541,14 @@ export default function ProductsPage() {
                   {bulkFile && (
                     <div className="mt-3 flex items-center justify-between p-3 bg-muted rounded-lg border border-border">
                       <div className="flex items-center gap-2 overflow-hidden">
-                        <FileSpreadsheet className="w-4 h-4 text-primary flex-shrink-0" />
+                        <FileSpreadsheet className="w-4 h-4 text-primary flex-shrink-0" aria-hidden="true" />
                         <span className="text-sm font-medium truncate">{bulkFile.name}</span>
                       </div>
                       <button
                         onClick={() => setBulkFile(null)}
                         className="text-muted-foreground hover:text-destructive transition-colors p-1"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-4 h-4" aria-hidden="true" />
                       </button>
                     </div>
                   )}
@@ -568,7 +569,7 @@ export default function ProductsPage() {
                 >
                   {isUploading ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                       Mengupload...
                     </>
                   ) : (
@@ -593,7 +594,7 @@ export default function ProductsPage() {
             >
               <div className="p-6 text-center">
                 <div className="w-12 h-12 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Trash2 className="w-6 h-6" />
+                  <Trash2 className="w-6 h-6" aria-hidden="true" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Hapus Produk?</h3>
                 <p className="text-muted-foreground text-sm">
@@ -613,7 +614,7 @@ export default function ProductsPage() {
                   disabled={isDeleting}
                   className="flex-1 px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-lg transition-colors text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Ya, Hapus'}
+                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : 'Ya, Hapus'}
                 </button>
               </div>
             </motion.div>

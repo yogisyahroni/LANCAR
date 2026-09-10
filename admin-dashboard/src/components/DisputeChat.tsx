@@ -128,20 +128,20 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
   const triggerFileInput = () => fileInputRef.current?.click()
 
   return (
-    <div className="flex flex-col h-[600px] w-full bg-zinc-950/50 rounded-3xl border border-white/10 overflow-hidden backdrop-blur-xl">
+    <div className="flex flex-col h-[600px] w-full bg-surface-subtle rounded-3xl border border-border overflow-hidden backdrop-blur-xl">
       {/* Header */}
-      <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+      <div className="p-4 border-b border-border flex items-center justify-between bg-surface/[0.02]">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-primary/10 text-primary">
-            <MessageSquare size={18} />
+            <MessageSquare size={18} aria-hidden="true" />
           </div>
           <div>
-            <h3 className="text-sm font-black text-zinc-100 uppercase tracking-widest">Dispute Chat</h3>
-            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Live Support Channel</p>
+            <h3 className="text-sm font-black text-foreground-muted uppercase tracking-widest">Dispute Chat</h3>
+            <p className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest">Live Support Channel</p>
           </div>
         </div>
-        <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-lg text-zinc-500 hover:text-white transition-all">
-          <X size={20} />
+        <button type="button" onClick={onClose} aria-label="Tutup percakapan sengketa" className="p-2 hover:bg-surface-subtle rounded-lg text-foreground-muted hover:text-foreground transition-all">
+          <X size={20} aria-hidden="true" />
         </button>
       </div>
 
@@ -152,11 +152,11 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
-            <Loader2 className="animate-spin text-primary" size={24} />
+            <Loader2 className="animate-spin text-primary" size={24} aria-hidden="true" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-zinc-600 gap-2">
-            <MessageSquare size={32} opacity={0.2} />
+          <div className="flex flex-col items-center justify-center h-full text-foreground-muted gap-2">
+            <MessageSquare size={32} opacity={0.2} aria-hidden="true" />
             <p className="text-[10px] font-black uppercase tracking-widest">No messages yet</p>
           </div>
         ) : (
@@ -174,18 +174,18 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
                 )}
               >
                 <div className="flex items-center gap-2 mb-1 px-1">
-                  <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">
+                  <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">
                     {msg.sender_name}
                   </span>
-                  <span className="text-[8px] font-bold text-zinc-700 uppercase tracking-widest">
+                  <span className="text-[8px] font-bold text-foreground-muted uppercase tracking-widest">
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
                 <div className={cn(
                   "px-1 py-1 rounded-2xl text-sm leading-relaxed overflow-hidden",
                   isMe 
-                    ? "bg-primary text-white rounded-tr-none shadow-lg shadow-primary/20" 
-                    : "bg-white/5 text-zinc-300 border border-white/5 rounded-tl-none",
+                    ? "bg-primary text-on-primary rounded-tr-none shadow-lg shadow-primary/20"
+                    : "bg-surface-subtle text-foreground-muted border border-border rounded-tl-none",
                   !isImage && "px-4 py-3"
                 )}>
                   {isImage ? (
@@ -212,27 +212,27 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="p-4 bg-zinc-900/80 border-t border-white/5 flex items-center gap-4"
+            className="p-4 bg-surface-subtle border-t border-border flex items-center gap-4"
           >
             <div className="relative group">
-              <img src={previewImage} alt="Preview" className="h-20 w-20 object-cover rounded-lg border border-white/10" />
+              <img src={previewImage} alt="Preview" className="h-20 w-20 object-cover rounded-lg border border-border" />
               <button 
                 onClick={() => { setPreviewImage(null); setSelectedFile(null); }}
-                className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute -top-2 -right-2 p-1 bg-error text-on-error rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
               >
-                <X size={12} />
+                <X size={12} aria-hidden="true" />
               </button>
             </div>
             <div className="flex-1">
               <p className="text-[10px] font-black text-primary uppercase tracking-widest">Image ready to send</p>
-              <p className="text-[10px] text-zinc-500">Press send to upload and share this screenshot</p>
+              <p className="text-[10px] text-foreground-muted">Press send to upload and share this screenshot</p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Input */}
-      <form onSubmit={handleSend} className="p-4 bg-white/[0.02] border-t border-white/5">
+      <form onSubmit={handleSend} className="p-4 bg-surface/[0.02] border-t border-border">
         <div className="relative flex items-center gap-2">
           <input 
             type="file" 
@@ -250,9 +250,9 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
           <button 
             type="button"
             onClick={triggerFileInput}
-            className="p-3 rounded-xl bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
+            className="p-3 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all"
           >
-            <ImageIcon size={20} />
+            <ImageIcon size={20} aria-hidden="true" />
           </button>
           <input 
             type="text"
@@ -260,14 +260,14 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
             onChange={(e) => setMessage(e.target.value)}
             onPaste={handlePaste}
             placeholder={previewImage ? "Add a caption (optional)..." : "Type message or paste screenshot..."}
-            className="flex-1 bg-zinc-900/50 border border-white/5 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+            className="flex-1 bg-surface-subtle border border-border rounded-xl px-4 py-3 text-sm text-foreground-muted placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
           />
           <button 
             type="submit"
             disabled={(!message.trim() && !previewImage) || sendMutation.isPending || uploading}
-            className="p-3 rounded-xl bg-primary text-white hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100"
+            className="p-3 rounded-xl bg-primary text-on-primary hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100"
           >
-            {sendMutation.isPending || uploading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
+            {sendMutation.isPending || uploading ? <Loader2 className="animate-spin" size={20} aria-hidden="true" /> : <Send size={20}  aria-hidden="true"/>}
           </button>
         </div>
       </form>

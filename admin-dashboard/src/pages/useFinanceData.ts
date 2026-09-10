@@ -56,7 +56,7 @@ import { id as localeId } from 'date-fns/locale'
 import { useState } from 'react'
 import { ConfirmPayoutModal, type PayoutReviewAction } from '../components/ConfirmPayoutModal'
 
-const COLORS = ['#006437', '#10b981', '#34d399', '#6ee7b7'];
+const COLORS = ['var(--color-primary-dark)', 'var(--color-primary)', 'var(--color-success)', 'var(--color-accent)'];
 
 const activePayoutStatuses = ['requested', 'risk_screening', 'approved_auto', 'risk_hold', 'manual_review', 'under_review', 'approved', 'processing'];
 
@@ -126,7 +126,7 @@ export function useFinanceData() {
     queryKey: ['finance-payouts'],
     queryFn: async () => {
       const res = await api.get('/admin/finance/payouts');
-      return res.data;
+      return Array.isArray(res.data) ? res.data : res.data?.data || [];
     }
   });
 
@@ -561,9 +561,10 @@ export function useFinanceData() {
 
 
   // derived metrics (moved from inline JSX IIFE)
-  const gtv = pnlReport.summary.gross_revenue;
-  const courierEscrow = pnlReport.summary.courier_payout;
-  const totalTrx = pnlReport.summary.total_transactions;
+  const pnlSummary = pnlReport?.summary || {};
+  const gtv = Number(pnlSummary.gross_revenue || 0);
+  const courierEscrow = Number(pnlSummary.courier_payout || 0);
+  const totalTrx = Number(pnlSummary.total_transactions || 0);
   const realOmzet = Math.max(0, gtv - courierEscrow);
   
   const totalInfra = simInfraCost * totalTrx;

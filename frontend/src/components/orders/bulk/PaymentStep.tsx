@@ -140,10 +140,10 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
   if (paymentStatus === 'processed') {
     return (
       <div className="flex flex-col items-center justify-center py-16 animate-in zoom-in duration-500">
-        <div className="w-20 h-20 bg-brand-emerald-500/20 rounded-full flex items-center justify-center mb-6">
-          <CheckCircle2 className="w-10 h-10 text-brand-emerald-500" />
+        <div className="w-20 h-20 bg-success/20 rounded-full flex items-center justify-center mb-6">
+          <CheckCircle2 className="w-10 h-10 text-success" aria-hidden="true" />
         </div>
-        <h2 className="text-2xl font-bold text-brand-emerald-500 mb-2">Order Massal Tersimpan</h2>
+        <h2 className="text-2xl font-bold text-success mb-2">Order Massal Tersimpan</h2>
         <p className="text-muted-foreground text-center max-w-md">
           {totalOrders} pesanan sudah dibuat. Payment link dari server siap dibagikan ke penerima. Mengalihkan ke riwayat pesanan...
         </p>
@@ -174,9 +174,9 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
           <p className="text-sm text-muted-foreground mt-1">Selesaikan pembayaran Midtrans Snap untuk memproses pesanan massal Anda.</p>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm space-y-6">
-          <h3 className="font-medium text-foreground flex items-center gap-2 border-b border-white/10 pb-4">
-            <Package className="w-5 h-5 text-primary" />
+        <div className="rounded-xl border border-border bg-surface-subtle p-6 backdrop-blur-sm space-y-6">
+          <h3 className="font-medium text-foreground flex items-center gap-2 border-b border-border pb-4">
+            <Package className="w-5 h-5 text-primary" aria-hidden="true" />
             Ringkasan Pesanan Massal
           </h3>
 
@@ -189,7 +189,7 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
               <span className="text-muted-foreground">Total Jarak Estimasi</span>
               <span className="font-medium">{totalDistance.toFixed(1)} km</span>
             </div>
-            <div className="pt-4 border-t border-white/10">
+            <div className="pt-4 border-t border-border">
               <div className="flex justify-between items-center">
                 <span className="text-foreground font-medium">Total Pembayaran</span>
                 <span className="text-2xl font-bold text-primary">{formatCurrency(totalPrice)}</span>
@@ -200,22 +200,22 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
 
         {error && (
           <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0"  aria-hidden="true"/>
             {error}
           </div>
         )}
 
         {paymentStatus === 'pending_payment' && (
-          <div className="p-3 bg-amber-500/10 text-amber-300 rounded-lg text-sm flex items-center gap-2">
-            <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+          <div className="p-3 bg-warning-surface text-warning rounded-lg text-sm flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
             Menunggu pembayaran atau notifikasi dari Midtrans.
           </div>
         )}
       </div>
 
-      <div className="rounded-xl border border-white/10 bg-background/50 p-6 flex flex-col items-center justify-center text-center space-y-6">
+      <div className="rounded-xl border border-border bg-background/50 p-6 flex flex-col items-center justify-center text-center space-y-6">
         <div className="w-20 h-20 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-          <CreditCard className="h-10 w-10" />
+          <CreditCard className="h-10 w-10" aria-hidden="true" />
         </div>
 
         <div className="space-y-2">
@@ -225,7 +225,7 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
           </p>
         </div>
 
-        <div className="w-full rounded-lg border border-white/10 bg-white/5 p-4 text-sm space-y-3">
+        <div className="w-full rounded-lg border border-border bg-surface-subtle p-4 text-sm space-y-3">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Total</span>
             <b>{formatCurrency(totalPrice)}</b>
@@ -244,12 +244,12 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
         >
           {isBusy ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
               {paymentStatus === 'creating' ? 'Membuat transaksi...' : 'Membuka Snap...'}
             </>
           ) : (
             <>
-              <CreditCard className="w-5 h-5" />
+              <CreditCard className="w-5 h-5" aria-hidden="true" />
               {payment ? 'Buka Midtrans Snap' : 'Bayar dengan Midtrans Snap'}
             </>
           )}
@@ -263,7 +263,7 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
             className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
           >
             Buka halaman pembayaran
-            <ExternalLink className="h-4 w-4" />
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
           </a>
         )}
       </div>

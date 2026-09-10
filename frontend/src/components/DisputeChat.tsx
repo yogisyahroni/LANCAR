@@ -189,20 +189,20 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
   const errorMessage = (error as any)?.response?.data?.message || (error as any)?.message || 'Riwayat chat belum bisa dimuat dari database.';
 
   return (
-    <div className="flex flex-col h-[550px] w-full bg-white dark:bg-zinc-900 rounded-2xl border border-border overflow-hidden shadow-xl">
+    <div className="flex flex-col h-[550px] w-full bg-surface dark:bg-surface rounded-2xl border border-border overflow-hidden shadow-xl">
       {/* Header */}
       <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-primary/10 text-primary">
-            <MessageSquare size={18} />
+            <MessageSquare size={18} aria-hidden="true" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-foreground">Chat Bantuan</h3>
             <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Dispute Resolution</p>
           </div>
         </div>
-        <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-all">
-          <X size={20} />
+        <button type="button" onClick={onClose} aria-label="Tutup percakapan sengketa" className="p-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-all">
+          <X size={20} aria-hidden="true" />
         </button>
       </div>
 
@@ -214,12 +214,12 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
         {isLoading ? (
           <div className="space-y-3" aria-busy="true" aria-label="Memuat percakapan">
             {[0, 1, 2].map((index) => (
-              <Skeleton key={index} className={`h-12 bg-white/10 ${index === 1 ? 'ml-auto w-3/4' : 'w-4/5'}`} />
+              <Skeleton key={index} className={`h-12 bg-surface-subtle ${index === 1 ? 'ml-auto w-3/4' : 'w-4/5'}`} />
             ))}
           </div>
         ) : isError ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 text-center px-6">
-            <MessageSquare size={32} className="text-destructive" />
+            <MessageSquare size={32} className="text-destructive" aria-hidden="true" />
             <div>
               <p className="text-sm font-bold text-foreground">Chat gagal dimuat</p>
               <p className="text-xs text-muted-foreground mt-1">{errorMessage}</p>
@@ -229,13 +229,13 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
               onClick={() => refetch()}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-bold hover:bg-destructive/20 transition-all"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={14} aria-hidden="true" />
               Coba Lagi
             </button>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-            <MessageSquare size={32} opacity={0.2} />
+            <MessageSquare size={32} opacity={0.2} aria-hidden="true" />
             <p className="text-xs font-medium">Belum ada pesan</p>
           </div>
         ) : (
@@ -254,14 +254,14 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
                   <span className="text-[10px] font-bold text-muted-foreground">
                     {isMe ? 'Anda' : msg.sender_role === 'customer' ? msg.sender_name : 'Admin Tembus'}
                   </span>
-                  <span className="text-[9px] text-zinc-400">
+                  <span className="text-[9px] text-foreground-muted">
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
                 <div className={cn(
                   "px-1 py-1 rounded-2xl text-sm shadow-sm overflow-hidden",
                   isMe 
-                    ? "bg-primary text-white rounded-tr-none" 
+                    ? "bg-primary text-on-primary rounded-tr-none"
                     : "bg-muted text-foreground rounded-tl-none border border-border",
                   !isImage && "px-4 py-2.5"
                 )}>
@@ -308,7 +308,7 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
                 onClick={() => { setPreviewImage(null); setSelectedFile(null); }}
                 className="absolute -top-2 -right-2 p-1 bg-destructive text-destructive-foreground rounded-full shadow-lg"
               >
-                <X size={10} />
+                <X size={10} aria-hidden="true" />
               </button>
             </div>
             <div className="flex-1">
@@ -348,13 +348,16 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
           />
           <button 
             type="button"
+            aria-label="Lampirkan gambar ke pesan"
+            title="Lampirkan gambar ke pesan"
             onClick={triggerFileInput}
             className="p-2.5 rounded-xl bg-background border border-border text-muted-foreground hover:text-foreground transition-all"
           >
-            <ImageIcon size={18} />
+            <ImageIcon size={18} aria-hidden="true" />
           </button>
           <input 
             type="text"
+            aria-label="Pesan dukungan dispute"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onPaste={handlePaste}
@@ -363,10 +366,12 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
           />
           <button 
             type="submit"
+            aria-label="Kirim pesan dispute"
+            title="Kirim pesan dispute"
             disabled={(!message.trim() && !previewImage) || sendMutation.isPending || uploading}
-            className="p-2.5 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all disabled:opacity-50"
+            className="p-2.5 rounded-xl bg-primary text-on-primary hover:bg-primary/90 transition-all disabled:opacity-50"
           >
-            {sendMutation.isPending || uploading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
+            {sendMutation.isPending || uploading ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Send size={18} aria-hidden="true" />}
           </button>
         </div>
       </form>
