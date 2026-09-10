@@ -91,13 +91,13 @@ function CourierErrorRow({ title, message, onRetry, colSpan = 5 }: { title: stri
         <div className="flex flex-col items-center gap-4">
           <AlertCircle className="w-10 h-10 text-error" aria-hidden="true" />
           <div>
-            <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">{title}</p>
+            <p className="text-foreground-muted font-black uppercase tracking-wide text-xs">{title}</p>
             <p className="text-foreground-muted text-xs mt-2">{message}</p>
           </div>
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-xs font-black uppercase tracking-wide hover:bg-error-surface transition-all"
           >
             <RefreshCw size={14} aria-hidden="true" />
             Retry
@@ -113,13 +113,13 @@ function CourierPanelError({ title, message, onRetry }: { title: string; message
     <div className="rounded-[32px] border border-error bg-error-surface p-8 text-center space-y-4 md:col-span-4">
       <AlertCircle className="w-10 h-10 text-error mx-auto" aria-hidden="true" />
       <div>
-        <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">{title}</p>
+        <p className="text-foreground-muted font-black uppercase tracking-wide text-xs">{title}</p>
         <p className="text-foreground-muted text-xs mt-2">{message}</p>
       </div>
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
+        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-xs font-black uppercase tracking-wide hover:bg-error-surface transition-all"
       >
         <RefreshCw size={14} aria-hidden="true" />
         Retry
@@ -431,7 +431,7 @@ export default function Couriers() {
                 <stat.icon size={24} aria-hidden="true" />
               </div>
               <div>
-                <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest">{stat.label}</p>
+                <p className="text-xs font-bold text-foreground-muted uppercase tracking-wide">{stat.label}</p>
                 <p className="text-2xl font-black text-foreground-muted mt-1">{stat.value}</p>
               </div>
             </div>
@@ -487,7 +487,7 @@ export default function Couriers() {
         <div className="glass-card rounded-[32px] border-border p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-foreground-muted">Courier Type</p>
+              <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Courier Type</p>
               <h2 className="mt-2 text-xl font-black text-foreground-muted">Pisahkan daftar kurir by role</h2>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -521,7 +521,7 @@ export default function Couriers() {
               <Link2 size={22} aria-hidden="true" />
             </div>
             <div className="flex-1">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-foreground-muted">Share Registration Link</p>
+              <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Share Registration Link</p>
               <h2 className="mt-2 text-xl font-black text-foreground-muted">Link daftar regular</h2>
               <div className="mt-4 flex gap-2">
                 {[
@@ -543,7 +543,7 @@ export default function Couriers() {
               <div className="mt-4 rounded-2xl border border-border bg-surface/[0.03] p-3">
                 <label className="flex items-center justify-between gap-3">
                   <span>
-                    <span className="block text-xs font-black uppercase tracking-[0.18em] text-foreground-muted">Masa aktif</span>
+                    <span className="block text-xs font-black uppercase tracking-wide text-foreground-muted">Masa aktif</span>
                     <span className="mt-1 block text-sm font-bold text-foreground-muted">Link otomatis off setelah melewati jumlah hari ini</span>
                   </span>
                   <div className="flex shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
@@ -589,12 +589,12 @@ export default function Couriers() {
                 </button>
               )}
               {generatedLinkExpiresAt && (
-                <p className="mt-2 text-[11px] font-bold text-warning">
+                <p className="mt-2 text-xs font-bold text-warning">
                   Aktif sampai {new Date(generatedLinkExpiresAt).toLocaleString('id-ID')}. Setelah itu link off.
                 </p>
               )}
               {registrationLinks.length > 0 && (
-                <p className="mt-3 text-[11px] font-bold text-foreground-muted">
+                <p className="mt-3 text-xs font-bold text-foreground-muted">
                   {registrationLinks.length} link terakhir tersimpan.
                 </p>
               )}
@@ -624,11 +624,11 @@ export default function Couriers() {
                     }}
                   />
                 </th>
-                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">Courier</th>
-                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">Status</th>
-                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">Avg Rating</th>
-                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">Location</th>
-                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">Actions</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-wide">Courier</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-wide">Status</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-wide">Avg Rating</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-wide">Location</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -637,7 +637,7 @@ export default function Couriers() {
                   <td colSpan={6} className="px-8 py-20 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <Loader2 className="w-8 h-8 text-primary animate-spin" aria-hidden="true" />
-                      <p className="text-foreground-muted font-bold uppercase tracking-widest text-xs">Loading fleet data...</p>
+                      <p className="text-foreground-muted font-bold uppercase tracking-wide text-xs">Loading fleet data...</p>
                     </div>
                   </td>
                 </tr>
@@ -679,7 +679,7 @@ export default function Couriers() {
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="font-bold text-foreground-muted">{courier.full_name}</p>
-                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-surface-raised text-foreground-muted border border-border uppercase font-bold">
+                          <span className="text-xs px-2 py-0.5 rounded-md bg-surface-raised text-foreground-muted border border-border uppercase font-bold">
                             {courier.application_channel?.replace('_', ' ') || courier.vehicle_type || 'Belum tersedia'}
                           </span>
                         </div>
@@ -748,7 +748,7 @@ export default function Couriers() {
                 <tr>
                   <td colSpan={6} className="px-8 py-20 text-center">
                     <Package className="w-10 h-10 text-foreground-muted mx-auto mb-4" aria-hidden="true" />
-                    <p className="text-foreground-muted font-bold uppercase tracking-widest text-xs">Tidak ada kurir dari database untuk filter ini.</p>
+                    <p className="text-foreground-muted font-bold uppercase tracking-wide text-xs">Tidak ada kurir dari database untuk filter ini.</p>
                   </td>
                 </tr>
               )}
@@ -758,7 +758,7 @@ export default function Couriers() {
         
         {/* Pagination */}
         <div className="px-8 py-6 border-t border-border flex items-center justify-between bg-surface/[0.01]">
-          <p className="text-xs text-foreground-muted font-bold uppercase tracking-widest">
+          <p className="text-xs text-foreground-muted font-bold uppercase tracking-wide">
             Showing {couriersData?.data?.length || 0} of {couriersData?.pagination?.total || 0} Couriers
           </p>
           <div className="flex items-center gap-2">
@@ -860,7 +860,7 @@ export default function Couriers() {
                 </div>
 
                 <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl mt-4">
-                  <p className="text-xs font-black text-primary-light uppercase tracking-widest mb-2">Preview Pesan</p>
+                  <p className="text-xs font-black text-primary-light uppercase tracking-wide mb-2">Preview Pesan</p>
                   <p className="text-sm text-foreground-muted italic">
                     "Halo <span className="text-primary font-bold">{"{nama_kurir}"}</span>! Pendaftaran kamu sudah disetujui. Silakan datang ke basecamp untuk pengambilan atribut pada tanggal <span className="text-primary font-bold">{broadcastDate || '[Tanggal]'}</span> jam <span className="text-primary font-bold">{broadcastTime || '[Jam]'}</span>. Lokasi: <span className="text-primary font-bold">{broadcastAddress || '[Alamat]'}</span>."
                   </p>
@@ -944,7 +944,7 @@ export default function Couriers() {
               {isLoadingDetail ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                   <Loader2 className="w-12 h-12 text-primary animate-spin" aria-hidden="true" />
-                  <p className="text-foreground-muted font-black uppercase tracking-widest">Retrieving dossier...</p>
+                  <p className="text-foreground-muted font-black uppercase tracking-wide">Retrieving dossier...</p>
                 </div>
               ) : courierDetail && detailTab === 'profile' && (
                 <div className="flex flex-col md:flex-row gap-10">
@@ -961,7 +961,7 @@ export default function Couriers() {
                         <button 
                           onClick={() => updateStatus.mutate({ id: courierDetail.id, status: 'Active' })}
                           disabled={updateStatus.isPending}
-                          className="w-full py-4 rounded-2xl bg-success text-on-success font-black uppercase tracking-widest text-sm shadow-lg shadow-success hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60"
+                          className="w-full py-4 rounded-2xl bg-success text-on-success font-black uppercase tracking-wide text-sm shadow-lg shadow-success hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                         >
                           <CheckCircle size={20} aria-hidden="true" />
                           {updateStatus.isPending ? 'Processing...' : 'Verify Courier'}
@@ -971,7 +971,7 @@ export default function Couriers() {
                         <button 
                           onClick={() => updateStatus.mutate({ id: courierDetail.id, status: 'Suspended' })}
                           disabled={updateStatus.isPending}
-                          className="w-full py-4 rounded-2xl bg-error-surface text-error border border-error font-black uppercase tracking-widest text-sm hover:bg-error-surface transition-all flex items-center justify-center gap-3 disabled:opacity-60"
+                          className="w-full py-4 rounded-2xl bg-error-surface text-error border border-error font-black uppercase tracking-wide text-sm hover:bg-error-surface transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                         >
                           <Ban size={20} aria-hidden="true" />
                           {updateStatus.isPending ? 'Processing...' : 'Suspend Access'}
@@ -980,7 +980,7 @@ export default function Couriers() {
                         <button 
                           onClick={() => updateStatus.mutate({ id: courierDetail.id, status: 'Active' })}
                           disabled={updateStatus.isPending}
-                          className="w-full py-4 rounded-2xl bg-success-surface text-success border border-success font-black uppercase tracking-widest text-sm hover:bg-success-surface transition-all flex items-center justify-center gap-3 disabled:opacity-60"
+                          className="w-full py-4 rounded-2xl bg-success-surface text-success border border-success font-black uppercase tracking-wide text-sm hover:bg-success-surface transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                         >
                           <CheckCircle size={20} aria-hidden="true" />
                           {updateStatus.isPending ? 'Processing...' : 'Activate Access'}
@@ -1000,7 +1000,7 @@ export default function Couriers() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs font-black text-foreground-muted uppercase tracking-widest mb-1">Fleet Rating</p>
+                        <p className="text-xs font-black text-foreground-muted uppercase tracking-wide mb-1">Fleet Rating</p>
                         <div className="flex items-center gap-2">
                           <div className="px-3 py-1.5 rounded-xl bg-primary/10 text-primary-light border border-primary/20 flex items-center gap-2">
                             <Star size={16} fill="currentColor" aria-hidden="true" />
@@ -1012,20 +1012,20 @@ export default function Couriers() {
 
                     <div className="grid grid-cols-2 gap-6">
                       <div className="p-6 rounded-3xl bg-surface/[0.02] border border-border shadow-xl">
-                        <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest mb-4">Contact Info</p>
+                        <p className="text-xs font-bold text-foreground-muted uppercase tracking-wide mb-4">Contact Info</p>
                         <div className="space-y-4">
                           <div className="flex flex-col gap-1">
-                            <span className="text-[10px] text-foreground-muted font-black uppercase">Phone Number</span>
+                            <span className="text-xs text-foreground-muted font-black uppercase">Phone Number</span>
                             <span className="text-sm font-bold text-foreground-muted">{courierDetail.phone_number || 'Not provided'}</span>
                           </div>
                           <div className="flex flex-col gap-1">
-                            <span className="text-[10px] text-foreground-muted font-black uppercase">Email Address</span>
+                            <span className="text-xs text-foreground-muted font-black uppercase">Email Address</span>
                             <span className="text-sm font-bold text-foreground-muted">{courierDetail.email || 'Not provided'}</span>
                           </div>
                         </div>
                       </div>
                       <div className="p-6 rounded-3xl bg-surface/[0.02] border border-border shadow-xl">
-                        <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest mb-4">Verification Artifacts</p>
+                        <p className="text-xs font-bold text-foreground-muted uppercase tracking-wide mb-4">Verification Artifacts</p>
                         <div className="space-y-3">
                           {courierDetail.documents?.map((doc: any, idx: number) => (
                             <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-surface-subtle border border-border">
@@ -1055,7 +1055,7 @@ export default function Couriers() {
                             </div>
                             <div className="flex-1">
                               <p className="text-sm text-foreground-muted font-medium italic">"{rating.comment || 'No comment provided'}"</p>
-                              <p className="text-[10px] text-foreground-muted mt-2 font-bold uppercase tracking-widest">
+                              <p className="text-xs text-foreground-muted mt-2 font-bold uppercase tracking-wide">
                                 Order #{rating.order_id?.split('-')[0]} • {new Date(rating.created_at).toLocaleDateString()}
                               </p>
                             </div>
@@ -1077,7 +1077,7 @@ export default function Couriers() {
                   {isLoadingHistory ? (
                     <div className="flex flex-col items-center py-16 gap-4">
                       <Loader2 className="w-10 h-10 text-primary animate-spin" aria-hidden="true" />
-                      <p className="text-foreground-muted text-sm uppercase tracking-widest font-bold">Loading history...</p>
+                      <p className="text-foreground-muted text-sm uppercase tracking-wide font-bold">Loading history...</p>
                     </div>
                   ) : courierHistory.length === 0 ? (
                     <div className="text-center py-16 text-foreground-muted">
@@ -1111,7 +1111,7 @@ export default function Couriers() {
                           <div className="text-right">
                             <OrderStatusBadge
                               status={order.leg_status || order.status || 'unknown'}
-                              className="px-3 py-1 text-[10px]"
+                              className="px-3 py-1 text-xs"
                             />
                             <p className="text-xs text-foreground-muted mt-1">
                               {order.created_at ? new Date(order.created_at).toLocaleDateString('id-ID') : '-'}
@@ -1182,7 +1182,7 @@ export default function Couriers() {
                       ) : (
                         <div className="flex flex-col items-center gap-3 text-foreground-muted">
                           <ImageIcon size={48} className="opacity-50" aria-hidden="true" />
-                          <p className="text-sm font-bold uppercase tracking-widest">No Photo Available</p>
+                          <p className="text-sm font-bold uppercase tracking-wide">No Photo Available</p>
                         </div>
                       )}
                     </div>
@@ -1238,7 +1238,7 @@ export default function Couriers() {
                                 ))}
                               </select>
                             )}
-                            <p className="text-[11px] text-foreground-muted leading-relaxed">
+                            <p className="text-xs text-foreground-muted leading-relaxed">
                               Mendukung kamera eksternal (USB Webcam / kamera eksternal) atau kamera bawaan laptop/PC.
                             </p>
                           </div>

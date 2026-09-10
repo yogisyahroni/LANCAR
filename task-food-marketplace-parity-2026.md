@@ -3100,6 +3100,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Remaining Admin finance dense-data surfaces—ledger, trial balance, reconciliation, unit economics, closing, service settlement, auto-payout, emergency fund, rekening, tax compliance and payout accounts—were audited for Part S typography. Financial labels, table headers, metadata and operational actions now use the readable `text-xs` floor with restrained tracking; the six-digit TOTP input keeps deliberate monospace tracking for code-entry legibility. Admin `/finance` axe coverage passes `6/6`, finance reflow/text-spacing passes `4/4`, typecheck/ESLint/table/diff guards pass. Remaining state variants, chart/tooltip behavior, visual contrast and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Admin Couriers and Zones were audited for Part S readability across registration metadata, retry/status/history surfaces, courier table headings, zone cards, map-editor controls, preview/approval/publish/rollback actions and dialogs. Operational labels and helper copy now use the shared readable `text-xs` floor, while uppercase action/metadata labels use `tracking-wide` instead of extreme tracking. The affected Admin axe slice passes `12/12`, reflow/text-spacing passes `6/6`, and typecheck/ESLint/iconography/table/diff guards pass. Full dynamic state, map/provider, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

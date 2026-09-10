@@ -208,7 +208,7 @@ export default function Zones() {
               setSelectedZone({ polygon_wkt: '' });
               setIsModalOpen(true);
             }}
-            className="px-6 py-3 rounded-2xl bg-primary text-on-primary shadow-lg shadow-primary/20 hover:bg-primary-light font-black text-sm uppercase tracking-widest transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+            className="px-6 py-3 rounded-2xl bg-primary text-on-primary shadow-lg shadow-primary/20 hover:bg-primary-light font-black text-sm uppercase tracking-wide transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
           >
             <Plus size={18} aria-hidden="true" />
             Create Zone
@@ -216,7 +216,7 @@ export default function Zones() {
           <button 
             onClick={() => setIsDrawing(!isDrawing)}
             className={cn(
-              "px-6 py-3 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]",
+              "px-6 py-3 rounded-2xl font-black text-sm uppercase tracking-wide shadow-lg transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]",
               isDrawing ? "bg-error text-on-error" : "bg-surface-subtle border border-border text-foreground-muted hover:text-foreground"
             )}
           >
@@ -257,7 +257,7 @@ export default function Zones() {
                     <div className="h-3 w-3 rounded-full bg-primary" />
                     <div>
                       <h3 className="font-bold text-foreground-muted">{zone.name}</h3>
-                      <p className="text-[10px] text-foreground-muted font-black uppercase tracking-widest">{zone.code}</p>
+                      <p className="text-xs text-foreground-muted font-black uppercase tracking-wide">{zone.code}</p>
                     </div>
                   </div>
                   <ChevronRight size={16} className={cn(
@@ -267,13 +267,13 @@ export default function Zones() {
                 </div>
                 <div className="grid grid-cols-2 gap-4 mt-6">
                    <div className="p-3 rounded-xl bg-surface-subtle border border-border">
-                      <p className="text-[9px] font-black text-foreground-muted uppercase tracking-widest">Couriers</p>
+                      <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Couriers</p>
                       <p className="text-sm font-black text-foreground-muted mt-1">{zone.max_couriers || 0}</p>
                    </div>
                    <div className="p-3 rounded-xl bg-surface-subtle border border-border">
-                      <p className="text-[9px] font-black text-foreground-muted uppercase tracking-widest">Status</p>
+                      <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Status</p>
                       <span className={cn(
-                        "text-[10px] font-black uppercase",
+                        "text-xs font-black uppercase",
                         zone.is_active ? "text-success" : "text-error"
                       )}>
                         {zone.is_active ? 'Active' : 'Inactive'}
@@ -285,7 +285,7 @@ export default function Zones() {
             {(!filteredZones || filteredZones.length === 0) && (
               <div className="py-20 text-center space-y-4 glass-card rounded-[32px] border-dashed border-border">
                 <MapIcon className="mx-auto text-foreground-muted" size={48} aria-hidden="true" />
-                <p className="text-foreground-muted font-black italic uppercase tracking-widest italic">
+                <p className="text-foreground-muted font-black italic uppercase tracking-wide italic">
                   No zones mapping detected
                 </p>
               </div>
@@ -375,12 +375,12 @@ export default function Zones() {
                  <div className="flex items-center gap-6">
                     <div className="flex items-center gap-3">
                        <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
-                    <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">
+                    <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">
                          {selectedZone ? selectedZone.name : mapTheme === 'dark' ? 'Dark Ops View' : 'Light Street View'}
                        </p>
                     </div>
                     <div className="h-4 w-px bg-surface-subtle" />
-                    <p className="text-[10px] text-foreground-muted font-medium italic">
+                    <p className="text-xs text-foreground-muted font-medium italic">
                       {isDrawing ? 'DRAW MODE: Click on map to define perimeter' : 'Select a zone to adjust parameters or view geometry'}
                     </p>
                  </div>
@@ -390,20 +390,20 @@ export default function Zones() {
                       <>
                         <button 
                           onClick={() => setIsModalOpen(true)}
-                          className="px-6 py-2.5 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground text-[10px] font-black uppercase tracking-widest transition-all"
+                          className="px-6 py-2.5 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground text-xs font-black uppercase tracking-wide transition-all"
                         >
                            Edit Parameters
                         </button>
                         <button
                           onClick={() => previewMutation.mutate(selectedZone.id)}
                           disabled={previewMutation.isPending}
-                          className="px-6 py-2.5 rounded-xl bg-warning-surface border border-warning text-warning hover:bg-warning hover:text-on-warning text-[10px] font-black uppercase tracking-widest transition-all"
+                          className="px-6 py-2.5 rounded-xl bg-warning-surface border border-warning text-warning hover:bg-warning hover:text-on-warning text-xs font-black uppercase tracking-wide transition-all"
                         >
                           {previewMutation.isPending ? 'Loading Diff' : 'Preview Draft'}
                         </button>
                         <button 
                           onClick={() => setIsDeleteConfirmOpen(true)}
-                          className="px-6 py-2.5 rounded-xl bg-error-surface border border-error text-error hover:bg-error hover:text-on-error text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98]"
+                          className="px-6 py-2.5 rounded-xl bg-error-surface border border-error text-error hover:bg-error hover:text-on-error text-xs font-black uppercase tracking-wide transition-all hover:scale-[1.02] active:scale-[0.98]"
                         >
                            Deactivate Zone
                         </button>
@@ -460,9 +460,9 @@ export default function Zones() {
                 <button type="button" onClick={() => setZonePreview(null)} aria-label="Close zone revision preview" title="Close zone revision preview" className="p-2 text-foreground-muted hover:text-foreground"><X size={20} aria-hidden="true" /></button>
               </div>
               <div className="rounded-2xl bg-surface-subtle border border-border p-5 text-xs text-foreground-muted space-y-2">
-                <p className="font-black uppercase tracking-widest text-warning">Changed fields</p>
+                <p className="font-black uppercase tracking-wide text-warning">Changed fields</p>
                 <p>{(zonePreview.diff?.changed_fields || []).join(', ') || 'No field changes detected'}</p>
-                <p className="font-black uppercase tracking-widest text-warning mt-4">Impact estimate</p>
+                <p className="font-black uppercase tracking-wide text-warning mt-4">Impact estimate</p>
                 <p>
                   Markets: {(zonePreview.diff?.affected_markets || []).join(', ') || 'none'} · Services: {zonePreview.diff?.impact_estimate?.affected_service_count || 0}
                 </p>
@@ -475,17 +475,17 @@ export default function Zones() {
               </div>
               <div className="flex flex-wrap gap-3">
                 {zonePreview.draft?.status === 'draft' && (
-                  <button type="button" onClick={() => approveMutation.mutate({ id: selectedZone.id, revisionId: zonePreview.draft.id })} disabled={approveMutation.isPending} className="px-5 py-3 rounded-xl bg-warning text-on-warning font-black text-[10px] uppercase tracking-widest">Approve</button>
+                  <button type="button" onClick={() => approveMutation.mutate({ id: selectedZone.id, revisionId: zonePreview.draft.id })} disabled={approveMutation.isPending} className="px-5 py-3 rounded-xl bg-warning text-on-warning font-black text-xs uppercase tracking-wide">Approve</button>
                 )}
                 {zonePreview.draft?.status === 'approved' && (
-                  <button type="button" onClick={() => publishMutation.mutate({ id: selectedZone.id, revisionId: zonePreview.draft.id })} disabled={publishMutation.isPending} className="px-5 py-3 rounded-xl bg-success text-on-success font-black text-[10px] uppercase tracking-widest">Publish</button>
+                  <button type="button" onClick={() => publishMutation.mutate({ id: selectedZone.id, revisionId: zonePreview.draft.id })} disabled={publishMutation.isPending} className="px-5 py-3 rounded-xl bg-success text-on-success font-black text-xs uppercase tracking-wide">Publish</button>
                 )}
                 <select
                   aria-label="Rollback target revision"
                   defaultValue=""
                   onChange={(event) => event.target.value && rollbackMutation.mutate({ id: selectedZone.id, revisionId: event.target.value })}
                   disabled={rollbackMutation.isPending}
-                  className="px-4 py-3 rounded-xl bg-surface-subtle border border-border text-foreground-muted text-[10px] font-black uppercase tracking-widest"
+                  className="px-4 py-3 rounded-xl bg-surface-subtle border border-border text-foreground-muted text-xs font-black uppercase tracking-wide"
                 >
                   <option value="">Rollback to published revision…</option>
                   {(zoneRevisions || []).filter((revision: any) => revision.status === 'published' && revision.id !== zonePreview.draft?.id).map((revision: any) => (
@@ -493,7 +493,7 @@ export default function Zones() {
                   ))}
                 </select>
               </div>
-              <p className="text-[10px] text-foreground-muted">Approval requires a different authenticated actor from the draft maker and TOTP. Publishing never detaches active orders.</p>
+              <p className="text-xs text-foreground-muted">Approval requires a different authenticated actor from the draft maker and TOTP. Publishing never detaches active orders.</p>
             </div>
           </motion.div>
           </FocusTrap>
@@ -531,7 +531,7 @@ export default function Zones() {
                 <button 
                   type="button"
                   onClick={() => setIsDeleteConfirmOpen(false)}
-                  className="flex-1 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-widest transition-all hover:bg-surface-subtle active:scale-[0.98]"
+                  className="flex-1 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-wide transition-all hover:bg-surface-subtle active:scale-[0.98]"
                 >
                   Cancel
                 </button>
@@ -545,7 +545,7 @@ export default function Zones() {
                     });
                   }}
                   disabled={deleteMutation.isPending}
-                  className="flex-1 py-4 rounded-2xl bg-error text-on-error font-black text-xs uppercase tracking-widest shadow-lg shadow-error flex items-center justify-center gap-2 transition-all hover:bg-error active:scale-[0.98]"
+                  className="flex-1 py-4 rounded-2xl bg-error text-on-error font-black text-xs uppercase tracking-wide shadow-lg shadow-error flex items-center justify-center gap-2 transition-all hover:bg-error active:scale-[0.98]"
                 >
                   {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : null}
                   Deactivate Now
@@ -749,13 +749,13 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
                     type="button"
                     onClick={handleFetchBoundary}
                     disabled={isFetchingRegion}
-                    className="px-4 py-3 rounded-xl bg-primary/20 hover:bg-primary/30 border border-primary/30 text-primary-light font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-1.5 active:scale-[0.98]"
+                    className="px-4 py-3 rounded-xl bg-primary/20 hover:bg-primary/30 border border-primary/30 text-primary-light font-black text-xs uppercase tracking-wide transition-all flex items-center gap-1.5 active:scale-[0.98]"
                   >
                     {isFetchingRegion ? <Loader2 size={12} className="animate-spin" aria-hidden="true" /> : <Search size={12} aria-hidden="true" />}
                     Fetch
                   </button>
                 </div>
-                <p className="text-[9px] text-foreground-muted font-medium italic">Queries OpenStreetMap for verified administrative boundaries automatically.</p>
+                <p className="text-xs text-foreground-muted font-medium italic">Queries OpenStreetMap for verified administrative boundaries automatically.</p>
               </div>
             )}
 
@@ -804,14 +804,14 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
                 />
               </div>
               <div className="space-y-2">
-                <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Status</span>
+                <span className="text-xs font-black text-foreground-muted uppercase tracking-wide">Status</span>
                 <button
                   type="button"
                   aria-pressed={formData.is_active}
                   aria-label={`Zone status ${formData.is_active ? 'active' : 'inactive'}`}
                   onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
                   className={cn(
-                    "w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all",
+                    "w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wide transition-all",
                     formData.is_active ? "bg-success-surface text-success border border-success" : "bg-error-surface text-error border border-error"
                   )}
                 >
@@ -825,7 +825,7 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-widest"
+              className="flex-1 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-wide"
             >
               Abort
             </button>
@@ -833,7 +833,7 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
               type="button"
               onClick={() => onSave(formData)}
               disabled={isSaving}
-              className="flex-1 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+              className="flex-1 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
             >
               {isSaving ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Save size={16} aria-hidden="true" />}
               Commit Changes
