@@ -29,6 +29,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { SafeImage } from '@/components/a11y/SafeImage';
+import { FocusTrap } from '@/components/a11y/FocusTrap';
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const LEGACY_PROFILE_PIC_KEY = 'tembus_profile_pic';
@@ -990,18 +991,25 @@ export default function ProfilPage() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-background/80 backdrop-blur-md flex items-center justify-center p-4 z-50 select-none"
           >
+            <FocusTrap active={isCropOpen} className="w-full max-w-sm">
             <motion.div
               initial={{ scale: 0.95, y: 15 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 15 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="profile-photo-title"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape' && !isUploadingPhoto) handleCloseCrop();
+              }}
               className="bg-card border border-border/40 max-w-sm w-full rounded-2xl p-6 shadow-xl space-y-5 my-auto select-none"
             >
               <div className="flex items-center justify-between select-none">
-                <h3 className="text-sm font-bold text-foreground select-none">Sesuaikan Foto Profil</h3>
+                <h3 id="profile-photo-title" className="text-sm font-bold text-foreground select-none">Sesuaikan Foto Profil</h3>
                 <button
+                  type="button"
                   onClick={handleCloseCrop}
                   disabled={isUploadingPhoto}
-                  type="button"
                   aria-label="Tutup editor foto profil"
                   className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-all cursor-pointer select-none"
                 >
@@ -1040,6 +1048,7 @@ export default function ProfilPage() {
                 </button>
               </div>
             </motion.div>
+            </FocusTrap>
           </motion.div>
         )}
       </AnimatePresence>

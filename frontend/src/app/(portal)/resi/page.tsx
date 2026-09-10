@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
+import { FocusTrap } from '@/components/a11y/FocusTrap';
 import { clientLog } from '@/lib/clientLogger';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { 
@@ -492,14 +493,21 @@ export default function ResiPage() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-background/80 backdrop-blur-md flex items-center justify-center p-4 z-50 select-none"
           >
+            <FocusTrap active={isDownloadingZip} className="w-full max-w-md">
             <motion.div
               initial={{ scale: 0.95, y: 15 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 15 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="resi-download-title"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setIsDownloadingZip(false);
+              }}
               className="bg-card border border-border/40 max-w-md w-full rounded-2xl p-6 shadow-xl space-y-4"
             >
               <div className="flex items-center justify-between select-none">
-                <h3 className="text-base font-bold text-foreground">Status ZIP Download</h3>
+                <h3 id="resi-download-title" className="text-base font-bold text-foreground">Status ZIP Download</h3>
                 {!isZipFinished && <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />}
               </div>
               <p className="text-xs text-muted-foreground select-none">
@@ -518,6 +526,7 @@ export default function ResiPage() {
 
               <div className="flex justify-end gap-3 pt-2">
                 <button
+                  type="button"
                   onClick={() => setIsDownloadingZip(false)}
                   className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground font-medium text-xs rounded-xl transition-all cursor-pointer select-none"
                 >
@@ -525,6 +534,7 @@ export default function ResiPage() {
                 </button>
                 {isZipFinished && (
                   <button
+                    type="button"
                     onClick={executeZipDownload}
                     className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
                   >
@@ -533,6 +543,7 @@ export default function ResiPage() {
                 )}
               </div>
             </motion.div>
+            </FocusTrap>
           </motion.div>
         )}
       </AnimatePresence>

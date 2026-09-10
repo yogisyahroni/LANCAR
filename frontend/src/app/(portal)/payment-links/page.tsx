@@ -30,6 +30,7 @@ import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { ShippingSelector } from '@/components/ShippingSelector';
 import { TariffRequest, TariffResponse } from '@/hooks/useLogisticsTariff';
+import { FocusTrap } from '@/components/a11y/FocusTrap';
 
 const paymentLinkStatusLabel = (status: unknown) => {
   const normalized = String(status || '').trim().toUpperCase();
@@ -441,15 +442,22 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-scrim/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+      <FocusTrap active={isOpen} className="w-full max-w-2xl my-8">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="payment-link-form-title"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onClose();
+        }}
         className="w-full max-w-2xl bg-background border border-border dark:border-border rounded-[48px] overflow-hidden shadow-2xl shadow-primary/10 my-8"
       >
         <div className="p-10 space-y-8">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-black text-foreground italic uppercase tracking-tight">
+              <h2 id="payment-link-form-title" className="text-2xl font-black text-foreground italic uppercase tracking-tight">
                 Generate Payment Link
               </h2>
               <p className="text-muted-foreground text-xs mt-1 font-medium">Create a new invoice for your customer.</p>
@@ -655,6 +663,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
           )}
         </div>
       </motion.div>
+      </FocusTrap>
     </div>
   );
 }
