@@ -175,3 +175,31 @@ test('Customer scheduled pickup controls are keyboard reachable and Escape-dismi
   await expect(timePicker).not.toBeVisible();
   await expect(timeButton).toBeFocused();
 });
+
+test('Customer On-Demand validation connects visible errors to invalid fields @a11y', async ({ page }) => {
+  await installCustomerFormFixture(page);
+  await page.goto('/orders/new/ondemand', { waitUntil: 'domcontentloaded' });
+
+  const invalidFields = [
+    { testId: 'pickup-address-input', error: 'Alamat pickup minimal 5 karakter' },
+    { testId: 'dropoff-address-input', error: 'Alamat tujuan minimal 5 karakter' },
+    { testId: 'recipient-name-input', error: 'Nama penerima wajib diisi' },
+    { testId: 'recipient-phone-input', error: 'Nomor HP tidak valid' },
+    { testId: 'package-category-input', error: 'Pilih kategori paket' },
+  ] as const;
+
+  for (const field of invalidFields) {
+    const control = page.getByTestId(field.testId);
+    await control.fill('a');
+    await control.fill('');
+    await page.locator('body').click({ position: { x: 2, y: 2 } });
+
+    await expect(page.getByText(field.error, { exact: true })).toBeVisible();
+    await expect(control).toHaveAttribute('aria-invalid', 'true');
+    const describedBy = await control.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    for (const id of describedBy?.split(/\s+/).filter(Boolean) ?? []) {
+      await expect(page.locator(`#${id}`)).toContainText(field.error);
+    }
+  }
+});

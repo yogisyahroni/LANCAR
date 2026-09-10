@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
@@ -75,6 +75,19 @@ export default function FeatureFlags() {
       toast.error(flagErrorMessage(error, 'Gagal memperbarui feature flag'))
     },
   })
+
+  useEffect(() => {
+    if (!toggleTarget) return undefined
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !toggleMutation.isPending) {
+        setToggleTarget(null)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [toggleMutation.isPending, toggleTarget])
 
   const filteredFlags = useMemo(() => {
     const data = flagsQuery.data ?? []

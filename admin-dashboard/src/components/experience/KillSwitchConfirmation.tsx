@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
+import { FocusTrap } from '../a11y/FocusTrap'
 
 type Props = {
   open: boolean
@@ -30,10 +32,25 @@ export default function KillSwitchConfirmation({
   onCancel,
   onConfirm,
 }: Props) {
+  useEffect(() => {
+    if (!open) return undefined
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !busy) {
+        event.preventDefault()
+        onCancel()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [busy, onCancel, open])
+
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 p-4" role="dialog" aria-modal="true" aria-labelledby="kill-switch-confirm-title">
-      <div className="w-full max-w-xl rounded-3xl border border-error bg-background p-6 shadow-2xl">
+      <FocusTrap className="relative z-10 w-full max-w-xl">
+      <div className="w-full rounded-3xl border border-error bg-background p-6 shadow-2xl">
         <div className="flex items-start gap-3">
           <AlertTriangle className="mt-1 shrink-0 text-warning" size={22} aria-hidden="true" />
           <div>
@@ -52,6 +69,7 @@ export default function KillSwitchConfirmation({
           <button type="button" onClick={onConfirm} disabled={busy || !reason.trim()} className="rounded-xl bg-error px-4 py-2.5 text-xs font-black uppercase tracking-widest text-on-error disabled:opacity-50">{busy ? 'Menyimpan...' : active ? 'Aktifkan control' : 'Nonaktifkan control'}</button>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

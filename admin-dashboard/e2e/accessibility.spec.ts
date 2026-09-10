@@ -325,6 +325,14 @@ async function assertVisibleInteractiveNames(page: Page) {
         .filter(visible)
         .filter((element) => !['ascending', 'descending', 'none', 'other'].includes(element.getAttribute('aria-sort') ?? ''))
         .map((element) => ({ value: element.getAttribute('aria-sort'), html: element.outerHTML.slice(0, 180) })),
+      invalidControlledStates: Array.from(document.querySelectorAll<HTMLElement>('[role="switch"], [role="checkbox"], [role="radio"], [role="tab"]'))
+        .filter(visible)
+        .filter((element) => {
+          const role = element.getAttribute('role');
+          const attribute = role === 'tab' ? 'aria-selected' : 'aria-checked';
+          return !['true', 'false'].includes(element.getAttribute(attribute) ?? '');
+        })
+        .map((element) => ({ role: element.getAttribute('role'), html: element.outerHTML.slice(0, 180) })),
     }
 
     return { unnamed, labelMismatches, interactiveIconFindings, semanticFindings }
@@ -338,6 +346,7 @@ async function assertVisibleInteractiveNames(page: Page) {
     unnamedLiveRegions: [],
     unassociatedInvalidFields: [],
     invalidSortStates: [],
+    invalidControlledStates: [],
   })
 }
 
