@@ -52,6 +52,7 @@ import {
   useMapsRuntimeConfig
 } from '../components/TomTomMapsRuntime'
 import { useTheme } from '../providers/ThemeProvider'
+import { MapZoomControls } from '../components/MapZoomControls'
 import { FocusTrap } from '../components/a11y/FocusTrap'
 import { AttributionControl, MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
@@ -792,6 +793,7 @@ export default function Analytics() {
                   url={heatmapTileUrl}
                   attribution={heatmapTileAttribution}
                 />
+                <MapZoomControls label="Kontrol zoom demand density" />
                 {hasRows(heatData) && <HeatLayer points={heatData} />}
               </MapContainer>
               {mapsRuntimeConfig?.active_provider === 'tomtom_maps' && !shouldRenderTomTomMap && (

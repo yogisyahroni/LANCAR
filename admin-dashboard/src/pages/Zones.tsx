@@ -17,6 +17,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { AdminPageSkeleton } from '../components/ui/Skeleton'
 import { FocusTrap } from '../components/a11y/FocusTrap'
+import { MapZoomControls } from '../components/MapZoomControls'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
 import {
@@ -306,6 +307,7 @@ export default function Zones() {
               url={tileUrl}
               attribution={tileAttribution}
             />
+            <MapZoomControls label="Kontrol zoom editor zona" />
 
             <GeomanControl
               isDrawing={isDrawing}

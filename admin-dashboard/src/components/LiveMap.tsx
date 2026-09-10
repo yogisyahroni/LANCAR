@@ -18,6 +18,7 @@ import {
 } from './TomTomMapsRuntime'
 import { useTheme } from '../providers/ThemeProvider'
 import { OrderStatusBadge } from './OrderStatusBadge'
+import { MapZoomControls } from './MapZoomControls'
 
 // Fix for default marker icons in Leaflet + React
 import icon from 'leaflet/dist/images/marker-icon.png'
@@ -166,11 +167,12 @@ export default function LiveMap() {
         zoom={13}
         scrollWheelZoom={false}
         attributionControl={false}
-        style={{ height: '100%', width: '100%', background: 'var(--token-background)' }} aria-hidden="true">
-        <AttributionControl prefix={false} aria-hidden="true" />
+        style={{ height: '100%', width: '100%', background: 'var(--token-background)' }}>
+        <AttributionControl prefix={false} />
         <TileLayer
           attribution={tileAttribution}
-          url={tileUrl} aria-hidden="true" />
+          url={tileUrl} />
+        <MapZoomControls label="Kontrol zoom peta kurir dan order" />
 
         {uniqueCourierPoints.map((point: CourierPoint, index: number) => {
           const lat = Number(point.lat)
