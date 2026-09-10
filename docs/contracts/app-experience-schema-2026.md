@@ -273,3 +273,23 @@ data-saver network the client uses the declared fallback, or skips the campaign
 when no verified lighter asset is available. The prefetch worker is
 non-critical background work and cannot gate the native splash or first usable
 screen.
+
+## Release boundary: remote changes versus app updates
+
+An installed client may receive only presentation and exposure changes that
+are already represented by its compiled renderer and typed schema: banner or
+promo content, campaign intro content after the native splash, localized
+assets/copy, home ordering and service-entry presentation, allowlisted CTA
+targets, schedule/audience, bounded campaign tokens, experiment exposure,
+operational notices, and version-policy messaging. The server still resolves
+market/service availability and every transaction boundary remains owned by
+the existing domain services.
+
+An app update is required for executable or native business logic, a component
+type or property not supported by the installed renderer, a new OS permission,
+capability, SDK or platform entitlement, a new payment/identity capability, a
+new deep-link/navigation capability, or any fundamental order/payment/state
+machine change. The native OS launch splash remains a packaged resource, and
+arbitrary app-icon replacement is not part of the manifest contract. Unknown
+components/properties and protected transaction fields are rejected rather
+than interpreted as remote code or native behavior.

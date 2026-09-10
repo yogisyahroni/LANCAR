@@ -2324,30 +2324,30 @@ A task is complete only when applicable boxes below are true:
 
 After `APP-2026-*` is implemented, these are intended to be remotely changeable within prebuilt component/schema limits:
 
-- [ ] Hero/header banners.
-- [ ] Promo carousel/cards.
-- [ ] Campaign intro immediately after native splash.
-- [ ] Marketing images/animations and localized copy.
-- [ ] Home section ordering.
-- [ ] Show/hide existing service entry by market/rollout/kill-switch policy.
-- [ ] Service badge/subtitle/marketing label.
-- [ ] Existing CTA/deeplink destination from allowlisted routes.
-- [ ] Campaign schedule/frequency/target cohort.
-- [ ] Safe design-token presets.
-- [ ] Feature exposure/experiment assignment.
-- [ ] Operational notices/help content.
-- [ ] Soft/hard minimum-version message/control.
+- [x] Hero/header banners. (Evidence: `APP-2026-003`, `APP-2026-005`.)
+- [x] Promo carousel/cards. (Evidence: `APP-2026-005`, `APP-2026-016`.)
+- [x] Campaign intro immediately after native splash. (Evidence: `APP-2026-004`.)
+- [x] Marketing images/animations and localized copy. (Evidence: `APP-2026-004`, `APP-2026-010`, `APP-2026-014`.)
+- [x] Home section ordering. (Evidence: `APP-2026-003`.)
+- [x] Show/hide existing service entry by market/rollout/kill-switch policy. (Evidence: `APP-2026-003`, `APP-2026-007`, `APP-2026-008`.)
+- [x] Service badge/subtitle/marketing label. (Evidence: `APP-2026-003`, `APP-2026-005`.)
+- [x] Existing CTA/deeplink destination from allowlisted routes. (Evidence: `APP-2026-005`, `APP-2026-011`.)
+- [x] Campaign schedule/frequency/target cohort. (Evidence: `APP-2026-004`, `APP-2026-008`.)
+- [x] Safe design-token presets. (Evidence: `APP-2026-006`.)
+- [x] Feature exposure/experiment assignment. (Evidence: `APP-2026-007`, `APP-2026-008`.)
+- [x] Operational notices/help content. (Evidence: `APP-2026-013`, `APP-2026-014`.)
+- [x] Soft/hard minimum-version message/control. (Evidence: `APP-2026-015`.)
 
 # WHAT STILL REQUIRES AN APP UPDATE
 
-- [ ] New executable/native business logic.
-- [ ] New component type not already supported by the installed renderer.
-- [ ] New OS permission/capability/SDK/native library.
-- [ ] New payment/identity capability requiring native SDK or platform entitlement.
-- [ ] New deep-link/navigation capability not present in installed app.
-- [ ] Fundamental transaction-state/order logic changes.
-- [ ] Arbitrary replacement of the OS-controlled native launch splash with network content.
-- [ ] Arbitrary new app icon unless the platform-specific alternate icon/alias assets were already shipped and supported.
+- [x] New executable/native business logic. (Evidence: `APP-2026-011`, `APP-2026-016`.)
+- [x] New component type not already supported by the installed renderer. (Evidence: `APP-2026-003`, `APP-2026-016`.)
+- [x] New OS permission/capability/SDK/native library. (Evidence: `APP-2026-011`; release boundary in `docs/contracts/app-experience-schema-2026.md`.)
+- [x] New payment/identity capability requiring native SDK or platform entitlement. (Evidence: `APP-2026-001`, `APP-2026-011`.)
+- [x] New deep-link/navigation capability not present in installed app. (Evidence: `APP-2026-005`, `APP-2026-011`.)
+- [x] Fundamental transaction-state/order logic changes. (Evidence: `APP-2026-001`, `APP-2026-011`, `APP-2026-016`.)
+- [x] Arbitrary replacement of the OS-controlled native launch splash with network content. (Evidence: `APP-2026-004`; release boundary in `docs/contracts/app-experience-schema-2026.md`.)
+- [x] Arbitrary new app icon unless the platform-specific alternate icon/alias assets were already shipped and supported. (Evidence: release boundary in `docs/contracts/app-experience-schema-2026.md`; unknown manifest properties are rejected by `APP-2026-011`.)
 
 ---
 
