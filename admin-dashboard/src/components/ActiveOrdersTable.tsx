@@ -84,7 +84,7 @@ const getInitials = (name?: string | null) => {
 function InitialsAvatar({ name }: { name?: string | null }) {
   return (
     <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary-light flex items-center justify-center shadow-inner">
-      <span className="text-[10px] font-black uppercase tracking-widest">{getInitials(name)}</span>
+      <span className="text-xs font-black uppercase tracking-wide">{getInitials(name)}</span>
     </div>
   )
 }
@@ -94,13 +94,13 @@ function ErrorState({ title, message, onRetry }: { title: string; message: strin
     <div className="py-20 text-center space-y-4">
       <AlertCircle aria-hidden="true" className="w-12 h-12 text-error mx-auto" />
       <div>
-        <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">{title}</p>
+        <p className="text-foreground-muted font-black uppercase tracking-wide text-xs">{title}</p>
         <p className="text-foreground-muted text-sm mt-2">{message}</p>
       </div>
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
+        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-xs font-black uppercase tracking-wide hover:bg-error-surface transition-all"
       >
         <RefreshCw size={14} aria-hidden="true" />
         Retry
@@ -256,17 +256,17 @@ function ProviderRawEventsPanel({ events }: { events: any[] }) {
   return (
     <div className="space-y-4 p-8 rounded-[40px] bg-surface border border-warning shadow-inner">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black text-warning uppercase tracking-widest">Provider Raw Events</p>
-        <span className="px-3 py-1 rounded-full bg-warning-surface border border-warning text-[10px] font-black text-warning">Ops only · {events.length}</span>
+        <p className="text-xs font-black text-warning uppercase tracking-wide">Provider Raw Events</p>
+        <span className="px-3 py-1 rounded-full bg-warning-surface border border-warning text-xs font-black text-warning">Ops only · {events.length}</span>
       </div>
       <div className="space-y-3">
         {events.map((event: any, index: number) => (
           <details key={event.id || index} className="rounded-2xl border border-border bg-surface/[0.03] p-4">
             <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-black text-foreground-muted">
               <span>{event.provider || 'Provider'} · {event.event_id || 'Event'} · {event.raw_status || event.canonical_status || 'UNKNOWN'}</span>
-              <span className="text-[10px] text-foreground-muted">Raw payload</span>
+              <span className="text-xs text-foreground-muted">Raw payload</span>
             </summary>
-            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-scrim/30 p-3 text-[10px] leading-relaxed text-foreground-muted">{event.raw_payload || 'Payload raw tidak tersedia.'}</pre>
+            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-scrim/30 p-3 text-xs leading-relaxed text-foreground-muted">{event.raw_payload || 'Payload raw tidak tersedia.'}</pre>
           </details>
         ))}
       </div>
@@ -285,7 +285,7 @@ function ServiceReportProofGrid({ proofs }: { proofs: ReportProof[] }) {
     return (
       <div className="rounded-2xl bg-surface-raised border border-border p-5 text-center">
         <ImageIcon size={24} aria-hidden="true" className="mx-auto text-foreground-muted mb-2" />
-        <span className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] block">Belum ada foto report</span>
+        <span className="text-xs font-black text-foreground-muted uppercase tracking-wide block">Belum ada foto report</span>
       </div>
     )
   }
@@ -303,7 +303,7 @@ function ServiceReportProofGrid({ proofs }: { proofs: ReportProof[] }) {
           >
             <img src={url} className="w-full h-32 object-cover opacity-90 group-hover:opacity-100 transition-opacity" alt={proof.label} />
             <div className="p-3 flex items-center justify-between gap-3">
-              <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">{proof.label}</span>
+              <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">{proof.label}</span>
               <ImageIcon size={14} aria-hidden="true" className="text-foreground-muted group-hover:text-primary-light transition-colors" />
             </div>
           </button>
@@ -318,18 +318,18 @@ function TambalBanReportPanel({ report }: { report: any }) {
   return (
     <div className="p-8 rounded-[40px] bg-surface border border-border space-y-6 shadow-inner">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+        <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
           <AlertCircle size={14} aria-hidden="true" className="text-accent" />
           Laporan Tambal Ban
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Kondisi Awal</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Kondisi Awal</p>
           <p className="text-sm font-black text-foreground-muted mt-1">{report.tire_condition_before || report.damage_type || 'N/A'}</p>
         </div>
         <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Kondisi Akhir</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Kondisi Akhir</p>
           <p className="text-sm font-black text-foreground-muted mt-1">{report.tire_condition_after || report.description || 'N/A'}</p>
         </div>
       </div>
@@ -340,7 +340,7 @@ function TambalBanReportPanel({ report }: { report: any }) {
         ]}
       />
       <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-        <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Catatan Teknisi</p>
+        <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Catatan Teknisi</p>
         <p className="text-sm font-black text-foreground-muted mt-1">{report.notes || report.technician_notes || '-'}</p>
       </div>
     </div>
@@ -352,18 +352,18 @@ function TowingReportPanel({ report }: { report: any }) {
   return (
     <div className="p-8 rounded-[40px] bg-surface border border-border space-y-6 shadow-inner">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+        <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
           <Truck size={14} aria-hidden="true" className="text-info" />
           Laporan Towing
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Kondisi Awal</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Kondisi Awal</p>
           <p className="text-sm font-black text-foreground-muted mt-1">{report.vehicle_condition_before || report.vehicle_condition || 'N/A'}</p>
         </div>
         <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Odometer</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Odometer</p>
           <p className="text-sm font-black text-foreground-muted mt-1">{report.odometer_reading ?? report.odometer_after ?? 'N/A'}</p>
         </div>
       </div>
@@ -382,12 +382,12 @@ function TowingReportPanel({ report }: { report: any }) {
           onClick={() => window.open(uploadUrl(report.signature_url), '_blank', 'noopener,noreferrer')}
           className="w-full rounded-2xl bg-primary/10 border border-primary/20 p-3 text-left flex items-center justify-between gap-3 hover:bg-primary/15 transition-colors"
         >
-          <span className="text-[10px] font-black uppercase tracking-widest text-primary-light">Buka tanda tangan customer</span>
+          <span className="text-xs font-black uppercase tracking-wide text-primary-light">Buka tanda tangan customer</span>
           <FileSignature size={16} className="text-primary-light" aria-hidden="true" />
         </button>
       )}
       <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-        <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Catatan Driver</p>
+        <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Catatan Driver</p>
         <p className="text-sm font-black text-foreground-muted mt-1">{report.notes || report.driver_notes || '-'}</p>
       </div>
     </div>
@@ -409,27 +409,27 @@ function RouteTelemetryPanel({ orderDetail }: { orderDetail: any }) {
       <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-br from-primary/15 via-surface-subtle to-transparent" />
       <div className="relative space-y-5">
         <div>
-          <p className="text-[10px] font-black text-foreground-secondary uppercase tracking-widest mb-1">Route Telemetry</p>
+          <p className="text-xs font-black text-foreground-secondary uppercase tracking-wide mb-1">Route Telemetry</p>
           <p className="text-sm font-black text-foreground leading-none">
             {hasRoute ? 'Koordinat berasal dari database order' : 'Route snapshot belum tersedia dari database'}
           </p>
         </div>
         <div className="grid grid-cols-1 gap-3">
           <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Pickup</p>
+            <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Pickup</p>
             <p className="text-xs font-mono text-foreground-muted mt-1">{formatCoord(pickupLat, pickupLng)}</p>
           </div>
           <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Dropoff</p>
+            <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Dropoff</p>
             <p className="text-xs font-mono text-foreground-muted mt-1">{formatCoord(dropoffLat, dropoffLng)}</p>
           </div>
           <div className="rounded-2xl bg-primary/10 border border-primary/20 p-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-primary-light">Courier Live</p>
+            <p className="text-xs font-black uppercase tracking-wide text-primary-light">Courier Live</p>
             <p className="text-xs font-mono text-foreground-muted mt-1">{formatCoord(courierLat, courierLng)}</p>
           </div>
         </div>
       </div>
-      <div className="relative flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+      <div className="relative flex items-center gap-2 text-xs font-black uppercase tracking-wide text-foreground-muted">
         <MapPin size={14} aria-hidden="true" className={hasRoute ? 'text-primary-light' : 'text-foreground-muted'} />
         Route geometry tetap berasal dari snapshot order; GPS trail ada di panel evidence.
       </div>
@@ -451,10 +451,10 @@ function GpsTrailPanel({ orderDetail }: { orderDetail: any }) {
     <div className="rounded-[40px] bg-surface border border-border p-8 space-y-5 shadow-inner">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-black text-foreground-secondary uppercase tracking-widest">GPS Evidence Trail</p>
+          <p className="text-xs font-black text-foreground-secondary uppercase tracking-wide">GPS Evidence Trail</p>
           <p className="mt-1 text-sm font-black text-foreground">{trail.length ? 'Breadcrumb trusted courier' : 'Belum ada GPS trail trusted'}</p>
         </div>
-        <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary-light">
+        <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-primary-light">
           {trail.length} titik
         </span>
       </div>
@@ -471,19 +471,19 @@ function GpsTrailPanel({ orderDetail }: { orderDetail: any }) {
           />
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-              <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Posisi dipilih</p>
+              <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Posisi dipilih</p>
               <p className="mt-1 text-xs font-mono text-foreground-muted">{formatPoint(selected)}</p>
             </div>
             <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-              <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Waktu</p>
+              <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Waktu</p>
               <p className="mt-1 text-xs text-foreground-muted">{selected?.recorded_at ? format(new Date(selected.recorded_at), 'dd MMM yyyy HH:mm:ss') : 'Tidak tersedia'}</p>
             </div>
             <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-              <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Akurasi / kecepatan</p>
+              <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Akurasi / kecepatan</p>
               <p className="mt-1 text-xs text-foreground-muted">{selected?.accuracy_m ?? '—'} m • {selected?.speed_kmh ?? '—'} km/j</p>
             </div>
           </div>
-          <p className="text-[10px] leading-relaxed text-foreground-muted">Slider memutar titik GPS yang tersimpan di `courier_locations`; telemetry spoofed dikeluarkan dari hasil.</p>
+          <p className="text-xs leading-relaxed text-foreground-muted">Slider memutar titik GPS yang tersimpan di `courier_locations`; telemetry spoofed dikeluarkan dari hasil.</p>
         </>
       ) : (
         <p className="rounded-2xl border border-dashed border-border p-5 text-center text-xs text-foreground-muted">Trail hanya muncul jika courier mengirim telemetry untuk order ini.</p>
@@ -508,58 +508,58 @@ function OperationalMonitoringPanel({ orderDetail }: { orderDetail: any }) {
   return (
     <div className="p-8 rounded-[40px] bg-surface/[0.02] border border-border space-y-6 shadow-inner">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+        <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
           <BarChart3 size={14} className="text-primary-light" aria-hidden="true" />
           Courier V2 Monitoring
         </p>
-        <span className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-black text-primary-light">
+        <span className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-black text-primary-light">
           P1
         </span>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Packages</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Packages</p>
           <p className="text-lg font-black text-foreground-muted mt-1">{packages.length}</p>
-          <p className="text-[10px] text-foreground-muted font-bold">{pickupReadyPackages} pickup verified</p>
+          <p className="text-xs text-foreground-muted font-bold">{pickupReadyPackages} pickup verified</p>
         </div>
         <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">POD</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">POD</p>
           <p className="text-lg font-black text-foreground-muted mt-1">{acceptedPackages}/{packages.length || 1}</p>
-          <p className="text-[10px] text-foreground-muted font-bold">same-order scope</p>
+          <p className="text-xs text-foreground-muted font-bold">same-order scope</p>
         </div>
       </div>
 
       <div className="rounded-[28px] bg-primary/5 border border-primary/10 p-4 space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Dispatch Decision</p>
+            <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Dispatch Decision</p>
             <p className="text-sm text-foreground-muted mt-1">{selectedDispatch?.courier_name || 'Belum ada offer dispatch'}</p>
           </div>
           <StatusBadge status={selectedDispatch?.status || 'pending'} labelPrefix="Dispatch status" />
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-2xl bg-surface/[0.03] p-2">
-            <p className="text-[10px] text-foreground-muted font-black uppercase">Rank</p>
+            <p className="text-xs text-foreground-muted font-black uppercase">Rank</p>
             <p className="text-xs text-foreground-muted font-black">{selectedDispatch?.rank_number ?? '---'}</p>
           </div>
           <div className="rounded-2xl bg-surface/[0.03] p-2">
-            <p className="text-[10px] text-foreground-muted font-black uppercase">Score</p>
+            <p className="text-xs text-foreground-muted font-black uppercase">Score</p>
             <p className="text-xs text-foreground-muted font-black">{readNumber(selectedDispatch?.score)?.toFixed(1) || '---'}</p>
           </div>
           <div className="rounded-2xl bg-surface/[0.03] p-2">
-            <p className="text-[10px] text-foreground-muted font-black uppercase">Distance</p>
+            <p className="text-xs text-foreground-muted font-black uppercase">Distance</p>
             <p className="text-xs text-foreground-muted font-black">{selectedDispatch?.distance_m ? `${selectedDispatch.distance_m}m` : '---'}</p>
           </div>
         </div>
-        <p className="text-[10px] leading-relaxed text-foreground-muted font-bold">
+        <p className="text-xs leading-relaxed text-foreground-muted font-bold">
           {dispatchMetadata.assignment_policy || dispatchMetadata.route_policy || 'Dispatch metadata belum tersedia dari route matcher.'}
         </p>
       </div>
 
       <div className="rounded-[28px] bg-surface/[0.03] border border-border p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Proof Risk</p>
+          <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Proof Risk</p>
           <StatusBadge status={latestProofAttempt?.proof_status || 'no_attempt'} labelPrefix="Proof status" />
         </div>
         <p className="text-xs text-foreground-muted leading-relaxed">
@@ -568,20 +568,20 @@ function OperationalMonitoringPanel({ orderDetail }: { orderDetail: any }) {
             : 'Proof attempt belum masuk.'}
         </p>
         {latestProofAttempt?.override_reason && (
-          <p className="text-[10px] text-warning font-bold">Override: {latestProofAttempt.override_reason}</p>
+          <p className="text-xs text-warning font-bold">Override: {latestProofAttempt.override_reason}</p>
         )}
-        <p className="text-[10px] text-foreground-muted font-bold">
+        <p className="text-xs text-foreground-muted font-bold">
           Policy: {proofPolicy.proof_gps_override_policy || proofPolicy.pod_label || 'snapshot belum tersedia'}
         </p>
       </div>
 
       <div className="rounded-[28px] bg-surface/[0.03] border border-border p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Face Verification</p>
-          <span className="text-[10px] text-foreground-muted font-black uppercase">{formatShortTime(latestFaceVerification?.created_at)}</span>
+          <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Face Verification</p>
+          <span className="text-xs text-foreground-muted font-black uppercase">{formatShortTime(latestFaceVerification?.created_at)}</span>
         </div>
         <StatusBadge status={latestFaceVerification?.status || 'no_verification'} labelPrefix="Face verification status" />
-        <p className="text-[10px] text-foreground-muted font-bold">
+        <p className="text-xs text-foreground-muted font-bold">
           {latestFaceVerification
             ? `${latestFaceVerification.verification_type} • liveness ${latestFaceVerification.liveness_score ?? '---'}`
             : 'Pickup dan POD wajib face verification sebelum bukti diterima server.'}
@@ -595,7 +595,7 @@ function StuckDiagnosticsPanel({ orderDetail }: { orderDetail: any }) {
   if (!orderDetail?.stuck_reason) {
     return (
       <div className="p-6 rounded-[32px] bg-success-surface border border-success space-y-2">
-        <p className="text-[10px] font-black text-success uppercase tracking-widest flex items-center gap-2">
+        <p className="text-xs font-black text-success uppercase tracking-wide flex items-center gap-2">
           <AlertCircle size={14} aria-hidden="true" />
           Stuck Diagnostics
         </p>
@@ -615,7 +615,7 @@ function StuckDiagnosticsPanel({ orderDetail }: { orderDetail: any }) {
     )}>
       <div className="flex items-start justify-between gap-4">
         <p className={cn(
-          'text-[10px] font-black uppercase tracking-widest flex items-center gap-2',
+          'text-xs font-black uppercase tracking-wide flex items-center gap-2',
           orderDetail.stuck_severity === 'critical' ? 'text-error' : 'text-warning'
         )}>
           <AlertCircle size={14} aria-hidden="true" />
@@ -630,7 +630,7 @@ function StuckDiagnosticsPanel({ orderDetail }: { orderDetail: any }) {
       </div>
       <div>
         <p className="text-sm font-black text-foreground-muted">{orderDetail.stuck_label || orderDetail.stuck_reason}</p>
-        <p className="mt-1 text-[10px] text-foreground-muted font-bold uppercase tracking-widest">
+        <p className="mt-1 text-xs text-foreground-muted font-bold uppercase tracking-wide">
           Since {formatStuckSince(orderDetail.stuck_since)}
         </p>
       </div>
@@ -673,33 +673,33 @@ function SupportResolutionPanel({ orderDetail }: { orderDetail: any }) {
   return (
     <div className="p-6 rounded-[32px] bg-error-surface border border-error space-y-5">
       <div className="flex items-start justify-between gap-4">
-        <p className="text-[10px] font-black text-error uppercase tracking-widest flex items-center gap-2">
+        <p className="text-xs font-black text-error uppercase tracking-wide flex items-center gap-2">
           <AlertCircle size={14} aria-hidden="true" />
           Support Case
         </p>
-        <span className="px-3 py-1 rounded-full bg-surface-subtle border border-border text-[10px] font-black text-foreground-muted uppercase">
+        <span className="px-3 py-1 rounded-full bg-surface-subtle border border-border text-xs font-black text-foreground-muted uppercase">
           {status || 'review'}
         </span>
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Reason</p>
+        <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Reason</p>
         <p className="text-xs text-foreground-muted font-bold leading-relaxed">{reason}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Proof</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Proof</p>
           <p className="text-sm font-black text-foreground-muted mt-1">{cancellationProofs.length}</p>
         </div>
         <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Audit Events</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Audit Events</p>
           <p className="text-sm font-black text-foreground-muted mt-1">{supportEvents.length}</p>
         </div>
       </div>
 
       <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-        <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Location</p>
+        <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Location</p>
         <p className="text-xs font-mono text-foreground-muted mt-1">
           {latitude !== null && longitude !== null ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : 'Belum ada koordinat bukti'}
         </p>
@@ -711,7 +711,7 @@ function SupportResolutionPanel({ orderDetail }: { orderDetail: any }) {
           onClick={() => window.open(uploadUrl(latestProof.photo_url), '_blank', 'noopener,noreferrer')}
           className="w-full rounded-2xl bg-error-surface border border-error p-3 text-left flex items-center justify-between gap-3 hover:bg-error-surface transition-colors"
         >
-          <span className="text-[10px] font-black uppercase tracking-widest text-error">Buka proof cancellation</span>
+          <span className="text-xs font-black uppercase tracking-wide text-error">Buka proof cancellation</span>
           <ImageIcon size={16} aria-hidden="true" className="text-error" />
         </button>
       )}
@@ -877,7 +877,7 @@ export default function ActiveOrdersTable() {
               setPage(1)
             }}
             className={cn(
-              'flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 border rounded-2xl text-sm font-black uppercase tracking-widest transition-all',
+              'flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 border rounded-2xl text-sm font-black uppercase tracking-wide transition-all',
               stuckFilter === 'risk'
                 ? 'bg-warning-surface border-warning text-warning'
                 : 'bg-surface-subtle border-border text-foreground-muted hover:bg-surface-subtle hover:text-foreground'
@@ -905,7 +905,7 @@ export default function ActiveOrdersTable() {
               setPage(1)
             }}
             className={cn(
-              'h-9 px-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all',
+              'h-9 px-3 rounded-xl border text-xs font-black uppercase tracking-wide transition-all',
               stuckFilter === filter.value
                 ? 'bg-primary text-on-primary border-primary shadow-lg shadow-primary/10'
                 : 'bg-surface/[0.03] border-border text-foreground-muted hover:text-foreground-muted hover:bg-surface/[0.06]'
@@ -970,7 +970,7 @@ export default function ActiveOrdersTable() {
         {isLoadingOrders ? (
           <div className="py-20 flex flex-col items-center justify-center space-y-4">
             <Skeleton className="h-10 w-10 rounded-full" />
-            <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Scanning Grid...</p>
+            <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Scanning Grid...</p>
           </div>
         ) : isOrdersError ? (
           <ErrorState
@@ -981,13 +981,13 @@ export default function ActiveOrdersTable() {
         ) : orders.length === 0 ? (
           <div className="py-20 text-center">
             <Package aria-hidden="true" className="w-12 h-12 text-foreground-muted mx-auto mb-4" />
-            <p className="text-foreground-muted font-bold uppercase tracking-widest text-xs">No active orders found</p>
+            <p className="text-foreground-muted font-bold uppercase tracking-wide text-xs">No active orders found</p>
           </div>
         ) : (
           <table className="w-full text-left" aria-label="Active orders">
             <caption className="sr-only">Active orders with customer, courier, status, risk, and revenue details</caption>
             <thead>
-              <tr className="sticky top-0 z-10 border-b border-border bg-surface-raised text-foreground-muted text-[10px] font-black uppercase tracking-[0.2em]">
+              <tr className="sticky top-0 z-10 border-b border-border bg-surface-raised text-foreground-muted text-xs font-black uppercase tracking-wide">
                 <th scope="col" className="px-6 py-4">ID & Model</th>
                 <th scope="col" className="px-6 py-4">Customer</th>
                 <th scope="col" className="px-6 py-4">Courier</th>
@@ -1027,13 +1027,13 @@ export default function ActiveOrdersTable() {
                       </div>
                       <div>
                         <span className="font-black text-foreground-muted block text-sm tracking-tight">{order.id}</span>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">{order.model} · {displayServiceCategory(order.service_category, order.service_code)}</span>
+                        <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">{order.model} · {displayServiceCategory(order.service_category, order.service_code)}</span>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-5">
                     <p className="text-sm font-bold text-foreground-muted">{order.customer_name || 'Customer belum tersedia dari API'}</p>
-                    <p className="text-[10px] text-foreground-muted font-medium">{order.customer_phone || order.customer_email || 'Profil customer belum tersinkron'}</p>
+                    <p className="text-xs text-foreground-muted font-medium">{order.customer_phone || order.customer_email || 'Profil customer belum tersinkron'}</p>
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
@@ -1079,7 +1079,7 @@ export default function ActiveOrdersTable() {
       </div>
 
       <div className="mt-8 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-6">
-        <p className="text-[10px] text-foreground-muted uppercase tracking-[0.2em] font-black">
+        <p className="text-xs text-foreground-muted uppercase tracking-wide font-black">
           {isLoadingOrders ? 'Calculating Grid...' : `Displaying ${orders.length} of ${total} logical units`}
         </p>
         <div className="flex items-center gap-2">
@@ -1164,10 +1164,10 @@ export default function ActiveOrdersTable() {
                             <div className="flex items-center gap-4">
                               <h2 id="admin-order-detail-title" className="text-5xl font-black text-foreground-muted tracking-tighter">{orderDetail.id}</h2>
                               <div className="flex gap-2">
-                                <span className="px-4 py-1.5 rounded-full bg-surface-subtle text-foreground-muted border border-border text-[10px] font-black uppercase tracking-widest">
+                                <span className="px-4 py-1.5 rounded-full bg-surface-subtle text-foreground-muted border border-border text-xs font-black uppercase tracking-wide">
                                   {orderDetail.model}
                                 </span>
-                                <span className="px-4 py-1.5 rounded-full bg-surface-subtle text-foreground-muted border border-border text-[10px] font-black uppercase tracking-widest">
+                                <span className="px-4 py-1.5 rounded-full bg-surface-subtle text-foreground-muted border border-border text-xs font-black uppercase tracking-wide">
                                   {displayServiceCategory(orderDetail.service_category, orderDetail.service_code)}
                                 </span>
                                 <OrderStatusBadge status={orderDetail.status} className="px-4 py-1.5" />
@@ -1182,7 +1182,7 @@ export default function ActiveOrdersTable() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                           <div className="space-y-6 p-8 rounded-[40px] bg-surface/[0.02] border border-border shadow-inner">
-                            <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                            <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
                               <Users size={14} aria-hidden="true" className="text-primary-light" />
                               Participants
                             </p>
@@ -1191,7 +1191,7 @@ export default function ActiveOrdersTable() {
                                 <span className="text-sm text-foreground-muted font-bold italic group-hover:text-foreground-muted transition-colors">Customer</span>
                                 <div className="text-right">
                                   <p className="text-sm font-black text-foreground-muted">{orderDetail.customer_name}</p>
-                                  <p className="text-[10px] text-foreground-muted font-medium">{orderDetail.customer_phone}</p>
+                                  <p className="text-xs text-foreground-muted font-medium">{orderDetail.customer_phone}</p>
                                 </div>
                               </div>
                               <div className="flex items-center justify-between group">
@@ -1199,7 +1199,7 @@ export default function ActiveOrdersTable() {
                                 <div className="flex items-center gap-3">
                                   <div className="text-right">
                                   <p className="text-sm font-black text-foreground-muted">{orderDetail.courier_name || 'Kurir belum ditugaskan'}</p>
-                                  <p className="text-[10px] text-foreground-muted font-medium">{orderDetail.courier_phone || '---'}</p>
+                                  <p className="text-xs text-foreground-muted font-medium">{orderDetail.courier_phone || '---'}</p>
                                 </div>
                                   <InitialsAvatar name={orderDetail.courier_name} />
                                 </div>
@@ -1208,7 +1208,7 @@ export default function ActiveOrdersTable() {
                           </div>
                           
                           <div className="space-y-6 p-8 rounded-[40px] bg-surface/[0.02] border border-border shadow-inner">
-                            <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                            <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
                               <BarChart3 size={14} className="text-primary-light" aria-hidden="true" />
                               Financial Overview
                             </p>
@@ -1222,7 +1222,7 @@ export default function ActiveOrdersTable() {
                                 <span className="text-sm font-black text-foreground-muted">Rp {parseInt(orderDetail.platform_fee).toLocaleString()}</span>
                               </div>
                               <div className="flex items-center justify-between pt-4 border-t border-border">
-                                <span className="text-sm font-black text-primary-light uppercase tracking-widest">Total Amount</span>
+                                <span className="text-sm font-black text-primary-light uppercase tracking-wide">Total Amount</span>
                                 <span className="text-xl font-black text-foreground-muted">Rp {parseInt(orderDetail.total_amount).toLocaleString()}</span>
                               </div>
                             </div>
@@ -1232,7 +1232,7 @@ export default function ActiveOrdersTable() {
                         {/* FB-110: rincian food (merchant + item + timeline masak) */}
                         {orderDetail.food_items?.length > 0 && (
                           <div className="space-y-6 p-8 rounded-[40px] bg-surface/[0.02] border border-border shadow-inner">
-                            <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                            <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
                               <UtensilsCrossed size={14} className="text-primary-light" aria-hidden="true" />
                               Food Order Detail
                             </p>
@@ -1244,7 +1244,7 @@ export default function ActiveOrdersTable() {
                                   </span>
                                   <div className="text-right">
                                     <p className="text-sm font-black text-foreground-muted">{orderDetail.food_merchant.merchant_name}</p>
-                                    <p className="text-[10px] text-foreground-muted font-medium">{orderDetail.food_merchant.merchant_address}</p>
+                                    <p className="text-xs text-foreground-muted font-medium">{orderDetail.food_merchant.merchant_address}</p>
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between">
@@ -1273,7 +1273,7 @@ export default function ActiveOrdersTable() {
                                       {item.quantity}× {item.item_name}
                                     </p>
                                     {Array.isArray(item.variants) && item.variants.length > 0 && (
-                                      <p className="mt-1 text-[10px] text-foreground-muted font-bold leading-relaxed">
+                                      <p className="mt-1 text-xs text-foreground-muted font-bold leading-relaxed">
                                         {item.variants.map((variant: any) => {
                                           const variantName = String(variant.variant_name || '').trim();
                                           const optionName = String(variant.option_name || '').trim();
@@ -1282,7 +1282,7 @@ export default function ActiveOrdersTable() {
                                       </p>
                                     )}
                                     {item.notes && (
-                                      <p className="text-[10px] text-foreground-muted font-medium">Catatan: {item.notes}</p>
+                                      <p className="text-xs text-foreground-muted font-medium">Catatan: {item.notes}</p>
                                     )}
                                   </div>
                                   <span className="shrink-0 text-sm font-black text-foreground-muted">Rp {parseInt(item.subtotal).toLocaleString()}</span>
@@ -1311,7 +1311,7 @@ export default function ActiveOrdersTable() {
                                       {event.label}
                                     </p>
                                     <p className="text-xs text-foreground-muted font-bold italic leading-relaxed">{event.description}</p>
-                                    {event.actor && <p className="text-[10px] text-foreground-muted font-mono">Actor: {event.actor}</p>}
+                                    {event.actor && <p className="text-xs text-foreground-muted font-mono">Actor: {event.actor}</p>}
                                   </div>
                                   <p className="text-sm font-black text-foreground-muted font-mono bg-surface-subtle px-3 py-1 rounded-lg">
                                     {event.createdAt && !Number.isNaN(new Date(event.createdAt).getTime()) ? format(new Date(event.createdAt), 'HH:mm:ss') : 'Waktu N/A'}
@@ -1328,7 +1328,7 @@ export default function ActiveOrdersTable() {
 
                       <div className="lg:w-96 space-y-10">
                         <div className="space-y-4">
-                           <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                           <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
                              <MapPin size={14} aria-hidden="true" className="text-primary-light" />
                              Dynamic Map View
                            </p>
@@ -1347,7 +1347,7 @@ export default function ActiveOrdersTable() {
                               }
                             }}
                             disabled={reassignMutation.isPending}
-                            className="w-full py-6 rounded-[32px] bg-primary text-on-primary font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60"
+                            className="w-full py-6 rounded-[32px] bg-primary text-on-primary font-black uppercase tracking-wide text-xs shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                           >
                             {reassignMutation.isPending ? <Loader2 size={20} aria-hidden="true" className="animate-spin" /> : <Truck size={20} aria-hidden="true" />}
                             Manual Reassign
@@ -1360,7 +1360,7 @@ export default function ActiveOrdersTable() {
                               }
                             }}
                             disabled={flagIssueMutation.isPending}
-                            className="w-full py-6 rounded-[32px] bg-error-surface text-error border border-error font-black uppercase tracking-[0.2em] text-[10px] hover:bg-error-surface transition-all flex items-center justify-center gap-3 disabled:opacity-60"
+                            className="w-full py-6 rounded-[32px] bg-error-surface text-error border border-error font-black uppercase tracking-wide text-xs hover:bg-error-surface transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                           >
                             {flagIssueMutation.isPending ? <Loader2 size={20} aria-hidden="true" className="animate-spin" /> : <AlertCircle size={20} aria-hidden="true" />}
                             Flag Issue
@@ -1369,7 +1369,7 @@ export default function ActiveOrdersTable() {
                             <button
                               type="button"
                               onClick={() => setShowForceCancel(true)}
-                              className="w-full py-6 rounded-[32px] bg-error-surface text-error border border-error font-black uppercase tracking-[0.2em] text-[10px] hover:bg-error-surface transition-all flex items-center justify-center gap-3"
+                              className="w-full py-6 rounded-[32px] bg-error-surface text-error border border-error font-black uppercase tracking-wide text-xs hover:bg-error-surface transition-all flex items-center justify-center gap-3"
                             >
                               <Ban size={20} aria-hidden="true" />
                               Force Cancel + Refund
@@ -1386,8 +1386,8 @@ export default function ActiveOrdersTable() {
 
                         <div className="p-8 rounded-[40px] bg-surface border border-border space-y-6 shadow-inner">
                           <div className="flex items-center justify-between gap-3">
-                            <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Evidence Vault</p>
-                            <span className="px-3 py-1 rounded-full bg-surface-subtle border border-border text-[10px] font-black text-foreground-muted">
+                            <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Evidence Vault</p>
+                            <span className="px-3 py-1 rounded-full bg-surface-subtle border border-border text-xs font-black text-foreground-muted">
                               {orderDetail.proofs?.length || 0} proof
                             </span>
                           </div>
@@ -1398,12 +1398,12 @@ export default function ActiveOrdersTable() {
                                   <div className="flex items-start justify-between gap-4">
                       <div>
                                       <p className="text-sm font-black text-foreground-muted">{proof.proof_label || proof.scan_type}</p>
-                                      <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+                                      <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">
                                         {proof.proof_category || 'operational'} {proof.recorded_at ? `• ${format(new Date(proof.recorded_at), 'HH:mm')}` : ''}
                                       </p>
                                     </div>
                                     {proof.reason_code && (
-                                      <span className="px-3 py-1 rounded-full bg-error-surface text-error border border-error text-[10px] font-black uppercase">
+                                      <span className="px-3 py-1 rounded-full bg-error-surface text-error border border-error text-xs font-black uppercase">
                                         {proof.reason_code.replace(/_/g, ' ')}
                                       </span>
                                     )}
@@ -1424,7 +1424,7 @@ export default function ActiveOrdersTable() {
                                   ) : (
                                     <div className="rounded-2xl bg-surface-raised border border-border p-5 text-center">
                                       <Package size={24} aria-hidden="true" className="mx-auto text-foreground-muted mb-2" />
-                                      <span className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] block">No Photo</span>
+                                      <span className="text-xs font-black text-foreground-muted uppercase tracking-wide block">No Photo</span>
                                     </div>
                                   )}
                                 </div>
@@ -1434,13 +1434,13 @@ export default function ActiveOrdersTable() {
                             <div className="aspect-square rounded-[32px] bg-surface-raised border border-border flex items-center justify-center group overflow-hidden relative">
                               <div className="text-center space-y-2">
                                 <Package size={32} aria-hidden="true" className="mx-auto text-foreground-muted group-hover:text-primary transition-colors" />
-                                <span className="text-[10px] font-black text-foreground-muted group-hover:text-foreground-muted transition-colors uppercase tracking-[0.2em] block">No Photo</span>
+                                <span className="text-xs font-black text-foreground-muted group-hover:text-foreground-muted transition-colors uppercase tracking-wide block">No Photo</span>
                               </div>
                             </div>
                           )}
                           {orderDetail.safety_events?.length ? (
                             <div className="rounded-[28px] bg-error-surface border border-error p-4 space-y-2">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-error">Operational Review</p>
+                              <p className="text-xs font-black uppercase tracking-wide text-error">Operational Review</p>
                               <p className="text-xs text-foreground-muted">
                                 {orderDetail.safety_events[0].message || 'Ada event operasional terkait order ini.'}
                               </p>
@@ -1453,7 +1453,7 @@ export default function ActiveOrdersTable() {
                   <div className="p-10 bg-surface/[0.02] border-t border-border flex justify-end">
                     <button 
                       onClick={() => setSelectedOrderId(null)}
-                      className="px-12 py-5 rounded-2xl bg-surface-raised text-foreground-muted font-black uppercase tracking-widest text-[10px] hover:bg-surface-subtle hover:text-foreground transition-all border border-border"
+                      className="px-12 py-5 rounded-2xl bg-surface-raised text-foreground-muted font-black uppercase tracking-wide text-xs hover:bg-surface-subtle hover:text-foreground transition-all border border-border"
                     >
                       Close Context
                     </button>
@@ -1462,8 +1462,8 @@ export default function ActiveOrdersTable() {
               ) : (
                 <div className="p-20 text-center space-y-4">
                   <AlertCircle aria-hidden="true" className="w-12 h-12 text-error mx-auto" />
-                  <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">Failed to load order metadata</p>
-                  <button onClick={() => setSelectedOrderId(null)} className="text-primary-light font-bold text-xs uppercase tracking-widest">Return to Grid</button>
+                  <p className="text-foreground-muted font-black uppercase tracking-wide text-xs">Failed to load order metadata</p>
+                  <button onClick={() => setSelectedOrderId(null)} className="text-primary-light font-bold text-xs uppercase tracking-wide">Return to Grid</button>
                 </div>
               )}
               </FocusTrap>
@@ -1507,7 +1507,7 @@ export default function ActiveOrdersTable() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-error">Admin action • audited</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-error">Admin action • audited</p>
                   <h2 id="force-cancel-title" className="mt-2 text-2xl font-black text-foreground-muted">Force cancel order?</h2>
                   <p className="mt-2 text-sm leading-relaxed text-foreground-muted">Status order akan menjadi cancelled. Tindakan ini tidak tersedia untuk order terminal dan wajib memakai TOTP di backend.</p>
                 </div>
@@ -1515,7 +1515,7 @@ export default function ActiveOrdersTable() {
               </div>
 
               <label className="block space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Reason (min. 10 karakter)</span>
+                <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">Reason (min. 10 karakter)</span>
                 <textarea
                   required
                   minLength={10}
@@ -1528,7 +1528,7 @@ export default function ActiveOrdersTable() {
               </label>
 
               <label className="block space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Refund mode</span>
+                <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">Refund mode</span>
                 <select
                   value={forceCancelRefundMode}
                   onChange={(event) => setForceCancelRefundMode(event.target.value as 'none' | 'full' | 'partial')}
@@ -1542,7 +1542,7 @@ export default function ActiveOrdersTable() {
 
               {forceCancelRefundMode === 'partial' && (
                 <div className="space-y-3 rounded-2xl border border-border bg-surface/[0.03] p-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Item yang direfund</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Item yang direfund</p>
                   {Array.isArray(orderDetail.food_items) && orderDetail.food_items.length > 0 ? orderDetail.food_items.map((item: any, index: number) => {
                     const itemId = String(item.id || item.menu_item_id || item.item_id || '')
                     const maxQuantity = Math.max(1, Number(item.quantity) || 1)
@@ -1565,8 +1565,8 @@ export default function ActiveOrdersTable() {
               )}
 
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" disabled={forceCancelMutation.isPending} onClick={() => setShowForceCancel(false)} className="rounded-2xl border border-border px-5 py-3 text-xs font-black uppercase tracking-widest text-foreground-muted hover:bg-surface-subtle disabled:opacity-60">Batal</button>
-                <button type="submit" disabled={forceCancelMutation.isPending} className="inline-flex items-center gap-2 rounded-2xl bg-error px-5 py-3 text-xs font-black uppercase tracking-widest text-on-error shadow-lg shadow-error hover:bg-error disabled:opacity-60">
+                <button type="button" disabled={forceCancelMutation.isPending} onClick={() => setShowForceCancel(false)} className="rounded-2xl border border-border px-5 py-3 text-xs font-black uppercase tracking-wide text-foreground-muted hover:bg-surface-subtle disabled:opacity-60">Batal</button>
+                <button type="submit" disabled={forceCancelMutation.isPending} className="inline-flex items-center gap-2 rounded-2xl bg-error px-5 py-3 text-xs font-black uppercase tracking-wide text-on-error shadow-lg shadow-error hover:bg-error disabled:opacity-60">
                   {forceCancelMutation.isPending && <Loader2 size={15} aria-hidden="true" className="animate-spin" />}
                   Konfirmasi cancel
                 </button>

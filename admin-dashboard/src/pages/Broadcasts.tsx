@@ -171,7 +171,7 @@ export default function Broadcasts() {
                 setFromDate('')
                 setToDate('')
               }}
-              className="pb-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted hover:text-error transition-colors"
+              className="pb-2 text-xs font-black uppercase tracking-wide text-foreground-muted hover:text-error transition-colors"
             >
               Reset
             </button>
@@ -216,7 +216,7 @@ export default function Broadcasts() {
                     <button
                       type="button"
                       onClick={() => listQuery.refetch()}
-                      className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
+                      className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-xs font-black uppercase tracking-wide hover:bg-error-surface transition-all"
                     >
                       <RefreshCw size={14} aria-hidden="true" />
                       Retry
@@ -237,12 +237,12 @@ export default function Broadcasts() {
                     >
                       <td className="px-6 py-6 max-w-xs">
                         <p className="font-bold text-foreground-muted truncate" title={row.title}>{row.title}</p>
-                        <p className="text-[11px] text-foreground-muted mt-1 line-clamp-1" title={row.body}>{row.body}</p>
+                        <p className="text-xs text-foreground-muted mt-1 line-clamp-1" title={row.body}>{row.body}</p>
                         <div className="flex gap-1.5 mt-2">
-                          <span className="px-2 py-0.5 rounded-md bg-surface-raised text-foreground-muted border border-border text-[9px] uppercase font-bold">
+                          <span className="px-2 py-0.5 rounded-md bg-surface-raised text-foreground-muted border border-border text-xs uppercase font-bold">
                             {row.category}
                           </span>
-                          <span className="px-2 py-0.5 rounded-md bg-surface-raised text-foreground-muted border border-border text-[9px] uppercase font-bold">
+                          <span className="px-2 py-0.5 rounded-md bg-surface-raised text-foreground-muted border border-border text-xs uppercase font-bold">
                             {row.target_type}
                           </span>
                         </div>
@@ -250,7 +250,7 @@ export default function Broadcasts() {
                       <td className="px-6 py-6">
                         <StatusBadge status={row.status} labelPrefix="Broadcast status" />
                         {row.scheduled_at && row.status === 'scheduled' && (
-                          <p className="text-[10px] text-warning mt-2 flex items-center gap-1">
+                          <p className="text-xs text-warning mt-2 flex items-center gap-1">
                             <Calendar size={10} aria-hidden="true" /> {new Date(row.scheduled_at).toLocaleString('id-ID')}
                           </p>
                         )}
@@ -259,7 +259,7 @@ export default function Broadcasts() {
                         <p className="text-sm font-black text-foreground-muted tabular-nums">
                           {(row.total_targets ?? 0).toLocaleString('id-ID')}
                         </p>
-                        <p className="text-[10px] text-foreground-muted tabular-nums mt-0.5">
+                        <p className="text-xs text-foreground-muted tabular-nums mt-0.5">
                           {row.sent_count ?? 0} terkirim • {row.opened_count ?? 0} dibuka
                         </p>
                       </td>
@@ -293,7 +293,7 @@ export default function Broadcasts() {
                       </td>
                       <td className="px-6 py-6">
                         <p className="text-xs text-foreground-muted">{new Date(row.created_at).toLocaleDateString('id-ID')}</p>
-                        <p className="text-[10px] text-foreground-muted mt-0.5">
+                        <p className="text-xs text-foreground-muted mt-0.5">
                           {new Date(row.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </td>
@@ -348,7 +348,7 @@ export default function Broadcasts() {
                     <button
                       type="button"
                       onClick={openComposer}
-                      className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:text-foreground transition-all"
+                      className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted text-xs font-black uppercase tracking-wide hover:text-foreground transition-all"
                     >
                       <Plus size={14} aria-hidden="true" />
                       Buat broadcast pertama
