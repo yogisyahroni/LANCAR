@@ -25,7 +25,7 @@ link and one of `PASS`, `FAIL`, or `NOT_RUN`.
 - Android logic coverage: `gradlew.bat test` — PASS for courier, customer and merchant debug/release unit-test suites; interactive device E2E remains separate and unproven.
 - Local PostgreSQL market snapshot: `id-jk` readiness returned ready with no reason codes; 9 active compliance requirements, 4 active data policies and 5 enabled services were observed. The service-visible Compose database was migrated through `20260910000002`; this is local evidence, not staging evidence.
 - Local authenticated runtime: Admin login, direct/gateway `/me`, logout and core service health returned HTTP 200. The local Cloudflare Tunnel exposes this same local Compose stack at the public domains; it is not a VPS staging deployment.
-- Staging CI: run `34422587575` for commit `a54c8f6d` — repository verification, migration, security, container-audit, image build/push and evidence gate jobs PASS. Deployment guard reported `STAGING_SSH_HOST` missing, so `deployed=false`; browser E2E and k6 jobs were skipped.
+- Staging CI: run `34423256694` for commit `23ef57a8` — repository verification, migration, security, container-audit, image build/push and evidence gate jobs PASS. Deployment guard reported `STAGING_SSH_HOST` missing, so `deployed=false`; browser E2E and k6 jobs were skipped.
 - Public-domain probe: API/admin/app/merchant health returned `200` through the local tunnel. This does not prove current-commit VPS staging behavior.
 
 The hard-gate rows remain `NOT_RUN` until their required owner, environment,
