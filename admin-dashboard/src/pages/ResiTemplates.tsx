@@ -4,6 +4,7 @@ import { Plus, Edit2, Trash2, CheckCircle2, XCircle, Code2, Play, Eye, GripVerti
 import { api } from '../lib/api'
 import { toast } from 'sonner'
 import { Button } from '../components/Button'
+import { FocusTrap } from '../components/a11y/FocusTrap'
 import Barcode from 'react-barcode'
 
 interface ResiTemplate {
@@ -330,15 +331,23 @@ const ResiTemplates = () => {
               className="absolute inset-0 bg-scrim/60 backdrop-blur-sm"
               onClick={handleCloseModal}
             />
-            <motion.div 
+            <FocusTrap active={isModalOpen} className="w-full max-w-6xl h-[90vh]">
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="resi-template-editor-title"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') handleCloseModal()
+              }}
               className="bg-surface border border-border rounded-2xl w-full max-w-6xl z-10 overflow-hidden flex flex-col h-[90vh]"
             >
               <div className="p-4 border-b border-border flex justify-between items-center bg-surface-subtle">
                 <div className="flex items-center gap-4 flex-1">
-                  <input 
+                  <input
+                    aria-label="Nama template resi"
                     type="text" 
                     value={name}
                     onChange={e => setName(e.target.value)}
@@ -346,6 +355,7 @@ const ResiTemplates = () => {
                     placeholder="Template Name..."
                   />
                   <select
+                    aria-label="Provider template resi"
                     value={providerCode}
                     onChange={e => setProviderCode(e.target.value)}
                     className="bg-surface-raised border border-border rounded-lg px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
@@ -364,7 +374,8 @@ const ResiTemplates = () => {
               <div className="flex-1 flex overflow-hidden">
                 {/* Toolbox */}
                 <div className="w-64 border-r border-border bg-background p-4 overflow-y-auto">
-                  <h3 className="text-xs font-bold text-foreground-muted uppercase tracking-wider mb-4">Elements</h3>
+                    <h2 id="resi-template-editor-title" className="sr-only">Edit Resi Template</h2>
+                    <h3 className="text-xs font-bold text-foreground-muted uppercase tracking-wider mb-4">Elements</h3>
                   <div className="space-y-2">
                     {TOOLBOX_ITEMS.map(item => (
                       <div 
@@ -604,6 +615,7 @@ const ResiTemplates = () => {
                 <Button onClick={handleSubmit}>Save Template</Button>
               </div>
             </motion.div>
+            </FocusTrap>
           </div>
         )}
       </AnimatePresence>

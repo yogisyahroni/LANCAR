@@ -33,6 +33,7 @@ import { cn } from '../lib/utils'
 import { toast } from 'sonner'
 import { OrderStatusBadge } from '../components/OrderStatusBadge'
 import { StatusBadge } from '../components/StatusBadge'
+import { FocusTrap } from '../components/a11y/FocusTrap'
 
 // Resolve relative /uploads/... paths to absolute API server URL
 const resolvePhotoUrl = (photoUrl: string | null | undefined): string | null => {
@@ -806,19 +807,28 @@ export default function Couriers() {
               onClick={() => setIsBroadcastModalOpen(false)}
               className="absolute inset-0 bg-scrim/80 backdrop-blur-sm"
             />
+            <FocusTrap active={isBroadcastModalOpen} className="w-full max-w-lg">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="courier-broadcast-title"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setIsBroadcastModalOpen(false)
+              }}
               className="glass-card w-full max-w-lg p-8 rounded-[32px] relative z-10 border-border shadow-3xl"
             >
-              <h2 className="text-2xl font-black text-foreground-muted">Broadcast Undangan Basecamp</h2>
+              <h2 id="courier-broadcast-title" className="text-2xl font-black text-foreground-muted">Broadcast Undangan Basecamp</h2>
               <p className="text-sm text-foreground-muted mt-2">Kirim undangan ke {selectedCourierIds.length} kurir terpilih.</p>
 
               <div className="space-y-4 mt-6">
                 <div>
-                  <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Tanggal</label>
+                  <label htmlFor="courier-broadcast-date" className="text-xs font-black text-foreground-muted uppercase tracking-widest">Tanggal</label>
                   <input
+                    id="courier-broadcast-date"
+                    name="broadcast-date"
                     type="date"
                     value={broadcastDate}
                     onChange={(e) => setBroadcastDate(e.target.value)}
@@ -826,8 +836,10 @@ export default function Couriers() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Jam</label>
+                  <label htmlFor="courier-broadcast-time" className="text-xs font-black text-foreground-muted uppercase tracking-widest">Jam</label>
                   <input
+                    id="courier-broadcast-time"
+                    name="broadcast-time"
                     type="time"
                     value={broadcastTime}
                     onChange={(e) => setBroadcastTime(e.target.value)}
@@ -835,8 +847,10 @@ export default function Couriers() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Alamat Basecamp</label>
+                  <label htmlFor="courier-broadcast-address" className="text-xs font-black text-foreground-muted uppercase tracking-widest">Alamat Basecamp</label>
                   <textarea
+                    id="courier-broadcast-address"
+                    name="broadcast-address"
                     value={broadcastAddress}
                     onChange={(e) => setBroadcastAddress(e.target.value)}
                     className="w-full mt-2 bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors"
@@ -855,12 +869,14 @@ export default function Couriers() {
 
               <div className="flex justify-end gap-3 mt-8">
                 <button
+                  type="button"
                   onClick={() => setIsBroadcastModalOpen(false)}
                   className="px-5 py-2.5 rounded-xl font-bold text-sm text-foreground-muted hover:text-foreground transition-colors"
                 >
                   Batal
                 </button>
                 <button
+                  type="button"
                   onClick={() => broadcastMutation.mutate()}
                   disabled={!broadcastDate || !broadcastTime || !broadcastAddress || broadcastMutation.isPending}
                   className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-sm hover:bg-primary-light transition-colors disabled:opacity-60 flex items-center gap-2"
@@ -870,6 +886,7 @@ export default function Couriers() {
                 </button>
               </div>
             </motion.div>
+            </FocusTrap>
           </div>
         )}
       </AnimatePresence>
@@ -885,10 +902,21 @@ export default function Couriers() {
               onClick={() => { stopWebcam(); setSelectedCourierId(null); setDetailTab('profile') }}
               className="absolute inset-0 bg-scrim/80 backdrop-blur-sm"
             />
+            <FocusTrap active={Boolean(selectedCourierId)} className="w-full max-w-4xl">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="courier-detail-title"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  stopWebcam()
+                  setSelectedCourierId(null)
+                  setDetailTab('profile')
+                }
+              }}
               className="glass-card w-full max-w-4xl max-h-[90vh] overflow-y-auto p-10 rounded-[48px] relative z-10 border-border shadow-3xl shadow-scrim"
             >
               {/* Tab Switcher */}
@@ -964,7 +992,7 @@ export default function Couriers() {
                   <div className="md:w-2/3 space-y-10">
                     <div className="flex items-start justify-between border-b border-border pb-8">
                       <div>
-                        <h2 className="text-4xl font-black text-foreground-muted tracking-tighter">{courierDetail.full_name}</h2>
+                        <h2 id="courier-detail-title" className="text-4xl font-black text-foreground-muted tracking-tighter">{courierDetail.full_name}</h2>
                         <p className="text-foreground-muted font-medium mt-1">{courierDetail.id} • {courierDetail.plate_number || 'No Plate'}</p>
                         <p className="text-xs text-primary-light font-bold mt-2 flex items-center gap-2">
                           <MapPin size={12} aria-hidden="true" />
@@ -1251,6 +1279,7 @@ export default function Couriers() {
                 </div>
               )}
             </motion.div>
+            </FocusTrap>
           </div>
         )}
       </AnimatePresence>

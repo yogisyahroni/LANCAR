@@ -48,6 +48,7 @@ import { useI18n } from "@/components/i18n/I18nProvider";
 import { formatTime } from "@/i18n/format";
 import type { MessageKey } from "@/i18n/messages";
 import { useTheme } from "@/components/providers/ThemeProvider";
+import { FocusTrap } from "@/components/a11y/FocusTrap";
 
 interface DBNotification {
   id: string;
@@ -408,12 +409,19 @@ export default function PortalLayout({
               onClick={() => setIsMobileMenuOpen(false)}
               className="fixed inset-0 bg-scrim/60 backdrop-blur-sm z-[100] lg:hidden"
             />
+            <FocusTrap active={isMobileMenuOpen} className="fixed top-0 left-0 bottom-0 w-[280px] z-[101] lg:hidden">
             <motion.aside
               initial={{ x: -280 }}
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed top-0 left-0 bottom-0 w-[280px] bg-background z-[101] lg:hidden flex flex-col p-6 border-r border-border/40"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigasi mobile"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setIsMobileMenuOpen(false);
+              }}
+              className="h-full w-full bg-background flex flex-col p-6 border-r border-border/40"
             >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
@@ -474,6 +482,7 @@ export default function PortalLayout({
                 })}
               </nav>
             </motion.aside>
+            </FocusTrap>
           </>
         )}
       </AnimatePresence>
@@ -559,19 +568,27 @@ export default function PortalLayout({
                       className="fixed inset-0 z-40"
                       onClick={() => setIsNotifOpen(false)}
                     />
+                    <FocusTrap active={isNotifOpen} className="absolute right-0 mt-2 w-80 z-50">
                     <motion.div
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-80 bg-surface dark:bg-surface border border-border dark:border-border shadow-2xl rounded-2xl p-4 flex flex-col max-h-[380px] z-50 select-none"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label={t("common.notifications")}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") setIsNotifOpen(false);
+                      }}
+                      className="w-full bg-surface dark:bg-surface border border-border dark:border-border shadow-2xl rounded-2xl p-4 flex flex-col max-h-[380px] select-none"
                     >
                       <div className="flex items-center justify-between border-b border-border dark:border-border pb-2 mb-2">
                         <span className="text-xs font-semibold text-foreground">
                           {t("common.notifications")}
                         </span>
-                        <button
-                          onClick={async () => {
+                          <button
+                            type="button"
+                            onClick={async () => {
                             try {
                               await api.delete("/auth/web/notifications");
                               setBellNotifications([]);
@@ -589,7 +606,8 @@ export default function PortalLayout({
                       <div className="overflow-y-auto space-y-2 flex-1 scrollbar-hide">
                         {bellNotifications.length > 0 ? (
                           bellNotifications.map((notif) => (
-                            <div
+                            <button
+                              type="button"
                               key={notif.id}
                               className={cn(
                                 "p-2.5 rounded-xl transition-all duration-200 cursor-pointer",
@@ -649,7 +667,7 @@ export default function PortalLayout({
                               <span className="text-[9px] text-foreground-muted dark:text-foreground-muted mt-1 block">
                                 {formatTime(notif.created_at, locale)}
                               </span>
-                            </div>
+                            </button>
                           ))
                         ) : (
                           <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -661,6 +679,7 @@ export default function PortalLayout({
                         )}
                       </div>
                     </motion.div>
+                    </FocusTrap>
                   </>
                 )}
               </AnimatePresence>
@@ -670,7 +689,10 @@ export default function PortalLayout({
 
             {/* Profile Dropdown */}
             <div className="relative">
-              <div
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={isUserOpen}
                 className="flex items-center gap-3 group p-1.5 hover:bg-surface-subtle dark:hover:bg-surface-subtle rounded-xl transition-all cursor-pointer"
                 onClick={() => {
                   setIsUserOpen(!isUserOpen);
@@ -698,7 +720,7 @@ export default function PortalLayout({
                     />
                   </div>
                 </div>
-              </div>
+              </button>
 
               <AnimatePresence>
                 {isUserOpen && (
@@ -707,15 +729,22 @@ export default function PortalLayout({
                       className="fixed inset-0 z-40"
                       onClick={() => setIsUserOpen(false)}
                     />
+                    <FocusTrap active={isUserOpen} className="absolute right-0 mt-2 w-48 z-50">
                     <motion.div
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-48 bg-surface dark:bg-surface border border-border dark:border-border shadow-2xl rounded-2xl p-2 flex flex-col z-50 select-none"
+                      role="menu"
+                      aria-label={t("nav.profileLink")}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") setIsUserOpen(false);
+                      }}
+                      className="w-full bg-surface dark:bg-surface border border-border dark:border-border shadow-2xl rounded-2xl p-2 flex flex-col select-none"
                     >
                       <Link
                         href="/profil"
+                        role="menuitem"
                         onClick={() => setIsUserOpen(false)}
                         className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-foreground-muted dark:text-foreground-muted hover:bg-surface-subtle dark:hover:bg-surface-subtle hover:text-foreground transition-all duration-200 select-none"
                       >
@@ -723,6 +752,8 @@ export default function PortalLayout({
                         {t("nav.profileLink")}
                       </Link>
                       <button
+                        type="button"
+                        role="menuitem"
                         onClick={handleLogout}
                         className="flex items-center gap-2 px-3 py-2 mt-1 rounded-xl text-sm text-foreground-muted hover:bg-error-surface hover:text-error transition-all duration-200 select-none cursor-pointer text-left w-full"
                       >
@@ -730,6 +761,7 @@ export default function PortalLayout({
                         {t("nav.logout")}
                       </button>
                     </motion.div>
+                    </FocusTrap>
                   </>
                 )}
               </AnimatePresence>
@@ -780,12 +812,19 @@ export default function PortalLayout({
       <AnimatePresence>
         {isSearchOpen && (
           <div className="fixed inset-0 bg-background/60 backdrop-blur-sm flex items-start justify-center pt-[15vh] px-4 z-[150] select-none transition-all duration-300">
+            <FocusTrap active={isSearchOpen} className="w-full max-w-lg">
             <motion.div
               initial={{ opacity: 0, y: -20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-lg glass-card rounded-2xl shadow-2xl p-4 flex flex-col gap-3 select-none overflow-hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("nav.featureSearchPlaceholder")}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setIsSearchOpen(false);
+              }}
+              className="w-full glass-card rounded-2xl shadow-2xl p-4 flex flex-col gap-3 select-none overflow-hidden"
             >
               <div className="flex items-center gap-3 border border-border dark:border-border bg-surface-subtle dark:bg-surface-subtle rounded-xl px-3 py-2.5 transition-all shadow-sm">
                 <Search className="h-4 w-4 text-foreground-muted shrink-0" aria-hidden="true" />
@@ -838,6 +877,7 @@ export default function PortalLayout({
                 )}
               </div>
             </motion.div>
+            </FocusTrap>
           </div>
         )}
       </AnimatePresence>

@@ -56,6 +56,7 @@ import { toast } from 'sonner'
 import { useAuthStore } from '../store/useAuthStore'
 import { APP_EXPERIENCE_NAVIGATION } from '../config/appExperienceNavigation'
 import { hasExperiencePermission } from '../lib/experiencePermissions'
+import { FocusTrap } from './a11y/FocusTrap'
 
 import { createPortal } from 'react-dom'
 import { useTheme } from '../providers/ThemeProvider'
@@ -528,12 +529,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               onClick={() => setIsMobileMenuOpen(false)}
               className="fixed inset-0 bg-scrim/60 z-[100] lg:hidden"
             />
+            <FocusTrap active={isMobileMenuOpen} className="fixed top-0 left-0 bottom-0 w-[280px] z-[101] lg:hidden">
             <motion.aside
               initial={{ x: -280 }}
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 left-0 bottom-0 w-[280px] bg-background z-[101] lg:hidden flex flex-col p-6 overflow-y-auto border-r border-border"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigasi mobile Admin"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setIsMobileMenuOpen(false)
+              }}
+              className="h-full w-full bg-background flex flex-col p-6 overflow-y-auto border-r border-border"
             >
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -547,6 +555,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {renderNavGroups(false)}
               </nav>
             </motion.aside>
+            </FocusTrap>
           </>
         )}
       </AnimatePresence>
@@ -609,12 +618,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       className="fixed inset-0 z-10" 
                       onClick={() => setIsNotifOpen(false)} 
                     />
+                    <FocusTrap active={isNotifOpen} className="absolute right-0 mt-3 w-80 z-20">
                     <motion.div
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-3 w-80 bg-surface-raised border border-border rounded-3xl p-4 flex flex-col max-h-[500px] z-20 shadow-2xl shadow-scrim overflow-hidden"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label="Notifications"
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') setIsNotifOpen(false)
+                      }}
+                      className="w-full bg-surface-raised border border-border rounded-3xl p-4 flex flex-col max-h-[500px] shadow-2xl shadow-scrim overflow-hidden"
                     >
                       <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
                         <div className="flex items-center gap-2">
@@ -622,7 +638,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           <span className="text-[11px] font-black text-foreground-muted uppercase tracking-[0.2em]">Notifications</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <button 
+                          <button
+                            type="button"
                             onClick={async () => {
                               try {
                                 await api.delete('/auth/web/notifications')
@@ -689,6 +706,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         )}
                       </div>
                     </motion.div>
+                    </FocusTrap>
                   </>
                 )}
               </AnimatePresence>

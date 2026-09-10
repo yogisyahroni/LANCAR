@@ -16,6 +16,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { AdminPageSkeleton } from '../components/ui/Skeleton'
+import { FocusTrap } from '../components/a11y/FocusTrap'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
 import {
@@ -435,11 +436,22 @@ export default function Zones() {
 
       {zonePreview && (
         <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-surface-subtle backdrop-blur-md">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-2xl bg-surface border border-warning rounded-[40px] overflow-hidden shadow-2xl">
+          <FocusTrap active={Boolean(zonePreview)} className="w-full max-w-2xl">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="zone-revision-preview-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setZonePreview(null)
+            }}
+            className="w-full max-w-2xl bg-surface border border-warning rounded-[40px] overflow-hidden shadow-2xl"
+          >
             <div className="p-10 space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-black text-foreground-muted uppercase italic">Zone Revision Preview</h3>
+                  <h2 id="zone-revision-preview-title" className="text-xl font-black text-foreground-muted uppercase italic">Zone Revision Preview</h2>
                   <p className="text-xs text-foreground-muted mt-2">Revision {zonePreview.draft?.revision_number} · {zonePreview.diff?.active_orders_count || 0} active order assignments preserved</p>
                 </div>
                 <button type="button" onClick={() => setZonePreview(null)} aria-label="Close zone revision preview" title="Close zone revision preview" className="p-2 text-foreground-muted hover:text-foreground"><X size={20} aria-hidden="true" /></button>
@@ -460,10 +472,10 @@ export default function Zones() {
               </div>
               <div className="flex flex-wrap gap-3">
                 {zonePreview.draft?.status === 'draft' && (
-                  <button onClick={() => approveMutation.mutate({ id: selectedZone.id, revisionId: zonePreview.draft.id })} disabled={approveMutation.isPending} className="px-5 py-3 rounded-xl bg-warning text-on-warning font-black text-[10px] uppercase tracking-widest">Approve</button>
+                  <button type="button" onClick={() => approveMutation.mutate({ id: selectedZone.id, revisionId: zonePreview.draft.id })} disabled={approveMutation.isPending} className="px-5 py-3 rounded-xl bg-warning text-on-warning font-black text-[10px] uppercase tracking-widest">Approve</button>
                 )}
                 {zonePreview.draft?.status === 'approved' && (
-                  <button onClick={() => publishMutation.mutate({ id: selectedZone.id, revisionId: zonePreview.draft.id })} disabled={publishMutation.isPending} className="px-5 py-3 rounded-xl bg-success text-on-success font-black text-[10px] uppercase tracking-widest">Publish</button>
+                  <button type="button" onClick={() => publishMutation.mutate({ id: selectedZone.id, revisionId: zonePreview.draft.id })} disabled={publishMutation.isPending} className="px-5 py-3 rounded-xl bg-success text-on-success font-black text-[10px] uppercase tracking-widest">Publish</button>
                 )}
                 <select
                   aria-label="Rollback target revision"
@@ -481,15 +493,23 @@ export default function Zones() {
               <p className="text-[10px] text-foreground-muted">Approval requires a different authenticated actor from the draft maker and TOTP. Publishing never detaches active orders.</p>
             </div>
           </motion.div>
+          </FocusTrap>
         </div>
       )}
 
       {/* Premium Custom Deactivation Confirmation Modal */}
       {isDeleteConfirmOpen && (
         <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-surface-subtle backdrop-blur-md">
-          <motion.div 
+          <FocusTrap active={isDeleteConfirmOpen} className="w-full max-w-md">
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="zone-deactivate-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setIsDeleteConfirmOpen(false)
+            }}
             className="w-full max-w-md bg-surface border border-error rounded-[40px] overflow-hidden shadow-2xl shadow-error"
           >
             <div className="p-10 space-y-8 text-center">
@@ -498,7 +518,7 @@ export default function Zones() {
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-xl font-black text-foreground-muted uppercase italic tracking-tight">Deactivate Zone?</h3>
+                <h2 id="zone-deactivate-title" className="text-xl font-black text-foreground-muted uppercase italic tracking-tight">Deactivate Zone?</h2>
                 <p className="text-sm text-foreground-muted font-medium leading-relaxed">
                   Deactivate <span className="text-error font-bold">"{selectedZone?.name}"</span>? Existing orders keep their captured zone assignment and historical revisions remain available for rollback.
                 </p>
@@ -506,12 +526,14 @@ export default function Zones() {
 
               <div className="flex gap-4">
                 <button 
+                  type="button"
                   onClick={() => setIsDeleteConfirmOpen(false)}
                   className="flex-1 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-widest transition-all hover:bg-surface-subtle active:scale-[0.98]"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
+                  type="button"
                   onClick={() => {
                     deleteMutation.mutate(selectedZone.id, {
                       onSuccess: () => {
@@ -528,6 +550,7 @@ export default function Zones() {
               </div>
             </div>
           </motion.div>
+          </FocusTrap>
         </div>
       )}
     </div>
@@ -688,23 +711,32 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-surface-subtle backdrop-blur-sm">
-      <motion.div 
+      <FocusTrap active={isOpen} className="w-full max-w-lg">
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="zone-parameters-title"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onClose()
+        }}
         className="w-full max-w-lg bg-surface border border-border rounded-[40px] overflow-hidden"
       >
         <div className="p-10 space-y-8">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black text-foreground-muted uppercase italic tracking-tight">Zone Parameters</h2>
+            <h2 id="zone-parameters-title" className="text-xl font-black text-foreground-muted uppercase italic tracking-tight">Zone Parameters</h2>
             <button type="button" onClick={onClose} aria-label="Tutup detail zona" className="p-2 text-foreground-muted hover:text-foreground"><X size={20} aria-hidden="true" /></button>
           </div>
 
           <div className="space-y-6">
             {!zone?.id && (
               <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 space-y-3">
-                <label className="text-[10px] font-black text-primary-light uppercase tracking-widest">Auto-Fetch Boundary</label>
+                <label htmlFor="zone-boundary-search" className="text-[10px] font-black text-primary-light uppercase tracking-widest">Auto-Fetch Boundary</label>
                 <div className="flex gap-3">
-                  <input 
+                  <input
+                    id="zone-boundary-search"
+                    name="zone-boundary-search"
                     placeholder="Enter city/region (e.g. Surabaya)"
                     value={searchRegion}
                     onChange={e => setSearchRegion(e.target.value)}
@@ -725,16 +757,20 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
             )}
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Zone Name</label>
-              <input 
+              <label htmlFor="zone-name" className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Zone Name</label>
+              <input
+                id="zone-name"
+                name="zone-name"
                 value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Zone Code</label>
-              <input 
+              <label htmlFor="zone-code" className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Zone Code</label>
+              <input
+                id="zone-code"
+                name="zone-code"
                 value={formData.code}
                 onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -742,8 +778,10 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Market Code</label>
+              <label htmlFor="zone-market-code" className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Market Code</label>
               <input
+                id="zone-market-code"
+                name="zone-market-code"
                 value={formData.market_code}
                 onChange={e => setFormData({ ...formData, market_code: e.target.value.toUpperCase() })}
                 placeholder="ID-JK"
@@ -752,8 +790,10 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
             </div>
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Max Couriers</label>
-                <input 
+                <label htmlFor="zone-max-couriers" className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Max Couriers</label>
+                <input
+                  id="zone-max-couriers"
+                  name="zone-max-couriers"
                   type="number"
                   value={formData.max_couriers}
                   onChange={e => setFormData({ ...formData, max_couriers: Number(e.target.value) })}
@@ -761,8 +801,11 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Status</label>
-                <button 
+                <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Status</span>
+                <button
+                  type="button"
+                  aria-pressed={formData.is_active}
+                  aria-label={`Zone status ${formData.is_active ? 'active' : 'inactive'}`}
                   onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
                   className={cn(
                     "w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all",
@@ -776,13 +819,15 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
           </div>
 
           <div className="flex gap-4 pt-4">
-            <button 
+            <button
+              type="button"
               onClick={onClose}
               className="flex-1 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-widest"
             >
               Abort
             </button>
-            <button 
+            <button
+              type="button"
               onClick={() => onSave(formData)}
               disabled={isSaving}
               className="flex-1 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
@@ -793,6 +838,7 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
           </div>
         </div>
       </motion.div>
+      </FocusTrap>
     </div>
   );
 }
