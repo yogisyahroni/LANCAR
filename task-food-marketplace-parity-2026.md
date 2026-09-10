@@ -192,7 +192,7 @@ Existing shared files:
 - [x] Deduplicate payment callback, refund, payout, carrier webhook/event, AWB create, service adjustment melalui existing event/reference uniqueness guards dan shared request middleware pada entrypoint yang menerima client mutation.
 - [ ] Authenticated staging concurrency/replay matrix membuktikan 10 parallel/repeated creates menghasilkan tepat satu order/financial obligation.
 
-_Local implementation is complete and verified in the current branch; authenticated staging concurrency and persisted DB evidence remain the only unchecked gate._
+_Local implementation is complete and verified in the current branch. Commit `da3e9e5f` adds a guarded authenticated staging runner for the ten-way/replay/persistence matrix; staging deployment, credentials, and persisted DB evidence remain the only unchecked gate._
 
 ---
 
@@ -223,7 +223,7 @@ _Local implementation is complete and verified in the current branch; authentica
 - [x] Customer Android/Web quote clients send the canonical fingerprint, quote snapshot, quote identity, and expiry on the supported on-demand/service quote flows; local payload wiring is covered, while runtime cross-surface parity remains a staging gate.
 - [ ] Authenticated staging matrix membuktikan expiry, changed address/package/service invalidation, cross-surface quote parity, dan persisted quote snapshot.
 
-_Local quote contract and server enforcement are complete; authenticated staging parity remains the explicit external gate._
+_Local quote contract and server enforcement are complete. Commit `da3e9e5f` adds a guarded authenticated staging runner for parity, invalidation, and persisted snapshot checks; authenticated staging parity remains the explicit external gate._
 
 ---
 
