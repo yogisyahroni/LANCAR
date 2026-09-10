@@ -289,7 +289,7 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
                           </div>
                           <div className="text-right">
                             <p className="text-sm font-black text-foreground-muted">{formatCurrency(history.amount_idr)}</p>
-                            <StatusBadge status={history.status} labelPrefix="Payout history status" className="text-[10px] uppercase tracking-widest" />
+                            <StatusBadge status={history.status} labelPrefix="Payout history status" />
                           </div>
                         </div>
                       ))}

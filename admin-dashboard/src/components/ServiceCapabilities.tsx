@@ -96,7 +96,7 @@ export default function ServiceCapabilities({ courierId, capabilities }: Courier
                 <div>
                   <p className="text-sm font-bold text-foreground-muted">{service.name}</p>
                   {existingCap && (
-                    <StatusBadge status={existingCap.status} labelPrefix="Capability status" className="mt-1 text-[10px]" />
+                    <StatusBadge status={existingCap.status} labelPrefix="Capability status" className="mt-1" />
                   )}
                 </div>
               </div>

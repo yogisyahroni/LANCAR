@@ -203,7 +203,7 @@ export default function LiveMap() {
                 <div className="text-foreground-muted font-sans">
                   <p className="font-bold">Order {order.order_number || order.id.slice(0, 8)}</p>
                   <p className="flex flex-wrap items-center gap-1.5 text-xs">
-                    Status: <OrderStatusBadge status={order.status || 'active'} className="px-1.5 py-0 text-[10px]" />
+                    Status: <OrderStatusBadge status={order.status || 'active'} className="px-1.5 py-0" />
                   </p>
                   <p className="text-xs">Kurir: {order.courier_name || 'Belum ditugaskan'}</p>
                   {order.last_location_at && <p className="text-xs">Posisi: {new Date(order.last_location_at).toLocaleTimeString()}</p>}

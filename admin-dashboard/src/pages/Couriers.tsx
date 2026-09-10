@@ -688,7 +688,7 @@ export default function Couriers() {
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <StatusBadge status={courier.status} labelPrefix="Courier status" className="text-[10px] uppercase tracking-widest" />
+                    <StatusBadge status={courier.status} labelPrefix="Courier status" />
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-3">

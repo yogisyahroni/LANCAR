@@ -250,7 +250,7 @@ export default function Customers() {
                       <p className="text-sm text-foreground-muted mt-1">{customer.email}</p>
                     </div>
                   </div>
-                  <StatusBadge status={customer.status} labelPrefix="Customer status" className="text-[10px] uppercase tracking-widest" />
+                  <StatusBadge status={customer.status} labelPrefix="Customer status" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mt-8 pt-8 border-t border-border">

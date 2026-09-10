@@ -482,7 +482,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
               <div className="grid grid-cols-2 gap-8">
                 <div className="space-y-2 col-span-2 relative">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><Package size={14} aria-hidden="true" /> Item Name</label>
+                    <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><Package size={14} aria-hidden="true" /> Item Name</label>
                     <a href="/products" target="_blank" className="text-[10px] font-black text-primary hover:underline flex items-center gap-1">
                       + Kelola Katalog / Excel Bulk
                     </a>
@@ -535,7 +535,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><Weight size={14} aria-hidden="true" /> Berat (kg)</label>
+                  <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><Weight size={14} aria-hidden="true" /> Berat (kg)</label>
                   <input 
                     type="number"
                     min="1"
@@ -546,7 +546,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><UploadCloud size={14} aria-hidden="true" /> Item Image</label>
+                  <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><UploadCloud size={14} aria-hidden="true" /> Item Image</label>
                   <label className="flex items-center justify-center w-full bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border border-dashed rounded-2xl py-4 px-6 cursor-pointer hover:bg-surface-subtle dark:hover:bg-surface-subtle transition-all text-sm font-semibold text-muted-foreground hover:text-foreground">
                     <input 
                       type="file" 
@@ -565,7 +565,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                 </div>
 
                 <div className="space-y-2 col-span-2">
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center justify-between">
+                  <label className="text-sm font-bold text-foreground-muted flex items-center justify-between">
                     <span className="flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Pickup Address (Your Store)</span>
                     <button 
                       type="button" 
@@ -587,7 +587,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                 </div>
 
                 <div className="space-y-2 col-span-2">
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Dropoff Address (Customer)</label>
+                  <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Dropoff Address (Customer)</label>
                   <textarea 
                     value={formData.dropoff_address}
                     onChange={e => { setFormData({ ...formData, dropoff_address: e.target.value }); setGeocodeError(''); }}

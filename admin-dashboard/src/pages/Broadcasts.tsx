@@ -145,7 +145,7 @@ export default function Broadcasts() {
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label htmlFor="bc-from-date" className="text-[9px] font-black uppercase tracking-widest text-foreground-muted block">Dari</label>
+            <label htmlFor="bc-from-date" className="text-sm font-bold text-foreground-muted block">Dari</label>
             <input
               id="bc-from-date"
               type="date"
@@ -155,7 +155,7 @@ export default function Broadcasts() {
             />
           </div>
           <div className="space-y-1">
-            <label htmlFor="bc-to-date" className="text-[9px] font-black uppercase tracking-widest text-foreground-muted block">Sampai</label>
+            <label htmlFor="bc-to-date" className="text-sm font-bold text-foreground-muted block">Sampai</label>
             <input
               id="bc-to-date"
               type="date"
@@ -248,7 +248,7 @@ export default function Broadcasts() {
                         </div>
                       </td>
                       <td className="px-6 py-6">
-                        <StatusBadge status={row.status} labelPrefix="Broadcast status" className="text-[10px] uppercase tracking-widest" />
+                        <StatusBadge status={row.status} labelPrefix="Broadcast status" />
                         {row.scheduled_at && row.status === 'scheduled' && (
                           <p className="text-[10px] text-warning mt-2 flex items-center gap-1">
                             <Calendar size={10} aria-hidden="true" /> {new Date(row.scheduled_at).toLocaleString('id-ID')}

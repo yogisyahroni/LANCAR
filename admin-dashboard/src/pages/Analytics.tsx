@@ -172,7 +172,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest ml-1">Report Name</label>
+                <label className="text-sm font-bold text-foreground-muted ml-1">Report Name</label>
                 <input 
                   type="text"
                   required
@@ -185,7 +185,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest ml-1">Frequency</label>
+                  <label className="text-sm font-bold text-foreground-muted ml-1">Frequency</label>
                   <select 
                     className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted focus:outline-none focus:border-primary/50 transition-all appearance-none"
                     value={formData.frequency}
@@ -197,7 +197,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest ml-1">Time (UTC)</label>
+                  <label className="text-sm font-bold text-foreground-muted ml-1">Time (UTC)</label>
                   <input 
                     type="time"
                     required
@@ -210,7 +210,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
 
               {formData.frequency === 'Weekly' && (
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest ml-1">Preferred Day</label>
+                  <label className="text-sm font-bold text-foreground-muted ml-1">Preferred Day</label>
                   <select 
                     className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted focus:outline-none focus:border-primary/50 transition-all appearance-none"
                     value={formData.day_of_week}
@@ -224,7 +224,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
               )}
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest ml-1">Recipients (Comma Separated)</label>
+                <label className="text-sm font-bold text-foreground-muted ml-1">Recipients (Comma Separated)</label>
                 <textarea 
                   required
                   placeholder="admin@tembus.id, analyst@tembus.id"
@@ -546,7 +546,7 @@ export default function Analytics() {
             <div key={definition.name} className="rounded-2xl border border-border bg-surface/[0.02] p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-black text-foreground-muted">{definition.name}</p>
-                <span className="text-[9px] font-black uppercase tracking-widest text-primary-light">{definition.unit}</span>
+                <span className="text-xs font-bold text-primary-light">{definition.unit}</span>
               </div>
               <p className="mt-2 text-xs leading-relaxed text-foreground-muted">{definition.description}</p>
               <p className="mt-2 text-[10px] text-foreground-muted">Source: {definition.source_of_truth}</p>
@@ -597,7 +597,7 @@ export default function Analytics() {
                 ['Failure rate', `${experienceSummary.reliability_failure_rate_pct}%`],
               ].map(([label, value]) => (
                 <div key={String(label)} className="rounded-2xl border border-border bg-surface/[0.02] p-4">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">{label}</p>
+                  <p className="text-xs font-bold text-foreground-muted">{label}</p>
                   <p className="mt-2 text-xl font-black text-foreground-muted">{value}</p>
                 </div>
               ))}
@@ -609,7 +609,7 @@ export default function Analytics() {
             </div>
             <div className="overflow-x-auto rounded-2xl border border-border">
               <table className="min-w-full text-left text-xs">
-                <thead className="bg-surface/[0.03] text-[9px] font-black uppercase tracking-widest text-foreground-muted">
+              <thead className="bg-surface/[0.03] text-xs font-bold text-foreground-muted">
                   <tr>
                     <th scope="col" className="px-4 py-3">Revision</th>
                     <th scope="col" className="px-4 py-3">Market</th>
@@ -672,9 +672,9 @@ export default function Analytics() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-black text-foreground-muted">{serviceKpiLabels[service.service_category] || service.service_category}</p>
-                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">{service.sample_size.toLocaleString('id-ID')} order</p>
+                    <p className="mt-1 text-xs font-bold text-foreground-muted">{service.sample_size.toLocaleString('id-ID')} order</p>
                   </div>
-                  <span className="rounded-full bg-primary/10 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-primary-light">Server</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-bold text-primary-light">Server</span>
                 </div>
                 <div className="space-y-2">
                   {Object.entries(service.metrics || {}).map(([key, value]) => (
@@ -688,7 +688,7 @@ export default function Analytics() {
                 </div>
                 {service.provider_mix?.length > 0 && (
                   <div className="border-t border-border pt-3">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">Provider mix</p>
+                    <p className="text-xs font-bold text-foreground-muted">Provider mix</p>
                     <p className="mt-1 text-[10px] text-foreground-muted">{service.provider_mix.map((provider: any) => `${provider.provider} ${provider.share_pct ?? 'No data'}%`).join(' • ')}</p>
                   </div>
                 )}

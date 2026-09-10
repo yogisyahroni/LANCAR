@@ -210,7 +210,7 @@ export function ReconciliationPanel({ data }: { data: FinanceData }) {
                       <span className="text-xs font-black uppercase tracking-wider text-foreground-muted">
                         {item.domain || item.name || `Domain #${idx + 1}`}
                       </span>
-                      <StatusBadge status={item.status || (item.mismatches === 0 ? 'balanced' : 'mismatch')} label={item.status || (item.mismatches === 0 ? 'Seimbang' : 'Ditemukan mismatch')} labelPrefix="Reconciliation status" className="text-xs uppercase" />
+                      <StatusBadge status={item.status || (item.mismatches === 0 ? 'balanced' : 'mismatch')} label={item.status || (item.mismatches === 0 ? 'Seimbang' : 'Ditemukan mismatch')} labelPrefix="Reconciliation status" />
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="p-3 rounded-xl bg-surface-subtle">

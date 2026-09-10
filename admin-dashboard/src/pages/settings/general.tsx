@@ -160,7 +160,7 @@ export function GeneralPanel({ data }: { data: SettingsData }) {
                         </div>
                         <p className="text-lg font-black text-foreground-muted">{app.version}</p>
                         <div className="flex items-center justify-between pt-2">
-                           <StatusBadge status={app.status} labelPrefix={`${app.label} status`} className="text-[10px] uppercase tracking-widest" />
+                           <StatusBadge status={app.status} labelPrefix={`${app.label} status`} />
                            <p className="text-[10px] text-primary-light font-black tracking-tight">{app.metrics}</p>
                         </div>
                       </div>

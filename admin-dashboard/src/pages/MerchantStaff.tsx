@@ -109,7 +109,7 @@ export default function MerchantStaff() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase">
                   <span className={cn('rounded-full px-2 py-1', roleStyle[s.role] || 'text-foreground-muted')}>{s.role}</span>
-                  <StatusBadge status={s.status} labelPrefix="Staff status" className="text-[10px]" />
+                  <StatusBadge status={s.status} labelPrefix="Staff status" />
                 </div>
               </div>
             ))}

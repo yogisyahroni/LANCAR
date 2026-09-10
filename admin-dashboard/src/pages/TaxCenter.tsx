@@ -311,7 +311,7 @@ export default function TaxCenter() {
                       <td className="py-4 text-foreground-muted">{row.rate_pct || 11}%</td>
                       <td className="py-4 text-foreground-muted text-xs">{row.created_at ? format(new Date(row.created_at), 'dd MMM yyyy') : '-'}</td>
                       <td className="py-4">
-                        <StatusBadge status={row.status || 'ready'} labelPrefix="Tax document status" className="rounded-md text-[10px] uppercase" />
+                        <StatusBadge status={row.status || 'ready'} labelPrefix="Tax document status" className="rounded-md" />
                       </td>
                     </tr>
                   ))}

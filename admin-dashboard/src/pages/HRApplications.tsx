@@ -61,7 +61,7 @@ export default function HRApplications() {
             <div className="space-y-3 flex-1">
               <div className="flex items-center gap-3">
                 <h3 className="text-xl font-bold text-foreground-muted">{app.full_name}</h3>
-                <StatusBadge status={app.status} labelPrefix="Application status" className="rounded-md text-[10px] uppercase tracking-widest" />
+                  <StatusBadge status={app.status} labelPrefix="Application status" className="rounded-md" />
               </div>
               <p className="text-primary-light font-bold text-sm">Applying for: {app.job_title}</p>
               

@@ -160,7 +160,7 @@ export default function News() {
                 <div>
                   <h3 className="font-bold text-lg">{item.title}</h3>
                   <div className="flex items-center gap-2 mt-2">
-                    <StatusBadge status={item.status} labelPrefix="News status" className="text-[10px] uppercase tracking-widest" />
+                    <StatusBadge status={item.status} labelPrefix="News status" />
                     <span className="text-xs text-foreground-muted">
                       {new Date(item.created_at).toLocaleDateString('id-ID')}
                     </span>

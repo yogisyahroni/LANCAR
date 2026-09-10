@@ -207,7 +207,7 @@ export default function EconomicsControlPlane() {
                   <div key={revision.id} className={`p-6 space-y-4 ${selectedId === revision.id ? 'bg-primary/5' : ''}`}>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div><p className="font-black text-foreground-muted">{revision.policy_type} · {revision.service_code}</p><p className="text-[11px] font-mono text-foreground-muted">{revision.policy_version} · {revision.market_code}</p></div>
-                      <StatusBadge status={revision.status} labelPrefix="Policy revision status" className="rounded-lg text-[10px] uppercase tracking-widest" />
+                      <StatusBadge status={revision.status} labelPrefix="Policy revision status" className="rounded-lg" />
                     </div>
                     <p className="text-xs text-foreground-muted">{revision.business_reason}</p>
                     <div className="flex flex-wrap gap-2">

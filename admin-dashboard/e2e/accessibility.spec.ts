@@ -432,6 +432,10 @@ async function assertDocumentSemantics(page: Page) {
     const chartSummaries = Array.from(document.querySelectorAll<HTMLElement>('[role="img"], [role="group"]'))
       .filter(visible)
       .filter((region) => /chart|grafik|histogram|map|peta/i.test(region.getAttribute('aria-label') ?? ''))
+      // A labeled control group (for example, keyboard-reachable map zoom
+      // buttons) is not itself a chart/map data visualization and should not
+      // be required to expose a chart summary.
+      .filter((region) => !(region.getAttribute('role') === 'group' && region.querySelector('button, a[href], input, select, textarea, [role="button"]')))
       .filter((region) => {
         const ids = region.getAttribute('aria-describedby')?.split(/\s+/).filter(Boolean) ?? []
         return ids.length === 0 || ids.some((id) => !document.getElementById(id)?.textContent?.trim())

@@ -63,6 +63,10 @@ async function installThemeFixture(page: Page, options: { notifications?: Array<
         }) })
         return
       }
+      if (path.endsWith('/admin/analytics/reports')) {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+        return
+      }
       const body = path.endsWith('/admin/dashboard/events')
         ? []
         : path.endsWith('/admin/health')
@@ -248,4 +252,21 @@ test('orders table exposes header semantics, deliberate overflow and keyboard ro
   await expect(orderDialog).not.toBeVisible()
   await expect(firstRow).toHaveAttribute('aria-selected', 'false')
   await expect(firstRow).toBeFocused()
+})
+
+test('analytics map zoom controls are keyboard reachable and announce the updated level @a11y', async ({ page }) => {
+  await installThemeFixture(page)
+  await page.goto('/analytics', { waitUntil: 'domcontentloaded' })
+
+  const controls = page.getByRole('group', { name: 'Kontrol zoom demand density' })
+  const zoomIn = controls.getByRole('button', { name: 'Zoom in map' })
+  const zoomStatus = controls.getByRole('status')
+  await expect(zoomIn).toBeVisible()
+  await expect(zoomIn).toBeEnabled()
+  await expect(zoomStatus).toHaveText('Zoom peta: level 12')
+
+  await zoomIn.focus()
+  await expect(zoomIn).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(zoomStatus).toHaveText('Zoom peta: level 13')
 })

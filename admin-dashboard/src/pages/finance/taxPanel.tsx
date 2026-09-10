@@ -223,7 +223,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                         <td className="py-4 font-bold text-foreground-muted">Rp {Number(row.gross_revenue).toLocaleString('id-ID')}</td>
                         <td className="py-4 font-black text-warning">Rp {Number(row.ppn_collected).toLocaleString('id-ID')}</td>
                         <td className="py-4">
-                          <StatusBadge status={row.status || 'draft'} label={row.status === 'submitted' ? 'Dilaporkan' : 'Draft'} labelPrefix="Tax report status" className="text-[10px] uppercase tracking-widest" />
+                          <StatusBadge status={row.status || 'draft'} label={row.status === 'submitted' ? 'Dilaporkan' : 'Draft'} labelPrefix="Tax report status" />
                         </td>
                       </tr>
                     ))}

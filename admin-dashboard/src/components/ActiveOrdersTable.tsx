@@ -541,7 +541,7 @@ function OperationalMonitoringPanel({ orderDetail }: { orderDetail: any }) {
             <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Dispatch Decision</p>
             <p className="text-sm text-foreground-muted mt-1">{selectedDispatch?.courier_name || 'Belum ada offer dispatch'}</p>
           </div>
-          <StatusBadge status={selectedDispatch?.status || 'pending'} labelPrefix="Dispatch status" className="text-[10px]" />
+          <StatusBadge status={selectedDispatch?.status || 'pending'} labelPrefix="Dispatch status" />
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-2xl bg-surface/[0.03] p-2">
@@ -565,7 +565,7 @@ function OperationalMonitoringPanel({ orderDetail }: { orderDetail: any }) {
       <div className="rounded-[28px] bg-surface/[0.03] border border-border p-4 space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Proof Risk</p>
-          <StatusBadge status={latestProofAttempt?.proof_status || 'no_attempt'} labelPrefix="Proof status" className="text-[10px]" />
+          <StatusBadge status={latestProofAttempt?.proof_status || 'no_attempt'} labelPrefix="Proof status" />
         </div>
         <p className="text-xs text-foreground-muted leading-relaxed">
           {latestProofAttempt
@@ -585,7 +585,7 @@ function OperationalMonitoringPanel({ orderDetail }: { orderDetail: any }) {
           <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Face Verification</p>
           <span className="text-[10px] text-foreground-muted font-black uppercase">{formatShortTime(latestFaceVerification?.created_at)}</span>
         </div>
-        <StatusBadge status={latestFaceVerification?.status || 'no_verification'} labelPrefix="Face verification status" className="text-[10px]" />
+        <StatusBadge status={latestFaceVerification?.status || 'no_verification'} labelPrefix="Face verification status" />
         <p className="text-[10px] text-foreground-muted font-bold">
           {latestFaceVerification
             ? `${latestFaceVerification.verification_type} • liveness ${latestFaceVerification.liveness_score ?? '---'}`
@@ -1063,7 +1063,7 @@ export default function ActiveOrdersTable() {
                         </span>
                       </div>
                     )}
-                    <p className="mt-2 text-[10px] text-foreground-muted font-bold uppercase tracking-widest">Payment: <StatusBadge status={order.payment_status || 'unrecorded'} labelPrefix="Payment status" className="ml-1 text-[10px] normal-case tracking-normal" /></p>
+                    <p className="mt-2 text-sm text-foreground-muted font-bold">Payment: <StatusBadge status={order.payment_status || 'unrecorded'} labelPrefix="Payment status" className="ml-1" /></p>
                   </td>
                   <td className="px-6 py-5 text-right">
                     <span className="text-sm font-black text-foreground-muted">Rp {parseInt(order.total_amount).toLocaleString()}</span>
@@ -1167,7 +1167,7 @@ export default function ActiveOrdersTable() {
                                 <span className="px-4 py-1.5 rounded-full bg-surface-subtle text-foreground-muted border border-border text-[10px] font-black uppercase tracking-widest">
                                   {displayServiceCategory(orderDetail.service_category, orderDetail.service_code)}
                                 </span>
-                                <OrderStatusBadge status={orderDetail.status} className="px-4 py-1.5 text-[10px]" />
+                                <OrderStatusBadge status={orderDetail.status} className="px-4 py-1.5" />
                               </div>
                             </div>
                             <p className="text-foreground-muted font-bold flex items-center gap-2 tracking-tight">

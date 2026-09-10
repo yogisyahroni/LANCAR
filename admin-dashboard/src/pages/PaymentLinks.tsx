@@ -180,7 +180,7 @@ export default function PaymentLinks() {
                     <div className="px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary-light font-black text-sm tracking-wider font-mono">
                       {link.id.split('-')[0]}...
                     </div>
-                    <StatusBadge status={link.status} labelPrefix="Payment link status" className="text-[10px] uppercase tracking-widest" />
+                  <StatusBadge status={link.status} labelPrefix="Payment link status" />
                   </div>
                   <div className="flex gap-4">
                     {link.item_image_url && (
@@ -360,7 +360,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
 
           <div className="grid grid-cols-2 gap-8">
             <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><Package size={14} aria-hidden="true" /> Item Name</label>
+              <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><Package size={14} aria-hidden="true" /> Item Name</label>
               <input 
                 value={formData.item_name}
                 onChange={e => setFormData({ ...formData, item_name: e.target.value })}
@@ -370,7 +370,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Item Price (Rp)</label>
+              <label className="text-sm font-bold text-foreground-muted">Item Price (Rp)</label>
               <input 
                 type="number"
                 value={formData.item_price}
@@ -381,7 +381,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2">Pilihan Layanan</label>
+              <label className="text-sm font-bold text-foreground-muted flex items-center gap-2">Pilihan Layanan</label>
               <select 
                 value={formData.service_code}
                 onChange={e => setFormData({ ...formData, service_code: e.target.value })}
@@ -401,7 +401,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
             </div>
 
             <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><ImageIcon size={14} aria-hidden="true" /> Image URL</label>
+              <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><ImageIcon size={14} aria-hidden="true" /> Image URL</label>
               <input 
                 value={formData.item_image_url}
                 onChange={e => setFormData({ ...formData, item_image_url: e.target.value })}
@@ -415,7 +415,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
             </div>
 
             <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Pickup Address (Your Store)</label>
+              <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Pickup Address (Your Store)</label>
               <textarea 
                 value={formData.pickup_address}
                 onChange={e => { setFormData({ ...formData, pickup_address: e.target.value }); setGeocodeError(''); }}
@@ -426,7 +426,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
             </div>
 
             <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Dropoff Address (Customer)</label>
+              <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Dropoff Address (Customer)</label>
               <textarea 
                 value={formData.dropoff_address}
                 onChange={e => { setFormData({ ...formData, dropoff_address: e.target.value }); setGeocodeError(''); }}

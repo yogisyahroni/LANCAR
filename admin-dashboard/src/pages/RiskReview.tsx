@@ -101,8 +101,8 @@ export default function RiskReview() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-black text-foreground-muted">{review.operation}</h2>
-                      <StatusBadge status={review.decision} labelPrefix="Risk decision" className="px-2 py-1 text-[10px] uppercase tracking-widest" />
-                      <StatusBadge status={review.review_status} labelPrefix="Review status" className="px-2 py-1 text-[10px] uppercase tracking-widest" />
+                      <StatusBadge status={review.decision} labelPrefix="Risk decision" className="px-2 py-1" />
+                      <StatusBadge status={review.review_status} labelPrefix="Review status" className="px-2 py-1" />
                     </div>
                     <p className="mt-2 text-xs text-foreground-muted">{review.entity_type} · {review.entity_id} · {review.market_code} · {formatDate(review.created_at)}</p>
                   </div>

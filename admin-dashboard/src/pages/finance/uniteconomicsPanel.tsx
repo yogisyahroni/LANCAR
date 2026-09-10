@@ -145,7 +145,7 @@ export function UniteconomicsPanel({ data }: { data: FinanceData }) {
                      <div key={i} className="flex flex-col p-6 rounded-3xl bg-surface/[0.02] border border-border">
                         <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">{item.label}</p>
                         <p className="text-2xl font-black text-foreground-muted mt-2">{formatCurrency(item.value)}</p>
-                        <StatusBadge status={item.status} labelPrefix="Unit economics status" className="mt-4 w-fit text-[9px] uppercase tracking-widest" />
+                        <StatusBadge status={item.status} labelPrefix="Unit economics status" className="mt-4 w-fit" />
                      </div>
                    ))}
                 </div>

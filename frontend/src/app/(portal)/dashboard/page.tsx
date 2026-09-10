@@ -534,7 +534,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="flex items-center justify-between border-t border-border/40 pt-2 select-none">
-                  <OrderStatusBadge status={order.status} className="px-2 py-0.5 text-[10px]" />
+                  <OrderStatusBadge status={order.status} className="px-2 py-0.5" />
                   <span className="text-[10px] text-muted-foreground select-none">
                     {order.distance_km} km • {formatIDR(order.total_price_idr)}
                   </span>
@@ -569,7 +569,7 @@ export default function DashboardPage() {
                       <div className="h-20 w-full bg-muted/40 rounded-xl border border-border/40 flex items-center justify-center text-[10px] text-muted-foreground mt-1 select-none flex-col gap-1">
                         <div className="flex items-center gap-1">
                           <RefreshCcw className="h-3 w-3 text-primary" aria-hidden="true" />
-                          <span>Status terakhir: <OrderStatusBadge status={order.status} className="px-1.5 py-0 text-[10px]" /></span>
+                          <span>Status terakhir: <OrderStatusBadge status={order.status} className="px-1.5 py-0" /></span>
                         </div>
                         <Link href={`/orders/${order.id}`} className="font-semibold text-primary hover:underline">
                           Buka tracking real-time

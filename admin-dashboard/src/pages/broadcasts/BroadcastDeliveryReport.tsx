@@ -215,7 +215,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
                     <p className="mt-3 text-2xl font-black text-foreground-muted tabular-nums">
                       {stat.value.toLocaleString('id-ID')}
                     </p>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted mt-1">
+                    <p className="text-xs font-bold text-foreground-muted mt-1">
                       {stat.label}
                     </p>
                   </div>

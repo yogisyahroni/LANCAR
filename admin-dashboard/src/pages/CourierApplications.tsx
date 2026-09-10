@@ -364,7 +364,7 @@ function ServiceCapabilityRow({
             {item.service_code} • {item.service_category || '-'} • max {item.max_weight_kg || 0} kg
           </p>
         </div>
-        <StatusBadge status={item.status} labelPrefix="Service capability status" className="text-[10px] uppercase" />
+        <StatusBadge status={item.status} labelPrefix="Service capability status" />
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <button

@@ -400,7 +400,7 @@ export default function ResiDetailPage({
               <div className="text-left md:text-right flex flex-col items-start md:items-end select-none">
                 <OrderStatusBadge
                   status={order.status}
-                  className="px-2 py-0.5 text-[10px] shadow-sm"
+                  className="px-2 py-0.5 shadow-sm"
                 />
                 {order.awb_number ? (
                   <>

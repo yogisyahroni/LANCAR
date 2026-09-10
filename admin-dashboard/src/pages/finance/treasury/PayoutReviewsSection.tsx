@@ -154,7 +154,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                     <p className="text-base font-black text-foreground-muted truncate" title={account.courier_name}>{account.courier_name}</p>
                     <p className="text-xs text-foreground-muted mt-1">{account.courier_phone || '-'} • {account.application_channel || 'courier'}</p>
                   </div>
-                  <StatusBadge status={account.status} labelPrefix="Payout account status" className="text-[10px] uppercase tracking-widest" />
+                            <StatusBadge status={account.status} labelPrefix="Payout account status" />
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
@@ -240,14 +240,14 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                     <p className="text-base font-black text-foreground-muted truncate" title={request.courier_name}>{request.courier_name}</p>
                     <p className="text-xs text-foreground-muted mt-1">{request.request_number} • {format(new Date(request.requested_at), 'dd MMM yyyy HH:mm')}</p>
                   </div>
-                  <StatusBadge status={request.status} label={payoutStatusLabel(request)} labelPrefix="Payout request status" className="text-[10px] uppercase tracking-widest" />
+                            <StatusBadge status={request.status} label={payoutStatusLabel(request)} labelPrefix="Payout request status" />
                 </div>
 
                 {request.risk_decision && (
                   <div className="rounded-2xl border border-border bg-surface-subtle p-3">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">Risk Engine</p>
-                      <StatusBadge status={request.risk_decision === 'auto_approved' ? 'approved_auto' : request.risk_decision === 'blocked' ? 'blocked' : 'pending_review'} label={`${riskActionLabel(request)} • ${request.risk_score ?? 0}`} labelPrefix="Risk decision" className="text-[9px] uppercase tracking-widest" />
+                      <StatusBadge status={request.risk_decision === 'auto_approved' ? 'approved_auto' : request.risk_decision === 'blocked' ? 'blocked' : 'pending_review'} label={`${riskActionLabel(request)} • ${request.risk_score ?? 0}`} labelPrefix="Risk decision" />
                     </div>
                     {request.risk_reasons?.length > 0 && (
                       <p className="mt-2 line-clamp-2 text-xs text-foreground-muted" title={request.risk_reasons.slice(0, 2).join(' • ')}>{request.risk_reasons.slice(0, 2).join(' • ')}</p>
@@ -259,7 +259,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                   <div className="rounded-2xl border border-primary/10 bg-primary/5 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">Provider Dispatch</p>
-                      <StatusBadge status={request.provider_status || request.status} labelPrefix="Provider payout status" className="text-[9px] uppercase tracking-widest" />
+                      <StatusBadge status={request.provider_status || request.status} labelPrefix="Provider payout status" />
                     </div>
                     <div className="mt-2 grid grid-cols-1 gap-1 text-xs text-foreground-muted">
                       <span>Provider: <b className="text-foreground-muted">{request.provider_name || '-'}</b></span>

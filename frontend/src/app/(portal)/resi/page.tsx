@@ -392,7 +392,7 @@ export default function ResiPage() {
                       />
                     </td>
                     <td className="px-5 py-3.5 select-none">
-                      <OrderStatusBadge status={order.status} className="px-2 py-0.5 text-[10px]" />
+                      <OrderStatusBadge status={order.status} className="px-2 py-0.5" />
                     </td>
                     <td className="px-5 py-3.5 text-xs select-none truncate" title={`${order.total_price_idr} · ${order.payment_status || ''} · ${order.status || ''}`}>
                       <OrderPriceBreakdown compact totalPriceIdr={order.total_price_idr} paymentStatus={order.payment_status} deliveryStatus={order.status} />

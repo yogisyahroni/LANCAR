@@ -171,7 +171,7 @@ export default function Disputes() {
                   </div>
                   <div className="text-center">
                     <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest mb-2">Status</p>
-                    <StatusBadge status={dispute.status} labelPrefix="Dispute status" className="rounded-lg text-[10px] uppercase tracking-widest" />
+                    <StatusBadge status={dispute.status} labelPrefix="Dispute status" className="rounded-lg" />
                   </div>
                   <button 
                     type="button"
