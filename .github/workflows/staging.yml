@@ -54,6 +54,20 @@ jobs:
           NEXT_PUBLIC_SOCKET_URL: ${{ env.STAGING_FRONTEND_SOCKET_URL }}
           SERVER_API_URL: ${{ env.STAGING_SERVER_API_URL }}
 
+  core-part-a-runner-contract:
+    name: Core Part A Runner Contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate authenticated staging gate runner
+        run: |
+          node --check scripts/ci/staging/core-part-a-contract.mjs
+          node --test scripts/ci/staging/core-part-a-contract.test.mjs
+
   maps-runtime-guard:
     name: Maps Runtime Guard
     runs-on: ubuntu-latest
@@ -787,6 +801,7 @@ jobs:
           BASE_URL: ${{ vars.STAGING_URL }}
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
       - name: Upload Playwright Report
         if: always() && steps.check_url.outputs.skip == 'false'
         uses: actions/upload-artifact@v4
@@ -794,6 +809,62 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 7
+
+  staging-core-part-a-contract:
+    name: Authenticated Core Part A Contract
+    needs: [deploy]
+    if: github.ref == 'refs/heads/staging' && needs.deploy.result == 'success' && needs.deploy.outputs.deployed == 'true' && vars.STAGING_CORE_GATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check authenticated gate configuration
+        shell: bash
+        env:
+          GATE_ACCESS_TOKEN: ${{ secrets.STAGING_CORE_GATE_ACCESS_TOKEN }}
+          GATE_EMAIL: ${{ secrets.STAGING_CORE_GATE_TEST_USER_EMAIL }}
+          GATE_PASSWORD: ${{ secrets.STAGING_CORE_GATE_TEST_USER_PASSWORD }}
+          GATE_DATABASE_URL: ${{ secrets.STAGING_CORE_GATE_DATABASE_URL }}
+          GATE_ALLOW_MUTATIONS: ${{ vars.STAGING_GATE_ALLOW_MUTATIONS }}
+          GATE_CONFIRM: ${{ vars.STAGING_GATE_CONFIRM }}
+        run: |
+          set -euo pipefail
+          missing=()
+          if [ -z "${GATE_DATABASE_URL}" ]; then
+            missing+=("STAGING_CORE_GATE_DATABASE_URL")
+          fi
+          if [ -z "${GATE_ACCESS_TOKEN}" ] && { [ -z "${GATE_EMAIL}" ] || [ -z "${GATE_PASSWORD}" ]; }; then
+            missing+=("STAGING_CORE_GATE_ACCESS_TOKEN or STAGING_CORE_GATE_TEST_USER_EMAIL/STAGING_CORE_GATE_TEST_USER_PASSWORD")
+          fi
+          if [ "${GATE_ALLOW_MUTATIONS}" != "true" ]; then
+            missing+=("STAGING_GATE_ALLOW_MUTATIONS=true")
+          fi
+          if [ "${GATE_CONFIRM}" != "I_UNDERSTAND_STAGING_TEST_ORDERS" ]; then
+            missing+=("STAGING_GATE_CONFIRM=I_UNDERSTAND_STAGING_TEST_ORDERS")
+          fi
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Authenticated Core Part A gate is enabled but incomplete: ${missing[*]}" >&2
+            exit 1
+          fi
+      - name: Run authenticated Core Part A matrix
+        env:
+          STAGING_CORE_GATE_API_URL: ${{ env.STAGING_SERVER_API_URL }}
+          STAGING_CORE_GATE_ORIGIN: ${{ vars.STAGING_URL }}
+          STAGING_CORE_GATE_ACCESS_TOKEN: ${{ secrets.STAGING_CORE_GATE_ACCESS_TOKEN }}
+          STAGING_CORE_GATE_TEST_USER_EMAIL: ${{ secrets.STAGING_CORE_GATE_TEST_USER_EMAIL }}
+          STAGING_CORE_GATE_TEST_USER_PASSWORD: ${{ secrets.STAGING_CORE_GATE_TEST_USER_PASSWORD }}
+          STAGING_CORE_GATE_DATABASE_URL: ${{ secrets.STAGING_CORE_GATE_DATABASE_URL }}
+          STAGING_GATE_ALLOW_MUTATIONS: ${{ vars.STAGING_GATE_ALLOW_MUTATIONS }}
+          STAGING_GATE_CONFIRM: ${{ vars.STAGING_GATE_CONFIRM }}
+          STAGING_CORE_GATE_DEVICE_ID: ${{ vars.STAGING_CORE_GATE_DEVICE_ID || 'gha-core-part-a-20260910' }}
+          STAGING_CORE_GATE_SERVICE_CODE: ${{ vars.STAGING_CORE_GATE_SERVICE_CODE || 'tembus_instant' }}
+          STAGING_CORE_GATE_ALT_SERVICE_CODE: ${{ vars.STAGING_CORE_GATE_ALT_SERVICE_CODE || 'tembus_hemat' }}
+          STAGING_CORE_GATE_CLEANUP: ${{ vars.STAGING_CORE_GATE_CLEANUP || 'true' }}
+        run: node scripts/ci/staging/core-part-a-contract.mjs
 
   notify:
     name: Notification
