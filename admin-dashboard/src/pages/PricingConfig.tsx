@@ -156,13 +156,13 @@ export default function PricingConfig() {
           >
             <Zap size={16} aria-hidden="true" /> OPEX & CAPEX Simulator
           </button>
-          <button className="px-8 py-3 rounded-2xl bg-surface-raised text-foreground-muted font-black text-sm uppercase tracking-widest hover:text-foreground transition-all">
+          <button className="px-8 py-3 rounded-2xl bg-surface-raised text-foreground-muted font-black text-sm uppercase tracking-wide hover:text-foreground transition-all">
             Discard
           </button>
           <button 
             onClick={handleSave}
             disabled={updateMutation.isPending || formData.baseFare === '' || formData.perKm === '' || formData.volumetricDiv === ''}
-            className="px-8 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-60 disabled:scale-100 disabled:hover:scale-100"
+            className="px-8 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-wide shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-60 disabled:scale-100 disabled:hover:scale-100"
           >
             {updateMutation.isPending ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Save size={18} aria-hidden="true" />}
             Save Changes
@@ -185,7 +185,7 @@ export default function PricingConfig() {
                     key={t}
                     onClick={() => setActiveTab(t)}
                     className={cn(
-                      "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                      "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide transition-all",
                       activeTab === t ? "bg-primary/20 text-foreground border border-primary/20" : "text-foreground-muted hover:text-foreground-muted"
                     )}
                   >
@@ -215,9 +215,9 @@ export default function PricingConfig() {
                   />
                 </div>
                 {formData.baseFare === '' ? (
-                  <p className="text-[10px] text-destructive font-black mt-1">Tarif dasar wajib diisi dan tidak boleh kosong!</p>
+                  <p className="text-xs text-destructive font-black mt-1">Tarif dasar wajib diisi dan tidak boleh kosong!</p>
                 ) : (
-                  <p className="text-[10px] text-foreground-muted font-bold italic">Applied to the first 2.0 km of any delivery.</p>
+                  <p className="text-xs text-foreground-muted font-bold italic">Applied to the first 2.0 km of any delivery.</p>
                 )}
               </div>
 
@@ -240,9 +240,9 @@ export default function PricingConfig() {
                   />
                 </div>
                 {formData.perKm === '' ? (
-                  <p className="text-[10px] text-destructive font-black mt-1">Tarif per km wajib diisi dan tidak boleh kosong!</p>
+                  <p className="text-xs text-destructive font-black mt-1">Tarif per km wajib diisi dan tidak boleh kosong!</p>
                 ) : (
-                  <p className="text-[10px] text-foreground-muted font-bold italic">Incremental rate added after base distance.</p>
+                  <p className="text-xs text-foreground-muted font-bold italic">Incremental rate added after base distance.</p>
                 )}
               </div>
 
@@ -264,9 +264,9 @@ export default function PricingConfig() {
                   />
                 </div>
                 {formData.volumetricDiv === '' ? (
-                  <p className="text-[10px] text-destructive font-black mt-1">Pembagi volumetrik wajib diisi!</p>
+                  <p className="text-xs text-destructive font-black mt-1">Pembagi volumetrik wajib diisi!</p>
                 ) : (
-                  <p className="text-[10px] text-foreground-muted font-bold italic">Divisor for dimension weight. Production default is 6000.</p>
+                  <p className="text-xs text-foreground-muted font-bold italic">Divisor for dimension weight. Production default is 6000.</p>
                 )}
               </div>
             </div>
@@ -275,7 +275,7 @@ export default function PricingConfig() {
             <div className="p-6 rounded-3xl bg-surface/[0.02] border border-border space-y-4">
               <div className="flex items-center gap-2">
                 <Info className="text-primary-light" size={18} aria-hidden="true" />
-                <h3 className="text-xs font-black text-foreground-muted uppercase tracking-widest">Bobot Volumetrik Simulator</h3>
+                <h3 className="text-xs font-black text-foreground-muted uppercase tracking-wide">Bobot Volumetrik Simulator</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
                 <div className="space-y-2">
@@ -327,16 +327,16 @@ export default function PricingConfig() {
                   />
                 </div>
                 <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl text-center">
-                  <span className="block text-[9px] font-black text-primary-light uppercase tracking-wider">Hasil (Bobot Volume)</span>
+                  <span className="block text-xs font-black text-primary-light uppercase tracking-wide">Hasil (Bobot Volume)</span>
                   <span className="text-lg font-black text-foreground-muted">
                     {((lVal * wVal * hVal) / (formData.volumetricDiv === '' ? 6000 : formData.volumetricDiv || 6000)).toFixed(2)} kg
                   </span>
                 </div>
               </div>
               {(calcDimensions.length === '' || calcDimensions.width === '' || calcDimensions.height === '') ? (
-                <p className="text-[10px] text-destructive font-black mt-1">Dimensi simulator wajib diisi dan tidak boleh kosong!</p>
+                <p className="text-xs text-destructive font-black mt-1">Dimensi simulator wajib diisi dan tidak boleh kosong!</p>
               ) : (
-                <p className="text-[10px] text-foreground-muted font-bold italic">
+                <p className="text-xs text-foreground-muted font-bold italic">
                   Rumus: (Panjang × Lebar × Tinggi) ÷ Divisor = {calcDimensions.length} × {calcDimensions.width} × {calcDimensions.height} ÷ {formData.volumetricDiv === '' ? 6000 : formData.volumetricDiv || 6000} = {((lVal * wVal * hVal) / (formData.volumetricDiv === '' ? 6000 : formData.volumetricDiv || 6000)).toFixed(2)} kg
                 </p>
               )}
@@ -389,7 +389,7 @@ export default function PricingConfig() {
               
               <button 
                 onClick={() => navigate('/feature-flags')}
-                className="w-full py-4 rounded-2xl border border-dashed border-border text-foreground-muted hover:text-foreground-muted hover:border-border transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest"
+                className="w-full py-4 rounded-2xl border border-dashed border-border text-foreground-muted hover:text-foreground-muted hover:border-border transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wide"
               >
                 <Plus size={16} aria-hidden="true" />
                 Add New Trigger Rule
@@ -401,7 +401,7 @@ export default function PricingConfig() {
         {/* Right Column: Preview & Analytics */}
         <div className="space-y-8">
           <div className="glass-card p-8 rounded-[40px] border-border space-y-6">
-            <p className="text-xs font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+            <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
               <TrendingUp size={14} aria-hidden="true" />
               Pricing Simulation
             </p>
@@ -464,7 +464,7 @@ export default function PricingConfig() {
           </div>
 
           <div className="glass-card p-8 rounded-[40px] border-border space-y-6">
-             <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Pricing Strategy Health</p>
+             <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Pricing Strategy Health</p>
              <div className="space-y-6">
                 <div>
                    <div className="flex justify-between items-center mb-2">

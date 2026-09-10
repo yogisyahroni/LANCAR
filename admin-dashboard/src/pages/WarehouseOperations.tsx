@@ -165,7 +165,7 @@ export default function WarehouseOperations() {
         <button 
           onClick={() => setActiveTab('scanning')}
           className={cn(
-            "px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2",
+            "px-8 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2",
             activeTab === 'scanning' ? "bg-primary text-on-primary shadow-lg" : "text-foreground-muted hover:text-foreground-muted"
           )}
         >
@@ -175,7 +175,7 @@ export default function WarehouseOperations() {
         <button 
           onClick={() => setActiveTab('bags')}
           className={cn(
-            "px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2",
+            "px-8 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2",
             activeTab === 'bags' ? "bg-primary text-on-primary shadow-lg" : "text-foreground-muted hover:text-foreground-muted"
           )}
         >
@@ -220,7 +220,7 @@ export default function WarehouseOperations() {
                         type="button"
                         onClick={handleAutoDetect}
                         disabled={isDetecting || !orderId}
-                        className="px-6 py-4 rounded-2xl bg-surface-subtle hover:bg-surface-subtle text-foreground-muted border border-border text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all disabled:opacity-60"
+                        className="px-6 py-4 rounded-2xl bg-surface-subtle hover:bg-surface-subtle text-foreground-muted border border-border text-xs font-black uppercase tracking-wide flex items-center gap-2 transition-all disabled:opacity-60"
                       >
                         {isDetecting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
                         Detect Step
@@ -238,8 +238,8 @@ export default function WarehouseOperations() {
                         className="p-5 rounded-2xl border border-primary/20 bg-primary/[0.03] space-y-3"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black text-primary-light uppercase tracking-widest">Saran Tindakan Terdeteksi</span>
-                          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-primary/20 text-on-primary font-black uppercase tracking-wider">
+                          <span className="text-xs font-black text-primary-light uppercase tracking-wide">Saran Tindakan Terdeteksi</span>
+                          <span className="text-xs px-2.5 py-0.5 rounded-full bg-primary/20 text-on-primary font-black uppercase tracking-wide">
                             Status Terkini: {autoDetectData.current_status}
                           </span>
                         </div>
@@ -288,7 +288,7 @@ export default function WarehouseOperations() {
                           type="button"
                           onClick={() => setCustomScanType(type.val)}
                           className={cn(
-                            "py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all text-center",
+                            "py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wide border transition-all text-center",
                             (customScanType || (autoDetectData?.next_scan_type)) === type.val 
                               ? "bg-primary border-primary text-on-primary shadow-md"
                               : "bg-surface-subtle border-border text-foreground-muted hover:text-foreground-muted"
@@ -304,7 +304,7 @@ export default function WarehouseOperations() {
                   <button
                     type="submit"
                     disabled={scanPackageMutation.isPending || !orderId}
-                    className="w-full py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                    className="w-full py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide hover:bg-primary-light shadow-lg shadow-primary/20 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
                   >
                     {scanPackageMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
                     Submit Scan Logistik
@@ -316,27 +316,27 @@ export default function WarehouseOperations() {
             {/* Right Column: Inbound/Outbound Operator Guide */}
             <div className="lg:col-span-4 space-y-6">
               <div className="glass-card p-8 rounded-[40px] border-border bg-surface-subtle space-y-6">
-                <h3 className="font-black text-sm uppercase tracking-widest text-foreground-muted">SOP Alur Pergudangan</h3>
+                <h3 className="font-black text-sm uppercase tracking-wide text-foreground-muted">SOP Alur Pergudangan</h3>
                 <div className="space-y-4">
                   <div className="flex gap-3">
                     <span className="h-6 w-6 rounded-full bg-primary/20 text-primary-light flex items-center justify-center text-xs font-black font-mono shrink-0">1</span>
                     <div>
                       <p className="text-xs font-bold text-foreground-muted">Scan Inbound Origin</p>
-                      <p className="text-[10px] text-foreground-muted">Gunakan saat paket pertama kali masuk gudang asal setelah pickup kurir.</p>
+                      <p className="text-xs text-foreground-muted">Gunakan saat paket pertama kali masuk gudang asal setelah pickup kurir.</p>
                     </div>
                   </div>
                   <div className="flex gap-3">
                     <span className="h-6 w-6 rounded-full bg-primary/20 text-primary-light flex items-center justify-center text-xs font-black font-mono shrink-0">2</span>
                     <div>
                       <p className="text-xs font-bold text-foreground-muted">Scan Outbound Origin & Bagging</p>
-                      <p className="text-[10px] text-foreground-muted">Pilih / buat kantong konsolidasi, segel kantong dengan memasukkan nomor pelat kendaraan atau penerbangan.</p>
+                      <p className="text-xs text-foreground-muted">Pilih / buat kantong konsolidasi, segel kantong dengan memasukkan nomor pelat kendaraan atau penerbangan.</p>
                     </div>
                   </div>
                   <div className="flex gap-3">
                     <span className="h-6 w-6 rounded-full bg-primary/20 text-primary-light flex items-center justify-center text-xs font-black font-mono shrink-0">3</span>
                     <div>
                       <p className="text-xs font-bold text-foreground-muted">Bag Out & Inbound Destination</p>
-                      <p className="text-[10px] text-foreground-muted">Buka segel kantong konsolidasi (Bag Out) di gudang tujuan sebelum dapat memindai paket individual ke inbound tujuan.</p>
+                      <p className="text-xs text-foreground-muted">Buka segel kantong konsolidasi (Bag Out) di gudang tujuan sebelum dapat memindai paket individual ke inbound tujuan.</p>
                     </div>
                   </div>
                 </div>
@@ -404,7 +404,7 @@ export default function WarehouseOperations() {
                       flight_number: newFlightNumber
                     })}
                     disabled={createBagMutation.isPending || !newBagNumber}
-                    className="w-full py-4 mt-2 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                    className="w-full py-4 mt-2 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide hover:bg-primary-light shadow-lg shadow-primary/20 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
                   >
                     {createBagMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
                     Segel & Daftar Bag
@@ -418,7 +418,7 @@ export default function WarehouseOperations() {
               <div className="glass-card p-8 rounded-[40px] border-border hover:border-border transition-all space-y-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-black text-foreground-muted uppercase tracking-tight">Kantong Transit Terdaftar</h3>
-                  <span className="text-[10px] font-black text-foreground-muted uppercase tracking-wider">{bags?.length || 0} Total Bags</span>
+                  <span className="text-xs font-black text-foreground-muted uppercase tracking-wide">{bags?.length || 0} Total Bags</span>
                 </div>
 
                 <div className="space-y-4">
@@ -434,13 +434,13 @@ export default function WarehouseOperations() {
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-black text-foreground-muted uppercase tracking-tight">{bag.bag_number}</span>
                           <span className={cn(
-                            "text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider",
+                            "text-xs px-2 py-0.5 rounded-full font-black uppercase tracking-wide",
                             bag.status === 'sealed' ? "bg-warning-surface text-warning border border-warning" : "bg-success-surface text-success border border-success"
                           )}>
                             {bag.status === 'sealed' ? 'Sealed' : 'Opened / Unbagged'}
                           </span>
                         </div>
-                        <div className="flex items-center gap-4 text-[10px] text-foreground-muted font-medium">
+                        <div className="flex items-center gap-4 text-xs text-foreground-muted font-medium">
                           {bag.vehicle_plate && (
                             <span className="flex items-center gap-1.5"><Truck size={12} aria-hidden="true" /> Plat: {bag.vehicle_plate}</span>
                           )}
@@ -456,13 +456,13 @@ export default function WarehouseOperations() {
                           <button
                             onClick={() => openBagMutation.mutate(bag.bag_number)}
                             disabled={openBagMutation.isPending}
-                            className="px-4 py-2.5 rounded-xl bg-error-surface hover:bg-error-surface text-error border border-error text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                            className="px-4 py-2.5 rounded-xl bg-error-surface hover:bg-error-surface text-error border border-error text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2"
                           >
                             <Unlock size={12} aria-hidden="true" />
                             Bag Out (Buka Segel)
                           </button>
                         ) : (
-                          <span className="px-4 py-2.5 rounded-xl bg-success-surface text-success text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                          <span className="px-4 py-2.5 rounded-xl bg-success-surface text-success text-xs font-black uppercase tracking-wide flex items-center gap-2">
                             <Lock size={12} aria-hidden="true" />
                             Unbagged
                           </span>
@@ -472,7 +472,7 @@ export default function WarehouseOperations() {
                   ))}
 
                   {(!bags || bags.length === 0) && (
-                    <div className="py-20 text-center text-foreground-muted font-bold italic uppercase tracking-widest italic">
+                    <div className="py-20 text-center text-foreground-muted font-bold italic uppercase tracking-wide italic">
                       Belum ada kantong transit terdaftar
                     </div>
                   )}
