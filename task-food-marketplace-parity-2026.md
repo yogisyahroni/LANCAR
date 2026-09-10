@@ -3537,8 +3537,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - 4.1.3 Status Messages
 
 - [ ] Use native semantic HTML/control first before custom ARIA recreation.
-- [ ] Heading hierarchy is meaningful; do not choose heading level for font size.
-- [ ] Landmarks/navigation/main regions are identifiable.
+- [x] Heading hierarchy is meaningful; do not choose heading level for font size. Full Customer/Admin Light/Dark route inventory enforces one visible `h1`, first heading level 1, and no heading skips across 198 cases. Evidence: `docs/task-evidence/A11Y-2026-013.md`.
+- [x] Landmarks/navigation/main regions are identifiable. Full Customer/Admin Light/Dark route inventory enforces one visible main region and named visible navigation landmarks across 198 cases. Evidence: `docs/task-evidence/A11Y-2026-013.md`.
 - [x] Accessible name of visible-label controls contains/matches visible label intent. Customer 56/56 and Admin 142/142 route/mobile inventory cases enforce this at runtime. Evidence: `docs/task-evidence/A11Y-2026-013.md`.
 - [x] Status messages can be perceived without forcing focus jump. Visible `role="alert"`/`role="status"` regions are required to expose non-empty accessible content in the route inventory. Evidence: `docs/task-evidence/A11Y-2026-013.md`.
 
