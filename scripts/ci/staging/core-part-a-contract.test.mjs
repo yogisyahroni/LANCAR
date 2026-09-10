@@ -104,6 +104,7 @@ test('database proof requires one order, one payment, one key, and the exact quo
     payment_count: 1,
     idempotency_count: 1,
     quote_id: quote.quote_id,
+    total_price_idr: quote.total_price_idr,
     pricing_snapshot: { ...quote },
   };
   assert.doesNotThrow(() => assertPersistedDatabaseRow(row, quote, 'order-1'));

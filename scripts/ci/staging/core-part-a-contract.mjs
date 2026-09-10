@@ -189,6 +189,9 @@ export const assertPersistedDatabaseRow = (row, quote, expectedOrderId) => {
   if (Number(row.idempotency_count) !== 1) {
     throw new GateError('Database did not contain exactly one create idempotency row', 'DATABASE_IDEMPOTENCY_INVALID');
   }
+  if (Number(row.total_price_idr) !== Number(quote.total_price_idr)) {
+    throw new GateError('Persisted order total was influenced by the client quote total', 'DATABASE_TRUSTED_TOTAL_INVALID');
+  }
   if (String(row.quote_id || '') !== String(quote.quote_id)) {
     throw new GateError('Persisted order quote_id differs from the authoritative quote', 'DATABASE_QUOTE_SNAPSHOT_INVALID');
   }
@@ -284,8 +287,13 @@ const buildDraft = (serviceCode) => {
   };
   return {
     pickup_address: 'Monas, Gambir, Jakarta Pusat',
+    // The quote controller consumes pickup/dropoff; the create-order
+    // controller consumes pickup_location/dropoff_location. Keep both
+    // representations so the same canonical draft exercises both paths.
+    pickup,
     pickup_location: pickup,
     dropoff_address: 'GBK, Tanah Abang, Jakarta Pusat',
+    dropoff,
     dropoff_location: dropoff,
     recipient_name: process.env.STAGING_CORE_GATE_RECIPIENT_NAME || 'LANCAR Staging Gate',
     recipient_phone: process.env.STAGING_CORE_GATE_RECIPIENT_PHONE || '628000000000',
@@ -346,10 +354,37 @@ const databaseEnvironment = (dsn) => {
   return environment;
 };
 
+const sqlStringLiteral = (value) => `'${String(value).replaceAll("'", "''")}'`;
+
+const sqlUuidLiteral = (value, label) => {
+  const normalized = String(value || '').trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized)) {
+    throw new GateError(`${label} is not a valid UUID`, 'GATE_DATABASE_QUERY_FAILED');
+  }
+  return `${sqlStringLiteral(normalized)}::uuid`;
+};
+
+const redactDatabaseDiagnostic = (value) => String(value || 'unknown database error')
+  .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, 'postgres://[redacted]')
+  .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi, '[redacted-id]')
+  .replace(/core-part-a-[a-z0-9-]+/gi, '[redacted-key]')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .slice(0, 300);
+
 const queryPersistedDatabase = (dsn, actorId, orderId, idempotencyKey) => {
   if (!dsn) {
     throw new GateError('STAGING_CORE_GATE_DATABASE_URL is required for persisted database proof', 'GATE_DATABASE_CONFIG_MISSING');
   }
+  // Do not rely on psql :'variable' interpolation here. The Windows psql
+  // client used by the staging runner leaves that syntax untouched when the
+  // query is supplied through --command. UUIDs and the generated key are
+  // validated/escaped into the SQL while the database password stays only in
+  // the child process environment.
+  const actorLiteral = sqlUuidLiteral(actorId, 'actor id');
+  const actorKeyLiteral = sqlStringLiteral(actorId);
+  const orderLiteral = sqlUuidLiteral(orderId, 'order id');
+  const keyLiteral = sqlStringLiteral(idempotencyKey);
   const query = String.raw`
 SELECT json_build_object(
   'order_id', o.id::text,
@@ -361,12 +396,12 @@ SELECT json_build_object(
   'payment_count', (SELECT COUNT(*) FROM payments p WHERE p.order_id = o.id),
   'idempotency_count', (SELECT COUNT(*) FROM api_idempotency_keys k
                          WHERE k.scope = 'customer.order.create'
-                           AND k.actor_key = :'actor_id'
-                           AND k.idempotency_key = :'idempotency_key')
+                           AND k.actor_key = ${actorKeyLiteral}
+                           AND k.idempotency_key = ${keyLiteral})
 )::text
 FROM orders o
-WHERE o.id = :'order_id'::uuid
-  AND o.customer_id = :'actor_id'::uuid;
+WHERE o.id = ${orderLiteral}
+  AND o.customer_id = ${actorLiteral};
 `;
   const result = spawnSync('psql', [
     '--no-psqlrc',
@@ -374,9 +409,6 @@ WHERE o.id = :'order_id'::uuid
     '--tuples-only',
     '--no-align',
     '--set=ON_ERROR_STOP=1',
-    `--set=actor_id=${actorId}`,
-    `--set=order_id=${orderId}`,
-    `--set=idempotency_key=${idempotencyKey}`,
     '--command',
     query,
   ], { env: databaseEnvironment(dsn), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -384,7 +416,10 @@ WHERE o.id = :'order_id'::uuid
     throw new GateError('psql is required for staging database proof', 'GATE_DATABASE_CLIENT_MISSING');
   }
   if (result.status !== 0) {
-    throw new GateError('staging database query failed', 'GATE_DATABASE_QUERY_FAILED');
+    throw new GateError(
+      `staging database query failed: ${redactDatabaseDiagnostic(result.stderr || result.error?.message)}`,
+      'GATE_DATABASE_QUERY_FAILED',
+    );
   }
   const output = String(result.stdout || '').trim();
   if (!output) return null;
@@ -440,7 +475,7 @@ const runGate = async () => {
 
   const draft = buildDraft(configuredService);
   const mobileQuote = assertQuoteContract(
-    quoteBody(expectSuccessful(await requestJson(apiBase, '/customer/orders/calculate', { method: 'POST', headers: bearer, body: draft }))),
+    quoteBody(expectSuccessful(await requestJson(apiBase, '/customer/orders/calculate', { method: 'POST', headers: bearer, body: draft }), 'mobile quote')),
     'mobile quote',
   );
 
@@ -464,12 +499,15 @@ const runGate = async () => {
     'user-agent': 'lancar-core-part-a-gate/1',
   };
   const webQuote = assertQuoteContract(
-    quoteBody(expectSuccessful(await requestJson(apiBase, '/auth/web/orders/calculate', { method: 'POST', headers: webHeaders, body: draft }))),
+    quoteBody(expectSuccessful(await requestJson(apiBase, '/auth/web/orders/calculate', { method: 'POST', headers: webHeaders, body: draft }), 'web quote')),
     'web quote',
   );
   assertQuoteParity(mobileQuote, webQuote);
 
   const basePayload = buildCreatePayload(draft, mobileQuote);
+  // Deliberately tamper with the client echo. The persisted amount must still
+  // come from the customer-owned server quote snapshot in Redis.
+  basePayload.quote_total_price_idr = Number(mobileQuote.total_price_idr) + 12345;
   const idempotencyKey = `core-part-a-${crypto.randomUUID()}`;
   const createOptions = { method: 'POST', headers: { ...bearer, 'x-idempotency-key': idempotencyKey }, body: basePayload };
   const concurrentResults = await Promise.all(
@@ -558,6 +596,7 @@ const runGate = async () => {
     persisted_order_count: databaseRow.order_count,
     persisted_payment_count: databaseRow.payment_count,
     persisted_idempotency_count: databaseRow.idempotency_count,
+    client_total_tamper: 'IGNORED',
     cleanup: process.env.STAGING_CORE_GATE_CLEANUP === 'true' ? 'PASS' : 'NOT_REQUESTED',
   }));
 };

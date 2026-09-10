@@ -57,7 +57,9 @@ import {
 import {
   buildPromoReservationKey,
   calculateCustomerPriceBreakdown,
+  customerQuoteInputFingerprint,
   hashPhoneForPrivateLookup,
+  loadCustomerPriceQuote,
   maskPhone,
   normalizeCoordinatePayload,
   normalizePackageDetailsForOrder,
@@ -237,53 +239,106 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       return;
     }
 
-    const trustedPriceBreakdown = await calculateCustomerPriceBreakdown({
-      service,
-      pickupPoint,
-      dropoffPoint,
-      dimensions: packageDimensions,
-      weightKg: packageActualWeight,
-      packages: normalizedPackages,
-      hasInsurance: has_insurance,
-      itemValue: item_value,
-      sizeTier: package_details?.size_tier || normalizedPackages[0]?.size_tier,
-      courierId: courierIdForPricing,
-      materialCodes: material_codes ?? package_details?.service_material_codes,
-      recipientName: recipient_name,
-      recipientPhone: recipient_phone,
-      requiresDeliveryCode: package_details?.requires_delivery_code,
-    });
-    const trustedRouteSnapshot = trustedPriceBreakdown.route_snapshot;
-
+    const submittedQuoteId = String(quote_id || price_breakdown?.quote_id || '').trim();
+    const breakdownQuoteId = String(price_breakdown?.quote_id || '').trim();
     const submittedQuoteFingerprint = String(
       quote_input_fingerprint || price_breakdown?.input_fingerprint || '',
     ).trim();
-    const trustedQuoteFingerprint = String(trustedPriceBreakdown.input_fingerprint || '').trim();
     const submittedQuoteExpiresAt = String(
       quote_expires_at || price_breakdown?.expires_at || '',
     ).trim();
-    if (submittedQuoteExpiresAt && (!Number.isFinite(Date.parse(submittedQuoteExpiresAt)) || Date.parse(submittedQuoteExpiresAt) <= Date.now())) {
+    const submittedSnapshotHash = String(
+      quote_snapshot_hash || price_breakdown?.snapshot_hash || price_breakdown?.route_snapshot?.snapshot_hash || '',
+    ).trim();
+    const respondRequote = (message: string, currentQuote?: Record<string, any>) => {
       client.release();
       res.status(409).json({
         success: false,
         code: 'REQUOTE_REQUIRED',
-        error: 'Quote sudah kedaluwarsa. Hitung ulang harga sebelum order dibuat.',
+        error: message,
         requires_requote: true,
-        quote_id: quote_id || price_breakdown?.quote_id || null,
-        trusted_price_breakdown: trustedPriceBreakdown,
+        quote_id: submittedQuoteId || null,
+        ...(currentQuote ? { trusted_price_breakdown: currentQuote } : {}),
       });
+    };
+
+    if (quote_id && breakdownQuoteId && String(quote_id).trim() !== breakdownQuoteId) {
+      respondRequote('Quote yang dikirim tidak konsisten. Hitung ulang harga sebelum order dibuat.');
+      return;
+    }
+
+    let trustedPriceBreakdown: Record<string, any>;
+    if (service.price_mode !== 'quote') {
+      if (!submittedQuoteId) {
+        respondRequote('Quote server wajib dibuat sebelum order. Hitung ulang harga sebelum order dibuat.');
+        return;
+      }
+
+      const storedQuote = await loadCustomerPriceQuote(submittedQuoteId, customer_id);
+      if (!storedQuote) {
+        respondRequote('Quote sudah tidak tersedia. Hitung ulang harga sebelum order dibuat.');
+        return;
+      }
+
+      const requestQuoteFingerprint = customerQuoteInputFingerprint({
+        service,
+        pickupPoint,
+        dropoffPoint,
+        dimensions: packageDimensions,
+        weightKg: packageActualWeight,
+        packages: normalizedPackages,
+        hasInsurance: has_insurance,
+        itemValue: item_value,
+        sizeTier: package_details?.size_tier || normalizedPackages[0]?.size_tier,
+        courierId: courierIdForPricing,
+        materialCodes: material_codes ?? package_details?.service_material_codes,
+        recipientName: recipient_name,
+        recipientPhone: recipient_phone,
+        requiresDeliveryCode: package_details?.requires_delivery_code,
+      });
+      const storedQuoteFingerprint = String(storedQuote.input_fingerprint || '').trim();
+      const storedQuoteExpiresAt = Date.parse(String(storedQuote.expires_at || ''));
+      if (storedQuote.quote_id !== submittedQuoteId
+        || storedQuote.service_code !== service.code
+        || !storedQuoteFingerprint
+        || storedQuoteFingerprint !== requestQuoteFingerprint
+        || !Number.isFinite(storedQuoteExpiresAt)
+        || storedQuoteExpiresAt <= Date.now()) {
+        respondRequote('Input alamat, paket, layanan, atau quote berubah. Hitung ulang harga sebelum order dibuat.', storedQuote);
+        return;
+      }
+      trustedPriceBreakdown = storedQuote;
+    } else {
+      trustedPriceBreakdown = await calculateCustomerPriceBreakdown({
+        service,
+        pickupPoint,
+        dropoffPoint,
+        dimensions: packageDimensions,
+        weightKg: packageActualWeight,
+        packages: normalizedPackages,
+        hasInsurance: has_insurance,
+        itemValue: item_value,
+        sizeTier: package_details?.size_tier || normalizedPackages[0]?.size_tier,
+        courierId: courierIdForPricing,
+        materialCodes: material_codes ?? package_details?.service_material_codes,
+        recipientName: recipient_name,
+        recipientPhone: recipient_phone,
+        requiresDeliveryCode: package_details?.requires_delivery_code,
+      });
+    }
+    const trustedRouteSnapshot = trustedPriceBreakdown.route_snapshot;
+    const trustedQuoteFingerprint = String(trustedPriceBreakdown.input_fingerprint || '').trim();
+    if (submittedQuoteExpiresAt && (!Number.isFinite(Date.parse(submittedQuoteExpiresAt)) || Date.parse(submittedQuoteExpiresAt) <= Date.now())) {
+      respondRequote('Quote sudah kedaluwarsa. Hitung ulang harga sebelum order dibuat.', trustedPriceBreakdown);
       return;
     }
     if (submittedQuoteFingerprint && trustedQuoteFingerprint && submittedQuoteFingerprint !== trustedQuoteFingerprint) {
-      client.release();
-      res.status(409).json({
-        success: false,
-        code: 'REQUOTE_REQUIRED',
-        error: 'Input alamat, paket, layanan, atau konfigurasi quote berubah. Hitung ulang harga.',
-        requires_requote: true,
-        quote_id: quote_id || price_breakdown?.quote_id || null,
-        trusted_price_breakdown: trustedPriceBreakdown,
-      });
+      respondRequote('Input alamat, paket, layanan, atau konfigurasi quote berubah. Hitung ulang harga.', trustedPriceBreakdown);
+      return;
+    }
+    if (submittedSnapshotHash && String(trustedPriceBreakdown.snapshot_hash || '').trim()
+      && submittedSnapshotHash !== String(trustedPriceBreakdown.snapshot_hash).trim()) {
+      respondRequote('Snapshot harga sudah berubah. Hitung ulang harga sebelum order dibuat.', trustedPriceBreakdown);
       return;
     }
 
@@ -877,7 +932,13 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
     // Lock baris order milik customer ini
     const { rows: orderRows } = await client.query(
       `SELECT o.id, o.status, o.order_number, o.service_sub_type, o.merchant_id,
-              o.courier_id, o.total_price_idr, o.platform_fee_idr, o.pricing_snapshot,
+              (SELECT ol.courier_id
+                 FROM order_legs ol
+                WHERE ol.order_id = o.id
+                  AND ol.courier_id IS NOT NULL
+                ORDER BY ol.leg_number
+                LIMIT 1) AS courier_id,
+              o.total_price_idr, o.platform_fee_idr, o.pricing_snapshot,
               COALESCE((SELECT p.amount_idr FROM payments p WHERE p.order_id = o.id
                         ORDER BY p.created_at DESC LIMIT 1), o.total_price_idr) AS paid_amount_idr
          FROM orders o

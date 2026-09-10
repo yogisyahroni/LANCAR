@@ -47,6 +47,7 @@ import {
 
 import {
   calculateCustomerPriceBreakdown,
+  persistCustomerPriceQuote,
   completeCustomerLapayPayment,
   getCustomerOrderPaymentRow,
   normalizeCoordinatePayload,
@@ -664,6 +665,8 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       requiresDeliveryCode: package_details?.requires_delivery_code,
     });
 
+    await persistCustomerPriceQuote(breakdown, String(req.user?.id || ''));
+
     res.json(breakdown);
   } catch (error: any) {
     res.status(error?.statusCode || 500).json({
@@ -763,6 +766,7 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
           recipientPhone: recipient_phone,
           requiresDeliveryCode: package_details?.requires_delivery_code,
         });
+        await persistCustomerPriceQuote(breakdown, String(req.user?.id || ''));
         return { ok: true as const, service_code: service.code, breakdown };
       } catch (error: any) {
         return {

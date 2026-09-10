@@ -799,6 +799,19 @@ export type CustomerPriceCalculationInput = {
   requiresDeliveryCode?: boolean;
 };
 
+const normalizeFingerprintDimensions = (value: unknown) => {
+  const candidate = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const normalize = (dimension: unknown) => {
+    const numeric = Number(dimension);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+  };
+  return {
+    length: normalize(candidate.length),
+    width: normalize(candidate.width),
+    height: normalize(candidate.height),
+  };
+};
+
 const packageFactsSnapshot = (
   service: DeliveryServiceProduct,
   packages: NormalizedOrderPackage[],
@@ -838,6 +851,112 @@ const normalizeMaterialCodes = (value: unknown): string[] => {
     .map((item) => String(item || '').trim().toLowerCase())
     .filter(Boolean)
     .slice(0, 20))];
+};
+
+export const customerQuoteInputFingerprint = ({
+  service,
+  pickupPoint,
+  dropoffPoint,
+  dimensions,
+  weightKg,
+  packages,
+  hasInsurance,
+  itemValue,
+  sizeTier,
+  courierId,
+  materialCodes,
+  recipientName,
+  recipientPhone,
+  requiresDeliveryCode,
+}: CustomerPriceCalculationInput & { packages: NormalizedOrderPackage[] }) => crypto
+  .createHash('sha256')
+  .update(JSON.stringify({
+    service_code: service.code,
+    pickup: pickupPoint,
+    dropoff: dropoffPoint,
+    dimensions: normalizeFingerprintDimensions(dimensions),
+    weight_kg: weightKg || null,
+    // Package provenance (`packages_array` vs legacy form fields) is not
+    // business input and must not invalidate an otherwise identical quote.
+    packages: packages.map(({ metadata: _metadata, ...pkg }) => pkg),
+    has_insurance: Boolean(hasInsurance),
+    item_value: toNumber(itemValue),
+    size_tier: sizeTier || null,
+    courier_id: courierId || null,
+    material_codes: normalizeMaterialCodes(materialCodes),
+    recipient_name: recipientName || null,
+    recipient_phone: recipientPhone || null,
+    requires_delivery_code: Boolean(requiresDeliveryCode),
+  }))
+  .digest('hex');
+
+type StoredCustomerPriceQuote = {
+  customer_id: string;
+  quote: Record<string, any>;
+};
+
+const customerQuoteKey = (customerId: string, quoteId: string) =>
+  `customer:price-quote:${customerId}:${quoteId}`;
+
+const quoteStorageError = (operation: string, error: unknown) => {
+  securityLog.error('Customer quote storage unavailable', { operation, error });
+  const failure = new Error('Server quote belum tersedia. Coba hitung ulang harga.');
+  (failure as any).statusCode = 503;
+  (failure as any).code = 'ERR_QUOTE_STORAGE_UNAVAILABLE';
+  return failure;
+};
+
+export const persistCustomerPriceQuote = async (
+  quote: Record<string, any>,
+  customerId: string,
+) => {
+  const normalizedCustomerId = String(customerId || '').trim();
+  const quoteId = String(quote?.quote_id || '').trim();
+  if (!normalizedCustomerId || !quoteId) {
+    throw quoteStorageError('persist_invalid_identity', new Error('customer quote identity is missing'));
+  }
+
+  const record: StoredCustomerPriceQuote = {
+    customer_id: normalizedCustomerId,
+    quote,
+  };
+  try {
+    await redis.set(
+      customerQuoteKey(normalizedCustomerId, quoteId),
+      JSON.stringify(record),
+      'EX',
+      10 * 60,
+    );
+  } catch (error) {
+    throw quoteStorageError('persist', error);
+  }
+};
+
+export const loadCustomerPriceQuote = async (
+  quoteId: string,
+  customerId: string,
+): Promise<Record<string, any> | null> => {
+  const normalizedCustomerId = String(customerId || '').trim();
+  const normalizedQuoteId = String(quoteId || '').trim();
+  if (!normalizedCustomerId || !normalizedQuoteId) return null;
+
+  let raw: string | null;
+  try {
+    raw = await redis.get(customerQuoteKey(normalizedCustomerId, normalizedQuoteId));
+  } catch (error) {
+    throw quoteStorageError('load', error);
+  }
+  if (!raw) return null;
+
+  try {
+    const record = JSON.parse(raw) as StoredCustomerPriceQuote;
+    if (record.customer_id !== normalizedCustomerId || !record.quote || typeof record.quote !== 'object') {
+      return null;
+    }
+    return record.quote;
+  } catch (error) {
+    throw quoteStorageError('load_invalid_payload', error);
+  }
 };
 
 const loadSelectedTambalBanMaterials = async (
@@ -888,39 +1007,6 @@ export const calculateCustomerPriceBreakdown = async ({
   }: CustomerPriceCalculationInput) => {
   const quoteId = crypto.randomUUID();
   const quoteExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-  const normalizeFingerprintDimensions = (value: unknown) => {
-    const candidate = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-    const normalize = (dimension: unknown) => {
-      const numeric = Number(dimension);
-      return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
-    };
-    return {
-      length: normalize(candidate.length),
-      width: normalize(candidate.width),
-      height: normalize(candidate.height),
-    };
-  };
-  const quoteInputFingerprint = (normalizedPackages: NormalizedOrderPackage[]) => crypto
-    .createHash('sha256')
-    .update(JSON.stringify({
-      service_code: service.code,
-      pickup: pickupPoint,
-      dropoff: dropoffPoint,
-      dimensions: normalizeFingerprintDimensions(dimensions),
-      weight_kg: weightKg || null,
-      // Package provenance (`packages_array` vs legacy form fields) is not
-      // business input and must not invalidate an otherwise identical quote.
-      packages: normalizedPackages.map(({ metadata: _metadata, ...pkg }) => pkg),
-      has_insurance: Boolean(hasInsurance),
-      item_value: toNumber(itemValue),
-      size_tier: sizeTier || null,
-      courier_id: courierId || null,
-      material_codes: normalizeMaterialCodes(materialCodes),
-      recipient_name: recipientName || null,
-      recipient_phone: recipientPhone || null,
-      requires_delivery_code: Boolean(requiresDeliveryCode),
-    }))
-    .digest('hex');
 
   // ─── Quote-based pricing (aggregator/3PL) ────────────────────
   // These services don't use internal distance × multiplier pricing.
@@ -949,7 +1035,11 @@ export const calculateCustomerPriceBreakdown = async ({
         ? packages
         : normalizePackageInputs(null, { dimensions, weight_kg: weightKg, size_tier: sizeTier });
     const pkgSummary = summarizePackages(service, normalizedPkgs);
-    const inputFingerprint = quoteInputFingerprint(normalizedPkgs);
+    const inputFingerprint = customerQuoteInputFingerprint({
+      service, pickupPoint, dropoffPoint, dimensions, weightKg, packages: normalizedPkgs,
+      hasInsurance, itemValue, sizeTier, courierId, materialCodes,
+      recipientName, recipientPhone, requiresDeliveryCode,
+    });
     const publicQuoteRoute = publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` });
 
     return {
@@ -1030,7 +1120,11 @@ export const calculateCustomerPriceBreakdown = async ({
     : normalizePackageInputs(null, { dimensions, weight_kg: weightKg, size_tier: sizeTier });
   validatePackagePolicy(service, normalizedPackages);
   const packageSummary = summarizePackages(service, normalizedPackages);
-  const inputFingerprint = quoteInputFingerprint(normalizedPackages);
+  const inputFingerprint = customerQuoteInputFingerprint({
+    service, pickupPoint, dropoffPoint, dimensions, weightKg, packages: normalizedPackages,
+    hasInsurance, itemValue, sizeTier, courierId, materialCodes,
+    recipientName, recipientPhone, requiresDeliveryCode,
+  });
   const selectedTier = resolveSizeTier(service, sizeTier || normalizedPackages[0]?.size_tier || undefined);
   const divisor = toNumber(service.dimension_rules?.volumetric_divisor, 6000);
   const surchargeThreshold = toNumber(service.dimension_rules?.surcharge_threshold_kg, service.max_weight_kg || 20);

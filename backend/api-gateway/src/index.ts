@@ -895,6 +895,32 @@ app.use(createProxyMiddleware({
 // Auth Service - General Routes
 app.use('/api/v1/auth', proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead));
 
+// Auth Service - Protected user profile routes. Keep the full API path when
+// forwarding so /api/v1/users/me reaches the canonical auth-service handler.
+// This must be explicit: the gateway auth matrix protects the route, but a
+// policy entry alone does not proxy the request to its owning service.
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/users',
+  target: AUTH_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('auth_users', req, AUTH_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) recordBreakerFailure(authBreaker);
+    },
+    error: (err: Error, req: any, res: any) => {
+      recordBreakerFailure(authBreaker);
+      logProxyError('auth_users', AUTH_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(503).json(upstreamUnavailableBody('Authentication service is currently unavailable'));
+      }
+    },
+  },
+}));
+
 // Public Mobile Update Metadata
 app.use('/api/v1/system/latest-version', publicSystemLimiter);
 app.use('/api/v1/config/runtime', publicSystemLimiter);
