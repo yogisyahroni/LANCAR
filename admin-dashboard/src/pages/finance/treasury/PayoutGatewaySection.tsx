@@ -1,6 +1,4 @@
-import { createElement } from 'react';
-import { cn } from '../../../lib/utils';
-import { DollarSign, TrendingUp, TrendingDown, PieChart as PieIcon, CreditCard, History, ArrowUpRight, ArrowDownRight, ShieldAlert, Download, CloudRain, ChevronRight, Loader2, Landmark, CheckCircle2, XCircle, Ban, ShieldCheck, FileSearch, Smartphone, AlertTriangle, Wallet, Users, Clock, BarChart2, FileText, Receipt, Calendar, AlertCircle, ArrowRight, TrendingDown as TrendDown, Lock } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, PieChart as PieIcon, CreditCard, History, ArrowUpRight, ArrowDownRight, ShieldAlert, Download, CloudRain, ChevronRight, Loader2, Landmark, Ban, ShieldCheck, FileSearch, Smartphone, AlertTriangle, Wallet, Users, BarChart2, FileText, Receipt, Calendar, ArrowRight, TrendingDown as TrendDown, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { clientLog } from '../../../lib/clientLogger';
@@ -10,28 +8,26 @@ import { id as localeId } from 'date-fns/locale';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 import { ConfirmPayoutModal, type PayoutReviewAction } from '../../../components/ConfirmPayoutModal';
 import type { FinanceData } from '../../useFinanceData';
+import { StatusBadge } from '../../../components/StatusBadge';
 
 const getPayoutStatusPresentation = (status?: string) => {
   const normalized = (status || '').toLowerCase();
   if (['completed', 'paid', 'success'].includes(normalized)) {
-    return { label: 'Berhasil', icon: CheckCircle2, className: 'bg-success-surface text-success border-success' };
+    return { status: 'success', label: 'Berhasil', className: 'bg-success-surface border-success' };
   }
   if (['failed', 'rejected', 'cancelled'].includes(normalized)) {
-    return { label: normalized === 'cancelled' ? 'Dibatalkan' : 'Gagal', icon: XCircle, className: 'bg-error-surface text-error border-error' };
+    return { status: normalized === 'cancelled' ? 'cancelled' : 'failed', label: normalized === 'cancelled' ? 'Dibatalkan' : 'Gagal', className: 'bg-error-surface border-error' };
   }
   if (['pending', 'processing', 'requested'].includes(normalized)) {
-    return { label: normalized === 'processing' ? 'Diproses' : 'Menunggu', icon: Clock, className: 'bg-warning-surface text-warning border-warning' };
+    return { status: normalized, label: normalized === 'processing' ? 'Diproses' : 'Menunggu', className: 'bg-warning-surface border-warning' };
   }
-  return { label: status || 'Status belum tersedia', icon: AlertCircle, className: 'bg-surface-subtle text-foreground-muted border-border' };
+  return { status: status || 'unknown', label: status || 'Status belum tersedia', className: 'bg-surface-subtle border-border' };
 };
 
 function PayoutStatusBadge({ status }: { status?: string }) {
   const presentation = getPayoutStatusPresentation(status);
   return (
-    <span aria-label={`Status payout: ${presentation.label}`} className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-black', presentation.className)}>
-      {createElement(presentation.icon, { size: 13, 'aria-hidden': true })}
-      {presentation.label}
-    </span>
+    <StatusBadge status={presentation.status} labelPrefix="Payout status" label={presentation.label} className={presentation.className} />
   );
 }
 

@@ -3060,6 +3060,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Merchant onboarding, store availability and halal classification, the Experience Assets publishing rule, and unit-economics reconciliation state now also use shared readable status markers with Lucide meaning icons. Admin `/merchants` and `/finance` axe coverage passes `12/12`; dynamic data variants and full visual/manual route review remain open.
 
+> **Execution checkpoint 2026-09-11 (continued):** Payout Gateway status, reconciliation mismatch count/severity and payout lifecycle markers now render through the canonical shared status badge contract. The focused Admin `/finance` axe slice passes `6/6`; dynamic finance states and full visual/manual review remain open.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

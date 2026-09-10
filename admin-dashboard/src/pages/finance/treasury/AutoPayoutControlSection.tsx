@@ -175,12 +175,12 @@ export function AutoPayoutControlSection({ data }: { data: FinanceData }) {
         <div className="glass-card p-8 rounded-[40px] border-border space-y-5">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-black text-foreground-muted italic uppercase">Reconciliation</h3>
-            <span className={cn(
-              "rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest",
-              (payoutOps?.reconciliation?.mismatch_count || 0) > 0 ? "bg-error-surface text-error" : "bg-success-surface text-success"
-            )}>
-              {payoutOps?.reconciliation?.mismatch_count || 0} mismatch
-            </span>
+            <StatusBadge
+              status={(payoutOps?.reconciliation?.mismatch_count || 0) > 0 ? 'critical' : 'balanced'}
+              labelPrefix="Reconciliation mismatch"
+              label={`${payoutOps?.reconciliation?.mismatch_count || 0} mismatch`}
+              className={(payoutOps?.reconciliation?.mismatch_count || 0) > 0 ? 'border-error bg-error-surface' : 'border-success bg-success-surface'}
+            />
           </div>
           <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
             {latestReconItems.slice(0, 6).map((item: any) => (
