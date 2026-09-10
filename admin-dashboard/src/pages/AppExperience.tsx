@@ -855,7 +855,7 @@ export default function AppExperience() {
                         ? restoreMutation.mutate()
                         : killMutation.mutate()
                     }
-                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest disabled:opacity-60 ${actionManifest.kill_switch_active ? "border-warning bg-warning-surface text-warning" : "border-error bg-error-surface text-error"}`}
+                      className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold tracking-wide disabled:opacity-60 ${actionManifest.kill_switch_active ? "border-warning bg-warning-surface text-warning" : "border-error bg-error-surface text-error"}`}
                   >
                     <Ban size={14}  aria-hidden="true" />{" "}
                         {actionManifest.kill_switch_active ? 'Resume' : 'Pause'}
@@ -1190,28 +1190,16 @@ export default function AppExperience() {
           {actionManifest ? (
             <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface-subtle p-4 text-xs text-foreground-muted">
               <Check size={15} className="text-success"  aria-hidden="true" />
-              State:{" "}
-              <strong className="text-foreground-muted">{actionManifest.state}</strong>
-              <span>·</span>Approval:{" "}
-              <strong className="text-foreground-muted">
-                {actionManifest.requires_approval
-                  ? actionManifest.approval_status
-                  : "not required"}
-              </strong>
-              <span>·</span>Rollout:{" "}
-              <strong className="text-foreground-muted">
-                {actionManifest.rollout_stage}
-                {actionManifest.canary_cohort
-                  ? ` / ${actionManifest.canary_cohort}`
-                  : ""}
-              </strong>
+              <StatusBadge status={actionManifest.state} labelPrefix="Experience state" />
+              <StatusBadge status={actionManifest.requires_approval ? actionManifest.approval_status : 'ready'} label={actionManifest.requires_approval ? undefined : 'Persetujuan tidak diperlukan'} labelPrefix="Experience approval status" />
+              <StatusBadge status={actionManifest.rollout_stage} label={actionManifest.canary_cohort ? `${actionManifest.rollout_stage} / ${actionManifest.canary_cohort}` : undefined} labelPrefix="Experience rollout" />
               {actionManifest.kill_switch_active ? (
-                <span className="text-error">· exposure disabled</span>
+                <StatusBadge status="blocked" label="Exposure dinonaktifkan" labelPrefix="Experience exposure" />
               ) : null}
               {hasAudienceConstraints(form.targeting) ? (
-                <span className="text-primary-light">· targeted</span>
+                <StatusBadge status="protected" label="Targeted audience" labelPrefix="Experience audience" />
               ) : (
-                <span className="text-warning">· broad audience</span>
+                <StatusBadge status="pending_review" label="Broad audience" labelPrefix="Experience audience" className="border-warning bg-warning-surface" />
               )}
             </div>
           ) : null}

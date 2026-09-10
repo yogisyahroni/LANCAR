@@ -145,12 +145,13 @@ export default function CourierApplications() {
                 setStatus(item)
                 setSelected(null)
               }}
-              className={cn(
-                'rounded-xl px-4 py-2 text-sm font-bold capitalize transition',
-                status === item ? 'bg-primary text-on-primary' : 'text-foreground-muted hover:text-foreground'
-              )}
-            >
-              {item}
+                className={cn(
+                  'rounded-xl px-4 py-2 text-sm font-bold capitalize transition',
+                  status === item ? 'bg-primary text-on-primary' : 'text-foreground-muted hover:text-foreground'
+                )}
+                aria-pressed={status === item}
+              >
+              {item === 'all' ? 'Semua' : item === 'pending' ? 'Menunggu review' : item === 'approved' ? 'Disetujui' : 'Ditolak'}
             </button>
             ))}
           </div>
@@ -190,10 +191,10 @@ export default function CourierApplications() {
                     </div>
                     {passed ? <CheckCircle2 className="h-5 w-5 text-success" aria-hidden="true" /> : <AlertTriangle className="h-5 w-5 text-warning"  aria-hidden="true"/>}
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase">
-                    <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">{item.verification_status}</span>
-                    <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">{item.vehicle_cc || 0} cc</span>
-                    <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">{item.document_count} docs</span>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold">
+                    <StatusBadge status={item.verification_status} labelPrefix="Applicant verification status" />
+                    <span className="rounded-full border border-border px-2.5 py-1 text-foreground-muted">{item.vehicle_cc || 0} cc</span>
+                    <span className="rounded-full border border-border px-2.5 py-1 text-foreground-muted">{item.document_count} dokumen</span>
                   </div>
                 </button>
               )

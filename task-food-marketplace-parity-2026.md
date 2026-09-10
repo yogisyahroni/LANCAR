@@ -3066,6 +3066,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Business API request states and filters, Campaign Calendar kind/status markers, governed targeting schema, and support-case SLA/payment/policy-action surfaces now use the shared status/icon contract or readable action labels. The Admin `/business-api-requests`, `/campaign-calendar` and `/cases` axe slice passes `6/6`; dynamic review/SLA/payment variants plus full visual/manual route review remain open.
 
+> **Execution checkpoint 2026-09-11 (continued):** Courier verification filters/cards, App Experience manifest/approval/rollout/exposure summary, Design Tokens lifecycle, revision target/rollback controls and Localized Content metadata/actions now use shared status/icon semantics or readable labels. The Admin `/courier-applications`, App Experience route inventory and `/localized-content` axe slice passes `54/54`; an initial 4.47:1 Design Tokens neutral badge contrast finding was fixed and the full slice rerun passed. Dynamic provider/content variants and full visual/manual route review remain open.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
