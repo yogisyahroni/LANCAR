@@ -4,6 +4,7 @@ import RevisionHistory from '../components/experience/RevisionHistory'
 import type { ExperienceForm, ExperienceHistory, ExperienceManifest } from '../components/experience/types'
 import ContrastPreview, { type PreviewMode } from '../components/experience/ContrastPreview'
 import DesignTokenEditor, { DEFAULT_DESIGN_TOKENS, normalizeDesignTokens, validateDesignTokens, type DesignTokenKey } from '../components/experience/DesignTokenEditor'
+import { StatusBadge } from '../components/StatusBadge'
 
 type Props = {
   form: ExperienceForm
@@ -40,13 +41,6 @@ const ensureTokenSection = (form: ExperienceForm): ExperienceForm => {
   }
 }
 
-const statusClass = (status: string) => ({
-  draft: 'bg-warning-surface text-warning',
-  published: 'bg-success-surface text-success',
-  superseded: 'bg-surface-raised text-foreground-muted',
-  rolled_back: 'bg-error-surface text-error',
-}[status] ?? 'bg-surface-raised text-foreground-muted')
-
 export default function DesignTokens({ form, manifests, selectedId, selected, actionManifest, publishedManifest, history, historyLoading, selectedRevision, mode, canEdit, canApprove, canPublish, canRollback, saving, actionBusy, onFormChange, onSave, onNew, onRefresh, onSelect, onApprove, onPublish, onRollback }: Props) {
   const [previewMode, setPreviewMode] = useState<PreviewMode>('system')
   const tokenSection = form.sections.find((section) => section.component === 'design_tokens')
@@ -72,7 +66,7 @@ export default function DesignTokens({ form, manifests, selectedId, selected, ac
       <div className="grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
         <aside className="space-y-4 rounded-3xl border border-border bg-surface/[0.03] p-4" aria-labelledby="design-token-manifest-list">
           <div className="flex items-center justify-between"><h2 id="design-token-manifest-list" className="text-sm font-black uppercase tracking-wider text-foreground-muted">Scoped revisions</h2><ShieldCheck size={17} className="text-foreground-muted" aria-hidden="true" /></div>
-          <div className="space-y-2">{manifests.map((manifest) => <button type="button" key={manifest.manifest_id} onClick={() => onSelect(manifest)} className={`w-full rounded-2xl border p-3 text-left ${manifest.manifest_id === selectedId ? 'border-primary/50 bg-primary/10' : 'border-border bg-surface-subtle hover:border-border'}`}><div className="flex items-center justify-between gap-2"><span className="truncate font-mono text-[10px] text-foreground-muted">{manifest.manifest_id.slice(0, 8)}…</span><span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${statusClass(manifest.state)}`}>{manifest.state}</span></div><p className="mt-2 text-sm font-black text-foreground-muted">r{manifest.revision} · {manifest.surface}</p><p className="mt-1 text-[10px] text-foreground-muted">{manifest.market_code} · {manifest.locale}</p></button>)}</div>
+          <div className="space-y-2">{manifests.map((manifest) => <button type="button" key={manifest.manifest_id} onClick={() => onSelect(manifest)} className={`w-full rounded-2xl border p-3 text-left ${manifest.manifest_id === selectedId ? 'border-primary/50 bg-primary/10' : 'border-border bg-surface-subtle hover:border-border'}`}><div className="flex items-center justify-between gap-2"><span className="truncate font-mono text-[10px] text-foreground-muted">{manifest.manifest_id.slice(0, 8)}…</span><StatusBadge status={manifest.state} labelPrefix="Manifest status" className="px-2 py-1 text-[9px] uppercase tracking-widest" /></div><p className="mt-2 text-sm font-black text-foreground-muted">r{manifest.revision} · {manifest.surface}</p><p className="mt-1 text-[10px] text-foreground-muted">{manifest.market_code} · {manifest.locale}</p></button>)}</div>
           {!manifests.length ? <p className="rounded-2xl border border-dashed border-border p-4 text-center text-xs text-foreground-muted">No manifest in this scope. Start a token draft.</p> : null}
         </aside>
         <div className="min-w-0 space-y-6">

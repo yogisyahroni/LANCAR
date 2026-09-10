@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { api } from "../lib/api";
 import DeepLinkPicker from "../components/experience/DeepLinkPicker";
 import DeepLinkTester from "../components/experience/DeepLinkTester";
+import { StatusBadge } from "../components/StatusBadge";
 import type {
   DeepLinkRoute,
   DeepLinkUsage,
@@ -250,11 +251,11 @@ export default function DeepLinks({
                 <p className="font-black text-foreground-muted">
                   {route.label}
                 </p>
-                <span
-                  className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${route.status === "active" ? "bg-success-surface text-success" : "bg-warning-surface text-warning"}`}
-                >
-                  {route.status}
-                </span>
+                <StatusBadge
+                  status={route.status}
+                  labelPrefix="Route status"
+                  className="px-2 py-1 text-[9px] uppercase tracking-widest"
+                />
               </div>
               <p className="mt-2 font-mono text-[10px] text-foreground-muted">
                 {route.template}

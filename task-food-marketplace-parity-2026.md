@@ -3216,8 +3216,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 ## A11Y-2026-002 — Color must never be the only information channel [P0]
 
 **Checklist**
-- [ ] Success/warning/error/info use icon + text/label + color, not color alone.
-- [ ] Order/payment/provider statuses use readable label and optionally icon; green/red badge alone is insufficient.
+- [ ] Success/warning/error/info use icon + text/label + color, not color alone. Evidence: `docs/task-evidence/A11Y-2026-002.md` (shared Admin status vocabulary and rendered badge guard cover audited operational states; complete route/state inventory remains open).
+- [ ] Order/payment/provider statuses use readable label and optionally icon; green/red badge alone is insufficient. Evidence: `docs/task-evidence/A11Y-2026-002.md` (Customer/Admin order/status badges retain labels and icons; full dynamic status inventory remains open).
 - [x] Charts provide legend/label/pattern/shape or direct values so series are distinguishable without color perception alone. Evidence: `docs/task-evidence/A11Y-2026-006.md`
 - [x] Form errors include text and field relationship, not only red border. Customer On-Demand pickup/dropoff, recipient name/phone and package category errors expose visible text, `aria-invalid` and matching `aria-describedby`; login, dispute and aggregator paths are also covered. Evidence: `docs/task-evidence/A11Y-2026-002.md`.
 - [x] Selected navigation/tab/row uses position/indicator/icon/text weight or other non-color cue. Customer desktop/mobile active navigation exposes `aria-current="page"` and the visible current link is keyboard-focusable; Admin collapsed navigation has the same contract. Evidence: `docs/task-evidence/A11Y-2026-002.md`.

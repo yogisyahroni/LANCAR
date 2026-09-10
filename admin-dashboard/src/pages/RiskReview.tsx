@@ -3,17 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, RefreshCw, ShieldAlert, UserRound } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from 'sonner'
+import { StatusBadge } from '../components/StatusBadge'
 
 const decisions = ['ALLOW', 'CHALLENGE', 'REVIEW', 'HOLD', 'BLOCK'] as const
 type RiskDecision = typeof decisions[number]
 
-const decisionStyle: Record<string, string> = {
-  ALLOW: 'border-success bg-success-surface text-success',
-  CHALLENGE: 'border-info bg-info-surface text-info',
-  REVIEW: 'border-warning bg-warning-surface text-warning',
-  HOLD: 'border-accent bg-accent-surface text-accent',
-  BLOCK: 'border-error bg-error-surface text-error',
-}
 const idempotencyKey = (id: string) => `risk-review-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
 type RiskReview = {
@@ -107,8 +101,8 @@ export default function RiskReview() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-black text-foreground-muted">{review.operation}</h2>
-                      <span className={`rounded-full border px-2 py-1 text-[10px] font-black tracking-widest ${decisionStyle[review.decision] || decisionStyle.REVIEW}`}>{review.decision}</span>
-                      <span className="rounded-full border border-border px-2 py-1 text-[10px] font-black tracking-widest text-foreground-muted">{review.review_status}</span>
+                      <StatusBadge status={review.decision} labelPrefix="Risk decision" className="px-2 py-1 text-[10px] uppercase tracking-widest" />
+                      <StatusBadge status={review.review_status} labelPrefix="Review status" className="px-2 py-1 text-[10px] uppercase tracking-widest" />
                     </div>
                     <p className="mt-2 text-xs text-foreground-muted">{review.entity_type} · {review.entity_id} · {review.market_code} · {formatDate(review.created_at)}</p>
                   </div>

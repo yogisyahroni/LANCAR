@@ -34,6 +34,8 @@ export const getStatusPresentation = (status?: unknown): StatusPresentation => {
     case 'balanced':
     case 'submitted':
       return { label: normalized === 'paid' ? 'Sudah dibayar' : normalized === 'verified' ? 'Terverifikasi' : normalized === 'active' ? 'Aktif' : normalized === 'live' ? 'Live' : normalized === 'hired' ? 'Diterima' : normalized === 'approved' || normalized === 'approved_auto' ? 'Disetujui' : normalized === 'published' ? 'Dipublikasi' : normalized === 'sent' ? 'Terkirim' : normalized === 'enabled' ? 'Aktif' : normalized === 'ready' ? 'Siap' : normalized === 'balanced' ? 'Seimbang' : normalized === 'submitted' ? 'Dilaporkan' : normalized === 'closed' ? 'Ditutup' : normalized === 'resolved' ? 'Selesai' : 'Berhasil', icon: normalized === 'verified' ? ShieldCheck : CheckCircle2, className: 'text-success' }
+    case 'allow':
+      return { label: 'Diizinkan', icon: CheckCircle2, className: 'text-success' }
     case 'failed':
     case 'error':
     case 'rejected':
@@ -58,6 +60,14 @@ export const getStatusPresentation = (status?: unknown): StatusPresentation => {
     case 'manual_review':
     case 'under_review':
       return { label: normalized === 'pending_review' ? 'Menunggu review' : normalized === 'pending_customer' ? 'Menunggu customer' : normalized === 'pending_internal' ? 'Menunggu internal' : normalized === 'requested' ? 'Diminta' : normalized === 'processing' ? 'Sedang diproses' : normalized === 'scheduled' ? 'Terjadwal' : ['risk_screening', 'risk_hold', 'manual_review', 'under_review'].includes(normalized) ? 'Menunggu review' : 'Menunggu', icon: Clock, className: 'text-warning' }
+    case 'review':
+      return { label: 'Perlu review', icon: Clock, className: 'text-warning' }
+    case 'hold':
+      return { label: 'Ditahan', icon: Clock, className: 'text-accent' }
+    case 'challenge':
+      return { label: 'Perlu challenge', icon: Info, className: 'text-info' }
+    case 'block':
+      return { label: 'Diblokir', icon: XCircle, className: 'text-error' }
     case 'open':
       return { label: 'Terbuka', icon: Info, className: 'text-info' }
     case 'new':
@@ -121,6 +131,7 @@ export function StatusBadge({ status, className, labelPrefix = 'Status', label }
   return (
     <span
       aria-label={`${labelPrefix}: ${visibleLabel}`}
+      data-status-badge="true"
       className={cn('inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-subtle px-2.5 py-1 text-xs font-bold', presentation.className, className)}
     >
       {createElement(presentation.icon, { className: 'h-3.5 w-3.5 shrink-0', 'aria-hidden': true })}

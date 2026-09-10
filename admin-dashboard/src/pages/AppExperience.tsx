@@ -24,6 +24,7 @@ import ExperienceAssets from "./ExperienceAssets";
 import DeepLinks from "./DeepLinks";
 import DesignTokens from "./DesignTokens";
 import ExperiencePreview from "../components/experience/ExperiencePreview";
+import { StatusBadge } from "../components/StatusBadge";
 import RevisionDiffPreview, {
   type PreviewResult,
 } from "../components/experience/RevisionDiffPreview";
@@ -69,15 +70,6 @@ const errorMessage = (error: unknown) => {
     ? response.message
     : "Experience operation failed";
 };
-const statusClass = (status: string) =>
-  ({
-    draft: "bg-warning-surface text-warning",
-    scheduled: "bg-info-surface text-info",
-    live: "bg-success-surface text-success",
-    paused: "bg-error-surface text-error",
-    expired: "bg-surface-raised text-foreground-muted",
-  })[status] ?? "bg-surface-raised text-foreground-muted";
-
 type PreviewAudience = {
   market_code: string;
   locale: string;
@@ -712,11 +704,11 @@ export default function AppExperience() {
                     <span className="truncate font-mono text-[10px] text-foreground-muted">
                       {manifest.manifest_id.slice(0, 8)}…
                     </span>
-                    <span
-                      className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${statusClass(status)}`}
-                    >
-                      {status}
-                    </span>
+                    <StatusBadge
+                      status={status}
+                      labelPrefix="Campaign status"
+                      className="px-2 py-1 text-[9px] uppercase tracking-widest"
+                    />
                   </div>
                   <p className="mt-2 text-sm font-black text-foreground-muted">
                     {campaignNameForManifest(manifest)}
