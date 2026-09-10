@@ -248,7 +248,7 @@ export function ClosingPanel({ data }: { data: FinanceData }) {
                    <div role="region" aria-label="Cash and liability summary table" tabIndex={0} className="overflow-x-auto">
                    <table className="min-w-[420px] w-full text-left text-sm">
                       <thead>
-                         <tr className="text-foreground-muted font-bold uppercase text-[10px] border-b border-border">
+                         <tr className="text-foreground-muted font-bold uppercase text-xs border-b border-border">
                             <th scope="col" className="pb-2">Account</th>
                             <th scope="col" className="pb-2 text-right">Debit</th>
                             <th scope="col" className="pb-2 text-right">Credit</th>
@@ -276,7 +276,7 @@ export function ClosingPanel({ data }: { data: FinanceData }) {
                    <div role="region" aria-label="Tax summary table" tabIndex={0} className="overflow-x-auto">
                    <table className="min-w-[420px] w-full text-left text-sm">
                       <thead>
-                         <tr className="text-foreground-muted font-bold uppercase text-[10px] border-b border-border">
+                         <tr className="text-foreground-muted font-bold uppercase text-xs border-b border-border">
                             <th scope="col" className="pb-2">Tax Type</th>
                             <th scope="col" className="pb-2 text-right">Count</th>
                             <th scope="col" className="pb-2 text-right">Total Amount</th>
@@ -305,7 +305,7 @@ export function ClosingPanel({ data }: { data: FinanceData }) {
                 <div role="region" aria-label="Settlement outstanding table" tabIndex={0} className="overflow-x-auto">
                 <table className="min-w-[420px] w-full text-left text-sm">
                    <thead>
-                      <tr className="text-foreground-muted font-bold uppercase text-[10px] border-b border-border">
+                      <tr className="text-foreground-muted font-bold uppercase text-xs border-b border-border">
                          <th scope="col" className="pb-2">Status</th>
                          <th scope="col" className="pb-2 text-right">Total Settlements</th>
                          <th scope="col" className="pb-2 text-right">Total Amount (IDR)</th>

@@ -159,7 +159,7 @@ export function ReconciliationPanel({ data }: { data: FinanceData }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 p-4 rounded-2xl bg-surface border border-border">
-            <span className="text-xs font-black uppercase tracking-widest text-foreground-muted">Filter audit</span>
+            <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">Filter audit</span>
             <select
               value={reconciliationServiceFilter}
               onChange={(e) => setReconciliationServiceFilter(e.target.value)}
@@ -214,11 +214,11 @@ export function ReconciliationPanel({ data }: { data: FinanceData }) {
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="p-3 rounded-xl bg-surface-subtle">
-                        <p className="text-[10px] text-foreground-muted uppercase font-bold">Matched</p>
+                        <p className="text-xs text-foreground-muted uppercase font-bold">Matched</p>
                         <p className="text-lg font-black text-foreground-muted mt-1">{item.matched_count || item.matched || 0}</p>
                       </div>
                       <div className="p-3 rounded-xl bg-surface-subtle">
-                        <p className="text-[10px] text-foreground-muted uppercase font-bold">Mismatches</p>
+                        <p className="text-xs text-foreground-muted uppercase font-bold">Mismatches</p>
                         <p className="text-lg font-black text-error mt-1">{item.mismatch_count || item.mismatches || 0}</p>
                       </div>
                     </div>

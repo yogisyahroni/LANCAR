@@ -146,7 +146,7 @@ export function EmergencyFundSection({ data }: { data: FinanceData }) {
             </div>
             <div className="flex flex-col items-center md:items-end gap-6">
                <div className="text-center md:text-right">
-                  <p className="text-[10px] font-black text-warning uppercase tracking-[0.2em] mb-2">Available Balance</p>
+                  <p className="text-xs font-black text-warning uppercase tracking-wide mb-2">Available Balance</p>
                   <p className="text-5xl font-black text-foreground-muted tracking-tighter">Rp {emergencyFund.toLocaleString()}</p>
                </div>
                <div className="flex gap-3">
@@ -158,7 +158,7 @@ export function EmergencyFundSection({ data }: { data: FinanceData }) {
                       }
                     }}
                     disabled={topUpMutation.isPending}
-                    className="px-6 py-3 rounded-2xl bg-warning text-on-warning font-black text-xs uppercase tracking-widest hover:bg-warning transition-all disabled:opacity-60"
+                    className="px-6 py-3 rounded-2xl bg-warning text-on-warning font-black text-xs uppercase tracking-wide hover:bg-warning transition-all disabled:opacity-60"
                   >
                      {topUpMutation.isPending ? 'Topping up...' : 'Top Up Reserves'}
                   </button>
@@ -167,7 +167,7 @@ export function EmergencyFundSection({ data }: { data: FinanceData }) {
                       // Navigate to audit logs and filter by finance
                       window.location.hash = '/audit-logs'
                     }}
-                    className="px-6 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-widest hover:bg-surface-subtle transition-all"
+                    className="px-6 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-wide hover:bg-surface-subtle transition-all"
                   >
                      View Usage History
                   </button>

@@ -151,7 +151,7 @@ export function PayoutAccountsSection({ data }: { data: FinanceData }) {
                     <Icon size={28} aria-hidden="true" />
                   </div>
                   <div className={cn(
-                    "flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full",
+                    "flex items-center gap-1 text-xs font-black px-2 py-1 rounded-full",
                     stat.up ? "bg-success-surface text-success" : "bg-error-surface text-error"
                   )}>
                     {stat.up ? <ArrowUpRight size={10} aria-hidden="true" /> : <ArrowDownRight size={10} aria-hidden="true" />}
@@ -159,7 +159,7 @@ export function PayoutAccountsSection({ data }: { data: FinanceData }) {
                   </div>
               </div>
               <div className="mt-8">
-                  <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">{stat.label}</p>
+                  <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">{stat.label}</p>
                   <p className="text-4xl font-black text-foreground-muted mt-2 tracking-tighter">
                     Rp {stat.value.toLocaleString()}
                   </p>

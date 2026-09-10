@@ -134,7 +134,7 @@ export function LedgerPanel({ data }: { data: FinanceData }) {
         <div className="space-y-8 animate-in">
           <div className="flex flex-col md:flex-row md:items-center justify-between p-6 rounded-2xl bg-surface border border-border gap-4">
             <div>
-              <h3 className="text-lg font-black text-foreground uppercase tracking-widest">Buku Besar (Ledger)</h3>
+              <h3 className="text-lg font-black text-foreground uppercase tracking-wide">Buku Besar (Ledger)</h3>
               <p className="text-sm text-foreground-muted mt-1">Daftar entri jurnal berdasarkan waktu riil.</p>
             </div>
             <div className="flex flex-wrap items-center gap-4">
@@ -165,7 +165,7 @@ export function LedgerPanel({ data }: { data: FinanceData }) {
                 onChange={(e) => setLedgerStartDate(e.target.value)}
                 className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
-              <span className="text-foreground-muted font-black tracking-widest uppercase">To</span>
+              <span className="text-foreground-muted font-black tracking-wide uppercase">To</span>
               <input
                 type="date"
                 value={ledgerEndDate}
@@ -177,7 +177,7 @@ export function LedgerPanel({ data }: { data: FinanceData }) {
 
           <div className="glass-card rounded-[24px] border border-border overflow-hidden">
             <div className="p-6 border-b border-border flex items-center justify-between">
-              <h3 className="text-sm font-black text-foreground uppercase tracking-widest">Detail Journal Entries</h3>
+              <h3 className="text-sm font-black text-foreground uppercase tracking-wide">Detail Journal Entries</h3>
             </div>
             
             {isLoadingLedgerEntries ? (
@@ -188,19 +188,19 @@ export function LedgerPanel({ data }: { data: FinanceData }) {
                   <thead className="bg-surface/[0.02]">
                     <tr>
                       {['Tanggal', 'Journal ID', 'Tipe Journal', 'Akun', 'Debit', 'Kredit', 'Keterangan'].map(h => (
-                        <th scope="col" key={h} className="px-6 py-4 text-left text-[10px] font-black text-foreground-muted uppercase tracking-widest border-b border-border">{h}</th>
+                        <th scope="col" key={h} className="px-6 py-4 text-left text-xs font-black text-foreground-muted uppercase tracking-wide border-b border-border">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {(ledgerEntriesData || []).map((row: any) => (
                       <tr key={row.entry_id} className="border-b border-border/[0.02] hover:bg-surface/[0.02] transition-colors group">
-                        <td className="px-6 py-4 font-medium text-foreground-muted text-[11px] whitespace-nowrap">
+                        <td className="px-6 py-4 font-medium text-foreground-muted text-xs whitespace-nowrap">
                           {new Date(row.created_at).toLocaleString('id-ID')}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
-                            <span className="px-2 py-0.5 rounded-md bg-surface-subtle text-[10px] font-mono text-foreground-muted w-max">{row.journal_id?.substring(0,8)}</span>
+                            <span className="px-2 py-0.5 rounded-md bg-surface-subtle text-xs font-mono text-foreground-muted w-max">{row.journal_id?.substring(0,8)}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4">

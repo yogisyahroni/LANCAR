@@ -138,7 +138,7 @@ export function RekeningGridSection({ data }: { data: FinanceData }) {
                  <PieIcon className="text-primary-light" size={24} aria-hidden="true" />
                  Model Breakdown
               </h3>
-              <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Revenue Share %</p>
+              <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Revenue Share %</p>
            </div>
            <div className="flex flex-col md:flex-row items-center gap-12">
               <div
@@ -181,7 +181,7 @@ export function RekeningGridSection({ data }: { data: FinanceData }) {
                  </ResponsiveContainer>
                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     <p className="text-4xl font-black text-foreground-muted tracking-tighter">100%</p>
-                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Gross</p>
+                    <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Gross</p>
                  </div>
               </div>
               <div className="flex-1 space-y-6 w-full">
@@ -205,7 +205,7 @@ export function RekeningGridSection({ data }: { data: FinanceData }) {
                  <History className="text-error" size={24} aria-hidden="true" />
                  Burn Analysis
               </h3>
-              <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Payout History</p>
+              <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Payout History</p>
            </div>
            <div
               className="h-[300px] w-full min-w-0 min-h-0"

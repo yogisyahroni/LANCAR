@@ -142,13 +142,13 @@ export function AutoPayoutControlSection({ data }: { data: FinanceData }) {
               ['Blocked', opsCounts.blocked_count || 0, 'text-error'],
             ].map(([label, value, color]) => (
               <div key={label as string} className="rounded-2xl bg-surface/[0.03] border border-border p-4">
-                <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">{label}</p>
+                <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">{label}</p>
                 <p className={cn("text-3xl font-black mt-2", color as string)}>{value}</p>
               </div>
             ))}
           </div>
           <div className="rounded-2xl bg-surface-subtle border border-border p-4">
-            <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">Failed Monitor</p>
+            <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Failed Monitor</p>
             <div className="mt-3 grid grid-cols-3 gap-3 text-center">
               <span className="text-xs text-foreground-muted">1h <b className="text-error">{payoutOps?.failed_monitor?.failed_last_hour || 0}</b></span>
               <span className="text-xs text-foreground-muted">24h <b className="text-error">{payoutOps?.failed_monitor?.failed_last_day || 0}</b></span>
@@ -193,7 +193,7 @@ export function AutoPayoutControlSection({ data }: { data: FinanceData }) {
                     className={item.severity === 'critical' ? 'border-error bg-error-surface' : 'border-warning bg-warning-surface'}
                   />
                 </div>
-                <p className="mt-2 text-[11px] text-foreground-muted">{item.expected_value || '-'} {'->'} {item.actual_value || '-'}</p>
+                <p className="mt-2 text-xs text-foreground-muted">{item.expected_value || '-'} {'->'} {item.actual_value || '-'}</p>
               </div>
             ))}
             {latestReconItems.length === 0 && (

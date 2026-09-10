@@ -3098,6 +3098,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Customer tracking, reporting, dispute and payment-link workflow labels/actions were audited for Part S typography. Operational labels that used uppercase extreme tracking now use the readable `tracking-wide` hierarchy while preserving brand/identifier styling where appropriate. The affected Customer axe slice passes `21/21`, reflow/text-spacing passes `14/14`, and typecheck/ESLint checks pass; known fixture WebSocket/eval logs remain non-failing noise. Broader long-string, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Remaining Admin finance dense-data surfaces—ledger, trial balance, reconciliation, unit economics, closing, service settlement, auto-payout, emergency fund, rekening, tax compliance and payout accounts—were audited for Part S typography. Financial labels, table headers, metadata and operational actions now use the readable `text-xs` floor with restrained tracking; the six-digit TOTP input keeps deliberate monospace tracking for code-entry legibility. Admin `/finance` axe coverage passes `6/6`, finance reflow/text-spacing passes `4/4`, typecheck/ESLint/table/diff guards pass. Remaining state variants, chart/tooltip behavior, visual contrast and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

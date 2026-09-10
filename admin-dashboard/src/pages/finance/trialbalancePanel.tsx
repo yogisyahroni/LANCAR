@@ -134,7 +134,7 @@ export function TrialbalancePanel({ data }: { data: FinanceData }) {
         <div className="space-y-8 animate-in">
           <div className="flex items-center justify-between p-6 rounded-2xl bg-surface border border-border">
             <div>
-              <h3 className="text-lg font-black text-foreground uppercase tracking-widest">Neraca Saldo (Trial Balance)</h3>
+              <h3 className="text-lg font-black text-foreground uppercase tracking-wide">Neraca Saldo (Trial Balance)</h3>
               <p className="text-sm text-foreground-muted mt-1">Laporan saldo awal, mutasi debit/kredit, dan saldo akhir per akun GL.</p>
             </div>
             <div className="flex items-center gap-4">
@@ -144,7 +144,7 @@ export function TrialbalancePanel({ data }: { data: FinanceData }) {
                 onChange={(e) => setLedgerStartDate(e.target.value)}
                 className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
-              <span className="text-foreground-muted font-black tracking-widest uppercase">To</span>
+              <span className="text-foreground-muted font-black tracking-wide uppercase">To</span>
               <input
                 type="date"
                 value={ledgerEndDate}
@@ -156,7 +156,7 @@ export function TrialbalancePanel({ data }: { data: FinanceData }) {
 
           <div className="glass-card rounded-[24px] border border-border overflow-hidden">
             <div className="p-6 border-b border-border flex items-center justify-between">
-              <h3 className="text-sm font-black text-foreground uppercase tracking-widest">Detail Neraca Saldo</h3>
+              <h3 className="text-sm font-black text-foreground uppercase tracking-wide">Detail Neraca Saldo</h3>
             </div>
             
             {isLoadingTrialBalance ? (
@@ -167,7 +167,7 @@ export function TrialbalancePanel({ data }: { data: FinanceData }) {
                   <thead className="bg-surface/[0.02]">
                     <tr>
                       {['Kode GL', 'Nama Akun', 'Saldo Awal', 'Total Debit', 'Total Kredit', 'Saldo Akhir'].map(h => (
-                        <th scope="col" key={h} className="px-6 py-4 text-left text-[10px] font-black text-foreground-muted uppercase tracking-widest border-b border-border">{h}</th>
+                        <th scope="col" key={h} className="px-6 py-4 text-left text-xs font-black text-foreground-muted uppercase tracking-wide border-b border-border">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -175,7 +175,7 @@ export function TrialbalancePanel({ data }: { data: FinanceData }) {
                     {(trialBalanceData || []).map((row: any) => (
                       <tr key={row.gl_code} className="border-b border-border/[0.02] hover:bg-surface/[0.02] transition-colors group">
                         <td className="px-6 py-4">
-                          <span className="px-2.5 py-1 rounded-md bg-surface-subtle text-[10px] font-mono text-foreground-muted group-hover:text-primary-light transition-colors">{row.gl_code}</span>
+                          <span className="px-2.5 py-1 rounded-md bg-surface-subtle text-xs font-mono text-foreground-muted group-hover:text-primary-light transition-colors">{row.gl_code}</span>
                         </td>
                         <td className="px-6 py-4 font-bold text-foreground-muted text-sm">{row.gl_name}</td>
                         <td className="px-6 py-4 font-medium text-foreground-muted text-sm">Rp {Number(row.opening_balance).toLocaleString('id-ID')}</td>

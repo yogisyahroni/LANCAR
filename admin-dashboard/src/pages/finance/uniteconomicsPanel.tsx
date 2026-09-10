@@ -143,7 +143,7 @@ export function UniteconomicsPanel({ data }: { data: FinanceData }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                    {unitEconomicsData?.metrics?.map((item: any, i: number) => (
                      <div key={i} className="flex flex-col p-6 rounded-3xl bg-surface/[0.02] border border-border">
-                        <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">{item.label}</p>
+                        <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">{item.label}</p>
                         <p className="text-2xl font-black text-foreground-muted mt-2">{formatCurrency(item.value)}</p>
                         <StatusBadge status={item.status} labelPrefix="Unit economics status" className="mt-4 w-fit" />
                      </div>
@@ -152,8 +152,8 @@ export function UniteconomicsPanel({ data }: { data: FinanceData }) {
 
                 <div className="rounded-3xl bg-surface/[0.02] border border-border p-6 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h4 className="text-sm font-black text-foreground-muted uppercase tracking-widest">Financial Definition</h4>
-                    <span className="text-[10px] font-mono text-primary">{unitEconomicsData?.definition?.version || 'unit-economics-2026-v1'}</span>
+                    <h4 className="text-sm font-black text-foreground-muted uppercase tracking-wide">Financial Definition</h4>
+                    <span className="text-xs font-mono text-primary">{unitEconomicsData?.definition?.version || 'unit-economics-2026-v1'}</span>
                   </div>
                   <p className="text-xs leading-6 text-foreground-muted">
                     Customer paid net refund dikurangi tax, MDR/provider fee, promo subsidy, merchant payable,
@@ -174,10 +174,10 @@ export function UniteconomicsPanel({ data }: { data: FinanceData }) {
 
                 {!!unitEconomicsData?.cohorts?.length && (
                   <div className="rounded-3xl bg-surface/[0.02] border border-border p-6 space-y-4">
-                    <h4 className="text-sm font-black text-foreground-muted uppercase tracking-widest">Contribution by Cohort</h4>
+                    <h4 className="text-sm font-black text-foreground-muted uppercase tracking-wide">Contribution by Cohort</h4>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
-                        <thead><tr className="border-b border-border text-foreground-muted text-[10px] uppercase tracking-wider">
+                        <thead><tr className="border-b border-border text-foreground-muted text-xs uppercase tracking-wide">
                           <th scope="col" className="pb-3 pr-4">Cohort</th><th scope="col" className="pb-3 pr-4">Market</th><th scope="col" className="pb-3 pr-4">Service</th><th scope="col" className="pb-3 pr-4 text-right">Orders</th><th scope="col" className="pb-3 text-right">Contribution</th>
                         </tr></thead>
                         <tbody className="divide-y divide-border">{unitEconomicsData.cohorts.map((row: any, i: number) => (
@@ -192,10 +192,10 @@ export function UniteconomicsPanel({ data }: { data: FinanceData }) {
 
                 {!!unitEconomicsData?.negative_margin_outliers?.length && (
                   <div className="rounded-3xl bg-error/[0.03] border border-error p-6 space-y-4">
-                    <h4 className="text-sm font-black text-error uppercase tracking-widest">Negative Margin Outliers</h4>
+                    <h4 className="text-sm font-black text-error uppercase tracking-wide">Negative Margin Outliers</h4>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
-                        <thead><tr className="border-b border-error text-error text-[10px] uppercase tracking-wider">
+                        <thead><tr className="border-b border-error text-error text-xs uppercase tracking-wide">
                           <th scope="col" className="pb-3 pr-4">Order</th><th scope="col" className="pb-3 pr-4">Service</th><th scope="col" className="pb-3 pr-4">Pricing Rule</th><th scope="col" className="pb-3 text-right">Contribution</th>
                         </tr></thead>
                         <tbody className="divide-y divide-error">{unitEconomicsData.negative_margin_outliers.map((row: any) => (

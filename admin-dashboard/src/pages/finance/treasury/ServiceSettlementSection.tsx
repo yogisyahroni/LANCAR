@@ -151,7 +151,7 @@ export function ServiceSettlementSection({ data }: { data: FinanceData }) {
               { label: 'Net', value: serviceSettlementTotals.net_after_settlement_idr, color: 'text-foreground-muted' },
             ].map((item) => (
               <div key={item.label} className="rounded-2xl bg-surface/[0.03] border border-border p-4">
-                <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">{item.label}</p>
+                <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">{item.label}</p>
                 <p className={cn("mt-2 text-sm font-black leading-tight", item.color)}>{formatCurrency(item.value || 0)}</p>
               </div>
             ))}
@@ -161,18 +161,18 @@ export function ServiceSettlementSection({ data }: { data: FinanceData }) {
         {isLoadingServiceSettlement ? (
           <div className="py-16 flex flex-col items-center justify-center gap-3">
             <Loader2 className="w-8 h-8 text-primary animate-spin" aria-hidden="true" />
-            <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">Menghitung settlement snapshot...</p>
+            <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Menghitung settlement snapshot...</p>
           </div>
         ) : serviceSettlementRows.length === 0 ? (
           <div className="py-16 text-center">
             <Receipt className="mx-auto text-foreground-muted" size={42} aria-hidden="true" />
-            <p className="mt-4 text-sm font-black text-foreground-muted uppercase tracking-widest">Belum ada order delivered/completed 30 hari terakhir.</p>
+            <p className="mt-4 text-sm font-black text-foreground-muted uppercase tracking-wide">Belum ada order delivered/completed 30 hari terakhir.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-border text-foreground-muted text-[10px] font-black uppercase tracking-[0.2em]">
+                <tr className="border-b border-border text-foreground-muted text-xs font-black uppercase tracking-wide">
                   <th scope="col" className="px-8 py-4">Service</th>
                   <th scope="col" className="px-6 py-4 text-right">Gross</th>
                   <th scope="col" className="px-6 py-4 text-right">Platform Fee</th>
@@ -188,7 +188,7 @@ export function ServiceSettlementSection({ data }: { data: FinanceData }) {
                   <tr key={row.service_bucket} className="hover:bg-surface/[0.02] transition-colors">
                     <td className="px-8 py-5">
                       <p className="text-sm font-black text-foreground-muted">{serviceLabel(row.service_bucket)}</p>
-                      <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+                      <p className="mt-1 text-xs font-black uppercase tracking-wide text-foreground-muted">
                         {row.delivered_orders || 0} delivered
                         {row.open_settlement_count ? ` • ${row.open_settlement_count} open settlement` : ''}
                       </p>
@@ -199,11 +199,11 @@ export function ServiceSettlementSection({ data }: { data: FinanceData }) {
                     <td className="px-6 py-5 text-right text-sm font-black text-warning">{formatCurrency(row.merchant_settlement_idr)}</td>
                     <td className="px-6 py-5 text-right text-sm font-black text-error">
                       {formatCurrency(row.refund_idr)}
-                      {row.refund_count ? <span className="block text-[10px] text-foreground-muted">{row.refund_count} refund</span> : null}
+                      {row.refund_count ? <span className="block text-xs text-foreground-muted">{row.refund_count} refund</span> : null}
                     </td>
                     <td className="px-6 py-5 text-right text-sm font-black text-accent">
                       {formatCurrency(row.cancel_fee_idr)}
-                      {row.cancel_fee_count ? <span className="block text-[10px] text-foreground-muted">{row.cancel_fee_count} fee</span> : null}
+                      {row.cancel_fee_count ? <span className="block text-xs text-foreground-muted">{row.cancel_fee_count} fee</span> : null}
                     </td>
                     <td className="px-8 py-5 text-right text-sm font-black text-foreground-muted">{formatCurrency(row.net_after_settlement_idr)}</td>
                   </tr>
