@@ -3090,6 +3090,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Admin finance/treasury manual payout review and payout gateway rows were audited for Part S. Queue severity, risk score, account/audit metadata, payout history, provider status and approval/release actions now use readable labels and restrained tracking; status semantics remain explicit. The `/finance` axe slice passes `6/6` Light/Dark/System cases; chart sizing warnings and fixture WebSocket authentication logs remain known non-blocking noise, while dynamic payout states and full visual/manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** The remaining dynamic Customer On-Demand service-card icon render was audited for Part S. The canonical service icon is now explicitly marked decorative beside the visible service label, closing the previously unguarded `createElement` semantics gap. Shared service unit coverage passes `11/11`, the focused keyboard proof passes `1/1`, the On-Demand Light/Dark/System axe slice passes `6/6`, and iconography/evidence/diff guards pass. Full conditional icon, tooltip, custom-SVG and visual/manual assistive-technology inventory remains open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

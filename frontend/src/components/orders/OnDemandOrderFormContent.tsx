@@ -303,7 +303,7 @@ export function OnDemandOrderFormContent({
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex min-w-0 items-start gap-3">
                             <span className="mt-0.5 rounded-lg border border-border bg-surface-subtle p-2 text-primary" aria-hidden="true">
-                              {createElement(ServiceIcon, { className: "h-5 w-5" })}
+                              {createElement(ServiceIcon, { className: "h-5 w-5", "aria-hidden": true })}
                             </span>
                             <div>
                             <p className="font-semibold text-foreground">
