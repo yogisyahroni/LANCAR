@@ -3,6 +3,7 @@ import { CalendarDays, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { AdminPageSkeleton } from "../components/ui/Skeleton";
+import { StatusBadge } from "../components/StatusBadge";
 
 type CalendarEntry = {
   id: string;
@@ -137,7 +138,7 @@ export default function CampaignCalendar() {
                     <h3 className="font-black text-foreground-muted">
                       {entry.title}
                     </h3>
-                    <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+                    <span className="rounded-full border border-border px-2.5 py-1 text-xs font-bold tracking-wide text-foreground-muted" aria-label={`Campaign type: ${entry.kind}`}>
                       {entry.kind}
                     </span>
                   </div>
@@ -145,9 +146,7 @@ export default function CampaignCalendar() {
                     {entry.detail}
                   </p>
                 </div>
-                <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary-light">
-                  {entry.status}
-                </span>
+                <StatusBadge status={entry.status} labelPrefix="Campaign status" className="border-primary/20 bg-primary/10 text-primary-light" />
               </article>
             ))}
           </div>

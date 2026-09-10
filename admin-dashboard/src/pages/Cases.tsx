@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, ChevronRight, Clock3, RefreshCw, ShieldCheck, X } from 'lucide-react'
+import { CheckCircle2, ChevronRight, RefreshCw, ShieldCheck, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import CaseTimeline from '../components/CaseTimeline'
-import { StatusBadge } from '../components/StatusBadge'
+import { getStatusPresentation, StatusBadge } from '../components/StatusBadge'
 import { FocusTrap } from '../components/a11y/FocusTrap'
 
 type SupportCase = {
@@ -29,6 +29,15 @@ type SupportCase = {
 
 const statuses = ['', 'open', 'investigating', 'pending_customer', 'pending_internal', 'resolved', 'closed']
 const newIdempotencyKey = () => `support-${crypto.randomUUID()}`
+const actionLabels: Record<string, string> = {
+  assign: 'Tugaskan',
+  cancel: 'Batalkan',
+  compensate: 'Kompensasi',
+  escalate: 'Eskalasi',
+  reopen: 'Buka kembali',
+  resolve: 'Selesaikan',
+}
+const actionLabel = (action: string) => actionLabels[action] || action.replaceAll('_', ' ')
 
 export default function Cases() {
   const [status, setStatus] = useState('')
@@ -94,7 +103,7 @@ export default function Cases() {
         </div>
         <div className="flex items-center gap-3">
           <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Filter case status" className="rounded-xl border border-border bg-surface-subtle px-4 py-2.5 text-sm text-foreground-muted">
-            {statuses.map((value) => <option key={value} value={value}>{value ? value.replaceAll('_', ' ') : 'All statuses'}</option>)}
+            {statuses.map((value) => <option key={value} value={value}>{value ? getStatusPresentation(value).label : 'Semua status'}</option>)}
           </select>
           <button type="button" onClick={refresh} className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground-muted hover:bg-surface-subtle">
             <RefreshCw size={16} className={casesQuery.isFetching ? 'animate-spin' : ''} aria-hidden="true" /> Refresh
@@ -117,7 +126,7 @@ export default function Cases() {
                 {data.map((item) => <tr key={item.id} className="transition hover:bg-surface/[0.03]">
                   <td className="px-6 py-5"><div className="flex items-start gap-3"><StatusBadge status={item.status} labelPrefix="Case status" className="mt-0.5" /><div><p className="font-bold text-foreground-muted">{item.case_number} · {item.subject}</p><p className="mt-1 text-xs text-foreground-muted">{item.category} · {item.priority}</p></div></div></td>
                   <td className="px-6 py-5 text-xs text-foreground-muted"><p className="font-bold text-foreground-muted">{item.service_code}</p><p className="mt-1 uppercase tracking-widest text-foreground-muted">{item.market_code}</p></td>
-                  <td className="px-6 py-5 text-xs">{item.sla_breached ? <span className="inline-flex items-center gap-1.5 font-bold text-error"><AlertTriangle size={14}  aria-hidden="true"/> Breached</span> : <span className="inline-flex items-center gap-1.5 text-foreground-muted"><Clock3 size={14} aria-hidden="true" /> {new Date(item.sla_due_at).toLocaleString('id-ID')}</span>}</td>
+                  <td className="px-6 py-5 text-xs"><StatusBadge status={item.sla_breached ? 'critical' : 'scheduled'} labelPrefix="Case SLA" label={item.sla_breached ? 'Melewati SLA' : `Jatuh tempo ${new Date(item.sla_due_at).toLocaleString('id-ID')}`} className={item.sla_breached ? 'border-error bg-error-surface' : 'border-border bg-surface-subtle text-foreground-muted'} /></td>
                   <td className="px-6 py-5 text-xs text-foreground-muted">{item.assigned_to_name || 'Unassigned'}</td>
                   <td className="px-6 py-5 text-right"><button type="button" onClick={() => setSelected(item)} aria-label={`Open ${item.case_number}`} title={`Open ${item.case_number}`} className="rounded-xl border border-border p-2.5 text-foreground-muted hover:bg-surface-subtle hover:text-foreground"><ChevronRight size={18} aria-hidden="true" /></button></td>
                 </tr>)}
@@ -142,9 +151,9 @@ export default function Cases() {
           <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-primary-light">{detail.case_number}</p><h2 id="case-detail-title" className="mt-2 text-3xl font-black tracking-tight text-foreground-muted">{detail.subject}</h2><p className="mt-2 text-sm text-foreground-muted">{detail.category} · {detail.service_code} · {detail.market_code}</p></div><button type="button" onClick={() => setSelected(null)} aria-label="Close case detail" title="Close case detail" className="rounded-xl border border-border p-2 text-foreground-muted hover:text-foreground"><X size={20} aria-hidden="true" /></button></div>
           <div className="mt-8 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="space-y-6"><div className="rounded-2xl border border-border bg-surface/[0.025] p-5"><p className="text-xs font-black uppercase tracking-widest text-foreground-muted">Customer report</p><p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground-muted">{detail.description}</p></div><div><div className="mb-4 flex items-center justify-between"><h3 className="text-xs font-black uppercase tracking-widest text-foreground-muted">Timeline</h3><span className="text-[10px] text-foreground-muted">Append-only audit</span></div><CaseTimeline events={detail.events || []} /></div></div>
-            <div className="space-y-5"><div className="rounded-2xl border border-border bg-surface/[0.025] p-5"><p className="text-xs font-black uppercase tracking-widest text-foreground-muted">Authoritative references</p><div className="mt-3 space-y-2">{(detail.links || []).map((link) => <div key={link.id} className="flex justify-between gap-3 text-xs"><span className="uppercase tracking-widest text-foreground-muted">{link.reference_type}</span><span className="max-w-[230px] truncate text-foreground-muted" title={link.reference_id}>{link.reference_label || link.reference_id}</span></div>)}{(!detail.links || detail.links.length === 0) && <p className="text-sm text-foreground-muted">No visible references</p>}</div>{detail.authoritative?.payment_status && <p className="mt-4 border-t border-border pt-3 text-xs text-foreground-muted">Payment state: <span className="font-bold text-foreground-muted">{detail.authoritative.payment_status}</span></p>}</div>
-              <div className="rounded-2xl border border-border bg-surface/[0.025] p-5"><p className="text-xs font-black uppercase tracking-widest text-foreground-muted">Policy actions</p><p className="mt-2 text-xs leading-relaxed text-foreground-muted">{detail.policy?.reason || 'Policy unavailable'}</p><div className="mt-4 flex flex-wrap gap-2">{(detail.policy?.allowedActions || []).map((action) => <button key={action} type="button" disabled={actionMutation.isPending || updateMutation.isPending} onClick={() => action === 'resolve' || action === 'reopen' ? actionMutation.mutate({ id: detail.id, action }) : actionMutation.mutate({ id: detail.id, action })} className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary-light hover:bg-primary/20 disabled:opacity-60">{action.replaceAll('_', ' ')}</button>)}</div></div>
-              <div className="rounded-2xl border border-border bg-surface/[0.025] p-5"><p className="text-xs font-black uppercase tracking-widest text-foreground-muted">Manual status gate</p><select value={detail.status} onChange={(event) => updateMutation.mutate({ id: detail.id, nextStatus: event.target.value })} disabled={updateMutation.isPending} className="mt-3 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-foreground-muted">{statuses.filter(Boolean).map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select><p className="mt-3 flex items-center gap-2 text-[10px] text-foreground-muted"><ShieldCheck size={13} aria-hidden="true" /> Financial actions require finance role + TOTP.</p></div>
+            <div className="space-y-5"><div className="rounded-2xl border border-border bg-surface/[0.025] p-5"><p className="text-xs font-black uppercase tracking-widest text-foreground-muted">Authoritative references</p><div className="mt-3 space-y-2">{(detail.links || []).map((link) => <div key={link.id} className="flex justify-between gap-3 text-xs"><span className="uppercase tracking-widest text-foreground-muted">{link.reference_type}</span><span className="max-w-[230px] truncate text-foreground-muted" title={link.reference_id}>{link.reference_label || link.reference_id}</span></div>)}{(!detail.links || detail.links.length === 0) && <p className="text-sm text-foreground-muted">No visible references</p>}</div>{detail.authoritative?.payment_status && <div className="mt-4 flex items-center gap-2 border-t border-border pt-3"><span className="text-xs text-foreground-muted">Payment state:</span><StatusBadge status={detail.authoritative.payment_status} labelPrefix="Payment state" /></div>}</div>
+              <div className="rounded-2xl border border-border bg-surface/[0.025] p-5"><p className="text-xs font-black uppercase tracking-widest text-foreground-muted">Policy actions</p><p className="mt-2 text-xs leading-relaxed text-foreground-muted">{detail.policy?.reason || 'Policy unavailable'}</p><div className="mt-4 flex flex-wrap gap-2">{(detail.policy?.allowedActions || []).map((action) => <button key={action} type="button" disabled={actionMutation.isPending || updateMutation.isPending} onClick={() => actionMutation.mutate({ id: detail.id, action })} className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-bold tracking-wide text-primary-light hover:bg-primary/20 disabled:opacity-60">{actionLabel(action)}</button>)}</div></div>
+              <div className="rounded-2xl border border-border bg-surface/[0.025] p-5"><p className="text-xs font-black uppercase tracking-widest text-foreground-muted">Manual status gate</p><select value={detail.status} onChange={(event) => updateMutation.mutate({ id: detail.id, nextStatus: event.target.value })} disabled={updateMutation.isPending} className="mt-3 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-foreground-muted">{statuses.filter(Boolean).map((value) => <option key={value} value={value}>{getStatusPresentation(value).label}</option>)}</select><p className="mt-3 flex items-center gap-2 text-xs text-foreground-muted"><ShieldCheck size={13} aria-hidden="true" /> Financial actions require finance role + TOTP.</p></div>
             </div>
           </div>
         </div>

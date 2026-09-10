@@ -17,12 +17,26 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
+import { StatusBadge } from '../components/StatusBadge'
 
 // Socket.IO
 import { io } from 'socket.io-client';
 // Ensure backend base url for socket. The dashboard proxy usually handles `/socket.io`.
 
 type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+const requestStatusPresentation: Record<RequestStatus, { status: string; label: string; className: string }> = {
+  PENDING: { status: 'pending_review', label: 'Menunggu review', className: 'border-warning bg-warning-surface' },
+  APPROVED: { status: 'approved', label: 'Disetujui', className: 'border-success bg-success-surface' },
+  REJECTED: { status: 'rejected', label: 'Ditolak', className: 'border-error bg-error-surface' },
+}
+
+const requestFilterLabels: Record<RequestStatus | 'ALL', string> = {
+  ALL: 'Semua',
+  PENDING: 'Menunggu review',
+  APPROVED: 'Disetujui',
+  REJECTED: 'Ditolak',
+}
 
 type ApiRequest = {
   id: string
@@ -41,17 +55,8 @@ type ApiRequest = {
 }
 
 function StatusPill({ status }: { status: RequestStatus }) {
-  const styles = {
-    PENDING: 'bg-warning-surface text-warning border-warning',
-    APPROVED: 'bg-success-surface text-success border-success',
-    REJECTED: 'bg-error-surface text-error border-error',
-  }[status]
-
-  return (
-    <span className={cn('rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest', styles)}>
-      {status}
-    </span>
-  )
+  const presentation = requestStatusPresentation[status]
+  return <StatusBadge status={presentation.status} labelPrefix="Business API request status" label={presentation.label} className={presentation.className} />
 }
 
 export default function BusinessApiRequests() {
@@ -157,13 +162,15 @@ export default function BusinessApiRequests() {
             {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map(status => (
               <button
                 key={status}
+                type="button"
                 onClick={() => setFilterStatus(status)}
+                aria-pressed={filterStatus === status}
                 className={cn(
                   "px-4 py-2 rounded-full text-xs font-bold transition-all",
                   filterStatus === status ? "bg-accent text-on-accent" : "bg-surface-subtle text-foreground-muted hover:bg-surface-subtle"
                 )}
               >
-                {status}
+                {requestFilterLabels[status]}
               </button>
             ))}
           </div>

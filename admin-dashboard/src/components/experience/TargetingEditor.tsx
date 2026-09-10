@@ -1,4 +1,5 @@
 import type { ExperienceTargeting } from './types'
+import { StatusBadge } from '../StatusBadge'
 
 type Props = {
   value: ExperienceTargeting
@@ -21,7 +22,7 @@ export default function TargetingEditor({ value, onChange, disabled = false }: P
           <h3 id="audience-targeting-title" className="text-sm font-black uppercase tracking-wider text-foreground-muted">Audience targeting</h3>
           <p className="mt-1 text-xs text-foreground-muted">Server resolves these dimensions. Sensitive personal attributes are not available.</p>
         </div>
-        <span className="rounded-full bg-success-surface px-3 py-1 text-[10px] font-black uppercase tracking-widest text-success">Governed schema</span>
+        <StatusBadge status="protected" labelPrefix="Audience targeting schema" label="Governed schema" className="border-success bg-success-surface text-success" />
       </div>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <label className="text-xs font-bold text-foreground-muted">City codes<input className={fieldClass} disabled={disabled} value={csv(value.city_codes)} onChange={(event) => setList('city_codes', event.target.value)} placeholder="jakarta-selatan, bandung" /></label>
