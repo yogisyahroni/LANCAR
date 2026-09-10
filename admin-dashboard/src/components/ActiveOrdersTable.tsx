@@ -1006,7 +1006,11 @@ export default function ActiveOrdersTable() {
                   transition={{ delay: i * 0.03 }}
                   tabIndex={0}
                   aria-label={`Open order ${order.id}`}
-                  className="group hover:bg-surface/[0.03] transition-all cursor-pointer border-l-2 border-transparent hover:border-primary"
+                  aria-selected={selectedOrderId === order.id}
+                  className={cn(
+                    'group hover:bg-surface/[0.03] transition-all cursor-pointer border-l-2',
+                    selectedOrderId === order.id ? 'border-primary bg-primary/10' : 'border-transparent hover:border-primary',
+                  )}
                   onClick={() => setSelectedOrderId(order.id)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
