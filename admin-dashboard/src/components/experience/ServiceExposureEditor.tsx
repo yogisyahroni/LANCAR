@@ -46,7 +46,7 @@ export default function ServiceExposureEditor({ entries, disabled = false, onCha
           type="button"
           disabled={disabled || entries.length >= 20}
           onClick={() => onChange(resequence([...entries, normalize({ service_code: '', enabled: true, fallback_behavior: 'hide_entry' }, entries.length)]))}
-          className="inline-flex items-center gap-1 rounded-lg border border-primary/30 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-primary-light disabled:opacity-60"
+          className="inline-flex items-center gap-1 rounded-lg border border-primary/30 px-2.5 py-1.5 text-xs font-bold tracking-wide text-primary-light disabled:opacity-60"
         >
           <Plus size={12} aria-hidden="true" /> Add service
         </button>
@@ -55,7 +55,7 @@ export default function ServiceExposureEditor({ entries, disabled = false, onCha
         {entries.map((entry, index) => (
           <div key={`${entry.service_code}-${index}`} className="rounded-xl border border-border bg-surface-subtle p-3">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Position {index + 1}</span>
+              <span className="text-xs font-bold tracking-wide text-foreground-muted">Position {index + 1}</span>
               <div className="flex items-center gap-1">
                 <button type="button" disabled={disabled || index === 0} onClick={() => move(index, -1)} className="rounded-lg p-1.5 text-foreground-muted hover:bg-surface-subtle disabled:opacity-60" aria-label={`Move ${entry.service_code || 'service'} up`} title={`Move ${entry.service_code || 'service'} up`}><ArrowUp size={14} aria-hidden="true" /></button>
                 <button type="button" disabled={disabled || index === entries.length - 1} onClick={() => move(index, 1)} className="rounded-lg p-1.5 text-foreground-muted hover:bg-surface-subtle disabled:opacity-60" aria-label={`Move ${entry.service_code || 'service'} down`} title={`Move ${entry.service_code || 'service'} down`}><ArrowDown size={14} aria-hidden="true" /></button>
@@ -65,7 +65,7 @@ export default function ServiceExposureEditor({ entries, disabled = false, onCha
             <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               <label className="text-xs font-bold text-foreground-muted">Service ID / code<input className={inputClass} disabled={disabled} value={entry.service_code} onChange={(event) => update(index, { service_code: event.target.value })} placeholder="food_delivery" /></label>
               <label className="text-xs font-bold text-foreground-muted">Category<input className={inputClass} disabled={disabled} value={entry.service_category || ''} onChange={(event) => update(index, { service_category: event.target.value })} placeholder="food" /></label>
-              <label className="flex items-end gap-2 text-xs font-bold text-foreground-muted"><input type="checkbox" disabled={disabled} checked={entry.enabled} onChange={(event) => update(index, { enabled: event.target.checked })} className="mb-3 h-4 w-4 accent-primary" />{entry.enabled ? <Eye size={14} className="mb-3 text-success" aria-hidden="true" /> : <EyeOff size={14} className="mb-3 text-warning" aria-hidden="true" />} Discovery enabled</label>
+              <label className="flex items-end gap-2 text-xs font-bold text-foreground-muted"><input type="checkbox" disabled={disabled} checked={entry.enabled} onChange={(event) => update(index, { enabled: event.target.checked })} className="mb-3 h-4 w-4 accent-primary" />{entry.enabled ? <Eye size={14} className="mb-3 text-success" aria-hidden="true" /> : <EyeOff size={14} className="mb-3 text-warning" aria-hidden="true" />} {entry.enabled ? 'Discovery tampil' : 'Discovery disembunyikan'}</label>
               <label className="text-xs font-bold text-foreground-muted">Marketing label<input className={inputClass} disabled={disabled} value={entry.label || ''} onChange={(event) => update(index, { label: event.target.value })} placeholder="Food delivery" /></label>
               <label className="text-xs font-bold text-foreground-muted">Subtitle<input className={inputClass} disabled={disabled} value={entry.subtitle || ''} onChange={(event) => update(index, { subtitle: event.target.value })} placeholder="Pesan makanan" /></label>
               <label className="text-xs font-bold text-foreground-muted">Badge<input className={inputClass} disabled={disabled} value={entry.badge || ''} onChange={(event) => update(index, { badge: event.target.value })} placeholder="Baru" /></label>

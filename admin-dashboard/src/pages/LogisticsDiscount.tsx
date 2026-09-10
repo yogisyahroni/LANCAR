@@ -4,6 +4,7 @@ import { AlertCircle, Loader2, Save, Percent, Truck } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
+import { StatusBadge } from '../components/StatusBadge'
 
 type LogisticsProvider = {
   code: string
@@ -117,18 +118,14 @@ export default function LogisticsDiscount() {
                   <div>
                     <div className="flex items-center gap-3">
                       <h3 className="font-bold text-foreground-muted text-lg">{provider.name}</h3>
-                      <span className={cn(
-                        'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase',
-                        provider.is_active ? 'bg-success-surface text-success' : 'bg-error-surface text-error'
-                      )}>
-                        {provider.is_active ? 'Active' : 'Off'}
-                      </span>
+                      <StatusBadge status={provider.is_active ? 'active' : 'disabled'} label={provider.is_active ? 'Aktif' : 'Nonaktif'} labelPrefix="Logistics provider status" />
                     </div>
                     <p className="text-xs text-foreground-muted uppercase tracking-wider mt-1">{provider.code}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleEdit(provider)}
+                  <button
+                    type="button"
+                    onClick={() => handleEdit(provider)}
                   className="rounded-xl bg-surface-subtle px-4 py-2 text-sm font-bold text-foreground-muted transition hover:bg-surface-subtle"
                 >
                   Edit Config
@@ -180,7 +177,7 @@ export default function LogisticsDiscount() {
                     />
                     <Percent className="absolute left-3 top-3 h-4 w-4 text-foreground-muted" aria-hidden="true" />
                   </div>
-                  <p className="text-[10px] text-foreground-muted mt-1">Diskon dari harga publish JNE/JNT</p>
+                  <p className="text-xs text-foreground-muted mt-1">Diskon dari harga publish JNE/JNT</p>
                 </label>
 
                 <label className="block">
@@ -195,7 +192,7 @@ export default function LogisticsDiscount() {
                     />
                     <Percent className="absolute left-3 top-3 h-4 w-4 text-foreground-muted" aria-hidden="true" />
                   </div>
-                  <p className="text-[10px] text-foreground-muted mt-1">Margin yang dikenakan dari harga nett</p>
+                  <p className="text-xs text-foreground-muted mt-1">Margin yang dikenakan dari harga nett</p>
                 </label>
                 
                 <label className="block">
@@ -220,7 +217,7 @@ export default function LogisticsDiscount() {
                 </label>
 
                 <label className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
-                  <span className="text-sm font-medium text-foreground-muted">Active</span>
+                  <span className="text-sm font-medium text-foreground-muted">Aktif untuk provider</span>
                   <input
                     type="checkbox"
                     checked={isActive}

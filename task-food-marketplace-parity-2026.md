@@ -3070,6 +3070,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Risk Review filters/decision labels, Meeting Point availability, Face Verification filters/metadata, Tax reconciliation/certificate states, Voucher lifecycle and Deep Link compatibility metadata now use readable labels, shared status/icon semantics or pressed-state semantics. The targeted Admin axe slice passes `20/20`; dynamic data variants plus full visual/manual route review remain open.
 
+> **Execution checkpoint 2026-09-11 (continued):** Dispute queue status/filter controls, logistics provider availability, resi-template active/default markers, targeting conflict/resolver state and service-exposure enablement now provide explicit readable non-color cues. The targeted Admin axe slice passes `10/10`; dynamic data variants plus full visual/manual route review remain open.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

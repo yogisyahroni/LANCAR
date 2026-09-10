@@ -22,6 +22,13 @@ import { useAuthStore } from '../store/useAuthStore'
 import { AdminPageSkeleton } from '../components/ui/Skeleton'
 import { FocusTrap } from '../components/a11y/FocusTrap'
 
+const disputeFilterLabels: Record<string, string> = {
+  All: 'Semua',
+  Open: 'Terbuka',
+  Investigating: 'Sedang diperiksa',
+  Resolved: 'Selesai',
+}
+
 export default function Disputes() {
   const [selectedDispute, setSelectedDispute] = useState<any>(null)
   const [showChat, setShowChat] = useState(false)
@@ -94,10 +101,7 @@ export default function Disputes() {
           <p className="text-foreground-muted mt-1">Review and resolve claims, damages, and delivery issues.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="px-4 py-2 rounded-xl bg-error-surface border border-error text-error text-xs font-black uppercase tracking-widest flex items-center gap-2">
-            <AlertTriangle size={14}  aria-hidden="true"/>
-            {stats?.pending || 0} Pending
-          </div>
+          <StatusBadge status="pending_review" label={`${stats?.pending || 0} menunggu review`} labelPrefix="Dispute queue" className="border-warning bg-warning-surface" />
         </div>
       </div>
 
@@ -106,13 +110,15 @@ export default function Disputes() {
         {['All', 'Open', 'Investigating', 'Resolved'].map(t => (
           <button 
             key={t}
+            type="button"
             onClick={() => { setFilter(t); setPage(1) }}
+            aria-pressed={filter === t}
             className={cn(
-              "px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+              "px-5 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all",
               filter === t ? "bg-primary text-on-primary shadow-lg shadow-primary/20" : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-subtle"
             )}
           >
-            {t}
+            {disputeFilterLabels[t]}
           </button>
         ))}
       </div>
@@ -309,7 +315,7 @@ export default function Disputes() {
                            <button 
                             disabled={resolveMutation.isPending}
                             onClick={() => resolveMutation.mutate({ id: selectedDispute.id, status: 'resolved' })}
-                            className="w-full py-4 rounded-2xl bg-success text-on-success font-black uppercase tracking-widest text-xs shadow-lg shadow-success hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60"
+                            className="w-full py-4 rounded-2xl bg-success text-on-success font-bold tracking-wide text-xs shadow-lg shadow-success hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                            >
                               {resolveMutation.isPending ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <CheckCircle size={18} aria-hidden="true" />}
                               Resolve & Close
@@ -317,7 +323,7 @@ export default function Disputes() {
                            <button 
                             onClick={() => setShowChat(true)}
                             className={cn(
-                              "w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-3",
+                              "w-full py-4 rounded-2xl font-bold tracking-wide text-xs transition-all flex items-center justify-center gap-3",
                               showChat 
                                 ? "bg-primary text-on-primary shadow-lg shadow-primary/20"
                                 : "bg-warning-surface text-warning border border-warning hover:bg-warning-surface"
@@ -328,7 +334,7 @@ export default function Disputes() {
                            </button>
                            <button 
                             onClick={() => resolveMutation.mutate({ id: selectedDispute.id, status: 'investigating' })}
-                            className="w-full py-4 rounded-2xl bg-error-surface text-error border border-error font-black uppercase tracking-widest text-xs hover:bg-error-surface transition-all flex items-center justify-center gap-3"
+                            className="w-full py-4 rounded-2xl bg-error-surface text-error border border-error font-bold tracking-wide text-xs hover:bg-error-surface transition-all flex items-center justify-center gap-3"
                            >
                               <ShieldAlert size={18} aria-hidden="true" />
                               Escalate / Investigate

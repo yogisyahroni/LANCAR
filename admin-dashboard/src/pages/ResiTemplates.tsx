@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { toast } from 'sonner'
 import { Button } from '../components/Button'
 import { FocusTrap } from '../components/a11y/FocusTrap'
+import { StatusBadge } from '../components/StatusBadge'
 import Barcode from 'react-barcode'
 
 interface ResiTemplate {
@@ -276,22 +277,18 @@ const ResiTemplates = () => {
               key={t.id} 
               className={`bg-surface-subtle border rounded-2xl p-6 relative overflow-hidden transition-colors ${t.is_active ? 'border-primary/50' : 'border-border'}`}
             >
-              {t.is_active && (
-                <div className="absolute top-0 right-0 bg-primary text-on-primary text-xs font-bold px-3 py-1 rounded-bl-xl">
-                  ACTIVE
-                </div>
-              )}
+              {t.is_active && <div className="absolute top-0 right-0"><StatusBadge status="active" label="Aktif" labelPrefix="Resi template status" className="rounded-none rounded-bl-xl border-primary bg-primary text-on-primary" /></div>}
               
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="text-xl font-bold text-foreground truncate" title={t.name}>{t.name}</h3>
                 {t.provider_code && (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface-raised text-foreground-muted uppercase">
+                  <span className="px-2.5 py-1 rounded text-xs font-bold tracking-wide bg-surface-raised text-foreground-muted">
                     {t.provider_code}
                   </span>
                 )}
                 {!t.provider_code && (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary uppercase border border-primary/20">
-                    DEFAULT
+                  <span className="px-2.5 py-1 rounded text-xs font-bold tracking-wide bg-primary/20 text-primary border border-primary/20">
+                    Default
                   </span>
                 )}
               </div>
