@@ -215,6 +215,67 @@ test('Admin meeting point form traps focus and Escape restores focus @keyboard @
   await expect(addButton).toBeFocused();
 });
 
+test('Admin broadcast confirmation traps focus and Escape restores focus @keyboard @a11y', async ({ page }) => {
+  await page.route('**/*', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/auth/web/me')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ user: { id: 'broadcast-keyboard-fixture', name: 'Broadcast Fixture', role: 'super_admin', permissions: [] } }),
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/broadcasts')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: [], total: 0 }) });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/broadcasts/targets/estimate')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { estimated_targets: 1 } }) });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/zones')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/dashboard/events')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return;
+    }
+    if (route.request().resourceType() === 'xhr' || route.request().resourceType() === 'fetch') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto('/broadcasts', { waitUntil: 'domcontentloaded' });
+  const openButton = page.getByRole('button', { name: 'Buat Broadcast Baru' });
+  await expect(openButton).toBeVisible();
+  await openButton.focus();
+  await page.keyboard.press('Enter');
+
+  const sendButton = page.getByRole('button', { name: 'Kirim Sekarang' });
+  await expect(sendButton).toBeVisible();
+  await sendButton.focus();
+  await page.getByLabel('Judul').fill('Keyboard broadcast');
+  await page.getByLabel('Isi Pesan').fill('Pesan broadcast untuk verifikasi keyboard.');
+  await sendButton.click();
+
+  const dialog = page.getByRole('dialog', { name: 'Kirim Broadcast?' });
+  await expect(dialog).toBeVisible();
+  const cancelButton = dialog.getByRole('button', { name: 'Batal' });
+  const continueButton = dialog.getByRole('button', { name: 'Ya, Lanjutkan' });
+  await expect(cancelButton).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(continueButton).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(cancelButton).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(sendButton).toBeFocused();
+});
+
 test('Admin login associates server errors with both credential fields @a11y', async ({ page }) => {
   await page.route('**/auth/web/login', async (route) => {
     await route.fulfill({

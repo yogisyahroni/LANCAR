@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle,
   BellRing,
@@ -175,6 +175,19 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
   const courierSearch = useCourierSearch(manualSearch)
 
   const createMutation = useCreateBroadcast({ onSuccessCreate: onBack })
+
+  useEffect(() => {
+    if (!confirmAction) return undefined
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || createMutation.isPending) return
+      event.preventDefault()
+      setConfirmAction(null)
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [confirmAction, createMutation.isPending])
 
   const deepLinkValue = useMemo(
     () => buildDeepLink(deepLinkKind, deepLinkCustom, deepLinkOrderId),
