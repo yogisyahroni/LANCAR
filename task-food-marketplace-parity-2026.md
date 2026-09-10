@@ -3062,6 +3062,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Payout Gateway status, reconciliation mismatch count/severity and payout lifecycle markers now render through the canonical shared status badge contract. The focused Admin `/finance` axe slice passes `6/6`; dynamic finance states and full visual/manual review remain open.
 
+> **Execution checkpoint 2026-09-11 (continued):** Safety queue filters, queue/target chips and GPS/action controls now use readable `text-xs`/`tracking-wide` typography and localized action labels. Admin `/courier-safety-events` axe coverage passes `2/2`; full dynamic data, visual and manual assistive-technology review remains open.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

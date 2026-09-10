@@ -29,6 +29,12 @@ const queueLabels: Record<string, string> = {
   general_operations: 'General operations',
 }
 
+const actionLabels: Record<string, string> = {
+  reassign: 'Tugaskan ulang',
+  cancel: 'Batalkan order',
+  compensation: 'Kompensasi',
+}
+
 const idempotencyKey = (scope: string) => `courier-support-${scope}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
 const formatDate = (value?: string) => {
@@ -165,7 +171,7 @@ export default function CourierSafetyEvents() {
             type="button"
             onClick={() => setQueueFilter(queue)}
             className={cn(
-              'rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-colors',
+              'rounded-xl border px-3 py-2 text-xs font-bold tracking-wide transition-colors',
               queueFilter === queue
                 ? 'border-primary/50 bg-primary/15 text-foreground'
                 : 'border-border bg-surface/[0.04] text-foreground-muted hover:bg-surface-subtle',
@@ -202,7 +208,7 @@ export default function CourierSafetyEvents() {
                       />
                     </div>
                     <p className="mt-1 line-clamp-2 text-sm text-foreground-muted" title={event.message || 'Tidak ada catatan tambahan.'}>{event.message || 'Tidak ada catatan tambahan.'}</p>
-                    <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest">
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold tracking-wide">
                       <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-primary-light">
                         {queueLabels[event.routing?.queueCode] || event.routing?.queueCode || 'Queue belum dipetakan'}
                       </span>
@@ -243,7 +249,7 @@ export default function CourierSafetyEvents() {
                       type="button"
                       onClick={() => supportStatusMutation.mutate({ eventId: event.id, status: 'acknowledged' })}
                       disabled={supportStatusMutation.isPending}
-                      className="inline-flex items-center gap-1 rounded-xl border border-accent bg-accent-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-accent hover:bg-accent-surface disabled:opacity-60"
+                      className="inline-flex items-center gap-1 rounded-xl border border-accent bg-accent-surface px-3 py-2 text-xs font-bold tracking-wide text-accent hover:bg-accent-surface disabled:opacity-60"
                     >
                       <ShieldAlert className="h-3 w-3" aria-hidden="true" /> Acknowledge
                     </button>
@@ -253,7 +259,7 @@ export default function CourierSafetyEvents() {
                       type="button"
                       onClick={() => supportStatusMutation.mutate({ eventId: event.id, status: 'resolved' })}
                       disabled={supportStatusMutation.isPending}
-                      className="inline-flex items-center gap-1 rounded-xl bg-success px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-success hover:bg-success disabled:opacity-60"
+                      className="inline-flex items-center gap-1 rounded-xl bg-success px-3 py-2 text-xs font-bold tracking-wide text-on-success hover:bg-success disabled:opacity-60"
                     >
                       <CircleCheck className="h-3 w-3" aria-hidden="true" /> Resolve
                     </button>
@@ -268,10 +274,10 @@ export default function CourierSafetyEvents() {
                         supportActionMutation.mutate({ event, action })
                       }}
                       disabled={supportActionMutation.isPending}
-                      className="inline-flex items-center gap-1 rounded-xl border border-border bg-surface/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted hover:bg-surface-subtle disabled:opacity-60"
+                      className="inline-flex items-center gap-1 rounded-xl border border-border bg-surface/[0.04] px-3 py-2 text-xs font-bold tracking-wide text-foreground-muted hover:bg-surface-subtle disabled:opacity-60"
                     >
                       {action.action === 'reassign' ? <RefreshCw className="h-3 w-3" aria-hidden="true" /> : action.action === 'cancel' ? <Ban className="h-3 w-3" aria-hidden="true" /> : <Check className="h-3 w-3" aria-hidden="true" />}
-                      {action.action}
+                      {actionLabels[action.action] || action.action}
                     </button>
                   ))}
                 </div>
@@ -315,8 +321,8 @@ export default function CourierSafetyEvents() {
                   </div>
                   <p className="flex flex-wrap items-center gap-2 text-xs text-foreground-muted">Status tindak lanjut: <StatusBadge status={item.action_status} labelPrefix="GPS risk action" /></p>
                   <div className="flex justify-end gap-2">
-                    {item.action_status === 'open' && <button type="button" onClick={() => gpsRiskMutation.mutate({ id: item.id, status: 'acknowledged' })} disabled={gpsRiskMutation.isPending} className="rounded-xl border border-border px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted hover:bg-surface-subtle disabled:opacity-60">Acknowledge</button>}
-                    {item.action_status !== 'resolved' && <button type="button" onClick={() => gpsRiskMutation.mutate({ id: item.id, status: 'resolved' })} disabled={gpsRiskMutation.isPending} className="inline-flex items-center gap-1 rounded-xl bg-accent px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-accent hover:bg-accent disabled:opacity-60"><Check className="h-3 w-3" aria-hidden="true" /> Resolve</button>}
+                    {item.action_status === 'open' && <button type="button" onClick={() => gpsRiskMutation.mutate({ id: item.id, status: 'acknowledged' })} disabled={gpsRiskMutation.isPending} className="rounded-xl border border-border px-3 py-2 text-xs font-bold tracking-wide text-foreground-muted hover:bg-surface-subtle disabled:opacity-60">Acknowledge</button>}
+                    {item.action_status !== 'resolved' && <button type="button" onClick={() => gpsRiskMutation.mutate({ id: item.id, status: 'resolved' })} disabled={gpsRiskMutation.isPending} className="inline-flex items-center gap-1 rounded-xl bg-accent px-3 py-2 text-xs font-bold tracking-wide text-on-accent hover:bg-accent disabled:opacity-60"><Check className="h-3 w-3" aria-hidden="true" /> Resolve</button>}
                   </div>
                 </div>
               ))}
