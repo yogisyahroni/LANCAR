@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
 import type { ServiceExposureEntry } from './types'
 
-const inputClass = 'mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20 disabled:opacity-50'
+const inputClass = 'mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20 disabled:opacity-60'
 
 type Props = {
   entries: ServiceExposureEntry[]
@@ -46,7 +46,7 @@ export default function ServiceExposureEditor({ entries, disabled = false, onCha
           type="button"
           disabled={disabled || entries.length >= 20}
           onClick={() => onChange(resequence([...entries, normalize({ service_code: '', enabled: true, fallback_behavior: 'hide_entry' }, entries.length)]))}
-          className="inline-flex items-center gap-1 rounded-lg border border-primary/30 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-primary-light disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-lg border border-primary/30 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-primary-light disabled:opacity-60"
         >
           <Plus size={12} aria-hidden="true" /> Add service
         </button>
@@ -57,9 +57,9 @@ export default function ServiceExposureEditor({ entries, disabled = false, onCha
             <div className="flex items-center justify-between gap-3">
               <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Position {index + 1}</span>
               <div className="flex items-center gap-1">
-                <button type="button" disabled={disabled || index === 0} onClick={() => move(index, -1)} className="rounded-lg p-1.5 text-foreground-muted hover:bg-surface-subtle disabled:opacity-30" aria-label={`Move ${entry.service_code || 'service'} up`}><ArrowUp size={14} aria-hidden="true" /></button>
-                <button type="button" disabled={disabled || index === entries.length - 1} onClick={() => move(index, 1)} className="rounded-lg p-1.5 text-foreground-muted hover:bg-surface-subtle disabled:opacity-30" aria-label={`Move ${entry.service_code || 'service'} down`}><ArrowDown size={14} aria-hidden="true" /></button>
-                <button type="button" disabled={disabled || entries.length <= 1} onClick={() => onChange(resequence(entries.filter((_, itemIndex) => itemIndex !== index)))} className="rounded-lg p-1.5 text-on-error hover:bg-error-surface hover:text-error disabled:opacity-30" aria-label={`Remove ${entry.service_code || 'service'}`}><Trash2 size={14} aria-hidden="true" /></button>
+                <button type="button" disabled={disabled || index === 0} onClick={() => move(index, -1)} className="rounded-lg p-1.5 text-foreground-muted hover:bg-surface-subtle disabled:opacity-60" aria-label={`Move ${entry.service_code || 'service'} up`}><ArrowUp size={14} aria-hidden="true" /></button>
+                <button type="button" disabled={disabled || index === entries.length - 1} onClick={() => move(index, 1)} className="rounded-lg p-1.5 text-foreground-muted hover:bg-surface-subtle disabled:opacity-60" aria-label={`Move ${entry.service_code || 'service'} down`}><ArrowDown size={14} aria-hidden="true" /></button>
+                <button type="button" disabled={disabled || entries.length <= 1} onClick={() => onChange(resequence(entries.filter((_, itemIndex) => itemIndex !== index)))} className="rounded-lg p-1.5 text-on-error hover:bg-error-surface hover:text-error disabled:opacity-60" aria-label={`Remove ${entry.service_code || 'service'}`}><Trash2 size={14} aria-hidden="true" /></button>
               </div>
             </div>
             <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3">

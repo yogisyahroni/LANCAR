@@ -93,7 +93,7 @@ export default function CourierRetention() {
               </label>
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => setSelected(null)} className="px-4 py-2 text-sm text-foreground-muted">Batal</button>
-                <button type="button" disabled={!reason.trim() || createAction.isPending} onClick={() => createAction.mutate()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary disabled:opacity-50"><ClipboardCheck size={16} aria-hidden="true" /> Simpan</button>
+                <button type="button" disabled={!reason.trim() || createAction.isPending} onClick={() => createAction.mutate()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary disabled:opacity-60"><ClipboardCheck size={16} aria-hidden="true" /> Simpan</button>
               </div>
             </div>
           </FocusTrap>

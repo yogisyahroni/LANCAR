@@ -827,7 +827,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                 type="button"
                 onClick={handleSaveDraft}
                 disabled={createMutation.isPending}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-surface-subtle border border-border text-foreground-muted text-xs font-black uppercase tracking-widest hover:bg-surface-subtle transition-all disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-surface-subtle border border-border text-foreground-muted text-xs font-black uppercase tracking-widest hover:bg-surface-subtle transition-all disabled:opacity-60"
               >
                 <Copy size={15} aria-hidden="true" />
                 Simpan Draft
@@ -837,7 +837,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                   type="button"
                   onClick={handleSchedule}
                   disabled={createMutation.isPending}
-                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-warning text-on-warning text-xs font-black uppercase tracking-widest shadow-lg shadow-warning hover:bg-warning transition-all disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-warning text-on-warning text-xs font-black uppercase tracking-widest shadow-lg shadow-warning hover:bg-warning transition-all disabled:opacity-60"
                 >
                   <CalendarClock size={15} aria-hidden="true" />
                   Jadwalkan
@@ -847,7 +847,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                   type="button"
                   onClick={handleSendNow}
                   disabled={createMutation.isPending}
-                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-primary text-on-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-primary text-on-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60"
                 >
                   <Send size={15} aria-hidden="true" />
                   Kirim Sekarang
@@ -966,7 +966,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                   type="button"
                   onClick={confirmAndSubmit}
                   disabled={createMutation.isPending}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-colors disabled:opacity-60"
                 >
                   {createMutation.isPending ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <CheckCircle2 size={14} aria-hidden="true" />}
                   Ya, Lanjutkan

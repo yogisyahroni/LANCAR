@@ -192,7 +192,7 @@ export default function VoucherPage() {
           onClick={() => void fetchPromos()}
           disabled={isLoading}
           aria-label="Muat ulang daftar promo"
-          className="flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-4 py-2.5 text-sm font-bold text-foreground-muted transition-all hover:bg-surface-subtle disabled:opacity-50 dark:border-border dark:bg-surface-subtle dark:text-foreground-muted dark:hover:bg-surface-subtle"
+          className="flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-4 py-2.5 text-sm font-bold text-foreground-muted transition-all hover:bg-surface-subtle disabled:opacity-60 dark:border-border dark:bg-surface-subtle dark:text-foreground-muted dark:hover:bg-surface-subtle"
         >
           <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
           Muat Ulang

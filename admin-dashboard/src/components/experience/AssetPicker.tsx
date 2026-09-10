@@ -8,7 +8,7 @@ type Props = {
   focusAssetId?: string | null
 }
 
-const inputClass = 'mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20 disabled:opacity-50'
+const inputClass = 'mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20 disabled:opacity-60'
 const MAX_ASSET_BYTES = 5 * 1024 * 1024
 
 const contentTypeForKind = (kind: ExperienceAsset['kind']) => kind === 'video'
@@ -46,7 +46,7 @@ export default function AssetPicker({ value, onChange, disabled = false, focusAs
           <h3 id="asset-picker-title" className="text-sm font-black uppercase tracking-wider text-foreground-muted">Asset references</h3>
           <p className="mt-1 text-xs text-foreground-muted">Use a first-party HTTPS/CDN URL and declare delivery metadata. The server and customer app verify it before caching.</p>
         </div>
-        <button type="button" disabled={disabled} onClick={() => onChange([...value, newAsset(value.length)])} className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary-light disabled:opacity-50"><Plus size={14} aria-hidden="true" /> Add</button>
+        <button type="button" disabled={disabled} onClick={() => onChange([...value, newAsset(value.length)])} className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary-light disabled:opacity-60"><Plus size={14} aria-hidden="true" /> Add</button>
       </div>
       {value.length === 0 ? <p className="mt-4 rounded-xl border border-dashed border-border p-4 text-xs text-foreground-muted">No assets. Components without media can be published safely.</p> : <div className="mt-4 space-y-3">
         {value.map((asset, index) => <div key={`${asset.asset_id}-${index}`} className={`rounded-xl border p-3 ${asset.asset_id === focusAssetId ? 'border-accent bg-accent-surface' : 'border-border bg-surface/[0.03]'}`}>
@@ -56,7 +56,7 @@ export default function AssetPicker({ value, onChange, disabled = false, focusAs
             <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">HTTPS URI<input className={inputClass} disabled={disabled} value={asset.uri} onChange={(event) => update(index, { uri: event.target.value })} placeholder="https://cdn.example.com/banner.webp" /></label>
             <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">Kind<select className={inputClass} disabled={disabled} value={asset.kind} onChange={(event) => { const kind = event.target.value as ExperienceAsset['kind']; update(index, { kind, content_type: contentTypeForKind(kind) }) }}><option value="image">Image</option><option value="animation">Animation</option><option value="icon">Icon</option><option value="video">Video</option></select></label>
             <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">Content type<select className={inputClass} disabled={disabled} value={asset.content_type || contentTypeForKind(asset.kind)} onChange={(event) => update(index, { content_type: event.target.value })}><option value="image/webp">image/webp</option><option value="image/avif">image/avif</option><option value="image/png">image/png</option><option value="image/jpeg">image/jpeg</option><option value="image/gif">image/gif</option><option value="video/mp4">video/mp4</option><option value="video/webm">video/webm</option></select></label>
-            <button type="button" disabled={disabled} aria-label={`Remove ${asset.asset_id || 'asset'}`} onClick={() => onChange(value.filter((_, assetIndex) => assetIndex !== index))} className="mt-5 self-start rounded-lg p-2 text-on-error transition hover:bg-error-surface hover:text-error disabled:opacity-50"><Trash2 size={16} aria-hidden="true" /></button>
+            <button type="button" disabled={disabled} aria-label={`Remove ${asset.asset_id || 'asset'}`} onClick={() => onChange(value.filter((_, assetIndex) => assetIndex !== index))} className="mt-5 self-start rounded-lg p-2 text-on-error transition hover:bg-error-surface hover:text-error disabled:opacity-60"><Trash2 size={16} aria-hidden="true" /></button>
           </div>
           <div className="mt-3 grid gap-3 md:grid-cols-6">
             <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">Width<input type="number" min="1" max="4096" className={inputClass} disabled={disabled} value={asset.width ?? ''} onChange={(event) => update(index, { width: optionalNumber(event.target.value) })} /></label>

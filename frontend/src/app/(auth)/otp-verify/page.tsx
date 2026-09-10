@@ -75,7 +75,7 @@ function OtpInput({ value, onChange, disabled }: OtpInputProps) {
           disabled={disabled}
           onChange={(e) => handleChange(i, e.target.value)}
           onKeyDown={(e) => handleKey(i, e)}
-          className="w-12 h-14 text-center text-xl font-semibold font-mono bg-background/50 border border-border/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary/60 transition-all text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-12 h-14 text-center text-xl font-semibold font-mono bg-background/50 border border-border/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary/60 transition-all text-foreground disabled:opacity-60 disabled:cursor-not-allowed"
           aria-label={`Digit ${i + 1}`}
         />
       ))}
@@ -266,7 +266,7 @@ function OtpVerifyContent() {
                id="otp-resend-btn"
               onClick={handleResend}
               disabled={countdown > 0 || isResending}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 mx-auto"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5 mx-auto"
             >
               {isResending ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin"  aria-hidden="true"/>

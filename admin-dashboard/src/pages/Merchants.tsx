@@ -297,7 +297,7 @@ export default function Merchants() {
                         type="button"
                         onClick={() => startVerification.mutate(active.id)}
                         disabled={startVerification.isPending}
-                        className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary transition hover:bg-primary/80 disabled:opacity-50"
+                        className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary transition hover:bg-primary/80 disabled:opacity-60"
                       >
                         {startVerification.isPending ? 'Memulai...' : 'Mulai verifikasi'}
                       </button>
@@ -316,7 +316,7 @@ export default function Merchants() {
                         type="button"
                         onClick={() => approve.mutate(active.id)}
                         disabled={approve.isPending}
-                        className="rounded-xl bg-success px-4 py-2 text-sm font-bold text-on-success transition hover:bg-success disabled:opacity-50"
+                        className="rounded-xl bg-success px-4 py-2 text-sm font-bold text-on-success transition hover:bg-success disabled:opacity-60"
                       >
                         {approve.isPending ? 'Mengaktifkan...' : 'Aktifkan'}
                       </button>
@@ -337,7 +337,7 @@ export default function Merchants() {
                         if (reason) suspend.mutate({ id: active.id, reason })
                       }}
                       disabled={suspend.isPending}
-                      className="rounded-xl bg-warning-surface px-4 py-2 text-sm font-bold text-warning transition hover:bg-warning-surface disabled:opacity-50"
+                      className="rounded-xl bg-warning-surface px-4 py-2 text-sm font-bold text-warning transition hover:bg-warning-surface disabled:opacity-60"
                     >
                       {suspend.isPending ? 'Memproses...' : 'Suspend'}
                     </button>
@@ -368,7 +368,7 @@ export default function Merchants() {
                       type="button"
                       onClick={() => reject.mutate({ id: active.id, reason: rejectReason })}
                       disabled={reject.isPending || !rejectReason.trim()}
-                      className="rounded-xl bg-error px-4 py-2 text-sm font-bold text-on-error transition hover:bg-error disabled:opacity-50"
+                      className="rounded-xl bg-error px-4 py-2 text-sm font-bold text-on-error transition hover:bg-error disabled:opacity-60"
                     >
                       {reject.isPending ? 'Menolak...' : 'Konfirmasi Tolak'}
                     </button>

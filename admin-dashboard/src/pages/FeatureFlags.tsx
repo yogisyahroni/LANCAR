@@ -375,7 +375,7 @@ export default function FeatureFlags() {
                   onClick={submitToggle}
                   disabled={toggleMutation.isPending || !canMutate}
                   className={cn(
-                    'inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest text-foreground transition-colors disabled:opacity-50',
+                    'inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest text-foreground transition-colors disabled:opacity-60',
                     toggleTarget.is_enabled ? 'bg-error hover:bg-error' : 'bg-success hover:bg-success',
                   )}
                 >

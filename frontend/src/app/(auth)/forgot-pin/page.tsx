@@ -147,7 +147,7 @@ export default function ForgotPinPage() {
                       type="button"
                       onClick={handleSendOtp}
                       disabled={countdown > 0 || isSendingOtp}
-                      className="px-3 bg-secondary text-secondary-foreground text-xs font-medium rounded-lg hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 bg-secondary text-secondary-foreground text-xs font-medium rounded-lg hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {isSendingOtp ? (
                         <Loader2 className="h-4 w-4 animate-spin"  aria-hidden="true"/>

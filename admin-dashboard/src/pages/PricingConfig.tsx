@@ -162,7 +162,7 @@ export default function PricingConfig() {
           <button 
             onClick={handleSave}
             disabled={updateMutation.isPending || formData.baseFare === '' || formData.perKm === '' || formData.volumetricDiv === ''}
-            className="px-8 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:scale-100 disabled:hover:scale-100"
+            className="px-8 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-60 disabled:scale-100 disabled:hover:scale-100"
           >
             {updateMutation.isPending ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Save size={18} aria-hidden="true" />}
             Save Changes
@@ -373,7 +373,7 @@ export default function PricingConfig() {
                         aria-label={`${rule.label}: ${active ? 'enabled' : 'disabled'}`}
                         aria-pressed={active}
                         className={cn(
-                          "w-12 h-6 rounded-full relative transition-all duration-300 disabled:opacity-50",
+                          "w-12 h-6 rounded-full relative transition-all duration-300 disabled:opacity-60",
                           active ? "bg-primary" : "bg-surface-raised"
                         )}
                       >

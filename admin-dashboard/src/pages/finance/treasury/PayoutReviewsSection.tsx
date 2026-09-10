@@ -180,7 +180,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                       reason: 'Rekening sesuai dokumen onboarding dan siap untuk pencairan.'
                     })}
                     disabled={account.status === 'verified' || updatePayoutAccountMutation.isPending}
-                    className="px-4 py-2 rounded-xl bg-success-surface border border-success text-success font-black text-[10px] uppercase tracking-widest hover:bg-success-surface disabled:opacity-40 flex items-center gap-2"
+                    className="px-4 py-2 rounded-xl bg-success-surface border border-success text-success font-black text-[10px] uppercase tracking-widest hover:bg-success-surface disabled:opacity-60 flex items-center gap-2"
                   >
                     <CheckCircle2 size={14} aria-hidden="true" />
                     Verifikasi
@@ -191,7 +191,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                       updatePayoutAccountMutation.mutate({ id: account.id, status: 'rejected', reason });
                     }}
                     disabled={account.status === 'rejected' || updatePayoutAccountMutation.isPending}
-                    className="px-4 py-2 rounded-xl bg-error-surface border border-error text-error font-black text-[10px] uppercase tracking-widest hover:bg-error-surface disabled:opacity-40 flex items-center gap-2"
+                    className="px-4 py-2 rounded-xl bg-error-surface border border-error text-error font-black text-[10px] uppercase tracking-widest hover:bg-error-surface disabled:opacity-60 flex items-center gap-2"
                   >
                     <XCircle size={14} aria-hidden="true" />
                     Tolak
@@ -204,7 +204,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                       }
                     }}
                     disabled={account.status === 'suspended' || updatePayoutAccountMutation.isPending}
-                    className="px-4 py-2 rounded-xl bg-warning-surface border border-warning text-warning font-black text-[10px] uppercase tracking-widest hover:bg-warning-surface disabled:opacity-40 flex items-center gap-2"
+                    className="px-4 py-2 rounded-xl bg-warning-surface border border-warning text-warning font-black text-[10px] uppercase tracking-widest hover:bg-warning-surface disabled:opacity-60 flex items-center gap-2"
                   >
                     <Ban size={14} aria-hidden="true" />
                     Suspend
@@ -292,7 +292,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                         reason: 'Masuk proses review treasury.'
                       })}
                       disabled={!['requested', 'risk_screening', 'risk_hold'].includes(request.status) || updatePayoutRequestMutation.isPending}
-                      className="px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted font-black text-[10px] uppercase tracking-widest hover:bg-surface-subtle disabled:opacity-40"
+                      className="px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted font-black text-[10px] uppercase tracking-widest hover:bg-surface-subtle disabled:opacity-60"
                     >
                       Review
                     </button>
@@ -303,7 +303,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                         reason: 'Disetujui untuk proses settlement.'
                       })}
                       disabled={!['requested', 'risk_screening', 'risk_hold', 'manual_review', 'under_review', 'approved_auto'].includes(request.status) || updatePayoutRequestMutation.isPending}
-                      className="px-4 py-2 rounded-xl bg-success-surface border border-success text-success font-black text-[10px] uppercase tracking-widest hover:bg-success-surface disabled:opacity-40"
+                      className="px-4 py-2 rounded-xl bg-success-surface border border-success text-success font-black text-[10px] uppercase tracking-widest hover:bg-success-surface disabled:opacity-60"
                     >
                       Approve
                     </button>
@@ -314,7 +314,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                         reason: 'Dana sudah dikirim ke rekening terverifikasi.'
                       })}
                       disabled={!['approved_auto', 'approved', 'processing'].includes(request.status) || updatePayoutRequestMutation.isPending}
-                      className="px-4 py-2 rounded-xl bg-primary text-on-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary-light disabled:opacity-40"
+                      className="px-4 py-2 rounded-xl bg-primary text-on-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary-light disabled:opacity-60"
                     >
                       Mark Paid
                     </button>
@@ -325,7 +325,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                         }
                       }}
                       disabled={updatePayoutRequestMutation.isPending}
-                      className="px-4 py-2 rounded-xl bg-error-surface border border-error text-error font-black text-[10px] uppercase tracking-widest hover:bg-error-surface disabled:opacity-40"
+                      className="px-4 py-2 rounded-xl bg-error-surface border border-error text-error font-black text-[10px] uppercase tracking-widest hover:bg-error-surface disabled:opacity-60"
                     >
                       Reject
                     </button>

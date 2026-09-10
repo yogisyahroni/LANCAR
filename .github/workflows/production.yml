@@ -67,6 +67,8 @@ jobs:
         run: node scripts/a11y/check-iconography.mjs
       - name: Table semantics guard
         run: node scripts/a11y/check-table-semantics.mjs
+      - name: Disabled-state readability guard
+        run: node scripts/a11y/check-disabled-states.mjs
       - name: Run Linter
         working-directory: ./frontend
         run: npm run lint
@@ -105,6 +107,8 @@ jobs:
         run: node scripts/a11y/check-iconography.mjs
       - name: Table semantics guard
         run: node scripts/a11y/check-table-semantics.mjs
+      - name: Disabled-state readability guard
+        run: node scripts/a11y/check-disabled-states.mjs
       - name: Run Linter
         working-directory: ./admin-dashboard
         run: npm run lint

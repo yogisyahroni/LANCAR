@@ -437,7 +437,7 @@ export default function ResiPage() {
             <button
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              className="px-3.5 py-2 border border-border bg-surface-raised rounded-xl text-sm font-semibold text-foreground hover:bg-surface-subtle hover:border-primary/40 transition duration-200 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer shadow-sm"
+              className="px-3.5 py-2 border border-border bg-surface-raised rounded-xl text-sm font-semibold text-foreground hover:bg-surface-subtle hover:border-primary/40 transition duration-200 disabled:opacity-60 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
               <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Prev
             </button>
@@ -475,7 +475,7 @@ export default function ResiPage() {
             <button
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-            className="px-3.5 py-2 border border-border bg-surface-raised rounded-xl text-sm font-semibold text-foreground hover:bg-surface-subtle hover:border-primary/40 transition duration-200 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer shadow-sm"
+            className="px-3.5 py-2 border border-border bg-surface-raised rounded-xl text-sm font-semibold text-foreground hover:bg-surface-subtle hover:border-primary/40 transition duration-200 disabled:opacity-60 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
               Next <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </button>

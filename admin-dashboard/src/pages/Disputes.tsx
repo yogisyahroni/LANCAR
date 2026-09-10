@@ -195,7 +195,7 @@ export default function Disputes() {
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground text-sm font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground text-sm font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               ← Prev
             </button>
@@ -205,7 +205,7 @@ export default function Disputes() {
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground text-sm font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground text-sm font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Next →
             </button>
@@ -298,7 +298,7 @@ export default function Disputes() {
                            <button 
                             disabled={resolveMutation.isPending}
                             onClick={() => resolveMutation.mutate({ id: selectedDispute.id, status: 'resolved' })}
-                            className="w-full py-4 rounded-2xl bg-success text-on-success font-black uppercase tracking-widest text-xs shadow-lg shadow-success hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                            className="w-full py-4 rounded-2xl bg-success text-on-success font-black uppercase tracking-widest text-xs shadow-lg shadow-success hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                            >
                               {resolveMutation.isPending ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <CheckCircle size={18} aria-hidden="true" />}
                               Resolve & Close

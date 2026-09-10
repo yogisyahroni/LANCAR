@@ -286,7 +286,7 @@ export default function Vouchers() {
                  <button 
                    onClick={() => handleDelete(voucher.id)}
                    disabled={deleteMutation.isPending}
-                   className="p-4 rounded-2xl bg-error-surface border border-error text-error hover:bg-error hover:text-on-error transition-all disabled:opacity-50"
+                   className="p-4 rounded-2xl bg-error-surface border border-error text-error hover:bg-error hover:text-on-error transition-all disabled:opacity-60"
                  >
                     {deleteMutation.isPending ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Trash2 size={18} aria-hidden="true" />}
                  </button>

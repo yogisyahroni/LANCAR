@@ -1338,7 +1338,7 @@ export function AggregatorWizard() {
                           if (bulkRows.length > 0) setStep(4);
                         }}
                         disabled={bulkRows.length === 0}
-                        className="rounded-lg bg-info px-4 py-2 text-sm font-semibold text-on-info hover:bg-info transition-colors disabled:opacity-50"
+                        className="rounded-lg bg-info px-4 py-2 text-sm font-semibold text-on-info hover:bg-info transition-colors disabled:opacity-60"
                       >
                         Lanjut Review
                       </button>
@@ -1571,7 +1571,7 @@ export function AggregatorWizard() {
               <button
                 type="submit"
                 disabled={isSubmitting || (orderMode === "upload" ? bulkRows.length === 0 : (!createdOrder && (isLoadingTariff || tariffs.length === 0)))}
-                className="inline-flex min-w-[160px] items-center justify-center gap-2 rounded-lg bg-success px-6 py-2.5 text-sm font-bold text-on-success hover:bg-success transition-colors disabled:opacity-50"
+                className="inline-flex min-w-[160px] items-center justify-center gap-2 rounded-lg bg-success px-6 py-2.5 text-sm font-bold text-on-success hover:bg-success transition-colors disabled:opacity-60"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

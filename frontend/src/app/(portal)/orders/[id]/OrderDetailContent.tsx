@@ -182,7 +182,7 @@ export function OrderDetailContent({
               <button
                 onClick={handleCreatePublicTrackingLink}
                 disabled={sharingTracking || !order.courier_name}
-                className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 disabled:opacity-50 disabled:hover:bg-primary/10 border border-primary/20 text-primary rounded-xl text-sm font-medium transition duration-200 flex items-center gap-2"
+                className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 disabled:opacity-60 disabled:hover:bg-primary/10 border border-primary/20 text-primary rounded-xl text-sm font-medium transition duration-200 flex items-center gap-2"
               >
                 {sharingTracking ? (
                   <Loader2
@@ -251,7 +251,7 @@ export function OrderDetailContent({
               <button
                 onClick={handleRetryMatching}
                 disabled={retryingMatching || cancellingOrder}
-                className="px-5 py-2.5 bg-gradient-to-r from-accent to-warning hover:from-accent hover:to-warning disabled:opacity-50 text-foreground rounded-xl text-sm font-semibold transition duration-200 flex items-center gap-2 shadow-lg shadow-accent active:scale-[0.98]"
+                className="px-5 py-2.5 bg-gradient-to-r from-accent to-warning hover:from-accent hover:to-warning disabled:opacity-60 text-foreground rounded-xl text-sm font-semibold transition duration-200 flex items-center gap-2 shadow-lg shadow-accent active:scale-[0.98]"
               >
                 {retryingMatching ? (
                   <Loader2
@@ -266,7 +266,7 @@ export function OrderDetailContent({
               <button
                 onClick={() => setShowCancelModal(true)}
                 disabled={retryingMatching || cancellingOrder}
-                className="px-5 py-2.5 bg-error-surface hover:bg-error-surface disabled:opacity-50 border border-error text-error rounded-xl text-sm font-semibold transition duration-200 flex items-center gap-2 active:scale-[0.98]"
+                className="px-5 py-2.5 bg-error-surface hover:bg-error-surface disabled:opacity-60 border border-error text-error rounded-xl text-sm font-semibold transition duration-200 flex items-center gap-2 active:scale-[0.98]"
               >
                 Batalkan & Ajukan Refund
               </button>
@@ -619,7 +619,7 @@ export function OrderDetailContent({
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Lampirkan gambar"
                 title="Lampirkan gambar"
-                className="p-3 rounded-xl bg-surface-subtle border border-border text-muted-foreground hover:text-foreground transition-all disabled:opacity-50"
+                className="p-3 rounded-xl bg-surface-subtle border border-border text-muted-foreground hover:text-foreground transition-all disabled:opacity-60"
               >
                 <ImageIcon size={18} aria-hidden="true" />
               </button>
@@ -637,7 +637,7 @@ export function OrderDetailContent({
                       ? "Ketik pesan atau paste gambar..."
                       : "Menunggu kurir ditugaskan..."
                 }
-                className="flex-1 bg-background/50 border border-border rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition duration-200 disabled:opacity-50"
+                className="flex-1 bg-background/50 border border-border rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition duration-200 disabled:opacity-60"
               />
               <button
                 type="submit"
@@ -648,7 +648,7 @@ export function OrderDetailContent({
                 }
                 aria-label={uploading ? "Mengunggah pesan" : "Kirim pesan"}
                 title={uploading ? "Mengunggah pesan" : "Kirim pesan"}
-                className="p-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl transition duration-200 shadow-sm disabled:opacity-50 disabled:grayscale"
+                className="p-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl transition duration-200 shadow-sm disabled:opacity-60 disabled:grayscale"
               >
                 {uploading ? (
                   <Loader2
@@ -1354,7 +1354,7 @@ export function OrderDetailContent({
                     type="button"
                     onClick={() => setShowCancelModal(false)}
                     disabled={cancellingOrder}
-                    className="px-4 py-2 rounded-xl border border-border bg-surface-subtle text-sm font-medium text-foreground hover:bg-surface-subtle transition disabled:opacity-50"
+                    className="px-4 py-2 rounded-xl border border-border bg-surface-subtle text-sm font-medium text-foreground hover:bg-surface-subtle transition disabled:opacity-60"
                   >
                     Batal
                   </button>
@@ -1362,7 +1362,7 @@ export function OrderDetailContent({
                     type="button"
                     onClick={handleCancelOrder}
                     disabled={cancellingOrder}
-                    className="px-4 py-2 rounded-xl bg-error hover:bg-error text-sm font-semibold text-on-error transition flex items-center gap-2 shadow-lg shadow-error disabled:opacity-50"
+                    className="px-4 py-2 rounded-xl bg-error hover:bg-error text-sm font-semibold text-on-error transition flex items-center gap-2 shadow-lg shadow-error disabled:opacity-60"
                   >
                     {cancellingOrder ? (
                       <Loader2

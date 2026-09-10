@@ -75,7 +75,7 @@ export default function Orders() {
           <button 
             onClick={handleExport}
             disabled={isExporting}
-            className="px-4 py-2 rounded-xl border border-border text-sm font-medium hover:bg-surface-subtle transition-all flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 rounded-xl border border-border text-sm font-medium hover:bg-surface-subtle transition-all flex items-center gap-2 disabled:opacity-60"
           >
             {isExporting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16}  aria-hidden="true"/>}
             Export CSV

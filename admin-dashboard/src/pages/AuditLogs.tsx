@@ -215,10 +215,10 @@ export default function AuditLogs() {
       <div className="flex items-center justify-between">
         <p className="text-xs text-foreground-muted font-medium">Showing <span className="text-foreground-muted font-bold">{filteredLogs.length}</span> audit logs</p>
         <div className="flex items-center gap-2">
-          <button type="button" aria-label="Previous audit log page" className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground transition-all disabled:opacity-50" disabled>
+          <button type="button" aria-label="Previous audit log page" className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground transition-all disabled:opacity-60" disabled>
             <ChevronLeft size={18} aria-hidden="true" />
           </button>
-          <button type="button" aria-label="Next audit log page" className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground transition-all disabled:opacity-50" disabled>
+          <button type="button" aria-label="Next audit log page" className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground transition-all disabled:opacity-60" disabled>
             <ChevronRight size={18} aria-hidden="true" />
           </button>
         </div>

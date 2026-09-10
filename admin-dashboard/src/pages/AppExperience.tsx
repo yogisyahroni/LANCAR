@@ -808,7 +808,7 @@ export default function AppExperience() {
                     actionManifest.state !== "draft"
                   }
                   onClick={() => previewMutation.mutate()}
-                  className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary-light disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary-light disabled:opacity-60"
                 >
                   <Eye size={14}  aria-hidden="true" />{" "}
                   {previewMutation.isPending
@@ -823,7 +823,7 @@ export default function AppExperience() {
                     type="button"
                     disabled={actionBusy || !canSubmitApproval}
                     onClick={() => submitApprovalMutation.mutate()}
-                    className="inline-flex items-center gap-2 rounded-xl border border-warning bg-warning-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-warning disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl border border-warning bg-warning-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-warning disabled:opacity-60"
                   >
                     <ClipboardCheck size={14}  aria-hidden="true" /> Submit approval
                   </button>
@@ -834,7 +834,7 @@ export default function AppExperience() {
                     type="button"
                     disabled={actionBusy || !canApprove}
                     onClick={() => approveMutation.mutate()}
-                    className="inline-flex items-center gap-2 rounded-xl border border-success bg-success-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-success disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl border border-success bg-success-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-success disabled:opacity-60"
                   >
                     <ShieldCheck size={14}  aria-hidden="true" /> Approve
                   </button>
@@ -849,7 +849,7 @@ export default function AppExperience() {
                     actionManifest.state !== "draft"
                   }
                   onClick={publish}
-                  className="inline-flex items-center gap-2 rounded-xl bg-success px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-success disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl bg-success px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-success disabled:opacity-60"
                 >
                   <Send size={14}  aria-hidden="true" />{" "}
                   {previewReady ? "Publish" : "Preview before publish"}
@@ -863,7 +863,7 @@ export default function AppExperience() {
                         ? restoreMutation.mutate()
                         : killMutation.mutate()
                     }
-                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest disabled:opacity-50 ${actionManifest.kill_switch_active ? "border-warning bg-warning-surface text-warning" : "border-error bg-error-surface text-error"}`}
+                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest disabled:opacity-60 ${actionManifest.kill_switch_active ? "border-warning bg-warning-surface text-warning" : "border-error bg-error-surface text-error"}`}
                   >
                     <Ban size={14}  aria-hidden="true" />{" "}
                         {actionManifest.kill_switch_active ? 'Resume' : 'Pause'}
@@ -881,7 +881,7 @@ export default function AppExperience() {
                       )
                         retireMutation.mutate();
                     }}
-                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted disabled:opacity-60"
                   >
                     <Archive size={14}  aria-hidden="true" /> Retire
                   </button>
@@ -1102,7 +1102,7 @@ export default function AppExperience() {
                     actionManifest.state !== "draft"
                   }
                   onClick={() => audiencePairMutation.mutate(false)}
-                  className="rounded-xl border border-success bg-success-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-success disabled:opacity-50"
+                  className="rounded-xl border border-success bg-success-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-success disabled:opacity-60"
                 >
                   {audiencePairMutation.isPending
                     ? "Simulating..."
@@ -1116,7 +1116,7 @@ export default function AppExperience() {
                     actionManifest.state !== "draft"
                   }
                   onClick={() => audiencePairMutation.mutate(true)}
-                  className="rounded-xl border border-warning bg-warning-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-warning disabled:opacity-50"
+                  className="rounded-xl border border-warning bg-warning-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-warning disabled:opacity-60"
                 >
                   Simulate non-matching
                 </button>

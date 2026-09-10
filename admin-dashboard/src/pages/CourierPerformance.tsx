@@ -194,7 +194,7 @@ export default function CourierPerformance() {
               <button 
                 onClick={() => mutation.mutate({ courierId: selectedCourier.courier_id, tier: newTier, note })}
                 disabled={mutation.isPending}
-                className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60"
               >
                 {mutation.isPending ? 'Saving...' : 'Save Changes'}
               </button>

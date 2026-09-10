@@ -369,7 +369,7 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
             aria-label="Kirim pesan dispute"
             title="Kirim pesan dispute"
             disabled={(!message.trim() && !previewImage) || sendMutation.isPending || uploading}
-            className="p-2.5 rounded-xl bg-primary text-on-primary hover:bg-primary/90 transition-all disabled:opacity-50"
+            className="p-2.5 rounded-xl bg-primary text-on-primary hover:bg-primary/90 transition-all disabled:opacity-60"
           >
             {sendMutation.isPending || uploading ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Send size={18} aria-hidden="true" />}
           </button>

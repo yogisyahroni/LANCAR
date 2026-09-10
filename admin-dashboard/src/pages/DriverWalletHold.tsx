@@ -205,14 +205,14 @@ export default function DriverWalletHold() {
               <button
                 onClick={() => mutation.mutate({ penaltyId: appealAction.id, appealStatus: 'rejected', note })}
                 disabled={mutation.isPending}
-                className="px-5 py-2.5 rounded-xl bg-error-surface text-on-error text-sm font-bold hover:bg-error active:scale-95 transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                className="px-5 py-2.5 rounded-xl bg-error-surface text-on-error text-sm font-bold hover:bg-error active:scale-95 transition-all disabled:opacity-60 inline-flex items-center gap-2"
               >
                 <XCircle size={16} aria-hidden="true" /> Tolak
               </button>
               <button
                 onClick={() => mutation.mutate({ penaltyId: appealAction.id, appealStatus: 'approved', note })}
                 disabled={mutation.isPending}
-                className="px-5 py-2.5 rounded-xl bg-success-surface text-on-success text-sm font-bold hover:bg-success active:scale-95 transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                className="px-5 py-2.5 rounded-xl bg-success-surface text-on-success text-sm font-bold hover:bg-success active:scale-95 transition-all disabled:opacity-60 inline-flex items-center gap-2"
               >
                 <CheckCircle size={16} aria-hidden="true" /> Setujui & Rilis Hold
               </button>

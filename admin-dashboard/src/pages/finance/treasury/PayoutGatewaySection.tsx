@@ -168,7 +168,7 @@ export function PayoutGatewaySection({ data }: { data: FinanceData }) {
                 }
               }}
               disabled={batchReleaseMutation.isPending}
-              className="flex items-center gap-2 text-xs font-black text-primary-light uppercase tracking-widest hover:text-primary transition-all disabled:opacity-50"
+              className="flex items-center gap-2 text-xs font-black text-primary-light uppercase tracking-widest hover:text-primary transition-all disabled:opacity-60"
             >
                {batchReleaseMutation.isPending ? 'Processing Batch...' : 'Batch Trigger All'}
                <ChevronRight size={14} aria-hidden="true" />
@@ -213,7 +213,7 @@ export function PayoutGatewaySection({ data }: { data: FinanceData }) {
                             <button 
                               onClick={() => releaseMutation.mutate(set.id)}
                               disabled={releaseMutation.isPending}
-                              className="px-4 py-2 rounded-xl bg-primary text-on-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary-light transition-all shadow-lg shadow-primary/10 disabled:opacity-50"
+                              className="px-4 py-2 rounded-xl bg-primary text-on-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary-light transition-all shadow-lg shadow-primary/10 disabled:opacity-60"
                             >
                                {releaseMutation.isPending ? 'Processing...' : 'Release'}
                             </button>

@@ -360,7 +360,7 @@ export default function LoginPage() {
                           type="button"
                           onClick={handleSendOtp}
                           disabled={countdown > 0 || isSendingOtp}
-                          className="text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline transition-all"
+                          className="text-xs font-medium text-primary hover:underline disabled:opacity-60 disabled:no-underline transition-all"
                         >
                           {isSendingOtp ? t('auth.sending') : countdown > 0 ? t('auth.resendIn', { seconds: countdown }) : t('auth.resend')}
                         </button>

@@ -610,7 +610,7 @@ export default function Promos() {
               type="button"
               disabled={simulateMutation.isPending || !simulation.code.trim()}
               onClick={() => simulateMutation.mutate()}
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-success bg-success-surface px-5 py-3 text-xs font-black uppercase tracking-widest text-success transition-all hover:bg-success-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-success bg-success-surface px-5 py-3 text-xs font-black uppercase tracking-widest text-success transition-all hover:bg-success-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {simulateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <ShieldCheck className="h-4 w-4" aria-hidden="true" />}
               Jalankan simulasi
@@ -949,7 +949,7 @@ function ActionButton({ label, icon: Icon, disabled, onClick, tone = 'safe' }: {
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-[11px] font-black uppercase tracking-widest transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-[11px] font-black uppercase tracking-widest transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60',
         tone === 'danger'
           ? 'border-error bg-error-surface text-error hover:bg-error-surface'
           : 'border-success bg-success-surface text-success hover:bg-success-surface'

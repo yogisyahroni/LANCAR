@@ -147,7 +147,7 @@ export default function Notifications() {
                      <button 
                         onClick={handleSave}
                         disabled={updateMutation.isPending}
-                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-success text-on-success font-black text-xs uppercase tracking-widest hover:bg-success transition-all disabled:opacity-50"
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-success text-on-success font-black text-xs uppercase tracking-widest hover:bg-success transition-all disabled:opacity-60"
                       >
                         {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Save size={18} aria-hidden="true" />}
                         Save Changes

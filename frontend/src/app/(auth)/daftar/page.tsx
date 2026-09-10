@@ -136,7 +136,7 @@ function OtpBoxes({ value, onChange, disabled }: OtpBoxesProps) {
           onChange={(e) => handleChange(i, e.target.value)}
           onKeyDown={(e) => handleKey(i, e)}
           aria-label={`Digit OTP ${i + 1}`}
-          className="w-12 h-14 text-center text-xl font-bold font-mono rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary transition-all disabled:opacity-50"
+          className="w-12 h-14 text-center text-xl font-bold font-mono rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary transition-all disabled:opacity-60"
         />
       ))}
     </div>
@@ -680,7 +680,7 @@ function RegisterContent() {
                   type="button"
                   onClick={handleOtpResend}
                   disabled={countdown > 0 || isSubmitting}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-semibold text-foreground transition-all hover:bg-muted/40 active:scale-[0.98] disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-semibold text-foreground transition-all hover:bg-muted/40 active:scale-[0.98] disabled:opacity-60"
                 >
                   <RefreshCw className="h-4 w-4" aria-hidden="true" />
                   {countdown > 0 ? `Kirim ulang dalam ${countdown}s` : 'Kirim ulang OTP'}

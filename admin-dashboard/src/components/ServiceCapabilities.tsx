@@ -72,7 +72,7 @@ export default function ServiceCapabilities({ courierId, capabilities }: Courier
         <button
           onClick={() => updateMutation.mutate()}
           disabled={updateMutation.isPending}
-          className="px-4 py-2 rounded-xl bg-primary text-on-primary font-bold text-sm flex items-center gap-2 disabled:opacity-50"
+          className="px-4 py-2 rounded-xl bg-primary text-on-primary font-bold text-sm flex items-center gap-2 disabled:opacity-60"
         >
           {updateMutation.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Save size={16} aria-hidden="true" />}
           Save Changes

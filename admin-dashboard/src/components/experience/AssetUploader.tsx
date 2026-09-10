@@ -13,7 +13,7 @@ const ALLOWED_TYPES = new Set([
   "video/webm",
 ]);
 const inputClass =
-  "mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20 disabled:opacity-50";
+  "mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20 disabled:opacity-60";
 
 type Props = {
   disabled?: boolean;
@@ -437,7 +437,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
           onClick={() => {
             void validate();
           }}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-widest text-on-primary disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-widest text-on-primary disabled:opacity-60"
         >
           {busy ? (
             <Loader2 size={14} className="animate-spin" aria-hidden="true" />

@@ -957,7 +957,7 @@ export default function AppExperienceOverview() {
                   onChange={(event) =>
                     updateGuardrailDraft("min_events", event.target.value)
                   }
-                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs text-foreground-muted disabled:opacity-50"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs text-foreground-muted disabled:opacity-60"
                 />
               </label>
               <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
@@ -977,7 +977,7 @@ export default function AppExperienceOverview() {
                       event.target.value,
                     )
                   }
-                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs text-foreground-muted disabled:opacity-50"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs text-foreground-muted disabled:opacity-60"
                 />
               </label>
               <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
@@ -994,7 +994,7 @@ export default function AppExperienceOverview() {
                   onChange={(event) =>
                     updateGuardrailDraft("window_hours", event.target.value)
                   }
-                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs text-foreground-muted disabled:opacity-50"
+                  className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs text-foreground-muted disabled:opacity-60"
                 />
               </label>
               <div className="sm:col-span-3 flex flex-wrap items-center justify-between gap-3">
@@ -1006,7 +1006,7 @@ export default function AppExperienceOverview() {
                   <button
                     type="submit"
                     disabled={guardrailPolicyMutation.isPending}
-                    className="rounded-xl bg-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-primary disabled:opacity-50"
+                    className="rounded-xl bg-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-primary disabled:opacity-60"
                   >
                     {guardrailPolicyMutation.isPending
                       ? "Saving…"
@@ -1091,7 +1091,7 @@ export default function AppExperienceOverview() {
                           type="button"
                           disabled={rollbackMutation.isPending}
                           onClick={() => requestHealthRollback(rowFinding)}
-                          className="rounded-lg border border-accent px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-accent disabled:opacity-50"
+                          className="rounded-lg border border-accent px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-accent disabled:opacity-60"
                         >
                           Rollback r{row.rollback_target_revision}
                         </button>
@@ -1206,7 +1206,7 @@ export default function AppExperienceOverview() {
                         type="button"
                         disabled={rollbackMutation.isPending}
                         onClick={() => requestHealthRollback(finding)}
-                        className="rounded-lg border border-accent px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-accent disabled:opacity-50"
+                        className="rounded-lg border border-accent px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-accent disabled:opacity-60"
                       >
                         Rollback r{finding.rollback_target_revision}
                       </button>

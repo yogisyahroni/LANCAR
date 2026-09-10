@@ -456,7 +456,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                   !formData.item_image_url || 
                   !formData.service_code
                 }
-                className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {(isSaving || isGeocoding) ? <Loader2 className="animate-spin" size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
                 {isGeocoding ? 'Mencari Titik...' : 'Generate Link'}

@@ -187,7 +187,7 @@ export default function CourierFaceVerifications() {
                         type="button"
                         onClick={() => reviewVerification.mutate({ id: active.id, action: 'approve' })}
                         disabled={reviewVerification.isPending}
-                        className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-on-primary shadow-lg transition hover:bg-primary/90 disabled:opacity-50"
+                        className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-on-primary shadow-lg transition hover:bg-primary/90 disabled:opacity-60"
                       >
                         Approve (Valid)
                       </button>
@@ -195,7 +195,7 @@ export default function CourierFaceVerifications() {
                         type="button"
                         onClick={() => reviewVerification.mutate({ id: active.id, action: 'reject' })}
                         disabled={reviewVerification.isPending}
-                        className="flex-1 rounded-xl border border-error bg-error-surface px-4 py-3 text-sm font-bold text-error transition hover:bg-error-surface disabled:opacity-50"
+                        className="flex-1 rounded-xl border border-error bg-error-surface px-4 py-3 text-sm font-bold text-error transition hover:bg-error-surface disabled:opacity-60"
                       >
                         Reject (Palsu)
                       </button>

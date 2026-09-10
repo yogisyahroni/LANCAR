@@ -49,7 +49,8 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { useEffect } from "react";
+import { createElement, useEffect } from "react";
+import { getCustomerServiceIconForService } from "@/components/orders/serviceIcon";
 
 type OnDemandOrderFormContentProps = {
   register: any;
@@ -267,10 +268,12 @@ export function OnDemandOrderFormContent({
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   {onDemandServices.map((service: any) => {
                     const selected = service.code === service_code;
+                    const ServiceIcon = getCustomerServiceIconForService(service);
                     return (
                       <button
                         key={service.code}
                         type="button"
+                        aria-pressed={selected}
                         onClick={() => {
                           setValue("service_code", service.code, {
                             shouldDirty: true,
@@ -298,13 +301,18 @@ export function OnDemandOrderFormContent({
                         ].join(" ")}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div>
+                          <div className="flex min-w-0 items-start gap-3">
+                            <span className="mt-0.5 rounded-lg border border-border bg-surface-subtle p-2 text-primary" aria-hidden="true">
+                              {createElement(ServiceIcon, { className: "h-5 w-5" })}
+                            </span>
+                            <div>
                             <p className="font-semibold text-foreground">
                               {service.name}
                             </p>
                             <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                               {service.description}
                             </p>
+                            </div>
                           </div>
                           {selected && (
                             <Check className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
@@ -343,6 +351,7 @@ export function OnDemandOrderFormContent({
                         <button
                           key={tier.code}
                           type="button"
+                          aria-pressed={size_tier === tier.code}
                           onClick={() =>
                             setValue("size_tier", tier.code, {
                               shouldDirty: true,

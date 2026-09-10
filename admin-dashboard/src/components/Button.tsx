@@ -30,7 +30,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         className={cn(
-          'inline-flex items-center justify-center rounded-xl transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none',
+          'inline-flex items-center justify-center rounded-xl transition-all duration-200 disabled:opacity-60 disabled:pointer-events-none',
           variants[variant],
           sizes[size],
           className

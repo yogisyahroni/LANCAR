@@ -272,7 +272,7 @@ export default function CourierApplications() {
                   type="button"
                   onClick={() => updateStatus.mutate({ id: active.id, nextStatus: 'Active' })}
                   disabled={updateStatus.isPending || !allPassed}
-                  className="rounded-xl bg-success px-5 py-3 text-sm font-bold text-on-success transition hover:bg-success disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-xl bg-success px-5 py-3 text-sm font-bold text-on-success transition hover:bg-success disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Approve Courier
                 </button>
@@ -280,7 +280,7 @@ export default function CourierApplications() {
                   type="button"
                   onClick={() => updateStatus.mutate({ id: active.id, nextStatus: 'Rejected', reason: 'Dokumen atau kendaraan belum memenuhi syarat on-demand' })}
                   disabled={updateStatus.isPending}
-                  className="rounded-xl bg-error px-5 py-3 text-sm font-bold text-on-error transition hover:bg-error disabled:opacity-50"
+                  className="rounded-xl bg-error px-5 py-3 text-sm font-bold text-on-error transition hover:bg-error disabled:opacity-60"
                 >
                   Reject
                 </button>
@@ -371,7 +371,7 @@ function ServiceCapabilityRow({
           type="button"
           onClick={onEnable}
           disabled={disabled || enabled}
-          className="rounded-lg bg-success px-3 py-2 text-xs font-bold text-on-success disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg bg-success px-3 py-2 text-xs font-bold text-on-success disabled:cursor-not-allowed disabled:opacity-60"
         >
           Enable
         </button>
@@ -379,7 +379,7 @@ function ServiceCapabilityRow({
           type="button"
           onClick={onDisable}
           disabled={disabled || item.status === 'disabled'}
-          className="rounded-lg bg-surface-raised px-3 py-2 text-xs font-bold text-foreground-muted disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg bg-surface-raised px-3 py-2 text-xs font-bold text-foreground-muted disabled:cursor-not-allowed disabled:opacity-60"
         >
           Disable
         </button>
@@ -387,7 +387,7 @@ function ServiceCapabilityRow({
           type="button"
           onClick={onReject}
           disabled={disabled || rejected}
-          className="rounded-lg bg-error px-3 py-2 text-xs font-bold text-on-error disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg bg-error px-3 py-2 text-xs font-bold text-on-error disabled:cursor-not-allowed disabled:opacity-60"
         >
           Reject
         </button>

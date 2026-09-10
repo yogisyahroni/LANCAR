@@ -444,7 +444,7 @@ export default function TaxCenter() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Rule Code</label>
-                  <input type="text" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} disabled={!!editingRule} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary disabled:opacity-50" placeholder="e.g. PPN_RETAIL_1" />
+                  <input type="text" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} disabled={!!editingRule} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary disabled:opacity-60" placeholder="e.g. PPN_RETAIL_1" />
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Name</label>

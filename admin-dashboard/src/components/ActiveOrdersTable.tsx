@@ -1085,7 +1085,7 @@ export default function ActiveOrdersTable() {
             aria-label="Previous orders page"
             disabled={page === 1}
             onClick={() => setPage(p => Math.max(1, p - 1))}
-            className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted disabled:opacity-20 hover:text-foreground transition-all"
+            className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted disabled:opacity-60 hover:text-foreground transition-all"
           >
             <ChevronLeft size={20} aria-hidden="true" />
           </button>
@@ -1106,7 +1106,7 @@ export default function ActiveOrdersTable() {
           <button type="button" aria-label="Next orders page"
             disabled={page === totalPages}
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted disabled:opacity-20 hover:text-foreground transition-all"
+            className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted disabled:opacity-60 hover:text-foreground transition-all"
           >
             <ChevronRight size={20} aria-hidden="true" />
           </button>
@@ -1344,7 +1344,7 @@ export default function ActiveOrdersTable() {
                               }
                             }}
                             disabled={reassignMutation.isPending}
-                            className="w-full py-6 rounded-[32px] bg-primary text-on-primary font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                            className="w-full py-6 rounded-[32px] bg-primary text-on-primary font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                           >
                             {reassignMutation.isPending ? <Loader2 size={20} aria-hidden="true" className="animate-spin" /> : <Truck size={20} aria-hidden="true" />}
                             Manual Reassign
@@ -1357,7 +1357,7 @@ export default function ActiveOrdersTable() {
                               }
                             }}
                             disabled={flagIssueMutation.isPending}
-                            className="w-full py-6 rounded-[32px] bg-error-surface text-error border border-error font-black uppercase tracking-[0.2em] text-[10px] hover:bg-error-surface transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                            className="w-full py-6 rounded-[32px] bg-error-surface text-error border border-error font-black uppercase tracking-[0.2em] text-[10px] hover:bg-error-surface transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                           >
                             {flagIssueMutation.isPending ? <Loader2 size={20} aria-hidden="true" className="animate-spin" /> : <AlertCircle size={20} aria-hidden="true" />}
                             Flag Issue
@@ -1562,8 +1562,8 @@ export default function ActiveOrdersTable() {
               )}
 
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" disabled={forceCancelMutation.isPending} onClick={() => setShowForceCancel(false)} className="rounded-2xl border border-border px-5 py-3 text-xs font-black uppercase tracking-widest text-foreground-muted hover:bg-surface-subtle disabled:opacity-50">Batal</button>
-                <button type="submit" disabled={forceCancelMutation.isPending} className="inline-flex items-center gap-2 rounded-2xl bg-error px-5 py-3 text-xs font-black uppercase tracking-widest text-on-error shadow-lg shadow-error hover:bg-error disabled:opacity-50">
+                <button type="button" disabled={forceCancelMutation.isPending} onClick={() => setShowForceCancel(false)} className="rounded-2xl border border-border px-5 py-3 text-xs font-black uppercase tracking-widest text-foreground-muted hover:bg-surface-subtle disabled:opacity-60">Batal</button>
+                <button type="submit" disabled={forceCancelMutation.isPending} className="inline-flex items-center gap-2 rounded-2xl bg-error px-5 py-3 text-xs font-black uppercase tracking-widest text-on-error shadow-lg shadow-error hover:bg-error disabled:opacity-60">
                   {forceCancelMutation.isPending && <Loader2 size={15} aria-hidden="true" className="animate-spin" />}
                   Konfirmasi cancel
                 </button>

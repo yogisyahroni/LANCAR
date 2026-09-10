@@ -360,7 +360,7 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
           type="button"
           onClick={() => deleteRows({ delete_errors: true })}
           disabled={errorCount === 0 || isSaving}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm font-semibold text-destructive hover:bg-destructive/15 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm font-semibold text-destructive hover:bg-destructive/15 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Trash2 className="h-4 w-4" aria-hidden="true" />
           Hapus Semua Error

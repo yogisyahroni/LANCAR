@@ -402,7 +402,7 @@ export default function Couriers() {
           <button 
             onClick={handleExport}
             disabled={isExporting}
-            className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50"
+            className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-60"
           >
             {isExporting ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : <Download size={18} aria-hidden="true" />}
             Export List
@@ -569,7 +569,7 @@ export default function Couriers() {
                   createRegistrationLink.mutate()
                 }}
                 disabled={createRegistrationLink.isPending}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-black text-on-primary transition hover:bg-primary-light disabled:opacity-50"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-black text-on-primary transition hover:bg-primary-light disabled:opacity-60"
               >
                 {createRegistrationLink.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Link2 size={16} aria-hidden="true" />}
                 Generate Link
@@ -756,7 +756,7 @@ export default function Couriers() {
               aria-label="Previous courier page"
               disabled={page === 1}
               onClick={() => setPage(p => Math.max(1, p - 1))}
-              className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-surface-subtle transition-all"
+              className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-60 disabled:hover:bg-surface-subtle transition-all"
             >
               <ChevronLeft size={18} aria-hidden="true" />
             </button>
@@ -778,7 +778,7 @@ export default function Couriers() {
               aria-label="Next courier page"
               disabled={page === (couriersData?.pagination?.pages || 1)}
               onClick={() => setPage(p => p + 1)}
-              className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-surface-subtle transition-all"
+              className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-60 disabled:hover:bg-surface-subtle transition-all"
             >
               <ChevronRight size={18} aria-hidden="true" />
             </button>
@@ -854,7 +854,7 @@ export default function Couriers() {
                 <button
                   onClick={() => broadcastMutation.mutate()}
                   disabled={!broadcastDate || !broadcastTime || !broadcastAddress || broadcastMutation.isPending}
-                  className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-sm hover:bg-primary-light transition-colors disabled:opacity-50 flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-sm hover:bg-primary-light transition-colors disabled:opacity-60 flex items-center gap-2"
                 >
                   {broadcastMutation.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <FileText size={16} aria-hidden="true" />}
                   Kirim Broadcast
@@ -924,7 +924,7 @@ export default function Couriers() {
                         <button 
                           onClick={() => updateStatus.mutate({ id: courierDetail.id, status: 'Active' })}
                           disabled={updateStatus.isPending}
-                          className="w-full py-4 rounded-2xl bg-success text-on-success font-black uppercase tracking-widest text-sm shadow-lg shadow-success hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                          className="w-full py-4 rounded-2xl bg-success text-on-success font-black uppercase tracking-widest text-sm shadow-lg shadow-success hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                         >
                           <CheckCircle size={20} aria-hidden="true" />
                           {updateStatus.isPending ? 'Processing...' : 'Verify Courier'}
@@ -934,7 +934,7 @@ export default function Couriers() {
                         <button 
                           onClick={() => updateStatus.mutate({ id: courierDetail.id, status: 'Suspended' })}
                           disabled={updateStatus.isPending}
-                          className="w-full py-4 rounded-2xl bg-error-surface text-error border border-error font-black uppercase tracking-widest text-sm hover:bg-error-surface transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                          className="w-full py-4 rounded-2xl bg-error-surface text-error border border-error font-black uppercase tracking-widest text-sm hover:bg-error-surface transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                         >
                           <Ban size={20} aria-hidden="true" />
                           {updateStatus.isPending ? 'Processing...' : 'Suspend Access'}
@@ -943,7 +943,7 @@ export default function Couriers() {
                         <button 
                           onClick={() => updateStatus.mutate({ id: courierDetail.id, status: 'Active' })}
                           disabled={updateStatus.isPending}
-                          className="w-full py-4 rounded-2xl bg-success-surface text-success border border-success font-black uppercase tracking-widest text-sm hover:bg-success-surface transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                          className="w-full py-4 rounded-2xl bg-success-surface text-success border border-success font-black uppercase tracking-widest text-sm hover:bg-success-surface transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                         >
                           <CheckCircle size={20} aria-hidden="true" />
                           {updateStatus.isPending ? 'Processing...' : 'Activate Access'}
@@ -1228,7 +1228,7 @@ export default function Couriers() {
                             uploadPhoto(blob);
                           }}
                           disabled={isUploadingPhoto}
-                          className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-success text-on-success shadow-lg hover:bg-success transition-all font-bold disabled:opacity-50"
+                          className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-success text-on-success shadow-lg hover:bg-success transition-all font-bold disabled:opacity-60"
                         >
                           {isUploadingPhoto ? <Loader2 className="animate-spin" size={20} aria-hidden="true" /> : <CheckCircle size={20} aria-hidden="true" />}
                           Save & Lock Photo

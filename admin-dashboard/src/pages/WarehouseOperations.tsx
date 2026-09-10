@@ -220,7 +220,7 @@ export default function WarehouseOperations() {
                         type="button"
                         onClick={handleAutoDetect}
                         disabled={isDetecting || !orderId}
-                        className="px-6 py-4 rounded-2xl bg-surface-subtle hover:bg-surface-subtle text-foreground-muted border border-border text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all disabled:opacity-50"
+                        className="px-6 py-4 rounded-2xl bg-surface-subtle hover:bg-surface-subtle text-foreground-muted border border-border text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all disabled:opacity-60"
                       >
                         {isDetecting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
                         Detect Step
@@ -304,7 +304,7 @@ export default function WarehouseOperations() {
                   <button
                     type="submit"
                     disabled={scanPackageMutation.isPending || !orderId}
-                    className="w-full py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
                   >
                     {scanPackageMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
                     Submit Scan Logistik
@@ -404,7 +404,7 @@ export default function WarehouseOperations() {
                       flight_number: newFlightNumber
                     })}
                     disabled={createBagMutation.isPending || !newBagNumber}
-                    className="w-full py-4 mt-2 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full py-4 mt-2 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
                   >
                     {createBagMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
                     Segel & Daftar Bag

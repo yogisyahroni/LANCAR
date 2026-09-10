@@ -137,6 +137,73 @@ test('Customer aggregator form keeps provider and city controls keyboard reachab
   await expect(origin).toHaveValue('JKT');
 });
 
+test('Customer On-Demand service cards expose canonical icon and pressed state @keyboard @a11y @iconography', async ({ page }) => {
+  await installCustomerFormFixture(page);
+  await page.goto('/orders/new/ondemand', { waitUntil: 'domcontentloaded' });
+
+  const serviceCard = page.getByRole('button', { name: /Paket Instan Pengiriman cepat/ });
+  await expect(serviceCard).toBeVisible();
+  await expect(serviceCard).toHaveAttribute('aria-pressed', 'true');
+  await expect(serviceCard.locator('svg')).toHaveCount(2);
+  await expect.poll(() => serviceCard.locator('svg').evaluateAll((icons) => icons.every((icon) => icon.getAttribute('aria-hidden') === 'true'))).toBe(true);
+
+  const sizeTier = page.getByRole('button', { name: /Regular Maksimal 5 kg/ });
+  await expect(sizeTier).toHaveAttribute('aria-pressed', 'true');
+  await sizeTier.focus();
+  await expect(sizeTier).toBeFocused();
+});
+
+test('Customer Food reorder quantity controls expose item-specific icon-only names @keyboard @a11y @iconography', async ({ page }) => {
+  await page.context().addCookies([
+    { name: 'tembus_web_session', value: 'food-reorder-keyboard-fixture', domain: 'localhost', path: '/' },
+  ]);
+  await page.route('**/*', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.pathname.endsWith('/auth/web/me')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: { id: 'food-reorder-keyboard-fixture', full_name: 'Food Fixture', email: 'food@example.test' } }) });
+      return;
+    }
+    if (url.pathname.endsWith('/auth/web/notifications')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ notifications: [] }) });
+      return;
+    }
+    if (url.pathname.endsWith('/orders/reorder-info')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { order_id: 'ORDER-FOOD-REORDER', merchant_id: 'merchant-food-1', merchant_name: 'Food Fixture Merchant', merchant_open: true, items: [{ menu_item_id: 'menu-nasi-goreng', item_name: 'Nasi Goreng', quantity: 2, old_price: 18000, new_price: 20000, available: true, price_changed: true, variants: [] }], total_old: 36000, total_new: 40000, has_changes: true } }),
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/customer/addresses')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'address-food-1', label: 'Rumah', address: 'Jl. Food Fixture 1', lat: -6.2, lng: 106.8, contact_name: 'Food Fixture', is_favorite: true }] }) });
+      return;
+    }
+    if (url.pathname.endsWith('/food/merchants/merchant-food-1')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { merchant: { id: 'merchant-food-1', name: 'Food Fixture Merchant', is_open: true } } }) });
+      return;
+    }
+    if (request.resourceType() === 'xhr' || request.resourceType() === 'fetch') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto('/orders/new/food?orderId=ORDER-FOOD-REORDER', { waitUntil: 'domcontentloaded' });
+  const decrease = page.getByRole('button', { name: 'Kurangi Nasi Goreng' });
+  const increase = page.getByRole('button', { name: 'Tambah Nasi Goreng' });
+  await expect(decrease).toBeVisible();
+  await expect(increase).toBeVisible();
+  await expect(decrease).toHaveAttribute('title', 'Kurangi Nasi Goreng');
+  await expect(increase).toHaveAttribute('title', 'Tambah Nasi Goreng');
+  await increase.focus();
+  await expect(increase).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByLabel('Jumlah Nasi Goreng')).toContainText('3');
+});
+
 test('Customer scheduled pickup controls are keyboard reachable and Escape-dismissible @keyboard', async ({ page }) => {
   await installCustomerFormFixture(page);
   await page.goto('/orders/new/ondemand', { waitUntil: 'domcontentloaded' });

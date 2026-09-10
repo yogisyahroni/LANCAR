@@ -3264,7 +3264,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 **Checklist**
 - [x] Do not mix Lucide line icon, filled Material icon, emoji and random SVG styles in one functional navigation system. Evidence: `docs/task-evidence/ICON-2026-001.md`
 - [x] Decorative icon uses `aria-hidden="true"` when adjacent text already provides the name. Evidence: `docs/task-evidence/ICON-2026-001.md`
-- [ ] Icon-only button has accessible name (`aria-label`/equivalent) and visible tooltip where useful.
+- [ ] Icon-only button has accessible name (`aria-label`/equivalent) and visible tooltip where useful. Evidence: `docs/task-evidence/ICON-2026-001.md` (Customer Food quantity controls and On-Demand service-card paths pass; complete tooltip/state inventory remains open).
 - [ ] Essential meaning is not encoded only in icon shape; critical/destructive actions have visible label in high-risk contexts.
 - [ ] Custom SVG allowed only where Lucide lacks adequate service meaning; normalize viewBox/stroke/optical size and document it.
 - [ ] Icons inherit semantic foreground/status tokens rather than hardcoded colors.
@@ -3293,7 +3293,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - security/proof → `ShieldCheck`
 
 **Checklist**
-- [ ] Service icon semantics consistent across dashboard, order creation, history/detail and empty states.
+- [ ] Service icon semantics consistent across dashboard, order creation, history/detail and empty states. Evidence: `docs/task-evidence/ICON-2026-002.md` (canonical mapping, On-Demand order creation and payment-link paths are covered; exhaustive state inventory remains open).
 - [x] Do not reuse same generic truck icon for both Aggregator and Towing if surrounding context cannot distinguish them. Evidence: `docs/task-evidence/ICON-2026-002.md`
 - [x] Marketing 3D/illustration assets may exist in hero/service campaign cards, but transactional navigation retains accessible functional icon + text. Evidence: `docs/task-evidence/ICON-2026-002.md`
 
@@ -3348,8 +3348,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [x] Async success/error announcements use suitable live-region semantics without flooding screen readers. Customer/Admin shells use polite status vs assertive alert regions, and route inventory checks visible live-region content. Evidence: `docs/task-evidence/A11Y-2026-005.md`.
 - [x] Destructive Admin actions show icon + verb + target + impact; color alone is not confirmation. Evidence: `docs/task-evidence/A11Y-2026-005.md` (authenticated service-control confirmation matrix).
 - [x] `marketing_hide`, `new_order_gate`, `provider_gate`, `checkout_gate` remain visually/verbally distinct in both themes. Evidence: `docs/task-evidence/A11Y-2026-005.md` (authenticated Chromium impact-copy matrix).
-- [ ] Warning/error text meets contrast even on tinted semantic surfaces.
-- [ ] Disabled state is visually distinct from enabled while preserving enough readability for context; do not use opacity so low that labels effectively disappear.
+- [ ] Warning/error text meets contrast even on tinted semantic surfaces. Evidence: `docs/task-evidence/A11Y-2026-005.md` (global token guard passes; tinted-surface visual audit remains open).
+- [ ] Disabled state is visually distinct from enabled while preserving enough readability for context; do not use opacity so low that labels effectively disappear. Evidence: `docs/task-evidence/A11Y-2026-005.md` (source guard and 198-route runtime opacity floor pass; enabled-vs-disabled visual distinction remains open).
 
 ---
 

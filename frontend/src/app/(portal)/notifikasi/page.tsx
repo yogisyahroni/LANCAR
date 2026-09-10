@@ -211,7 +211,7 @@ export default function NotifikasiPage() {
             type="button"
             onClick={() => void handleMarkAllRead()}
             disabled={isMutating || unreadCount === 0}
-            className="flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-4 py-2.5 text-sm font-bold text-foreground-muted transition-all hover:bg-surface-subtle disabled:pointer-events-none disabled:opacity-40 dark:border-border dark:bg-surface-subtle dark:text-foreground-muted dark:hover:bg-surface-subtle"
+            className="flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-4 py-2.5 text-sm font-bold text-foreground-muted transition-all hover:bg-surface-subtle disabled:pointer-events-none disabled:opacity-60 dark:border-border dark:bg-surface-subtle dark:text-foreground-muted dark:hover:bg-surface-subtle"
           >
             <CheckCheck className={`h-4 w-4 ${isMutating ? 'animate-pulse' : ''}`} aria-hidden="true" />
             Tandai Dibaca
@@ -220,7 +220,7 @@ export default function NotifikasiPage() {
             type="button"
             onClick={() => void handleClearAll()}
             disabled={isMutating || notifications.length === 0}
-            className="flex items-center gap-2 rounded-xl border border-error bg-error-surface px-4 py-2.5 text-sm font-bold text-error transition-all hover:bg-error-surface disabled:pointer-events-none disabled:opacity-40 dark:text-error"
+            className="flex items-center gap-2 rounded-xl border border-error bg-error-surface px-4 py-2.5 text-sm font-bold text-error transition-all hover:bg-error-surface disabled:pointer-events-none disabled:opacity-60 dark:text-error"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
             Hapus Semua

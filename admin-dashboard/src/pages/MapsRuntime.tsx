@@ -1092,7 +1092,7 @@ export default function MapsRuntime() {
                                 type="button"
                                 onClick={() => activateCredentialMutation.mutate(credential.id)}
                                 disabled={activateCredentialMutation.isPending || credential.last_validation_status !== 'valid'}
-                                className="rounded-xl bg-success px-3 py-2 text-xs font-black text-on-success transition-all duration-200 hover:bg-success active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                                className="rounded-xl bg-success px-3 py-2 text-xs font-black text-on-success transition-all duration-200 hover:bg-success active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 Activate
                               </button>
@@ -1102,7 +1102,7 @@ export default function MapsRuntime() {
                                 type="button"
                                 onClick={() => deactivateCredentialMutation.mutate(credential.id)}
                                 disabled={deactivateCredentialMutation.isPending}
-                                className="rounded-xl border border-warning bg-warning-surface px-3 py-2 text-xs font-black text-warning transition-all duration-200 hover:bg-warning-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                                className="rounded-xl border border-warning bg-warning-surface px-3 py-2 text-xs font-black text-warning transition-all duration-200 hover:bg-warning-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 Deactivate
                               </button>

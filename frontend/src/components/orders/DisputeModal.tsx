@@ -262,14 +262,14 @@ export function DisputeModal({ isOpen, onClose, orderId, isOnDemand = false, onS
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="rounded-xl border border-border bg-transparent px-4 py-2 text-sm font-medium text-foreground transition hover:bg-surface-subtle disabled:opacity-50"
+                className="rounded-xl border border-border bg-transparent px-4 py-2 text-sm font-medium text-foreground transition hover:bg-surface-subtle disabled:opacity-60"
               >
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="flex items-center gap-2 rounded-xl bg-error hover:bg-error px-6 py-2 text-sm font-medium text-on-error transition shadow-lg disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl bg-error hover:bg-error px-6 py-2 text-sm font-medium text-on-error transition shadow-lg disabled:opacity-60"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                 {isOnDemand ? 'Ajukan Klaim ke LANCAR' : 'Kirim Laporan'}

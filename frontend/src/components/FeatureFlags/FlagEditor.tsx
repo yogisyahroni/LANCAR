@@ -102,7 +102,7 @@ export default function FlagEditor({ flagKey, initialConfig, isEnabled, onSave, 
           <button 
             onClick={handleSave}
             disabled={isSaving}
-            className="px-4 py-2 text-sm font-medium bg-primary hover:bg-primary/90 text-on-primary rounded-xl shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium bg-primary hover:bg-primary/90 text-on-primary rounded-xl shadow-sm transition-all flex items-center gap-2 disabled:opacity-60"
           >
             {isSaving ? (
               <span className="animate-pulse">Menyimpan...</span>

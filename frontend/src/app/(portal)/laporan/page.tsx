@@ -378,7 +378,7 @@ export default function UMKMReportsPage() {
             type="button"
             onClick={loadReport}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-3 text-sm font-semibold text-foreground transition-all duration-200 hover:bg-surface-subtle active:scale-[0.98] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-3 text-sm font-semibold text-foreground transition-all duration-200 hover:bg-surface-subtle active:scale-[0.98] disabled:opacity-60"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
             Sync DB
@@ -387,7 +387,7 @@ export default function UMKMReportsPage() {
             type="button"
             onClick={handleExportCsv}
             disabled={isExportingCsv || loading}
-            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-3 text-sm font-semibold text-foreground transition-all duration-200 hover:bg-surface-subtle active:scale-[0.98] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-3 text-sm font-semibold text-foreground transition-all duration-200 hover:bg-surface-subtle active:scale-[0.98] disabled:opacity-60"
           >
             {isExportingCsv ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />}
             CSV

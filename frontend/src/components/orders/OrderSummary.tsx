@@ -543,7 +543,7 @@ export function OrderSummary({
               onChange={(event) => onPromoCodeChange(event.target.value.toUpperCase())}
               placeholder="TEMBUSHEMAT"
               disabled={!pricing || isLoading}
-              className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold uppercase tracking-wide text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-success/60 focus:ring-2 focus:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold uppercase tracking-wide text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-success/60 focus:ring-2 focus:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60"
               maxLength={40}
             />
             <button
@@ -551,7 +551,7 @@ export function OrderSummary({
               aria-label={t('order.check')}
               onClick={onValidatePromo}
               disabled={!pricing || !promoCode.trim() || isLoading || isPromoChecking}
-              className="rounded-xl border border-success/20 bg-success/10 px-4 py-2 text-sm font-bold text-success transition-all hover:bg-success/15 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
+              className="rounded-xl border border-success/20 bg-success/10 px-4 py-2 text-sm font-bold text-success transition-all hover:bg-success/15 disabled:pointer-events-none disabled:opacity-60 active:scale-[0.98]"
             >
               {isPromoChecking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : t('order.check')}
             </button>
@@ -578,7 +578,7 @@ export function OrderSummary({
                   type="button"
                   onClick={() => onPromoCodeChange(promo.code)}
                   disabled={!pricing || isLoading || isPromoChecking}
-                  className="rounded-full border border-success/20 bg-success/10 px-3 py-1.5 text-xs font-bold text-success transition-all hover:bg-success/15 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
+                  className="rounded-full border border-success/20 bg-success/10 px-3 py-1.5 text-xs font-bold text-success transition-all hover:bg-success/15 disabled:pointer-events-none disabled:opacity-60 active:scale-[0.98]"
                   title={promo.name}
                 >
                   {promo.code}
@@ -719,7 +719,7 @@ export function OrderSummary({
         form="order-form"
         data-testid="order-submit-button"
         disabled={submitDisabled}
-        className="mt-8 w-full rounded-xl bg-primary px-4 py-4 text-sm font-semibold text-primary-foreground shadow-lg transition-all hover:bg-primary/90 hover:shadow-primary/25 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
+        className="mt-8 w-full rounded-xl bg-primary px-4 py-4 text-sm font-semibold text-primary-foreground shadow-lg transition-all hover:bg-primary/90 hover:shadow-primary/25 disabled:pointer-events-none disabled:opacity-60 active:scale-[0.98]"
         whileTap={!submitDisabled ? { scale: 0.98 } : {}}
       >
         {isLoading ? t('order.calculating') : t('order.payNow')}

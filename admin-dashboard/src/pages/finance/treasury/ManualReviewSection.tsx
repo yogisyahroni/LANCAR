@@ -319,28 +319,28 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
                     <button
                       onClick={() => runReviewAction('approve')}
                       disabled={payoutReviewActionMutation.isPending || reviewRequest.status === 'blocked'}
-                      className="px-5 py-3 rounded-2xl bg-success text-on-success font-black text-xs uppercase tracking-widest disabled:opacity-40"
+                      className="px-5 py-3 rounded-2xl bg-success text-on-success font-black text-xs uppercase tracking-widest disabled:opacity-60"
                     >
                       Approve
                     </button>
                     <button
                       onClick={() => runReviewAction('reject')}
                       disabled={payoutReviewActionMutation.isPending}
-                      className="px-5 py-3 rounded-2xl bg-error-surface border border-error text-error font-black text-xs uppercase tracking-widest disabled:opacity-40"
+                      className="px-5 py-3 rounded-2xl bg-error-surface border border-error text-error font-black text-xs uppercase tracking-widest disabled:opacity-60"
                     >
                       Reject
                     </button>
                     <button
                       onClick={() => runReviewAction('request_more_verification')}
                       disabled={payoutReviewActionMutation.isPending}
-                      className="px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-widest disabled:opacity-40"
+                      className="px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-widest disabled:opacity-60"
                     >
                       Request Verification
                     </button>
                     <button
                       onClick={() => runReviewAction('suspend_payout_account')}
                       disabled={payoutReviewActionMutation.isPending}
-                      className="px-5 py-3 rounded-2xl bg-warning-surface border border-warning text-warning font-black text-xs uppercase tracking-widest disabled:opacity-40"
+                      className="px-5 py-3 rounded-2xl bg-warning-surface border border-warning text-warning font-black text-xs uppercase tracking-widest disabled:opacity-60"
                     >
                       Suspend Account
                     </button>

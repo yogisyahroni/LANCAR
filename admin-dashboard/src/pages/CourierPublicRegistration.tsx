@@ -239,7 +239,7 @@ export default function CourierPublicRegistration() {
               type="button"
               onClick={submit}
               disabled={isSubmitting || uploadingDoc !== null}
-              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-4 font-black text-on-primary shadow-lg shadow-primary/20 transition hover:bg-primary-light disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-4 font-black text-on-primary shadow-lg shadow-primary/20 transition hover:bg-primary-light disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <ShieldCheck className="h-5 w-5" aria-hidden="true" />}
               Kirim Pendaftaran

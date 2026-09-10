@@ -324,7 +324,7 @@ export default function Broadcasts() {
                               disabled={cancelMutation.isPending}
                               title={row.status === 'scheduled' ? 'Batalkan jadwal' : 'Hapus draft'}
                               aria-label={`Batalkan ${row.title}`}
-                              className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-error hover:bg-error-surface transition-all disabled:opacity-50"
+                              className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-error hover:bg-error-surface transition-all disabled:opacity-60"
                             >
                               {cancelMutation.isPending && cancelMutation.variables === row.id ? (
                                 <Loader2 size={16} className="animate-spin" aria-hidden="true" />
@@ -372,7 +372,7 @@ export default function Broadcasts() {
                 disabled={page === 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 aria-label="Halaman sebelumnya"
-                className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-30 transition-all"
+                className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-60 transition-all"
               >
                 <ChevronLeft size={18} aria-hidden="true" />
               </button>
@@ -382,7 +382,7 @@ export default function Broadcasts() {
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
                 aria-label="Halaman berikutnya"
-                className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-30 transition-all"
+                className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-60 transition-all"
               >
                 <ChevronRight size={18} aria-hidden="true" />
               </button>

@@ -240,7 +240,7 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
           id="btn-initiate-payment"
           onClick={payment ? handleOpenExistingPayment : handleInitiatePayment}
           disabled={isBusy || totalOrders === 0}
-          className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
+          className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
         >
           {isBusy ? (
             <>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CarFront, CircleHelp, Package, Truck, UtensilsCrossed, Wrench } from "lucide-react";
-import { getCustomerServiceIcon } from "@/components/orders/serviceIcon";
+import { getCustomerServiceIcon, getCustomerServiceIconForService } from "@/components/orders/serviceIcon";
 
 describe("customer service icon contract", () => {
   it("uses distinct canonical icons for customer service categories", () => {
@@ -16,5 +16,14 @@ describe("customer service icon contract", () => {
     expect(getCustomerServiceIcon("service", "Towing")).toBe(CarFront);
     expect(getCustomerServiceIcon("service", "Tambal Ban")).toBe(Wrench);
     expect(getCustomerServiceIcon("unknown")).toBe(CircleHelp);
+  });
+
+  it("resolves API service records to the same canonical mapping", () => {
+    expect(getCustomerServiceIconForService({ code: "tembus_instant", name: "Paket Instan" })).toBe(Package);
+    expect(getCustomerServiceIconForService({ code: "food_delivery", service_category: "food" })).toBe(UtensilsCrossed);
+    expect(getCustomerServiceIconForService({ code: "tembus_aggregator", service_category: "aggregator" })).toBe(Truck);
+    expect(getCustomerServiceIconForService({ name: "Towing" })).toBe(CarFront);
+    expect(getCustomerServiceIconForService({ name: "Bantuan Tambal Ban" })).toBe(Wrench);
+    expect(getCustomerServiceIconForService({ code: "future_service" })).toBe(CircleHelp);
   });
 });

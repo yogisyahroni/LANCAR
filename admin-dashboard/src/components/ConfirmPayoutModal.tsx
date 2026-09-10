@@ -248,7 +248,7 @@ export function ConfirmPayoutModal({
                 'w-full rounded-xl bg-surface-raised border px-4 py-3 text-sm text-foreground-muted',
                 'placeholder:text-foreground-muted resize-none',
                 'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
+                'disabled:opacity-60 disabled:cursor-not-allowed',
                 reasonError ? 'border-error' : 'border-border'
               )}
             />
@@ -281,7 +281,7 @@ export function ConfirmPayoutModal({
             type="button"
             onClick={onCancel}
             disabled={isPending}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground-muted hover:bg-surface-raised transition-all disabled:opacity-50"
+            className="px-4 py-2 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground-muted hover:bg-surface-raised transition-all disabled:opacity-60"
           >
             Batal
           </button>
@@ -292,7 +292,7 @@ export function ConfirmPayoutModal({
             disabled={isPending || reason.trim().length < 10}
             className={cn(
               'px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
+              'disabled:opacity-60 disabled:cursor-not-allowed',
               config.buttonClass
             )}
           >

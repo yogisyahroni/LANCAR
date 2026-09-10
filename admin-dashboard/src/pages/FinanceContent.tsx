@@ -35,7 +35,7 @@ export function FinanceContent() {
                 if (code) dispatchApprovedPayoutsMutation.mutate(code);
               }}
               disabled={dispatchApprovedPayoutsMutation.isPending}
-              className="px-5 py-2.5 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2 disabled:opacity-50"
+              className="px-5 py-2.5 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2 disabled:opacity-60"
             >
               {dispatchApprovedPayoutsMutation.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
               Dispatch
@@ -46,7 +46,7 @@ export function FinanceContent() {
                 if (code) reconcilePayoutsMutation.mutate(code);
               }}
               disabled={reconcilePayoutsMutation.isPending}
-              className="px-5 py-2.5 rounded-2xl bg-info-surface border border-info text-info font-black text-xs uppercase tracking-widest hover:bg-info-surface transition-all flex items-center gap-2 disabled:opacity-50"
+              className="px-5 py-2.5 rounded-2xl bg-info-surface border border-info text-info font-black text-xs uppercase tracking-widest hover:bg-info-surface transition-all flex items-center gap-2 disabled:opacity-60"
             >
               {reconcilePayoutsMutation.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <ShieldCheck size={16} aria-hidden="true" />}
               Reconcile

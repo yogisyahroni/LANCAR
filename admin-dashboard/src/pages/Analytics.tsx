@@ -228,7 +228,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
               <div className="pt-4">
                 <button 
                   disabled={mutation.isPending}
-                  className="w-full py-5 rounded-2xl bg-primary hover:bg-primary-light text-on-primary font-black uppercase tracking-widest shadow-xl shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full py-5 rounded-2xl bg-primary hover:bg-primary-light text-on-primary font-black uppercase tracking-widest shadow-xl shadow-primary/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {mutation.isPending ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
                   Confirm Schedule

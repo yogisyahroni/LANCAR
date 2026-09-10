@@ -147,7 +147,7 @@ export default function CourierMarketConfig() {
               ))}
               <label className="space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">currency minor unit</span><input className="w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted outline-none focus:border-primary" type="number" min="0" max="3" value={newMarket.currency_minor_unit} onChange={(event) => setNewMarket((current) => ({ ...current, currency_minor_unit: Number(event.target.value) }))} /></label>
             </div>
-            <button disabled={createMarket.isPending} onClick={() => createMarket.mutate()} className="mt-4 flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary disabled:opacity-50"><Globe2 className="h-4 w-4" aria-hidden="true" /> {createMarket.isPending ? 'Membuat…' : 'Buat market'}</button>
+            <button disabled={createMarket.isPending} onClick={() => createMarket.mutate()} className="mt-4 flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary disabled:opacity-60"><Globe2 className="h-4 w-4" aria-hidden="true" /> {createMarket.isPending ? 'Membuat…' : 'Buat market'}</button>
           </section>}
 
           <div className="grid gap-5 lg:grid-cols-2">

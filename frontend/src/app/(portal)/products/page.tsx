@@ -565,7 +565,7 @@ export default function ProductsPage() {
                 <button
                   onClick={handleBulkUpload}
                   disabled={!bulkFile || isUploading}
-                  className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors text-sm font-medium inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isUploading ? (
                     <>
@@ -612,7 +612,7 @@ export default function ProductsPage() {
                 <button
                   onClick={confirmDelete}
                   disabled={isDeleting}
-                  className="flex-1 px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-lg transition-colors text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-lg transition-colors text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : 'Ya, Hapus'}
                 </button>

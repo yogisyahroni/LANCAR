@@ -265,7 +265,7 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
           <button 
             type="submit"
             disabled={(!message.trim() && !previewImage) || sendMutation.isPending || uploading}
-            className="p-3 rounded-xl bg-primary text-on-primary hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100"
+            className="p-3 rounded-xl bg-primary text-on-primary hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 disabled:opacity-60 disabled:grayscale disabled:hover:scale-100"
           >
             {sendMutation.isPending || uploading ? <Loader2 className="animate-spin" size={20} aria-hidden="true" /> : <Send size={20}  aria-hidden="true"/>}
           </button>

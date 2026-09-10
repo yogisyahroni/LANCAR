@@ -66,7 +66,7 @@ export default function KillSwitchConfirmation({
         </div>
         <div className="mt-6 flex justify-end gap-3">
           <button type="button" onClick={onCancel} disabled={busy} className="rounded-xl border border-border px-4 py-2.5 text-xs font-black uppercase tracking-widest text-foreground-muted">Batal</button>
-          <button type="button" onClick={onConfirm} disabled={busy || !reason.trim()} className="rounded-xl bg-error px-4 py-2.5 text-xs font-black uppercase tracking-widest text-on-error disabled:opacity-50">{busy ? 'Menyimpan...' : active ? 'Aktifkan control' : 'Nonaktifkan control'}</button>
+          <button type="button" onClick={onConfirm} disabled={busy || !reason.trim()} className="rounded-xl bg-error px-4 py-2.5 text-xs font-black uppercase tracking-widest text-on-error disabled:opacity-60">{busy ? 'Menyimpan...' : active ? 'Aktifkan control' : 'Nonaktifkan control'}</button>
         </div>
       </div>
       </FocusTrap>

@@ -147,7 +147,7 @@ export function ReconciliationPanel({ data }: { data: FinanceData }) {
             <button
               onClick={() => runReconciliationMutation.mutate()}
               disabled={runReconciliationMutation.isPending}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-on-primary font-bold text-sm shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-on-primary font-bold text-sm shadow-lg shadow-primary/20 transition-all disabled:opacity-60"
             >
               {runReconciliationMutation.isPending ? (
                 <Loader2 size={16} className="animate-spin" aria-hidden="true" />

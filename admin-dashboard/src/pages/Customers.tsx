@@ -297,7 +297,7 @@ export default function Customers() {
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="p-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <ChevronLeft size={18} aria-hidden="true" />
             </button>
@@ -321,7 +321,7 @@ export default function Customers() {
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="p-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <ChevronRight size={18} aria-hidden="true" />
             </button>

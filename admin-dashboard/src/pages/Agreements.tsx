@@ -352,7 +352,7 @@ export default function Agreements() {
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:bg-surface-subtle disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:bg-surface-subtle disabled:opacity-60 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronLeft size={14} aria-hidden="true" />
               </button>
@@ -378,7 +378,7 @@ export default function Agreements() {
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:bg-surface-subtle disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:bg-surface-subtle disabled:opacity-60 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronRight size={14} aria-hidden="true" />
               </button>

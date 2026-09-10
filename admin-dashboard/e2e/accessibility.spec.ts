@@ -333,6 +333,10 @@ async function assertVisibleInteractiveNames(page: Page) {
           return !['true', 'false'].includes(element.getAttribute(attribute) ?? '');
         })
         .map((element) => ({ role: element.getAttribute('role'), html: element.outerHTML.slice(0, 180) })),
+      lowReadabilityDisabledStates: Array.from(document.querySelectorAll<HTMLElement>('[disabled], [aria-disabled="true"]'))
+        .filter(visible)
+        .filter((element) => Number.parseFloat(getComputedStyle(element).opacity) < 0.6)
+        .map((element) => ({ opacity: getComputedStyle(element).opacity, html: element.outerHTML.slice(0, 180) })),
     }
 
     return { unnamed, labelMismatches, interactiveIconFindings, semanticFindings }
@@ -347,6 +351,7 @@ async function assertVisibleInteractiveNames(page: Page) {
     unassociatedInvalidFields: [],
     invalidSortStates: [],
     invalidControlledStates: [],
+    lowReadabilityDisabledStates: [],
   })
 }
 

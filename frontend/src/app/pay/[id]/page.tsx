@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
-import { CreditCard, MapPin, Package, ShieldCheck, Clock, CheckCircle2, Truck } from 'lucide-react';
-import { customerApiUrl, getCustomerServerApiRootUrl } from '@/lib/runtimeConfig';
+import { createElement } from 'react';
+import { MapPin, Package, ShieldCheck, Clock, CheckCircle2 } from 'lucide-react';
+import { getCustomerServerApiRootUrl } from '@/lib/runtimeConfig';
+import { getCustomerServiceIconForService } from '@/components/orders/serviceIcon';
 import CheckoutButton from './CheckoutButton';
 
 interface PaymentLink {
@@ -29,7 +31,7 @@ async function getPaymentLink(id: string): Promise<PaymentLink | null> {
     if (!res.ok) return null;
     const json = await res.json();
     return json.data as PaymentLink;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -46,6 +48,7 @@ export default async function PaymentLinkPage({ params }: { params: Promise<{ id
   const isPaid = link.status === 'PAID';
 
   const totalPrice = link.item_price + link.delivery_fee_amount;
+  const ServiceIcon = getCustomerServiceIconForService({ code: link.service_code, name: link.service_code });
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -125,7 +128,7 @@ export default async function PaymentLinkPage({ params }: { params: Promise<{ id
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground flex items-center gap-1">
-                  <Truck className="w-4 h-4" aria-hidden="true" /> Ongkir TEMBUS {link.service_code && `(${link.service_code.replace(/_/g, ' ').toUpperCase()})`}
+                  {createElement(ServiceIcon, { className: 'w-4 h-4', 'aria-hidden': true })} Ongkir TEMBUS {link.service_code && `(${link.service_code.replace(/_/g, ' ').toUpperCase()})`}
                 </span>
                 <span className="text-foreground font-medium">{formatPrice(link.delivery_fee_amount)}</span>
               </div>

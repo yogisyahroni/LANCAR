@@ -158,7 +158,7 @@ export function EmergencyFundSection({ data }: { data: FinanceData }) {
                       }
                     }}
                     disabled={topUpMutation.isPending}
-                    className="px-6 py-3 rounded-2xl bg-warning text-on-warning font-black text-xs uppercase tracking-widest hover:bg-warning transition-all disabled:opacity-50"
+                    className="px-6 py-3 rounded-2xl bg-warning text-on-warning font-black text-xs uppercase tracking-widest hover:bg-warning transition-all disabled:opacity-60"
                   >
                      {topUpMutation.isPending ? 'Topping up...' : 'Top Up Reserves'}
                   </button>

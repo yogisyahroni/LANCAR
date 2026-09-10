@@ -350,7 +350,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                 <button 
                   onClick={handleTopUp}
                   disabled={isSubmitting || !amountRaw || parseInt(amountRaw, 10) < 10000}
-                  className="w-full py-4 rounded-2xl bg-primary text-on-primary font-bold text-sm shadow-lg shadow-primary/25 disabled:opacity-50 disabled:shadow-none hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 rounded-2xl bg-primary text-on-primary font-bold text-sm shadow-lg shadow-primary/25 disabled:opacity-60 disabled:shadow-none hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : `Bayar ${amountRaw ? formatCurrency(parseInt(amountRaw, 10)) : ''}`}
                 </button>
@@ -482,7 +482,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                 <button 
                   onClick={handleWithdraw}
                   disabled={isSubmitting || !withdrawForm.amountRaw || isInsufficientBalance || parseInt(withdrawForm.amountRaw, 10) < 50000}
-                  className="w-full py-4 rounded-2xl bg-surface dark:bg-surface text-foreground dark:text-foreground-muted font-bold text-sm shadow-xl disabled:opacity-50 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 rounded-2xl bg-surface dark:bg-surface text-foreground dark:text-foreground-muted font-bold text-sm shadow-xl disabled:opacity-60 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : `Ajukan Penarikan ${numWithdrawAmount ? formatCurrency(numWithdrawAmount) : ''}`}
                 </button>

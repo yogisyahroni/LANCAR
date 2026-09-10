@@ -205,7 +205,7 @@ export default function DeepLinks({
             type="button"
             disabled={!externalUrl.trim() || externalMutation.isPending}
             onClick={() => externalMutation.mutate()}
-            className="rounded-xl bg-primary px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-on-primary disabled:opacity-50"
+            className="rounded-xl bg-primary px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-on-primary disabled:opacity-60"
           >
             Validate URL
           </button>

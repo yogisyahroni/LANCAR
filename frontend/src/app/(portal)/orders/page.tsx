@@ -516,14 +516,14 @@ function OrderListContent() {
             <button
               disabled={pageParam <= 1}
               onClick={() => updateFilters({ page: pageParam - 1 })}
-              className="px-3.5 py-2 border border-border bg-surface-subtle rounded-xl text-sm font-semibold hover:bg-surface-subtle hover:text-foreground transition duration-200 disabled:opacity-40 flex items-center gap-1 select-none"
+              className="px-3.5 py-2 border border-border bg-surface-subtle rounded-xl text-sm font-semibold hover:bg-surface-subtle hover:text-foreground transition duration-200 disabled:opacity-60 flex items-center gap-1 select-none"
             >
               <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Prev
             </button>
             <button
               disabled={orders.length < pageSize}
               onClick={() => updateFilters({ page: pageParam + 1 })}
-              className="px-3.5 py-2 border border-border bg-surface-subtle rounded-xl text-sm font-semibold hover:bg-surface-subtle hover:text-foreground transition duration-200 disabled:opacity-40 flex items-center gap-1 select-none"
+              className="px-3.5 py-2 border border-border bg-surface-subtle rounded-xl text-sm font-semibold hover:bg-surface-subtle hover:text-foreground transition duration-200 disabled:opacity-60 flex items-center gap-1 select-none"
             >
               Next <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </button>

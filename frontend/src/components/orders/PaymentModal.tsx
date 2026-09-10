@@ -276,7 +276,7 @@ export function PaymentModal({
                   type="button"
                   onClick={openSnap}
                   disabled={!snapReady || state === "loading_snap" || state === "opened"}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {state === "loading_snap" || state === "opened" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <CreditCard className="h-4 w-4" aria-hidden="true" />}
                   {state === "loading_snap" ? t('payment.loading') : t('payment.payWith')}
@@ -286,7 +286,7 @@ export function PaymentModal({
                     type="button"
                     onClick={() => void confirmPaid()}
                     disabled={isChecking}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-warning bg-warning-surface py-3 text-sm font-semibold text-warning transition-all hover:bg-warning-surface disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-warning bg-warning-surface py-3 text-sm font-semibold text-warning transition-all hover:bg-warning-surface disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isChecking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                     {isChecking ? t('payment.checking') : t('payment.checkAgain')}

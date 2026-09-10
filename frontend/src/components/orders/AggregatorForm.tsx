@@ -274,7 +274,7 @@ function AddressModal({
               onClose();
             }}
             disabled={!form.address.trim()}
-            className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+            className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
           >
             Simpan Alamat
           </button>
