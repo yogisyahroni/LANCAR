@@ -52,7 +52,7 @@ function PaymentLinkDataState({ title, message, onRetry, tone = 'muted' }: { tit
     )}>
       <AlertCircle className={cn("mx-auto", isError ? "text-error" : "text-foreground-muted")} size={48} aria-hidden="true" />
       <div>
-        <p className="text-foreground-muted dark:text-foreground-muted font-black italic uppercase tracking-widest">{title}</p>
+        <p className="text-foreground-muted dark:text-foreground-muted font-black italic uppercase tracking-wide">{title}</p>
         <p className="text-xs text-foreground-muted mt-2">{message}</p>
       </div>
       {onRetry && (
@@ -257,7 +257,7 @@ export default function PaymentLinksPage() {
         {!isError && (!filteredLinks || filteredLinks.length === 0) && (
           <div className="col-span-full py-20 text-center space-y-4 glass-card rounded-[40px] border-dashed border-border dark:border-border">
             <LinkIcon className="mx-auto text-foreground-muted" size={48} aria-hidden="true" />
-            <p className="text-foreground-muted font-black italic uppercase tracking-widest">
+            <p className="text-foreground-muted font-black italic uppercase tracking-wide">
               No payment links generated yet
             </p>
           </div>
@@ -561,7 +561,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                 </div>
 
                 <div className="space-y-2 col-span-2 border-t border-border dark:border-border pt-6">
-                  <h3 className="text-xs font-black text-foreground-muted uppercase tracking-widest mb-4">Origin & Destination</h3>
+                  <h3 className="text-xs font-black text-foreground-muted uppercase tracking-wide mb-4">Origin & Destination</h3>
                 </div>
 
                 <div className="space-y-2 col-span-2">
@@ -609,14 +609,14 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                 <div className="flex gap-4">
                   <button 
                     onClick={() => { setStep(1); onClose(); }}
-                    className="px-8 py-4 rounded-2xl bg-surface-subtle dark:bg-surface-subtle text-foreground-muted font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
+                    className="px-8 py-4 rounded-2xl bg-surface-subtle dark:bg-surface-subtle text-foreground-muted font-black text-xs uppercase tracking-wide hover:text-foreground transition-all"
                   >
                     Cancel
                   </button>
                   <button 
                     onClick={handleNextStep}
                     disabled={isGeocoding || !formData.item_name || !formData.dropoff_address || !formData.pickup_address || (!selectedFile && !formData.item_image_url)}
-                    className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {isGeocoding ? <Loader2 className="animate-spin" size={16} aria-hidden="true" /> : null}
                     {isGeocoding ? 'Loading...' : 'Lanjut Pilih Kurir'}
@@ -644,7 +644,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
               <div className="pt-8 border-t border-border dark:border-border flex items-center justify-between">
                 <button 
                   onClick={() => setStep(1)}
-                  className="px-8 py-4 rounded-2xl bg-surface-subtle dark:bg-surface-subtle text-foreground-muted font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
+                  className="px-8 py-4 rounded-2xl bg-surface-subtle dark:bg-surface-subtle text-foreground-muted font-black text-xs uppercase tracking-wide hover:text-foreground transition-all"
                 >
                   Kembali
                 </button>
@@ -652,7 +652,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                   <button 
                     onClick={handleGenerateLink}
                     disabled={isSaving || isGeocoding || !selectedTariff}
-                    className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {(isSaving || isGeocoding) ? <Loader2 className="animate-spin" size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
                     {(isSaving || isGeocoding) ? 'Loading...' : 'Generate Link'}

@@ -94,7 +94,7 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
       <section className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-5 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-success">TEMBUS Tracking</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-success">TEMBUS Tracking</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight">Status Pengiriman</h1>
           </div>
           <div className="rounded-2xl bg-success/15 p-3 text-success">
@@ -124,11 +124,11 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
               </div>
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl bg-surface p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest text-foreground-muted">Kurir</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">Kurir</p>
                   <p className="mt-1 font-bold">{data.courier_name || 'Kurir TEMBUS'}</p>
                 </div>
                 <div className="rounded-2xl bg-surface p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest text-foreground-muted">Update lokasi</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">Update lokasi</p>
                   <p className={`mt-1 font-bold ${data.location_stale ? 'text-warning' : ''}`}>
                     {data.location_stale ? 'Posisi terakhir' : formatTime(data.last_location_at)}
                   </p>

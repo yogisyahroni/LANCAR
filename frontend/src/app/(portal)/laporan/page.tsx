@@ -363,7 +363,7 @@ export default function UMKMReportsPage() {
         className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
       >
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-success bg-success-surface px-3 py-1 text-xs font-bold uppercase tracking-[0.24em] text-success">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-success bg-success-surface px-3 py-1 text-xs font-bold uppercase tracking-wide text-success">
             <BarChart3 className="h-4 w-4" aria-hidden="true" />
             Database Report
           </div>
@@ -631,7 +631,7 @@ function SummaryCard({
       className="rounded-[28px] border border-border bg-surface/[0.03] p-6 transition-all duration-200 hover:bg-surface/[0.05]"
     >
       <div className="mb-5 flex items-start justify-between gap-4">
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-foreground-muted">{title}</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">{title}</p>
         <div className="rounded-2xl bg-surface-subtle p-2">{icon}</div>
       </div>
       <p className="break-words text-3xl font-bold tracking-tight text-foreground">{value}</p>
@@ -643,7 +643,7 @@ function SummaryCard({
 function MetricTile({ title, value }: { title: string; value: string }) {
   return (
     <div className="rounded-2xl border border-border bg-surface-subtle p-5">
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-foreground-muted">{title}</p>
+      <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">{title}</p>
       <p className="mt-3 text-2xl font-bold tracking-tight text-foreground">{value}</p>
     </div>
   );

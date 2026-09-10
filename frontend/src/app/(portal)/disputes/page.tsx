@@ -208,7 +208,7 @@ export default function DisputesPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                       <span className="text-xs font-black text-primary uppercase tracking-widest">{selectedDispute.order_number}</span>
+                       <span className="text-xs font-black text-primary uppercase tracking-wide">{selectedDispute.order_number}</span>
                        <span className="text-foreground-muted">/</span>
                        <DisputeStatusBadge status={selectedDispute.status} />
                     </div>
@@ -222,7 +222,7 @@ export default function DisputesPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                   <div className="space-y-8">
                     <div className="space-y-4">
-                      <h4 className="text-xs font-black text-muted-foreground uppercase tracking-widest">Detail Laporan</h4>
+                      <h4 className="text-xs font-black text-muted-foreground uppercase tracking-wide">Detail Laporan</h4>
                       <div className="p-6 rounded-3xl bg-muted/30 border border-border">
                         <p className="text-sm text-foreground leading-relaxed italic">
                           "{selectedDispute.description}"
@@ -232,7 +232,7 @@ export default function DisputesPage() {
                     
                     {selectedDispute.resolution_note && (
                       <div className="space-y-4 animate-in slide-in-from-left duration-300">
-                        <h4 className="text-xs font-black text-success uppercase tracking-widest flex items-center gap-2">
+                        <h4 className="text-xs font-black text-success uppercase tracking-wide flex items-center gap-2">
                           <CheckCircle aria-hidden="true" size={14} /> Solusi dari Admin
                         </h4>
                         <div className="p-6 rounded-3xl bg-success-surface border border-success">
