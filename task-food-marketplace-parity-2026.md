@@ -3344,8 +3344,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 ## A11Y-2026-005 — Status, alerts, toasts and destructive workflows [P0]
 
 **Checklist**
-- [ ] Toast does not disappear before essential action/message can be perceived; critical error also persists in page context when needed.
-- [ ] Async success/error announcements use suitable live-region semantics without flooding screen readers.
+- [x] Toast does not disappear before essential action/message can be perceived; critical error also persists in page context when needed. Customer routine notifications expire after 5s while persistent critical context requires explicit dismissal; Admin custom routine notifications use 6s and critical notifications persist. Evidence: `docs/task-evidence/A11Y-2026-005.md`.
+- [x] Async success/error announcements use suitable live-region semantics without flooding screen readers. Customer/Admin shells use polite status vs assertive alert regions, and route inventory checks visible live-region content. Evidence: `docs/task-evidence/A11Y-2026-005.md`.
 - [x] Destructive Admin actions show icon + verb + target + impact; color alone is not confirmation. Evidence: `docs/task-evidence/A11Y-2026-005.md` (authenticated service-control confirmation matrix).
 - [x] `marketing_hide`, `new_order_gate`, `provider_gate`, `checkout_gate` remain visually/verbally distinct in both themes. Evidence: `docs/task-evidence/A11Y-2026-005.md` (authenticated Chromium impact-copy matrix).
 - [ ] Warning/error text meets contrast even on tinted semantic surfaces.
