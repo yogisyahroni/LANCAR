@@ -33,7 +33,8 @@ export const getStatusPresentation = (status?: unknown): StatusPresentation => {
     case 'ready':
     case 'balanced':
     case 'submitted':
-      return { label: normalized === 'paid' ? 'Sudah dibayar' : normalized === 'verified' ? 'Terverifikasi' : normalized === 'active' ? 'Aktif' : normalized === 'live' ? 'Live' : normalized === 'hired' ? 'Diterima' : normalized === 'approved' || normalized === 'approved_auto' ? 'Disetujui' : normalized === 'published' ? 'Dipublikasi' : normalized === 'sent' ? 'Terkirim' : normalized === 'enabled' ? 'Aktif' : normalized === 'ready' ? 'Siap' : normalized === 'balanced' ? 'Seimbang' : normalized === 'submitted' ? 'Dilaporkan' : normalized === 'closed' ? 'Ditutup' : normalized === 'resolved' ? 'Selesai' : 'Berhasil', icon: normalized === 'verified' ? ShieldCheck : CheckCircle2, className: 'text-success' }
+    case 'complete':
+      return { label: normalized === 'paid' ? 'Sudah dibayar' : normalized === 'verified' ? 'Terverifikasi' : normalized === 'active' ? 'Aktif' : normalized === 'live' ? 'Live' : normalized === 'hired' ? 'Diterima' : normalized === 'approved' || normalized === 'approved_auto' ? 'Disetujui' : normalized === 'published' ? 'Dipublikasi' : normalized === 'sent' ? 'Terkirim' : normalized === 'enabled' ? 'Aktif' : normalized === 'ready' ? 'Siap' : normalized === 'balanced' ? 'Seimbang' : normalized === 'submitted' ? 'Dilaporkan' : normalized === 'complete' ? 'Lengkap' : normalized === 'closed' ? 'Ditutup' : normalized === 'resolved' ? 'Selesai' : 'Berhasil', icon: normalized === 'verified' ? ShieldCheck : CheckCircle2, className: 'text-success' }
     case 'protected':
       return { label: 'Dilindungi', icon: ShieldCheck, className: 'text-info' }
     case 'deprecated':

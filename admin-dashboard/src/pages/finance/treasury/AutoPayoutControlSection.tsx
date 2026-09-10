@@ -188,7 +188,7 @@ export function AutoPayoutControlSection({ data }: { data: FinanceData }) {
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs font-black text-foreground-muted uppercase">{String(item.check_type || '').replaceAll('_', ' ')}</p>
                   <StatusBadge
-                    status={item.severity || 'warning'}
+                    status={item.severity === 'critical' ? 'critical' : 'review'}
                     labelPrefix="Reconciliation severity"
                     className={item.severity === 'critical' ? 'border-error bg-error-surface' : 'border-warning bg-warning-surface'}
                   />

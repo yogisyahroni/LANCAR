@@ -3058,6 +3058,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Courier Safety/GPS risk severity, follow-up state and payout reconciliation severity now also use shared readable status markers with Lucide meaning icons. TypeScript and focused ESLint pass; dynamic severity variants and full visual/manual route review remain open.
 
+> **Execution checkpoint 2026-09-11 (continued):** Merchant onboarding, store availability and halal classification, the Experience Assets publishing rule, and unit-economics reconciliation state now also use shared readable status markers with Lucide meaning icons. Admin `/merchants` and `/finance` axe coverage passes `12/12`; dynamic data variants and full visual/manual route review remain open.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

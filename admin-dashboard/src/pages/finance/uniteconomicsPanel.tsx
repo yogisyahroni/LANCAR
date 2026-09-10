@@ -164,9 +164,11 @@ export function UniteconomicsPanel({ data }: { data: FinanceData }) {
                     Coverage: {unitEconomicsData?.source_coverage?.pricing_snapshot_orders || 0} pricing snapshots ·{' '}
                     {unitEconomicsData?.source_coverage?.courier_ledger_orders || 0} courier ledger orders ·{' '}
                     {unitEconomicsData?.source_coverage?.missing_payment_orders || 0} missing payment facts ·{' '}
-                    <span className={unitEconomicsData?.source_coverage?.reconciliation_status === 'complete' ? 'text-success' : 'text-error'}>
-                      {unitEconomicsData?.source_coverage?.reconciliation_status || 'unknown'}
-                    </span>
+                    <StatusBadge
+                      status={unitEconomicsData?.source_coverage?.reconciliation_status || 'unknown'}
+                      labelPrefix="Unit economics reconciliation"
+                      className={unitEconomicsData?.source_coverage?.reconciliation_status === 'complete' ? 'border-success bg-success-surface' : 'border-error bg-error-surface'}
+                    />
                   </p>
                 </div>
 

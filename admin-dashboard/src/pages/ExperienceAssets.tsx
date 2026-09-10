@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Filter, Image, RefreshCw, Search, ShieldCheck } from "lucide-react";
+import { Filter, Image, RefreshCw, Search } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
@@ -227,10 +227,12 @@ export default function ExperienceAssets({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-info bg-info-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-info">
-            <ShieldCheck size={13} className="mr-1 inline" aria-hidden="true" /> upload and publish
-            are separate
-          </span>
+          <StatusBadge
+            status="protected"
+            labelPrefix="Asset publishing rule"
+            label="Upload dan publish terpisah"
+            className="border-info bg-info-surface"
+          />
           <button
             type="button"
             onClick={() => {

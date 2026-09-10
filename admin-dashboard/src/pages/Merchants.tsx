@@ -6,6 +6,7 @@ import {
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
+import { StatusBadge } from '../components/StatusBadge'
 
 const docTypeLabels: Record<string, string> = {
   ktp_pemilik: 'KTP Pemilik',
@@ -31,6 +32,25 @@ const lifecycleLabel = (status?: string) => ({
   DRAFT: 'Draft', SUBMITTED: 'Diajukan', VERIFYING: 'Sedang diverifikasi',
   ACTIVE: 'Aktif', REJECTED: 'Ditolak', SUSPENDED: 'Disuspend',
 }[String(status || '').toUpperCase()] || status || '—')
+
+const merchantStatus = (status?: string) => {
+  switch (String(status || '').toUpperCase()) {
+    case 'ACTIVE': return 'active'
+    case 'REJECTED': return 'rejected'
+    case 'SUSPENDED': return 'suspended'
+    case 'DRAFT': return 'draft'
+    case 'SUBMITTED':
+    case 'VERIFYING': return 'pending_review'
+    default: return status || 'unknown'
+  }
+}
+
+const halalStatus = (status?: string) => status === 'halal_certified' ? 'verified' : status === 'non_halal' ? 'review' : 'pending_review'
+const halalLabel = (status?: string, detail = false) => status === 'halal_certified'
+  ? detail ? 'Bersertifikat Halal' : 'Halal'
+  : status === 'non_halal'
+    ? detail ? 'Non-Halal (self-declare)' : 'Non-Halal'
+    : detail ? 'Halal: Belum ditentukan' : 'Halal: Belum'
 
 export default function Merchants() {
   const queryClient = useQueryClient()
@@ -231,18 +251,16 @@ export default function Merchants() {
                       ? <XCircle className="h-5 w-5 text-error" aria-hidden="true" />
                       : <AlertTriangle className="h-5 w-5 text-warning"  aria-hidden="true"/>}
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase">
-                  <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">{lifecycleLabel(item.onboarding_status)}</span>
-                  <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">{item.is_open ? 'Buka' : 'Tutup'}</span>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <StatusBadge status={merchantStatus(item.onboarding_status)} labelPrefix="Merchant onboarding status" label={lifecycleLabel(item.onboarding_status)} />
+                  <StatusBadge status={item.is_open ? 'enabled' : 'disabled'} labelPrefix="Store availability" label={item.is_open ? 'Buka' : 'Tutup'} />
                   {/* ADR 003: status halal */}
-                  <span className={cn(
-                    'rounded-full px-2 py-1',
-                    item.halal_status === 'halal_certified' && 'border border-success bg-success-surface text-success',
-                    item.halal_status === 'non_halal' && 'border border-border bg-surface-subtle text-foreground-muted',
-                    (!item.halal_status || item.halal_status === 'unknown') && 'border border-border text-foreground-muted'
-                  )}>
-                    {item.halal_status === 'halal_certified' ? 'Halal ✓' : item.halal_status === 'non_halal' ? 'Non-Halal' : 'Halal: Belum'}
-                  </span>
+                  <StatusBadge
+                    status={halalStatus(item.halal_status)}
+                    labelPrefix="Halal status"
+                    label={halalLabel(item.halal_status)}
+                    className={item.halal_status === 'halal_certified' ? 'border-success bg-success-surface' : 'border-border bg-surface-subtle'}
+                  />
                 </div>
               </button>
             ))}
@@ -267,22 +285,15 @@ export default function Merchants() {
                     <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">
                       Completion {active.completion_rate_pct ?? 0}%
                     </span>
-                    <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">
-                      {lifecycleLabel(active.onboarding_status)} · {active.market_code || 'ID-JK'}
-                    </span>
+                    <StatusBadge status={merchantStatus(active.onboarding_status)} labelPrefix="Merchant onboarding status" label={`${lifecycleLabel(active.onboarding_status)} · ${active.market_code || 'ID-JK'}`} />
                     {/* ADR 003: status halal merchant */}
-                    <span className={cn(
-                      'rounded-full px-2 py-1 font-bold',
-                      active.halal_status === 'halal_certified' && 'border border-success bg-success-surface text-success',
-                      active.halal_status === 'non_halal' && 'border border-border bg-surface-subtle text-foreground-muted',
-                      (!active.halal_status || active.halal_status === 'unknown') && 'border border-border text-foreground-muted'
-                    )}>
-                      {active.halal_status === 'halal_certified'
-                        ? '✓ Bersertifikat Halal'
-                        : active.halal_status === 'non_halal'
-                          ? 'Non-Halal (self-declare)'
-                          : 'Halal: Belum ditentukan'}
-                    </span>
+                    <StatusBadge
+                      status={halalStatus(active.halal_status)}
+                      labelPrefix="Halal status"
+                      label={halalLabel(active.halal_status, true)}
+                      className={active.halal_status === 'halal_certified' ? 'border-success bg-success-surface' : 'border-border bg-surface-subtle'}
+                    />
+                    <StatusBadge status={active.is_open ? 'enabled' : 'disabled'} labelPrefix="Store availability" label={active.is_open ? 'Buka' : 'Tutup'} />
                     {active.lokasi_lat != null && (
                       <span className="rounded-full border border-border px-2 py-1 text-foreground-muted">
                         {active.lokasi_lat.toFixed(4)}, {active.lokasi_lng?.toFixed(4)}
@@ -343,12 +354,12 @@ export default function Merchants() {
                     </button>
                   )}
                   {['DRAFT', 'REJECTED', 'SUSPENDED'].includes(active.onboarding_status) && (
-                    <span className={cn(
-                      'rounded-xl px-4 py-2 text-sm font-bold',
-                      active.onboarding_status === 'REJECTED' ? 'bg-error-surface text-error' : 'bg-warning-surface text-warning'
-                    )}>
-                      {lifecycleLabel(active.onboarding_status)}
-                    </span>
+                    <StatusBadge
+                      status={merchantStatus(active.onboarding_status)}
+                      labelPrefix="Merchant onboarding status"
+                      label={lifecycleLabel(active.onboarding_status)}
+                      className={cn('rounded-xl px-4 py-2 text-sm', active.onboarding_status === 'REJECTED' ? 'border-error bg-error-surface' : 'border-warning bg-warning-surface')}
+                    />
                   )}
                 </div>
               </div>
