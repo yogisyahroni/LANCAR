@@ -192,7 +192,7 @@ Existing shared files:
 - [x] Deduplicate payment callback, refund, payout, carrier webhook/event, AWB create, service adjustment melalui existing event/reference uniqueness guards dan shared request middleware pada entrypoint yang menerima client mutation.
 - [ ] Authenticated staging concurrency/replay matrix membuktikan 10 parallel/repeated creates menghasilkan tepat satu order/financial obligation.
 
-_Local implementation is complete and verified in the current branch. Commits `da3e9e5f`, `cd49e1a2`, and `c0d1ff88` add the owner-scoped quote snapshot path plus a guarded authenticated runner for the ten-way/replay/persistence matrix; the local authenticated matrix passes, while staging deployment, credentials, and persisted staging DB evidence remain the only unchecked gate._
+_Local implementation is complete and verified in the current branch. Commits `da3e9e5f`, `cd49e1a2`, and `c0d1ff88` add the owner-scoped quote snapshot path plus a guarded authenticated runner for the ten-way/replay/persistence matrix; the local authenticated matrix passes. CI/CD run `34437332237` for commit `593bae90` passed repository verification and image publication, but the SSH rollout was skipped because `STAGING_SSH_HOST` is unset, so persisted staging DB evidence remains the unchecked gate._
 
 ---
 
@@ -223,7 +223,7 @@ _Local implementation is complete and verified in the current branch. Commits `d
 - [x] Customer Android/Web quote clients send the canonical fingerprint, quote snapshot, quote identity, and expiry on the supported on-demand/service quote flows; local payload wiring is covered, while runtime cross-surface parity remains a staging gate.
 - [ ] Authenticated staging matrix membuktikan expiry, changed address/package/service invalidation, cross-surface quote parity, dan persisted quote snapshot.
 
-_Local quote contract and server enforcement are complete. Commit `c0d1ff88` closes the local Admin quote snapshot identity gap by persisting/reloading the exact owner-scoped server quote; the guarded authenticated runner passes parity, invalidation, persisted snapshot, and client-total non-authority checks locally. Authenticated staging parity remains the explicit external gate._
+_Local quote contract and server enforcement are complete. Commit `c0d1ff88` closes the local Admin quote snapshot identity gap by persisting/reloading the exact owner-scoped server quote; the guarded authenticated runner passes parity, invalidation, persisted snapshot, and client-total non-authority checks locally. CI/CD run `34437332237` passed the contract job but skipped authenticated staging validation because the SSH rollout guard found no `STAGING_SSH_HOST`; authenticated staging parity remains the explicit external gate._
 
 ---
 
