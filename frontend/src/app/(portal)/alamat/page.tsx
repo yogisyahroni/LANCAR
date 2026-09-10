@@ -545,7 +545,7 @@ export default function AddressBookPage() {
                     {addr.label}
                   </h3>
                   {addr.is_default && (
-                    <span className="flex items-center gap-1 text-[9px] font-bold bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full select-none uppercase">
+                    <span className="flex items-center gap-1 text-xs font-bold bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full select-none uppercase">
                       <Star className="h-2.5 w-2.5 fill-primary text-primary" aria-hidden="true" /> Default
                     </span>
                   )}

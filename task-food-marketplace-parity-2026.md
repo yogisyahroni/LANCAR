@@ -3050,6 +3050,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Delivery Services, Courier Growth, Experience Assets, Security compliance, and Maps Provider scope cards now also expose shared status labels and supplemental icons. Targeted Admin route accessibility for pricing, Experience Assets and Settings passes `14/14`; live-data fixture assertions remain limited to the explicit operational-status test and the broader dynamic inventory is still open.
 
+> **Execution checkpoint 2026-09-11 (continued):** Customer profile session and default-address states now retain readable visible labels with supplemental icons; the targeted Customer profile/address axe slice passes `12/12`. Full Customer/Admin route/state, visual and manual assistive-technology proof remains open where it is not exhaustive.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

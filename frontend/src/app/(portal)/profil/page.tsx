@@ -774,7 +774,8 @@ export default function ProfilPage() {
                         </div>
 
                         {item.is_current ? (
-                          <span className="text-[9px] bg-success/10 text-success border border-success/20 font-bold px-1.5 py-0.5 rounded-full select-none uppercase">
+                          <span className="inline-flex items-center gap-1 text-xs bg-success/10 text-success border border-success/20 font-bold px-1.5 py-0.5 rounded-full select-none uppercase">
+                            <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
                             Sesi Aktif
                           </span>
                         ) : (
@@ -949,7 +950,7 @@ export default function ProfilPage() {
                     <div className="p-3.5 bg-muted/40 border border-border/40 rounded-xl space-y-1 select-none">
                       <span className="text-[10px] font-bold text-muted-foreground select-none uppercase block">Jumlah Diundang</span>
                       <p className="text-lg font-bold text-foreground select-none">{totalReferred} User</p>
-                      <p className="text-[9px] text-muted-foreground select-none">Status Aktif Terverifikasi</p>
+                      <p className="text-xs text-muted-foreground select-none">Status Aktif Terverifikasi</p>
                     </div>
 
                     <div className="p-3.5 bg-muted/40 border border-border/40 rounded-xl space-y-1 select-none">
@@ -957,7 +958,7 @@ export default function ProfilPage() {
                       <p className="text-lg font-bold text-success select-none">
                         Rp{claimedRewards.toLocaleString('id-ID')}
                       </p>
-                      <p className="text-[9px] text-muted-foreground select-none">Telah cair ke dompet</p>
+                      <p className="text-xs text-muted-foreground select-none">Telah cair ke dompet</p>
                     </div>
                   </div>
 
