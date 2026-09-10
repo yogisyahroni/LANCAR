@@ -3102,6 +3102,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Admin Couriers and Zones were audited for Part S readability across registration metadata, retry/status/history surfaces, courier table headings, zone cards, map-editor controls, preview/approval/publish/rollback actions and dialogs. Operational labels and helper copy now use the shared readable `text-xs` floor, while uppercase action/metadata labels use `tracking-wide` instead of extreme tracking. The affected Admin axe slice passes `12/12`, reflow/text-spacing passes `6/6`, and typecheck/ESLint/iconography/table/diff guards pass. Full dynamic state, map/provider, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Admin MapsRuntime was audited for Part S across provider configuration, secure credentials, production-key readiness, client scopes, runtime parameters, failover, observability and audit events. Provider/status badges, labels and audit-grid headers now use the shared readable `text-xs` floor with `tracking-wide`; deliberate heading and secret/code-entry styling remains scoped. The `/maps-runtime` axe slice passes `2/2`, reflow/text-spacing passes `3/3`, and typecheck/ESLint/iconography/table/diff guards pass. Full provider state, map rendering, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

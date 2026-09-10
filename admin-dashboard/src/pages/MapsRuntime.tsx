@@ -402,7 +402,7 @@ const ProviderPill = ({ provider }: { provider: MapProviderId }) => {
       : 'border-border bg-surface-subtle text-foreground-muted'
 
   return (
-    <span className={cn('inline-flex items-center rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.16em]', className)}>
+    <span className={cn('inline-flex items-center rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide', className)}>
       {providerLabel[provider]}
     </span>
   )
@@ -424,7 +424,7 @@ const MetricCard = ({
       <div className="rounded-2xl bg-primary/15 p-3 text-primary-light">
         <Icon className="h-5 w-5" aria-hidden="true" />
       </div>
-      <span className="text-[10px] font-black uppercase tracking-[0.22em] text-foreground-muted">{label}</span>
+      <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">{label}</span>
     </div>
     <div className="text-3xl font-black tracking-tight text-foreground">{value}</div>
     <p className="mt-2 text-sm text-foreground-muted">{caption}</p>
@@ -439,7 +439,7 @@ const ProductionKeyCard = ({ item }: { item: MapsProductionKeyCheck }) => (
         <p className="mt-1 text-xs font-bold text-foreground-muted">{item.alias || item.expected_alias}</p>
       </div>
       <span className={cn(
-        'rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.14em]',
+        'rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide',
         item.configured ? 'bg-success-surface text-success' : 'bg-error-surface text-error'
       )}>
         {item.configured ? 'Configured' : 'Missing'}
@@ -448,15 +448,15 @@ const ProductionKeyCard = ({ item }: { item: MapsProductionKeyCheck }) => (
 
     <div className="mt-4 grid gap-3 text-xs font-bold text-foreground-muted sm:grid-cols-2">
       <div className="rounded-2xl border border-border bg-surface/[0.025] p-3">
-        <div className="uppercase tracking-[0.16em] text-foreground-muted">Source</div>
+        <div className="uppercase tracking-wide text-foreground-muted">Source</div>
         <div className="mt-1 text-foreground-muted">{formatToken(item.source)}</div>
       </div>
       <div className="rounded-2xl border border-border bg-surface/[0.025] p-3">
-        <div className="uppercase tracking-[0.16em] text-foreground-muted">Identity</div>
+        <div className="uppercase tracking-wide text-foreground-muted">Identity</div>
         <div className="mt-1 text-foreground-muted">{item.key_identity || '-'}</div>
       </div>
       <div className="rounded-2xl border border-border bg-surface/[0.025] p-3">
-        <div className="uppercase tracking-[0.16em] text-foreground-muted">Restriction</div>
+        <div className="uppercase tracking-wide text-foreground-muted">Restriction</div>
         <div className="mt-1 text-foreground-muted">
           {item.declared_application_restriction
             ? formatToken(item.declared_application_restriction)
@@ -464,7 +464,7 @@ const ProductionKeyCard = ({ item }: { item: MapsProductionKeyCheck }) => (
         </div>
       </div>
       <div className="rounded-2xl border border-border bg-surface/[0.025] p-3">
-        <div className="uppercase tracking-[0.16em] text-foreground-muted">Rotation</div>
+        <div className="uppercase tracking-wide text-foreground-muted">Rotation</div>
         <div className={cn(
           'mt-1',
           item.rotation.status === 'overdue'
@@ -491,7 +491,7 @@ const ProductionKeyCard = ({ item }: { item: MapsProductionKeyCheck }) => (
       <div className="mt-4 space-y-2">
         {item.issues.slice(0, 3).map((issue) => (
           <div key={`${item.id}-${issue.code}`} className={cn('rounded-2xl border p-3 text-xs leading-5', issueTone[issue.severity])}>
-            <div className="font-black uppercase tracking-[0.16em] opacity-70">{issue.code}</div>
+            <div className="font-black uppercase tracking-wide opacity-70">{issue.code}</div>
             <p className="mt-1 font-semibold">{issue.message}</p>
             <p className="mt-2 font-bold opacity-80">Tindakan: {issue.action}</p>
           </div>
@@ -797,7 +797,7 @@ export default function MapsRuntime() {
                 <div className="rounded-2xl bg-primary/15 p-3 text-primary-light">
                   <Map className="h-6 w-6" aria-hidden="true" />
                 </div>
-                <span className="text-xs font-black uppercase tracking-[0.45em] text-primary-light">
+                <span className="text-xs font-black uppercase tracking-wide text-primary-light">
                   Runtime Maps Control
                 </span>
               </div>
@@ -811,7 +811,7 @@ export default function MapsRuntime() {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <div className={cn('rounded-2xl border px-5 py-4', statusTone[ops.status])}>
-                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-foreground">Status</div>
+                <div className="text-xs font-black uppercase tracking-wide text-foreground">Status</div>
                 <StatusBadge status={ops.status} labelPrefix="Maps provider status" className="mt-1 text-sm uppercase !text-foreground" />
               </div>
               <button
@@ -868,7 +868,7 @@ export default function MapsRuntime() {
           <section className="rounded-[2rem] border border-border bg-surface-subtle p-6 shadow-xl shadow-scrim">
             <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.3em] text-foreground-muted">Global Provider</p>
+                <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Global Provider</p>
                 <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">Provider utama platform</h2>
               </div>
               <ProviderPill provider={selectedGlobalProvider} />
@@ -913,7 +913,7 @@ export default function MapsRuntime() {
                     <LockKeyhole className="h-5 w-5" aria-hidden="true" />
                   </div>
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.3em] text-foreground-muted">Secure Credential</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Secure Credential</p>
                     <h2 className="mt-1 text-2xl font-black tracking-tight text-foreground">TomTom server key</h2>
                   </div>
                 </div>
@@ -933,7 +933,7 @@ export default function MapsRuntime() {
                 <div className="rounded-3xl border border-border bg-surface/[0.025] p-5">
                   <div className="grid gap-4">
                     <label className="block">
-                      <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-foreground-muted">
+                      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-foreground-muted">
                         Key alias
                       </span>
                       <input
@@ -944,7 +944,7 @@ export default function MapsRuntime() {
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-foreground-muted">
+                      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-foreground-muted">
                         Server API key
                       </span>
                       <input
@@ -960,7 +960,7 @@ export default function MapsRuntime() {
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-foreground-muted">
+                      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-foreground-muted">
                         Restriction
                       </span>
                       <select
@@ -1051,7 +1051,7 @@ export default function MapsRuntime() {
                 <div className="rounded-3xl border border-border bg-surface/[0.025] p-5">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[0.22em] text-foreground-muted">Stored keys</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Stored keys</p>
                       <h3 className="mt-1 text-lg font-black text-foreground">{credentials.length} credential</h3>
                     </div>
                     <KeyRound className="h-5 w-5 text-foreground-muted" aria-hidden="true" />
@@ -1078,7 +1078,7 @@ export default function MapsRuntime() {
                               </div>
                             </div>
                             <span className={cn(
-                              'rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.14em]',
+                              'rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide',
                               credential.is_active
                                 ? 'bg-success-surface text-success'
                                 : credential.last_validation_status === 'invalid'
@@ -1131,7 +1131,7 @@ export default function MapsRuntime() {
                     <ShieldAlert className="h-5 w-5" aria-hidden="true" />
                   </div>
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.3em] text-foreground-muted">Production Key Model</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Production Key Model</p>
                     <h2 className="mt-1 text-2xl font-black tracking-tight text-foreground">Platform key inventory</h2>
                   </div>
                 </div>
@@ -1141,7 +1141,7 @@ export default function MapsRuntime() {
               </div>
               {productionReadiness && (
                 <div className={cn('rounded-2xl border px-5 py-4', productionStatusTone[productionReadiness.overall_status])}>
-                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-foreground">
+                <div className="text-xs font-black uppercase tracking-wide text-foreground">
                     {productionReadiness.environment}
                   </div>
                   <div className="mt-1 text-xl font-black capitalize">{productionReadiness.overall_status}</div>
@@ -1167,7 +1167,7 @@ export default function MapsRuntime() {
                   <div className="grid gap-3 xl:grid-cols-2">
                     {productionIssues.slice(0, 4).map((item, index) => (
                       <div key={`${item.code}-${index}`} className={cn('rounded-2xl border p-4 text-sm leading-6', issueTone[item.severity])}>
-                        <div className="text-xs font-black uppercase tracking-[0.18em] opacity-70">{item.code}</div>
+                        <div className="text-xs font-black uppercase tracking-wide opacity-70">{item.code}</div>
                         <p className="mt-2 font-semibold">{item.message}</p>
                         <p className="mt-2 text-xs opacity-80">{item.action}</p>
                       </div>
@@ -1176,7 +1176,7 @@ export default function MapsRuntime() {
                 )}
 
                 <div className="rounded-3xl border border-border bg-surface-subtle p-5">
-                  <div className="mb-3 text-xs font-black uppercase tracking-[0.24em] text-foreground-muted">Rotation runbook</div>
+                  <div className="mb-3 text-xs font-black uppercase tracking-wide text-foreground-muted">Rotation runbook</div>
                   <div className="grid gap-3 md:grid-cols-3">
                     {productionReadiness.incident_response.rotation_steps.slice(0, 3).map((step, index) => (
                       <div key={step} className="rounded-2xl border border-border bg-surface/[0.025] p-4 text-sm font-bold leading-6 text-foreground-muted">
@@ -1196,7 +1196,7 @@ export default function MapsRuntime() {
 
           <section className="rounded-[2rem] border border-border bg-surface-subtle p-6 shadow-xl shadow-scrim">
             <div className="mb-6">
-              <p className="text-xs font-black uppercase tracking-[0.3em] text-foreground-muted">Client Scopes</p>
+              <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Client Scopes</p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">Kontrol per aplikasi</h2>
               <p className="mt-2 text-sm text-foreground-muted">
                 Perubahan ini dibaca oleh mobile customer, mobile kurir, customer web, dan tracking saat config TTL habis atau socket config berubah.
@@ -1242,7 +1242,7 @@ export default function MapsRuntime() {
                           onClick={() => setScopeProvider(scope.id, provider.id)}
                           disabled={updateMapsProviderMutation.isPending}
                           className={cn(
-                            'rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition-all duration-200 active:scale-[0.98]',
+                            'rounded-full border px-3 py-2 text-xs font-black uppercase tracking-wide transition-all duration-200 active:scale-[0.98]',
                             policy.provider === provider.id
                               ? 'border-primary/60 bg-primary/20 text-primary-light'
                               : 'border-border bg-surface/[0.025] text-foreground-muted hover:border-border hover:text-foreground'
@@ -1256,13 +1256,13 @@ export default function MapsRuntime() {
                     <div className="rounded-2xl border border-border bg-surface-subtle p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-foreground-muted">Resolved runtime</p>
+                          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Resolved runtime</p>
                           <p className="mt-1 text-sm font-bold text-foreground-muted">
                             {resolved ? providerLabel[resolved.active_provider] : providerLabel[policy.provider]}
                           </p>
                         </div>
                         <span className={cn(
-                          'rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.14em]',
+                          'rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide',
                           policy.enabled ? 'bg-success-surface text-success' : 'bg-surface-subtle text-foreground-muted'
                         )}>
                           {policy.enabled ? 'Enabled' : 'Disabled'}
@@ -1281,12 +1281,12 @@ export default function MapsRuntime() {
           <section className="rounded-[2rem] border border-border bg-surface-subtle p-6 shadow-xl shadow-scrim">
             <div className="grid gap-4 xl:grid-cols-[240px_1fr]">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.3em] text-foreground-muted">Provider Detail</p>
+                <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Provider Detail</p>
                 <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">Runtime parameters</h2>
               </div>
               <div className="grid gap-4">
                 <label className="block">
-                  <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-foreground-muted">
+                  <span className="mb-2 block text-xs font-black uppercase tracking-wide text-foreground-muted">
                     Config TTL seconds
                   </span>
                   <input
@@ -1299,7 +1299,7 @@ export default function MapsRuntime() {
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-foreground-muted">
+                  <span className="mb-2 block text-xs font-black uppercase tracking-wide text-foreground-muted">
                     OpenStreetMap tile URL
                   </span>
                   <input
@@ -1321,7 +1321,7 @@ export default function MapsRuntime() {
                 <ShieldAlert className="h-5 w-5" aria-hidden="true" />
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.26em] text-error">Emergency</p>
+                <p className="text-xs font-black uppercase tracking-wide text-error">Emergency</p>
                 <h2 className="text-xl font-black tracking-tight text-foreground">Failover control</h2>
               </div>
             </div>
@@ -1351,23 +1351,23 @@ export default function MapsRuntime() {
           <section className="rounded-[2rem] border border-border bg-surface-subtle p-6 shadow-xl shadow-scrim">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.26em] text-foreground-muted">Observability</p>
+                <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Observability</p>
                 <h2 className="mt-1 text-xl font-black tracking-tight text-foreground">Provider health</h2>
               </div>
               <Clock3 className="h-5 w-5 text-foreground-muted" aria-hidden="true" />
             </div>
             <div className="space-y-3">
               <div className="rounded-2xl border border-border bg-surface-subtle p-4">
-                <div className="text-xs font-black uppercase tracking-[0.2em] text-foreground-muted">Last sync</div>
+                <div className="text-xs font-black uppercase tracking-wide text-foreground-muted">Last sync</div>
                 <div className="mt-1 text-sm font-bold text-foreground-muted">{formatDateTime(ops.generated_at)}</div>
               </div>
               <div className="rounded-2xl border border-border bg-surface-subtle p-4">
-                <div className="text-xs font-black uppercase tracking-[0.2em] text-foreground-muted">TomTom quota</div>
+                <div className="text-xs font-black uppercase tracking-wide text-foreground-muted">TomTom quota</div>
                 <StatusBadge status={ops.quota.status} label={ops.quota.tomtom_remaining_percent !== null ? `${ops.quota.status.replace('_', ' ')} · ${ops.quota.tomtom_remaining_percent}%` : ops.quota.status.replace('_', ' ')} labelPrefix="TomTom quota status" className="mt-1 text-sm capitalize" />
               </div>
               {ops.last_error && (
                 <div className="rounded-2xl border border-warning bg-warning-surface p-4">
-                  <div className="text-xs font-black uppercase tracking-[0.2em] text-warning">Last provider issue</div>
+                  <div className="text-xs font-black uppercase tracking-wide text-warning">Last provider issue</div>
                   <div className="mt-2 text-sm font-bold text-warning">{ops.last_error.provider}</div>
                   <p className="mt-1 text-xs leading-5 text-warning">
                     {ops.last_error.error_message || formatReason(ops.last_error.fallback_reason)}
@@ -1407,7 +1407,7 @@ export default function MapsRuntime() {
                           : 'border-info bg-info-surface text-info'
                     )}
                   >
-                    <div className="text-xs font-black uppercase tracking-[0.18em] opacity-70">{alert.code}</div>
+                    <div className="text-xs font-black uppercase tracking-wide opacity-70">{alert.code}</div>
                     <p className="mt-2 text-sm leading-6">{alert.message}</p>
                     <p className="mt-3 rounded-xl bg-surface-subtle px-3 py-2 text-xs font-bold leading-5 opacity-90">
                       Tindakan: {mapsOpsAlertAction(alert, ops.last_error)}
@@ -1423,14 +1423,14 @@ export default function MapsRuntime() {
       <section className="mt-6 rounded-[2rem] border border-border bg-surface-subtle p-6 shadow-xl shadow-scrim">
         <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-foreground-muted">Audit Signal</p>
+            <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Audit Signal</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">Recent maps events</h2>
           </div>
           <span className="text-sm text-foreground-muted">{eventRows.length} event terakhir</span>
         </div>
 
         <div className="overflow-hidden rounded-3xl border border-border">
-          <div className="grid grid-cols-[1fr_0.7fr_0.9fr_1fr_1fr_1fr_0.8fr] border-b border-border bg-surface/[0.035] px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-foreground-muted">
+          <div className="grid grid-cols-[1fr_0.7fr_0.9fr_1fr_1fr_1fr_0.8fr] border-b border-border bg-surface/[0.035] px-5 py-3 text-xs font-black uppercase tracking-wide text-foreground-muted">
             <span>Waktu</span>
             <span>Scope</span>
             <span>Service</span>
@@ -1458,7 +1458,7 @@ export default function MapsRuntime() {
                   {event.distance_meters ? `${Math.round(event.distance_meters / 100) / 10}km` : '-'}
                   {event.duration_seconds ? ` · ${Math.ceil(event.duration_seconds / 60)}m` : ''}
                 </span>
-                <StatusBadge status={event.status} labelPrefix="Maps event status" className="w-fit text-xs uppercase tracking-[0.14em]" />
+                <StatusBadge status={event.status} labelPrefix="Maps event status" className="w-fit text-xs uppercase tracking-wide" />
               </div>
             ))
           )}
