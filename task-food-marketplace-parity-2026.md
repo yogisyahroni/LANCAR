@@ -3082,6 +3082,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Customer payment-link cards/modal, dashboard active-order cards and profile session/notification/referral panels were audited for Part S. Essential helper/status/metadata labels now use readable text sizes, payment-link catalog navigation declares its external target, and the audited dashboard address/order values no longer depend on sub-12px text. The targeted Customer axe slice passes `18/18` Light/Dark/System cases; dynamic data and full visual/manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Customer standard/food/on-demand/aggregator order-entry flows were audited for Part S. Provider capability/availability and tariff metadata, multi-step indicators, on-demand service constraints, calendar day labels and route attribution now use readable text sizes while preserving semantic status colors/icons. The targeted order-entry axe slice passes `24/24` Light/Dark/System cases; dynamic provider/tariff states and full visual/manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

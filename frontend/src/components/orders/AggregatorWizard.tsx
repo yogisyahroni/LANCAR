@@ -732,9 +732,9 @@ export function AggregatorWizard() {
                       ].join(" ")}
                     >
                       <span className="block font-bold text-foreground">{provider.name}</span>
-                      <span className="mt-1 block text-[10px] text-muted-foreground">{provider.capabilities?.length ? provider.capabilities.map(capabilityLabel).join(" · ") : "Capability belum diberikan"}</span>
-                      <span className={`mt-1 block text-[10px] ${provider.tracking_degraded ? "text-warning" : "text-muted-foreground"}`}>{provider.tracking_degraded ? "Tracking degraded · manual" : `Tracking: ${provider.tracking_mode || "belum ditentukan"}`}</span>
-                      <span className={`mt-1 block text-[10px] ${isLogisticsProviderAvailable(provider) ? "text-success" : "text-warning"}`}>{providerAvailabilityMessage(provider)}</span>
+                      <span className="mt-1 block text-xs text-muted-foreground">{provider.capabilities?.length ? provider.capabilities.map(capabilityLabel).join(" · ") : "Capability belum diberikan"}</span>
+                      <span className={`mt-1 block text-xs ${provider.tracking_degraded ? "text-warning" : "text-muted-foreground"}`}>{provider.tracking_degraded ? "Tracking degraded · manual" : `Tracking: ${provider.tracking_mode || "belum ditentukan"}`}</span>
+                      <span className={`mt-1 block text-xs ${isLogisticsProviderAvailable(provider) ? "text-success" : "text-warning"}`}>{providerAvailabilityMessage(provider)}</span>
                     </button>
                   ))}
                 </div>
@@ -1422,11 +1422,11 @@ export function AggregatorWizard() {
                             {isSelected && <Check className="h-4 w-4 text-info" aria-hidden="true" />}
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">{tariff.provider_name} · {tariff.etd ? `Estimasi ${tariff.etd}` : "ETA belum diberikan provider"}</p>
-                          <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground/80">
+                          <div className="mt-2 grid gap-1 text-xs text-muted-foreground/80">
                             <span>Berat tagihan: {tariff.chargeable_weight_kg ? `${tariff.chargeable_weight_kg} kg` : "belum diberikan provider"} ({tariff.chargeable_weight_source === "provider" ? "provider" : "berdasarkan berat paket"})</span>
                             <span>Sumber quote: {tariff.source || "respons tarif provider"}</span>
                           </div>
-                          <div className="mt-3 space-y-2 text-[11px]">
+                          <div className="mt-3 space-y-2 text-xs">
                             <div>
                               <span className="text-muted-foreground">Capability: </span>
                               {tariff.capabilities.length > 0 ? tariff.capabilities.map((capability) => (
@@ -1438,14 +1438,14 @@ export function AggregatorWizard() {
                             </div>
                           </div>
                           <div className="mt-3 flex items-end justify-between">
-                            <div className="text-[10px]">
+                            <div className="text-xs">
                               {idx === 0 && (
                                 <span className="rounded border border-success/30 bg-success/10 px-1.5 py-0.5 text-success">Termurah</span>
                               )}
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-bold text-info">{formatPrice(tariff.price)}</p>
-                              {tariff.net_price ? <p className="text-[11px] text-muted-foreground">Net {formatPrice(tariff.net_price)}</p> : <p className="text-[11px] text-muted-foreground">Net belum diberikan provider</p>}
+                              {tariff.net_price ? <p className="text-xs text-muted-foreground">Net {formatPrice(tariff.net_price)}</p> : <p className="text-xs text-muted-foreground">Net belum diberikan provider</p>}
                             </div>
                           </div>
                         </button>

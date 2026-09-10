@@ -318,7 +318,7 @@ export function OnDemandOrderFormContent({
                             <Check className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
                           )}
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
                           <span className="rounded-full border border-border px-2 py-1">
                             ETA maks. {Math.round(service.max_eta_minutes / 60)}{" "}
                             jam
@@ -1174,7 +1174,7 @@ export function OnDemandOrderFormContent({
                             </button>
                           </div>
 
-                          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase text-muted-foreground">
+                          <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold uppercase text-muted-foreground">
                             {[
                               "Min",
                               "Sen",

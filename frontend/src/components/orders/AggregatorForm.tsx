@@ -446,7 +446,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
       {/* STEP 1 — Pilih Ekspedisi */}
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-[10px] font-bold text-info">1</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-xs font-bold text-info">1</span>
           <label className="text-sm font-semibold text-foreground">Pilih Ekspedisi</label>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -473,7 +473,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
               <span className="block text-sm font-bold text-foreground">
                 {provider.name}
               </span>
-              <span className={`mt-1 block text-[10px] ${isLogisticsProviderAvailable(provider) ? "text-success" : "text-warning"}`}>{providerAvailabilityMessage(provider)}</span>
+              <span className={`mt-1 block text-xs ${isLogisticsProviderAvailable(provider) ? "text-success" : "text-warning"}`}>{providerAvailabilityMessage(provider)}</span>
               {selectedProviderId === provider.code && (
                 <Check className="mx-auto mt-1 h-3 w-3 text-info"  aria-hidden="true" />
               )}
@@ -492,7 +492,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
       {/* STEP 2 — Alamat Pengirim (Mengantar-style) */}
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-[10px] font-bold text-info">2</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-xs font-bold text-info">2</span>
           <label className="text-sm font-semibold text-foreground">Alamat Pengirim</label>
         </div>
 
@@ -550,7 +550,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
       {/* STEP 3 — Kota Asal & Tujuan */}
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-[10px] font-bold text-info">3</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-xs font-bold text-info">3</span>
           <label className="text-sm font-semibold text-foreground">Kota Asal &amp; Tujuan</label>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto_1fr] items-end">
@@ -608,7 +608,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
       {/* STEP 4 — Berat & Dimensi */}
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-[10px] font-bold text-info">4</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-xs font-bold text-info">4</span>
           <label className="text-sm font-semibold text-foreground">Berat &amp; Dimensi Paket</label>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -675,7 +675,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
       {selectedProviderId && (
         <div>
           <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-[10px] font-bold text-info">5</span>
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info-surface text-xs font-bold text-info">5</span>
             <label className="text-sm font-semibold text-foreground">
               Pilih Layanan {selectedProvider?.name}
             </label>
@@ -723,18 +723,18 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
                       <div>
                         <p className="font-semibold text-foreground">{tariff.service_name}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">{tariff.etd ? `Estimasi ${tariff.etd}` : "ETA belum diberikan provider"}</p>
-                        <p className="mt-1 text-[11px] text-muted-foreground/80">Berat tagihan: {tariff.chargeable_weight_kg ? `${tariff.chargeable_weight_kg} kg` : "belum diberikan provider"} · Sumber: {tariff.source || "respons tarif provider"}</p>
-                        <div className="mt-2 text-[11px] text-muted-foreground">
+                        <p className="mt-1 text-xs text-muted-foreground/80">Berat tagihan: {tariff.chargeable_weight_kg ? `${tariff.chargeable_weight_kg} kg` : "belum diberikan provider"} · Sumber: {tariff.source || "respons tarif provider"}</p>
+                        <div className="mt-2 text-xs text-muted-foreground">
                           Capability: {tariff.capabilities.length > 0 ? tariff.capabilities.map(capabilityLabel).join(", ") : "belum diberikan provider"}
                         </div>
-                        <div className="mt-1 text-[11px] text-muted-foreground">
+                        <div className="mt-1 text-xs text-muted-foreground">
                           Limitasi: {tariff.limitations.length > 0 ? tariff.limitations.join(", ") : "detail belum diberikan provider"}
                         </div>
                       </div>
                       {isSelected && <Check className="h-4 w-4 shrink-0 text-primary"  aria-hidden="true" />}
                     </div>
                     <div className="mt-3 flex items-end justify-between">
-                      <div className="text-[11px] text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {isCheapest && (
                           <span className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-success">
                             <TrendingDown className="h-3 w-3"  aria-hidden="true" />
@@ -744,7 +744,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-bold text-foreground">{formatPrice(tariff.price)}</p>
-                        <p className="text-[11px] text-muted-foreground">{tariff.net_price ? `Net ${formatPrice(tariff.net_price)}` : "Net belum diberikan provider"}</p>
+                        <p className="text-xs text-muted-foreground">{tariff.net_price ? `Net ${formatPrice(tariff.net_price)}` : "Net belum diberikan provider"}</p>
                       </div>
                     </div>
                   </button>
