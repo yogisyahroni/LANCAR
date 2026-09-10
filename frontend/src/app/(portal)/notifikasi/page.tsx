@@ -193,7 +193,7 @@ export default function NotifikasiPage() {
             <span className="relative rounded-2xl bg-primary-soft p-2.5 text-primary dark:bg-primary/20 dark:text-success">
               <Bell className="h-6 w-6"  aria-hidden="true"/>
               {unreadCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-black text-on-accent">
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1 text-xs font-black text-on-accent">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
@@ -319,7 +319,7 @@ export default function NotifikasiPage() {
                             )}
                           </div>
                           <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground" title={notif.body}>{notif.body}</p>
-                          <span className="mt-1.5 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                          <span className="mt-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground/70">
                             {CATEGORY_META[category].label} · {formatTime(notif.created_at)}
                           </span>
                         </div>

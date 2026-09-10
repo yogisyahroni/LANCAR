@@ -118,7 +118,7 @@ export default function PushNotificationPrompt() {
                 <h4 className="text-sm font-extrabold text-foreground tracking-tight select-none leading-none">
                   Aktifkan Notifikasi
                 </h4>
-                <p className="text-[11px] text-muted-foreground mt-1 select-none leading-relaxed">
+                <p className="text-xs text-muted-foreground mt-1 select-none leading-relaxed">
                   Dapatkan info status pengiriman dan promo menarik langsung di browser Anda.
                 </p>
               </div>

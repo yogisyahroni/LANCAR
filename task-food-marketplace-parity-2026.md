@@ -3092,6 +3092,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** The remaining dynamic Customer On-Demand service-card icon render was audited for Part S. The canonical service icon is now explicitly marked decorative beside the visible service label, closing the previously unguarded `createElement` semantics gap. Shared service unit coverage passes `11/11`, the focused keyboard proof passes `1/1`, the On-Demand Light/Dark/System axe slice passes `6/6`, and iconography/evidence/diff guards pass. Full conditional icon, tooltip, custom-SVG and visual/manual assistive-technology inventory remains open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Customer receipt, address and notification surfaces plus shared push/feature-flag helper copy were audited for Part S typography. Essential receipt identifiers, dates, QR guidance, totals, coordinates, notification counts/timestamps and helper text now use the readable `text-xs` floor with restrained tracking; the receipt theme assertion now verifies both canonical order-status badges instead of failing on strict duplicate resolution. The affected route axe slice passes `27/27`, reflow/text-spacing passes `19/19`, address keyboard proof passes `1/1`, receipt theme proof passes `1/1`, and typecheck/ESLint/diff checks pass. Broader long-string, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

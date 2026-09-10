@@ -367,7 +367,7 @@ export default function ResiDetailPage({
                         width: el.width || 120,
                         height: el.height || 32,
                       }}
-                      className="bg-surface-subtle border border-border flex items-center justify-center text-[11px] text-foreground-muted font-bold tracking-wide rounded"
+                      className="bg-surface-subtle border border-border flex items-center justify-center text-xs text-foreground-muted font-bold tracking-wide rounded"
                     >
                       {order.model ? order.model.toUpperCase() : "LOGO KURIR"}
                     </div>
@@ -405,22 +405,22 @@ export default function ResiDetailPage({
                 />
                 {order.awb_number ? (
                   <>
-                    <span className="text-[10px] font-bold text-foreground-muted mt-2">
+                    <span className="text-xs font-bold text-foreground-muted mt-2">
                       No. Resi Kurir
                     </span>
                     <span className="text-xs font-bold font-mono select-none text-foreground-muted">
                       {order.awb_number}
                     </span>
-                    <span className="text-[10px] font-bold text-foreground-muted mt-1">
+                    <span className="text-xs font-bold text-foreground-muted mt-1">
                       No. Pesanan
                     </span>
-                    <span className="text-[10px] font-mono select-none text-foreground-muted">
+                    <span className="text-xs font-mono select-none text-foreground-muted">
                       {order.order_number}
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="text-[10px] font-bold text-foreground-muted mt-2">
+                    <span className="text-xs font-bold text-foreground-muted mt-2">
                       No. Resi TEMBUS
                     </span>
                     <span className="text-xs font-bold font-mono select-none text-foreground-muted">
@@ -428,7 +428,7 @@ export default function ResiDetailPage({
                     </span>
                   </>
                 )}
-                <span className="text-[10px] text-foreground-muted select-none mt-1">
+                <span className="text-xs text-foreground-muted select-none mt-1">
                   Date: {new Date(order.created_at).toLocaleDateString("id-ID")}
                 </span>
               </div>
@@ -486,19 +486,19 @@ export default function ResiDetailPage({
                   includeMargin={true}
                   className="bg-surface p-2 rounded-xl border border-border shadow-sm"
                 />
-                <p className="text-[10px] font-mono font-bold text-foreground-muted mt-3 select-none">
+                <p className="text-xs font-mono font-bold text-foreground-muted mt-3 select-none">
                   Scan untuk lacak status resi
                 </p>
 
                 {/* Total display price */}
                 <div className="border-t border-border w-full mt-4 pt-4 text-center">
-                  <p className="text-[10px] font-bold text-foreground-muted uppercase select-none">
+                  <p className="text-xs font-bold text-foreground-muted uppercase select-none">
                     Harga Total
                   </p>
                   <h3 className="text-xl font-black text-foreground-muted mt-1">
                     {formatIDR(order.total_price_idr)}
                   </h3>
-                  <p className="text-[10px] text-foreground-muted mt-0.5 select-none">
+                  <p className="text-xs text-foreground-muted mt-0.5 select-none">
                     {order.distance_km} km • {order.model.toUpperCase()}
                   </p>
                 </div>
@@ -564,7 +564,7 @@ export default function ResiDetailPage({
             )}
 
             {/* Footer of the resi document */}
-            <div className="border-t border-border pt-4 flex flex-col md:flex-row md:items-center justify-between text-foreground-muted text-[10px] select-none gap-2">
+            <div className="border-t border-border pt-4 flex flex-col md:flex-row md:items-center justify-between text-foreground-muted text-xs select-none gap-2">
               <p className="font-medium select-none">
                 Thank you for shipping with us! Keep this receipt for any
                 disputes or tracking.

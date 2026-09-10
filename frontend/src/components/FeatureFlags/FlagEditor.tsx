@@ -103,7 +103,7 @@ export default function FlagEditor({ flagKey, initialConfig, isEnabled, onSave, 
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
-            <p className="text-[10px] text-muted-foreground">Alasan akan dicatat dalam Audit Logs dan tidak bisa dihapus.</p>
+            <p className="text-xs text-muted-foreground">Alasan akan dicatat dalam Audit Logs dan tidak bisa dihapus.</p>
           </div>
         </div>
 

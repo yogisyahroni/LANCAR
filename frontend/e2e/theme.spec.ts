@@ -193,9 +193,12 @@ test('Customer receipt status keeps the same readable status contract @a11y', as
   })
   await page.goto('/resi/ORDER-RECEIPT-1', { waitUntil: 'domcontentloaded' })
 
-  const status = page.getByLabel('Status order: Selesai')
-  await expect(status).toBeVisible()
-  await expect(status.locator('svg')).toHaveAttribute('aria-hidden', 'true')
+  const statuses = page.getByLabel('Status order: Selesai')
+  await expect(statuses).toHaveCount(2)
+  for (const status of await statuses.all()) {
+    await expect(status).toBeVisible()
+    await expect(status.locator('svg')).toHaveAttribute('aria-hidden', 'true')
+  }
   const carrierStatus = page.getByLabel('Status carrier: IN TRANSIT')
   await expect(carrierStatus).toBeVisible()
   await expect(carrierStatus.locator('svg')).toHaveAttribute('aria-hidden', 'true')
