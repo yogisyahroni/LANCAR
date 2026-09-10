@@ -290,6 +290,8 @@ const buildDraft = (serviceCode) => {
     recipient_name: process.env.STAGING_CORE_GATE_RECIPIENT_NAME || 'LANCAR Staging Gate',
     recipient_phone: process.env.STAGING_CORE_GATE_RECIPIENT_PHONE || '628000000000',
     package_details: packageDetails,
+    dimensions: packageDetails.dimensions,
+    weight_kg: packageDetails.weight_kg,
     packages: [{
       package_code: 'CORE-GATE-01',
       category: packageDetails.category,
