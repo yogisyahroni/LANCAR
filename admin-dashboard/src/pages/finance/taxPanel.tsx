@@ -247,7 +247,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                 >
                   <Download size={12} aria-hidden="true" />Export PPh 23
                 </button>
-                <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Periode:</label>
+                <label className="text-xs font-bold text-foreground-muted tracking-wide">Periode:</label>
                 <input
                   type="month"
                   value={pphPeriod}

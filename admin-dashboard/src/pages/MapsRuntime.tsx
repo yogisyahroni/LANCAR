@@ -1024,17 +1024,23 @@ export default function MapsRuntime() {
                         ? 'border-success bg-success-surface text-success'
                         : 'border-error bg-error-surface text-error'
                     )}>
-                      <div className="text-sm font-black">
-                        {credentialValidation.status === 'valid' ? 'Validation passed' : credentialValidation.error_code || 'Validation failed'}
-                      </div>
+                      <StatusBadge
+                        status={credentialValidation.status === 'valid' ? 'valid' : 'failed'}
+                        label={credentialValidation.status === 'valid' ? 'Validation passed' : credentialValidation.error_code || 'Validation failed'}
+                        labelPrefix="Credential validation status"
+                        className="border-0 bg-transparent p-0 text-sm font-black"
+                      />
                       <p className="mt-1 text-xs leading-5 opacity-80">{credentialValidation.message}</p>
                       <div className="mt-3 grid gap-2">
                         {credentialValidation.checks.map((check) => (
                           <div key={check.name} className="flex items-center justify-between rounded-xl bg-surface-subtle px-3 py-2 text-xs font-bold">
                             <span className="capitalize">{check.name}</span>
-                            <span className={check.status === 'passed' ? 'text-success' : 'text-error'}>
-                              {check.status} · {check.latency_ms}ms
-                            </span>
+                            <StatusBadge
+                              status={check.status === 'passed' ? 'passed' : 'failed'}
+                              label={`${check.status} · ${check.latency_ms}ms`}
+                              labelPrefix={`${check.name} credential check`}
+                              className="border-0 bg-transparent px-0 py-0"
+                            />
                           </div>
                         ))}
                       </div>

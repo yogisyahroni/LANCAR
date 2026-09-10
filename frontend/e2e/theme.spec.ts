@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-async function installCustomerSessionFixture(page: Page, options: { orders?: Array<Record<string, unknown>>, detailOrder?: Record<string, unknown>, disputes?: Array<Record<string, unknown>> } = {}) {
+async function installCustomerSessionFixture(page: Page, options: { orders?: Array<Record<string, unknown>>, detailOrder?: Record<string, unknown>, carrierEvents?: Array<Record<string, unknown>>, disputes?: Array<Record<string, unknown>> } = {}) {
   await page.context().addCookies([
     { name: 'tembus_web_session', value: 'theme-customer-fixture', domain: 'localhost', path: '/' },
   ])
@@ -20,7 +20,7 @@ async function installCustomerSessionFixture(page: Page, options: { orders?: Arr
       return
     }
     if (/\/auth\/web\/orders\/[^/]+$/.test(new URL(url).pathname)) {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, order: options.detailOrder }) })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, order: options.detailOrder, carrier_events: options.carrierEvents ?? [] }) })
       return
     }
     if (url.includes('/auth/web/disputes')) {
@@ -182,6 +182,13 @@ test('Customer receipt status keeps the same readable status contract @a11y', as
       distance_km: 18,
       total_price_idr: 18000,
       created_at: '2026-09-10T00:00:00.000Z',
+      carrier_events: [{
+        id: 'CARRIER-RECEIPT-1',
+        provider: 'Fixture Carrier',
+        canonical_status: 'in_transit',
+        provider_status: 'in_transit',
+        received_at: '2026-09-10T01:00:00.000Z',
+      }],
     },
   })
   await page.goto('/resi/ORDER-RECEIPT-1', { waitUntil: 'domcontentloaded' })
@@ -189,6 +196,41 @@ test('Customer receipt status keeps the same readable status contract @a11y', as
   const status = page.getByLabel('Status order: Selesai')
   await expect(status).toBeVisible()
   await expect(status.locator('svg')).toHaveAttribute('aria-hidden', 'true')
+  const carrierStatus = page.getByLabel('Status carrier: IN TRANSIT')
+  await expect(carrierStatus).toBeVisible()
+  await expect(carrierStatus.locator('svg')).toHaveAttribute('aria-hidden', 'true')
+})
+
+test('Customer order detail carrier status exposes label and icon semantics @a11y', async ({ page }) => {
+  await installCustomerSessionFixture(page, {
+    detailOrder: {
+      id: 'ORDER-CARRIER-1',
+      order_number: 'ORD-CARRIER-1',
+      pickup_address: 'Jakarta',
+      dropoff_address: 'Bandung',
+      recipient_name: 'Carrier Customer',
+      model: 'aggregator',
+      service_category: 'aggregator',
+      status: 'in_transit',
+      payment_status: 'paid',
+      distance_km: 150,
+      total_price_idr: 85000,
+      created_at: '2026-09-10T00:00:00.000Z',
+    },
+    carrierEvents: [{
+      id: 'CARRIER-ORDER-1',
+      provider: 'Fixture Carrier',
+      canonical_status: 'in_transit',
+      provider_status: 'in_transit',
+      received_at: '2026-09-10T01:00:00.000Z',
+    }],
+  })
+  await page.goto('/orders/ORDER-CARRIER-1', { waitUntil: 'domcontentloaded' })
+
+  const carrierStatus = page.getByLabel('Status carrier: IN TRANSIT')
+  await expect(carrierStatus).toBeVisible()
+  await expect(carrierStatus).toContainText('IN TRANSIT')
+  await expect(carrierStatus.locator('svg')).toHaveAttribute('aria-hidden', 'true')
 })
 
 test('Customer dispute status exposes text and supplemental icon semantics @a11y', async ({ page }) => {

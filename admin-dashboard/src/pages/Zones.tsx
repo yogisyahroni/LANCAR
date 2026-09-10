@@ -735,7 +735,7 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
           <div className="space-y-6">
             {!zone?.id && (
               <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 space-y-3">
-                <label htmlFor="zone-boundary-search" className="text-[10px] font-black text-primary-light uppercase tracking-widest">Auto-Fetch Boundary</label>
+                <label htmlFor="zone-boundary-search" className="text-xs font-bold text-primary-light tracking-wide">Auto-Fetch Boundary</label>
                 <div className="flex gap-3">
                   <input
                     id="zone-boundary-search"
@@ -760,7 +760,7 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
             )}
 
             <div className="space-y-2">
-              <label htmlFor="zone-name" className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Zone Name</label>
+              <label htmlFor="zone-name" className="text-xs font-bold text-foreground-muted tracking-wide">Zone Name</label>
               <input
                 id="zone-name"
                 name="zone-name"
@@ -770,7 +770,7 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="zone-code" className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Zone Code</label>
+              <label htmlFor="zone-code" className="text-xs font-bold text-foreground-muted tracking-wide">Zone Code</label>
               <input
                 id="zone-code"
                 name="zone-code"
@@ -781,7 +781,7 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="zone-market-code" className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Market Code</label>
+              <label htmlFor="zone-market-code" className="text-xs font-bold text-foreground-muted tracking-wide">Market Code</label>
               <input
                 id="zone-market-code"
                 name="zone-market-code"
@@ -793,7 +793,7 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
             </div>
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label htmlFor="zone-max-couriers" className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Max Couriers</label>
+                <label htmlFor="zone-max-couriers" className="text-xs font-bold text-foreground-muted tracking-wide">Max Couriers</label>
                 <input
                   id="zone-max-couriers"
                   name="zone-max-couriers"

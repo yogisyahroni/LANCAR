@@ -327,7 +327,7 @@ export default function FeatureFlags() {
                 </div>
                 <span
                   className={cn(
-                    'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border shrink-0',
+                    'px-3 py-1 rounded-full text-xs font-bold tracking-wide border shrink-0',
                     toggleTarget.is_enabled
                       ? 'bg-success-surface text-success border-success'
                       : 'bg-surface-raised text-foreground-muted border-border',
@@ -337,7 +337,7 @@ export default function FeatureFlags() {
                 </span>
               </div>
               <div className="mt-6 space-y-2">
-                <label htmlFor="ff-reason" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+                <label htmlFor="ff-reason" className="text-xs font-bold tracking-wide text-foreground-muted">
                   Alasan Perubahan (wajib)
                 </label>
                 <textarea
@@ -350,7 +350,7 @@ export default function FeatureFlags() {
                 />
               </div>
               <div className="mt-5 space-y-2">
-                <label htmlFor="ff-rollback-plan" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+                <label htmlFor="ff-rollback-plan" className="text-xs font-bold tracking-wide text-foreground-muted">
                   Rollback Plan {toggleTarget.require_checklist ? '(wajib)' : '(wajib untuk high-blast flag)'}
                 </label>
                 <textarea

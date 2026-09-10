@@ -179,7 +179,7 @@ export default function Notifications() {
                             )}
                           >
                             <ch.icon size={18} aria-hidden="true" />
-                            <span className="text-[10px] font-black uppercase tracking-widest">{ch.label}</span>
+                            <span className="text-sm font-bold tracking-wide">{ch.label}</span>
                           </button>
                         ))}
                      </div>
@@ -187,7 +187,7 @@ export default function Notifications() {
 
                   {/* Subject */}
                   <div className="space-y-3">
-                     <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Message Subject</label>
+                     <label className="text-sm font-bold tracking-wide text-foreground-muted">Message Subject</label>
                      <input 
                         type="text" 
                         value={formData.subject}
@@ -199,7 +199,7 @@ export default function Notifications() {
                   {/* Content */}
                   <div className="space-y-3">
                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Template Content</label>
+                        <label className="text-sm font-bold tracking-wide text-foreground-muted">Template Content</label>
                         <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-surface-subtle text-foreground-muted">
                            <Code size={12} aria-hidden="true" />
                            <span className="text-[9px] font-black uppercase tracking-widest">Dynamic Vars</span>

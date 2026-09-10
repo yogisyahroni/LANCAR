@@ -24,6 +24,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
+import { StatusBadge } from '../components/StatusBadge'
 
 type PromoStatus = 'draft' | 'pending_approval' | 'scheduled' | 'active' | 'paused' | 'expired' | 'archived'
 type DiscountType = 'fixed' | 'percentage' | 'shipping_discount' | 'free_insurance'
@@ -294,30 +295,30 @@ function MetricCard({ icon: Icon, label, value, tone = 'emerald' }: { icon: any;
 }
 
 function PromoStatusPill({ status }: { status: PromoStatus }) {
-  const statusClass = {
-    draft: 'bg-surface-subtle text-foreground-muted border-border',
-    pending_approval: 'bg-warning-surface text-warning border-warning',
-    scheduled: 'bg-info-surface text-info border-info',
-    active: 'bg-success-surface text-success border-success',
-    paused: 'bg-accent-surface text-accent border-accent',
-    expired: 'bg-error-surface text-error border-error',
-    archived: 'bg-surface-raised text-foreground-muted border-border',
+  const label = {
+    draft: 'Draft',
+    pending_approval: 'Menunggu persetujuan',
+    scheduled: 'Terjadwal',
+    active: 'Aktif',
+    paused: 'Dijeda',
+    expired: 'Kedaluwarsa',
+    archived: 'Diarsipkan',
   }[status]
-  const StatusIcon = status === 'active'
-    ? CheckCircle2
+  const semanticStatus = status === 'active'
+    ? 'active'
     : status === 'expired'
-      ? AlertTriangle
-      : status === 'paused'
-        ? PauseCircle
-        : Clock
-  const label = status.replace('_', ' ')
+      ? 'expired'
+      : status === 'pending_approval'
+        ? 'pending_review'
+        : status === 'scheduled'
+          ? 'scheduled'
+          : status === 'paused'
+            ? 'hold'
+            : status === 'archived'
+              ? 'superseded'
+              : 'draft'
 
-  return (
-    <span aria-label={`Promo status: ${label}`} className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest', statusClass)}>
-      <StatusIcon size={12} aria-hidden="true" />
-      {label}
-    </span>
-  )
+  return <StatusBadge status={semanticStatus} label={label} labelPrefix="Promo status" className="px-3 py-1" />
 }
 
 export default function Promos() {
@@ -647,9 +648,11 @@ export default function Promos() {
                       <p className="font-black text-foreground-muted">{policy.service_code}</p>
                       <p className="mt-1 text-xs text-foreground-muted">{policy.vehicle_type || 'semua kendaraan'} - {policy.zone_code || 'semua zona'}</p>
                     </div>
-                    <span className={cn('rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest', policy.active ? 'bg-success-surface text-success' : 'bg-surface-raised text-foreground-muted')}>
-                      {policy.active ? 'active' : 'off'}
-                    </span>
+                    <StatusBadge
+                      status={policy.active ? 'active' : 'disabled'}
+                      label={policy.active ? 'Aktif' : 'Nonaktif'}
+                      labelPrefix="Margin policy status"
+                    />
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
                     <div className="rounded-xl bg-surface/[0.03] p-3">

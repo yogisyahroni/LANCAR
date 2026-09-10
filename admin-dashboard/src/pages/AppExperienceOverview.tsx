@@ -495,6 +495,24 @@ export default function AppExperienceOverview() {
       : healthStatus === "UNKNOWN" || healthStatus === "NO TELEMETRY"
         ? "text-foreground-muted"
         : "text-accent";
+  const healthBadgeStatus =
+    healthStatus === "HEALTHY"
+      ? "healthy"
+      : healthStatus === "DEGRADED"
+        ? "degraded"
+        : healthStatus === "WATCH"
+          ? "review"
+          : "unknown";
+  const healthBadgeLabel =
+    healthStatus === "HEALTHY"
+      ? "Sehat"
+      : healthStatus === "DEGRADED"
+        ? "Menurun"
+        : healthStatus === "WATCH"
+          ? "Perlu dipantau"
+          : healthStatus === "NO TELEMETRY"
+            ? "Belum ada telemetry"
+            : "Status belum tersedia";
   const latestActivity = (auditQuery.data ?? []).find(
     (event) => event.action === "published" || event.action === "rolled_back",
   );
@@ -618,7 +636,7 @@ export default function AppExperienceOverview() {
           </button>
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             Country / market
             <input
               required
@@ -630,7 +648,7 @@ export default function AppExperienceOverview() {
               placeholder="id-jk"
             />
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             City
             <input
               value={filters.city_code}
@@ -641,7 +659,7 @@ export default function AppExperienceOverview() {
               placeholder="jakarta-selatan"
             />
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             Zone
             <input
               value={filters.zone_code}
@@ -652,7 +670,7 @@ export default function AppExperienceOverview() {
               placeholder="zone-south"
             />
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             Surface
             <select
               value={filters.surface}
@@ -668,7 +686,7 @@ export default function AppExperienceOverview() {
               ))}
             </select>
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             Locale
             <input
               value={filters.locale}
@@ -677,7 +695,7 @@ export default function AppExperienceOverview() {
               placeholder="id-ID"
             />
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             App version
             <input
               value={filters.app_version}
@@ -777,11 +795,11 @@ export default function AppExperienceOverview() {
                 app version.
               </p>
             </div>
-            <span
-              className={`rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ${healthStatus === "HEALTHY" ? "bg-success-surface text-success" : "bg-warning-surface text-warning"}`}
-            >
-              {healthStatus}
-            </span>
+            <StatusBadge
+              status={healthBadgeStatus}
+              label={healthBadgeLabel}
+              labelPrefix="Manifest health status"
+            />
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-4">
             <div>
@@ -944,7 +962,7 @@ export default function AppExperienceOverview() {
               className="mt-4 grid gap-3 sm:grid-cols-3"
               onSubmit={saveGuardrailPolicy}
             >
-              <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+              <label className="text-xs font-bold tracking-wide text-foreground-muted">
                 Minimum events
                 <input
                   type="number"
@@ -960,7 +978,7 @@ export default function AppExperienceOverview() {
                   className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs text-foreground-muted disabled:opacity-60"
                 />
               </label>
-              <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+              <label className="text-xs font-bold tracking-wide text-foreground-muted">
                 Max failure %
                 <input
                   type="number"
@@ -980,7 +998,7 @@ export default function AppExperienceOverview() {
                   className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs text-foreground-muted disabled:opacity-60"
                 />
               </label>
-              <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+              <label className="text-xs font-bold tracking-wide text-foreground-muted">
                 Window hours
                 <input
                   type="number"
@@ -1245,7 +1263,7 @@ export default function AppExperienceOverview() {
           </span>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             Campaign / manifest
             <select
               value={auditFilters.manifest_id}
@@ -1269,7 +1287,7 @@ export default function AppExperienceOverview() {
               ))}
             </select>
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             Actor UUID
             <input
               value={auditFilters.actor_id}
@@ -1280,7 +1298,7 @@ export default function AppExperienceOverview() {
               placeholder="all actors"
             />
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             Action
             <select
               value={auditFilters.action}
@@ -1297,7 +1315,7 @@ export default function AppExperienceOverview() {
               ))}
             </select>
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             From
             <input
               type="date"
@@ -1313,7 +1331,7 @@ export default function AppExperienceOverview() {
               className="mt-1 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-foreground-muted"
             />
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             To
             <input
               type="date"

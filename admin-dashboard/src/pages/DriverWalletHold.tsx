@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { toast } from 'sonner';
 import { Search, ShieldOff, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { FocusTrap } from '../components/a11y/FocusTrap';
+import { StatusBadge } from '../components/StatusBadge';
 
 // FOOD-BIKE-054: Visibilitas admin ke hold_balance wallet driver,
 // driver_penalty_log, dan status appeal — investigasi manual banding.
@@ -50,6 +51,12 @@ const violationLabel: Record<string, string> = {
   soft_ghosting: 'Ghosting Lembut',
   coerced_cancel: 'Batal Terpaksa',
   no_show_pickup: 'No-show Pickup',
+};
+const appealStatusLabel: Record<string, string> = {
+  none: 'Belum banding',
+  submitted: 'Diajukan',
+  approved: 'Disetujui',
+  rejected: 'Ditolak',
 };
 
 export default function DriverWalletHold() {
@@ -119,13 +126,11 @@ export default function DriverWalletHold() {
                 <div>
                   <div className="flex items-center gap-3">
                     <h3 className="text-lg font-bold text-foreground-muted">{d.driver_name || 'Unknown'}</h3>
-                    <span className={`px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest rounded-full border ${
-                      d.hold_balance > 0
-                        ? 'bg-warning-surface text-warning border-warning'
-                        : 'bg-success-surface text-success border-success'
-                    }`}>
-                      {d.hold_balance > 0 ? 'HOLD AKTIF' : 'BERSIH'}
-                    </span>
+                    <StatusBadge
+                      status={d.hold_balance > 0 ? 'hold' : 'healthy'}
+                      label={d.hold_balance > 0 ? 'Hold aktif' : 'Bersih'}
+                      labelPrefix="Wallet hold status"
+                    />
                   </div>
                   <p className="text-xs text-foreground-muted mt-1 font-mono">{d.phone || d.email || d.courier_id}</p>
                   <p className="text-[11px] text-foreground-muted mt-0.5 capitalize">{d.vehicle_type || 'motor'} • {d.wallet_status}</p>
@@ -157,14 +162,12 @@ export default function DriverWalletHold() {
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
                         <span className="text-xs font-bold text-error">{formatIDR(p.amount_deducted)}</span>
-                        <span className={`px-2 py-0.5 text-[10px] font-black uppercase rounded-full border ${
-                          p.appeal_status === 'approved' ? 'bg-success-surface text-success border-success' :
-                          p.appeal_status === 'rejected' ? 'bg-error-surface text-error border-error' :
-                          p.appeal_status === 'submitted' ? 'bg-info-surface text-info border-info' :
-                          'bg-surface-subtle text-foreground-muted border-border'
-                        }`}>
-                          {p.appeal_status === 'none' ? 'BELUM BANDING' : p.appeal_status.toUpperCase()}
-                        </span>
+                        <StatusBadge
+                          status={p.appeal_status === 'none' ? 'open' : p.appeal_status}
+                          label={appealStatusLabel[p.appeal_status] || p.appeal_status.replace(/_/g, ' ')}
+                          labelPrefix="Penalty appeal status"
+                          className="rounded-full"
+                        />
                         {p.appeal_status === 'submitted' && (
                           <button
                             onClick={() => { setAppealAction(p); setNote(''); }}

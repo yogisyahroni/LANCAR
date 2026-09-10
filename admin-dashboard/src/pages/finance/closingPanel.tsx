@@ -315,7 +315,7 @@ export function ClosingPanel({ data }: { data: FinanceData }) {
                       {closingSettlementOutstanding.map((s: any, i: number) => (
                          <tr key={i}>
                             <td className="py-3">
-                               <span className="px-2 py-1 rounded bg-surface-subtle text-[10px] uppercase font-bold text-foreground-muted">{s.status}</span>
+                               <StatusBadge status={s.status || 'unknown'} labelPrefix="Settlement status" />
                             </td>
                             <td className="py-3 text-foreground-muted font-mono text-right">{s.total_settlements}</td>
                             <td className="py-3 text-foreground-muted font-mono text-right font-bold">{formatCurrency(s.total_amount)}</td>

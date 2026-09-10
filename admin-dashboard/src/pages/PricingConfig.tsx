@@ -279,7 +279,7 @@ export default function PricingConfig() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
                 <div className="space-y-2">
-                  <label htmlFor="pricing-calculator-length" className="text-[10px] font-black text-foreground-muted uppercase tracking-wider">Panjang (L - cm)</label>
+                  <label htmlFor="pricing-calculator-length" className="text-xs font-bold text-foreground-muted tracking-wide">Panjang (L - cm)</label>
                   <input 
                     id="pricing-calculator-length"
                     type="number" 
@@ -295,7 +295,7 @@ export default function PricingConfig() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="pricing-calculator-width" className="text-[10px] font-black text-foreground-muted uppercase tracking-wider">Lebar (W - cm)</label>
+                  <label htmlFor="pricing-calculator-width" className="text-xs font-bold text-foreground-muted tracking-wide">Lebar (W - cm)</label>
                   <input 
                     id="pricing-calculator-width"
                     type="number" 
@@ -311,7 +311,7 @@ export default function PricingConfig() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="pricing-calculator-height" className="text-[10px] font-black text-foreground-muted uppercase tracking-wider">Tinggi (H - cm)</label>
+                  <label htmlFor="pricing-calculator-height" className="text-xs font-bold text-foreground-muted tracking-wide">Tinggi (H - cm)</label>
                   <input 
                     id="pricing-calculator-height"
                     type="number" 

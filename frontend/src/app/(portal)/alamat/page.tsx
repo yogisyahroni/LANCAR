@@ -651,8 +651,9 @@ export default function AddressBookPage() {
               {/* Address input fields */}
               <form onSubmit={handleSaveAddress} className="space-y-3.5 select-none">
                 <div>
-                  <label className="text-xs font-bold text-muted-foreground select-none">Label Alamat (e.g. Rumah, Kantor)</label>
+                  <label htmlFor="address-label" className="text-xs font-bold text-muted-foreground select-none">Label Alamat (e.g. Rumah, Kantor)</label>
                   <input
+                    id="address-label"
                     type="text"
                     value={label}
                     onChange={(e) => setLabel(e.target.value)}
@@ -663,8 +664,9 @@ export default function AddressBookPage() {
 
                 <div className="grid grid-cols-2 gap-3.5 select-none">
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground select-none">Nama Penerima</label>
+                    <label htmlFor="address-recipient" className="text-xs font-bold text-muted-foreground select-none">Nama Penerima</label>
                     <input
+                      id="address-recipient"
                       type="text"
                       value={recipientName}
                       onChange={(e) => setRecipientName(e.target.value)}
@@ -673,8 +675,9 @@ export default function AddressBookPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground select-none">Nomor Telepon / HP</label>
+                    <label htmlFor="address-phone" className="text-xs font-bold text-muted-foreground select-none">Nomor Telepon / HP</label>
                     <input
+                      id="address-phone"
                       type="text"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -685,8 +688,9 @@ export default function AddressBookPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-muted-foreground select-none">Rincian Lengkap Alamat</label>
+                  <label htmlFor="address-text" className="text-xs font-bold text-muted-foreground select-none">Rincian Lengkap Alamat</label>
                   <textarea
+                    id="address-text"
                     value={addressText}
                     onChange={(e) => setAddressText(e.target.value)}
                     placeholder="Masukkan jalan, nomor, RT/RW, kecamatan, kota..."
@@ -702,8 +706,9 @@ export default function AddressBookPage() {
                   </span>
                   <div className="grid grid-cols-2 gap-3.5 select-none">
                     <div>
-                      <label className="text-[10px] text-muted-foreground select-none">Latitude</label>
+                      <label htmlFor="address-latitude" className="text-xs font-bold text-muted-foreground select-none">Latitude</label>
                       <input
+                        id="address-latitude"
                         type="number"
                         step="any"
                         value={latitude}
@@ -712,8 +717,9 @@ export default function AddressBookPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-muted-foreground select-none">Longitude</label>
+                      <label htmlFor="address-longitude" className="text-xs font-bold text-muted-foreground select-none">Longitude</label>
                       <input
+                        id="address-longitude"
                         type="number"
                         step="any"
                         value={longitude}

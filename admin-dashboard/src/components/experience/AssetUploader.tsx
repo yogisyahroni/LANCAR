@@ -199,7 +199,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
             never enter the browser.
           </p>
         </div>
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-primary/30 bg-primary-soft px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-primary/30 bg-primary-soft px-3 py-2 text-sm font-bold tracking-wide text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
           <UploadCloud size={14} aria-hidden="true" /> Preflight file
           <input
             type="file"
@@ -234,7 +234,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
         </p>
       ) : null}
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+        <label className="text-xs font-bold tracking-wide text-foreground-muted">
           Internal label
           <input
             className={inputClass}
@@ -244,7 +244,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
             placeholder="hero-home-2026-09"
           />
         </label>
-        <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted md:col-span-2">
+        <label className="text-xs font-bold tracking-wide text-foreground-muted md:col-span-2">
           Approved URI
           <input
             className={inputClass}
@@ -254,7 +254,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
             placeholder="https://cdn.example.com/hero.webp"
           />
         </label>
-        <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+        <label className="text-xs font-bold tracking-wide text-foreground-muted">
           Kind
           <select
             className={inputClass}
@@ -272,7 +272,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
         </label>
       </div>
       <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-        <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+        <label className="text-xs font-bold tracking-wide text-foreground-muted">
           Content type
           <select
             className={inputClass}
@@ -289,7 +289,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
             <option value="video/webm">video/webm</option>
           </select>
         </label>
-        <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+        <label className="text-xs font-bold tracking-wide text-foreground-muted">
           Width
           <input
             type="number"
@@ -305,7 +305,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
             }
           />
         </label>
-        <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+        <label className="text-xs font-bold tracking-wide text-foreground-muted">
           Height
           <input
             type="number"
@@ -321,7 +321,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
             }
           />
         </label>
-        <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+        <label className="text-xs font-bold tracking-wide text-foreground-muted">
           Size limit
           <input
             type="number"
@@ -335,7 +335,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
             }
           />
         </label>
-        <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted xl:col-span-2">
+        <label className="text-xs font-bold tracking-wide text-foreground-muted xl:col-span-2">
           SHA-256
           <input
             className={inputClass}
@@ -347,7 +347,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
         </label>
       </div>
       <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+        <label className="text-xs font-bold tracking-wide text-foreground-muted">
           Version
           <input
             className={inputClass}
@@ -357,7 +357,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
             placeholder="2026-09-10.1"
           />
         </label>
-        <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+        <label className="text-xs font-bold tracking-wide text-foreground-muted">
           Cache
           <select
             className={inputClass}
@@ -375,7 +375,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
             <option value="no-store">no-store</option>
           </select>
         </label>
-        <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+        <label className="text-xs font-bold tracking-wide text-foreground-muted">
           Expires at
           <input
             type="datetime-local"
@@ -387,7 +387,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
             }
           />
         </label>
-        <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+        <label className="text-xs font-bold tracking-wide text-foreground-muted">
           Retention until
           <input
             type="datetime-local"
@@ -399,7 +399,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
             }
           />
         </label>
-        <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+        <label className="text-xs font-bold tracking-wide text-foreground-muted">
           Low-bandwidth asset ID
           <input
             className={inputClass}

@@ -36,7 +36,7 @@ export default function ExperienceScopeBar({ value, onChange, readOnly = false }
           </p>
         </div>
         <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-auto xl:grid-cols-4">
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             Market / country
             <input
               value={value.marketCode}
@@ -45,7 +45,7 @@ export default function ExperienceScopeBar({ value, onChange, readOnly = false }
               className="mt-1 w-full min-w-32 rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs font-bold normal-case tracking-normal text-foreground-muted disabled:opacity-60"
             />
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             Surface
             <select
               value={value.surface}
@@ -58,7 +58,7 @@ export default function ExperienceScopeBar({ value, onChange, readOnly = false }
               ))}
             </select>
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             Locale
             <input
               value={value.locale}
@@ -67,7 +67,7 @@ export default function ExperienceScopeBar({ value, onChange, readOnly = false }
               className="mt-1 w-full min-w-28 rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs font-bold normal-case tracking-normal text-foreground-muted disabled:opacity-60"
             />
           </label>
-          <label className="text-[10px] font-black uppercase tracking-wider text-foreground-muted">
+          <label className="text-xs font-bold tracking-wide text-foreground-muted">
             App version
             <input
               value={value.appVersion}

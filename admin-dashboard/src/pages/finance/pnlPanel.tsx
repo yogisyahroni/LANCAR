@@ -134,7 +134,7 @@ export function PnlPanel({ data }: { data: FinanceData }) {
         <div className="space-y-8">
           {/* Period Picker */}
           <div className="flex items-center gap-4">
-            <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Periode:</label>
+            <label className="text-xs font-bold text-foreground-muted tracking-wide">Periode:</label>
             <input
               type="month"
               value={pnlPeriod}
@@ -154,7 +154,7 @@ export function PnlPanel({ data }: { data: FinanceData }) {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Modal Infra (Rp/Trx)</label>
+                    <label className="text-xs font-bold text-foreground-muted tracking-wide">Modal Infra (Rp/Trx)</label>
                     <input 
                       type="number" 
                       value={simInfraCost} 
@@ -163,7 +163,7 @@ export function PnlPanel({ data }: { data: FinanceData }) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Gaji/Operasional (Rp/Trx)</label>
+                    <label className="text-xs font-bold text-foreground-muted tracking-wide">Gaji/Operasional (Rp/Trx)</label>
                     <input 
                       type="number" 
                       value={simSalaryCost} 
@@ -172,7 +172,7 @@ export function PnlPanel({ data }: { data: FinanceData }) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Kas Perusahaan (Rp/Trx)</label>
+                    <label className="text-xs font-bold text-foreground-muted tracking-wide">Kas Perusahaan (Rp/Trx)</label>
                     <input 
                       type="number" 
                       value={simReserveCost} 

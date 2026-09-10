@@ -21,6 +21,7 @@ import Link from "next/link";
 import { OrderPriceBreakdown } from "@/components/orders/OrderPriceBreakdown";
 import { OrderServiceBadge } from "@/components/orders/OrderServiceBadge";
 import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
+import { CarrierStatusBadge } from "@/components/orders/CarrierStatusBadge";
 import { getOrderStatusPresentation } from "@/components/orders/orderPresentation";
 import { presentCarrierStatus } from "@/lib/carrierStatusPresentation";
 
@@ -513,12 +514,12 @@ export default function ResiDetailPage({
                   {order.carrier_events?.map((event) => (
                     <div
                       key={event.id}
-                      className={`rounded-lg border px-3 py-2 text-xs ${presentCarrierStatus(event.canonical_status).isUnknown ? "border-warning bg-warning text-on-warning" : "border-border bg-surface-subtle text-warning"}`}
+                      className={`rounded-lg border px-3 py-2 text-xs ${presentCarrierStatus(event.canonical_status).isUnknown ? "border-warning bg-warning-surface text-warning" : "border-border bg-surface-subtle text-foreground-muted"}`}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <span className="font-bold text-foreground-muted">
-                          {presentCarrierStatus(event.canonical_status).label} ·{" "}
-                          {event.provider}
+                        <span className="flex flex-wrap items-center gap-2 font-bold text-foreground-muted">
+                          <CarrierStatusBadge status={event.canonical_status} />
+                          <span>{event.provider}</span>
                         </span>
                         <span>
                           {new Date(

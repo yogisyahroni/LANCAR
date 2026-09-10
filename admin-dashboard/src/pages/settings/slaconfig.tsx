@@ -142,7 +142,7 @@ export function SLAConfigPanel({ data }: { data: SettingsData }) {
                         <p className="text-sm font-black text-foreground-muted uppercase tracking-widest">{item.stage}</p>
                         <div className="flex items-center gap-4">
                            <div className="space-y-1">
-                              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest block">Target</label>
+                              <label className="text-xs font-bold text-foreground-muted tracking-wide block">Target</label>
                               <div className="flex items-center gap-2 bg-surface-subtle border border-border rounded-xl px-4 py-2">
                                 <input 
                                   type="text" 
@@ -158,7 +158,7 @@ export function SLAConfigPanel({ data }: { data: SettingsData }) {
                               </div>
                            </div>
                            <div className="space-y-1">
-                              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest block">Critical</label>
+                              <label className="text-xs font-bold text-foreground-muted tracking-wide block">Critical</label>
                               <div className="flex items-center gap-2 bg-error-surface border border-error rounded-xl px-4 py-2">
                                 <input 
                                   type="text" 

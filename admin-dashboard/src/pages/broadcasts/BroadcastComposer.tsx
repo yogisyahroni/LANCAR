@@ -346,7 +346,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label htmlFor="bc-title" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Judul</label>
+                <label htmlFor="bc-title" className="text-xs font-bold tracking-wide text-foreground-muted">Judul</label>
                 <span className={cn('text-[10px] font-black tabular-nums', title.length > TITLE_MAX ? 'text-error' : 'text-foreground-muted')}>
                   {title.length}/{TITLE_MAX}
                 </span>
@@ -364,7 +364,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label htmlFor="bc-body" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Isi Pesan</label>
+                <label htmlFor="bc-body" className="text-xs font-bold tracking-wide text-foreground-muted">Isi Pesan</label>
                 <span className={cn('text-[10px] font-black tabular-nums', body.length > BODY_MAX ? 'text-error' : 'text-foreground-muted')}>
                   {body.length}/{BODY_MAX}
                 </span>
@@ -381,7 +381,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="bc-image-url" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted flex items-center gap-2">
+              <label htmlFor="bc-image-url" className="text-xs font-bold tracking-wide text-foreground-muted flex items-center gap-2">
                 <ImageIcon size={12} aria-hidden="true" /> Gambar (Opsional — URL)
               </label>
               <input
@@ -406,7 +406,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label htmlFor="bc-deeplink-kind" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Deep Link</label>
+                <label htmlFor="bc-deeplink-kind" className="text-xs font-bold tracking-wide text-foreground-muted">Deep Link</label>
                 <select
                   id="bc-deeplink-kind"
                   value={deepLinkKind}
@@ -423,7 +423,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
 
               {deepLinkKind === 'order' && (
                 <div className="space-y-2">
-                  <label htmlFor="bc-deeplink-order" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Order ID</label>
+                  <label htmlFor="bc-deeplink-order" className="text-xs font-bold tracking-wide text-foreground-muted">Order ID</label>
                   <input
                     id="bc-deeplink-order"
                     type="text"
@@ -437,7 +437,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
 
               {deepLinkKind === 'custom' && (
                 <div className="space-y-2">
-                  <label htmlFor="bc-deeplink-custom" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Custom Deep Link URL</label>
+                  <label htmlFor="bc-deeplink-custom" className="text-xs font-bold tracking-wide text-foreground-muted">Custom Deep Link URL</label>
                   <input
                     id="bc-deeplink-custom"
                     type="url"
@@ -452,7 +452,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label htmlFor="bc-category" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Kategori</label>
+                <label htmlFor="bc-category" className="text-xs font-bold tracking-wide text-foreground-muted">Kategori</label>
                 <select
                   id="bc-category"
                   value={category}
@@ -465,7 +465,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                 </select>
               </div>
               <fieldset className="space-y-2">
-                <legend className="text-[10px] font-black uppercase tracking-widest text-foreground-muted mb-2">Prioritas</legend>
+                <legend className="text-xs font-bold tracking-wide text-foreground-muted mb-2">Prioritas</legend>
                 <div className="flex flex-wrap gap-2">
                   {PRIORITIES.map((p) => (
                     <button
@@ -549,7 +549,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
             {targetType === 'filter' && (
               <div className="space-y-6 rounded-3xl border border-border bg-surface/[0.02] p-6">
                 <div className="space-y-2">
-                  <label htmlFor="bc-filter-zone" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Zona</label>
+                  <label htmlFor="bc-filter-zone" className="text-xs font-bold tracking-wide text-foreground-muted">Zona</label>
                   {zonesQuery.isLoading ? (
                     <p className="text-xs text-foreground-muted italic">Memuat zona...</p>
                   ) : zonesQuery.isError ? (
@@ -579,7 +579,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                 </div>
 
                 <fieldset className="space-y-2">
-                  <legend className="text-[10px] font-black uppercase tracking-widest text-foreground-muted mb-2">Role</legend>
+                  <legend className="text-xs font-bold tracking-wide text-foreground-muted mb-2">Role</legend>
                   <div className="flex flex-wrap gap-2">
                     {FILTER_ROLES.map((role) => (
                       <label
@@ -604,7 +604,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                 </fieldset>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-foreground-muted block">Capabilities (service)</label>
+                  <label className="text-xs font-bold tracking-wide text-foreground-muted block">Capabilities (service)</label>
                   <div className="flex flex-wrap gap-2">
                     {CAPABILITY_OPTIONS.map((cap) => (
                       <button
@@ -626,7 +626,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                 </div>
 
                 <div className="space-y-2 max-w-xs">
-                  <label htmlFor="bc-filter-status" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Status Akun</label>
+                  <label htmlFor="bc-filter-status" className="text-xs font-bold tracking-wide text-foreground-muted">Status Akun</label>
                   <select
                     id="bc-filter-status"
                     value={filter.account_status}
@@ -644,7 +644,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
             {targetType === 'manual' && (
               <div className="space-y-4 rounded-3xl border border-border bg-surface/[0.02] p-6">
                 <div className="relative">
-                  <label htmlFor="bc-manual-search" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted block mb-2">Cari Kurir</label>
+                  <label htmlFor="bc-manual-search" className="text-xs font-bold tracking-wide text-foreground-muted block mb-2">Cari Kurir</label>
                   <input
                     id="bc-manual-search"
                     type="search"
@@ -722,7 +722,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
             <h2 id="bc-section-channel" className={sectionLabelClass}>3. Channel &amp; Jadwal</h2>
 
             <fieldset>
-              <legend className="text-[10px] font-black uppercase tracking-widest text-foreground-muted mb-3">Channel Pengiriman</legend>
+              <legend className="text-xs font-bold tracking-wide text-foreground-muted mb-3">Channel Pengiriman</legend>
               <div className="flex flex-wrap gap-3">
                 {[
                   { id: 'push', label: 'Push (FCM)', icon: Send },
@@ -751,7 +751,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
             </fieldset>
 
             <fieldset className="space-y-4">
-              <legend className="text-[10px] font-black uppercase tracking-widest text-foreground-muted mb-3">Waktu Kirim</legend>
+              <legend className="text-xs font-bold tracking-wide text-foreground-muted mb-3">Waktu Kirim</legend>
               <div className="flex flex-wrap gap-3">
                 {[
                   { value: 'now', label: 'Kirim Sekarang' },
@@ -781,7 +781,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
               {scheduleMode === 'schedule' && (
                 <div className="flex flex-wrap items-end gap-3 max-w-md">
                   <div className="flex-1 min-w-[240px] space-y-2">
-                    <label htmlFor="bc-schedule-at" className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Tanggal &amp; Jam</label>
+                    <label htmlFor="bc-schedule-at" className="text-xs font-bold tracking-wide text-foreground-muted">Tanggal &amp; Jam</label>
                     <input
                       id="bc-schedule-at"
                       type="datetime-local"

@@ -23,6 +23,7 @@ import { FocusTrap } from "@/components/a11y/FocusTrap";
 import { OrderPriceBreakdown } from "@/components/orders/OrderPriceBreakdown";
 import { OrderServiceBadge } from "@/components/orders/OrderServiceBadge";
 import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
+import { CarrierStatusBadge } from "@/components/orders/CarrierStatusBadge";
 import { presentCarrierStatus } from "@/lib/carrierStatusPresentation";
 
 type OrderDetailContentProps = {
@@ -999,16 +1000,7 @@ export function OrderDetailContent({
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              "rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide",
-                              statusPresentation.isUnknown
-                                ? "bg-warning-surface text-warning"
-                                : "bg-primary/15 text-primary",
-                            )}
-                          >
-                            {statusPresentation.label}
-                          </span>
+                          <CarrierStatusBadge status={event.canonical_status} />
                           <span className="text-xs font-semibold text-muted-foreground">
                             {event.provider}
                           </span>

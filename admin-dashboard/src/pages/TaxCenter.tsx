@@ -453,47 +453,47 @@ export default function TaxCenter() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Rule Code</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Rule Code</label>
                   <input type="text" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} disabled={!!editingRule} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary disabled:opacity-60" placeholder="e.g. PPN_RETAIL_1" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Name</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Name</label>
                   <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" placeholder="e.g. PPN Retail Standard" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Tax Type</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Tax Type</label>
                   <select value={formData.tax_type} onChange={e => setFormData({...formData, tax_type: e.target.value as any})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary">
                     <option value="PPN">PPN (VAT)</option>
                     <option value="PPh">PPh (Income Tax)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">DPP Formula</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">DPP Formula</label>
                   <input type="text" value={formData.dpp_formula} onChange={e => setFormData({...formData, dpp_formula: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary font-mono text-sm" placeholder="e.g. (100/100) * total_amount" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Effective Rate (%)</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Effective Rate (%)</label>
                   <input type="number" step="0.01" value={formData.effective_rate_pct} onChange={e => setFormData({...formData, effective_rate_pct: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" placeholder="e.g. 1.1" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Statutory Rate (%)</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Statutory Rate (%)</label>
                   <input type="number" step="0.01" value={formData.statutory_rate_pct} onChange={e => setFormData({...formData, statutory_rate_pct: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" placeholder="e.g. 11.0" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Effective From</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Effective From</label>
                   <input type="date" value={formData.effective_from} onChange={e => setFormData({...formData, effective_from: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Effective To (Optional)</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Effective To (Optional)</label>
                   <input type="date" value={formData.effective_to || ''} onChange={e => setFormData({...formData, effective_to: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
                 </div>
               </div>

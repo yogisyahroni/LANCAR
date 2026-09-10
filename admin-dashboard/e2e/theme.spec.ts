@@ -270,3 +270,95 @@ test('analytics map zoom controls are keyboard reachable and announce the update
   await page.keyboard.press('Enter')
   await expect(zoomStatus).toHaveText('Zoom peta: level 13')
 })
+
+test('operational status surfaces expose readable labels and supplemental icons @a11y', async ({ page }) => {
+  await installThemeFixture(page)
+  await page.route('**/*', async (route) => {
+    const request = route.request()
+    const pathname = new URL(request.url()).pathname
+    if (pathname.endsWith('/admin/market-configs') && request.method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [{
+            market_code: 'ID-JK', country_code: 'ID', region_code: 'ID-JK', currency_code: 'IDR',
+            currency_minor_unit: 0, default_locale: 'id-ID', timezone: 'Asia/Jakarta',
+            measurement_system: 'metric', launch_state: 'active', config_version: 3,
+            effective_from: '2026-09-10T00:00:00.000Z', rollback_version: null,
+            approval_status: 'approved', approval_reason: null, updated_at: '2026-09-10T00:00:00.000Z',
+          }],
+        }),
+      })
+      return
+    }
+    if (/\/admin\/market-configs\/[^/]+$/.test(pathname) && request.method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            config: {
+              market_code: 'ID-JK', country_code: 'ID', region_code: 'ID-JK', currency_code: 'IDR',
+              currency_minor_unit: 0, default_locale: 'id-ID', timezone: 'Asia/Jakarta',
+              measurement_system: 'metric', phone_rules: {}, address_rules: {}, payment_methods: [],
+              logistics_providers: [], map_providers: [], tax_policy_refs: [], insurance_policy_refs: [],
+              service_hours: {}, launch_state: 'active', config_version: 3,
+              effective_from: '2026-09-10T00:00:00.000Z', rollback_version: null,
+              approval_status: 'approved', approval_reason: null, updated_at: '2026-09-10T00:00:00.000Z',
+            },
+            service_availability: [
+              { city_code: 'jakarta', service_code: 'tembus_instant', is_enabled: true, service_hours: {}, policy_refs: {} },
+              { city_code: 'jakarta', service_code: 'food_delivery', is_enabled: false, service_hours: {}, policy_refs: {} },
+            ],
+            legal_documents: [{
+              document_type: 'terms', locale: 'id-ID', version: '3.0', document_uri: '/terms',
+              status: 'approved', effective_from: '2026-09-10T00:00:00.000Z',
+            }],
+            readiness: { is_ready: false, reason_codes: ['missing_provider'] },
+          },
+        }),
+      })
+      return
+    }
+    if (pathname.endsWith('/admin/courier-retention') && request.method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ couriers: [{
+          courier_profile_id: 'retention-1', full_name: 'Retention Fixture Courier',
+          email: 'retention@example.test', user_status: 'approved', completed_orders: 12,
+          cancelled_orders: 1, training_count: 2, retraining_id: 'retraining-1', retraining_status: 'in_progress',
+        }] }),
+      })
+      return
+    }
+    if (pathname.endsWith('/admin/driver-wallet-holds') && request.method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ drivers: [{
+          wallet_id: 'wallet-1', courier_id: 'courier-1', balance: 100000, hold_balance: 20000,
+          hold_minimum_required: 10000, wallet_status: 'active', driver_name: 'Wallet Fixture Driver',
+          phone: '081234567890', email: 'wallet@example.test', vehicle_type: 'motor',
+          penalties: [{ id: 'penalty-1', order_id: 'ORDER-PENALTY-1', violation_type: 'silent_cancel', amount_deducted: 15000, appeal_status: 'submitted', created_at: '2026-09-10T00:00:00.000Z' }],
+        }] }),
+      })
+      return
+    }
+    await route.fallback()
+  })
+
+  await page.goto('/market-configuration', { waitUntil: 'domcontentloaded' })
+  await expect(page.getByLabel('Market readiness status: Belum ready: missing_provider')).toBeVisible()
+  await expect(page.getByLabel('Service availability status: Aktif')).toBeVisible()
+  await expect(page.getByLabel('Service availability status: Dinonaktifkan')).toBeVisible()
+  await expect(page.getByLabel('Legal document status: Disetujui')).toBeVisible()
+
+  await page.goto('/courier-retention', { waitUntil: 'domcontentloaded' })
+  await expect(page.getByLabel('Retraining status: Berjalan')).toBeVisible()
+
+  await page.goto('/driver-wallet-holds', { waitUntil: 'domcontentloaded' })
+  await expect(page.getByLabel('Wallet hold status: Hold aktif')).toBeVisible()
+  await expect(page.getByLabel('Penalty appeal status: Diajukan')).toBeVisible()
+})

@@ -105,7 +105,7 @@ export default function SLAConfig() {
                   </div>
                   <div className="flex items-center gap-4">
                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Target (Soft)</label>
+                        <label className="text-xs font-bold text-foreground-muted tracking-wide">Target (Soft)</label>
                         <div className="flex items-center gap-3 bg-surface-subtle border border-border rounded-xl px-4 py-3">
                            <input 
                              type="number" 
@@ -121,7 +121,7 @@ export default function SLAConfig() {
                         </div>
                      </div>
                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-error uppercase tracking-widest">Critical (Hard)</label>
+                        <label className="text-xs font-bold text-error tracking-wide">Critical (Hard)</label>
                         <div className="flex items-center gap-3 bg-error-surface border border-error rounded-xl px-4 py-3">
                            <input 
                              type="number" 

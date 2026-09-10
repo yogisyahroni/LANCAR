@@ -204,7 +204,7 @@ export default function WarehouseOperations() {
                 <form onSubmit={handleScanSubmit} className="space-y-6">
                   {/* Order ID Input with Detect Button */}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">ID Order / Nomor Resi</label>
+                    <label className="text-xs font-bold text-foreground-muted tracking-wide">ID Order / Nomor Resi</label>
                     <div className="flex gap-3">
                       <div className="relative flex-1">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-foreground-muted" aria-hidden="true" />
@@ -255,7 +255,7 @@ export default function WarehouseOperations() {
 
                   {/* Optional Bag Number Select */}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Kaitkan ke Bag Konsolidasi (Hanya untuk Outbound Origin)</label>
+                    <label className="text-xs font-bold text-foreground-muted tracking-wide">Kaitkan ke Bag Konsolidasi (Hanya untuk Outbound Origin)</label>
                     <select
                       aria-label="Link outbound scan to consolidation bag"
                       value={selectedBagNumber}
@@ -273,7 +273,7 @@ export default function WarehouseOperations() {
 
                   {/* Action Override Selection */}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Override Scan Type (Manual Override)</label>
+                    <label className="text-xs font-bold text-foreground-muted tracking-wide">Override Scan Type (Manual Override)</label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {[
                         { val: 'pickup', label: 'Inbound Pickup' },
@@ -359,7 +359,7 @@ export default function WarehouseOperations() {
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Nomor Bag Baru (Segel)</label>
+                    <label className="text-xs font-bold text-foreground-muted tracking-wide">Nomor Bag Baru (Segel)</label>
                     <input aria-label="New consolidation bag number"
                       type="text"
                       value={newBagNumber}
@@ -370,7 +370,7 @@ export default function WarehouseOperations() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Nomor Plat Mobil</label>
+                    <label className="text-xs font-bold text-foreground-muted tracking-wide">Nomor Plat Mobil</label>
                     <div className="flex items-center gap-2 bg-surface-subtle border border-border rounded-xl px-4 py-3">
                       <Truck className="text-foreground-muted" size={16} aria-hidden="true" />
                       <input aria-label="New vehicle plate number"
@@ -384,7 +384,7 @@ export default function WarehouseOperations() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Nomor Resi Penerbangan</label>
+                    <label className="text-xs font-bold text-foreground-muted tracking-wide">Nomor Resi Penerbangan</label>
                     <div className="flex items-center gap-2 bg-surface-subtle border border-border rounded-xl px-4 py-3">
                       <Plane className="text-foreground-muted" size={16} aria-hidden="true" />
                       <input aria-label="New flight number"

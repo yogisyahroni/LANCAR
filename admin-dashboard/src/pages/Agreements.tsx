@@ -75,7 +75,7 @@ const agreementTypeBadge = (type: string) => {
   }
   const color = colors[type] ?? 'bg-surface-subtle text-foreground-muted border-border'
   return (
-    <span className={cn('text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border', color)}>
+    <span className={cn('text-xs font-bold tracking-wide px-2 py-1 rounded-full border', color)}>
       {agreementTypeLabel(type)}
     </span>
   )
@@ -91,7 +91,7 @@ const userTypeBadge = (type: string) => {
     customer: 'Pelanggan',
   }
   return (
-    <span className={cn('text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border', colors[type] ?? '')}>
+    <span className={cn('text-xs font-bold tracking-wide px-2 py-1 rounded-full border', colors[type] ?? '')}>
       {labels[type] ?? type}
     </span>
   )

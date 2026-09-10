@@ -381,7 +381,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
 
           <div className="grid grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Token Code</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Token Code</label>
               <input 
                 value={formData.code}
                 onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
@@ -391,7 +391,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Campaign Name</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Campaign Name</label>
               <input 
                 value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
@@ -401,7 +401,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Logic Type</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Logic Type</label>
               <div className="flex p-1 bg-surface-subtle rounded-2xl border border-border">
                 {['percentage', 'fixed'].map(t => (
                   <button 
@@ -418,7 +418,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Discount Value</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Discount Value</label>
               <div className="relative">
                 <span className="absolute left-6 top-1/2 -translate-y-1/2 text-foreground-muted font-black text-sm">{formData.type === 'percentage' ? '%' : 'Rp'}</span>
                 <input 
@@ -431,7 +431,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Min. Transaction</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Min. Transaction</label>
               <input 
                 type="number"
                 value={formData.min_order_idr}
@@ -440,7 +440,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Max. Ceiling</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Max. Ceiling</label>
               <input 
                 type="number"
                 value={formData.max_discount_idr}
@@ -450,7 +450,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Valid Until</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Valid Until</label>
               <input 
                 type="date"
                 value={formData.valid_until}
@@ -459,7 +459,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">Global Quota</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Global Quota</label>
               <input 
                 type="number"
                 value={formData.quota}
@@ -474,17 +474,20 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
+                aria-pressed={formData.is_active}
+                aria-label="Toggle voucher active status"
+                title="Toggle voucher active status"
                 className={cn(
                   "w-12 h-6 rounded-full relative transition-all duration-300",
                   formData.is_active ? "bg-primary" : "bg-surface-raised"
                 )}
               >
-                <div className={cn(
+                <div aria-hidden="true" className={cn(
                   "absolute top-1 w-4 h-4 rounded-full bg-surface transition-all duration-300",
                   formData.is_active ? "right-1" : "left-1"
                 )} />
               </button>
-              <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Active Status</span>
+              <span className="text-xs font-bold text-foreground-muted tracking-wide">Active Status</span>
             </div>
             <div className="flex gap-4">
               <button

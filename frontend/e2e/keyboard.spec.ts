@@ -286,6 +286,12 @@ test('Customer address dialog traps focus and restores the add trigger @keyboard
 
   const dialog = page.getByRole('dialog', { name: 'Tambah Alamat Baru' });
   await expect(dialog).toBeVisible();
+  await expect(page.getByLabel('Label Alamat (e.g. Rumah, Kantor)')).toBeVisible();
+  await expect(page.getByLabel('Nama Penerima')).toBeVisible();
+  await expect(page.getByLabel('Nomor Telepon / HP')).toBeVisible();
+  await expect(page.getByLabel('Rincian Lengkap Alamat')).toBeVisible();
+  await expect(page.getByLabel('Latitude')).toBeVisible();
+  await expect(page.getByLabel('Longitude')).toBeVisible();
   await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
   await page.keyboard.press('Shift+Tab');
   await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
