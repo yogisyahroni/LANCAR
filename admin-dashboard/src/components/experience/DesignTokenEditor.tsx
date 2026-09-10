@@ -127,7 +127,7 @@ export default function DesignTokenEditor({ value, disabled = false, onChange }:
       <div className="flex items-start gap-3">
         <div className="rounded-xl bg-primary/10 p-2 text-primary-light"><ShieldCheck size={18} aria-hidden="true" /></div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-light">Bounded runtime theme</p>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-light">Bounded runtime theme</p>
           <h2 id="design-token-editor-title" className="mt-1 text-lg font-black text-foreground-muted">Campaign presentation tokens</h2>
           <p className="mt-1 max-w-3xl text-xs leading-relaxed text-foreground-muted">Only registered enum presets can be selected. The editor never accepts CSS, Kotlin, JavaScript, fonts or arbitrary color values.</p>
         </div>
@@ -144,7 +144,7 @@ export default function DesignTokenEditor({ value, disabled = false, onChange }:
             >
               {definition.options.map((option) => <option key={option} value={option}>{definition.labels[option]}</option>)}
             </select>
-            <span className="mt-2 block text-[11px] font-normal leading-relaxed text-foreground-muted">{definition.description}</span>
+            <span className="mt-2 block text-xs font-normal leading-relaxed text-foreground-muted">{definition.description}</span>
           </label>
         ))}
       </div>
@@ -157,7 +157,7 @@ export default function DesignTokenEditor({ value, disabled = false, onChange }:
         ].map(([title, description]) => (
           <div key={title} className="flex gap-3 rounded-2xl border border-warning bg-warning/[0.06] p-4">
             <LockKeyhole size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden="true" />
-            <div><p className="text-xs font-black text-warning">{title}</p><p className="mt-1 text-[11px] leading-relaxed text-warning">{description}</p></div>
+            <div><p className="text-xs font-black text-warning">{title}</p><p className="mt-1 text-xs leading-relaxed text-warning">{description}</p></div>
           </div>
         ))}
       </div>

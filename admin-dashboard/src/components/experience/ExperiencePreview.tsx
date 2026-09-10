@@ -37,18 +37,18 @@ export default function ExperiencePreview({ surface, sections, resolvedSections,
   return (
     <section className="rounded-3xl border border-border bg-surface-subtle p-5 shadow-2xl shadow-scrim" aria-labelledby="experience-preview-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-light">Safe schema preview</p><h2 id="experience-preview-title" className="mt-1 text-lg font-black text-foreground-muted">{surfaceLabel[surface]} surface</h2></div>
+        <div><p className="text-xs font-black uppercase tracking-wide text-primary-light">Safe schema preview</p><h2 id="experience-preview-title" className="mt-1 text-lg font-black text-foreground-muted">{surfaceLabel[surface]} surface</h2></div>
         <div className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs font-bold text-foreground-muted"><SurfaceIcon size={15} aria-hidden="true" /> Native surface contract</div>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Experience preview theme">
-        <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Theme preview</span>
+        <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">Theme preview</span>
         {([['light', Sun], ['dark', Moon], ['system', Monitor]] as const).map(([mode, Icon]) => (
           <button
             type="button"
             key={mode}
             onClick={() => setPreviewMode(mode)}
             aria-pressed={previewMode === mode}
-            className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest ${previewMode === mode ? 'border-primary bg-primary text-on-primary' : 'border-border text-foreground-secondary hover:bg-surface-subtle hover:text-foreground'}`}
+            className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-black uppercase tracking-wide ${previewMode === mode ? 'border-primary bg-primary text-on-primary' : 'border-border text-foreground-secondary hover:bg-surface-subtle hover:text-foreground'}`}
           >
             <Icon size={13} aria-hidden="true" /> {mode}
           </button>
@@ -64,11 +64,11 @@ export default function ExperiencePreview({ surface, sections, resolvedSections,
           const image = text(properties, 'image_asset_id') || text(properties, 'media_asset_id')
           return <article key={section.id} className="overflow-hidden rounded-2xl border border-border bg-surface/[0.04]">
             {image ? <div className="flex items-center gap-2 border-b border-border bg-primary/10 px-4 py-3 text-xs text-primary-light"><ImageIcon size={15} aria-hidden="true" /> Asset slot: {image}</div> : null}
-            <div className="p-4">{section.component === 'campaign_intro' ? <div className="mb-3 rounded-xl border border-info bg-info-surface px-3 py-2 text-[10px] font-black uppercase tracking-wider text-info">Post-native-splash campaign intro · not the OS launch splash</div> : null}<div className="mb-2 flex items-center justify-between gap-3"><span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">{section.component}</span>{text(properties, 'badge') ? <span className="rounded-full bg-primary/15 px-2 py-1 text-[10px] font-black text-primary-light">{text(properties, 'badge')}</span> : null}</div><h3 className="text-base font-black text-foreground-muted">{title}</h3>{body ? <p className="mt-2 text-sm leading-relaxed text-foreground-muted">{body}</p> : null}{cta ? <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-black text-on-primary">{cta}<ExternalLink size={13} aria-hidden="true" /></div> : null}</div>
+            <div className="p-4">{section.component === 'campaign_intro' ? <div className="mb-3 rounded-xl border border-info bg-info-surface px-3 py-2 text-xs font-black uppercase tracking-wide text-info">Post-native-splash campaign intro · not the OS launch splash</div> : null}<div className="mb-2 flex items-center justify-between gap-3"><span className="text-xs font-black uppercase tracking-wide text-foreground-muted">{section.component}</span>{text(properties, 'badge') ? <span className="rounded-full bg-primary/15 px-2 py-1 text-xs font-black text-primary-light">{text(properties, 'badge')}</span> : null}</div><h3 className="text-base font-black text-foreground-muted">{title}</h3>{body ? <p className="mt-2 text-sm leading-relaxed text-foreground-muted">{body}</p> : null}{cta ? <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-black text-on-primary">{cta}<ExternalLink size={13} aria-hidden="true" /></div> : null}</div>
           </article>
         })}
       </div>
-      <p className="mt-4 text-[11px] leading-relaxed text-foreground-muted">Preview uses the server-resolved allowlisted component schema. It never executes remote code or records campaign exposure, and transaction screens remain native-owned.</p>
+      <p className="mt-4 text-xs leading-relaxed text-foreground-muted">Preview uses the server-resolved allowlisted component schema. It never executes remote code or records campaign exposure, and transaction screens remain native-owned.</p>
     </section>
   )
 }

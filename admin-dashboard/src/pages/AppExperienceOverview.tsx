@@ -238,7 +238,7 @@ function MetricCard({
   return (
     <article className="rounded-2xl border border-border bg-surface/[0.03] p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+        <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">
           {label}
         </p>
         <Icon size={16} className="text-foreground-muted" aria-hidden="true" />
@@ -611,7 +611,7 @@ export default function AppExperienceOverview() {
       <section className="rounded-3xl border border-primary/25 bg-primary-soft p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-light">
+            <p className="text-xs font-black uppercase tracking-wide text-primary-light">
               Operational cockpit
             </p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-foreground-muted">
@@ -630,7 +630,7 @@ export default function AppExperienceOverview() {
               auditQuery.refetch();
               healthQuery.refetch();
             }}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-xs font-black uppercase tracking-widest text-foreground-muted"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-xs font-black uppercase tracking-wide text-foreground-muted"
           >
             <RefreshCw size={14} aria-hidden="true" /> Refresh cockpit
           </button>
@@ -803,7 +803,7 @@ export default function AppExperienceOverview() {
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-4">
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-foreground-muted">
+              <p className="text-xs uppercase tracking-wide text-foreground-muted">
                 Reliability events
               </p>
               <p className="mt-1 text-xl font-black text-foreground-muted">
@@ -811,7 +811,7 @@ export default function AppExperienceOverview() {
               </p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-foreground-muted">
+              <p className="text-xs uppercase tracking-wide text-foreground-muted">
                 Failures
               </p>
               <p className="mt-1 text-xl font-black text-accent">
@@ -819,7 +819,7 @@ export default function AppExperienceOverview() {
               </p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-foreground-muted">
+              <p className="text-xs uppercase tracking-wide text-foreground-muted">
                 Failure rate
               </p>
               <p className={`mt-1 text-xl font-black ${healthTone}`}>
@@ -827,7 +827,7 @@ export default function AppExperienceOverview() {
               </p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-foreground-muted">
+              <p className="text-xs uppercase tracking-wide text-foreground-muted">
                 Fetch success
               </p>
               <p className="mt-1 text-xl font-black text-foreground-muted">
@@ -835,7 +835,7 @@ export default function AppExperienceOverview() {
               </p>
             </div>
           </div>
-          <div className="mt-5 flex flex-wrap gap-2 text-[11px] text-foreground-muted">
+          <div className="mt-5 flex flex-wrap gap-2 text-xs text-foreground-muted">
             <span>cache hit: {health?.cache_hit ?? "—"}</span>
             <span>· parse fallback: {health?.parse_failure ?? "—"}</span>
             <span>· schema fallback: {health?.schema_fallback ?? "—"}</span>
@@ -858,7 +858,7 @@ export default function AppExperienceOverview() {
           </div>
           {latestActivity ? (
             <div className="mt-6 rounded-2xl border border-border bg-surface-subtle p-4">
-              <p className="text-xs font-black uppercase tracking-widest text-primary-light">
+              <p className="text-xs font-black uppercase tracking-wide text-primary-light">
                 {latestActivity.action}
               </p>
               <p className="mt-2 text-sm font-bold text-foreground-muted">
@@ -1016,7 +1016,7 @@ export default function AppExperienceOverview() {
                 />
               </label>
               <div className="sm:col-span-3 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-[11px] text-foreground-muted">
+                <p className="text-xs text-foreground-muted">
                   Marketing metrics excluded: always enforced · last update{" "}
                   {formatDate(policy?.updated_at)}
                 </p>
@@ -1024,14 +1024,14 @@ export default function AppExperienceOverview() {
                   <button
                     type="submit"
                     disabled={guardrailPolicyMutation.isPending}
-                    className="rounded-xl bg-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-primary disabled:opacity-60"
+                    className="rounded-xl bg-primary px-4 py-2 text-xs font-black uppercase tracking-wide text-on-primary disabled:opacity-60"
                   >
                     {guardrailPolicyMutation.isPending
                       ? "Saving…"
                       : "Save audited policy"}
                   </button>
                 ) : (
-                  <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+                  <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">
                     Read-only policy
                   </span>
                 )}
@@ -1041,7 +1041,7 @@ export default function AppExperienceOverview() {
         </div>
         <div role="region" aria-label="Experience runtime health table" tabIndex={0} className="mt-5 overflow-x-auto rounded-2xl border border-border">
           <table className="min-w-[980px] w-full text-left text-xs">
-            <thead className="border-b border-border text-[10px] uppercase tracking-widest text-foreground-muted">
+            <thead className="border-b border-border text-xs uppercase tracking-wide text-foreground-muted">
               <tr>
                 <th scope="col" className="px-3 py-3">
                   Live revision / campaign
@@ -1109,12 +1109,12 @@ export default function AppExperienceOverview() {
                           type="button"
                           disabled={rollbackMutation.isPending}
                           onClick={() => requestHealthRollback(rowFinding)}
-                          className="rounded-lg border border-accent px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-accent disabled:opacity-60"
+                          className="rounded-lg border border-accent px-2.5 py-1.5 text-xs font-black uppercase tracking-wide text-accent disabled:opacity-60"
                         >
                           Rollback r{row.rollback_target_revision}
                         </button>
                       ) : (
-                        <span className="text-[10px] text-foreground-muted">
+                        <span className="text-xs text-foreground-muted">
                           {row.reliability_failures > 0
                             ? "No compatible target"
                             : "—"}
@@ -1193,7 +1193,7 @@ export default function AppExperienceOverview() {
                 Each item points to its offending revision, campaign or asset.
               </p>
             </div>
-            <span className="rounded-full bg-surface-subtle px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+            <span className="rounded-full bg-surface-subtle px-3 py-1.5 text-xs font-black uppercase tracking-wide text-foreground-muted">
               {findings.length}
             </span>
           </div>
@@ -1224,7 +1224,7 @@ export default function AppExperienceOverview() {
                         type="button"
                         disabled={rollbackMutation.isPending}
                         onClick={() => requestHealthRollback(finding)}
-                        className="rounded-lg border border-accent px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-accent disabled:opacity-60"
+                        className="rounded-lg border border-accent px-2.5 py-1.5 text-xs font-black uppercase tracking-wide text-accent disabled:opacity-60"
                       >
                         Rollback r{finding.rollback_target_revision}
                       </button>
@@ -1350,7 +1350,7 @@ export default function AppExperienceOverview() {
         </div>
         <div role="region" aria-label="Experience audit history table" tabIndex={0} className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-xs">
-            <thead className="border-b border-border text-[10px] uppercase tracking-widest text-foreground-muted">
+            <thead className="border-b border-border text-xs uppercase tracking-wide text-foreground-muted">
               <tr>
                 <th scope="col" className="px-3 py-3">
                   Campaign / revision
@@ -1376,7 +1376,7 @@ export default function AppExperienceOverview() {
                     >
                       Revision {event.revision}
                     </Link>
-                    <p className="mt-1 font-mono text-[10px] text-foreground-muted">
+                    <p className="mt-1 font-mono text-xs text-foreground-muted">
                       {event.manifest_id.slice(0, 8)}…
                     </p>
                   </td>
@@ -1436,7 +1436,7 @@ export default function AppExperienceOverview() {
               <StatusBadge
                 status={status}
                 labelPrefix="Revision status"
-                className="text-[10px] uppercase tracking-widest"
+                className="text-xs uppercase tracking-wide"
               />
               <p className="mt-1 text-lg font-black text-foreground-muted">
                 {states[status] ?? 0}
@@ -1446,7 +1446,7 @@ export default function AppExperienceOverview() {
         </div>
         <div role="region" aria-label="Active experience revisions table" tabIndex={0} className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-xs">
-            <thead className="border-b border-border text-[10px] uppercase tracking-widest text-foreground-muted">
+            <thead className="border-b border-border text-xs uppercase tracking-wide text-foreground-muted">
               <tr>
                 <th scope="col" className="px-3 py-3">
                   Campaign / revision
@@ -1477,7 +1477,7 @@ export default function AppExperienceOverview() {
                       >
                         {titleFor(manifest)}
                       </Link>
-                      <p className="mt-1 font-mono text-[10px] text-foreground-muted">
+                      <p className="mt-1 font-mono text-xs text-foreground-muted">
                         {manifest.manifest_id.slice(0, 8)}… · r
                         {manifest.revision}
                       </p>
@@ -1486,10 +1486,10 @@ export default function AppExperienceOverview() {
                       <StatusBadge
                         status={status}
                         labelPrefix="Revision status"
-                        className="text-[10px] tracking-widest"
+                        className="text-xs tracking-wide"
                       />
                       {manifest.kill_switch_active ? (
-                        <p className="mt-1 text-[10px] text-error">
+                        <p className="mt-1 text-xs text-error">
                           kill switch active
                         </p>
                       ) : null}
@@ -1508,7 +1508,7 @@ export default function AppExperienceOverview() {
                     </td>
                     <td className="px-3 py-3 text-foreground-muted">
                       {formatDate(manifest.updated_at)}
-                      <p className="mt-1 text-[10px] text-foreground-muted">
+                      <p className="mt-1 text-xs text-foreground-muted">
                         {manifest.updated_by || manifest.created_by || "system"}
                       </p>
                     </td>

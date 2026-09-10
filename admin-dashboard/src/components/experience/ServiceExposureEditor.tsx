@@ -40,7 +40,7 @@ export default function ServiceExposureEditor({ entries, disabled = false, onCha
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-wider text-primary-light">Service exposure entries</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-foreground-muted">Urutan dan copy hanya mengatur discovery. Ketersediaan transaksi tetap diambil dari service catalog/market control plane.</p>
+          <p className="mt-1 text-xs leading-relaxed text-foreground-muted">Urutan dan copy hanya mengatur discovery. Ketersediaan transaksi tetap diambil dari service catalog/market control plane.</p>
         </div>
         <button
           type="button"

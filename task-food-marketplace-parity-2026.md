@@ -3084,6 +3084,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Customer standard/food/on-demand/aggregator order-entry flows were audited for Part S. Provider capability/availability and tariff metadata, multi-step indicators, on-demand service constraints, calendar day labels and route attribution now use readable text sizes while preserving semantic status colors/icons. The targeted order-entry axe slice passes `24/24` Light/Dark/System cases; dynamic provider/tariff states and full visual/manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Admin App Experience preview, runtime health, asset usage, deep-link tester, token editor, scope bar, service exposure and overview controls were audited for Part S. Operational metadata, state labels and release actions no longer depend on sub-12px text or extreme tracking; existing Lucide/icon semantics remain enforced by the iconography guard. The complete App Experience registered route slice passes `50/50` Light/Dark/System axe cases; dynamic data variants and full visual/manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

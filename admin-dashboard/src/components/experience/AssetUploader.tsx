@@ -437,7 +437,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
           onClick={() => {
             void validate();
           }}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-widest text-on-primary disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-wide text-on-primary disabled:opacity-60"
         >
           {busy ? (
             <Loader2 size={14} className="animate-spin" aria-hidden="true" />
@@ -446,7 +446,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
           )}{" "}
           Validate reference
         </button>
-        <p className="text-[11px] text-foreground-muted">
+        <p className="text-xs text-foreground-muted">
           Validation stages the reference for a draft; publishing remains
           separately permissioned and versioned.
         </p>

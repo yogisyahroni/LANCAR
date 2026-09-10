@@ -30,7 +30,7 @@ export default function ExperienceScopeBar({ value, onChange, readOnly = false }
     >
       <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-light">Active control-plane context</p>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-light">Active control-plane context</p>
           <p className="mt-1 text-xs leading-relaxed text-foreground-muted">
             Semua perubahan Experience berlaku pada scope yang terlihat di bawah; transaction truth tetap berada di service pemiliknya.
           </p>
@@ -78,7 +78,7 @@ export default function ExperienceScopeBar({ value, onChange, readOnly = false }
           </label>
         </div>
       </div>
-      <p className="mt-3 text-[11px] font-bold text-primary-light">
+      <p className="mt-3 text-xs font-bold text-primary-light">
         Viewing: {value.marketCode || 'market belum dipilih'} · {surfaceLabels[value.surface]} · {value.locale || 'locale belum dipilih'} · v{value.appVersion || '—'}
       </p>
     </section>
