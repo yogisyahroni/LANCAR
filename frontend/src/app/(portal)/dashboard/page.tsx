@@ -458,7 +458,7 @@ export default function DashboardPage() {
               return (
                 <div key={d.label} className="flex flex-col items-center gap-3 w-1/5 group select-none relative">
                   {/* Tooltip on hover */}
-                  <div className="absolute bottom-full mb-2 bg-card border border-border/40 px-2 py-1 rounded-lg shadow-xl text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 font-mono whitespace-nowrap">
+                  <div className="absolute bottom-full mb-2 bg-card border border-border/40 px-2 py-1 rounded-lg shadow-xl text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 font-mono whitespace-nowrap">
                     {chartMode === 'count' ? `${d.count} Orders` : formatIDR(d.value)}
                   </div>
                   <div className="w-12 bg-muted/30 hover:bg-muted/50 rounded-xl h-[180px] flex items-end overflow-hidden transition-all duration-300 border border-border/10 select-none">
@@ -509,7 +509,7 @@ export default function DashboardPage() {
                     <span className="text-xs font-bold text-foreground font-mono truncate" title={order.order_number}>
                       {order.order_number}
                     </span>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {order.recipient_name}
                     </p>
                     <OrderServiceBadge
@@ -535,7 +535,7 @@ export default function DashboardPage() {
 
                 <div className="flex items-center justify-between border-t border-border/40 pt-2 select-none">
                   <OrderStatusBadge status={order.status} className="px-2 py-0.5" />
-                  <span className="text-[10px] text-muted-foreground select-none">
+                  <span className="text-xs text-muted-foreground select-none">
                     {order.distance_km} km • {formatIDR(order.total_price_idr)}
                   </span>
                 </div>
@@ -553,20 +553,20 @@ export default function DashboardPage() {
                         <div className="flex items-start gap-2 select-none">
                           <MapPin className="h-3.5 w-3.5 shrink-0 text-primary mt-0.5" aria-hidden="true" />
                           <div>
-                            <p className="text-[10px] font-bold text-muted-foreground select-none">Pickup Address</p>
-                          <p className="text-[11px] text-foreground leading-relaxed truncate" title={order.pickup_address}>{order.pickup_address}</p>
+                            <p className="text-xs font-bold text-muted-foreground select-none">Pickup Address</p>
+                          <p className="text-xs text-foreground leading-relaxed truncate" title={order.pickup_address}>{order.pickup_address}</p>
                           </div>
                         </div>
                         <div className="flex items-start gap-2 select-none">
                           <MapPin className="h-3.5 w-3.5 shrink-0 text-success mt-0.5" aria-hidden="true" />
                           <div>
-                            <p className="text-[10px] font-bold text-muted-foreground select-none">Dropoff Address</p>
-                          <p className="text-[11px] text-foreground leading-relaxed truncate" title={order.dropoff_address}>{order.dropoff_address}</p>
+                            <p className="text-xs font-bold text-muted-foreground select-none">Dropoff Address</p>
+                          <p className="text-xs text-foreground leading-relaxed truncate" title={order.dropoff_address}>{order.dropoff_address}</p>
                           </div>
                         </div>
                       </div>
 
-                      <div className="h-20 w-full bg-muted/40 rounded-xl border border-border/40 flex items-center justify-center text-[10px] text-muted-foreground mt-1 select-none flex-col gap-1">
+                      <div className="h-20 w-full bg-muted/40 rounded-xl border border-border/40 flex items-center justify-center text-xs text-muted-foreground mt-1 select-none flex-col gap-1">
                         <div className="flex items-center gap-1">
                           <RefreshCcw className="h-3 w-3 text-primary" aria-hidden="true" />
                           <span>Status terakhir: <OrderStatusBadge status={order.status} className="px-1.5 py-0" /></span>

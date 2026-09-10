@@ -204,7 +204,7 @@ export default function PaymentLinksPage() {
                     )}
                     <div>
                         <h4 className="font-bold text-foreground text-lg">{link.item_name}</h4>
-                        <p className="text-[10px] text-muted-foreground mt-2 italic font-medium">
+                        <p className="text-xs text-muted-foreground mt-2 italic font-medium">
                         Ongkir Estimate: Rp {link.delivery_fee_amount?.toLocaleString() || 0}
                         </p>
                     </div>
@@ -214,7 +214,7 @@ export default function PaymentLinksPage() {
 
               <div className="grid grid-cols-2 gap-8 mt-8 pt-8 border-t border-border dark:border-border relative z-10">
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                    <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
                        <MapPin size={12} aria-hidden="true" /> Destination
                     </p>
                     <p className="text-xs font-bold text-foreground mt-3 tracking-tight line-clamp-2" title={link.dropoff_address || undefined}>
@@ -222,7 +222,7 @@ export default function PaymentLinksPage() {
                     </p>
                  </div>
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                    <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
                        <Clock size={12} aria-hidden="true" /> Expiration
                     </p>
                     <p className="text-xs font-bold text-foreground mt-3">{new Date(link.expired_at).toLocaleDateString()} {new Date(link.expired_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
@@ -472,7 +472,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
               <Store size={20} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-[10px] font-black text-primary/80 uppercase tracking-[0.2em]">Toko Pengirim</p>
+              <p className="text-xs font-black text-primary/80 uppercase tracking-wide">Toko Pengirim</p>
               <h3 className="text-lg font-bold text-foreground tracking-tight">{user?.store_name || 'Toko Anda'}</h3>
             </div>
           </div>
@@ -483,7 +483,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                 <div className="space-y-2 col-span-2 relative">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><Package size={14} aria-hidden="true" /> Item Name</label>
-                    <a href="/products" target="_blank" className="text-[10px] font-black text-primary hover:underline flex items-center gap-1">
+                    <a href="/products" target="_blank" rel="noreferrer" className="text-xs font-black text-primary hover:underline flex items-center gap-1">
                       + Kelola Katalog / Excel Bulk
                     </a>
                   </div>

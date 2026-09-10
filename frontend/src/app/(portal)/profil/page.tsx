@@ -542,7 +542,7 @@ export default function ProfilPage() {
                         placeholder="Nama Pengirim di Resi JNE/JNT"
                         className="w-full bg-muted/40 border border-border/40 p-2.5 rounded-xl text-sm focus:outline-none focus:border-primary/60 mt-1 select-none font-semibold text-foreground"
                       />
-                      <p className="text-[10px] text-muted-foreground mt-1 select-none">
+                      <p className="text-xs text-muted-foreground mt-1 select-none">
                         Nama ini akan muncul sebagai nama pengirim di resi JNE/JNT. Harus unik dan tidak boleh sama dengan akun lain.
                       </p>
                     </div>
@@ -571,7 +571,7 @@ export default function ProfilPage() {
                     <div className="w-full h-2 bg-card border border-border/40 rounded-full overflow-hidden select-none">
                       <div className="bg-primary h-full rounded-full transition-all select-none" style={{ width: '45%' }} />
                     </div>
-                    <p className="text-[10px] text-muted-foreground select-none">
+                    <p className="text-xs text-muted-foreground select-none">
                       Lakukan <strong className="text-foreground">6 order lagi</strong> untuk naik ke Silver Tier (Potongan ongkir Rp1.000 per order).
                     </p>
                   </div>
@@ -767,7 +767,7 @@ export default function ProfilPage() {
                             <h4 className="text-xs font-bold text-foreground truncate max-w-[200px] select-none" title={item.device}>
                               {item.device}
                             </h4>
-                            <span className="text-[10px] text-muted-foreground block select-none">
+                            <span className="text-xs text-muted-foreground block select-none">
                               {item.ip} • {item.location}
                             </span>
                           </div>
@@ -779,7 +779,7 @@ export default function ProfilPage() {
                             Sesi Aktif
                           </span>
                         ) : (
-                          <span className="text-[9px] text-muted-foreground select-none">
+                          <span className="text-xs text-muted-foreground select-none">
                             {item.timestamp}
                           </span>
                         )}
@@ -811,7 +811,7 @@ export default function ProfilPage() {
                   <div className="p-4 border border-border/40 bg-muted/20 rounded-2xl flex items-center justify-between select-none">
                     <div>
                       <h4 className="text-xs font-bold text-foreground select-none">Notifikasi Native Browser</h4>
-                      <p className="text-[11px] text-muted-foreground select-none">Munculkan notifikasi pop-up saat ada update status kiriman di browser Anda.</p>
+                      <p className="text-xs text-muted-foreground select-none">Munculkan notifikasi pop-up saat ada update status kiriman di browser Anda.</p>
                     </div>
                     <button
                       type="button"
@@ -833,7 +833,7 @@ export default function ProfilPage() {
                     <div className="flex items-center justify-between select-none">
                       <div>
                         <h4 className="text-xs font-bold text-foreground select-none">WhatsApp Alerts</h4>
-                        <p className="text-[11px] text-muted-foreground select-none">Dapatkan ringkasan update status langsung via pesan WhatsApp.</p>
+                        <p className="text-xs text-muted-foreground select-none">Dapatkan ringkasan update status langsung via pesan WhatsApp.</p>
                       </div>
                       <button
                         onClick={() => setWaEnabled(!waEnabled)}
@@ -852,7 +852,7 @@ export default function ProfilPage() {
                             <button
                               key={lvl}
                               onClick={() => setWaDetailLevel(lvl as any)}
-                              className={`px-3 py-1.5 text-[10px] font-bold rounded-xl capitalize transition-all select-none cursor-pointer ${
+                              className={`px-3 py-1.5 text-xs font-bold rounded-xl capitalize transition-all select-none cursor-pointer ${
                                 waDetailLevel === lvl
                                   ? 'bg-primary text-on-primary shadow-sm'
                                   : 'bg-muted/60 text-muted-foreground border border-border/40'
@@ -870,7 +870,7 @@ export default function ProfilPage() {
                   <div className="p-4 border border-border/40 bg-muted/20 rounded-2xl flex items-center justify-between select-none">
                     <div>
                       <h4 className="text-xs font-bold text-foreground select-none">Laporan via Email</h4>
-                      <p className="text-[11px] text-muted-foreground select-none">Kirimkan rincian bukti manifest dan faktur biaya ke email Anda.</p>
+                      <p className="text-xs text-muted-foreground select-none">Kirimkan rincian bukti manifest dan faktur biaya ke email Anda.</p>
                     </div>
                     <button
                       onClick={() => setEmailEnabled(!emailEnabled)}
@@ -911,7 +911,7 @@ export default function ProfilPage() {
                   </div>
 
                   <div className="p-4 bg-muted/40 border border-border/40 rounded-xl space-y-3 select-none">
-                    <span className="text-[10px] font-bold text-muted-foreground select-none block uppercase">Kode Aktif Anda</span>
+                    <span className="text-xs font-bold text-muted-foreground select-none block uppercase">Kode Aktif Anda</span>
                     <div className="flex items-center justify-between bg-card border border-border/40 p-3 rounded-xl select-none font-mono tracking-wider font-bold text-primary">
                       {referralCode}
                       <div className="flex items-center gap-1 select-none">
@@ -933,7 +933,7 @@ export default function ProfilPage() {
                         </button>
                       </div>
                     </div>
-                    <p className="text-[10px] text-muted-foreground leading-relaxed select-none">
+                    <p className="text-xs text-muted-foreground leading-relaxed select-none">
                       Dapatkan <strong className="text-foreground">saldo Rp5.000</strong> per pengguna baru yang berhasil terverifikasi dan mengirimkan paket pertamanya.
                     </p>
                   </div>
@@ -948,13 +948,13 @@ export default function ProfilPage() {
 
                   <div className="grid grid-cols-2 gap-4 select-none">
                     <div className="p-3.5 bg-muted/40 border border-border/40 rounded-xl space-y-1 select-none">
-                      <span className="text-[10px] font-bold text-muted-foreground select-none uppercase block">Jumlah Diundang</span>
+                      <span className="text-xs font-bold text-muted-foreground select-none uppercase block">Jumlah Diundang</span>
                       <p className="text-lg font-bold text-foreground select-none">{totalReferred} User</p>
                       <p className="text-xs text-muted-foreground select-none">Status Aktif Terverifikasi</p>
                     </div>
 
                     <div className="p-3.5 bg-muted/40 border border-border/40 rounded-xl space-y-1 select-none">
-                      <span className="text-[10px] font-bold text-muted-foreground select-none uppercase block">Sudah Dicairkan</span>
+                      <span className="text-xs font-bold text-muted-foreground select-none uppercase block">Sudah Dicairkan</span>
                       <p className="text-lg font-bold text-success select-none">
                         Rp{claimedRewards.toLocaleString('id-ID')}
                       </p>
@@ -964,7 +964,7 @@ export default function ProfilPage() {
 
                   <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between select-none">
                     <div className="select-none">
-                      <span className="text-[10px] font-bold text-muted-foreground select-none block uppercase">Bonus Belum Dicairkan</span>
+                      <span className="text-xs font-bold text-muted-foreground select-none block uppercase">Bonus Belum Dicairkan</span>
                       <p className="text-lg font-bold text-primary select-none">
                         Rp{pendingRewards.toLocaleString('id-ID')}
                       </p>
