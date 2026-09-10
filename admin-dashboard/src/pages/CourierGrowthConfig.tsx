@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Award, CheckCircle2, Gift, Save, Target, TrendingUp } from 'lucide-react'
+import { Award, Gift, Save, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
 import { AdminPageSkeleton } from '../components/ui/Skeleton'
+import { StatusBadge } from '../components/StatusBadge'
 
 type TierConfig = {
   id: string
@@ -123,9 +124,7 @@ export default function CourierGrowthConfig() {
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="font-black text-foreground">{tier.tier_name}</h3>
-                          <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-widest', tier.is_active ? 'bg-success-surface text-success' : 'bg-surface-subtle text-foreground-muted')}>
-                            {tier.is_active ? 'active' : 'off'}
-                          </span>
+                          <StatusBadge status={tier.is_active ? 'active' : 'disabled'} label={tier.is_active ? 'Aktif' : 'Nonaktif'} labelPrefix="Courier tier status" />
                         </div>
                         <p className="mt-1 text-xs font-bold uppercase tracking-widest text-foreground-muted">{tier.tier_code}</p>
                       </div>
@@ -179,8 +178,8 @@ export default function CourierGrowthConfig() {
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          {campaign.is_active ? <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" /> : <Target className="h-4 w-4 text-foreground-muted" aria-hidden="true" />}
                           <h3 className="truncate font-black text-foreground" title={campaign.title}>{campaign.title}</h3>
+                          <StatusBadge status={campaign.is_active ? 'active' : 'disabled'} label={campaign.is_active ? 'Aktif' : 'Nonaktif'} labelPrefix="Courier incentive status" />
                         </div>
                         <p className="mt-1 text-xs font-bold uppercase tracking-widest text-foreground-muted">{campaign.code}</p>
                       </div>

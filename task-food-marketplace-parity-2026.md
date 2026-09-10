@@ -3048,6 +3048,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** The status-channel audit now also covers App Experience manifest health, settlement outstanding, promo margin policy, mobile release mode, localized content packs, revision approval/state, kill switches, market readiness/service/legal availability, courier retraining, wallet appeals and map credential validation. These surfaces use the shared readable label + Lucide meaning-marker contract; Customer carrier statuses use a shared `CarrierStatusBadge` with an explicit unknown-state treatment. The current Customer address dialog has programmatic labels for all six address fields and browser proof for the associations; the full route/state and visual/manual Part S gates remain open where evidence is not yet exhaustive.
 
+> **Execution checkpoint 2026-09-11 (continued):** Delivery Services, Courier Growth, Experience Assets, Security compliance, and Maps Provider scope cards now also expose shared status labels and supplemental icons. Targeted Admin route accessibility for pricing, Experience Assets and Settings passes `14/14`; live-data fixture assertions remain limited to the explicit operational-status test and the broader dynamic inventory is still open.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

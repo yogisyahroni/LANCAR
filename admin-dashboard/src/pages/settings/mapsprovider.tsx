@@ -251,12 +251,12 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                           >
                             <p className="text-foreground-muted font-black text-lg">{provider.label}</p>
                             <p className="text-foreground-muted text-sm mt-2 leading-relaxed">{provider.hint}</p>
-                            <span className={cn(
-                              "inline-flex mt-5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                              active ? "bg-primary text-on-primary" : "bg-surface-subtle text-foreground-muted"
-                            )}>
-                              {active ? 'Active' : 'Available'}
-                            </span>
+                            <StatusBadge
+                              status={active ? 'active' : 'ready'}
+                              label={active ? 'Aktif' : 'Tersedia'}
+                              labelPrefix="Maps provider status"
+                              className="mt-5"
+                            />
                           </button>
                         )
                       })}
@@ -300,7 +300,7 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                                     scopeConfig.enabled ? "bg-success-surface text-success" : "bg-error-surface text-error"
                                   )}
                                 >
-                                  {scopeConfig.enabled ? 'Enabled' : 'Disabled'}
+                                  <StatusBadge status={scopeConfig.enabled ? 'enabled' : 'disabled'} label={scopeConfig.enabled ? 'Aktif' : 'Nonaktif'} labelPrefix="Maps client scope status" />
                                 </button>
                               </div>
                               <div className="grid grid-cols-3 gap-2">

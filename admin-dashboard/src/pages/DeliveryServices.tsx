@@ -4,6 +4,7 @@ import { AlertCircle, Loader2, Plus, Save, Tags, Truck, Power, Trash2 } from 'lu
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
+import { StatusBadge } from '../components/StatusBadge'
 
 type RouteModel = 'p2p'
 type PriceMode = 'final' | 'estimated_then_adjusted'
@@ -502,12 +503,11 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-bold text-foreground-muted">{service.name}</p>
-                    <span className={cn(
-                      'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase',
-                      service.is_enabled ? 'bg-success-surface text-success' : 'bg-error-surface text-error'
-                    )}>
-                      {service.is_enabled ? 'Active' : 'Off'}
-                    </span>
+                    <StatusBadge
+                      status={service.is_enabled ? 'enabled' : 'disabled'}
+                      label={service.is_enabled ? 'Aktif' : 'Nonaktif'}
+                      labelPrefix="Delivery service status"
+                    />
                   </div>
                   <p className="mt-1 line-clamp-2 text-xs text-foreground-muted" title={service.description}>{service.description}</p>
                   <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-foreground-muted">

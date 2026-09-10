@@ -50,6 +50,7 @@ import {
   LineChart,
   PieChart,
 } from 'lucide-react'
+import { StatusBadge } from '../../components/StatusBadge'
 import { motion } from 'framer-motion'
 import { cn } from '../../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -313,9 +314,7 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
                               <p className="text-sm font-bold text-foreground-muted">{item.service_code}</p>
                               <p className="text-xs text-foreground-muted">{item.city_code}</p>
                             </div>
-                            <span className={cn('rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest', item.is_enabled ? 'bg-success-surface text-success' : 'bg-error-surface text-error')}>
-                              {item.is_enabled ? 'Enabled' : 'Disabled'}
-                            </span>
+                            <StatusBadge status={item.is_enabled ? 'enabled' : 'disabled'} label={item.is_enabled ? 'Aktif' : 'Nonaktif'} labelPrefix="Compliance service status" />
                           </div>
                         ))}
                       </div>

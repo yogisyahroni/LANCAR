@@ -10,6 +10,7 @@ import {
 } from "../lib/experiencePermissions";
 import AssetDetailDrawer from "../components/experience/AssetDetailDrawer";
 import AssetUploader from "../components/experience/AssetUploader";
+import { StatusBadge } from "../components/StatusBadge";
 import type {
   AssetLifecycle,
   AssetUsage,
@@ -33,12 +34,6 @@ const placementForComponent = (component: string) =>
     promo_carousel: "carousel",
     notice: "header",
   })[component] || component;
-const stateClass: Record<AssetLifecycle, string> = {
-  active: "border-success bg-success-surface text-success",
-  deprecated: "border-border bg-surface-subtle text-foreground-muted",
-  scheduled_deletion: "border-warning bg-warning-surface text-warning",
-};
-
 const referencesAsset = (value: unknown, assetId: string): boolean => {
   if (Array.isArray(value))
     return value.some((item) => referencesAsset(item, assetId));
@@ -320,11 +315,12 @@ export default function ExperienceAssets({
                   <span className="truncate font-mono text-xs font-bold text-foreground-muted" title={asset.asset_id}>
                     {asset.asset_id}
                   </span>
-                  <span
-                    className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-widest ${stateClass[asset.lifecycle]}`}
-                  >
-                    {asset.lifecycle.replace("_", " ")}
-                  </span>
+                  <StatusBadge
+                    status={asset.lifecycle === 'active' ? 'active' : asset.lifecycle === 'scheduled_deletion' ? 'scheduled' : 'disabled'}
+                    label={asset.lifecycle === 'active' ? 'Aktif' : asset.lifecycle === 'scheduled_deletion' ? 'Dijadwalkan dihapus' : 'Deprecated'}
+                    labelPrefix="Asset lifecycle status"
+                    className="shrink-0"
+                  />
                 </div>
                 <p className="mt-2 truncate text-[10px] text-foreground-muted" title={`${asset.content_type || asset.kind} · v${asset.version || "1"}`}>
                   {asset.content_type || asset.kind} · v{asset.version || "1"}
