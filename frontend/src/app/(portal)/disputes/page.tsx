@@ -143,20 +143,13 @@ export default function DisputesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {filteredDisputes.map((dispute: any) => (
-            <motion.div 
+            <motion.button
+              type="button"
               key={dispute.id}
               whileHover={{ scale: 1.01 }}
-              role="button"
-              tabIndex={0}
               aria-label={`Buka detail dispute ${dispute.order_number || dispute.id}`}
-              className="p-6 bg-surface-raised rounded-[24px] border border-border hover:border-primary/30 transition-all cursor-pointer group"
+              className="w-full p-6 bg-surface-raised rounded-[24px] border border-border text-left hover:border-primary/30 transition-all cursor-pointer group"
               onClick={() => setSelectedDispute(dispute)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  setSelectedDispute(dispute);
-                }
-              }}
             >
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex-1 space-y-3">
@@ -182,7 +175,7 @@ export default function DisputesPage() {
                   <ChevronRight aria-hidden="true" size={20} className="text-muted-foreground group-hover:text-primary transition-all" />
                 </div>
               </div>
-            </motion.div>
+            </motion.button>
           ))}
         </div>
       )}
