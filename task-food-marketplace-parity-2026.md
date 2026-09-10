@@ -3044,7 +3044,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 >
 > **Style decision:** Customer Web menggunakan **Modern Marketplace / Calm Utility UI**: warm-neutral surfaces, green brand sebagai primary action, orange sebagai accent terbatas, medium information density, soft elevation, rounded but not playful, dan glass/transparency hanya untuk decorative/marketing surface yang contrast-nya dapat dijamin. Admin menggunakan **Modern Enterprise Operations Console**: solid surfaces, compact-but-readable density, hierarchy kuat, minimal decorative gradients/glass, tables/forms/status lebih dominan daripada decoration.
 
-> **Execution checkpoint 2026-09-11:** Part S continued beyond GLOB-2026-014. The latest local batch added a direct icon-only button source guard, contextual names/types for audited Customer/Admin actions, boolean switch state semantics, and labeled keyboard-reachable overflow regions for dense Admin tables. Customer `56/56` and Admin `142/142` local Chromium inventories pass. Remaining Part S checklist items stay explicitly unchecked where full route/state, visual, zoom, tooltip, provider-map or native/manual AT proof is still required; see the linked evidence documents.
+> **Execution checkpoint 2026-09-11:** Part S continued beyond GLOB-2026-014. The latest local batches added a direct icon-only button source guard, contextual names/types for audited Customer/Admin actions, boolean switch state semantics, labeled keyboard-reachable overflow regions for dense Admin tables, full-content title paths for audited dynamic truncation, shared order-status meaning markers, and a global non-color cursor cue for disabled controls. Customer `56/56` and Admin `142/142` local Chromium inventories pass, and Customer/Admin reflow suites pass `101/101` and `221/221`. Remaining Part S checklist items stay explicitly unchecked where full route/state, visual, zoom, tooltip, provider-map or native/manual AT proof is still required; see the linked evidence documents.
 
 ## S0 — Audited baseline / known visual risks
 
@@ -3351,7 +3351,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [x] Destructive Admin actions show icon + verb + target + impact; color alone is not confirmation. Evidence: `docs/task-evidence/A11Y-2026-005.md` (authenticated service-control confirmation matrix).
 - [x] `marketing_hide`, `new_order_gate`, `provider_gate`, `checkout_gate` remain visually/verbally distinct in both themes. Evidence: `docs/task-evidence/A11Y-2026-005.md` (authenticated Chromium impact-copy matrix).
 - [ ] Warning/error text meets contrast even on tinted semantic surfaces. Evidence: `docs/task-evidence/A11Y-2026-005.md` (global token guard passes; tinted-surface visual audit remains open).
-- [ ] Disabled state is visually distinct from enabled while preserving enough readability for context; do not use opacity so low that labels effectively disappear. Evidence: `docs/task-evidence/A11Y-2026-005.md` (source guard and 198-route runtime opacity floor pass; enabled-vs-disabled visual distinction remains open).
+- [ ] Disabled state is visually distinct from enabled while preserving enough readability for context; do not use opacity so low that labels effectively disappear. Evidence: `docs/task-evidence/A11Y-2026-005.md` (source guard, 198-route runtime opacity floor and global `cursor: not-allowed` cue assertions pass; enabled-vs-disabled composited visual distinction remains open).
 
 ---
 

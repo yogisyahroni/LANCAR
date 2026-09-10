@@ -197,6 +197,18 @@ body {
   color: var(--token-foreground);
 }
 
+/* Disabled controls keep a predictable non-color interaction cue in both
+   native and aria-disabled implementations. Component-level opacity classes
+   provide the visual reduction; this rule keeps the affordance consistent
+   where a control intentionally keeps full opacity for readability. */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
 /* Body-copy links keep a non-color affordance in every theme. Navigation and
    control links can opt out when their surrounding pattern already supplies
    the affordance. */

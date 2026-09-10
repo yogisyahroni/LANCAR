@@ -337,6 +337,10 @@ async function assertVisibleInteractiveNames(page: Page) {
         .filter(visible)
         .filter((element) => Number.parseFloat(getComputedStyle(element).opacity) < 0.6)
         .map((element) => ({ opacity: getComputedStyle(element).opacity, html: element.outerHTML.slice(0, 180) })),
+      disabledControlsWithoutCue: Array.from(document.querySelectorAll<HTMLElement>('[disabled], [aria-disabled="true"]'))
+        .filter(visible)
+        .filter((element) => getComputedStyle(element).cursor !== 'not-allowed')
+        .map((element) => ({ cursor: getComputedStyle(element).cursor, html: element.outerHTML.slice(0, 180) })),
       statusBadgesWithoutMeaning: Array.from(document.querySelectorAll<HTMLElement>('[data-status-badge="true"]'))
         .filter(visible)
         .filter((element) => !element.textContent?.trim() || !element.querySelector('svg'))
@@ -356,6 +360,7 @@ async function assertVisibleInteractiveNames(page: Page) {
     invalidSortStates: [],
     invalidControlledStates: [],
     lowReadabilityDisabledStates: [],
+    disabledControlsWithoutCue: [],
     statusBadgesWithoutMeaning: [],
   })
 }
