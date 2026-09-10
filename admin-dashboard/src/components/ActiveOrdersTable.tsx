@@ -274,11 +274,6 @@ function ProviderRawEventsPanel({ events }: { events: any[] }) {
   )
 }
 
-const stuckBadgeTone = (severity?: string | null) =>
-  severity === 'critical'
-    ? 'bg-error-surface border-error text-error'
-    : 'bg-warning-surface border-warning text-warning'
-
 type ReportProof = {
   label: string
   url?: string | null
@@ -626,9 +621,12 @@ function StuckDiagnosticsPanel({ orderDetail }: { orderDetail: any }) {
           <AlertCircle size={14} aria-hidden="true" />
           Stuck Diagnostics
         </p>
-        <span className={cn('px-3 py-1 rounded-full border text-[10px] font-black uppercase', stuckBadgeTone(orderDetail.stuck_severity))}>
-          {orderDetail.stuck_severity || 'warning'}
-        </span>
+        <StatusBadge
+          status={orderDetail.stuck_severity === 'critical' ? 'critical' : 'review'}
+          labelPrefix="Stuck severity"
+          label={orderDetail.stuck_severity === 'critical' ? 'Kritis' : 'Perlu review'}
+          className={orderDetail.stuck_severity === 'critical' ? 'border-error bg-error-surface' : 'border-warning bg-warning-surface'}
+        />
       </div>
       <div>
         <p className="text-sm font-black text-foreground-muted">{orderDetail.stuck_label || orderDetail.stuck_reason}</p>
@@ -1050,17 +1048,22 @@ export default function ActiveOrdersTable() {
                           (AUDIT-FIX: setelah aktivasi status berubah tapi scheduled_at
                           masih terisi → badge tidak boleh muncul di non-scheduled) */}
                       {order.status === 'scheduled' && order.scheduled_at && (
-                        <span className="text-[10px] font-bold bg-info/10 text-info border border-info/30 rounded-full px-2 py-0.5 ml-1">
-                          Terjadwal {formatScheduledTime(order.scheduled_at)}
-                        </span>
+                        <StatusBadge
+                          status="scheduled"
+                          labelPrefix="Order schedule"
+                          label={`Terjadwal ${formatScheduledTime(order.scheduled_at)}`}
+                          className="ml-1 border-info bg-info/10"
+                        />
                       )}
                     </div>
                     {order.stuck_reason && (
                       <div className="mt-2">
-                        <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest', stuckBadgeTone(order.stuck_severity))}>
-                          <AlertCircle aria-hidden="true" size={12} />
-                          {order.stuck_label || order.stuck_reason}
-                        </span>
+                        <StatusBadge
+                          status={order.stuck_severity === 'critical' ? 'critical' : 'review'}
+                          labelPrefix="Order risk"
+                          label={order.stuck_label || order.stuck_reason}
+                          className={order.stuck_severity === 'critical' ? 'border-error bg-error-surface' : 'border-warning bg-warning-surface'}
+                        />
                       </div>
                     )}
                     <p className="mt-2 text-sm text-foreground-muted font-bold">Payment: <StatusBadge status={order.payment_status || 'unrecorded'} labelPrefix="Payment status" className="ml-1" /></p>

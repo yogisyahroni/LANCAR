@@ -3054,6 +3054,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Remaining high-use Admin settings, order, courier, pricing, promo and merchant-staff form labels now use the readable `tracking-wide` hierarchy instead of uppercase/extreme tracking defaults. The expanded Admin route axe slice passes `42/42`; the full typography/manual review remains open.
 
+> **Execution checkpoint 2026-09-11 (continued):** Asset lifecycle and manifest usage states now use shared status markers with readable labels and Lucide icons, including live-reference protection; scheduled order and stuck severity/risk markers in Admin Orders use the same contract. Admin `/orders` and `/app-experience/assets` axe coverage passes `14/14`; live-data variants, visual contrast and manual assistive-technology review remain open.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

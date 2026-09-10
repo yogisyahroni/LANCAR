@@ -1,5 +1,5 @@
 import { createElement } from 'react'
-import { CheckCircle2, CircleHelp, Clock, Info, Loader2, ShieldCheck, XCircle, type LucideIcon } from 'lucide-react'
+import { CalendarClock, CheckCircle2, CircleHelp, Clock, Info, Loader2, ShieldCheck, XCircle, type LucideIcon } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 type StatusPresentation = {
@@ -34,6 +34,12 @@ export const getStatusPresentation = (status?: unknown): StatusPresentation => {
     case 'balanced':
     case 'submitted':
       return { label: normalized === 'paid' ? 'Sudah dibayar' : normalized === 'verified' ? 'Terverifikasi' : normalized === 'active' ? 'Aktif' : normalized === 'live' ? 'Live' : normalized === 'hired' ? 'Diterima' : normalized === 'approved' || normalized === 'approved_auto' ? 'Disetujui' : normalized === 'published' ? 'Dipublikasi' : normalized === 'sent' ? 'Terkirim' : normalized === 'enabled' ? 'Aktif' : normalized === 'ready' ? 'Siap' : normalized === 'balanced' ? 'Seimbang' : normalized === 'submitted' ? 'Dilaporkan' : normalized === 'closed' ? 'Ditutup' : normalized === 'resolved' ? 'Selesai' : 'Berhasil', icon: normalized === 'verified' ? ShieldCheck : CheckCircle2, className: 'text-success' }
+    case 'protected':
+      return { label: 'Dilindungi', icon: ShieldCheck, className: 'text-info' }
+    case 'deprecated':
+      return { label: 'Deprecated', icon: Info, className: 'text-foreground-muted' }
+    case 'scheduled_deletion':
+      return { label: 'Penghapusan terjadwal', icon: CalendarClock, className: 'text-warning' }
     case 'allow':
       return { label: 'Diizinkan', icon: CheckCircle2, className: 'text-success' }
     case 'failed':
