@@ -3126,6 +3126,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Admin Tax Center, App Experience Deep Links and standalone SLAConfig were audited for Part S across tax/reconciliation/withholding tables, typed route validation/deprecation metadata, SLA threshold controls, statuses, units and operational actions. Remaining sub-12px labels and extreme tracking were raised to the shared readable `text-xs`/`tracking-wide` hierarchy; table scopes and Lucide semantics remain intact. `/tax-center` plus registered `/app-experience/deep-links` axe coverage passes `8/8`, reflow/text-spacing passes `6/6`, typecheck/ESLint/iconography/table/diff guards pass. `SLAConfig.tsx` has no independently registered browser route, so its proof is source/typecheck-only. Full dynamic states, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Admin Driver Wallet Holds, Market Configuration and Courier Market Configuration were audited for Part S across wallet/penalty metadata, balance/hold labels, market/currency/tax/provider fields, compliance inputs and operational actions. Remaining sub-12px labels and extreme tracking were raised to the shared readable `text-xs`/`tracking-wide` hierarchy; field labels, Lucide semantics and route table behavior remain intact. The affected axe slice passes `6/6`, reflow/text-spacing passes `9/9`, typecheck/ESLint/iconography/table/diff guards pass. Full dynamic state, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

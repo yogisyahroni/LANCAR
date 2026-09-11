@@ -107,7 +107,7 @@ export default function DriverWalletHold() {
       {isLoading ? (
         <div className="glass-card rounded-3xl p-12 flex flex-col items-center justify-center space-y-4">
           <Loader2 className="w-8 h-8 text-primary animate-spin" aria-hidden="true" />
-          <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest">Loading wallet holds...</p>
+          <p className="text-xs font-bold text-foreground-muted uppercase tracking-wide">Loading wallet holds...</p>
         </div>
       ) : error ? (
         <div className="glass-card rounded-3xl p-8 border-error bg-error-surface text-error font-semibold text-center">
@@ -133,19 +133,19 @@ export default function DriverWalletHold() {
                     />
                   </div>
                   <p className="text-xs text-foreground-muted mt-1 font-mono">{d.phone || d.email || d.courier_id}</p>
-                  <p className="text-[11px] text-foreground-muted mt-0.5 capitalize">{d.vehicle_type || 'motor'} • {d.wallet_status}</p>
+                  <p className="text-xs text-foreground-muted mt-0.5 capitalize">{d.vehicle_type || 'motor'} • {d.wallet_status}</p>
                 </div>
                 <div className="flex gap-6 text-right">
                   <div>
-                    <div className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Saldo Bebas</div>
+                    <div className="text-xs font-black text-foreground-muted uppercase tracking-wide">Saldo Bebas</div>
                     <div className="text-sm font-bold text-foreground-muted mt-0.5">{formatIDR(d.balance)}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Hold</div>
+                    <div className="text-xs font-black text-foreground-muted uppercase tracking-wide">Hold</div>
                     <div className="text-sm font-bold text-warning mt-0.5">{formatIDR(d.hold_balance)}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Min. Hold</div>
+                    <div className="text-xs font-black text-foreground-muted uppercase tracking-wide">Min. Hold</div>
                     <div className="text-sm font-bold text-foreground-muted mt-0.5">{formatIDR(d.hold_minimum_required)}</div>
                   </div>
                 </div>
@@ -153,11 +153,11 @@ export default function DriverWalletHold() {
 
               {(d.penalties?.length || 0) > 0 && (
                 <div className="mt-5 border-t border-border pt-4 space-y-2">
-                  <div className="text-[10px] font-black text-foreground-muted uppercase tracking-widest mb-2">Riwayat Penalty</div>
+                  <div className="text-xs font-black text-foreground-muted uppercase tracking-wide mb-2">Riwayat Penalty</div>
                   {d.penalties!.map((p) => (
                     <div key={p.id} className="flex items-center justify-between gap-4 bg-surface/[0.02] rounded-xl px-4 py-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest font-mono">{p.order_id.slice(0, 8)}</span>
+                        <span className="text-xs font-black text-foreground-muted uppercase tracking-wide font-mono">{p.order_id.slice(0, 8)}</span>
                         <span className="text-xs font-bold text-foreground-muted">{violationLabel[p.violation_type] || p.violation_type}</span>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
@@ -171,7 +171,7 @@ export default function DriverWalletHold() {
                         {p.appeal_status === 'submitted' && (
                           <button
                             onClick={() => { setAppealAction(p); setNote(''); }}
-                            className="px-3 py-1.5 rounded-lg bg-surface-subtle border border-border text-[11px] font-bold text-foreground-muted hover:bg-surface-subtle transition-all active:scale-95"
+                            className="px-3 py-1.5 rounded-lg bg-surface-subtle border border-border text-xs font-bold text-foreground-muted hover:bg-surface-subtle transition-all active:scale-95"
                           >
                             Proses
                           </button>

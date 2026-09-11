@@ -129,7 +129,7 @@ export default function CourierMarketConfig() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.32em] text-primary-light">Courier Compliance Ops</p>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-light">Courier Compliance Ops</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-foreground-muted">Market & Localization</h1>
           <p className="mt-2 max-w-3xl text-sm text-foreground-muted">Atur kendaraan, dokumen, tax profile, payout method, currency, timezone, dan kebijakan cross-border. Perubahan requirement menaikkan kebutuhan re-verifikasi.</p>
         </div>
@@ -143,9 +143,9 @@ export default function CourierMarketConfig() {
             <p className="mt-1 text-xs text-foreground-muted">Market baru aktif tanpa assignment courier; vehicle, dokumen, tax, payout, dan verifikasi harus dikonfigurasi terlebih dahulu.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {(['market_code', 'country_code', 'currency_code', 'timezone', 'display_locale', 'policy_version'] as const).map((key) => (
-                <label key={key} className="space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">{key}</span><input className="w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted outline-none focus:border-primary" value={newMarket[key]} onChange={(event) => setNewMarket((current) => ({ ...current, [key]: event.target.value }))} /></label>
+                <label key={key} className="space-y-1"><span className="text-xs font-bold uppercase tracking-wide text-foreground-muted">{key}</span><input className="w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted outline-none focus:border-primary" value={newMarket[key]} onChange={(event) => setNewMarket((current) => ({ ...current, [key]: event.target.value }))} /></label>
               ))}
-              <label className="space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">currency minor unit</span><input className="w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted outline-none focus:border-primary" type="number" min="0" max="3" value={newMarket.currency_minor_unit} onChange={(event) => setNewMarket((current) => ({ ...current, currency_minor_unit: Number(event.target.value) }))} /></label>
+              <label className="space-y-1"><span className="text-xs font-bold uppercase tracking-wide text-foreground-muted">currency minor unit</span><input className="w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted outline-none focus:border-primary" type="number" min="0" max="3" value={newMarket.currency_minor_unit} onChange={(event) => setNewMarket((current) => ({ ...current, currency_minor_unit: Number(event.target.value) }))} /></label>
             </div>
             <button disabled={createMarket.isPending} onClick={() => createMarket.mutate()} className="mt-4 flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary disabled:opacity-60"><Globe2 className="h-4 w-4" aria-hidden="true" /> {createMarket.isPending ? 'Membuat…' : 'Buat market'}</button>
           </section>}
@@ -161,20 +161,20 @@ export default function CourierMarketConfig() {
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary-light"><Globe2 className="h-5 w-5" aria-hidden="true" /></div>
                     <div>
                       <h2 className="text-xl font-black text-foreground">{config.market_code}</h2>
-                      <p className="text-xs uppercase tracking-widest text-foreground-muted">{config.country_code} · {config.courier_count || 0} courier · {config.reverification_count || 0} perlu reverify</p>
+                      <p className="text-xs uppercase tracking-wide text-foreground-muted">{config.country_code} · {config.courier_count || 0} courier · {config.reverification_count || 0} perlu reverify</p>
                     </div>
                   </div>
                   {canEdit && <button onClick={() => updateMarket.mutate(draft)} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary hover:bg-primary-dark"><Save className="h-4 w-4" aria-hidden="true" /> Simpan</button>}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {(['country_code', 'currency_code', 'currency_minor_unit', 'timezone', 'display_locale', 'policy_version'] as const).map((key) => (
-                    <label key={key} className="space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">{key}</span><input className="w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted outline-none focus:border-primary" type={key === 'currency_minor_unit' ? 'number' : 'text'} value={draft[key]} onChange={(event) => update(key, key === 'currency_minor_unit' ? Number(event.target.value) : event.target.value)} /></label>
+                    <label key={key} className="space-y-1"><span className="text-xs font-bold uppercase tracking-wide text-foreground-muted">{key}</span><input className="w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted outline-none focus:border-primary" type={key === 'currency_minor_unit' ? 'number' : 'text'} value={draft[key]} onChange={(event) => update(key, key === 'currency_minor_unit' ? Number(event.target.value) : event.target.value)} /></label>
                   ))}
                   {(['required_vehicle_types', 'required_document_types', 'required_payout_methods'] as const).map((key) => (
-                    <label key={key} className="space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">{key.replaceAll('_', ' ')}</span><input className="w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted outline-none focus:border-primary" placeholder="pisahkan dengan koma" value={draft[key]} onChange={(event) => update(key, event.target.value)} /></label>
+                    <label key={key} className="space-y-1"><span className="text-xs font-bold uppercase tracking-wide text-foreground-muted">{key.replaceAll('_', ' ')}</span><input className="w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground-muted outline-none focus:border-primary" placeholder="pisahkan dengan koma" value={draft[key]} onChange={(event) => update(key, event.target.value)} /></label>
                   ))}
                 </div>
-                <label className="mt-3 block space-y-1"><span className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">required tax profile (JSON)</span><textarea className="min-h-20 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 font-mono text-xs text-foreground-muted outline-none focus:border-primary" value={draft.required_tax_profile} onChange={(event) => update('required_tax_profile', event.target.value)} /></label>
+                <label className="mt-3 block space-y-1"><span className="text-xs font-bold uppercase tracking-wide text-foreground-muted">required tax profile (JSON)</span><textarea className="min-h-20 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 font-mono text-xs text-foreground-muted outline-none focus:border-primary" value={draft.required_tax_profile} onChange={(event) => update('required_tax_profile', event.target.value)} /></label>
                 <div className="mt-4 flex flex-wrap gap-4 text-sm text-foreground-muted">
                   <label className="flex items-center gap-2"><input type="checkbox" checked={draft.cross_border_supported} onChange={(event) => update('cross_border_supported', event.target.checked)} /> Cross-border policy enabled</label>
                   <label className="flex items-center gap-2"><input type="checkbox" checked={draft.is_active} onChange={(event) => update('is_active', event.target.checked)} /> Market active</label>
