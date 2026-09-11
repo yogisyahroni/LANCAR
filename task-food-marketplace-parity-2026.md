@@ -3116,6 +3116,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Admin Vouchers and TariffEngine were audited for Part S across voucher lifecycle cards, discount/limit/redemption metadata, tariff rate cards, surcharge/insurance tables and live audit-log surfaces. Labels, helper/validation copy, status chips, table headers and actions now use the shared readable `text-xs` floor with `tracking-wide`. The `/vouchers` and `/tariff-engine` axe slice passes `4/4`, reflow/text-spacing passes `6/6`, and typecheck/ESLint/iconography/table/diff guards pass. Full dynamic data, modal, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Admin PaymentLinks, CostIntelligence and FeatureFlags were audited for Part S across payment-link pricing/destination/expiration cards, economics metrics/helper copy, feature-flag status/change-log tables and actions. Operational labels, metadata, chips and controls now use the shared readable `text-xs` floor with restrained tracking while identifiers retain scoped data presentation. The `/cost-intelligence`, `/payment-links` and `/app-experience/feature-flags` axe slice passes `6/6`, reflow/text-spacing passes `10/10`, and typecheck/ESLint/iconography/table/diff guards pass. Full dynamic economics/payment/flag states, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

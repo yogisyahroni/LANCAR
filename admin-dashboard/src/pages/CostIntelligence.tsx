@@ -885,7 +885,7 @@ export default function CostIntelligence() {
                 <h3 className="text-sm font-semibold text-success uppercase tracking-wider flex items-center gap-2">
                   <Truck className="h-4 w-4 text-success" aria-hidden="true" />
                   6. Parameter Logistik & Spread Aggregator
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-success-surface text-success border border-success">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-surface text-success border border-success">
                     Auto-Synced dari Modul Pricing & Ekspedisi
                   </span>
                 </h3>
@@ -1081,7 +1081,7 @@ export default function CostIntelligence() {
                 <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-success" aria-hidden="true" /> AI Predictive BEP & Payback ROI
                 </h3>
-                <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-success-surface text-success border border-success">
+                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-success-surface text-success border border-success">
                   Standar 2026
                 </span>
               </div>
@@ -1110,24 +1110,24 @@ export default function CostIntelligence() {
 
                   <div className="grid grid-cols-2 gap-3 pt-1">
                     <div className="p-3 rounded-lg bg-surface-subtle border border-border">
-                      <span className="text-[11px] text-foreground-muted block">Minimal Order / Hari</span>
+                      <span className="text-xs text-foreground-muted block">Minimal Order / Hari</span>
                       <span className="text-lg font-extrabold text-warning">
                         {bepOrdersDaily > 0 ? `${bepOrdersDaily} order/hari` : bepOrdersDaily === -1 ? 'Merugi Terus' : '0 order/hari'}
                       </span>
                     </div>
 
                     <div className="p-3 rounded-lg bg-surface-subtle border border-border">
-                      <span className="text-[11px] text-foreground-muted block">Target Omzet / Hari</span>
+                      <span className="text-xs text-foreground-muted block">Target Omzet / Hari</span>
                       <span className="text-lg font-extrabold text-info">{formatIDR(dailyTargetRevenueIdr)}</span>
                     </div>
 
                     <div className="p-3 rounded-lg bg-surface-subtle border border-border">
-                      <span className="text-[11px] text-foreground-muted block">Target Laba Bersih / Hari</span>
+                      <span className="text-xs text-foreground-muted block">Target Laba Bersih / Hari</span>
                       <span className="text-lg font-extrabold text-success">{formatIDR(dailyTargetNetProfitIdr)}</span>
                     </div>
 
                     <div className="p-3 rounded-lg bg-surface-subtle border border-border">
-                      <span className="text-[11px] text-foreground-muted block">Rata-Rata Transaksi Minimal</span>
+                      <span className="text-xs text-foreground-muted block">Rata-Rata Transaksi Minimal</span>
                       <span className="text-lg font-extrabold text-accent">{formatIDR(minAverageTicketPerOrder)}</span>
                     </div>
                   </div>
@@ -1159,7 +1159,7 @@ export default function CostIntelligence() {
                 <div className="p-4 rounded-xl bg-surface-subtle border border-border space-y-2.5">
                   <div className="flex items-center justify-between border-b border-border pb-2">
                     <span className="text-xs font-bold text-warning">ON-DEMAND (KURIR LANGSUNG)</span>
-                    <span className="text-[10px] text-warning bg-warning-surface px-2 py-0.5 rounded border border-warning">
+                    <span className="text-xs text-warning bg-warning-surface px-2 py-0.5 rounded border border-warning">
                       Kurir {100 - sampleCourierCommissionPct}% • Platform {sampleCourierCommissionPct}%
                     </span>
                   </div>
@@ -1170,13 +1170,13 @@ export default function CostIntelligence() {
                         <span>Tarif Jarak Kurir</span>
                         <span className="text-foreground-muted font-medium">{formatIDR(sampleCustomerOngkir)}</span>
                       </div>
-                      <div className="text-[10px] text-foreground-muted flex justify-between mt-0.5 pl-2">
+                      <div className="text-xs text-foreground-muted flex justify-between mt-0.5 pl-2">
                         <span>↳ Hak Kurir ({100 - sampleCourierCommissionPct}%): {formatIDR(sampleCourierPayoutIdr)}</span>
                         <span className="text-warning">↳ Komisi Platform ({sampleCourierCommissionPct}%): {formatIDR(sampleCourierTakeRateIdr)}</span>
                       </div>
                     </div>
                     <div className="flex justify-between text-foreground-muted">
-                      <span>Platform Layanan (Fee) <span className="text-[10px] text-foreground-muted">(100% Platform)</span></span>
+                      <span>Platform Layanan (Fee) <span className="text-xs text-foreground-muted">(100% Platform)</span></span>
                       <span className="text-foreground-muted font-medium">{formatIDR(simulatedOnDemandFee)}</span>
                     </div>
                     <div className="flex justify-between text-foreground-muted">
@@ -1190,7 +1190,7 @@ export default function CostIntelligence() {
                     <span className="text-sm font-black text-warning">{formatIDR(onDemandCustomerTotal)}</span>
                   </div>
 
-                  <div className="p-2.5 rounded-lg bg-warning-surface border border-warning space-y-1 text-[11px]">
+                  <div className="p-2.5 rounded-lg bg-warning-surface border border-warning space-y-1 text-xs">
                     <div className="flex justify-between text-warning">
                       <span>2 Sumber Revenue (Fee + Komisi {sampleCourierCommissionPct}%)</span>
                       <span className="font-semibold text-warning">{formatIDR(sampleOnDemandGrossRevenueIdr)}</span>
@@ -1206,7 +1206,7 @@ export default function CostIntelligence() {
                 <div className="p-4 rounded-xl bg-surface-subtle border border-border space-y-2.5">
                   <div className="flex items-center justify-between border-b border-border pb-2">
                     <span className="text-xs font-bold text-success">AGGREGATOR (JNE/J&T/SICEPAT)</span>
-                    <span className="text-[10px] text-foreground-muted">Ekspedisi Logistik</span>
+                    <span className="text-xs text-foreground-muted">Ekspedisi Logistik</span>
                   </div>
 
                   <div className="space-y-1.5 text-xs">
@@ -1229,7 +1229,7 @@ export default function CostIntelligence() {
                     <span className="text-sm font-black text-success">{formatIDR(aggregatorCustomerTotal)}</span>
                   </div>
 
-                  <div className="p-2 rounded bg-success-surface border border-success flex justify-between items-center text-[11px]">
+                  <div className="p-2 rounded bg-success-surface border border-success flex justify-between items-center text-xs">
                     <span className="text-success">Net Profit Platform/Order</span>
                     <span className="font-bold text-foreground">{formatIDR(netProfitPerOrderAggregator)}</span>
                   </div>

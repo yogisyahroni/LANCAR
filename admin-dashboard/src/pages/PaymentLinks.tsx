@@ -38,7 +38,7 @@ function PaymentLinkDataState({ title, message, onRetry, tone = 'muted' }: { tit
     )}>
       <AlertCircle className={cn("mx-auto", isError ? "text-error" : "text-foreground-muted")} size={48} aria-hidden="true" />
       <div>
-        <p className="text-foreground-muted font-black italic uppercase tracking-widest">{title}</p>
+      <p className="text-foreground-muted font-black italic uppercase tracking-wide">{title}</p>
         <p className="text-xs text-foreground-muted mt-2">{message}</p>
       </div>
       {onRetry && (
@@ -46,7 +46,7 @@ function PaymentLinkDataState({ title, message, onRetry, tone = 'muted' }: { tit
           type="button"
           onClick={onRetry}
           className={cn(
-            "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all",
+            "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-xs font-black uppercase tracking-wide transition-all",
             isError ? "bg-error-surface border-error text-error hover:bg-error-surface" : "bg-surface-subtle border-border text-foreground-muted hover:text-foreground"
           )}
         >
@@ -128,7 +128,7 @@ export default function PaymentLinks() {
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+          className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-wide hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
         >
           <Plus size={18} aria-hidden="true" />
           Create Link
@@ -191,7 +191,7 @@ export default function PaymentLinks() {
                     <div>
                         <h4 className="font-bold text-foreground-muted text-lg">{link.item_name}</h4>
                         <p className="text-sm font-medium text-foreground-muted mt-1">Item: <span className="text-success font-bold">Rp {link.item_price?.toLocaleString()}</span></p>
-                        <p className="text-[10px] text-foreground-muted mt-2 italic font-medium">
+                        <p className="text-xs text-foreground-muted mt-2 italic font-medium">
                         Ongkir Estimate: Rp {link.delivery_fee_amount?.toLocaleString() || 0}
                         </p>
                     </div>
@@ -201,7 +201,7 @@ export default function PaymentLinks() {
 
               <div className="grid grid-cols-2 gap-8 mt-8 pt-8 border-t border-border relative z-10">
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                    <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
                        <MapPin size={12} aria-hidden="true" /> Destination
                     </p>
                     <p className="text-xs font-bold text-foreground-muted mt-3 tracking-tight line-clamp-2" title={link.dropoff_address}>
@@ -209,13 +209,13 @@ export default function PaymentLinks() {
                     </p>
                  </div>
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                    <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
                        <Clock size={12} aria-hidden="true" /> Expiration
                     </p>
                     <p className="text-xs font-bold text-foreground-muted mt-3">{format(new Date(link.expired_at), 'dd MMM yyyy HH:mm')}</p>
                     <div className="flex items-center gap-1.5 mt-2">
                        <p className={cn(
-                         "text-[10px] font-black uppercase tracking-wider",
+                         "text-xs font-black uppercase tracking-wider",
                          !isExpired ? "text-primary-light" : "text-error"
                        )}>
                         {!isExpired ? 'Active' : 'Expired'}
@@ -229,7 +229,7 @@ export default function PaymentLinks() {
                    onClick={() => handleCopy(link.id, link.payment_url)}
                    disabled={isExpired || isPaid}
                    className={cn(
-                       "flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border flex items-center justify-center gap-2",
+                       "flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-wide transition-all border flex items-center justify-center gap-2",
                        copiedId === link.id ? "bg-success-surface text-success border-success" : "bg-surface-subtle text-foreground-muted hover:bg-primary/20 hover:text-primary-light border-border hover:border-primary/20",
                        (isExpired || isPaid) ? "opacity-60 cursor-not-allowed" : ""
                    )}
@@ -244,7 +244,7 @@ export default function PaymentLinks() {
         {!isError && (!filteredLinks || filteredLinks.length === 0) && (
           <div className="col-span-full py-20 text-center space-y-4 glass-card rounded-[40px] border-dashed border-border">
             <LinkIcon className="mx-auto text-foreground-muted" size={48} aria-hidden="true" />
-            <p className="text-foreground-muted font-black italic uppercase tracking-widest">
+            <p className="text-foreground-muted font-black italic uppercase tracking-wide">
               No payment links generated yet
             </p>
           </div>
@@ -411,7 +411,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
             </div>
 
             <div className="space-y-2 col-span-2 border-t border-border pt-6">
-              <h3 className="text-xs font-black text-foreground-muted uppercase tracking-widest mb-4">Origin & Destination</h3>
+              <h3 className="text-xs font-black text-foreground-muted uppercase tracking-wide mb-4">Origin & Destination</h3>
             </div>
 
             <div className="space-y-2 col-span-2">
@@ -448,7 +448,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
             <div className="flex gap-4">
               <button 
                 onClick={onClose}
-                className="px-8 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
+                className="px-8 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-wide hover:text-foreground transition-all"
               >
                 Cancel
               </button>
@@ -464,7 +464,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                   !formData.item_image_url || 
                   !formData.service_code
                 }
-                className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {(isSaving || isGeocoding) ? <Loader2 className="animate-spin" size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
                 {isGeocoding ? 'Mencari Titik...' : 'Generate Link'}

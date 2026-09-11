@@ -167,7 +167,7 @@ export default function FeatureFlags() {
               <thead>
                 <tr className="border-b border-border bg-surface/[0.01]">
                   {['Flag', 'Kategori', 'Status'].map((head) => (
-                    <th key={head} scope="col" className="px-6 py-5 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">
+                    <th key={head} scope="col" className="px-6 py-5 text-xs font-black text-foreground-muted uppercase tracking-wide">
                       {head}
                     </th>
                   ))}
@@ -186,11 +186,11 @@ export default function FeatureFlags() {
                   <tr>
                     <td colSpan={3} className="px-8 py-16 text-center space-y-3">
                       <AlertCircle className="w-8 h-8 mx-auto text-error"  aria-hidden="true"/>
-                      <p className="text-xs font-black uppercase tracking-widest text-foreground-muted">Feature flags gagal dimuat</p>
+                      <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Feature flags gagal dimuat</p>
                       <button
                         type="button"
                         onClick={() => flagsQuery.refetch()}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-error-surface border border-error text-error text-xs font-black uppercase tracking-wide hover:bg-error-surface transition-all"
                       >
                         <RefreshCw size={13} aria-hidden="true" />
                         Retry
@@ -203,14 +203,14 @@ export default function FeatureFlags() {
                       <td className="px-6 py-5 max-w-md">
                         <p className="text-sm font-black text-foreground-muted">{flag.name || flag.key}</p>
                         {flag.name && flag.name !== flag.key && (
-                          <p className="text-[10px] text-foreground-muted font-mono mt-0.5">{flag.key}</p>
+                          <p className="text-xs text-foreground-muted font-mono mt-0.5">{flag.key}</p>
                         )}
                         {flag.description && (
                           <p className="text-xs text-foreground-muted mt-1 line-clamp-1" title={flag.description}>{flag.description}</p>
                         )}
                       </td>
                       <td className="px-6 py-5">
-                        <span className="px-2.5 py-1 rounded-lg bg-surface-raised text-foreground-muted border border-border text-[9px] font-black uppercase tracking-widest">
+                        <span className="px-2.5 py-1 rounded-lg bg-surface-raised text-foreground-muted border border-border text-xs font-black uppercase tracking-wide">
                           {flag.category || 'Umum'}
                         </span>
                       </td>
@@ -239,7 +239,7 @@ export default function FeatureFlags() {
                           />
                           <span
                             className={cn(
-                              'text-[9px] font-black uppercase tracking-widest',
+                              'text-xs font-black uppercase tracking-wide',
                               flag.is_enabled ? 'text-success' : 'text-foreground-muted',
                             )}
                           >
@@ -253,7 +253,7 @@ export default function FeatureFlags() {
                   <tr>
                     <td colSpan={3} className="px-8 py-20 text-center space-y-3">
                       <Flag className="mx-auto text-foreground-muted" size={44} aria-hidden="true" />
-                      <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">
+                      <p className="text-foreground-muted font-black uppercase tracking-wide text-xs">
                         Tidak ada feature flag yang cocok.
                       </p>
                     </td>
@@ -266,7 +266,7 @@ export default function FeatureFlags() {
 
         {/* Change Log Panel */}
         <aside aria-labelledby="ff-changelog-title" className="glass-card rounded-[40px] border-border p-8 xl:sticky xl:top-4">
-          <h2 id="ff-changelog-title" className="text-sm font-black uppercase tracking-[0.22em] text-foreground-muted flex items-center gap-2">
+          <h2 id="ff-changelog-title" className="text-sm font-black uppercase tracking-wide text-foreground-muted flex items-center gap-2">
             <History size={15} aria-hidden="true" /> Change Log
           </h2>
           {auditLogsQuery.isLoading ? (
@@ -286,13 +286,13 @@ export default function FeatureFlags() {
                   key={String(log.id ?? i)}
                   className="rounded-2xl bg-surface/[0.03] border border-border p-4"
                 >
-                  <p className="text-[11px] font-black text-foreground-muted truncate" title={(log.action as string)?.replace(/_/g, ' ') || 'perubahan'}>
+                  <p className="text-xs font-black text-foreground-muted truncate" title={(log.action as string)?.replace(/_/g, ' ') || 'perubahan'}>
                     {(log.action as string)?.replace(/_/g, ' ') || 'perubahan'}
                   </p>
-                  <p className="text-[10px] text-foreground-muted mt-1 line-clamp-2" title={log.payload?.reason || log.reason || (typeof log.payload === 'string' ? log.payload : '') || '—'}>
+                  <p className="text-xs text-foreground-muted mt-1 line-clamp-2" title={log.payload?.reason || log.reason || (typeof log.payload === 'string' ? log.payload : '') || '—'}>
                     {log.payload?.reason || log.reason || (typeof log.payload === 'string' ? log.payload : '') || '—'}
                   </p>
-                  <p className="text-[9px] text-foreground-muted font-bold uppercase tracking-widest mt-2">
+                  <p className="text-xs text-foreground-muted font-bold uppercase tracking-wide mt-2">
                     {log.actor_name || log.actor_id || 'sistem'} •{' '}
                     {log.created_at ? new Date(log.created_at).toLocaleString('id-ID') : ''}
                   </p>
@@ -375,7 +375,7 @@ export default function FeatureFlags() {
                   onClick={submitToggle}
                   disabled={toggleMutation.isPending || !canMutate}
                   className={cn(
-                    'inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest text-foreground transition-colors disabled:opacity-60',
+                    'inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wide text-foreground transition-colors disabled:opacity-60',
                     toggleTarget.is_enabled ? 'bg-error hover:bg-error' : 'bg-success hover:bg-success',
                   )}
                 >
