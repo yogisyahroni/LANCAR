@@ -236,6 +236,30 @@ test('Customer orders table exposes selected-row semantics and deliberate overfl
   }
 })
 
+test('Customer notification switches expose named checked state and keyboard activation in both themes @a11y', async ({ page }) => {
+  await installCustomerSessionFixture(page)
+  await page.goto('/profil', { waitUntil: 'domcontentloaded' })
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((selectedTheme) => window.localStorage.setItem('tembus-theme', selectedTheme), theme)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: 'Preferensi Notif' }).click()
+
+    const whatsappSwitch = page.getByRole('switch', { name: 'Notifikasi WhatsApp' })
+    const emailSwitch = page.getByRole('switch', { name: 'Laporan via email' })
+    await expect(whatsappSwitch).toHaveAttribute('aria-checked', 'true')
+    await expect(emailSwitch).toHaveAttribute('aria-checked', 'false')
+    await whatsappSwitch.focus()
+    await expect(whatsappSwitch).toBeFocused()
+    await page.keyboard.press('Space')
+    await expect(whatsappSwitch).toHaveAttribute('aria-checked', 'false')
+    await expect(page.getByText('Tingkat Detail Informasi WA:')).not.toBeVisible()
+    await emailSwitch.focus()
+    await page.keyboard.press('Space')
+    await expect(emailSwitch).toHaveAttribute('aria-checked', 'true')
+  }
+})
+
 test('Customer receipt status keeps the same readable status contract @a11y', async ({ page }) => {
   await installCustomerSessionFixture(page, {
     detailOrder: {

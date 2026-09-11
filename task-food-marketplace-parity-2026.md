@@ -3182,6 +3182,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-006 row-state contract is now shared across Customer/Admin tables. Both global stylesheets provide hover, focus-within outline and `aria-selected` leading-boundary cues; the new `scripts/a11y/check-table-state-cues.mjs` guard is wired into staging and both production web jobs. Customer and Admin Orders Light/Dark fixtures each pass `1/1`, including the explicit 2px focus outline and selected-row boundary proof; typecheck, focused ESLint, table semantics/overflow, iconography, color and diff guards pass. Horizontal-overflow inventory and visual/manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-004 choice-control semantics are now guarded. Customer Profile WhatsApp and Email toggles now use native buttons with `role="switch"`, accessible names, `aria-checked` and matching titles; `scripts/a11y/check-switch-semantics.mjs` enforces that contract across Customer/Admin source and is wired into staging plus both production web jobs. Customer Light/Dark keyboard activation passes `1/1`, Admin Feature Flag switch keyboard/focus restoration passes `1/1`, Customer Profile axe passes `6/6`, Admin Feature Flag axe passes `4/4`, and typecheck/lint/native/form/disabled guards pass. Full workflow, modal, dropdown and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
@@ -3473,7 +3475,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Dropdown/menu/select is keyboard navigable and dismissible.
 - [ ] All inputs have programmatic + visible label; required/optional semantics clear. Source guard `scripts/a11y/check-form-control-labels.mjs` proves persistent programmatic labels across Customer/Admin native controls; audited required fields across Customer Products/Location Request, Admin Login/Analytics/Chart of Accounts/News/App Experience/force-cancel/deep-link plus earlier HR Jobs, manual Orders, Forgot PIN, Meeting Points and Merchant Settlements now expose visible `(wajib)` plus `aria-required="true"`. Remaining required controls, optional-field copy and full workflow proof remain open. Evidence: `docs/task-evidence/A11Y-2026-004.md`.
 - [ ] Error message associated to field with `aria-describedby`/equivalent where appropriate. `scripts/a11y/check-invalid-descriptions.mjs` now guards every source control using `aria-invalid`; complete dynamic route/state and manual AT proof remains open. Evidence: `docs/task-evidence/A11Y-2026-002.md` and `docs/task-evidence/A11Y-2026-004.md`.
-- [ ] Checkbox/radio/switch expose name, role, state and disabled state correctly.
+- [x] Checkbox/radio/switch expose name, role, state and disabled state correctly. Evidence: `docs/task-evidence/A11Y-2026-004.md`, `scripts/a11y/check-switch-semantics.mjs`, native-control/form-label guards, and Customer/Admin keyboard fixtures.
 - [ ] Icon-only controls have accessible name. Evidence: `docs/task-evidence/A11Y-2026-004.md` (audited Customer/Admin controls and route inventories pass; complete conditional-control matrix remains open).
 - [x] Skip-to-content or equivalent exists for long Customer/Admin shell navigation where appropriate.
 

@@ -836,7 +836,12 @@ export default function ProfilPage() {
                         <p className="text-xs text-muted-foreground select-none">Dapatkan ringkasan update status langsung via pesan WhatsApp.</p>
                       </div>
                       <button
+                        type="button"
                         onClick={() => setWaEnabled(!waEnabled)}
+                        role="switch"
+                        aria-checked={waEnabled}
+                        aria-label="Notifikasi WhatsApp"
+                        title={waEnabled ? 'Nonaktifkan notifikasi WhatsApp' : 'Aktifkan notifikasi WhatsApp'}
                         className="cursor-pointer select-none"
                       >
                         {waEnabled ? <ToggleRight className="h-7 w-7 text-primary" aria-hidden="true" /> : <ToggleLeft className="h-7 w-7 text-muted-foreground" aria-hidden="true" />}
@@ -873,7 +878,12 @@ export default function ProfilPage() {
                       <p className="text-xs text-muted-foreground select-none">Kirimkan rincian bukti manifest dan faktur biaya ke email Anda.</p>
                     </div>
                     <button
+                      type="button"
                       onClick={() => setEmailEnabled(!emailEnabled)}
+                      role="switch"
+                      aria-checked={emailEnabled}
+                      aria-label="Laporan via email"
+                      title={emailEnabled ? 'Nonaktifkan laporan via email' : 'Aktifkan laporan via email'}
                       className="cursor-pointer select-none"
                     >
                       {emailEnabled ? <ToggleRight className="h-7 w-7 text-primary" aria-hidden="true" /> : <ToggleLeft className="h-7 w-7 text-muted-foreground" aria-hidden="true" />}
