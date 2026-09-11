@@ -4,6 +4,7 @@ sealed class Screen(val route: String) {
     object Onboarding : Screen("onboarding")
     object AuthGraph : Screen("auth_graph")
     object Dashboard : Screen("dashboard")
+    object UniversalSearch : Screen("universal-search")
     object Booking : Screen("booking?open={open}&promo={promo}") {
         fun createRoute(open: String? = null, promoCode: String? = null): String {
             val query = mutableListOf<String>()
@@ -128,5 +129,4 @@ sealed class Screen(val route: String) {
     // C9: Loyalty
     object Loyalty : Screen("loyalty")
 }
-
 

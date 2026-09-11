@@ -41,7 +41,7 @@ import com.tembus.customer.data.config.model.ExperienceSection
 import com.tembus.customer.data.config.ExperienceBannerEvent
 import com.tembus.customer.data.config.ExperienceBannerEventType
 import com.tembus.customer.data.model.DeliveryServiceProduct
-import com.tembus.customer.ui.components.getServiceIcon
+import com.tembus.customer.ui.components.getTembusServiceIcon
 import com.tembus.customer.ui.experience.components.DynamicHeaderBanner
 import com.tembus.customer.ui.experience.components.DynamicPromoCard
 import com.tembus.customer.ui.experience.components.DynamicPromoCardModel
@@ -370,7 +370,7 @@ private fun DynamicServiceCard(
                 Modifier.fillMaxWidth().padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Icon(getServiceIcon(service.code), contentDescription = presentation.label ?: service.name, modifier = Modifier.size(28.dp))
+                Icon(getTembusServiceIcon(service.code), contentDescription = presentation.label ?: service.name, modifier = Modifier.size(28.dp))
                 Spacer(Modifier.height(6.dp))
                 Text(presentation.label ?: service.name, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (!compact) {

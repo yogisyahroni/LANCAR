@@ -86,6 +86,7 @@ import com.tembus.customer.ui.screens.food.MerchantDetailScreen
 import com.tembus.customer.ui.screens.history.OrderHistoryScreen
 import com.tembus.customer.ui.screens.history.OrderHistoryViewModel
 import com.tembus.customer.ui.screens.main.DashboardScreen
+import com.tembus.customer.ui.screens.main.TembusUniversalSearchScreen
 import com.tembus.customer.ui.screens.notifications.NotificationCenterScreen
 import com.tembus.customer.ui.screens.onboarding.OnboardingScreen
 import com.tembus.customer.ui.screens.payment.PaymentScreen
@@ -280,7 +281,25 @@ fun RootNavGraph(
                     onHomeClick = {
                         navController.popBackStack(Screen.Dashboard.route, inclusive = false)
                             ?: navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
-                    }
+                    },
+                    onSearchClick = { navController.navigate(Screen.UniversalSearch.route) },
+                )
+            }
+
+            composable(Screen.UniversalSearch.route) {
+                TembusUniversalSearchScreen(
+                    onBack = { navController.popBackStack() },
+                    onServiceSelected = { open ->
+                        when (val destination = dashboardServiceDestination(open)) {
+                            is DashboardServiceDestination.ServiceBooking -> navController.navigate(Screen.ServiceBooking.createRoute(destination.serviceSubType))
+                            DashboardServiceDestination.TambalBan -> navController.navigate(Screen.TambalBanHome.route)
+                            DashboardServiceDestination.Towing -> navController.navigate(Screen.ServiceCategory.route)
+                            DashboardServiceDestination.FoodHome -> navController.navigate(Screen.FoodHome.route)
+                            DashboardServiceDestination.FoodFavorites -> navController.navigate(Screen.FoodFavorites.route)
+                            DashboardServiceDestination.Aggregator -> navController.navigate(Screen.Booking.createRoute("aggregator"))
+                            is DashboardServiceDestination.GenericBooking -> navController.navigate(Screen.Booking.createRoute(destination.serviceCode))
+                        }
+                    },
                 )
             }
 

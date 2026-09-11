@@ -156,6 +156,7 @@ fun DashboardScreen(
     onHomeClick: () -> Unit = {},
     onFoodClick: () -> Unit = {},
     onIncomingClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {},
     onRemoteAction: (RemoteDeepLinkTarget) -> Unit = {},
 ) {
     HomeStatusBarIcons()
@@ -246,12 +247,25 @@ fun DashboardScreen(
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     item {
-                        GojekTopBar(
+                        TembusHomeTopBar(
                             customerName = customerName.orEmpty().ifBlank { "Pelanggan" },
                             notificationUnreadCount = notificationUnreadCount,
                             onNotificationsClick = onNotificationsClick,
-                            onProfileClick = onProfileClick
+                            onProfileClick = onProfileClick,
+                            onSearchClick = onSearchClick,
                         )
+                    }
+
+                    item {
+                        if (incomingPackages.isNotEmpty()) {
+                            IncomingPackagesSection(
+                                packages = incomingPackages,
+                                hasUnreadMessage = hasUnreadMessages,
+                                onTrackingClick = onTrackingClick,
+                                onChatClick = onChatClick,
+                                onViewAllClick = onIncomingClick,
+                            )
+                        }
                     }
 
                     item {
@@ -260,7 +274,7 @@ fun DashboardScreen(
 
                     item {
                         if (experienceSnapshot.manifest.sections.isEmpty()) {
-                            GojekServiceGrid(
+                            TembusHomeServiceGrid(
                                 onPickupClick = { onBookingClick("pickup") }, // Gabung ambil/kirim
                                 onFoodClick = onFoodClick,
                                 showFood = foodEntryEnabled,
@@ -299,17 +313,6 @@ fun DashboardScreen(
                         NotificationPermissionPromptCard(
                             onEnable = { notificationPermissionState?.launchPermissionRequest() },
                             onDismiss = { showNotificationPermissionPrompt = false }
-                        )
-                    }
-                }
-
-                if (incomingPackages.isNotEmpty()) {
-                    item {
-                        IncomingPackagesSection(
-                            packages = incomingPackages,
-                            hasUnreadMessage = hasUnreadMessages,
-                            onTrackingClick = onTrackingClick,
-                            onChatClick = onChatClick
                         )
                     }
                 }
@@ -455,11 +458,12 @@ private fun DashboardSectionHeader(title: String, subtitle: String) {
 }
 
 @Composable
-private fun GojekTopBar(
+private fun TembusHomeTopBar(
     customerName: String,
     notificationUnreadCount: Int,
     onNotificationsClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onSearchClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -469,7 +473,14 @@ private fun GojekTopBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
-            modifier = Modifier.weight(1f).height(42.dp),
+            modifier = Modifier
+                .weight(1f)
+                .height(42.dp)
+                .clickable(role = Role.Button, onClick = onSearchClick)
+                .semantics {
+                    contentDescription = "$customerName. Cari layanan atau pesanan"
+                    role = Role.Button
+                },
             shape = RoundedCornerShape(21.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
@@ -569,7 +580,7 @@ private fun WalletAction(icon: ImageVector, label: String) {
 }
 
 @Composable
-private fun GojekServiceGrid(
+private fun TembusHomeServiceGrid(
     onPickupClick: () -> Unit,
     onFoodClick: () -> Unit,
     showFood: Boolean = true,
@@ -584,32 +595,40 @@ private fun GojekServiceGrid(
         Text("Layanan utama TEMBUS, satu tap ke pesanan.", color = Muted, fontSize = 12.sp)
         Spacer(Modifier.height(12.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GojekServiceTile("Paket Instan", Icons.Default.LocalShipping, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onPickupClick, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile("Paket Instan", Icons.Default.LocalShipping, TembusHomeServiceTone.Primary, onPickupClick, modifier = Modifier.weight(1f))
             if (showFood) {
-                GojekServiceTile("Food", Icons.Default.Restaurant, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.onTertiary, onFoodClick, modifier = Modifier.weight(1f))
+                TembusHomeServiceTile("Food", Icons.Default.Restaurant, TembusHomeServiceTone.Food, onFoodClick, modifier = Modifier.weight(1f))
             }
-            GojekServiceTile("Ekspedisi\nAntar-Kota", Icons.Default.LocalShipping, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, onAggregatorClick, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile("Ekspedisi\nAntar-Kota", Icons.Default.LocalShipping, TembusHomeServiceTone.Secondary, onAggregatorClick, modifier = Modifier.weight(1f))
         }
         Spacer(Modifier.height(14.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GojekServiceTile("Tambal Ban", Icons.Default.Build, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, onTambalBanClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
-            GojekServiceTile("Towing", Icons.Default.DirectionsCar, MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, onTowingClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile("Tambal Ban", Icons.Default.Build, TembusHomeServiceTone.Emergency, onTambalBanClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile("Towing", Icons.Default.DirectionsCar, TembusHomeServiceTone.Towing, onTowingClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
             Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
 
+private enum class TembusHomeServiceTone { Primary, Food, Secondary, Emergency, Towing }
+
 @Composable
-private fun GojekServiceTile(
+private fun TembusHomeServiceTile(
     label: String,
     icon: ImageVector,
-    bgColor: Color,
-    iconColor: Color,
+    tone: TembusHomeServiceTone,
     onClick: () -> Unit,
     badge: String? = null,
     emergency: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val (bgColor, iconColor) = when (tone) {
+        TembusHomeServiceTone.Primary -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
+        TembusHomeServiceTone.Food -> MaterialTheme.colorScheme.tertiary to MaterialTheme.colorScheme.onTertiary
+        TembusHomeServiceTone.Secondary -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+        TembusHomeServiceTone.Emergency -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        TembusHomeServiceTone.Towing -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+    }
     Column(
         modifier = modifier
             .semantics {
@@ -874,7 +893,8 @@ private fun IncomingPackagesSection(
     packages: List<Order>,
     hasUnreadMessage: Boolean,
     onTrackingClick: (String) -> Unit,
-    onChatClick: (String) -> Unit
+    onChatClick: (String) -> Unit,
+    onViewAllClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -888,6 +908,9 @@ private fun IncomingPackagesSection(
             }
             if (hasUnreadMessage) {
                 UnreadDot(modifier = Modifier.padding(end = 8.dp))
+            }
+            TextButton(onClick = onViewAllClick) {
+                Text("Lihat semua", color = LcGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             Surface(
                 color = MaterialTheme.colorScheme.secondaryContainer,

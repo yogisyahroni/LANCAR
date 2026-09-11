@@ -13,10 +13,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 
 // ============================================================
-// CUSTOM ICONS — Tambal Ban & Towing
+// TEMBUS SERVICE ICONS — shared service vocabulary for Home and App Experience
 // ============================================================
 
-object ServiceIcons {
+object TembusServiceIcons {
     // Package services
     val PaketInstan: ImageVector = Icons.Default.LocalShipping
     val EkspedisiAntarKota: ImageVector = Icons.Default.LocalShipping
@@ -41,13 +41,13 @@ object ServiceIcons {
 }
 
 @Composable
-fun getServiceIcon(serviceCode: String): ImageVector {
+fun getTembusServiceIcon(serviceCode: String): ImageVector {
     return when (serviceCode) {
-        "tambal_ban_motor" -> ServiceIcons.TambalBanMotor
-        "tambal_ban_mobil" -> ServiceIcons.TambalBanMobil
-        "towing_motor" -> ServiceIcons.TowingMotor
-        "towing_mobil" -> ServiceIcons.TowingMobil
-        "food_delivery", "food" -> ServiceIcons.Food
-        else -> ServiceIcons.Motor
+        "tambal_ban_motor" -> TembusServiceIcons.TambalBanMotor
+        "tambal_ban_mobil" -> TembusServiceIcons.TambalBanMobil
+        "towing_motor" -> TembusServiceIcons.TowingMotor
+        "towing_mobil" -> TembusServiceIcons.TowingMobil
+        "food_delivery", "food" -> TembusServiceIcons.Food
+        else -> TembusServiceIcons.Motor
     }
 }

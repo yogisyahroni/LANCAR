@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.sp
 import com.tembus.customer.data.model.DeliveryServiceProduct
 
 // ============================================================
-// SERVICE GRID MENU — Gojek-style 3x2 Grid
+// TEMBUS SERVICE GRID MENU — responsive service discovery grid
 // ============================================================
 
 @Composable
@@ -97,7 +97,7 @@ fun ServiceGridMenu(
                         title = "Ekspedisi Antar-Kota",
                         subtitle = "Hemat • ETA terjadwal",
                         icon = Icons.Default.LocalShipping,
-                        color = Color(0xFFE8EAF6),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
                         onClick = { onServiceClick(it.code) },
                         modifier = Modifier.weight(1f)
                     )
@@ -107,7 +107,7 @@ fun ServiceGridMenu(
                     ServiceGridItem(
                         service = it,
                         icon = Icons.Default.TwoWheeler,
-                        color = Color(0xFFE8F5E9), // Light green
+                        color = MaterialTheme.colorScheme.primaryContainer,
                         onClick = { onServiceClick(it.code) },
                         modifier = Modifier.weight(1f)
                     )
@@ -126,7 +126,7 @@ fun ServiceGridMenu(
                     ServiceGridItem(
                         service = it,
                         icon = Icons.Default.DirectionsCar,
-                        color = Color(0xFFE3F2FD),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
                         onClick = { onServiceClick(it.code) },
                         modifier = Modifier.weight(1f)
                     )
@@ -136,7 +136,7 @@ fun ServiceGridMenu(
                     ServiceGridItem(
                         service = it,
                         icon = Icons.Default.LocalShipping,
-                        color = Color(0xFFFFF3E0), // Light orange
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
                         onClick = { onServiceClick(it.code) },
                         modifier = Modifier.weight(1f)
                     )
@@ -146,7 +146,7 @@ fun ServiceGridMenu(
                     ServiceGridItem(
                         service = it,
                         icon = Icons.Default.LocalShipping,
-                        color = Color(0xFFFCE4EC), // Light pink
+                        color = MaterialTheme.colorScheme.errorContainer,
                         onClick = { onServiceClick(it.code) },
                         modifier = Modifier.weight(1f)
                     )
@@ -164,7 +164,7 @@ fun ServiceGridMenu(
                     ServiceGridItem(
                         service = it,
                         icon = Icons.Default.Restaurant,
-                        color = Color(0xFFFFF8E1), // Light amber
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
                         onClick = { onServiceClick(it.code) },
                         modifier = Modifier.weight(1f)
                     )
@@ -174,7 +174,7 @@ fun ServiceGridMenu(
                 ServiceGridItemFixed(
                     label = "Favorit",
                     icon = Icons.Default.Favorite,
-                    color = Color(0xFFFCE4EC), // Light pink
+                    color = MaterialTheme.colorScheme.errorContainer,
                     onClick = onFavoritesClick,
                     modifier = Modifier.weight(1f)
                 )
@@ -220,7 +220,7 @@ private fun ServiceGridItem(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color.White.copy(alpha = 0.7f)),
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -279,7 +279,7 @@ private fun ServiceGridItemFixed(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color.White.copy(alpha = 0.7f)),
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
