@@ -3184,6 +3184,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-004 choice-control semantics are now guarded. Customer Profile WhatsApp and Email toggles now use native buttons with `role="switch"`, accessible names, `aria-checked` and matching titles; `scripts/a11y/check-switch-semantics.mjs` enforces that contract across Customer/Admin source and is wired into staging plus both production web jobs. Customer Light/Dark keyboard activation passes `1/1`, Admin Feature Flag switch keyboard/focus restoration passes `1/1`, Customer Profile axe passes `6/6`, Admin Feature Flag axe passes `4/4`, and typecheck/lint/native/form/disabled guards pass. Full workflow, modal, dropdown and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S ICON-2026-003 table-row icon actions are now source-guarded. `scripts/a11y/check-table-row-action-semantics.mjs` rejects decorative-icon buttons inside table rows unless they retain an accessible or visible name, and staging plus both production web jobs run the guard. The Admin Cases fixture proves a named `Open CASE-ROW-001` action accepts focus with a visible focus ring and Enter opens its named detail dialog (`1/1`); the registered `/cases` axe route passes `2/2`. The full canonical page-title/action and destructive workflow inventories remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
@@ -3460,7 +3462,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 **Checklist**
 - [ ] One concept has one canonical icon throughout sidebar, page title and actions unless context materially changes meaning. Evidence: `docs/task-evidence/ICON-2026-003.md` (audited action batch updated; full page-title/action inventory remains open).
 - [ ] Avoid multiple near-identical icons for destructive actions; delete/cancel/block must be semantically explicit with labels/confirmation. Evidence: `docs/task-evidence/ICON-2026-003.md` (audited row/destructive controls named; complete workflow inventory remains open).
-- [ ] Table row action icons expose accessible names and keyboard focus. Evidence: `docs/task-evidence/ICON-2026-003.md` (audited Admin row actions named and route inventory passes; all stateful rows remain open).
+- [x] Table row action icons expose accessible names and keyboard focus. Evidence: `docs/task-evidence/ICON-2026-003.md` (AST guard covers Customer/Admin source; Admin Cases keyboard fixture passes `1/1`).
 - [x] Collapsed sidebar provides tooltip/accessibility name for every icon. Evidence: `docs/task-evidence/ICON-2026-003.md`
 
 ---

@@ -42,6 +42,69 @@ test('Admin login keeps the primary form keyboard reachable and announces auth e
   await expect(page.getByRole('button', { name: /sign in to console/i })).toBeFocused();
 });
 
+test('Admin support case row action keeps its name, focus, and Enter activation @keyboard @a11y', async ({ page }) => {
+  const supportCase = {
+    id: 'case-row-action-fixture',
+    case_number: 'CASE-ROW-001',
+    category: 'order',
+    subject: 'Keyboard row action fixture',
+    description: 'A deterministic support case for keyboard verification.',
+    service_code: 'food_delivery',
+    market_code: 'ID',
+    priority: 'high',
+    status: 'open',
+    assigned_to_name: 'Accessibility Fixture',
+    escalation_level: 0,
+    sla_due_at: '2026-09-12T00:00:00.000Z',
+    sla_breached: false,
+    links: [],
+    events: [],
+    policy: { allowedActions: [], suggestedActions: [], reason: 'Fixture policy.' },
+    authoritative: {},
+  };
+
+  await page.route('**/*', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.pathname.endsWith('/auth/web/me')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ user: { id: 'case-row-keyboard-fixture', name: 'Case Row Fixture', role: 'super_admin', permissions: [] } }),
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/support/cases')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [supportCase], total: 1 }) });
+      return;
+    }
+    if (url.pathname.endsWith(`/admin/support/cases/${supportCase.id}`)) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: supportCase }) });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/dashboard/events')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return;
+    }
+    if (request.resourceType() === 'xhr' || request.resourceType() === 'fetch') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto('/cases', { waitUntil: 'domcontentloaded' });
+  const action = page.getByRole('button', { name: 'Open CASE-ROW-001' });
+  await expect(action).toBeVisible();
+  await expect(action).toHaveAttribute('title', 'Open CASE-ROW-001');
+  await action.focus();
+  await expect(action).toBeFocused();
+  await expect.poll(() => action.evaluate((element) => getComputedStyle(element).outlineWidth)).not.toBe('0px');
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByRole('dialog', { name: 'Keyboard row action fixture' })).toBeVisible();
+});
+
 test('Admin collapsed sidebar preserves names, current location and focus @keyboard', async ({ page }) => {
   await page.route('**/*', async (route) => {
     const url = route.request().url();

@@ -50,6 +50,8 @@ jobs:
         run: node scripts/a11y/check-iconography.mjs
       - name: Iconography exception guard
         run: node scripts/a11y/check-iconography-exceptions.mjs
+      - name: Table-row action semantics guard
+        run: node scripts/a11y/check-table-row-action-semantics.mjs
       - name: Native control guard
         run: node scripts/a11y/check-native-controls.mjs
       - name: Invalid-field description guard
