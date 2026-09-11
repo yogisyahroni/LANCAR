@@ -3959,7 +3959,16 @@ Known cleanup:
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/main/DashboardScreen.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/ServiceGridMenu.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/ServiceIcons.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/main/TembusUniversalSearchScreen.kt`
 - runtime Experience components from `APP-2026-*`
+
+**Status:** COMPLETE
+
+**Evidence:** `docs/task-evidence/DS-2026-006.md`
+
+**Implementation:** `66c63a57`
+
+**Last updated:** 2026-09-11
 
 **Canonical Home information hierarchy**
 1. identity/context + universal search
@@ -3973,12 +3982,12 @@ Known cleanup:
 9. navigation
 
 **Checklist**
-- [ ] Home does not become a vertical Food clone; it represents all LANCAR services.
-- [ ] Active-order/recovery information outranks monetization.
-- [ ] Universal search understands service intent or routes to a safe service-aware result.
-- [ ] `GojekTopBar`, `GojekServiceGrid` and similar benchmark-specific internal names are renamed to LANCAR design-system terminology.
-- [ ] Home layout can be server-configured only through whitelisted LANCAR components from App Experience.
-- [ ] Paid modules remain visually bounded by `ADS-2026-004` inventory rules.
+- [x] Home does not become a vertical Food clone; it represents all LANCAR services.
+- [x] Active-order/recovery information outranks monetization.
+- [x] Universal search understands service intent or routes to a safe service-aware result.
+- [x] `GojekTopBar`, `GojekServiceGrid` and similar benchmark-specific internal names are renamed to LANCAR design-system terminology.
+- [x] Home layout can be server-configured only through whitelisted LANCAR components from App Experience.
+- [x] Paid modules remain visually bounded by `ADS-2026-004` inventory rules.
 
 ---
 
