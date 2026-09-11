@@ -1515,9 +1515,10 @@ export default function ActiveOrdersTable() {
               </div>
 
               <label className="block space-y-2">
-                <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">Reason (min. 10 karakter)</span>
+                <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">Reason (min. 10 karakter) (wajib)</span>
                 <textarea
                   required
+                  aria-required="true"
                   minLength={10}
                   value={forceCancelReason}
                   onChange={(event) => setForceCancelReason(event.target.value)}

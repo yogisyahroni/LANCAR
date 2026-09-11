@@ -188,7 +188,7 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
         <label className="block">
           <span className="mb-2 flex items-center gap-2 text-sm font-bold text-foreground-muted">
             <MapPin className="h-4 w-4 text-accent" aria-hidden="true" />
-            Alamat penerima
+            Alamat penerima (wajib)
           </span>
           <textarea
             value={address}
@@ -196,6 +196,7 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
             className="min-h-28 w-full rounded-2xl border border-border bg-surface px-4 py-3 text-base text-foreground-muted outline-none transition focus:border-success focus:ring-4 focus:ring-focus-ring"
             placeholder="Nama gedung, jalan, nomor, patokan, kecamatan, kota"
             required
+            aria-required="true"
           />
         </label>
 

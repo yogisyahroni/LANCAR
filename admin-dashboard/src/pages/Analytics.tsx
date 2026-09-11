@@ -172,11 +172,12 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-sm font-bold text-foreground-muted ml-1">Report Name</label>
+                <label className="text-sm font-bold text-foreground-muted ml-1">Report Name (wajib)</label>
                 <input 
                   type="text"
                   required
-                  aria-label="Report name"
+                  aria-label="Report name (wajib)"
+                  aria-required="true"
                   placeholder="e.g. Weekly SLA Summary"
                   className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted placeholder:text-foreground-muted focus:outline-none focus:border-primary/50 transition-all"
                   value={formData.name}
@@ -199,11 +200,12 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-foreground-muted ml-1">Time (UTC)</label>
+                  <label className="text-sm font-bold text-foreground-muted ml-1">Time (UTC) (wajib)</label>
                   <input 
                     type="time"
-                    aria-label="Time (UTC)"
+                    aria-label="Time (UTC) (wajib)"
                     required
+                    aria-required="true"
                     className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted focus:outline-none focus:border-primary/50 transition-all"
                     value={formData.time_slot}
                     onChange={e => setFormData({ ...formData, time_slot: e.target.value })}
@@ -228,10 +230,11 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
               )}
 
               <div className="space-y-2">
-                <label className="text-sm font-bold text-foreground-muted ml-1">Recipients (Comma Separated)</label>
+                <label className="text-sm font-bold text-foreground-muted ml-1">Recipients (Comma Separated) (wajib)</label>
                 <textarea 
                   required
-                  aria-label="Report recipients"
+                  aria-label="Report recipients (wajib)"
+                  aria-required="true"
                   placeholder="admin@tembus.id, analyst@tembus.id"
                   className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted placeholder:text-foreground-muted focus:outline-none focus:border-primary/50 transition-all min-h-[100px]"
                   value={formData.recipient_emails}

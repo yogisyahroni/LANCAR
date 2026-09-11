@@ -242,12 +242,13 @@ export default function ChartOfAccounts() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {!editingAccount && (
                   <div>
-                    <label className="block text-sm font-medium text-foreground-muted">Account Code</label>
+                    <label className="block text-sm font-medium text-foreground-muted">Account Code (wajib)</label>
                     <input
                       type="text"
                       required
+                      aria-required="true"
                       value={accountCode}
-                      aria-label="Account code"
+                      aria-label="Account code (wajib)"
                       onChange={(e) => setAccountCode(e.target.value)}
                       className="mt-1 block w-full rounded-md border border-border px-3 py-2 text-foreground-muted shadow-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info sm:text-sm"
                       placeholder="e.g. 1001"
@@ -256,12 +257,13 @@ export default function ChartOfAccounts() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground-muted">Account Name</label>
+                  <label className="block text-sm font-medium text-foreground-muted">Account Name (wajib)</label>
                   <input
                     type="text"
                     required
+                    aria-required="true"
                     value={accountName}
-                    aria-label="Account name"
+                    aria-label="Account name (wajib)"
                     onChange={(e) => setAccountName(e.target.value)}
                     className="mt-1 block w-full rounded-md border border-border px-3 py-2 text-foreground-muted shadow-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info sm:text-sm"
                     placeholder="e.g. Cash Main"

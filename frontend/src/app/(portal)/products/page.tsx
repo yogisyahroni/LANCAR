@@ -398,12 +398,13 @@ export default function ProductsPage() {
               <div className="p-6 overflow-y-auto">
                 <form id="productForm" onSubmit={handleSaveProduct} className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Nama Produk <span className="text-destructive">*</span></label>
+                    <label className="text-sm font-medium">Nama Produk (wajib)</label>
                     <input
                       required
+                      aria-required="true"
                       type="text"
                       value={itemName}
-                      aria-label="Nama Produk"
+                      aria-label="Nama Produk (wajib)"
                       onChange={(e) => setItemName(e.target.value)}
                       placeholder="Contoh: Kemeja Pria Lengan Panjang"
                       className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
@@ -423,14 +424,15 @@ export default function ProductsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Berat (Kg) <span className="text-destructive">*</span></label>
+                      <label className="text-sm font-medium">Berat (Kg) (wajib)</label>
                       <input
                         required
+                        aria-required="true"
                         type="number"
                         step="0.01"
                         min="0"
                         value={weightKg}
-                        aria-label="Berat (Kg)"
+                        aria-label="Berat (Kg) (wajib)"
                         onChange={(e) => setWeightKg(e.target.value)}
                         placeholder="0.5"
                         className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
@@ -439,13 +441,14 @@ export default function ProductsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Harga Barang (Rp) <span className="text-destructive">*</span></label>
+                    <label className="text-sm font-medium">Harga Barang (Rp) (wajib)</label>
                     <input
                       required
+                      aria-required="true"
                       type="number"
                       min="0"
                       value={itemValue}
-                      aria-label="Harga Barang (Rp)"
+                      aria-label="Harga Barang (Rp) (wajib)"
                       onChange={(e) => setItemValue(e.target.value)}
                       placeholder="150000"
                       className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"

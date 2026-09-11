@@ -225,11 +225,12 @@ export default function News() {
             <div className="p-6 overflow-y-auto flex-1">
               <form id="news-form" onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground-muted mb-1.5">Judul</label>
+                  <label className="block text-sm font-medium text-foreground-muted mb-1.5">Judul (wajib)</label>
                   <input
                     type="text"
-                    aria-label="Judul"
+                    aria-label="Judul (wajib)"
                     required
+                    aria-required="true"
                     value={formData.title}
                     onChange={e => setFormData({ ...formData, title: e.target.value })}
                     className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-primary"
@@ -282,10 +283,11 @@ export default function News() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground-muted mb-1.5">Konten</label>
+                  <label className="block text-sm font-medium text-foreground-muted mb-1.5">Konten (wajib)</label>
                   <textarea
-                    aria-label="Konten"
+                    aria-label="Konten (wajib)"
                     required
+                    aria-required="true"
                     rows={8}
                     value={formData.content}
                     onChange={e => setFormData({ ...formData, content: e.target.value })}

@@ -637,9 +637,11 @@ export default function AppExperienceOverview() {
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <label className="text-xs font-bold tracking-wide text-foreground-muted">
-            Country / market
+            Country / market (wajib)
             <input
               required
+              aria-required="true"
+              aria-label="Country / market (wajib)"
               value={filters.market_code}
               onChange={(event) =>
                 updateFilter("market_code", event.target.value)

@@ -133,7 +133,7 @@ export default function Login() {
 
             <form onSubmit={handleLogin} className="space-y-6">
               <div className="space-y-2">
-                <label htmlFor="admin-login-email" className="text-sm font-medium text-foreground-muted ml-1">Email Address</label>
+                <label htmlFor="admin-login-email" className="text-sm font-medium text-foreground-muted ml-1">Email Address (wajib)</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-foreground-muted group-focus-within:text-primary-light transition-colors">
                     <Mail className="h-5 w-5" aria-hidden="true" />
@@ -143,6 +143,7 @@ export default function Login() {
                     type="email" 
                     name="email"
                     required
+                    aria-required="true"
                     aria-invalid={error ? 'true' : 'false'}
                     aria-describedby={error ? 'admin-login-error' : undefined}
                     autoComplete="email"
@@ -153,7 +154,7 @@ export default function Login() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="admin-login-password" className="text-sm font-medium text-foreground-muted ml-1">Password</label>
+                <label htmlFor="admin-login-password" className="text-sm font-medium text-foreground-muted ml-1">Password (wajib)</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-foreground-muted group-focus-within:text-primary-light transition-colors">
                     <Lock className="h-5 w-5" aria-hidden="true" />
@@ -163,6 +164,7 @@ export default function Login() {
                     type="password" 
                     name="password"
                     required
+                    aria-required="true"
                     aria-invalid={error ? 'true' : 'false'}
                     aria-describedby={error ? 'admin-login-error' : undefined}
                     autoComplete="current-password"
