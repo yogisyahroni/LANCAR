@@ -150,7 +150,7 @@ internal fun OnDemandSupportActions(
             Text("Laporkan kendala pekerjaan", fontWeight = FontWeight.Bold)
         }
         // SOS: text button merah tegas (ikon + label) — penting, tapi bukan blok merah
-        // yang mendominasi & berisiko salah tekan (standar Gojek/Grab).
+        // yang mendominasi dan berisiko salah tekan.
         TextButton(
             onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)

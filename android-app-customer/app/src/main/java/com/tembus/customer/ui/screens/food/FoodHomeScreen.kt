@@ -16,24 +16,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import com.tembus.customer.ui.localization.CustomerText as Text
 import com.tembus.customer.ui.localization.CustomerTextCatalog
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -53,10 +47,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.R
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.Primary
-import com.tembus.customer.ui.theme.TembusRadius
 import com.tembus.customer.ui.designsystem.commerce.TembusMerchantCard
 import com.tembus.customer.ui.designsystem.commerce.TembusSponsoredMerchantCard
 import com.tembus.customer.ui.designsystem.commerce.toTembusMerchantCardModel
+import com.tembus.customer.ui.designsystem.TembusButton
+import com.tembus.customer.ui.designsystem.TembusButtonVariant
+import com.tembus.customer.ui.designsystem.TembusChip
+import com.tembus.customer.ui.designsystem.TembusIconButton
+import com.tembus.customer.ui.designsystem.TembusSearchField
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -105,18 +103,24 @@ fun FoodHomeScreen(
                     .padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"), tint = Primary)
-                }
+                TembusIconButton(
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = CustomerTextCatalog.translate("Kembali"),
+                    onClick = onBack,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Food Delivery", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
                     Text("Merchant terdekat", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 // Cart badge
                 Box {
-                    IconButton(onClick = onCartClick) {
-                        Icon(Icons.Default.ShoppingCart, contentDescription = CustomerTextCatalog.translate("Keranjang"), tint = Primary)
-                    }
+                    TembusIconButton(
+                        icon = Icons.Default.ShoppingCart,
+                        contentDescription = CustomerTextCatalog.translate("Keranjang"),
+                        onClick = onCartClick,
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                    )
                     if (cartSize > 0) {
                         Box(
                             modifier = Modifier
@@ -141,16 +145,14 @@ fun FoodHomeScreen(
         ) {
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             // Search bar
-            OutlinedTextField(
+            TembusSearchField(
                 value = searchQuery,
                 onValueChange = ::onSearchChange,
+                label = "Cari makanan",
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Cari makanan atau merchant...", fontSize = 14.sp) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                singleLine = true,
-                shape = RoundedCornerShape(TembusRadius.Input)
+                placeholder = "Cari makanan atau merchant...",
             )
 
             // ── ADR 003: filter halal ──
@@ -162,20 +164,20 @@ fun FoodHomeScreen(
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                FilterChip(
+                TembusChip(
+                    label = "Semua",
                     selected = halalFilter == "all",
                     onClick = { viewModel.setHalalFilter("all") },
-                    label = { Text("Semua", fontSize = 12.sp) }
                 )
-                FilterChip(
+                TembusChip(
+                    label = "Halal",
                     selected = halalFilter == "halal_certified",
                     onClick = { viewModel.setHalalFilter("halal_certified") },
-                    label = { Text("Halal", fontSize = 12.sp) }
                 )
-                FilterChip(
+                TembusChip(
+                    label = "Non-Halal",
                     selected = halalFilter == "non_halal",
                     onClick = { viewModel.setHalalFilter("non_halal") },
-                    label = { Text("Non-Halal", fontSize = 12.sp) }
                 )
             }
 
@@ -195,10 +197,10 @@ fun FoodHomeScreen(
                     ),
                     key = { it.first },
                 ) { (sort, label) ->
-                    FilterChip(
+                    TembusChip(
+                        label = label,
                         selected = discoverySort == sort,
                         onClick = { viewModel.setDiscoverySort(sort) },
-                        label = { Text(label, fontSize = 12.sp) },
                     )
                 }
             }
@@ -214,9 +216,11 @@ fun FoodHomeScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Gagal memuat merchant", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(8.dp))
-                            TextButton(onClick = { viewModel.loadMerchants(initialLat, initialLng, searchQuery.trim()) }) {
-                                Text("Coba lagi", color = Primary)
-                            }
+                            TembusButton(
+                                text = "Coba lagi",
+                                onClick = { viewModel.loadMerchants(initialLat, initialLng, searchQuery.trim()) },
+                                variant = TembusButtonVariant.Text,
+                            )
                         }
                     }
                 }

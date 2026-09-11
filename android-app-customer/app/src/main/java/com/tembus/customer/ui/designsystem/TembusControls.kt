@@ -284,7 +284,12 @@ fun TembusChip(
         onClick = onClick,
         enabled = enabled,
         label = { Text(label) },
-        modifier = modifier.heightIn(min = 48.dp),
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .semantics {
+                role = Role.Button
+                this.selected = selected
+            },
         leadingIcon = leadingIcon?.let { icon -> { Icon(icon, contentDescription = "") } },
         trailingIcon = trailingIcon?.let { icon -> { Icon(icon, contentDescription = "") } },
         colors = AssistChipDefaults.assistChipColors(

@@ -534,7 +534,7 @@ fun Order.cleanPayoutIdr(): Int {
 }
 
 /**
- * Estimasi pendapatan bersih kurir (standar Gojek/Grab — tampil di halaman
+ * Estimasi pendapatan bersih kurir (standar payout TEMBUS — tampil di halaman
  * offer & navigasi). Untuk home service (tambal_ban/towing) pendapatan =
  * jasa + travel − komisi platform (dari travel fee saja), sesuai
  * settlement_snapshot.pricing_breakdown yang dikirim backend.

@@ -15,7 +15,8 @@ import kotlinx.coroutines.launch
 /**
  * EditOrderViewModel — FB-087: merchant mengubah item order food sebelum konfirmasi.
  * Load GET /merchant/orders/{id}/items → edit qty lokal → PUT items baru.
- * Backend menerapkan Grab pattern: nilai baru TIDAK boleh melebihi order awal.
+ * Backend menerapkan bounded adjustment policy: nilai baru tidak boleh
+ * melebihi order awal.
  */
 class EditOrderViewModel(
     private val merchantRepository: MerchantRepository,

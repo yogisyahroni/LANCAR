@@ -1031,7 +1031,7 @@ internal fun OnDemandOfferDialog(
 /**
  * Swipe-to-Accept track widget untuk on-demand order offer.
  *
- * Pattern dari Grab/Gojek/Uber Driver: swipe gesture (drag dari kiri ke kanan)
+ * Swipe gesture pada offer card (drag dari kiri ke kanan).
  * untuk mengurangi risiko accidental accept saat kurir riding.
  *
  * - Threshold: 80% lebar track

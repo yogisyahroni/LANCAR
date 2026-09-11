@@ -216,7 +216,7 @@ internal fun PayoutBalanceCard(
             }
 
             // 🎨 HERO CARD — saldo utama dalam satu modul gradasi (standar driver-wallet 2025/26:
-            // Uber/Gojek menampilkan saldo sebagai fokus utama dengan hierarchy tegas)
+            // Saldo tetap menjadi fokus utama dengan hierarchy tegas.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

@@ -55,9 +55,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
@@ -65,6 +62,8 @@ import androidx.compose.material3.Surface
 import com.tembus.customer.ui.localization.CustomerText as Text
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 import com.tembus.customer.ui.components.TembusServiceIcons
+import com.tembus.customer.ui.designsystem.TembusBottomNavigation
+import com.tembus.customer.ui.designsystem.TembusNavigationItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.TextButton
@@ -375,38 +374,19 @@ private fun SharedTransitionScope.CustomerNavigation(
                 }
             }
         } else {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
-                items.forEach { item ->
-                    NavigationBarItem(
-                        icon = {
-                            Icon(
-                                item.icon,
-                                contentDescription = item.label,
-                                modifier = if (selected == item.key) Modifier.sharedElement(
-                                    rememberSharedContentState("customer-selected-tab-icon"),
-                                    this@AnimatedContent
-                                ) else Modifier
-                            )
-                        },
-                        label = { Text(item.label) },
+            TembusBottomNavigation(
+                items = items.map { item ->
+                    TembusNavigationItem(
+                        label = item.label,
+                        icon = item.icon,
                         selected = selected == item.key,
                         onClick = { onSelect(item.key); item.onClick() },
-                        colors = tembusNavigationColors()
                     )
-                }
-            }
+                },
+            )
         }
     }
 }
-
-@Composable
-private fun tembusNavigationColors() = NavigationBarItemDefaults.colors(
-    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-    selectedTextColor = MaterialTheme.colorScheme.primary,
-    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-)
 
 @Composable
 private fun UnreadDot(modifier: Modifier = Modifier) {

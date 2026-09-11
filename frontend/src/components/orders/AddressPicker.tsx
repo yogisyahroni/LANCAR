@@ -501,7 +501,7 @@ export function AddressPicker({
             {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden="true" />}
           </div>
           <div className="flex flex-wrap gap-2">
-            {/* Tombol lokasi saat ini — tersedia untuk pickup DAN dropoff (UX Gojek/Grab) */}
+            {/* Tombol lokasi saat ini — tersedia untuk pickup dan dropoff */}
             <button
               type="button"
               data-testid={`${mode}-current-location-button`}
