@@ -182,7 +182,7 @@ export default function Merchants() {
 
       {/* A2: filter jenis usaha merchant (perorangan / perusahaan) */}
       <div className="flex items-center gap-2">
-        <span className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Jenis</span>
+        <span className="text-xs font-bold uppercase tracking-wide text-foreground-muted">Jenis</span>
         <select
           aria-label="Filter merchants by business type"
           value={businessType}
@@ -274,7 +274,7 @@ export default function Merchants() {
             <div className="space-y-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Merchant</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">Merchant</p>
                   <h2 className="mt-1 text-2xl font-bold text-foreground-muted">{active.nama_toko}</h2>
                   <p className="mt-1 text-sm text-foreground-muted">{active.alamat}</p>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs">
@@ -395,7 +395,7 @@ export default function Merchants() {
               )}
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Requirement verifikasi market</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">Requirement verifikasi market</p>
                 {(detail?.verification_requirements || []).length === 0 ? (
                   <p className="mt-2 text-sm text-warning">Tidak ada requirement aktif untuk market ini; aktivasi akan ditolak aman.</p>
                 ) : (
@@ -414,7 +414,7 @@ export default function Merchants() {
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="rounded-2xl border border-border bg-surface-subtle p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-foreground-muted">Profil legal & payout</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">Profil legal & payout</p>
                   <dl className="mt-3 space-y-2 text-sm">
                     <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Badan usaha</dt><dd className="text-right text-foreground-muted">{merchantDetail?.legal_entity_type || merchantDetail?.business_type || '—'}</dd></div>
                     <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Nama legal</dt><dd className="text-right text-foreground-muted">{merchantDetail?.legal_name || merchantDetail?.nama_toko || '—'}</dd></div>
@@ -423,7 +423,7 @@ export default function Merchants() {
                   </dl>
                 </div>
                 <div className="rounded-2xl border border-border bg-surface-subtle p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-foreground-muted">Commercial terms food</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">Commercial terms food</p>
                   <dl className="mt-3 space-y-2 text-sm">
                     <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Contract version</dt><dd className="text-right text-foreground-muted">{merchantDetail?.commercial_contract_version || 'Belum ada contract approved'}</dd></div>
                     <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Effective from</dt><dd className="text-right text-foreground-muted">{merchantDetail?.commercial_contract_effective_from ? new Date(merchantDetail.commercial_contract_effective_from).toLocaleString('id-ID') : '—'}</dd></div>
@@ -433,7 +433,7 @@ export default function Merchants() {
               </div>
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Dokumen Verifikasi</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">Dokumen Verifikasi</p>
                 {documents.length === 0 ? (
                   <p className="mt-2 text-sm text-foreground-muted">Belum ada dokumen.</p>
                 ) : (
@@ -459,7 +459,7 @@ export default function Merchants() {
               </div>
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Menu ({(Array.isArray(menuItems) ? menuItems.length : 0)} item)</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">Menu ({(Array.isArray(menuItems) ? menuItems.length : 0)} item)</p>
                 {!hasMenu ? (
                   <p className="mt-2 text-sm text-foreground-muted">Belum ada menu.</p>
                 ) : (
@@ -472,7 +472,7 @@ export default function Merchants() {
                         </div>
                         <div className="flex items-center gap-3">
                           <span className={cn(
-                            'rounded-full px-2 py-1 text-[10px] font-bold uppercase',
+                            'rounded-full px-2 py-1 text-xs font-bold uppercase',
                             item.is_available ? 'bg-success-surface text-success' : 'bg-surface-subtle text-foreground-muted'
                           )}>
                             {item.is_available ? 'Tersedia' : 'Habis'}

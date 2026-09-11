@@ -458,7 +458,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
             >
               <div className="flex items-center justify-between gap-3">
                 <Tags className="h-4 w-4 text-primary-light" aria-hidden="true" />
-                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-bold">{count}</span>
+                <span className="rounded-full border border-border px-2 py-0.5 text-xs font-bold">{count}</span>
               </div>
               <p className="mt-3 text-sm font-bold">{category.label}</p>
               <p className="mt-1 line-clamp-2 text-xs text-foreground-muted" title={category.description}>{category.description}</p>
@@ -510,7 +510,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
                     />
                   </div>
                   <p className="mt-1 line-clamp-2 text-xs text-foreground-muted" title={service.description}>{service.description}</p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-foreground-muted">
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-foreground-muted">
                     <span className="rounded-full border border-border px-2 py-1">{displayLabel(service.service_category || 'on_demand', serviceCategories)}</span>
                     <span className="rounded-full border border-border px-2 py-1">{displayLabel(service.service_family, serviceFamilies)}</span>
                     <span className="rounded-full border border-border px-2 py-1">{service.route_model}</span>
@@ -526,7 +526,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
         <div className="rounded-3xl border border-border bg-surface/[0.03] p-6">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-foreground-muted">{form.code || 'new_service'}</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">{form.code || 'new_service'}</p>
               <h2 className="mt-1 text-2xl font-bold">{form.name || 'New Delivery Service'}</h2>
             </div>
             <div className="flex items-center gap-3">

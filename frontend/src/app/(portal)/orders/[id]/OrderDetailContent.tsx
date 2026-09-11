@@ -511,7 +511,7 @@ export function OrderDetailContent({
               ) : chatMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-2 opacity-30">
                   <MessageSquare className="h-8 w-8" aria-hidden="true" />
-                  <p className="text-[10px] font-medium uppercase tracking-widest">
+                  <p className="text-xs font-medium uppercase tracking-wide">
                     Belum ada percakapan
                   </p>
                 </div>

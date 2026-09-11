@@ -125,7 +125,7 @@ export default function BusinessApiRequests() {
     <div className="space-y-8 pb-20">
       <div className="flex flex-col gap-6 rounded-[40px] border border-border bg-gradient-to-br from-surface-subtle via-surface-subtle to-accent p-8 shadow-2xl shadow-scrim lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-accent bg-accent-surface px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-accent">
+          <div className="inline-flex items-center gap-2 rounded-full border border-accent bg-accent-surface px-4 py-2 text-xs font-black uppercase tracking-wide text-accent">
             <ShieldAlert className="h-4 w-4" aria-hidden="true" />
             Enterprise API Access
           </div>
@@ -137,7 +137,7 @@ export default function BusinessApiRequests() {
         <button
           type="button"
           onClick={() => requestsQuery.refetch()}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface-subtle px-5 py-3 text-xs font-black uppercase tracking-widest text-foreground-muted transition-all hover:bg-surface-subtle active:scale-[0.98]"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface-subtle px-5 py-3 text-xs font-black uppercase tracking-wide text-foreground-muted transition-all hover:bg-surface-subtle active:scale-[0.98]"
         >
           <RefreshCw className={cn('h-4 w-4', requestsQuery.isFetching && 'animate-spin')} aria-hidden="true" />
           Refresh
@@ -150,7 +150,7 @@ export default function BusinessApiRequests() {
             <Loader2 className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-foreground-muted">Menunggu Review</p>
+            <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Menunggu Review</p>
             <p className="mt-1 text-2xl font-black tracking-tight text-foreground-muted">{pendingCount}</p>
           </div>
         </div>
@@ -194,7 +194,7 @@ export default function BusinessApiRequests() {
           ) : filteredRequests.length === 0 ? (
             <div className="rounded-[32px] border border-dashed border-border p-12 text-center">
               <Briefcase className="mx-auto h-10 w-10 text-foreground-muted" aria-hidden="true" />
-              <p className="mt-4 text-sm font-black uppercase tracking-widest text-foreground-muted">Tidak ada data permohonan</p>
+              <p className="mt-4 text-sm font-black uppercase tracking-wide text-foreground-muted">Tidak ada data permohonan</p>
             </div>
           ) : filteredRequests.map((req, index) => (
             <motion.div
@@ -233,7 +233,7 @@ export default function BusinessApiRequests() {
                 </div>
 
                 <div className="bg-surface-subtle rounded-2xl p-4 mt-4">
-                  <h4 className="text-xs font-black uppercase text-foreground-muted tracking-widest mb-2">Use Case</h4>
+                  <h4 className="text-xs font-black uppercase text-foreground-muted tracking-wide mb-2">Use Case</h4>
                   <p className="text-sm leading-relaxed text-foreground-muted whitespace-pre-wrap">{req.use_case}</p>
                 </div>
                 <div className="text-xs text-foreground-muted font-medium">
@@ -254,7 +254,7 @@ export default function BusinessApiRequests() {
 
               {req.status === 'PENDING' && (
                 <div className="xl:w-72 bg-surface-subtle rounded-2xl p-5 border border-border flex flex-col gap-4">
-                  <h4 className="text-sm font-black uppercase text-foreground-muted tracking-widest text-center">Admin Review</h4>
+                  <h4 className="text-sm font-black uppercase text-foreground-muted tracking-wide text-center">Admin Review</h4>
                   <textarea
                     value={reviewNotes[req.id] || ''}
                     onChange={(e) => handleReviewNoteChange(req.id, e.target.value)}
