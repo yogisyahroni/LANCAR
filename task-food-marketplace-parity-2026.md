@@ -3873,19 +3873,9 @@ Known cleanup:
 
 **Customer Android recommended package**
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/`
-- `.../components/LancarButton.kt`
-- `.../components/LancarIconButton.kt`
-- `.../components/LancarSearchField.kt`
-- `.../components/LancarTextField.kt`
-- `.../components/LancarChip.kt`
-- `.../components/LancarCard.kt`
-- `.../components/LancarBadge.kt`
-- `.../components/LancarAppBar.kt`
-- `.../components/LancarBottomNavigation.kt`
-- `.../components/LancarModal.kt`
-- `.../components/LancarToast.kt`
-- `.../components/LancarSkeleton.kt`
-- `.../components/LancarEmptyState.kt`
+- `.../TembusControls.kt` — button, icon button, search field, text field, chip
+- `.../TembusSurfaces.kt` — card, badge, app bar, bottom navigation, modal, toast
+- `.../TembusStates.kt` — skeleton and empty state
 
 **Web equivalents**
 - `frontend/src/components/design-system/`
@@ -3903,10 +3893,14 @@ Known cleanup:
 - warning
 - error
 
-- [ ] Every reusable component has Light/Dark and accessibility acceptance.
-- [ ] 48dp/appropriate platform touch-target baseline for primary mobile controls.
-- [ ] Component API uses semantic props (`variant`, `state`, `size`) rather than arbitrary color parameters.
-- [ ] Component does not expose raw styling hooks that let product screens bypass protected design/accessibility constraints without documented escape hatch.
+**Task status:** COMPLETE
+**Evidence:** `docs/task-evidence/DS-2026-003.md`
+**Last updated:** 2026-09-11
+
+- [x] Every reusable component has Light/Dark and accessibility acceptance.
+- [x] 48dp/appropriate platform touch-target baseline for primary mobile controls.
+- [x] Component API uses semantic props (`variant`, `state`, `size`) rather than arbitrary color parameters.
+- [x] Component does not expose raw styling hooks that let product screens bypass protected design/accessibility constraints without documented escape hatch.
 
 ---
 
