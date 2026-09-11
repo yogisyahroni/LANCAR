@@ -3148,6 +3148,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-006 table-state coverage was extended beyond static headers. Customer Orders now uses a persistent non-color selected-row border and `focus-within` cue while preserving checkbox + `aria-selected`; Admin Orders retains the selected border, focus-visible row outline and hover border. Light/Dark Customer and Admin theme proofs pass `1/1` each for deliberate overflow, hover, focus and selection state; Customer/Admin typecheck and focused ESLint pass. Full dense-table route/state inventory, sortable-state announcements, chart tooltip keyboard equivalence, provider basemap contrast, visual and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-006 Analytics chart alternatives were strengthened: SLA, surge and scan-accuracy `aria-describedby` summaries now include direct values from the loaded chart rows, covering the keyboard/assistive-technology equivalent when pointer tooltips are unavailable. Populated chart proof passes `1/1`, the affected `/analytics` and `/app-experience/analytics` axe slice passes `4/4`, and Admin typecheck/ESLint pass. Full chart state, map/provider, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

@@ -722,7 +722,12 @@ export default function Analytics() {
               </div>
            </div>
            <div className="h-[350px] w-full" role="group" aria-label="Grafik persentase SLA per wilayah" aria-describedby="sla-chart-summary">
-              <p id="sla-chart-summary" className="sr-only">Grafik SLA menampilkan perbandingan wilayah South, Central, dan West berdasarkan data analytics.</p>
+              <p id="sla-chart-summary" className="sr-only">
+                Grafik SLA menampilkan persentase per wilayah.{' '}
+                {hasRows(slaData)
+                  ? slaData.map((point: any) => `${point.name || point.zone || 'Periode'}: South ${point.south ?? '—'}%, Central ${point.central ?? '—'}%, West ${point.west ?? '—'}%`).join('; ')
+                  : 'Belum ada data SLA.'}
+              </p>
               {slaLoading ? (
                 <ChartSkeleton bars={7} />
               ) : slaError ? (
@@ -831,7 +836,12 @@ export default function Analytics() {
               <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Peak Frequency vs Impact</p>
            </div>
           <div className="h-[350px] w-full" role="group" aria-label="Grafik frekuensi dan dampak surge" aria-describedby="surge-chart-summary">
-              <p id="surge-chart-summary" className="sr-only">Grafik membandingkan frekuensi surge dan impact multiplier dari data pricing analytics.</p>
+              <p id="surge-chart-summary" className="sr-only">
+                Grafik membandingkan frekuensi surge dan impact multiplier.{' '}
+                {hasRows(surgeData)
+                  ? surgeData.map((point: any) => `${point.time || point.name || 'Periode'}: frequency ${point.frequency ?? '—'}, impact ${point.impact ?? '—'}`).join('; ')
+                  : 'Belum ada data surge.'}
+              </p>
               {surgeLoading ? (
                 <ChartSkeleton bars={10} />
               ) : surgeError ? (
@@ -877,7 +887,12 @@ export default function Analytics() {
               <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Confidence Distribution</p>
            </div>
            <div className="h-[350px] w-full" role="group" aria-label="Histogram reliabilitas hasil scan" aria-describedby="accuracy-chart-summary">
-              <p id="accuracy-chart-summary" className="sr-only">Histogram menampilkan distribusi confidence hasil scan dimensi.</p>
+              <p id="accuracy-chart-summary" className="sr-only">
+                Histogram menampilkan distribusi confidence hasil scan dimensi.{' '}
+                {hasRows(accuracyData)
+                  ? accuracyData.map((point: any) => `${point.confidence || point.name || 'Confidence'}: ${point.count ?? 0}`).join('; ')
+                  : 'Belum ada data scan.'}
+              </p>
               {accuracyLoading ? (
                 <ChartSkeleton bars={8} />
               ) : accuracyError ? (

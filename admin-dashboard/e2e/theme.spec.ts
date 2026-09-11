@@ -294,6 +294,31 @@ test('analytics map zoom controls are keyboard reachable and announce the update
   await expect(zoomStatus).toHaveText('Zoom peta: level 13')
 })
 
+test('analytics chart summaries expose direct values for keyboard and assistive technology users @a11y', async ({ page }) => {
+  await installThemeFixture(page)
+  await page.route('**/*', async (route) => {
+    const pathname = new URL(route.request().url()).pathname
+    const fixtures: Record<string, unknown> = {
+      '/api/v1/admin/analytics/sla': [{ name: '09 Sep', south: 90, central: 95, west: 88 }],
+      '/api/v1/admin/analytics/surge': [{ time: '08:00', frequency: 12, impact: 1.4 }],
+      '/api/v1/admin/analytics/scan-accuracy': [{ confidence: 'High', count: 8 }],
+    }
+    if (pathname in fixtures) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixtures[pathname]) })
+      return
+    }
+    await route.fallback()
+  })
+
+  await page.goto('/analytics', { waitUntil: 'domcontentloaded' })
+  await expect(page.locator('#sla-chart-summary')).toContainText('09 Sep: South 90%, Central 95%, West 88%')
+  await expect(page.locator('#surge-chart-summary')).toContainText('08:00: frequency 12, impact 1.4')
+  await expect(page.locator('#accuracy-chart-summary')).toContainText('High: 8')
+  await expect(page.locator('[aria-label="Grafik persentase SLA per wilayah"]')).toHaveAttribute('aria-describedby', 'sla-chart-summary')
+  await expect(page.locator('[aria-label="Grafik frekuensi dan dampak surge"]')).toHaveAttribute('aria-describedby', 'surge-chart-summary')
+  await expect(page.locator('[aria-label="Histogram reliabilitas hasil scan"]')).toHaveAttribute('aria-describedby', 'accuracy-chart-summary')
+})
+
 test('operational status surfaces expose readable labels and supplemental icons @a11y', async ({ page }) => {
   await installThemeFixture(page)
   await page.route('**/*', async (route) => {
