@@ -3501,8 +3501,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [x] Tooltip is keyboard/accessibility reachable or equivalent data representation exists; all active Admin chart surfaces expose direct values through an associated accessible summary, with hover tooltip remaining supplemental. Evidence: `docs/task-evidence/A11Y-2026-006.md` and `scripts/a11y/check-chart-accessibility.mjs`.
 
 **Maps**
-- [ ] Map controls, zoom buttons, markers and overlays remain visible in both themes.
-- [ ] Operational state is also available outside the map when map color/style alone would hide information.
+- [x] Map controls, zoom buttons, markers and overlays remain visible in both themes. Evidence: `docs/task-evidence/A11Y-2026-006.md` (Light/Dark fixture proves live courier marker, zone polygon, labeled zoom controls and TomTom fallback overlay).
+- [x] Operational state is also available outside the map when map color/style alone would hide information. Evidence: `docs/task-evidence/A11Y-2026-006.md` (LiveMap, Analytics demand-density and Zones expose linked textual summaries/status outside the map).
 - [ ] Provider/map basemap dark mode does not reduce overlay label contrast below usable level.
 
 ---

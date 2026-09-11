@@ -304,6 +304,62 @@ test('analytics map zoom controls are keyboard reachable and announce the update
   }
 })
 
+test('live and zone maps keep visible controls and operational summaries in both themes @a11y', async ({ page }) => {
+  await installThemeFixture(page)
+  await page.route('**/*', async (route) => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/admin/zones')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ id: 'zone-fixture', name: 'Central Fixture Zone', code: 'CFZ', polygon: 'POLYGON((106.80 -6.20, 106.81 -6.20, 106.81 -6.21, 106.80 -6.21, 106.80 -6.20))' }]),
+      })
+      return
+    }
+    if (pathname.endsWith('/admin/analytics/heat-data')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ id: 'courier-fixture', lat: -6.2, lng: 106.8, status: 'online', courier_name: 'Courier Fixture' }]) })
+      return
+    }
+    if (pathname.endsWith('/admin/analytics/live-active-orders')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'order-map-fixture', latitude: -6.21, longitude: 106.81, status: 'in_transit', order_number: 'ORDER-MAP-FIXTURE' }] }) })
+      return
+    }
+    if (pathname.endsWith('/maps/config')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ active_provider: 'tomtom_maps', tomtom_maps: { sdk_enabled: false, browser_api_key: null } }) })
+      return
+    }
+    await route.fallback()
+  })
+
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((selectedTheme) => window.localStorage.setItem('lancar-admin-theme', selectedTheme), theme)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    const map = page.getByRole('region', { name: 'Peta kurir dan order aktif' })
+    const controls = page.getByRole('group', { name: 'Kontrol zoom peta kurir dan order' })
+    await expect(map).toBeVisible()
+    await expect(page.locator('#live-map-summary')).toContainText('1 kurir online')
+    await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible()
+    await expect(page.getByText('TomTom Maps aktif, tetapi browser key runtime belum tersedia. Admin memakai fallback map sementara.')).toBeVisible()
+    await expect(controls.getByRole('button', { name: 'Zoom in map' })).toBeVisible()
+    await expect.poll(() => controls.evaluate((element) => getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/)
+  }
+
+  await page.goto('/zones', { waitUntil: 'domcontentloaded' })
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((selectedTheme) => window.localStorage.setItem('lancar-admin-theme', selectedTheme), theme)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    const map = page.getByRole('region', { name: 'Zone map editor' })
+    const controls = page.getByRole('group', { name: 'Kontrol zoom editor zona' })
+    await expect(map).toBeVisible()
+    await expect(page.locator('#zones-map-summary')).toContainText('1 zone polygon loaded')
+    await expect(page.locator('.leaflet-interactive').first()).toBeVisible()
+    await expect(page.getByText('TomTom Maps aktif, tetapi browser key runtime belum tersedia. Zone viewer memakai fallback map sementara.')).toBeVisible()
+    await expect(controls.getByRole('button', { name: 'Zoom out map' })).toBeVisible()
+    await expect.poll(() => controls.evaluate((element) => getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/)
+  }
+})
+
 test('analytics chart summaries expose direct values for keyboard and assistive technology users @a11y', async ({ page }) => {
   await installThemeFixture(page)
   await page.route('**/*', async (route) => {
