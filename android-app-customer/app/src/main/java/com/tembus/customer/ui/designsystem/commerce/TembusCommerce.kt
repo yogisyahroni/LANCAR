@@ -204,15 +204,31 @@ private fun TembusMerchantCardFrame(
 
 @Composable
 private fun MerchantImage(model: TembusMerchantCardModel) {
-    var imageFailed by remember(model.imageUrl) { mutableStateOf(false) }
-    if (model.imageUrl.isNullOrBlank() || imageFailed) {
-        TembusImagePlaceholder(label = "Foto ${model.name} belum tersedia")
+    TembusCommerceImage(
+        imageUrl = model.imageUrl,
+        imageDescription = model.imageDescription ?: "Foto ${model.name}",
+        placeholderLabel = "Foto ${model.name} belum tersedia",
+        modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f),
+    )
+}
+
+@Composable
+fun TembusCommerceImage(
+    imageUrl: String?,
+    imageDescription: String,
+    placeholderLabel: String,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+) {
+    var imageFailed by remember(imageUrl) { mutableStateOf(false) }
+    if (imageUrl.isNullOrBlank() || imageFailed) {
+        TembusImagePlaceholder(label = placeholderLabel, modifier = modifier, fillWidth = false)
     } else {
         AsyncImage(
-            model = model.imageUrl,
-            contentDescription = model.imageDescription ?: "Foto ${model.name}",
-            modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f),
-            contentScale = ContentScale.Crop,
+            model = imageUrl,
+            contentDescription = imageDescription,
+            modifier = modifier,
+            contentScale = contentScale,
             onError = { imageFailed = true },
         )
     }
@@ -288,11 +304,12 @@ fun TembusMenuItemCard(
     imageDescription: String? = null,
     available: Boolean = true,
     onAdd: (() -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
 ) {
-    TembusCard(modifier = modifier.fillMaxWidth()) {
+    TembusCard(modifier = modifier.fillMaxWidth(), onClick = onClick) {
         Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             if (!imageUrl.isNullOrBlank()) {
-                AsyncImage(model = imageUrl, contentDescription = imageDescription ?: "Foto $name", contentScale = ContentScale.Crop, modifier = Modifier.size(88.dp).clip(RoundedCornerShape(12.dp)))
+                TembusCommerceImage(imageUrl = imageUrl, imageDescription = imageDescription ?: "Foto $name", placeholderLabel = "Foto $name belum tersedia", contentScale = ContentScale.Crop, modifier = Modifier.size(88.dp).clip(RoundedCornerShape(12.dp)))
             } else {
                 TembusImagePlaceholder(label = "Foto $name belum tersedia", modifier = Modifier.size(88.dp).clip(RoundedCornerShape(12.dp)), fillWidth = false)
             }

@@ -56,7 +56,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -81,6 +80,8 @@ import com.tembus.customer.ui.theme.PrimaryLight
 import com.tembus.customer.ui.theme.Success
 import com.tembus.customer.ui.theme.TembusRadius
 import com.tembus.customer.ui.theme.Warning
+import com.tembus.customer.ui.designsystem.commerce.TembusCommerceImage
+import com.tembus.customer.ui.designsystem.commerce.TembusMenuItemCard
 import java.util.Locale
 
 // FOOD-BIKE-056: detail merchant + daftar menu, jam buka/tutup, badge ramah sepeda
@@ -174,42 +175,19 @@ fun MerchantDetailScreen(
                                 .clip(RoundedCornerShape(TembusRadius.Card))
                                 .background(MaterialTheme.colorScheme.surface)
                         ) {
-                            // Hero image (food/store cover) with branded gradient fallback.
+                            // Hero image uses the shared TEMBUS commerce media/fallback contract.
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(160.dp)
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(PrimaryLight, Primary.copy(alpha = 0.55f))
-                                        )
-                                    )
                             ) {
-                                // Hero image: merchant cover, fallback to first menu item photo (real food), else gradient+icon.
                                 val heroUrl = m.imageUrl ?: m.menuItems.firstOrNull()?.foto
-                                if (!heroUrl.isNullOrBlank()) {
-                                    AsyncImage(
-                                        model = heroUrl,
-                                        contentDescription = m.name,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    // Do not invent a food image when the API has no media asset.
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Store,
-                                            contentDescription = "Foto merchant belum tersedia",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(48.dp)
-                                        )
-                                    }
-                                }
+                                TembusCommerceImage(
+                                    imageUrl = heroUrl,
+                                    imageDescription = "Foto ${m.name}",
+                                    placeholderLabel = "Foto merchant belum tersedia",
+                                    modifier = Modifier.fillMaxSize(),
+                                )
                             }
                             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                                 Text(m.name, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
@@ -648,46 +626,16 @@ private fun VariantGroupPicker(
 
 @Composable
 private fun MenuItemRow(item: FoodMenuItem, onAdd: () -> Unit, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(TembusRadius.Card))
-            .background(MaterialTheme.colorScheme.surface)
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                item.name,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                "Rp ${item.price.toInt().toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Primary,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            Text(
-                "±${item.prepTimeMinutes} mnt",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Button(
-            onClick = onAdd,
-            modifier = Modifier.size(40.dp),
-            shape = CircleShape,
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = CustomerTextCatalog.translate("Tambah"), tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
-        }
-    }
+    TembusMenuItemCard(
+        name = item.name,
+        priceLabel = "Rp ${item.price.toInt().toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
+        description = "±${item.prepTimeMinutes} mnt",
+        imageUrl = item.foto,
+        imageDescription = "Foto ${item.name}",
+        available = item.isAvailable,
+        onAdd = onAdd,
+        onClick = onClick,
+    )
 }
 
 /** FB-118: header section kategori menu (sticky saat scroll). */
