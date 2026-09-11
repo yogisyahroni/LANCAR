@@ -3638,6 +3638,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Focused Customer keyboard/runtime automation passes `16/16`, and focused Admin keyboard/theme/state automation passes `27/27`, covering primary keyboard paths, error association, popovers/dialog focus restoration, Escape handling, switches, theme state, map/chart announcements and runtime campaign media variants. These automated results strengthen the evidence but do not replace dated human keyboard-only, screen-reader, actual browser-zoom or provider-backed staging observations.
 
+> **Execution checkpoint 2026-09-11 (continued):** The manual-audit unblock check confirmed that CUA has no interactive browser/native application handle and that the GitHub `staging` environment has no configured secrets or variables for current-commit deployment/provider validation. These are documented as explicit external prerequisites in `docs/task-evidence/A11Y-2026-012.md`; no manual checklist item is marked complete without reviewer evidence.
+
 **Customer Web minimum route groups**
 - landing/public
 - auth
