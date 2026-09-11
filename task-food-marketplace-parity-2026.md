@@ -3186,6 +3186,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S ICON-2026-003 table-row icon actions are now source-guarded. `scripts/a11y/check-table-row-action-semantics.mjs` rejects decorative-icon buttons inside table rows unless they retain an accessible or visible name, and staging plus both production web jobs run the guard. The Admin Cases fixture proves a named `Open CASE-ROW-001` action accepts focus with a visible focus ring and Enter opens its named detail dialog (`1/1`); the registered `/cases` axe route passes `2/2`. The full canonical page-title/action and destructive workflow inventories remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S ICON-2026-003 now also guards nested/conditional icon-only button controls outside table rows. `scripts/a11y/check-icon-button-semantics.mjs` scans Customer/Admin JSX buttons and button components for a decorative icon without an accessible or visible name. It exposed real Resi Template Edit/Delete controls; they now have contextual names/title tooltips, explicit button type, and visible verbs. The populated Resi Template fixture proves Edit accepts keyboard focus and Enter opens its named dialog (`1/1`); all icon guards and Admin typecheck/lint pass. Full canonical page-title/action and destructive workflow inventories remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

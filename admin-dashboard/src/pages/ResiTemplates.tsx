@@ -304,12 +304,14 @@ const ResiTemplates = () => {
                     Set Active
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={() => handleOpenModal(t)} className={t.is_active ? 'flex-1' : ''}>
+                <Button variant="outline" size="sm" type="button" onClick={() => handleOpenModal(t)} aria-label={`Edit ${t.name}`} title={`Edit ${t.name}`} className={t.is_active ? 'flex-1' : ''}>
                   <Edit2 className="w-4 h-4" aria-hidden="true" />
+                  <span>Edit</span>
                 </Button>
                 {!t.is_active && (
-                  <Button variant="outline" size="sm" onClick={() => handleDelete(t.id)} className="text-error hover:text-error">
+                  <Button variant="outline" size="sm" type="button" onClick={() => handleDelete(t.id)} aria-label={`Delete ${t.name}`} title={`Delete ${t.name}`} className="text-error hover:text-error">
                     <Trash2 className="w-4 h-4" aria-hidden="true" />
+                    <span>Delete</span>
                   </Button>
                 )}
               </div>

@@ -105,6 +105,52 @@ test('Admin support case row action keeps its name, focus, and Enter activation 
   await expect(page.getByRole('dialog', { name: 'Keyboard row action fixture' })).toBeVisible();
 });
 
+test('Admin resi template icon actions retain names and keyboard activation @keyboard @a11y', async ({ page }) => {
+  const template = {
+    id: 'resi-template-icon-fixture',
+    name: 'Keyboard Resi Template',
+    layout_config: { elements: [] },
+    is_active: false,
+    provider_code: 'fixture',
+    created_at: '2026-09-11T00:00:00.000Z',
+    updated_at: '2026-09-11T00:00:00.000Z',
+  };
+  await page.route('**/*', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.pathname.endsWith('/auth/web/me')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: { id: 'resi-template-keyboard-fixture', name: 'Resi Template Fixture', role: 'super_admin', permissions: [] } }) });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/resi-templates')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([template]) });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/logistics-providers')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/dashboard/events')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return;
+    }
+    if (request.resourceType() === 'xhr' || request.resourceType() === 'fetch') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto('/resi-templates', { waitUntil: 'domcontentloaded' });
+  const edit = page.getByRole('button', { name: 'Edit Keyboard Resi Template' });
+  await expect(edit).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Delete Keyboard Resi Template' })).toContainText('Delete');
+  await edit.focus();
+  await expect(edit).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: 'Edit Resi Template' })).toBeVisible();
+});
+
 test('Admin collapsed sidebar preserves names, current location and focus @keyboard', async ({ page }) => {
   await page.route('**/*', async (route) => {
     const url = route.request().url();

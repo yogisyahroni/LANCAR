@@ -71,6 +71,8 @@ jobs:
         run: node scripts/a11y/check-iconography.mjs
       - name: Iconography exception guard
         run: node scripts/a11y/check-iconography-exceptions.mjs
+      - name: Icon-button semantics guard
+        run: node scripts/a11y/check-icon-button-semantics.mjs
       - name: Table-row action semantics guard
         run: node scripts/a11y/check-table-row-action-semantics.mjs
       - name: Native control guard
@@ -129,6 +131,8 @@ jobs:
         run: node scripts/a11y/check-iconography.mjs
       - name: Iconography exception guard
         run: node scripts/a11y/check-iconography-exceptions.mjs
+      - name: Icon-button semantics guard
+        run: node scripts/a11y/check-icon-button-semantics.mjs
       - name: Table-row action semantics guard
         run: node scripts/a11y/check-table-row-action-semantics.mjs
       - name: Native control guard
