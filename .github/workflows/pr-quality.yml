@@ -14,6 +14,18 @@ env:
   CI_POSTGRES_DB: tembus_ci
 
 jobs:
+  design-system-contract:
+    name: LANCAR Design System Contract
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate governed component registry
+        run: node scripts/design/validate-component-registry.mjs
+
   security-quality:
     name: Repository Secret Scan
     runs-on: ubuntu-latest

@@ -24,6 +24,18 @@ jobs:
   # PHASE 1: BUILD & TEST (parallel — mirrors staging.yml)
   # ═══════════════════════════════════════════════════════════
 
+  design-system-contract:
+    name: LANCAR Design System Contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Validate governed component registry
+        run: node scripts/design/validate-component-registry.mjs
+
   maps-runtime-guard:
     name: Maps Runtime Guard
     runs-on: ubuntu-latest

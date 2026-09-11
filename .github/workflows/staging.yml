@@ -24,6 +24,18 @@ env:
   STAGING_ADMIN_SOCKET_URL: ${{ vars.VITE_SOCKET_URL || 'https://api.tembus.id' }}
 
 jobs:
+  design-system-contract:
+    name: LANCAR Design System Contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate governed component registry
+        run: node scripts/design/validate-component-registry.mjs
+
   frontend:
     name: Frontend Build
     runs-on: ubuntu-latest

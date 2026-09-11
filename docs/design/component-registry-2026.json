@@ -1,0 +1,247 @@
+{
+  "registry_version": "1.0.0",
+  "design_system_version": "1.0.0",
+  "owner": "LANCAR Design Systems Council",
+  "remote_app_experience_contract": "backend/admin-service/src/services/experienceConfig.ts",
+  "control_plane_surface": "admin_dashboard",
+  "entries": [
+    {
+      "id": "hero_banner",
+      "display_name": "Hero banner",
+      "owner": "Experience Platform",
+      "status": "stable",
+      "supported_surfaces": ["customer_android", "customer_web", "admin_dashboard"],
+      "runtime_surfaces": ["customer_android", "customer_web"],
+      "accessibility_contract": {
+        "accessible_name_fields": ["title", "localized_copy.title"],
+        "media_semantics": "alt_label_or_decorative",
+        "media_composition": "separate_content",
+        "static_fallback": true,
+        "presentation_only": true
+      },
+      "code_mapping": [
+        { "path": "backend/admin-service/src/services/experienceConfig.ts", "role": "server schema, accessibility contract, and surface allowlist" },
+        { "path": "frontend/src/components/experience/ExperienceRenderer.tsx", "role": "Customer Web renderer" },
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/components/DynamicHeaderBanner.kt", "role": "Customer Android renderer" },
+        { "path": "admin-dashboard/src/components/experience/ExperiencePreview.tsx", "role": "Admin control-plane preview" }
+      ],
+      "remote_app_experience": true,
+      "release": "1.0.0",
+      "notes": "Presentation-only campaign content; image meaning requires alt_label or an explicit decorative decision."
+    },
+    {
+      "id": "campaign_strip",
+      "display_name": "Campaign strip",
+      "owner": "Experience Platform",
+      "status": "stable",
+      "supported_surfaces": ["customer_android", "customer_web", "merchant_android", "courier_android", "admin_dashboard"],
+      "runtime_surfaces": ["customer_android", "customer_web", "merchant_android", "courier_android"],
+      "accessibility_contract": {
+        "accessible_name_fields": ["title", "localized_copy.title"],
+        "media_semantics": "alt_label_or_decorative",
+        "media_composition": "separate_content",
+        "static_fallback": true,
+        "presentation_only": true
+      },
+      "code_mapping": [
+        { "path": "backend/admin-service/src/services/experienceConfig.ts", "role": "server schema, accessibility contract, and surface allowlist" },
+        { "path": "frontend/src/components/experience/ExperienceRenderer.tsx", "role": "Customer Web renderer" },
+        { "path": "android-app-merchant/app/src/main/java/com/tembus/merchant/ui/components/MerchantExperienceSlot.kt", "role": "Merchant Android bounded slot" },
+        { "path": "admin-dashboard/src/components/experience/ExperiencePreview.tsx", "role": "Admin control-plane preview" }
+      ],
+      "remote_app_experience": true,
+      "release": "1.0.0",
+      "notes": "Courier support is contract-governed; native adoption remains measured by DS-2026-011."
+    },
+    {
+      "id": "promo_carousel",
+      "display_name": "Promo carousel",
+      "owner": "Experience Platform",
+      "status": "stable",
+      "supported_surfaces": ["customer_android", "customer_web", "admin_dashboard"],
+      "runtime_surfaces": ["customer_android", "customer_web"],
+      "accessibility_contract": {
+        "accessible_name_fields": ["items[].title", "items[].localized_copy.title"],
+        "media_semantics": "alt_label_or_decorative",
+        "media_composition": "separate_content",
+        "static_fallback": true,
+        "presentation_only": true
+      },
+      "code_mapping": [
+        { "path": "backend/admin-service/src/services/experienceConfig.ts", "role": "server schema, accessibility contract, and surface allowlist" },
+        { "path": "frontend/src/components/experience/ExperienceRenderer.tsx", "role": "Customer Web renderer" },
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/DynamicHomeRenderer.kt", "role": "Customer Android composition" },
+        { "path": "admin-dashboard/src/components/experience/ExperiencePreview.tsx", "role": "Admin control-plane preview" }
+      ],
+      "remote_app_experience": true,
+      "release": "1.0.0",
+      "notes": "Carousel content is bounded and presentation-only; it cannot write ranking or transaction facts."
+    },
+    {
+      "id": "service_grid",
+      "display_name": "Service grid",
+      "owner": "Customer Experience",
+      "status": "stable",
+      "supported_surfaces": ["customer_android", "customer_web", "admin_dashboard"],
+      "runtime_surfaces": ["customer_android", "customer_web"],
+      "accessibility_contract": {
+        "accessible_name_fields": ["title", "cards[].code", "service_entries[].label"],
+        "media_semantics": "none",
+        "media_composition": "none",
+        "static_fallback": true,
+        "presentation_only": true
+      },
+      "code_mapping": [
+        { "path": "backend/admin-service/src/services/experienceConfig.ts", "role": "server schema, accessibility contract, and surface allowlist" },
+        { "path": "frontend/src/components/experience/ExperienceRenderer.tsx", "role": "Customer Web renderer" },
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/DynamicHomeRenderer.kt", "role": "Customer Android composition" },
+        { "path": "admin-dashboard/src/components/experience/ExperiencePreview.tsx", "role": "Admin control-plane preview" }
+      ],
+      "remote_app_experience": true,
+      "release": "1.0.0",
+      "notes": "Service identity remains label-first and must use the approved service icon contract."
+    },
+    {
+      "id": "info_card",
+      "display_name": "Information card",
+      "owner": "Experience Platform",
+      "status": "stable",
+      "supported_surfaces": ["customer_android", "customer_web", "merchant_android", "courier_android", "admin_dashboard"],
+      "runtime_surfaces": ["customer_android", "customer_web", "merchant_android", "courier_android"],
+      "accessibility_contract": {
+        "accessible_name_fields": ["title", "localized_copy.title", "body", "localized_copy.body"],
+        "media_semantics": "none",
+        "media_composition": "none",
+        "static_fallback": true,
+        "presentation_only": true
+      },
+      "code_mapping": [
+        { "path": "backend/admin-service/src/services/experienceConfig.ts", "role": "server schema, accessibility contract, and surface allowlist" },
+        { "path": "frontend/src/components/experience/ExperienceRenderer.tsx", "role": "Customer Web renderer" },
+        { "path": "android-app-merchant/app/src/main/java/com/tembus/merchant/ui/components/MerchantExperienceSlot.kt", "role": "Merchant Android bounded slot" },
+        { "path": "admin-dashboard/src/components/experience/ExperiencePreview.tsx", "role": "Admin control-plane preview" }
+      ],
+      "remote_app_experience": true,
+      "release": "1.0.0",
+      "notes": "Information only; protected order, payment, pricing, and eligibility facts remain outside the content contract."
+    },
+    {
+      "id": "quick_actions",
+      "display_name": "Quick actions",
+      "owner": "Experience Platform",
+      "status": "stable",
+      "supported_surfaces": ["customer_android", "customer_web", "merchant_android", "courier_android", "admin_dashboard"],
+      "runtime_surfaces": ["customer_android", "customer_web", "merchant_android", "courier_android"],
+      "accessibility_contract": {
+        "accessible_name_fields": ["actions[].label", "actions[].localized_copy.label"],
+        "media_semantics": "none",
+        "media_composition": "none",
+        "static_fallback": true,
+        "presentation_only": true
+      },
+      "code_mapping": [
+        { "path": "backend/admin-service/src/services/experienceConfig.ts", "role": "server schema, accessibility contract, and surface allowlist" },
+        { "path": "frontend/src/components/experience/ExperienceRenderer.tsx", "role": "Customer Web renderer" },
+        { "path": "android-app-merchant/app/src/main/java/com/tembus/merchant/ui/components/MerchantExperienceSlot.kt", "role": "Merchant Android bounded slot" },
+        { "path": "admin-dashboard/src/components/experience/ExperiencePreview.tsx", "role": "Admin control-plane preview" }
+      ],
+      "remote_app_experience": true,
+      "release": "1.0.0",
+      "notes": "Actions are restricted to the existing safe destination registry and cannot execute remote code."
+    },
+    {
+      "id": "notice",
+      "display_name": "Notice",
+      "owner": "Experience Platform",
+      "status": "stable",
+      "supported_surfaces": ["customer_android", "customer_web", "merchant_android", "courier_android", "admin_dashboard"],
+      "runtime_surfaces": ["customer_android", "customer_web", "merchant_android", "courier_android"],
+      "accessibility_contract": {
+        "accessible_name_fields": ["title", "localized_copy.title", "body", "localized_copy.body"],
+        "media_semantics": "none",
+        "media_composition": "none",
+        "static_fallback": true,
+        "presentation_only": true
+      },
+      "code_mapping": [
+        { "path": "backend/admin-service/src/services/experienceConfig.ts", "role": "server schema, accessibility contract, and surface allowlist" },
+        { "path": "frontend/src/components/experience/ExperienceRenderer.tsx", "role": "Customer Web renderer" },
+        { "path": "android-app-merchant/app/src/main/java/com/tembus/merchant/ui/components/MerchantExperienceSlot.kt", "role": "Merchant Android bounded slot" },
+        { "path": "admin-dashboard/src/components/experience/ExperiencePreview.tsx", "role": "Admin control-plane preview" }
+      ],
+      "remote_app_experience": true,
+      "release": "1.0.0",
+      "notes": "Notices are presentation-only and must not impersonate transaction or emergency state owned by the native/domain flow."
+    },
+    {
+      "id": "spacer",
+      "display_name": "Spacer",
+      "owner": "Design Systems Council",
+      "status": "stable",
+      "supported_surfaces": ["customer_android", "customer_web", "merchant_android", "courier_android", "admin_dashboard"],
+      "runtime_surfaces": ["customer_android", "customer_web", "merchant_android", "courier_android"],
+      "accessibility_contract": {
+        "accessible_name_fields": [],
+        "media_semantics": "none",
+        "media_composition": "none",
+        "static_fallback": true,
+        "presentation_only": true
+      },
+      "code_mapping": [
+        { "path": "backend/admin-service/src/services/experienceConfig.ts", "role": "server schema, accessibility contract, and surface allowlist" },
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/data/config/model/ExperienceManifest.kt", "role": "Customer Android sanitizer boundary" },
+        { "path": "admin-dashboard/src/components/experience/ExperiencePreview.tsx", "role": "Admin control-plane preview" }
+      ],
+      "remote_app_experience": true,
+      "release": "1.0.0",
+      "notes": "Non-semantic layout primitive; it carries no content or business state."
+    },
+    {
+      "id": "campaign_intro",
+      "display_name": "Campaign intro",
+      "owner": "Experience Platform",
+      "status": "stable",
+      "supported_surfaces": ["customer_android", "customer_web", "admin_dashboard"],
+      "runtime_surfaces": ["customer_android", "customer_web"],
+      "accessibility_contract": {
+        "accessible_name_fields": ["title", "localized_copy.title", "dismissible"],
+        "media_semantics": "none",
+        "media_composition": "none",
+        "static_fallback": true,
+        "presentation_only": true
+      },
+      "code_mapping": [
+        { "path": "backend/admin-service/src/services/experienceConfig.ts", "role": "server schema, accessibility contract, and surface allowlist" },
+        { "path": "frontend/src/components/experience/ExperienceRenderer.tsx", "role": "Customer Web renderer" },
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/CampaignIntroScreen.kt", "role": "Customer Android post-native-splash screen" },
+        { "path": "admin-dashboard/src/components/experience/ExperiencePreview.tsx", "role": "Admin control-plane preview" }
+      ],
+      "remote_app_experience": true,
+      "release": "1.0.0",
+      "notes": "Post-native-splash presentation only; it is not the OS launch splash and is duration-bounded."
+    },
+    {
+      "id": "design_tokens",
+      "display_name": "Design token preset",
+      "owner": "Design Systems Council",
+      "status": "stable",
+      "supported_surfaces": ["customer_android", "customer_web", "merchant_android", "courier_android", "admin_dashboard"],
+      "runtime_surfaces": ["customer_android", "customer_web", "merchant_android", "courier_android"],
+      "accessibility_contract": {
+        "accessible_name_fields": [],
+        "media_semantics": "none",
+        "media_composition": "none",
+        "static_fallback": true,
+        "presentation_only": true
+      },
+      "code_mapping": [
+        { "path": "backend/admin-service/src/services/experienceConfig.ts", "role": "bounded enum schema, contrast gate, and surface allowlist" },
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/data/config/model/ExperienceManifest.kt", "role": "Customer Android preset sanitizer" },
+        { "path": "admin-dashboard/src/components/experience/DesignTokenEditor.tsx", "role": "Admin bounded editor" }
+      ],
+      "remote_app_experience": true,
+      "release": "1.0.0",
+      "notes": "Only approved presets are remote; core brand, accessibility, and transaction-screen locks remain native/package-owned."
+    }
+  ]
+}
