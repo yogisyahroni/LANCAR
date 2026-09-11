@@ -148,9 +148,9 @@ export default function Disputes() {
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
                 <div className="flex-1 space-y-4">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-black text-foreground-muted uppercase tracking-[0.2em]">{dispute.id.slice(0, 8)}</span>
+                    <span className="text-xs font-black text-foreground-muted uppercase tracking-wide">{dispute.id.slice(0, 8)}</span>
                     <span className="text-foreground-muted">•</span>
-                    <span className="text-xs font-black text-primary-light uppercase tracking-widest">{dispute.order_number}</span>
+                    <span className="text-xs font-black text-primary-light uppercase tracking-wide">{dispute.order_number}</span>
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-foreground-muted">{dispute.category}</h3>
@@ -170,13 +170,13 @@ export default function Disputes() {
 
                 <div className="flex items-center gap-10">
                   <div className="text-center">
-                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest mb-2">Assignee</p>
-                    <span className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-border text-foreground-muted">
+                    <p className="text-xs font-black text-foreground-muted uppercase tracking-wide mb-2">Assignee</p>
+                    <span className="px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wide border border-border text-foreground-muted">
                       {dispute.assigned_to_name || 'Unassigned'}
                     </span>
                   </div>
                   <div className="text-center">
-                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest mb-2">Status</p>
+                    <p className="text-xs font-black text-foreground-muted uppercase tracking-wide mb-2">Status</p>
                     <StatusBadge status={dispute.status} labelPrefix="Dispute status" className="rounded-lg" />
                   </div>
                   <button 
@@ -251,9 +251,9 @@ export default function Disputes() {
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-3 mb-2">
-                       <span className="text-xs font-black text-foreground-muted uppercase tracking-widest">{selectedDispute.id.slice(0, 8)}</span>
+                       <span className="text-xs font-black text-foreground-muted uppercase tracking-wide">{selectedDispute.id.slice(0, 8)}</span>
                        <span className="text-foreground-muted">/</span>
-                       <span className="text-xs font-black text-primary-light uppercase tracking-widest">{selectedDispute.order_number}</span>
+                       <span className="text-xs font-black text-primary-light uppercase tracking-wide">{selectedDispute.order_number}</span>
                     </div>
                     <h2 id="admin-dispute-detail-title" className="text-4xl font-black text-foreground-muted tracking-tighter">{selectedDispute.category}</h2>
                   </div>
@@ -265,7 +265,7 @@ export default function Disputes() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                   <div className="space-y-8">
                     <div>
-                      <h4 className="text-xs font-black text-foreground-muted uppercase tracking-widest mb-4">Evidence & Photos</h4>
+                      <h4 className="text-xs font-black text-foreground-muted uppercase tracking-wide mb-4">Evidence & Photos</h4>
                       <div className="grid grid-cols-2 gap-4">
                         {selectedDispute.evidence_urls && selectedDispute.evidence_urls.length > 0 ? (
                           selectedDispute.evidence_urls.map((url: string, i: number) => (
@@ -277,7 +277,7 @@ export default function Disputes() {
                           <div className="aspect-square rounded-3xl bg-surface border border-border flex items-center justify-center group cursor-pointer overflow-hidden relative">
                              <ImageIcon size={32} className="text-foreground-muted group-hover:scale-110 transition-transform" aria-hidden="true" />
                              <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                             <p className="absolute bottom-4 text-[10px] font-bold text-foreground-muted uppercase tracking-widest">No photos provided</p>
+                             <p className="absolute bottom-4 text-xs font-bold text-foreground-muted uppercase tracking-wide">No photos provided</p>
                           </div>
                         )}
                       </div>
@@ -291,7 +291,7 @@ export default function Disputes() {
 
                   <div className="space-y-10">
                      <div className="space-y-4">
-                        <h4 className="text-xs font-black text-foreground-muted uppercase tracking-widest">Assign Specialist</h4>
+                        <h4 className="text-xs font-black text-foreground-muted uppercase tracking-wide">Assign Specialist</h4>
                         <div className="flex items-center gap-3 p-4 rounded-2xl bg-surface border border-border">
                            <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary-light">
                               <User size={20} aria-hidden="true" />
@@ -310,7 +310,7 @@ export default function Disputes() {
                      </div>
 
                      <div className="space-y-6">
-                        <h4 className="text-xs font-black text-foreground-muted uppercase tracking-widest">Resolution Actions</h4>
+                        <h4 className="text-xs font-black text-foreground-muted uppercase tracking-wide">Resolution Actions</h4>
                         <div className="space-y-3">
                            <button 
                             disabled={resolveMutation.isPending}

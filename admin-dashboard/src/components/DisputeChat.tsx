@@ -136,8 +136,8 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
             <MessageSquare size={18} aria-hidden="true" />
           </div>
           <div>
-            <h3 className="text-sm font-black text-foreground-muted uppercase tracking-widest">Dispute Chat</h3>
-            <p className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest">Live Support Channel</p>
+            <h3 className="text-sm font-black text-foreground-muted uppercase tracking-wide">Dispute Chat</h3>
+            <p className="text-xs font-bold text-foreground-muted uppercase tracking-wide">Live Support Channel</p>
           </div>
         </div>
         <button type="button" onClick={onClose} aria-label="Tutup percakapan sengketa" title="Tutup percakapan sengketa" className="p-2 hover:bg-surface-subtle rounded-lg text-foreground-muted hover:text-foreground transition-all">
@@ -157,7 +157,7 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-foreground-muted gap-2">
             <MessageSquare size={32} opacity={0.2} aria-hidden="true" />
-            <p className="text-[10px] font-black uppercase tracking-widest">No messages yet</p>
+            <p className="text-xs font-black uppercase tracking-wide">No messages yet</p>
           </div>
         ) : (
           messages.map((msg: Message) => {
@@ -174,10 +174,10 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
                 )}
               >
                 <div className="flex items-center gap-2 mb-1 px-1">
-                  <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">
+                  <span className="text-xs font-black text-foreground-muted uppercase tracking-wide">
                     {msg.sender_name}
                   </span>
-                  <span className="text-[8px] font-bold text-foreground-muted uppercase tracking-widest">
+                  <span className="text-xs font-bold text-foreground-muted uppercase tracking-wide">
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -227,8 +227,8 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
               </button>
             </div>
             <div className="flex-1">
-              <p className="text-[10px] font-black text-primary uppercase tracking-widest">Image ready to send</p>
-              <p className="text-[10px] text-foreground-muted">Press send to upload and share this screenshot</p>
+              <p className="text-xs font-black text-primary uppercase tracking-wide">Image ready to send</p>
+              <p className="text-xs text-foreground-muted">Press send to upload and share this screenshot</p>
             </div>
           </motion.div>
         )}
