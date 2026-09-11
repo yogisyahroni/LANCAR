@@ -65,6 +65,8 @@ jobs:
         run: node scripts/a11y/check-theme-hardcoded-classes.mjs
       - name: Iconography guard
         run: node scripts/a11y/check-iconography.mjs
+      - name: Iconography exception guard
+        run: node scripts/a11y/check-iconography-exceptions.mjs
       - name: Table semantics guard
         run: node scripts/a11y/check-table-semantics.mjs
       - name: Disabled-state readability guard
@@ -109,6 +111,8 @@ jobs:
         run: node scripts/a11y/check-theme-hardcoded-classes.mjs
       - name: Iconography guard
         run: node scripts/a11y/check-iconography.mjs
+      - name: Iconography exception guard
+        run: node scripts/a11y/check-iconography-exceptions.mjs
       - name: Table semantics guard
         run: node scripts/a11y/check-table-semantics.mjs
       - name: Disabled-state readability guard

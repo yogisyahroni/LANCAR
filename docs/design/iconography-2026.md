@@ -24,6 +24,11 @@ The shared `serviceIcon.ts` mapping is used by both the Customer marketing servi
 - Use one icon family and consistent sizing: `h-4 w-4` for inline actions, `h-5 w-5` for navigation/actions, and larger sizes only for empty/error state illustrations.
 - Do not use emoji or a second icon package for functional UI without a documented exception.
 
+The current raw-SVG and SVG-brand-asset exception inventory is machine-checked by
+`scripts/a11y/check-iconography-exceptions.mjs` against
+`docs/design/iconography-exceptions-2026.json`. New raw SVGs or application SVG asset references
+must add a rationale and accessible contract to that manifest before they can pass CI.
+
 ## Exceptions
 
 Brand artwork, carrier logos, map-provider markers and data-visualization glyphs are rendering-boundary exceptions. They must retain their provider/brand geometry and still provide an accessible label or textual alternative.

@@ -3164,6 +3164,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-006 map alternatives were extended beyond keyboard zoom controls. LiveMap now exposes online/offline courier and active-order counts; Analytics demand density exposes loaded point count plus latitude/longitude/weight values; Zones map editor exposes loaded zone count and selected-zone state through `aria-describedby` summaries. The populated Analytics heat-data proof passes `1/1`, and the affected dashboard/analytics/zones representative and registered Light/Dark/System axe slice passes `16/16`; full dense-table state matrix, provider-basemap contrast, dynamic map loading/error states, visual and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S ICON-2026-001 custom-SVG coverage now has an explicit machine-checked exception inventory. `docs/design/iconography-exceptions-2026.json` records all five raw SVG source sites and four active brand SVG assets with rationale and accessible contracts; `scripts/a11y/check-iconography-exceptions.mjs` and the existing iconography guard pass, while conditional non-route icon states and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
@@ -3386,7 +3388,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [x] Decorative icon uses `aria-hidden="true"` when adjacent text already provides the name. Evidence: `docs/task-evidence/ICON-2026-001.md`
 - [ ] Icon-only button has accessible name (`aria-label`/equivalent) and visible tooltip where useful. Evidence: `docs/task-evidence/ICON-2026-001.md` (direct single-icon source guard and audited Customer/Admin controls pass; conditional state and complete tooltip inventory remains open).
 - [ ] Essential meaning is not encoded only in icon shape; critical/destructive actions have visible label in high-risk contexts.
-- [ ] Custom SVG allowed only where Lucide lacks adequate service meaning; normalize viewBox/stroke/optical size and document it.
+- [ ] Custom SVG allowed only where Lucide lacks adequate service meaning; normalize viewBox/stroke/optical size and document it. `docs/design/iconography-exceptions-2026.json` now inventories and source-guards all current raw SVG/application SVG exceptions; service-SVG and full rendered/manual review remain open. Evidence: `docs/task-evidence/ICON-2026-001.md`.
 - [ ] Icons inherit semantic foreground/status tokens rather than hardcoded colors.
 
 ---

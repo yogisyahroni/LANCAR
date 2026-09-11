@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "contract": "ICON-2026-001",
+  "entries": [
+    {
+      "path": "frontend/src/app/(auth)/daftar/page.tsx",
+      "kind": "brand-mark",
+      "raw_svg_count": 1,
+      "needle": "<svg aria-hidden=\"true\" className=\"h-7 w-7\" viewBox=\"0 0 24 24\">",
+      "rationale": "Google brand mark for the Google sign-in completion flow; adjacent heading and copy provide the action context.",
+      "accessible_contract": "Decorative SVG with aria-hidden=true; surrounding text remains the accessible action context."
+    },
+    {
+      "path": "frontend/src/app/(auth)/login/page.tsx",
+      "kind": "brand-mark",
+      "raw_svg_count": 1,
+      "needle": "<svg aria-hidden=\"true\" className=\"w-5 h-5\" viewBox=\"0 0 24 24\">",
+      "rationale": "Google brand mark inside the labelled Google sign-in button; the button text is the action name.",
+      "accessible_contract": "Decorative SVG with aria-hidden=true; button text remains the accessible name."
+    },
+    {
+      "path": "frontend/src/components/orders/OrderSummary.tsx",
+      "kind": "map-visualization",
+      "raw_svg_count": 1,
+      "needle": "<svg\n          viewBox={`0 0 ${routeCanvas.width} ${routeCanvas.height}`}\n          className=\"absolute inset-0 h-full w-full\"\n          role=\"img\"",
+      "rationale": "Client route preview visualizes the server-backed route snapshot when a provider map is unavailable.",
+      "accessible_contract": "Semantic role=img with localized aria-label; route/empty state text remains visible outside the SVG."
+    },
+    {
+      "path": "frontend/src/app/(portal)/laporan/page.tsx",
+      "kind": "data-visualization",
+      "raw_svg_count": 1,
+      "needle": "<svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className=\"h-[300px] w-full overflow-visible\" role=\"img\"",
+      "rationale": "Customer report chart is a data visualization and is not a functional icon surface.",
+      "accessible_contract": "Semantic role=img with an accessible chart label, visible legend, and direct-value summary/table alternative."
+    },
+    {
+      "path": "frontend/src/app/(portal)/orders/[id]/RouteSnapshotPanel.tsx",
+      "kind": "map-visualization",
+      "raw_svg_count": 1,
+      "needle": "<svg\n            viewBox=\"0 0 400 160\"\n            className=\"absolute inset-0 h-full w-full opacity-90\"\n            role=\"img\"",
+      "rationale": "Order route snapshot draws a compact fallback route visualization from the persisted snapshot.",
+      "accessible_contract": "Semantic role=img with an accessible route label; cancelled/empty state has visible text outside the SVG."
+    },
+    {
+      "path": "frontend/public/tembusweb.svg",
+      "kind": "brand-asset",
+      "rationale": "Canonical TEMBUS brand asset used by Customer and Admin shell/logo surfaces.",
+      "accessible_contract": "Every application img reference supplies meaningful alt text."
+    },
+    {
+      "path": "frontend/public/tembusweb-resi.svg",
+      "kind": "brand-asset",
+      "rationale": "Canonical monochrome TEMBUS resi/receipt brand asset used by tracking/receipt surfaces.",
+      "accessible_contract": "Every application img reference supplies meaningful alt text."
+    },
+    {
+      "path": "admin-dashboard/public/tembusweb.svg",
+      "kind": "brand-asset",
+      "rationale": "Admin-served copy of the canonical TEMBUS brand asset for the dashboard shell.",
+      "accessible_contract": "Every application img reference supplies meaningful alt text."
+    },
+    {
+      "path": "admin-dashboard/public/tembusweb-resi.svg",
+      "kind": "brand-asset",
+      "rationale": "Admin-served copy of the monochrome TEMBUS resi/receipt brand asset.",
+      "accessible_contract": "Every application img reference supplies meaningful alt text."
+    }
+  ]
+}
