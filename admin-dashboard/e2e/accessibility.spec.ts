@@ -351,6 +351,12 @@ async function assertVisibleInteractiveNames(page: Page) {
       .filter((element) => !element.getAttribute('title')?.trim())
       .map((element) => ({ html: element.outerHTML.slice(0, 220) }))
 
+    const destructiveIconOnlyControls = controls
+      .filter((element) => element.tagName === 'BUTTON' || element.tagName === 'A' || element.getAttribute('role') === 'button')
+      .filter((element) => !visibleLabel(element) && element.querySelector('svg, img'))
+      .filter((element) => /\b(delete|remove|cancel|block|reject|force|disable|rollback|revoke|suspend|kill)\b/i.test(accessibleName(element)))
+      .map((element) => ({ name: accessibleName(element), html: element.outerHTML.slice(0, 240) }))
+
     const semanticFindings = {
       unnamedGraphics: Array.from(document.querySelectorAll<HTMLElement>('[role="img"]'))
         .filter(visible)
@@ -393,13 +399,14 @@ async function assertVisibleInteractiveNames(page: Page) {
         .map((element) => ({ html: element.outerHTML.slice(0, 180) })),
     }
 
-    return { unnamed, labelMismatches, interactiveIconFindings, iconOnlyControlsWithoutTooltip, semanticFindings }
+    return { unnamed, labelMismatches, interactiveIconFindings, iconOnlyControlsWithoutTooltip, destructiveIconOnlyControls, semanticFindings }
   })
 
   expect(findings.unnamed, JSON.stringify(findings.unnamed)).toEqual([])
   expect(findings.labelMismatches, JSON.stringify(findings.labelMismatches)).toEqual([])
   expect(findings.interactiveIconFindings, JSON.stringify(findings.interactiveIconFindings)).toEqual([])
   expect(findings.iconOnlyControlsWithoutTooltip, JSON.stringify(findings.iconOnlyControlsWithoutTooltip)).toEqual([])
+  expect(findings.destructiveIconOnlyControls, JSON.stringify(findings.destructiveIconOnlyControls)).toEqual([])
   expect(findings.semanticFindings, JSON.stringify(findings.semanticFindings)).toEqual({
     unnamedGraphics: [],
     unnamedLiveRegions: [],

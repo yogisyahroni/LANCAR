@@ -1225,7 +1225,7 @@ export default function MapsRuntime() {
                         onClick={() => toggleScope(scope.id)}
                         disabled={updateMapsProviderMutation.isPending}
                         className={cn(
-                          'rounded-full p-1 transition-all duration-200 active:scale-[0.98]',
+                          'inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold transition-all duration-200 active:scale-[0.98]',
                           policy.enabled ? 'text-success hover:bg-success-surface' : 'text-foreground-muted hover:bg-surface-subtle'
                         )}
                         aria-label={`${policy.enabled ? 'Disable' : 'Enable'} ${scope.title}`}
@@ -1233,6 +1233,7 @@ export default function MapsRuntime() {
                         title={`${policy.enabled ? 'Disable' : 'Enable'} ${scope.title}`}
                       >
                         {policy.enabled ? <ToggleRight className="h-8 w-8" aria-hidden="true" /> : <ToggleLeft className="h-8 w-8" aria-hidden="true" />}
+                        <span>{policy.enabled ? 'Disable' : 'Enable'}</span>
                       </button>
                     </div>
 
