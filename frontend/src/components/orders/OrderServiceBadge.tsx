@@ -11,7 +11,12 @@ export function OrderServiceBadge({ compact = false, ...order }: OrderServiceBad
   const ServiceIcon = getCustomerServiceIcon(presentation.kind, presentation.label);
 
   return (
-    <div className="space-y-1.5" aria-label={`Layanan ${presentation.label}`}>
+    <div
+      className="space-y-1.5"
+      aria-label={`Layanan ${presentation.label}`}
+      data-service-badge="true"
+      data-service-kind={presentation.kind}
+    >
       <div className="flex flex-wrap items-center gap-1.5">
         <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold ${isAggregator ? "border-info bg-info-surface text-info" : "border-success bg-success-surface text-success"}`}>
           {createElement(ServiceIcon, { className: "h-3 w-3", "aria-hidden": true })}

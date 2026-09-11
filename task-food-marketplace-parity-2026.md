@@ -3144,6 +3144,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S conditional icon-only coverage was extended to runtime inventory. Customer/Admin accessibility helpers now assert visible icon-only buttons have an accessible name and native tooltip, including conditional icon renders. The new check found six Admin Maps Runtime scope toggles; they now expose action-specific Enable/Disable names, matching `title` tooltips and `aria-pressed` state. Customer inventory passes `56/56`, Admin inventory passes `142/142`, the `/maps-runtime` targeted slice passes `2/2`, typecheck/ESLint/iconography guards pass. Full page-title/action consistency, custom-SVG exception audit, destructive workflows, visual and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S Customer service-icon consistency was extended across dashboard, order history and order detail. `OrderServiceBadge` now exposes a stable service-kind marker while retaining the canonical resolver, and populated fixtures cover Paket Instan, Food delivery, Ekspedisi Antar-Kota and Towing; detail verifies the aggregator path. Service mapping unit tests pass `11/11`, the cross-route browser proof passes `1/1`, and Customer typecheck/ESLint pass. Full service/empty-state matrix, custom-SVG exception audit, visual and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

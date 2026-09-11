@@ -131,6 +131,57 @@ test('Customer dashboard uses the canonical service icon and visible label @a11y
   await expect(service.locator('svg').first()).toHaveAttribute('aria-hidden', 'true')
 })
 
+test('Customer service badges keep canonical mappings across dashboard, history and detail @a11y @iconography', async ({ page }) => {
+  const orders = [
+    {
+      id: 'ORDER-SERVICE-INSTANT', order_number: 'ORD-SERVICE-INSTANT', pickup_address: 'Jakarta', dropoff_address: 'Bekasi',
+      recipient_name: 'Instant Customer', model: 'p2p', service_category: 'package_on_demand', status: 'in_transit', payment_status: 'paid',
+      distance_km: 12, total_price_idr: 12500, created_at: '2026-09-10T00:00:00.000Z',
+    },
+    {
+      id: 'ORDER-SERVICE-FOOD', order_number: 'ORD-SERVICE-FOOD', pickup_address: 'Merchant', dropoff_address: 'Jakarta',
+      recipient_name: 'Food Customer', model: 'food', service_category: 'food', status: 'in_transit', payment_status: 'paid',
+      distance_km: 3, total_price_idr: 22000, created_at: '2026-09-10T00:01:00.000Z',
+    },
+    {
+      id: 'ORDER-SERVICE-AGGREGATOR', order_number: 'ORD-SERVICE-AGGREGATOR', pickup_address: 'Jakarta', dropoff_address: 'Bandung',
+      recipient_name: 'Aggregator Customer', model: 'hub_and_spoke', service_category: 'aggregator', logistics_provider: 'JNE',
+      logistics_service_type: 'REG', status: 'in_transit', payment_status: 'paid', distance_km: 150, total_price_idr: 85000,
+      created_at: '2026-09-10T00:02:00.000Z', awb_number: 'JNE-A11Y-1',
+    },
+    {
+      id: 'ORDER-SERVICE-TOWING', order_number: 'ORD-SERVICE-TOWING', pickup_address: 'Jakarta', dropoff_address: 'Depok',
+      recipient_name: 'Towing Customer', model: 'towing', service_category: 'towing', status: 'in_transit', payment_status: 'paid',
+      distance_km: 18, total_price_idr: 120000, created_at: '2026-09-10T00:03:00.000Z',
+    },
+  ]
+  const expected = [
+    ['Layanan Paket Instan', 'instant', 'ORD-SERVICE-INSTANT'],
+    ['Layanan Food delivery', 'food', 'ORD-SERVICE-FOOD'],
+    ['Layanan Ekspedisi Antar-Kota', 'aggregator', 'ORD-SERVICE-AGGREGATOR'],
+    ['Layanan Towing', 'service', 'ORD-SERVICE-TOWING'],
+  ] as const
+
+  await installCustomerSessionFixture(page, { orders })
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+  for (const [label, kind] of expected) {
+    const badge = page.getByLabel(label)
+    await expect(badge).toHaveAttribute('data-service-kind', kind)
+    await expect(badge.locator('svg').first()).toHaveAttribute('aria-hidden', 'true')
+  }
+
+  await page.goto('/orders', { waitUntil: 'domcontentloaded' })
+  await expect(page.locator('[data-service-badge="true"]')).toHaveCount(4)
+  for (const [label, kind] of expected) {
+    const badge = page.getByLabel(label)
+    await expect(badge).toHaveAttribute('data-service-kind', kind)
+  }
+
+  await installCustomerSessionFixture(page, { detailOrder: orders[2], carrierEvents: [] })
+  await page.goto('/orders/ORDER-SERVICE-AGGREGATOR', { waitUntil: 'domcontentloaded' })
+  await expect(page.getByLabel('Layanan Ekspedisi Antar-Kota')).toHaveAttribute('data-service-kind', 'aggregator')
+})
+
 test('Customer orders table exposes selected-row semantics and deliberate overflow in both themes @a11y', async ({ page }) => {
   await installCustomerSessionFixture(page, {
     orders: [{
