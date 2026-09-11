@@ -644,7 +644,7 @@ export default function AppExperience() {
           <button
             type="button"
             onClick={() => manifestsQuery.refetch()}
-            className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-3 text-xs font-black uppercase tracking-widest text-foreground-muted"
+            className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-3 text-xs font-black uppercase tracking-wide text-foreground-muted"
           >
             <RefreshCw size={14}  aria-hidden="true" /> Refresh
           </button>
@@ -652,7 +652,7 @@ export default function AppExperience() {
             <button
               type="button"
               onClick={duplicate}
-              className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-primary-light"
+              className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-xs font-black uppercase tracking-wide text-primary-light"
             >
               <Copy size={14}  aria-hidden="true" /> Duplicate
             </button>
@@ -661,7 +661,7 @@ export default function AppExperience() {
             <button
               type="button"
               onClick={startNew}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-on-primary"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-wide text-on-primary"
             >
               <FilePlus2 size={14}  aria-hidden="true" /> New campaign
             </button>
@@ -701,19 +701,19 @@ export default function AppExperience() {
                   className={`w-full rounded-2xl border p-3 text-left transition ${manifest.manifest_id === selectedId ? "border-primary/50 bg-primary/10" : "border-border bg-surface-subtle hover:border-border"}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate font-mono text-[10px] text-foreground-muted" title={manifest.manifest_id}>
+                    <span className="truncate font-mono text-xs text-foreground-muted" title={manifest.manifest_id}>
                       {manifest.manifest_id.slice(0, 8)}…
                     </span>
                     <StatusBadge
                       status={status}
                       labelPrefix="Campaign status"
-                      className="px-2 py-1 text-[9px] uppercase tracking-widest"
+                      className="px-2 py-1 text-xs uppercase tracking-wide"
                     />
                   </div>
                   <p className="mt-2 text-sm font-black text-foreground-muted">
                     {campaignNameForManifest(manifest)}
                   </p>
-                  <p className="mt-1 text-[10px] text-foreground-muted">
+                  <p className="mt-1 text-xs text-foreground-muted">
                     r{manifest.revision} · {manifest.market_code} ·{" "}
                     {manifest.surface}
                   </p>
@@ -800,7 +800,7 @@ export default function AppExperience() {
                     actionManifest.state !== "draft"
                   }
                   onClick={() => previewMutation.mutate()}
-                  className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary-light disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-black uppercase tracking-wide text-primary-light disabled:opacity-60"
                 >
                   <Eye size={14}  aria-hidden="true" />{" "}
                   {previewMutation.isPending
@@ -815,7 +815,7 @@ export default function AppExperience() {
                     type="button"
                     disabled={actionBusy || !canSubmitApproval}
                     onClick={() => submitApprovalMutation.mutate()}
-                    className="inline-flex items-center gap-2 rounded-xl border border-warning bg-warning-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-warning disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-xl border border-warning bg-warning-surface px-3 py-2 text-xs font-black uppercase tracking-wide text-warning disabled:opacity-60"
                   >
                     <ClipboardCheck size={14}  aria-hidden="true" /> Submit approval
                   </button>
@@ -826,7 +826,7 @@ export default function AppExperience() {
                     type="button"
                     disabled={actionBusy || !canApprove}
                     onClick={() => approveMutation.mutate()}
-                    className="inline-flex items-center gap-2 rounded-xl border border-success bg-success-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-success disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-xl border border-success bg-success-surface px-3 py-2 text-xs font-black uppercase tracking-wide text-success disabled:opacity-60"
                   >
                     <ShieldCheck size={14}  aria-hidden="true" /> Approve
                   </button>
@@ -841,7 +841,7 @@ export default function AppExperience() {
                     actionManifest.state !== "draft"
                   }
                   onClick={publish}
-                  className="inline-flex items-center gap-2 rounded-xl bg-success px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-success disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl bg-success px-3 py-2 text-xs font-black uppercase tracking-wide text-on-success disabled:opacity-60"
                 >
                   <Send size={14}  aria-hidden="true" />{" "}
                   {previewReady ? "Publish" : "Preview before publish"}
@@ -873,7 +873,7 @@ export default function AppExperience() {
                       )
                         retireMutation.mutate();
                     }}
-                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-subtle px-3 py-2 text-xs font-black uppercase tracking-wide text-foreground-muted disabled:opacity-60"
                   >
                     <Archive size={14}  aria-hidden="true" /> Retire
                   </button>
@@ -1094,7 +1094,7 @@ export default function AppExperience() {
                     actionManifest.state !== "draft"
                   }
                   onClick={() => audiencePairMutation.mutate(false)}
-                  className="rounded-xl border border-success bg-success-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-success disabled:opacity-60"
+                  className="rounded-xl border border-success bg-success-surface px-3 py-2 text-xs font-black uppercase tracking-wide text-success disabled:opacity-60"
                 >
                   {audiencePairMutation.isPending
                     ? "Simulating..."
@@ -1108,7 +1108,7 @@ export default function AppExperience() {
                     actionManifest.state !== "draft"
                   }
                   onClick={() => audiencePairMutation.mutate(true)}
-                  className="rounded-xl border border-warning bg-warning-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-warning disabled:opacity-60"
+                  className="rounded-xl border border-warning bg-warning-surface px-3 py-2 text-xs font-black uppercase tracking-wide text-warning disabled:opacity-60"
                 >
                   Simulate non-matching
                 </button>
@@ -1128,7 +1128,7 @@ export default function AppExperience() {
                     key={key}
                     className="rounded-2xl border border-border bg-surface-subtle p-3 text-xs"
                   >
-                    <p className="font-black uppercase tracking-widest text-foreground-muted">
+                    <p className="font-black uppercase tracking-wide text-foreground-muted">
                       {label}
                     </p>
                     <p

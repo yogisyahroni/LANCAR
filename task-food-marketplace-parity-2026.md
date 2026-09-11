@@ -3110,6 +3110,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Admin Courier Growth, Warehouse Operations and Pricing were audited for Part S across tier/incentive configuration, warehouse scan/bag states, tariff validation/simulator copy and action controls. Operational labels, helper/validation text and status chips now use the shared readable `text-xs` floor with `tracking-wide`, while compact numeric/code-like presentation remains scoped. The `/courier-growth`, `/pricing` and `/warehouse-operations` axe slice passes `10/10`, reflow/text-spacing passes `9/9`, and typecheck/ESLint/iconography/table/diff guards pass. Full dynamic state, chart/tooltip, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Admin Economics and App Experience were audited for Part S across policy revision scope/status actions, manifest lifecycle, rollout/editor controls, component positions, localized-copy references and helper states. Operational labels, actions and metadata now use the shared readable `text-xs` floor with `tracking-wide`, while policy/code-like values retain scoped identifier presentation. Economics axe/reflow coverage passes `2/2` and `3/3`; the complete App Experience registered route inventory passes axe `50/50` and reflow/text-spacing `53/53`; typecheck/ESLint/iconography/table/diff guards pass. Full dynamic policy states, editor interactions, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

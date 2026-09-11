@@ -160,7 +160,7 @@ export default function EconomicsControlPlane() {
           </h1>
           <p className="text-foreground-muted mt-1">Draft → preview/simulate → maker-checker approval → publish atau rollback.</p>
         </div>
-        <button type="button" onClick={() => revisionsQuery.refetch()} className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-surface-subtle border border-border text-xs font-black uppercase tracking-widest text-foreground-muted">
+        <button type="button" onClick={() => revisionsQuery.refetch()} className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-surface-subtle border border-border text-xs font-black uppercase tracking-wide text-foreground-muted">
           <RefreshCw size={15} aria-hidden="true" /> Refresh
         </button>
       </div>
@@ -193,7 +193,7 @@ export default function EconomicsControlPlane() {
           <label className="block text-xs font-bold text-foreground-muted">Policy payload (JSON)
             <textarea value={payloadText} onChange={(event) => setPayloadText(event.target.value)} rows={12} spellCheck={false} className="mt-2 w-full bg-surface-subtle border border-border rounded-xl p-3 text-xs font-mono text-foreground-muted" />
           </label>
-          <button type="button" onClick={submitDraft} disabled={createMutation.isPending} className="w-full inline-flex justify-center items-center gap-2 px-5 py-3 rounded-xl bg-primary text-on-primary text-xs font-black uppercase tracking-widest disabled:opacity-60">
+          <button type="button" onClick={submitDraft} disabled={createMutation.isPending} className="w-full inline-flex justify-center items-center gap-2 px-5 py-3 rounded-xl bg-primary text-on-primary text-xs font-black uppercase tracking-wide disabled:opacity-60">
             {createMutation.isPending ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Send size={15} aria-hidden="true" />} Save draft
           </button>
         </section>
@@ -206,19 +206,19 @@ export default function EconomicsControlPlane() {
                 {revisionsQuery.data?.map((revision) => (
                   <div key={revision.id} className={`p-6 space-y-4 ${selectedId === revision.id ? 'bg-primary/5' : ''}`}>
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div><p className="font-black text-foreground-muted">{revision.policy_type} · {revision.service_code}</p><p className="text-[11px] font-mono text-foreground-muted">{revision.policy_version} · {revision.market_code}</p></div>
+                    <div><p className="font-black text-foreground-muted">{revision.policy_type} · {revision.service_code}</p><p className="text-xs font-mono text-foreground-muted">{revision.policy_version} · {revision.market_code}</p></div>
                       <StatusBadge status={revision.status} labelPrefix="Policy revision status" className="rounded-lg" />
                     </div>
                     <p className="text-xs text-foreground-muted">{revision.business_reason}</p>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => setSelectedId(revision.id)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-subtle text-[10px] font-black uppercase tracking-widest text-foreground-muted"><Eye size={13} aria-hidden="true" /> Preview</button>
-                      {(revision.status === 'draft' || revision.status === 'approved') && <button type="button" onClick={() => { setSelectedId(revision.id); actionMutation.mutate({ id: revision.id, action: 'simulate' }) }} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-info-surface text-[10px] font-black uppercase tracking-widest text-info"><Play size={13} aria-hidden="true" /> Simulate</button>}
-                      {revision.status === 'draft' && <button type="button" onClick={() => actionMutation.mutate({ id: revision.id, action: 'approve' })} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-success-surface text-[10px] font-black uppercase tracking-widest text-success"><CheckCircle2 size={13} aria-hidden="true" /> Approve</button>}
-                      {revision.status === 'approved' && <button type="button" onClick={() => actionMutation.mutate({ id: revision.id, action: 'publish' })} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/15 text-[10px] font-black uppercase tracking-widest text-primary-light"><Send size={13} aria-hidden="true" /> Publish</button>}
-                      {revision.status === 'published' && <button type="button" onClick={() => setSelectedId(revision.id)} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-warning-surface text-[10px] font-black uppercase tracking-widest text-warning disabled:opacity-60"><RotateCcw size={13} aria-hidden="true" /> Rollback</button>}
+                      <button type="button" onClick={() => setSelectedId(revision.id)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-subtle text-xs font-black uppercase tracking-wide text-foreground-muted"><Eye size={13} aria-hidden="true" /> Preview</button>
+                      {(revision.status === 'draft' || revision.status === 'approved') && <button type="button" onClick={() => { setSelectedId(revision.id); actionMutation.mutate({ id: revision.id, action: 'simulate' }) }} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-info-surface text-xs font-black uppercase tracking-wide text-info"><Play size={13} aria-hidden="true" /> Simulate</button>}
+                      {revision.status === 'draft' && <button type="button" onClick={() => actionMutation.mutate({ id: revision.id, action: 'approve' })} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-success-surface text-xs font-black uppercase tracking-wide text-success"><CheckCircle2 size={13} aria-hidden="true" /> Approve</button>}
+                      {revision.status === 'approved' && <button type="button" onClick={() => actionMutation.mutate({ id: revision.id, action: 'publish' })} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/15 text-xs font-black uppercase tracking-wide text-primary-light"><Send size={13} aria-hidden="true" /> Publish</button>}
+                      {revision.status === 'published' && <button type="button" onClick={() => setSelectedId(revision.id)} disabled={actionMutation.isPending} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-warning-surface text-xs font-black uppercase tracking-wide text-warning disabled:opacity-60"><RotateCcw size={13} aria-hidden="true" /> Rollback</button>}
                     </div>
                     {revision.status === 'published' && selectedId === revision.id && <input value={rollbackReason} onChange={(event) => setRollbackReason(event.target.value)} placeholder="Business reason rollback" className="w-full bg-surface-subtle border border-border rounded-lg p-2.5 text-xs text-foreground-muted" />}
-                    {revision.status === 'published' && selectedId === revision.id && rollbackReason.trim() && <button type="button" onClick={() => actionMutation.mutate({ id: revision.id, action: 'rollback', body: { business_reason: rollbackReason } })} className="text-[10px] text-warning underline">Konfirmasi rollback {revision.policy_version}</button>}
+                    {revision.status === 'published' && selectedId === revision.id && rollbackReason.trim() && <button type="button" onClick={() => actionMutation.mutate({ id: revision.id, action: 'rollback', body: { business_reason: rollbackReason } })} className="text-xs text-warning underline">Konfirmasi rollback {revision.policy_version}</button>}
                   </div>
                 ))}
               </div>
@@ -229,12 +229,12 @@ export default function EconomicsControlPlane() {
             <div className="flex items-center justify-between"><div><h2 className="text-lg font-black text-foreground-muted">Preview & simulation</h2><p className="text-xs text-foreground-muted mt-1">{selected.runtime_config_key}</p></div><button type="button" onClick={() => previewQuery.refetch()} aria-label="Refresh economics preview" title="Refresh economics preview" className="text-foreground-muted hover:text-foreground"><Play size={18} aria-hidden="true" /></button></div>
             {previewQuery.isLoading ? <Loader2 className="animate-spin text-primary" aria-hidden="true" /> : previewQuery.isError ? <p className="text-sm text-error">Preview gagal dimuat.</p> : <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-surface-subtle rounded-xl p-3"><p className="text-[10px] uppercase text-foreground-muted">Market</p><p className="font-black text-foreground-muted">{previewQuery.data?.affected_scope?.market_codes.join(', ')}</p></div>
-                <div className="bg-surface-subtle rounded-xl p-3"><p className="text-[10px] uppercase text-foreground-muted">Zone</p><p className="font-black text-foreground-muted">{previewQuery.data?.affected_scope?.zone_ids.length ? 'Scoped' : 'Global'}</p></div>
-                <div className="bg-surface-subtle rounded-xl p-3"><p className="text-[10px] uppercase text-foreground-muted">Service</p><p className="font-black text-foreground-muted">{previewQuery.data?.affected_scope?.service_codes.join(', ')}</p></div>
-                <div className="bg-surface-subtle rounded-xl p-3"><p className="text-[10px] uppercase text-foreground-muted">Active orders</p><p className="font-black text-foreground-muted">{previewQuery.data?.affected_scope?.active_order_count ?? 0}</p></div>
+                <div className="bg-surface-subtle rounded-xl p-3"><p className="text-xs uppercase text-foreground-muted">Market</p><p className="font-black text-foreground-muted">{previewQuery.data?.affected_scope?.market_codes.join(', ')}</p></div>
+                <div className="bg-surface-subtle rounded-xl p-3"><p className="text-xs uppercase text-foreground-muted">Zone</p><p className="font-black text-foreground-muted">{previewQuery.data?.affected_scope?.zone_ids.length ? 'Scoped' : 'Global'}</p></div>
+                <div className="bg-surface-subtle rounded-xl p-3"><p className="text-xs uppercase text-foreground-muted">Service</p><p className="font-black text-foreground-muted">{previewQuery.data?.affected_scope?.service_codes.join(', ')}</p></div>
+                <div className="bg-surface-subtle rounded-xl p-3"><p className="text-xs uppercase text-foreground-muted">Active orders</p><p className="font-black text-foreground-muted">{previewQuery.data?.affected_scope?.active_order_count ?? 0}</p></div>
               </div>
-              <div><p className="text-xs font-black uppercase tracking-widest text-foreground-muted mb-3">Example quotes</p><p className="text-xs text-foreground-muted mb-3">{previewQuery.data?.example_quotes?.label}</p><div className="space-y-2">{previewQuery.data?.example_quotes?.candidate_quotes.map((quote) => <div key={quote.distance_km} className="flex justify-between bg-surface-subtle rounded-xl p-3 text-xs"><span className="text-foreground-muted">{quote.distance_km} km · x{quote.applied_multiplier}</span><span className="font-black text-foreground-muted">{formatIdr(quote.candidate_quote_idr)}</span></div>)}</div></div>
+              <div><p className="text-xs font-black uppercase tracking-wide text-foreground-muted mb-3">Example quotes</p><p className="text-xs text-foreground-muted mb-3">{previewQuery.data?.example_quotes?.label}</p><div className="space-y-2">{previewQuery.data?.example_quotes?.candidate_quotes.map((quote) => <div key={quote.distance_km} className="flex justify-between bg-surface-subtle rounded-xl p-3 text-xs"><span className="text-foreground-muted">{quote.distance_km} km · x{quote.applied_multiplier}</span><span className="font-black text-foreground-muted">{formatIdr(quote.candidate_quote_idr)}</span></div>)}</div></div>
               <div className="flex items-center gap-2 text-xs text-success"><ShieldCheck size={15} aria-hidden="true" /> Protected floor/ceiling divalidasi server-side sebelum approve/publish.</div>
             </>}
           </div>}
