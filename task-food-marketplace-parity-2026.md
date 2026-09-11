@@ -3795,6 +3795,10 @@ Known cleanup:
 
 ## DS-2026-001 — Establish LANCAR Design System as one governed product [P0]
 
+**Task status:** COMPLETE
+**Evidence:** `docs/task-evidence/DS-2026-001.md`
+**Last updated:** 2026-09-11
+
 **Recommended docs**
 - `docs/design/lancar-design-system-2026.md`
 - `docs/design/design-system-governance.md`
@@ -3821,11 +3825,11 @@ Known cleanup:
 10. Accessibility and content rules
 
 **Checklist**
-- [ ] Satu design-system version/release note menjelaskan breaking/deprecated component changes.
-- [ ] Component memiliki owner, status `experimental|stable|deprecated`, supported surfaces, accessibility contract dan code mapping.
-- [ ] Feature team tidak membuat “mini design system” sendiri di Food/Towing/Tambal.
-- [ ] Service-specific pattern boleh berbeda journey/density, tetapi foundations/component semantics tetap LANCAR.
-- [ ] Design system review menjadi gate untuk component type baru yang akan dipakai remote App Experience.
+- [x] Satu design-system version/release note menjelaskan breaking/deprecated component changes.
+- [x] Component memiliki owner, status `experimental|stable|deprecated`, supported surfaces, accessibility contract dan code mapping.
+- [x] Feature team tidak membuat “mini design system” sendiri di Food/Towing/Tambal.
+- [x] Service-specific pattern boleh berbeda journey/density, tetapi foundations/component semantics tetap LANCAR.
+- [x] Design system review menjadi gate untuk component type baru yang akan dipakai remote App Experience.
 
 ---
 
