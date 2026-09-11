@@ -3482,7 +3482,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [x] Async success/error announcements use suitable live-region semantics without flooding screen readers. Customer/Admin shells use polite status vs assertive alert regions, and route inventory checks visible live-region content. Evidence: `docs/task-evidence/A11Y-2026-005.md`.
 - [x] Destructive Admin actions show icon + verb + target + impact; color alone is not confirmation. Evidence: `docs/task-evidence/A11Y-2026-005.md` (authenticated service-control confirmation matrix).
 - [x] `marketing_hide`, `new_order_gate`, `provider_gate`, `checkout_gate` remain visually/verbally distinct in both themes. Evidence: `docs/task-evidence/A11Y-2026-005.md` (authenticated Chromium impact-copy matrix).
-- [ ] Warning/error text meets contrast even on tinted semantic surfaces. Evidence: `docs/task-evidence/A11Y-2026-005.md` (global token guard passes; tinted-surface visual audit remains open).
+- [x] Warning/error text meets contrast even on tinted semantic surfaces. Evidence: `docs/task-evidence/A11Y-2026-005.md` and `scripts/a11y/check-tinted-status-surfaces.mjs` (actual Light/Dark CSS status pairs meet 4.5:1; source guard rejects low-opacity same-hue status combinations).
 - [ ] Disabled state is visually distinct from enabled while preserving enough readability for context; do not use opacity so low that labels effectively disappear. Evidence: `docs/task-evidence/A11Y-2026-005.md` (source guard, 198-route runtime opacity floor and global `cursor: not-allowed` cue assertions pass; enabled-vs-disabled composited visual distinction remains open).
 
 ---
