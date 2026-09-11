@@ -127,7 +127,7 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                   </div>
                   <button
                     onClick={() => queryClient.invalidateQueries({ queryKey: ['maps-provider-config'] })}
-                    className="px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-widest hover:bg-surface-subtle transition-all"
+                    className="px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-wide hover:bg-surface-subtle transition-all"
                   >
                     Refresh Runtime
                   </button>
@@ -154,7 +154,7 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                       )}>
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                           <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-foreground-muted">Ops safety status</p>
+                            <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Ops safety status</p>
                             <StatusBadge status={mapsProviderConfig?.ops?.status || 'operational'} labelPrefix="Maps operations status" className="mt-2 text-sm uppercase" />
                             <p className="text-sm text-foreground-muted mt-2">
                               Active provider: <span className="text-foreground-muted font-black">{mapsProviderConfig?.ops?.active_config?.active_provider || mapsProviderConfig?.value?.active_provider}</span>
@@ -164,13 +164,13 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                           <div className="flex flex-wrap gap-3">
                             <button
                               onClick={restoreOsmMaps}
-                              className="px-5 py-3 rounded-2xl bg-success-surface border border-success text-success font-black text-xs uppercase tracking-widest hover:bg-success-surface transition-all active:scale-[0.98]"
+                              className="px-5 py-3 rounded-2xl bg-success-surface border border-success text-success font-black text-xs uppercase tracking-wide hover:bg-success-surface transition-all active:scale-[0.98]"
                             >
                               Restore OSM
                             </button>
                             <button
                               onClick={emergencyDisableMaps}
-                              className="px-5 py-3 rounded-2xl bg-error-surface border border-error text-error font-black text-xs uppercase tracking-widest hover:bg-error-surface transition-all active:scale-[0.98]"
+                              className="px-5 py-3 rounded-2xl bg-error-surface border border-error text-error font-black text-xs uppercase tracking-wide hover:bg-error-surface transition-all active:scale-[0.98]"
                             >
                               Emergency Disable
                             </button>
@@ -186,14 +186,14 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                             { label: 'Anomaly', value: mapsProviderConfig?.ops?.route_quality?.distance_anomalies || 0 },
                           ].map((metric) => (
                             <div key={metric.label} className="rounded-2xl bg-surface-subtle border border-border px-4 py-3">
-                              <p className="text-[10px] text-foreground-muted font-black uppercase tracking-widest">{metric.label}</p>
+                              <p className="text-xs text-foreground-muted font-black uppercase tracking-wide">{metric.label}</p>
                               <p className="text-lg text-foreground-muted font-black mt-1">{metric.value}</p>
                             </div>
                           ))}
                         </div>
                         {mapsProviderConfig?.ops?.last_error && (
                           <div className="rounded-2xl bg-surface-subtle border border-border px-4 py-3">
-                            <p className="text-[10px] text-error font-black uppercase tracking-widest">Last provider issue</p>
+                            <p className="text-xs text-error font-black uppercase tracking-wide">Last provider issue</p>
                             <p className="text-sm text-foreground-muted mt-2">
                               {mapsProviderConfig.ops.last_error.provider} - {mapsProviderConfig.ops.last_error.error_message || mapsProviderConfig.ops.last_error.fallback_reason}
                             </p>
@@ -224,7 +224,7 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                                     ? "bg-warning-surface border-warning"
                                     : "bg-info-surface border-info"
                               )}>
-                                <p className="text-xs text-foreground-muted font-black uppercase tracking-widest">{alert.code.replaceAll('_', ' ')}</p>
+                                <p className="text-xs text-foreground-muted font-black uppercase tracking-wide">{alert.code.replaceAll('_', ' ')}</p>
                                 <p className="text-sm text-foreground-muted mt-1">{alert.message}</p>
                               </div>
                             ))}
@@ -296,7 +296,7 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                                     }
                                   })}
                                   className={cn(
-                                    "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                    "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide transition-all",
                                     scopeConfig.enabled ? "bg-success-surface text-success" : "bg-error-surface text-error"
                                   )}
                                 >
@@ -316,7 +316,7 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                                       }
                                     })}
                                     className={cn(
-                                      "py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                      "py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all",
                                       scopeConfig.provider === provider
                                         ? "bg-primary text-on-primary"
                                         : "bg-surface-subtle text-foreground-muted hover:text-foreground-muted"
@@ -339,7 +339,7 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-border">
                       <label className="space-y-3">
-                        <span className="text-xs font-black text-foreground-muted uppercase tracking-widest">Runtime config TTL seconds</span>
+                        <span className="text-xs font-black text-foreground-muted uppercase tracking-wide">Runtime config TTL seconds</span>
                         <input
                           type="number"
                           min={30}
@@ -350,7 +350,7 @@ export function MapsProviderPanel({ data }: { data: SettingsData }) {
                         />
                       </label>
                       <label className="space-y-3">
-                        <span className="text-xs font-black text-foreground-muted uppercase tracking-widest">OSM tile template</span>
+                        <span className="text-xs font-black text-foreground-muted uppercase tracking-wide">OSM tile template</span>
                         <input
                           type="text"
                           defaultValue={mapsProviderConfig?.value?.providers?.openstreetmap?.tile_url_template || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'}

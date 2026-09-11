@@ -121,7 +121,7 @@ export function AuditLogsPanel({ data }: { data: SettingsData }) {
                       System Audit Logs
                     </h3>
                     <div className="flex gap-2">
-                       <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">Last 100 Events</span>
+                       <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-black uppercase tracking-wide border border-primary/20">Last 100 Events</span>
                     </div>
                   </div>
 
@@ -129,10 +129,10 @@ export function AuditLogsPanel({ data }: { data: SettingsData }) {
                     <table className="w-full border-separate border-spacing-y-3">
                       <thead>
                         <tr className="text-left">
-                          <th scope="col" className="px-6 py-2 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Event</th>
-                          <th scope="col" className="px-6 py-2 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Modified By</th>
-                          <th scope="col" className="px-6 py-2 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Reason</th>
-                          <th scope="col" className="px-6 py-2 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Timestamp</th>
+                          <th scope="col" className="px-6 py-2 text-xs font-black text-foreground-muted uppercase tracking-wide">Event</th>
+                          <th scope="col" className="px-6 py-2 text-xs font-black text-foreground-muted uppercase tracking-wide">Modified By</th>
+                          <th scope="col" className="px-6 py-2 text-xs font-black text-foreground-muted uppercase tracking-wide">Reason</th>
+                          <th scope="col" className="px-6 py-2 text-xs font-black text-foreground-muted uppercase tracking-wide">Timestamp</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -148,25 +148,25 @@ export function AuditLogsPanel({ data }: { data: SettingsData }) {
                                 </div>
                                 <div>
                                   <p className="text-xs font-black text-foreground-muted">{log.key}</p>
-                                  <p className="text-[10px] text-foreground-muted font-medium">Flag status: {log.is_enabled ? 'Enabled' : 'Disabled'}</p>
+                                  <p className="text-xs text-foreground-muted font-medium">Flag status: {log.is_enabled ? 'Enabled' : 'Disabled'}</p>
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 py-4 bg-surface/[0.02] border-y border-border">
                                <div className="flex items-center gap-2">
-                                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-black text-primary uppercase">
+                                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-black text-primary uppercase">
                                    {log.updated_by?.substring(0, 2) || 'AD'}
                                  </div>
-                                 <span className="text-[10px] font-bold text-foreground-muted tracking-tight">{log.updated_by || 'System'}</span>
+                                 <span className="text-xs font-bold text-foreground-muted tracking-tight">{log.updated_by || 'System'}</span>
                                </div>
                             </td>
                             <td className="px-6 py-4 bg-surface/[0.02] border-y border-border">
-                               <p className="text-[10px] font-medium text-foreground-muted line-clamp-1 max-w-[200px]" title={log.change_reason}>{log.change_reason}</p>
+                               <p className="text-xs font-medium text-foreground-muted line-clamp-1 max-w-[200px]" title={log.change_reason}>{log.change_reason}</p>
                             </td>
                             <td className="px-6 py-4 bg-surface/[0.02] border-y border-r border-border rounded-r-2xl">
                                <div className="flex items-center gap-2 text-foreground-muted">
                                  <Clock size={12} aria-hidden="true" />
-                                 <span className="text-[10px] font-bold uppercase tracking-tight">
+                                 <span className="text-xs font-bold uppercase tracking-tight">
                                    {new Date(log.created_at).toLocaleString('en-GB', { 
                                      day: '2-digit', 
                                      month: 'short', 
@@ -185,7 +185,7 @@ export function AuditLogsPanel({ data }: { data: SettingsData }) {
                         <div className="w-16 h-16 rounded-full bg-surface-subtle flex items-center justify-center mx-auto text-foreground-muted">
                           <History size={32} aria-hidden="true" />
                         </div>
-                        <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">No audit events recorded</p>
+                        <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">No audit events recorded</p>
                       </div>
                     )}
                   </div>
