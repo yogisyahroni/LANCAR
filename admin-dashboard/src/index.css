@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./tembus-tokens.generated.css";
 
 @theme inline {
   --color-primary: var(--token-primary);
@@ -116,14 +117,14 @@
     --token-surface-subtle: #203329;
     --token-foreground: #F4F7F5;
     --token-foreground-secondary: #D0DBD3;
-    --token-foreground-muted: #D0DBD3;
+    --token-foreground-muted: #AAB5AE;
     --token-border: #4B5D52;
     --token-border-strong: #71877A;
     --token-input-background: #142019;
     --token-input-border: #71877A;
     --token-focus-ring: #FDBA74;
-    --token-primary: #6EE7B7;
-    --token-primary-light: #A7F3D0;
+    --token-primary: #34D399;
+    --token-primary-light: #6EE7B7;
     --token-primary-dark: #007A42;
     --token-primary-soft: #123B25;
     --token-primary-pale: #0D3322;

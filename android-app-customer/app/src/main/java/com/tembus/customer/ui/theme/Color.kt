@@ -7,39 +7,47 @@ import androidx.compose.ui.graphics.Color
 // Kontras diverifikasi dengan Python (rumus WCAG): teks normal ≥4.5:1, large/bold ≥3:1.
 
 // ─── LIGHT MODE ────────────────────────────────────────────────────────────
-val Primary = Color(0xFF003A20)          // brand/action primary
+val Primary = Color(0xFF006437)          // color.primary
 val PrimaryDark = Color(0xFF003A20)      // brand gradient start
-val PrimaryBase = Color(0xFF005C32)      // canonical green scale
-val PrimaryLight = Color(0xFF007A42)     // hijau terang (ikon/aksen)
+val PrimaryBase = Color(0xFF006437)      // canonical green scale
+val PrimaryLight = Color(0xFF007A42)     // color.primary-light
 val PrimarySoft = Color(0xFFE8F5EE)      // light pill bg
 val PrimaryPale = Color(0xFFF4FBF7)      // bg pucat hijau
 
-val Accent = Color(0xFFF97316)           // orange base (aksen/ikon)
-val AccentDark = Color(0xFFC95A00)
-val AccentLight = Color(0xFFFB923C)      // orange terang (gradasi/hover)
+val Accent = Color(0xFFC2410C)           // color.accent
+val AccentDark = Color(0xFF9A3412)
+val AccentLight = Color(0xFFEA580C)      // color.accent-light
 val AccentSoft = Color(0xFFFFF1E6)       // pill orange bg
 val AccentPale = Color(0xFFFFF8F2)       // bg pucat orange
 
 // Neutral light
 val Background = Color(0xFFF7F8F7)
 val Surface = Color(0xFFFFFFFF)
-val SurfaceVariant = Color(0xFFF0F3F1)
-val Outline = Color(0xFFE5E9E6)
-val OutlineStrong = Color(0xFFD1D5DB)
+val SurfaceVariant = Color(0xFFEEF3EF)
+val Outline = Color(0xFFC7D1CA)
+val OutlineStrong = Color(0xFF718078)
+val InputBorder = Color(0xFF66756C)
 
 val OnPrimary = Color(0xFFFFFFFF)
-val OnAccent = Color(0xFF1A0E00)         // dark brown, 6.77:1 PASS di atas Accent #F97316 (fix dari white 2.8:1)
+val OnSurfaceSecondary = Color(0xFF415047)
+val OnAccent = Color(0xFFFFFFFF)
 val OnBackground = Color(0xFF14211A)     // 15.6:1 PASS
 val OnSurface = Color(0xFF14211A)        // 16.6:1 PASS
-val OnSurfaceVariant = Color(0xFF626C67) // 5.11:1 PASS (label sekunder, fix dari 4.48)
+val OnSurfaceVariant = Color(0xFF5F6B63) // canonical foreground-muted
 val OnSurfaceTertiary = Color(0xFF98A19C)
 val TextDisabled = Color(0xFFB8C0BB)     // disabled/non-interactive
+val OnSuccess = Color(0xFFFFFFFF)
+val OnWarning = Color(0xFFFFFFFF)
+val OnError = Color(0xFFFFFFFF)
+val OnInfo = Color(0xFFFFFFFF)
+val Selection = Color(0xFFB7E4C7)
+val Scrim = Color(0xFF14211A)
 
 // Semantic light
-val Success = Color(0xFF16A34A)
-val Warning = Color(0xFFF59E0B)
-val Error = Color(0xFFDC2626)
-val Info = Color(0xFF2563EB)
+val Success = Color(0xFF15803D)
+val Warning = Color(0xFFB45309)
+val Error = Color(0xFFB91C1C)
+val Info = Color(0xFF1D4ED8)
 val StatusPending = Warning
 val StatusActive = Info
 val StatusCompleted = Success
@@ -47,33 +55,46 @@ val StatusCancelled = Error
 val StatusDisabled = TextDisabled
 
 // ─── DARK MODE ────────────────────────────────────────────────────────────
-val DarkPrimary = Color(0xFF1A7A4C)
+val DarkPrimary = Color(0xFF34D399)
 val DarkPrimaryBase = Color(0xFF23915B)
-val DarkPrimaryLight = Color(0xFF52B788) // 7.67:1 PASS — teks hijau di bg gelap
-val DarkPrimarySoft = Color(0xFF0D3322)  // pill hijau bg dark
-val DarkPrimaryPale = Color(0xFFF4FBF3)
+val DarkPrimaryLight = Color(0xFF6EE7B7)
+val DarkPrimaryDark = Color(0xFF007A42)
+val DarkPrimarySoft = Color(0xFF123B25)  // pill hijau bg dark
+val DarkPrimaryPale = Color(0xFF0D3322)
 
-val DarkAccentDark = Color(0xFFC95A00)
+val DarkAccentDark = Color(0xFFC2410C)
 val DarkAccent = Color(0xFFFB923C)
-val DarkAccentLight = Color(0xFFFDA66A)  // 9.79:1 PASS — teks orange di bg gelap
-val DarkAccentSoft = Color(0xFF3D2414)   // pill orange bg dark
-val DarkAccentPale = Color(0xFF2A160C)
+val DarkAccentLight = Color(0xFFFDBA74)
+val DarkAccentSoft = Color(0xFF4A3210)   // pill orange bg dark
+val DarkAccentPale = Color(0xFF3D2414)
 
 // Neutral dark
 val DarkBackground = Color(0xFF0B120E)
 val DarkSurface = Color(0xFF142019)
 val DarkSurfaceVariant = Color(0xFF1B2921)
-val DarkOutline = Color(0xFF26352C)
+val DarkSurfaceSubtle = Color(0xFF203329)
+val DarkOutline = Color(0xFF4B5D52)
+val DarkOutlineStrong = Color(0xFF71877A)
+val DarkInputBorder = Color(0xFF71877A)
 
 val DarkOnBackground = Color(0xFFF4F7F5) // 17.6:1 PASS
 val DarkOnSurface = Color(0xFFF4F7F5)    // 15.6:1 PASS
+val DarkOnPrimary = Color(0xFF032318)
+val DarkOnAccent = Color(0xFF241000)
+val DarkOnSurfaceSecondary = Color(0xFFD0DBD3)
 val DarkOnSurfaceVariant = Color(0xFFAAB5AE)
 val DarkOnSurfaceTertiary = Color(0xFF78857D)
 val DarkTextDisabled = Color(0xFF556158)
+val DarkOnSuccess = Color(0xFF032318)
+val DarkOnWarning = Color(0xFF241000)
+val DarkOnError = Color(0xFF2A0808)
+val DarkOnInfo = Color(0xFF071A35)
+val DarkSelection = Color(0xFF1A7A4C)
+val DarkScrim = Color(0xFF000000)
 
 // Semantic dark
-val DarkSuccess = Color(0xFF16A34A)      // di bg gelap: 5.9:1
-val DarkWarning = Color(0xFFF59E0B)
+val DarkSuccess = Color(0xFF4ADE80)
+val DarkWarning = Color(0xFFFBBF24)
 val DarkError = Color(0xFFF87171)
 val DarkInfo = Color(0xFF60A5FA)
 val DarkStatusPending = DarkWarning

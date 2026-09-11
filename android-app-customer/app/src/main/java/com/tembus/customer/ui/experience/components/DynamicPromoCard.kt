@@ -171,7 +171,7 @@ internal fun DynamicPromoCard(
                     color = accentColor.copy(alpha = 0.14f),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.LocalOffer, contentDescription = null, modifier = Modifier.size(30.dp))
+                        Icon(Icons.Default.LocalOffer, contentDescription = "", modifier = Modifier.size(30.dp))
                     }
                 }
             }
@@ -205,7 +205,7 @@ internal fun DynamicPromoCard(
                     Spacer(Modifier.height(runtimeTokens.itemSpacing))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(item.ctaLabel, color = accentColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.ArrowForward, contentDescription = "", modifier = Modifier.size(14.dp))
                     }
                 }
             }

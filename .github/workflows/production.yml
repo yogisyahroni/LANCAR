@@ -35,6 +35,8 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Validate governed component registry
         run: node scripts/design/validate-component-registry.mjs
+      - name: Validate canonical TEMBUS design tokens
+        run: node scripts/design/validate-tembus-design-tokens.mjs
 
   maps-runtime-guard:
     name: Maps Runtime Guard

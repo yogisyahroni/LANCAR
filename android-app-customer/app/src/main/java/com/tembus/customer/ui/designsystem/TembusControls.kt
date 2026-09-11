@@ -134,11 +134,11 @@ fun TembusButton(
                     color = resolvedContentColor,
                 )
             } else if (leadingIcon != null) {
-                Icon(imageVector = leadingIcon, contentDescription = null, modifier = Modifier.size(20.dp))
+                Icon(imageVector = leadingIcon, contentDescription = "", modifier = Modifier.size(20.dp))
             }
             Text(text = text)
             if (state != TembusControlState.Loading && trailingIcon != null) {
-                Icon(imageVector = trailingIcon, contentDescription = null, modifier = Modifier.size(20.dp))
+                Icon(imageVector = trailingIcon, contentDescription = "", modifier = Modifier.size(20.dp))
             }
         }
     }
@@ -235,10 +235,10 @@ fun TembusTextField(
         supportingText = (errorText ?: supportingText)?.let { message -> { Text(message) } },
         isError = isError,
         singleLine = singleLine,
-        leadingIcon = leadingIcon?.let { icon -> { Icon(icon, contentDescription = null) } },
+        leadingIcon = leadingIcon?.let { icon -> { Icon(icon, contentDescription = "") } },
         trailingIcon = trailingIcon?.let { icon ->
             {
-                if (onTrailingIconClick == null) Icon(icon, contentDescription = null)
+                if (onTrailingIconClick == null) Icon(icon, contentDescription = "")
                 else TembusIconButton(icon, "Aksi $label", onTrailingIconClick)
             }
         },
@@ -285,8 +285,8 @@ fun TembusChip(
         enabled = enabled,
         label = { Text(label) },
         modifier = modifier.heightIn(min = 48.dp),
-        leadingIcon = leadingIcon?.let { icon -> { Icon(icon, contentDescription = null) } },
-        trailingIcon = trailingIcon?.let { icon -> { Icon(icon, contentDescription = null) } },
+        leadingIcon = leadingIcon?.let { icon -> { Icon(icon, contentDescription = "") } },
+        trailingIcon = trailingIcon?.let { icon -> { Icon(icon, contentDescription = "") } },
         colors = AssistChipDefaults.assistChipColors(
             containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
             labelColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,

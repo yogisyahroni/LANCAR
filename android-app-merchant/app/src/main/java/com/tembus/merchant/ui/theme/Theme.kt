@@ -39,7 +39,7 @@ private val LightColors = lightColorScheme(
 
 private val DarkColors = darkColorScheme(
     primary = DarkPrimary,
-    onPrimary = OnPrimary,
+    onPrimary = DarkOnPrimary,
     primaryContainer = DarkPrimarySoft,
     onPrimaryContainer = PrimaryLight,
     secondary = DarkPrimaryBase,
@@ -47,9 +47,9 @@ private val DarkColors = darkColorScheme(
     secondaryContainer = DarkPrimarySoft,
     onSecondaryContainer = SecondaryLight,
     tertiary = DarkAccent,
-    onTertiary = OnAccent,
+    onTertiary = DarkOnAccent,
     tertiaryContainer = DarkAccentSoft,
-    onTertiaryContainer = AccentLight,
+    onTertiaryContainer = DarkAccentLight,
     background = DarkBackground,
     onBackground = DarkOnBackground,
     surface = DarkSurface,
@@ -60,7 +60,7 @@ private val DarkColors = darkColorScheme(
     outlineVariant = DarkSurfaceVariant,
     error = DarkError,
     errorContainer = DarkError.copy(alpha = 0.18f),
-    onError = OnPrimary,
+    onError = DarkOnError,
     onErrorContainer = DarkOnSurface
 )
 

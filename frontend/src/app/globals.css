@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./tembus-tokens.generated.css";
 
 @theme inline {
   --color-primary: var(--token-primary);

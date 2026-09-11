@@ -21,6 +21,7 @@ UI_ROOTS = [
 THEMES = [
     ROOT / "android-app-customer/app/src/main/java/com/tembus/customer/ui/theme",
     ROOT / "android-app-merchant/app/src/main/java/com/tembus/merchant/ui/theme",
+    ROOT / "android-app/app/src/main/java/com/tembus/courier/ui/theme",
 ]
 
 
@@ -102,7 +103,7 @@ def main() -> int:
             ("OnPrimary", "Primary", 4.5),
             ("DarkOnSurface", "DarkSurface", 4.5),
             ("DarkOnSurfaceVariant", "DarkSurface", 4.5),
-            ("OnPrimary", "DarkPrimary", 3.0),
+            ("DarkOnPrimary", "DarkPrimary", 4.5),
         ]
         for foreground, background, minimum in pairs:
             if foreground not in colors or background not in colors:

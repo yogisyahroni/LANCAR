@@ -112,7 +112,7 @@ fun AdsZipScreen(
                 ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Campaign, contentDescription = null, tint = Primary)
+                            Icon(Icons.Filled.Campaign, contentDescription = "", tint = Primary)
                             Spacer(Modifier.padding(4.dp))
                             Text("Visibilitas berbayar", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         }

@@ -121,7 +121,7 @@ fun MerchantEnforcementScreen(
                 OutlinedButton(onClick = viewModel::load) { Text("Coba lagi") }
             }
             state.actions.isEmpty() -> Column(Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
-                Icon(Icons.Filled.Info, contentDescription = null)
+                Icon(Icons.Filled.Info, contentDescription = "")
                 Spacer(Modifier.height(12.dp))
                 Text("Tidak ada enforcement aktif.", style = MaterialTheme.typography.titleMedium)
                 Text("Jika ada peninjauan baru, status dan jalur remediation akan muncul di halaman ini.")

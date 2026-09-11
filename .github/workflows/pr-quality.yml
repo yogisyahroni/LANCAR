@@ -25,6 +25,8 @@ jobs:
           node-version: '22'
       - name: Validate governed component registry
         run: node scripts/design/validate-component-registry.mjs
+      - name: Validate canonical TEMBUS design tokens
+        run: node scripts/design/validate-tembus-design-tokens.mjs
 
   security-quality:
     name: Repository Secret Scan

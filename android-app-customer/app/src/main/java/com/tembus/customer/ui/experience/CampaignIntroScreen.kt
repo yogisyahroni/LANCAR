@@ -109,7 +109,7 @@ fun CampaignIntroScreen(
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 Icons.Default.Campaign,
-                                contentDescription = null,
+                                contentDescription = "",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(42.dp),
                             )

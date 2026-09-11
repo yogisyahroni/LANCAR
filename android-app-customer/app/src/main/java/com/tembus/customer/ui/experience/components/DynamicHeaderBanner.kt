@@ -156,7 +156,7 @@ internal fun DynamicHeaderBanner(
                         color = accentColor.copy(alpha = 0.12f),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Campaign, contentDescription = null, modifier = Modifier.size(32.dp))
+                            Icon(Icons.Default.Campaign, contentDescription = "", modifier = Modifier.size(32.dp))
                         }
                     }
                 }
@@ -212,7 +212,7 @@ internal fun DynamicHeaderBanner(
                         onAction(target)
                     },
                     label = { Text(ctaLabel.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    trailingIcon = { Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    trailingIcon = { Icon(Icons.Default.ArrowForward, contentDescription = "", modifier = Modifier.size(16.dp)) },
                     colors = AssistChipDefaults.assistChipColors(
                         containerColor = accentColor,
                         labelColor = accentContentColor,

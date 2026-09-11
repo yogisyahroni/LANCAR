@@ -441,7 +441,7 @@ private fun DynamicQuickActions(
                     }
                 },
                 label = { Text(action.first.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                leadingIcon = { Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                leadingIcon = { Icon(Icons.Default.ArrowForward, contentDescription = "", modifier = Modifier.size(16.dp)) },
             )
         }
     }
@@ -464,7 +464,7 @@ private fun DynamicTextCard(
         colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp))
+            Icon(icon, contentDescription = "", modifier = Modifier.size(28.dp))
             Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)

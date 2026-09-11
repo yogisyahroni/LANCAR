@@ -31,16 +31,16 @@ private val DarkColorScheme = darkColorScheme(
     surfaceVariant = DarkSurfaceVariant,
     outline = DarkOutline,
     outlineVariant = DarkSurfaceVariant,
-    onPrimary = OnPrimary,
+    onPrimary = DarkOnPrimary,
     onSecondary = OnSecondary,
-    onTertiary = OnAccent,
+    onTertiary = DarkOnAccent,
     onTertiaryContainer = DarkAccentLight,
     onBackground = DarkOnBackground,
     onSurface = DarkOnSurface,
     onSurfaceVariant = DarkOnSurfaceVariant,
     error = DarkError,
     errorContainer = DarkError.copy(alpha = 0.18f),
-    onError = OnPrimary,
+    onError = DarkOnError,
     onErrorContainer = DarkOnSurface
 )
 
