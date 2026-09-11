@@ -3842,10 +3842,10 @@ Known cleanup:
 - `admin-dashboard/src/index.css`
 
 **Recommended new files**
-- `design-tokens/lancar.tokens.json`
-- `scripts/design/export-design-tokens.mjs`
-- `scripts/design/validate-design-tokens.mjs`
-- `docs/design/token-naming.md`
+- `design-tokens/tembus.tokens.json`
+- `scripts/design/export-tembus-design-tokens.mjs`
+- `scripts/design/validate-tembus-design-tokens.mjs`
+- `docs/design/tembus-token-naming.md`
 
 **Token families**
 - color semantic roles
@@ -3859,13 +3859,17 @@ Known cleanup:
 - content width/grid
 - scrim/overlay
 
+**Task status:** COMPLETE
+**Evidence:** `docs/task-evidence/DS-2026-002.md`
+**Last updated:** 2026-09-11
+
 **Checklist**
-- [ ] Token names describe role, not raw color, e.g. `color.action.primary`, `color.text.secondary`, `surface.raised`.
-- [ ] Light/Dark/System values map from one semantic contract.
-- [ ] Android/Web/Admin generated or manually synced values are testable against canonical token source.
-- [ ] Figma token naming maps one-to-one or through documented transform to code tokens.
-- [ ] Token validation includes WCAG protected pairs from Part S.
-- [ ] No service invents a new “primary green/orange” without design-system approval.
+- [x] Token names describe role, not raw color, e.g. `color.action.primary`, `color.text.secondary`, `surface.raised`.
+- [x] Light/Dark/System values map from one semantic contract.
+- [x] Android/Web/Admin generated or manually synced values are testable against canonical token source.
+- [x] Figma token naming maps one-to-one or through documented transform to code tokens.
+- [x] Token validation includes WCAG protected pairs from Part S.
+- [x] No service invents a new “primary green/orange” without design-system approval.
 
 ---
 
