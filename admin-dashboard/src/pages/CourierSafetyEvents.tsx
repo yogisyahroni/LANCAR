@@ -146,7 +146,7 @@ export default function CourierSafetyEvents() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.32em] text-primary-light">Courier Safety Command</p>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-light">Courier Safety Command</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-foreground-muted">Safety Events</h1>
           <p className="mt-2 text-sm text-foreground-muted">
             Pantau SOS, laporan barang, dan kebutuhan bantuan operasional kurir on-demand.
@@ -154,11 +154,11 @@ export default function CourierSafetyEvents() {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-border bg-surface/[0.04] px-5 py-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-foreground-muted">Open</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">Open</p>
             <p className="mt-1 text-2xl font-black text-foreground">{openEvents}</p>
           </div>
           <div className="rounded-2xl border border-error bg-error-surface px-5 py-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-error">Critical</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-error">Critical</p>
             <p className="mt-1 text-2xl font-black text-error">{criticalEvents}</p>
           </div>
         </div>
@@ -243,7 +243,7 @@ export default function CourierSafetyEvents() {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <StatusBadge status={event.status} labelPrefix="Safety event status" className="text-xs uppercase tracking-widest" />
+                  <StatusBadge status={event.status} labelPrefix="Safety event status" className="text-xs uppercase tracking-wide" />
                   {event.status === 'open' && event.supported_actions?.some((action: any) => ['safety_escalation', 'safety_review'].includes(action.action)) && (
                     <button
                       type="button"
@@ -290,7 +290,7 @@ export default function CourierSafetyEvents() {
       <section className="space-y-3">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-accent">Evidence control</p>
+            <p className="text-xs font-black uppercase tracking-wide text-accent">Evidence control</p>
             <h2 className="mt-1 text-xl font-black text-foreground-muted">GPS / Geofence Risk</h2>
             <p className="mt-1 text-sm text-foreground-muted">Bukti tetap immutable; operator mengelola tindak lanjutnya di sini.</p>
           </div>

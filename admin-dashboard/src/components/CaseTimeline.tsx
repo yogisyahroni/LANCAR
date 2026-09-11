@@ -24,8 +24,8 @@ export default function CaseTimeline({ events }: { events: TimelineEvent[] }) {
           </div>
           <div className="min-w-0 flex-1 rounded-2xl border border-border bg-surface/[0.025] px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-black uppercase tracking-widest text-foreground-muted">{event.event_type.replaceAll('_', ' ')}</p>
-              <time className="text-[10px] text-foreground-muted" dateTime={event.created_at}>
+              <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">{event.event_type.replaceAll('_', ' ')}</p>
+              <time className="text-xs text-foreground-muted" dateTime={event.created_at}>
                 {new Date(event.created_at).toLocaleString('id-ID')}
               </time>
             </div>

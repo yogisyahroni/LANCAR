@@ -279,10 +279,10 @@ export default function Dashboard() {
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-bold text-foreground-muted">{item.title}</p>
-                      <p className="text-[10px] text-foreground-muted uppercase">{item.type}</p>
+                      <p className="text-xs text-foreground-muted uppercase">{item.type}</p>
                     </div>
                     <p className="text-xs text-foreground-muted mt-0.5 line-clamp-1" title={item.description}>{item.description}</p>
-                    <p className="text-[10px] text-foreground-muted mt-1">{new Date(item.created_at).toLocaleTimeString()}</p>
+                    <p className="text-xs text-foreground-muted mt-1">{new Date(item.created_at).toLocaleTimeString()}</p>
                   </div>
                 </div>
               ))

@@ -78,7 +78,7 @@ export default function CourierPerformance() {
       {isLoading ? (
         <div className="glass-card rounded-3xl p-12 flex flex-col items-center justify-center space-y-4">
           <Loader2 className="w-8 h-8 text-primary animate-spin" aria-hidden="true" />
-          <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest">Loading performance stats...</p>
+          <p className="text-xs font-bold text-foreground-muted uppercase tracking-wide">Loading performance stats...</p>
         </div>
       ) : error ? (
         <div className="glass-card rounded-3xl p-8 border-error bg-error-surface text-error font-semibold text-center">
@@ -94,7 +94,7 @@ export default function CourierPerformance() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-border text-foreground-muted text-[10px] font-black uppercase tracking-[0.2em] bg-surface/[0.02]">
+                <tr className="border-b border-border text-foreground-muted text-xs font-black uppercase tracking-wide bg-surface/[0.02]">
                   <th scope="col" className="px-6 py-4">Courier</th>
                   <th scope="col" className="px-6 py-4">Tier</th>
                   <th scope="col" className="px-6 py-4">Rating</th>
@@ -115,7 +115,7 @@ export default function CourierPerformance() {
                     <tr key={stat?.courier_id || idx} className="group hover:bg-surface/[0.03] transition-all duration-200">
                       <td className="px-6 py-5">
                         <div className="font-bold text-foreground-muted text-sm">{name}</div>
-                        <div className="text-[11px] text-foreground-muted font-mono mt-0.5">{stat?.courier_id || 'N/A'}</div>
+                        <div className="text-xs text-foreground-muted font-mono mt-0.5">{stat?.courier_id || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-5 whitespace-nowrap">
                         <span className={`px-3 py-1 inline-flex text-xs font-bold rounded-full border ${

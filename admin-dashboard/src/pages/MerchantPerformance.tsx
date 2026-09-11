@@ -57,7 +57,7 @@ export default function MerchantPerformance() {
       {isLoading ? (
         <div className="glass-card rounded-3xl p-12 flex flex-col items-center justify-center space-y-4">
           <Loader2 className="w-8 h-8 text-primary animate-spin" aria-hidden="true" />
-          <p className="text-xs font-bold text-foreground-muted uppercase tracking-widest">Loading merchant performance...</p>
+          <p className="text-xs font-bold text-foreground-muted uppercase tracking-wide">Loading merchant performance...</p>
         </div>
       ) : error ? (
         <div className="glass-card rounded-3xl p-8 border-error bg-error-surface text-error font-semibold text-center">
@@ -73,7 +73,7 @@ export default function MerchantPerformance() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-border text-foreground-muted text-[10px] font-black uppercase tracking-[0.2em] bg-surface/[0.02]">
+                <tr className="border-b border-border text-foreground-muted text-xs font-black uppercase tracking-wide bg-surface/[0.02]">
                   <th scope="col" className="px-6 py-4">Merchant</th>
                   <th scope="col" className="px-6 py-4">Status</th>
                   <th scope="col" className="px-6 py-4">Completion</th>
@@ -93,7 +93,7 @@ export default function MerchantPerformance() {
                     <tr key={m?.merchant_id || idx} className="group hover:bg-surface/[0.03] transition-all duration-200">
                       <td className="px-6 py-5">
                         <div className="font-bold text-foreground-muted text-sm">{m?.nama_toko || 'Unnamed'}</div>
-                        <div className="text-[11px] text-foreground-muted font-mono mt-0.5">{m?.merchant_id || 'N/A'}</div>
+                        <div className="text-xs text-foreground-muted font-mono mt-0.5">{m?.merchant_id || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-5 whitespace-nowrap">
                         <span className={`px-3 py-1 inline-flex text-xs font-bold rounded-full border ${
@@ -107,7 +107,7 @@ export default function MerchantPerformance() {
                       </td>
                       <td className="px-6 py-5 whitespace-nowrap text-sm font-semibold text-foreground-muted">{completion}%</td>
                       <td className="px-6 py-5 whitespace-nowrap text-sm font-semibold text-foreground-muted">{prep}</td>
-                      <td className="px-6 py-5 whitespace-nowrap text-sm font-semibold text-foreground-muted">⭐ {rating} <span className="text-[11px] text-foreground-muted">({m?.rating_count || 0})</span></td>
+                      <td className="px-6 py-5 whitespace-nowrap text-sm font-semibold text-foreground-muted">⭐ {rating} <span className="text-xs text-foreground-muted">({m?.rating_count || 0})</span></td>
                       <td className="px-6 py-5 whitespace-nowrap text-right text-sm font-semibold text-primary-light">
                         {m?.completed_orders || 0}<span className="text-foreground-muted font-normal"> / {m?.total_orders || 0}</span>
                       </td>

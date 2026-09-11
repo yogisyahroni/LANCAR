@@ -230,7 +230,7 @@ export default function MerchantSettlements() {
                 className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 required
               />
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Contoh: 1 hari kerja sebelum dana dilepas ke rekening penjual.
               </p>
             </div>
@@ -248,7 +248,7 @@ export default function MerchantSettlements() {
                 <option value="true" className="bg-background text-foreground-muted">Aktif (Otomatis Pencairan)</option>
                 <option value="false" className="bg-background text-foreground-muted">Nonaktif (Tahan Manual)</option>
               </select>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Worker diproses setiap menit menggunakan pengunci anti-race condition.
               </p>
             </div>
@@ -326,7 +326,7 @@ export default function MerchantSettlements() {
               </button>
             </form>
           </div>
-          <div className="mt-4 pt-3 border-t border-border/40 text-[11px] text-muted-foreground">
+          <div className="mt-4 pt-3 border-t border-border/40 text-xs text-muted-foreground">
             Sertifikasi keamanan: Regulasi Anti-Pencucian Uang & verifikasi kepemilikan rekening.
           </div>
         </div>
