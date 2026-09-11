@@ -140,7 +140,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
                 {title || 'Detail pengiriman broadcast'}
               </p>
               {data && (
-                <p className="text-[10px] text-foreground-muted font-mono mt-1">{data.broadcast_id}</p>
+                <p className="text-xs text-foreground-muted font-mono mt-1">{data.broadcast_id}</p>
               )}
             </div>
             <button
@@ -166,7 +166,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
           ) : isError ? (
             <div className="rounded-3xl border border-error bg-error-surface p-8 text-center space-y-3">
               <AlertCircle size={32} className="mx-auto text-error"  aria-hidden="true"/>
-              <p className="text-xs font-black uppercase tracking-widest text-foreground-muted">
+              <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">
                 Laporan gagal dimuat
               </p>
               <p className="text-xs text-foreground-muted">
@@ -175,7 +175,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
               <button
                 type="button"
                 onClick={() => refetch()}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-xs font-black uppercase tracking-wide hover:bg-error-surface transition-all"
               >
                 Retry
               </button>
@@ -224,7 +224,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Success Rate</span>
+                  <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">Success Rate</span>
                   {successRate === null ? (
                     <span className="text-xs font-bold text-foreground-muted italic">Belum ada percobaan kirim</span>
                   ) : (
@@ -245,7 +245,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
                 <button
                   type="button"
                   onClick={exportCsv}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-subtle border border-border text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:bg-surface-subtle transition-all"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-subtle border border-border text-foreground-muted text-xs font-black uppercase tracking-wide hover:bg-surface-subtle transition-all"
                 >
                   <Download size={14} aria-hidden="true" />
                   Export CSV
@@ -254,7 +254,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
 
               {/* Per-channel breakdown */}
               <section aria-labelledby="bc-report-channels" className="space-y-3">
-                <h3 id="bc-report-channels" className="text-[10px] font-black uppercase tracking-[0.22em] text-foreground-muted">
+                <h3 id="bc-report-channels" className="text-xs font-black uppercase tracking-wide text-foreground-muted">
                   Breakdown per Channel
                 </h3>
                 {data.per_channel.length === 0 ? (
@@ -270,7 +270,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
                             <th
                               key={head}
                               scope="col"
-                              className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted"
+                              className="px-6 py-4 text-xs font-black uppercase tracking-wide text-foreground-muted"
                             >
                               {head}
                             </th>
@@ -296,7 +296,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
               {/* Failed reasons (opsional dari backend) */}
               {failedReasons && failedReasons.length > 0 && (
                 <section aria-labelledby="bc-report-failed" className="space-y-3">
-                  <h3 id="bc-report-failed" className="text-[10px] font-black uppercase tracking-[0.22em] text-foreground-muted">
+                  <h3 id="bc-report-failed" className="text-xs font-black uppercase tracking-wide text-foreground-muted">
                     Alasan Kegagalan
                   </h3>
                   <ul className="space-y-2">
@@ -316,7 +316,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
               )}
 
               {data.status === 'sending' && (
-                <p className="flex items-center gap-2 text-[11px] font-bold text-info">
+                <p className="flex items-center gap-2 text-xs font-bold text-info">
                   <Loader2 size={12} className="animate-spin" aria-hidden="true" />
                   Broadcast sedang diproses — laporan akan diperbarui otomatis.
                 </p>

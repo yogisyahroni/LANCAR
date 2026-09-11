@@ -309,7 +309,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
   const inputClass =
     'w-full bg-surface-subtle border border-border rounded-2xl py-3 px-4 text-sm font-bold text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-foreground-muted placeholder:font-medium'
 
-  const sectionLabelClass = 'text-xs font-black uppercase tracking-[0.22em] text-foreground-muted'
+  const sectionLabelClass = 'text-xs font-black uppercase tracking-wide text-foreground-muted'
 
   return (
     <div className="space-y-8 animate-in">
@@ -347,7 +347,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label htmlFor="bc-title" className="text-xs font-bold tracking-wide text-foreground-muted">Judul</label>
-                <span className={cn('text-[10px] font-black tabular-nums', title.length > TITLE_MAX ? 'text-error' : 'text-foreground-muted')}>
+                <span className={cn('text-xs font-black tabular-nums', title.length > TITLE_MAX ? 'text-error' : 'text-foreground-muted')}>
                   {title.length}/{TITLE_MAX}
                 </span>
               </div>
@@ -365,7 +365,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label htmlFor="bc-body" className="text-xs font-bold tracking-wide text-foreground-muted">Isi Pesan</label>
-                <span className={cn('text-[10px] font-black tabular-nums', body.length > BODY_MAX ? 'text-error' : 'text-foreground-muted')}>
+                <span className={cn('text-xs font-black tabular-nums', body.length > BODY_MAX ? 'text-error' : 'text-foreground-muted')}>
                   {body.length}/{BODY_MAX}
                 </span>
               </div>
@@ -502,12 +502,12 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                 {estimateQuery.isFetching ? (
                   <>
                     <Loader2 size={14} className="animate-spin text-primary-light" aria-hidden="true" />
-                    <span className="text-[11px] font-black text-primary-light uppercase tracking-widest">Menghitung...</span>
+                    <span className="text-xs font-black text-primary-light uppercase tracking-wide">Menghitung...</span>
                   </>
                 ) : estimateQuery.isError ? (
                   <>
                     <AlertCircle size={14} className="text-error"  aria-hidden="true"/>
-                    <span className="text-[11px] font-bold text-error">Estimasi gagal dimuat</span>
+                    <span className="text-xs font-bold text-error">Estimasi gagal dimuat</span>
                   </>
                 ) : (
                   <>
@@ -541,7 +541,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                     className="sr-only"
                   />
                   <span className="block text-sm font-black text-foreground-muted">{t.label}</span>
-                  <span className="block text-[11px] text-foreground-muted mt-1">{t.hint}</span>
+                  <span className="block text-xs text-foreground-muted mt-1">{t.hint}</span>
                 </label>
               ))}
             </fieldset>
@@ -679,7 +679,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                             className="w-full text-left px-4 py-3 hover:bg-surface-subtle transition-colors"
                           >
                             <span className="block text-sm font-bold text-foreground-muted">{courier.full_name}</span>
-                            <span className="block text-[11px] text-foreground-muted">
+                            <span className="block text-xs text-foreground-muted">
                               {courier.phone_number || '—'} • {courier.plate_number || 'No plate'}
                             </span>
                           </button>
@@ -744,7 +744,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                       className="w-4 h-4 rounded border-border bg-surface text-primary focus:ring-primary/50"
                     />
                     <ch.icon size={16} aria-hidden="true" />
-                    <span className="text-xs font-black uppercase tracking-widest">{ch.label}</span>
+                    <span className="text-xs font-black uppercase tracking-wide">{ch.label}</span>
                   </label>
                 ))}
               </div>
@@ -760,7 +760,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                   <label
                     key={mode.value}
                     className={cn(
-                      'flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2 text-xs font-black uppercase tracking-widest transition-all',
+                      'flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2 text-xs font-black uppercase tracking-wide transition-all',
                       scheduleMode === mode.value
                         ? 'border-primary/30 bg-primary/10 text-primary-light'
                         : 'border-border bg-surface-subtle text-foreground-muted hover:text-foreground-muted',
@@ -790,7 +790,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                       className={inputClass}
                     />
                   </div>
-                  <span className="pb-3 text-[10px] font-black uppercase tracking-widest text-foreground-muted flex items-center gap-1">
+                  <span className="pb-3 text-xs font-black uppercase tracking-wide text-foreground-muted flex items-center gap-1">
                     <CalendarClock size={12} aria-hidden="true" /> WIB
                   </span>
                 </div>
@@ -817,7 +817,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                 ],
               ].map(([term, value]) => (
                 <div key={term} className="rounded-2xl bg-surface/[0.03] border border-border p-4">
-                  <dt className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">{term}</dt>
+                  <dt className="text-xs font-black uppercase tracking-wide text-foreground-muted">{term}</dt>
                   <dd className="mt-1 font-bold text-foreground-muted truncate" title={value}>{value}</dd>
                 </div>
               ))}
@@ -828,7 +828,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                 type="button"
                 onClick={handleSaveDraft}
                 disabled={createMutation.isPending}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-surface-subtle border border-border text-foreground-muted text-xs font-black uppercase tracking-widest hover:bg-surface-subtle transition-all disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-surface-subtle border border-border text-foreground-muted text-xs font-black uppercase tracking-wide hover:bg-surface-subtle transition-all disabled:opacity-60"
               >
                 <Copy size={15} aria-hidden="true" />
                 Simpan Draft
@@ -838,7 +838,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                   type="button"
                   onClick={handleSchedule}
                   disabled={createMutation.isPending}
-                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-warning text-on-warning text-xs font-black uppercase tracking-widest shadow-lg shadow-warning hover:bg-warning transition-all disabled:opacity-60"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-warning text-on-warning text-xs font-black uppercase tracking-wide shadow-lg shadow-warning hover:bg-warning transition-all disabled:opacity-60"
                 >
                   <CalendarClock size={15} aria-hidden="true" />
                   Jadwalkan
@@ -848,7 +848,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                   type="button"
                   onClick={handleSendNow}
                   disabled={createMutation.isPending}
-                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-primary text-on-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-primary text-on-primary text-xs font-black uppercase tracking-wide shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60"
                 >
                   <Send size={15} aria-hidden="true" />
                   Kirim Sekarang
@@ -861,7 +861,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
         {/* ================= LIVE PREVIEW ================= */}
         <aside aria-label="Preview notifikasi" className="xl:sticky xl:top-4 space-y-6">
           <div className="rounded-[36px] border border-border bg-gradient-to-b from-surface-subtle to-surface-subtle p-6 shadow-2xl shadow-scrim">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-foreground-muted mb-4 flex items-center gap-2">
+            <p className="text-xs font-black uppercase tracking-wide text-foreground-muted mb-4 flex items-center gap-2">
               <Smartphone size={12} aria-hidden="true" /> Preview Push Notification
             </p>
             <div className={cn('rounded-2xl border bg-surface p-4 shadow-lg', priorityAccent[priority])}>
@@ -871,8 +871,8 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">TEM BUS</p>
-                    <span className="text-[9px] text-foreground-muted">sekarang</span>
+                    <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">TEM BUS</p>
+                    <span className="text-xs text-foreground-muted">sekarang</span>
                   </div>
                   <p className="mt-1 text-sm font-black text-foreground-muted truncate" title={title || 'Judul notifikasi'}>
                     {title || 'Judul notifikasi'}
@@ -893,7 +893,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
           </div>
 
           <div className="rounded-[36px] border border-border bg-surface-subtle p-6">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-foreground-muted mb-4">Preview In-app Card</p>
+            <p className="text-xs font-black uppercase tracking-wide text-foreground-muted mb-4">Preview In-app Card</p>
             <div className="rounded-2xl bg-surface-subtle border border-border p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -902,17 +902,17 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                     {body || 'Isi pesan in-app akan tampil di sini.'}
                   </p>
                 </div>
-                <span className={cn('shrink-0 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border', priorityBadge[priority])}>
+                <span className={cn('shrink-0 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wide border', priorityBadge[priority])}>
                   {priority}
                 </span>
               </div>
               {deepLinkValue && (
-                <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-primary-light truncate">
+                <p className="mt-3 text-xs font-black uppercase tracking-wide text-primary-light truncate">
                   Buka detail →
                 </p>
               )}
             </div>
-            <p className="mt-4 text-[10px] text-foreground-muted leading-relaxed">
+            <p className="mt-4 text-xs text-foreground-muted leading-relaxed">
               Channel aktif: <span className="font-black text-foreground-muted">{channelsLabel}</span>. Notifikasi push muncul di system tray, card in-app muncul di inbox aplikasi.
             </p>
           </div>
@@ -950,7 +950,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                     )}
                     ?
                   </p>
-                  <p className="text-[11px] text-foreground-muted mt-2">
+                  <p className="text-xs text-foreground-muted mt-2">
                     Aksi ini masuk rate limit kirim per jam admin dan tidak dapat dibatalkan setelah status menjadi sending.
                   </p>
                 </div>
@@ -967,7 +967,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                   type="button"
                   onClick={confirmAndSubmit}
                   disabled={createMutation.isPending}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-colors disabled:opacity-60"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide hover:bg-primary-light transition-colors disabled:opacity-60"
                 >
                   {createMutation.isPending ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <CheckCircle2 size={14} aria-hidden="true" />}
                   Ya, Lanjutkan

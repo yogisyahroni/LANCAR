@@ -3112,6 +3112,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Admin Economics and App Experience were audited for Part S across policy revision scope/status actions, manifest lifecycle, rollout/editor controls, component positions, localized-copy references and helper states. Operational labels, actions and metadata now use the shared readable `text-xs` floor with `tracking-wide`, while policy/code-like values retain scoped identifier presentation. Economics axe/reflow coverage passes `2/2` and `3/3`; the complete App Experience registered route inventory passes axe `50/50` and reflow/text-spacing `53/53`; typecheck/ESLint/iconography/table/diff guards pass. Full dynamic policy states, editor interactions, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Admin Broadcast Composer and Delivery Report were audited for Part S across character counters, helper/status metadata, channel and schedule controls, recipient metadata, notification/in-app previews, delivery metrics, report headers and failure states. Operational copy now uses the shared readable `text-xs` floor with `tracking-wide`; recipient identifiers retain monospace presentation. The `/broadcasts` axe slice passes `6/6`, reflow/text-spacing passes `3/3`, and typecheck/ESLint/iconography/table/diff guards pass. Full dynamic delivery states, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
