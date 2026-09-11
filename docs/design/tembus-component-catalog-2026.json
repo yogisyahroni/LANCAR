@@ -1,0 +1,259 @@
+{
+  "catalog_version": "1.0.0",
+  "design_system_version": "1.0.0",
+  "figma_file": "https://www.figma.com/design/9JTlREMJNVkLYchQD1QcpV",
+  "required_pages": [
+    "Foundations & Components",
+    "Customer Super-App Patterns",
+    "Commerce Ads & Merchant"
+  ],
+  "source_of_truth_order": [
+    "server_authoritative_business_contract",
+    "versioned_tembus_tokens_and_component_contracts",
+    "component_catalog_and_registry",
+    "figma_visual_intent",
+    "service_composition"
+  ],
+  "code_connect": {
+    "status": "deferred_until_api_stable",
+    "policy": "Do not connect temporary mock components. Add Code Connect only in the review that promotes a stable API and includes the implementation reference."
+  },
+  "components": [
+    {
+      "id": "button",
+      "figma_page": "Foundations & Components",
+      "figma_component_ref": "Tembus/Button",
+      "code_role": "core action control",
+      "semantic_props": ["variant", "state", "size"],
+      "usage": "Use for an explicit action with visible text and a bounded loading/disabled state.",
+      "do_not_use": "Do not use for navigation-only links, decorative labels, or controls that bypass server truth.",
+      "accessibility": "Minimum 48dp/48px interactive height; state feedback is visible; focus indicator remains present.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/TembusControls.kt", "role": "Customer Android implementation" },
+        { "path": "frontend/src/components/design-system/TembusCore.tsx", "role": "Customer Web implementation" },
+        { "path": "admin-dashboard/src/components/design-system/TembusCore.tsx", "role": "Admin implementation" }
+      ],
+      "design_review": { "task_id": "DS-2026-003", "implementation_refs": ["4b3dfe5e"] },
+      "status": "stable"
+    },
+    {
+      "id": "icon_button",
+      "figma_page": "Foundations & Components",
+      "figma_component_ref": "Tembus/IconButton",
+      "code_role": "named icon-only action",
+      "semantic_props": ["label", "selected", "enabled"],
+      "usage": "Use when the action is represented by an approved icon and has an explicit accessible label.",
+      "do_not_use": "Do not rely on an illustration, color, or tooltip alone to name the action.",
+      "accessibility": "Requires a non-empty accessible label, selected state semantics when applicable, and a minimum 48dp/48px target.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/TembusControls.kt", "role": "Customer Android implementation" },
+        { "path": "frontend/src/components/design-system/TembusCore.tsx", "role": "Customer Web implementation" },
+        { "path": "admin-dashboard/src/components/design-system/TembusCore.tsx", "role": "Admin implementation" }
+      ],
+      "design_review": { "task_id": "DS-2026-003", "implementation_refs": ["4b3dfe5e"] },
+      "status": "stable"
+    },
+    {
+      "id": "text_field",
+      "figma_page": "Foundations & Components",
+      "figma_component_ref": "Tembus/TextField",
+      "code_role": "labeled text input",
+      "semantic_props": ["label", "state", "errorText", "supportingText"],
+      "usage": "Use for user-entered text with a visible label and supporting or error feedback.",
+      "do_not_use": "Do not hide required instructions in placeholder text or use an unlabelled input.",
+      "accessibility": "Label and message are programmatically associated; error state exposes invalid semantics and readable text.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/TembusControls.kt", "role": "Customer Android implementation" },
+        { "path": "frontend/src/components/design-system/TembusCore.tsx", "role": "Customer Web implementation" },
+        { "path": "admin-dashboard/src/components/design-system/TembusCore.tsx", "role": "Admin implementation" }
+      ],
+      "design_review": { "task_id": "DS-2026-003", "implementation_refs": ["4b3dfe5e"] },
+      "status": "stable"
+    },
+    {
+      "id": "search_field",
+      "figma_page": "Foundations & Components",
+      "figma_component_ref": "Tembus/SearchField",
+      "code_role": "search input",
+      "semantic_props": ["label", "value", "query semantics"],
+      "usage": "Use for query entry; preserve an accessible label and a deterministic empty/no-result state.",
+      "do_not_use": "Do not make a decorative search pill the only path to a search action.",
+      "accessibility": "Uses search input semantics, visible or programmatic label, keyboard/touch focus, and readable no-result feedback.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/TembusControls.kt", "role": "Customer Android implementation" },
+        { "path": "frontend/src/components/design-system/TembusCore.tsx", "role": "Customer Web implementation" },
+        { "path": "admin-dashboard/src/components/design-system/TembusCore.tsx", "role": "Admin implementation" }
+      ],
+      "design_review": { "task_id": "DS-2026-003", "implementation_refs": ["4b3dfe5e"] },
+      "status": "stable"
+    },
+    {
+      "id": "chip",
+      "figma_page": "Foundations & Components",
+      "figma_component_ref": "Tembus/Chip",
+      "code_role": "compact filter or selection control",
+      "semantic_props": ["selected", "enabled"],
+      "usage": "Use for a short filter or selection value with visible text.",
+      "do_not_use": "Do not use color alone to convey selected, unavailable, or error state.",
+      "accessibility": "Selected and disabled states have programmatic semantics and visible text/shape distinction.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/TembusControls.kt", "role": "Customer Android implementation" },
+        { "path": "frontend/src/components/design-system/TembusCore.tsx", "role": "Customer Web implementation" },
+        { "path": "admin-dashboard/src/components/design-system/TembusCore.tsx", "role": "Admin implementation" }
+      ],
+      "design_review": { "task_id": "DS-2026-003", "implementation_refs": ["4b3dfe5e"] },
+      "status": "stable"
+    },
+    {
+      "id": "card",
+      "figma_page": "Foundations & Components",
+      "figma_component_ref": "Tembus/Card",
+      "code_role": "semantic content surface",
+      "semantic_props": ["surface", "interactive", "state"],
+      "usage": "Use to group related content; add interaction semantics only when the surface is actionable.",
+      "do_not_use": "Do not use a card to disguise a modal, transaction state, or paid disclosure.",
+      "accessibility": "Interactive cards expose a name and focus behavior; status is not conveyed by color alone.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/TembusSurfaces.kt", "role": "Customer Android implementation" },
+        { "path": "frontend/src/components/design-system/TembusCore.tsx", "role": "Customer Web implementation" },
+        { "path": "admin-dashboard/src/components/design-system/TembusCore.tsx", "role": "Admin implementation" }
+      ],
+      "design_review": { "task_id": "DS-2026-003", "implementation_refs": ["4b3dfe5e"] },
+      "status": "stable"
+    },
+    {
+      "id": "badge",
+      "figma_page": "Foundations & Components",
+      "figma_component_ref": "Tembus/Badge",
+      "code_role": "short status or classification label",
+      "semantic_props": ["tone", "label"],
+      "usage": "Use for short visible status/classification text such as Sponsored, SOS, or completed.",
+      "do_not_use": "Do not use as the only accessible announcement or to imply an authoritative fact not in the response.",
+      "accessibility": "Visible text accompanies semantic tone; sponsored/emergency meaning is not color-only.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/TembusSurfaces.kt", "role": "Customer Android implementation" },
+        { "path": "frontend/src/components/design-system/TembusCore.tsx", "role": "Customer Web implementation" },
+        { "path": "admin-dashboard/src/components/design-system/TembusCore.tsx", "role": "Admin implementation" }
+      ],
+      "design_review": { "task_id": "DS-2026-003", "implementation_refs": ["4b3dfe5e"] },
+      "status": "stable"
+    },
+    {
+      "id": "app_bar",
+      "figma_page": "Foundations & Components",
+      "figma_component_ref": "Tembus/AppBar",
+      "code_role": "named page header",
+      "semantic_props": ["title", "navigation", "actions"],
+      "usage": "Use for a page-level title with optional navigation and actions.",
+      "do_not_use": "Do not create a service-specific mini-brand header or hide the current page context.",
+      "accessibility": "Title, navigation, and actions are named; focus order follows the page hierarchy.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/TembusSurfaces.kt", "role": "Customer Android implementation" },
+        { "path": "frontend/src/components/design-system/TembusCore.tsx", "role": "Customer Web implementation" },
+        { "path": "admin-dashboard/src/components/design-system/TembusCore.tsx", "role": "Admin implementation" }
+      ],
+      "design_review": { "task_id": "DS-2026-003", "implementation_refs": ["4b3dfe5e"] },
+      "status": "stable"
+    },
+    {
+      "id": "bottom_navigation",
+      "figma_page": "Customer Super-App Patterns",
+      "figma_component_ref": "Tembus/BottomNavigation",
+      "code_role": "primary customer navigation",
+      "semantic_props": ["items", "label", "selected", "disabled"],
+      "usage": "Use for top-level customer destinations with stable labels and selected state.",
+      "do_not_use": "Do not add a remote destination or allow a service tile to bypass the compiled navigation registry.",
+      "accessibility": "Each item has a label, selected semantics, and a keyboard/touch target that remains usable at scale.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/TembusSurfaces.kt", "role": "Customer Android implementation" },
+        { "path": "frontend/src/components/design-system/TembusCore.tsx", "role": "Customer Web implementation" },
+        { "path": "admin-dashboard/src/components/design-system/TembusCore.tsx", "role": "Admin implementation" }
+      ],
+      "design_review": { "task_id": "DS-2026-006", "implementation_refs": ["66c63a57"] },
+      "status": "stable"
+    },
+    {
+      "id": "modal",
+      "figma_page": "Foundations & Components",
+      "figma_component_ref": "Tembus/Modal",
+      "code_role": "modal dialog surface",
+      "semantic_props": ["open", "title", "onClose"],
+      "usage": "Use for an interruptive decision or focused secondary task with a deterministic dismiss path.",
+      "do_not_use": "Do not use to imitate a system dialog or place payment/order truth in remote campaign content.",
+      "accessibility": "Named dialog semantics, modal state, focus containment/return, and a reachable dismiss action are required.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/TembusSurfaces.kt", "role": "Customer Android implementation" },
+        { "path": "frontend/src/components/design-system/TembusCore.tsx", "role": "Customer Web implementation" },
+        { "path": "admin-dashboard/src/components/design-system/TembusCore.tsx", "role": "Admin implementation" }
+      ],
+      "design_review": { "task_id": "DS-2026-003", "implementation_refs": ["4b3dfe5e"] },
+      "status": "stable"
+    },
+    {
+      "id": "merchant_card",
+      "figma_page": "Commerce Ads & Merchant",
+      "figma_component_ref": "Tembus/MerchantCard",
+      "code_role": "organic merchant discovery card",
+      "semantic_props": ["merchant", "rating", "distance", "availability", "media"],
+      "usage": "Use for organic merchant discovery with server-provided commerce facts.",
+      "do_not_use": "Do not let merchant creative write rating, ETA, price, fee, availability, or sponsored state.",
+      "accessibility": "Merchant identity, status, factual fields, media alternative, and interactive favorite action are named and readable.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/commerce/TembusCommerce.kt", "role": "Customer Android implementation" },
+        { "path": "frontend/src/components/design-system/TembusCommerce.tsx", "role": "Customer Web implementation" },
+        { "path": "admin-dashboard/src/components/design-system/TembusCore.tsx", "role": "Admin uses core preview primitives" }
+      ],
+      "design_review": { "task_id": "DS-2026-004", "implementation_refs": ["926340e5"] },
+      "status": "stable"
+    },
+    {
+      "id": "sponsored_merchant_card",
+      "figma_page": "Commerce Ads & Merchant",
+      "figma_component_ref": "Tembus/SponsoredMerchantCard",
+      "code_role": "disclosed sponsored merchant discovery card",
+      "semantic_props": ["merchant", "sponsored", "disclosure", "rating", "availability"],
+      "usage": "Use only when the server marks the placement sponsored and the slot is eligible.",
+      "do_not_use": "Do not hide or rename Sponsored, blend it into organic ranking, or accept ad payloads as commerce facts.",
+      "accessibility": "Sponsored disclosure is visible and exposed in semantics; facts and actions retain the organic card contract.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/commerce/TembusCommerce.kt", "role": "Customer Android implementation" },
+        { "path": "frontend/src/components/design-system/TembusCommerce.tsx", "role": "Customer Web implementation" },
+        { "path": "admin-dashboard/src/components/design-system/TembusCore.tsx", "role": "Admin uses core preview primitives" }
+      ],
+      "design_review": { "task_id": "DS-2026-004", "implementation_refs": ["926340e5"] },
+      "status": "stable"
+    },
+    {
+      "id": "service_identity_card",
+      "figma_page": "Customer Super-App Patterns",
+      "figma_component_ref": "Tembus/ServiceIdentityCard",
+      "code_role": "service identity and priority context",
+      "semantic_props": ["title", "subtitle", "icon", "tone", "priority"],
+      "usage": "Use to explain the active service without creating a mini-brand or hiding the domain priority.",
+      "do_not_use": "Do not add paid content to active emergency or transaction service identity.",
+      "accessibility": "Service title, icon alternative, priority state, and any recovery action are explicit and not color-only.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/service/TembusServicePatterns.kt", "role": "Customer Android implementation" },
+        { "path": "docs/design/tembus-service-patterns-2026.md", "role": "Service composition contract" }
+      ],
+      "design_review": { "task_id": "DS-2026-008", "implementation_refs": ["19634a57"] },
+      "status": "stable"
+    },
+    {
+      "id": "carrier_rate_card",
+      "figma_page": "Customer Super-App Patterns",
+      "figma_component_ref": "Tembus/CarrierRateCard",
+      "code_role": "authoritative provider comparison",
+      "semantic_props": ["provider", "service", "eta", "price", "availability", "selected"],
+      "usage": "Use for package, courier, and roadside provider comparison when response data is available.",
+      "do_not_use": "Do not rank or highlight a carrier using sponsored, campaign, merchant, or arbitrary UI data.",
+      "accessibility": "Provider, capability, ETA, price, availability, and selected state are visible and semantically announced.",
+      "code_mapping": [
+        { "path": "android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/logistics/TembusLogistics.kt", "role": "Customer Android implementation" },
+        { "path": "docs/design/tembus-service-patterns-2026.md", "role": "Logistics/service composition contract" }
+      ],
+      "design_review": { "task_id": "DS-2026-005", "implementation_refs": ["84bd69c2"] },
+      "status": "stable"
+    }
+  ]
+}

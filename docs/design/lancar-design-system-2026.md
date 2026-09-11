@@ -22,6 +22,9 @@ registry are production truth.
   surface themes, and protected transaction boundaries as governed foundations.
 - Added the versioned component registry at
   `docs/design/component-registry-2026.json`.
+- Added the stable Figma-to-code catalog at
+  `docs/design/tembus-component-catalog-2026.json` with page/component
+  references, semantic props, review refs, and deferred Code Connect policy.
 - Added a machine-checkable review gate for remote App Experience component
   types at `scripts/design/validate-component-registry.mjs`.
 - No existing color/theme behavior was rewritten. Benchmark-specific naming
@@ -95,6 +98,8 @@ states where distraction or conflict would be harmful.
 - [Component lifecycle](component-lifecycle.md)
 - [Service patterns](service-patterns.md)
 - [Component registry](component-registry-2026.json)
+- [Figma/code component catalog](tembus-component-catalog-2026.json)
+- [Figma governance](tembus-figma-governance-2026.md)
 - [Color token contract](color-token-contract.md)
 - [Iconography contract](iconography-2026.md)
 - [Web UI system](web-ui-system-2026.md)
