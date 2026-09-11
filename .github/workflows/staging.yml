@@ -48,6 +48,8 @@ jobs:
         run: node scripts/a11y/check-table-semantics.mjs
       - name: Disabled-state readability guard
         run: node scripts/a11y/check-disabled-states.mjs
+      - name: Placeholder label guard
+        run: node scripts/a11y/check-placeholder-labels.mjs
       - name: Run Linter
         working-directory: ./frontend
         run: npm run lint

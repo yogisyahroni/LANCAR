@@ -140,6 +140,7 @@ export default function ForgotPinPage() {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
+                      aria-label="Phone number"
                       className="flex-1 px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground"
                       placeholder="+62812345678"
                     />
@@ -172,6 +173,7 @@ export default function ForgotPinPage() {
                       maxLength={6}
                       value={otp}
                       onChange={(e) => setOtp(e.target.value)}
+                      aria-label="6-digit OTP"
                       className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground text-center font-mono text-xl tracking-[0.5em] placeholder:text-muted-foreground"
                       placeholder="••••••"
                     />
@@ -206,6 +208,7 @@ export default function ForgotPinPage() {
                     maxLength={6}
                     value={newPin}
                     onChange={(e) => setNewPin(e.target.value)}
+                    aria-label="New PIN"
                     required
                     className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground text-center font-mono text-xl tracking-[0.5em]"
                     placeholder="••••••"
@@ -219,6 +222,7 @@ export default function ForgotPinPage() {
                     maxLength={6}
                     value={confirmPin}
                     onChange={(e) => setConfirmPin(e.target.value)}
+                    aria-label="Confirm new PIN"
                     required
                     className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground text-center font-mono text-xl tracking-[0.5em]"
                     placeholder="••••••"

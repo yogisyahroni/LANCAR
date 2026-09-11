@@ -1013,6 +1013,7 @@ export function AggregatorWizard() {
                           <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Nama Pelanggan</label>
                           <input
                             {...register("recipient_name")}
+                            aria-label="Nama Pelanggan"
                             placeholder="Contoh: Budi Santoso"
                             className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
                           />
@@ -1022,6 +1023,7 @@ export function AggregatorWizard() {
                           <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Nomor Telepon</label>
                           <input
                             {...register("recipient_phone")}
+                            aria-label="Nomor Telepon"
                             type="tel"
                             placeholder="08123456789"
                             className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
@@ -1105,6 +1107,7 @@ export function AggregatorWizard() {
                           </label>
                           <input
                             {...register("item_value", { valueAsNumber: true })}
+                            aria-label={paymentType === "COD" ? "Nilai COD" : "Nilai Barang"}
                             type="number"
                             min="0"
                             placeholder="1000"
@@ -1146,6 +1149,7 @@ export function AggregatorWizard() {
                         </label>
                         <input
                           {...register("item_description")}
+                          aria-label="Isi Parcel atau Nama Produk"
                           placeholder="Con. Baju Biru, ukuran L"
                           className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
                         />
@@ -1168,6 +1172,7 @@ export function AggregatorWizard() {
                         <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Instruksi Pengiriman</label>
                         <textarea
                           {...register("delivery_notes")}
+                          aria-label="Instruksi Pengiriman"
                           rows={2}
                           placeholder="Tolong penerima dihubungi dahulu sebelum paket dikirim."
                           className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm resize-none focus:border-info focus:outline-none focus:ring-1 focus:ring-info"

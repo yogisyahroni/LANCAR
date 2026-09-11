@@ -361,7 +361,7 @@ export function OrderDetailContent({
                           className="h-5 w-5 text-primary flex-shrink-0 mt-0.5"
                         />
                         <div>
-                          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          <p className="text-xs font-bold uppercase tracking-wider text-foreground">
                             Posisi kurir
                           </p>
                           <p className="text-xs text-foreground max-w-[220px] truncate" title={`${tracking.location.latitude.toFixed(6)}, ${tracking.location.longitude.toFixed(6)}`}>
@@ -379,7 +379,7 @@ export function OrderDetailContent({
                     className="h-5 w-5 text-success flex-shrink-0 mt-0.5"
                   />
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    <p className="text-xs font-bold uppercase tracking-wider text-foreground">
                       Pickup Point
                     </p>
                     <p
@@ -397,7 +397,7 @@ export function OrderDetailContent({
                     className="h-5 w-5 text-error flex-shrink-0 mt-0.5"
                   />
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    <p className="text-xs font-bold uppercase tracking-wider text-foreground">
                       Destination Point
                     </p>
                     <p

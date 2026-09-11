@@ -344,6 +344,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                     <input 
                       type="text"
                       placeholder="0"
+                      aria-label="Nominal top up"
                       value={formatNumberInput(amountRaw)}
                       onChange={(e) => setAmountRaw(e.target.value.replace(/\D/g, ''))}
                       className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border focus:outline-none focus:ring-2 focus:ring-primary/50 text-lg font-bold text-foreground-muted dark:text-foreground"
@@ -418,6 +419,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                     <input 
                       type="text"
                       placeholder="0"
+                      aria-label="Nominal penarikan"
                       value={formatNumberInput(withdrawForm.amountRaw)}
                       onChange={(e) => setWithdrawForm({...withdrawForm, amountRaw: e.target.value.replace(/\D/g, '')})}
                       className="w-full pl-10 pr-4 py-3 rounded-2xl bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border focus:outline-none focus:ring-2 focus:ring-primary/50 font-bold text-foreground-muted dark:text-foreground"
@@ -458,6 +460,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                     <input 
                       type="text"
                       placeholder="Nomor Rekening / No. HP E-Wallet"
+                      aria-label="Nomor rekening atau nomor HP e-wallet"
                       value={withdrawForm.account_number}
                       onChange={(e) => setWithdrawForm({...withdrawForm, account_number: e.target.value.replace(/\D/g, '')})}
                       className="w-full pl-10 pr-4 py-3 rounded-2xl bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border text-sm font-semibold text-foreground-muted dark:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -469,6 +472,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                     <input 
                       type="text"
                       placeholder="Nama Pemilik Rekening (Sesuai Buku Tabungan / KTP)"
+                      aria-label="Nama pemilik rekening"
                       value={withdrawForm.account_holder}
                       onChange={(e) => setWithdrawForm({...withdrawForm, account_holder: e.target.value})}
                       className="w-full pl-10 pr-4 py-3 rounded-2xl bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border text-sm font-semibold text-foreground-muted dark:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"

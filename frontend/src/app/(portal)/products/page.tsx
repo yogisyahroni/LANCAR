@@ -403,6 +403,7 @@ export default function ProductsPage() {
                       required
                       type="text"
                       value={itemName}
+                      aria-label="Nama Produk"
                       onChange={(e) => setItemName(e.target.value)}
                       placeholder="Contoh: Kemeja Pria Lengan Panjang"
                       className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
@@ -415,6 +416,7 @@ export default function ProductsPage() {
                       <input
                         type="text"
                         value={sku}
+                        aria-label="SKU"
                         onChange={(e) => setSku(e.target.value)}
                         placeholder="Contoh: KMJ-001"
                         className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
@@ -428,6 +430,7 @@ export default function ProductsPage() {
                         step="0.01"
                         min="0"
                         value={weightKg}
+                        aria-label="Berat (Kg)"
                         onChange={(e) => setWeightKg(e.target.value)}
                         placeholder="0.5"
                         className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
@@ -442,6 +445,7 @@ export default function ProductsPage() {
                       type="number"
                       min="0"
                       value={itemValue}
+                      aria-label="Harga Barang (Rp)"
                       onChange={(e) => setItemValue(e.target.value)}
                       placeholder="150000"
                       className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
@@ -453,6 +457,7 @@ export default function ProductsPage() {
                     <input
                       type="url"
                       value={imageUrl}
+                      aria-label="URL Gambar (Opsional)"
                       onChange={(e) => setImageUrl(e.target.value)}
                       placeholder="https://example.com/image.jpg"
                       className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"

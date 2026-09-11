@@ -376,11 +376,11 @@ export default function TariffEngine() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Provider Name</label>
-                  <input type="text" value={formData.provider_name} onChange={e => setFormData({...formData, provider_name: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" placeholder="e.g. JNE" />
+                   <input aria-label="Provider name" type="text" value={formData.provider_name} onChange={e => setFormData({...formData, provider_name: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" placeholder="e.g. JNE" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Service Code</label>
-                  <input type="text" value={formData.service_code} onChange={e => setFormData({...formData, service_code: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" placeholder="e.g. REG" />
+                   <input aria-label="Service code" type="text" value={formData.service_code} onChange={e => setFormData({...formData, service_code: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" placeholder="e.g. REG" />
                 </div>
               </div>
 

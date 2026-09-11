@@ -371,6 +371,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               <label className="text-xs font-bold text-foreground-muted tracking-wide">Token Code</label>
               <input 
                 value={formData.code}
+                aria-label="Voucher code"
                 onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                 placeholder="PROMO2024"
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all uppercase"
@@ -381,6 +382,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               <label className="text-xs font-bold text-foreground-muted tracking-wide">Campaign Name</label>
               <input 
                 value={formData.name}
+                aria-label="Voucher name"
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Summer Sale Blast"
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"

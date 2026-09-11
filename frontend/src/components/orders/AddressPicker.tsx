@@ -577,6 +577,7 @@ export function AddressPicker({
                 <label className="text-sm font-medium text-muted-foreground block mb-1">Nama Toko/Lokasi</label>
                 <input
                   value={modalForm.shopName}
+                  aria-label="Nama Toko atau Lokasi"
                   onChange={(e) => setModalForm(prev => ({ ...prev, shopName: e.target.value }))}
                   className="w-full rounded-md border border-border bg-scrim/50 px-3 py-2 text-sm focus:border-primary focus:outline-none"
                   placeholder="Mis. Toko Maju Jaya"
@@ -587,6 +588,7 @@ export function AddressPicker({
                   <label className="text-sm font-medium text-muted-foreground block mb-1">Nama PIC</label>
                   <input
                     value={modalForm.picName}
+                    aria-label="Nama PIC"
                     onChange={(e) => setModalForm(prev => ({ ...prev, picName: e.target.value }))}
                     className="w-full rounded-md border border-border bg-scrim/50 px-3 py-2 text-sm focus:border-primary focus:outline-none"
                     placeholder="Nama Kontak"
@@ -596,6 +598,7 @@ export function AddressPicker({
                   <label className="text-sm font-medium text-muted-foreground block mb-1">Nomor HP</label>
                   <input
                     value={modalForm.phone}
+                    aria-label="Nomor HP PIC"
                     onChange={(e) => setModalForm(prev => ({ ...prev, phone: e.target.value.replace(/[^0-9+]/g, '') }))}
                     className={`w-full rounded-md border bg-scrim/50 px-3 py-2 text-sm focus:outline-none ${modalForm.phone && !/^(08|628|\+628)[0-9]{8,11}$/.test(modalForm.phone) ? 'border-error focus:border-error' : 'border-border focus:border-primary'}`}
                     placeholder="08..."
@@ -616,6 +619,7 @@ export function AddressPicker({
                 </label>
                 <textarea
                   value={modalForm.fullAddress}
+                  aria-label="Alamat Lengkap dan Kodepos"
                   onChange={(e) => setModalForm(prev => ({ ...prev, fullAddress: e.target.value }))}
                   className="w-full rounded-md border border-border bg-scrim/50 px-3 py-2 text-sm focus:border-primary focus:outline-none min-h-[80px]"
                   placeholder="Provinsi, Kota, Kecamatan, Kodepos, Jalan, RT/RW..."

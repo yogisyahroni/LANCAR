@@ -403,6 +403,15 @@ async function mockCustomerSessionAndApi(page: Page) {
   });
 }
 
+async function gotoAccessibilityRoute(page: Page, route: string) {
+  const isPublicFixtureRoute = route.startsWith('/pay/') || route.startsWith('/location-requests/');
+  await page.goto(route, { waitUntil: isPublicFixtureRoute ? 'domcontentloaded' : 'networkidle' });
+
+  if (isPublicFixtureRoute) {
+    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => undefined);
+  }
+}
+
 const THEME_CASES = [
   { mode: 'light', colorScheme: 'light' },
   { mode: 'dark', colorScheme: 'dark' },
@@ -413,7 +422,7 @@ const THEME_CASES = [
 test.describe('WCAG 2.1 AA public surfaces', () => {
   for (const route of PUBLIC_ROUTES) {
     test(`has no automated accessibility violations: ${route} @a11y`, async ({ page }) => {
-      await page.goto(route, { waitUntil: 'networkidle' });
+      await gotoAccessibilityRoute(page, route);
       const results = await scanPage(page);
 
       expect(results.violations, JSON.stringify(results.violations)).toEqual([]);
@@ -429,7 +438,7 @@ test.describe('WCAG 2.1 AA theme matrix', () => {
         await page.addInitScript((selectedTheme) => {
           window.localStorage.setItem('tembus-theme', selectedTheme);
         }, themeCase.mode);
-        await page.goto(route, { waitUntil: 'networkidle' });
+        await gotoAccessibilityRoute(page, route);
 
         const results = await scanPage(page);
         expect(results.violations, JSON.stringify({ ...themeCase, route, violations: results.violations })).toEqual([]);
@@ -447,7 +456,7 @@ test.describe('WCAG 2.1 AA authenticated Customer route matrix', () => {
         await page.addInitScript((selectedTheme) => {
           window.localStorage.setItem('tembus-theme', selectedTheme);
         }, themeCase.mode);
-        await page.goto(route, { waitUntil: 'networkidle' });
+        await gotoAccessibilityRoute(page, route);
 
         const results = await scanPage(page);
         expect(results.violations, JSON.stringify({ ...themeCase, route, violations: results.violations })).toEqual([]);
@@ -467,7 +476,7 @@ test.describe('WCAG 2.1 AA full Customer route inventory', () => {
         await page.addInitScript((selectedTheme) => {
           window.localStorage.setItem('tembus-theme', selectedTheme);
         }, theme);
-        await page.goto(route, { waitUntil: 'networkidle' });
+        await gotoAccessibilityRoute(page, route);
 
         const results = await scanPage(page);
         expect(results.violations, JSON.stringify({ route, theme, violations: results.violations })).toEqual([]);

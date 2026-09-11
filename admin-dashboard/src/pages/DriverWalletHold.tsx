@@ -204,6 +204,7 @@ export default function DriverWalletHold() {
               className="w-full bg-surface-subtle border border-border rounded-xl p-3 text-sm text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-foreground-muted mb-6"
               rows={3}
               value={note}
+              aria-label="Wallet hold decision note"
               onChange={(e) => setNote(e.target.value)}
               placeholder="Catatan keputusan (wajib untuk audit trail)"
             />

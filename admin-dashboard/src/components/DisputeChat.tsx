@@ -264,6 +264,7 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
+            aria-label={previewImage ? "Attachment caption" : "Message"}
             onPaste={handlePaste}
             placeholder={previewImage ? "Add a caption (optional)..." : "Type message or paste screenshot..."}
             className="flex-1 bg-surface-subtle border border-border rounded-xl px-4 py-3 text-sm text-foreground-muted placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"

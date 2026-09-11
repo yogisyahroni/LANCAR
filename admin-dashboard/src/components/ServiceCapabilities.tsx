@@ -112,6 +112,7 @@ export default function ServiceCapabilities({ courierId, capabilities }: Courier
                       [service.code]: parseInt(e.target.value) || 0
                     }))}
                     placeholder="Rp"
+                    aria-label={`Base price for ${service.code}`}
                     className="w-32 bg-surface-subtle border border-border rounded-lg p-2 text-sm text-foreground-muted focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>

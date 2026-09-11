@@ -127,6 +127,7 @@ export function LogisticsAWBPanel({ data }: { data: SettingsData }) {
                       <input 
                         type="text" 
                         defaultValue={getConfig('payment_link_base_url', 'https://pay.tembus.my.id/inv')}
+                        aria-label="Payment link base URL"
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'payment_link_base_url', value: e.target.value })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                         placeholder="e.g. https://pay.tembus.my.id/inv"
@@ -137,6 +138,7 @@ export function LogisticsAWBPanel({ data }: { data: SettingsData }) {
                       <input 
                         type="text" 
                         defaultValue={getConfig('awb_default_provider', 'jne')}
+                        aria-label="Default AWB provider"
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_default_provider', value: e.target.value })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                         placeholder="e.g. jne, jnt"
@@ -231,6 +233,7 @@ export function LogisticsAWBPanel({ data }: { data: SettingsData }) {
                     <input 
                       type="text" 
                       defaultValue={getConfig('awb_tracking_url_template', 'https://cekresi.com/?noresi=%s')}
+                      aria-label="AWB tracking URL template"
                       onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_tracking_url_template', value: e.target.value })}
                       className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       placeholder="e.g. https://cekresi.com/?noresi=%s"

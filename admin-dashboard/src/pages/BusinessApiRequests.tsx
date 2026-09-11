@@ -257,6 +257,7 @@ export default function BusinessApiRequests() {
                   <h4 className="text-sm font-black uppercase text-foreground-muted tracking-wide text-center">Admin Review</h4>
                   <textarea
                     value={reviewNotes[req.id] || ''}
+                    aria-label={`Review notes for request ${req.id}`}
                     onChange={(e) => handleReviewNoteChange(req.id, e.target.value)}
                     placeholder="Catatan review (opsional)..."
                     className="w-full bg-scrim/50 border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-accent resize-none h-24"

@@ -174,6 +174,7 @@ export function ClosingPanel({ data }: { data: FinanceData }) {
                   <label className="text-xs font-bold uppercase tracking-wider text-foreground-muted block mb-2">TOTP 2FA Verification Code (Wajib)</label>
                   <input
                     type="text"
+                    aria-label="TOTP 2FA verification code"
                     placeholder="Masukkan 6 digit kode TOTP"
                     value={totpInput}
                     onChange={(e) => setTotpInput(e.target.value)}

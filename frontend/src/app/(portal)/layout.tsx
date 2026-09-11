@@ -831,6 +831,7 @@ export default function PortalLayout({
                 <input
                   type="text"
                   placeholder={t("nav.featureSearchPlaceholder")}
+                  aria-label={t("nav.featureSearchPlaceholder")}
                   className="flex-1 text-sm bg-transparent border-none focus:outline-none text-foreground placeholder:text-foreground-muted select-text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}

@@ -140,6 +140,7 @@ export function LedgerPanel({ data }: { data: FinanceData }) {
             <div className="flex flex-wrap items-center gap-4">
               <input
                 type="text"
+                aria-label="Filter GL account"
                 placeholder="Filter Akun GL"
                 value={ledgerAccountFilter}
                 onChange={(e) => setLedgerAccountFilter(e.target.value)}

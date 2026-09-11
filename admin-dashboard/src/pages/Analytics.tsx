@@ -176,6 +176,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
                 <input 
                   type="text"
                   required
+                  aria-label="Report name"
                   placeholder="e.g. Weekly SLA Summary"
                   className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted placeholder:text-foreground-muted focus:outline-none focus:border-primary/50 transition-all"
                   value={formData.name}
@@ -227,6 +228,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
                 <label className="text-sm font-bold text-foreground-muted ml-1">Recipients (Comma Separated)</label>
                 <textarea 
                   required
+                  aria-label="Report recipients"
                   placeholder="admin@tembus.id, analyst@tembus.id"
                   className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted placeholder:text-foreground-muted focus:outline-none focus:border-primary/50 transition-all min-h-[100px]"
                   value={formData.recipient_emails}

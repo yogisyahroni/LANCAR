@@ -187,6 +187,7 @@ export default function CourierPerformance() {
                   className="w-full bg-surface-subtle border border-border rounded-xl p-3 text-sm text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-foreground-muted"
                   rows={3}
                   value={note}
+                  aria-label="Courier performance note"
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="e.g. Manual promotion due to excellent offline behavior"
                 ></textarea>

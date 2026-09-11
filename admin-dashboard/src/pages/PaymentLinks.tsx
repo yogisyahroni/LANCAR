@@ -363,6 +363,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
               <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><Package size={14} aria-hidden="true" /> Item Name</label>
               <input 
                 value={formData.item_name}
+                aria-label="Payment link item name"
                 onChange={e => setFormData({ ...formData, item_name: e.target.value })}
                 placeholder="e.g. Kue Kering Lebaran"
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -374,6 +375,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
               <input 
                 type="number"
                 value={formData.item_price}
+                aria-label="Payment link item price"
                 onChange={e => setFormData({ ...formData, item_price: Number(e.target.value) })}
                 placeholder="50000"
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -404,6 +406,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
               <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><ImageIcon size={14} aria-hidden="true" /> Image URL</label>
               <input 
                 value={formData.item_image_url}
+                aria-label="Payment link item image URL"
                 onChange={e => setFormData({ ...formData, item_image_url: e.target.value })}
                 placeholder="https://..."
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -418,6 +421,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
               <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Pickup Address (Your Store)</label>
               <textarea 
                 value={formData.pickup_address}
+                aria-label="Payment link pickup address"
                 onChange={e => { setFormData({ ...formData, pickup_address: e.target.value }); setGeocodeError(''); }}
                 placeholder="Alamat lengkap tokomu beserta patokan..."
                 rows={2}
@@ -429,6 +433,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
               <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Dropoff Address (Customer)</label>
               <textarea 
                 value={formData.dropoff_address}
+                aria-label="Payment link dropoff address"
                 onChange={e => { setFormData({ ...formData, dropoff_address: e.target.value }); setGeocodeError(''); }}
                 placeholder="Alamat lengkap pembeli beserta patokan..."
                 rows={3}

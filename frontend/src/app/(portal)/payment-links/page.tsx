@@ -489,7 +489,8 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                     </a>
                   </div>
                   <input 
-                    value={formData.item_name}
+                   value={formData.item_name}
+                    aria-label="Item name"
                     onChange={e => {
                       setFormData({ ...formData, item_name: e.target.value });
                       setShowProductDropdown(true);
@@ -579,7 +580,8 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                     </button>
                   </label>
                   <textarea 
-                    value={formData.pickup_address}
+                     value={formData.pickup_address}
+                     aria-label="Pickup address"
                     onChange={e => { setFormData({ ...formData, pickup_address: e.target.value }); setGeocodeError(''); }}
                     placeholder="Alamat lengkap tokomu beserta patokan..."
                     rows={2}
@@ -590,7 +592,8 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                 <div className="space-y-2 col-span-2">
                   <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Dropoff Address (Customer)</label>
                   <textarea 
-                    value={formData.dropoff_address}
+                     value={formData.dropoff_address}
+                     aria-label="Dropoff address"
                     onChange={e => { setFormData({ ...formData, dropoff_address: e.target.value }); setGeocodeError(''); }}
                     placeholder="Alamat lengkap pembeli beserta patokan..."
                     rows={3}

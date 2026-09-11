@@ -370,6 +370,7 @@ export default function Merchants() {
                   <textarea
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
+                    aria-label="Merchant rejection reason"
                     rows={2}
                     className="mt-2 w-full rounded-xl border border-border bg-background p-3 text-sm text-foreground-muted outline-none focus:border-error"
                     placeholder="Contoh: dokumen tidak jelas, nama toko menyesatkan..."

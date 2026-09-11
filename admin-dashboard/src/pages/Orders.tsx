@@ -133,6 +133,7 @@ export default function Orders() {
                   <input
                     required
                     value={formData.customer_id}
+                    aria-label="Customer UUID"
                     onChange={e => setFormData({ ...formData, customer_id: e.target.value })}
                     placeholder="Enter customer UUID"
                     className="w-full bg-surface-subtle border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -158,6 +159,7 @@ export default function Orders() {
                       type="number"
                       step="0.01"
                       value={formData.total_amount}
+                      aria-label="Order total amount"
                       onChange={e => setFormData({ ...formData, total_amount: e.target.value })}
                       placeholder="0.00"
                       className="w-full bg-surface-subtle border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -169,6 +171,7 @@ export default function Orders() {
                   <textarea
                     required
                     value={formData.pickup_address}
+                    aria-label="Pickup address"
                     onChange={e => setFormData({ ...formData, pickup_address: e.target.value })}
                     rows={2}
                     placeholder="Full pickup address..."
@@ -180,6 +183,7 @@ export default function Orders() {
                   <textarea
                     required
                     value={formData.delivery_address}
+                    aria-label="Delivery address"
                     onChange={e => setFormData({ ...formData, delivery_address: e.target.value })}
                     rows={2}
                     placeholder="Full delivery address..."

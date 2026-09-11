@@ -3327,7 +3327,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Test default, hover, active, selected, focus, disabled, loading, error and success states.
 - [ ] Do not place white text on brand orange merely because it looks common; use measured `on-accent` token.
 - [ ] Muted/secondary text still meets text contrast when it conveys required information.
-- [ ] Placeholder is not used as the only label; placeholder readability does not replace persistent label requirement.
+- [x] Placeholder is not used as the only label; placeholder readability does not replace persistent label requirement. Evidence: `docs/task-evidence/A11Y-2026-001.md` (`scripts/a11y/check-placeholder-labels.mjs` scans both Customer/Admin source roots and passes).
 - [ ] Required input outline/background/control boundary is perceptible at ≥3:1 when the boundary is necessary to identify the control.
 - [ ] Contrast validation covers Light and Dark independently; passing one theme does not approve the other.
 

@@ -1477,6 +1477,7 @@ export default function CostIntelligence() {
               <h3 id="reject-recommendation-title" className="text-lg font-bold text-foreground">Alasan Penolakan Rekomendasi</h3>
               <textarea
                 value={rejectReason}
+                aria-label="Price recommendation rejection reason"
                 onChange={e => setRejectReason(e.target.value)}
                 placeholder="Tulis alasan mengapa rekomendasi harga ini ditolak..."
                 rows={4}
