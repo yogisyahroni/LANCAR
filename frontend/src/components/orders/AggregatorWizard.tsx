@@ -1503,7 +1503,7 @@ export function AggregatorWizard() {
                 </h3>
                 
                 {bulkRows.length > 0 ? (
-                  <div className="overflow-x-auto rounded-lg border border-border">
+                  <div role="region" aria-label="Bulk order comparison table" tabIndex={0} className="overflow-x-auto rounded-lg border border-border">
                     <table className="w-full text-left text-sm text-muted-foreground">
                       <thead className="bg-surface-subtle text-xs uppercase text-foreground">
                         <tr>

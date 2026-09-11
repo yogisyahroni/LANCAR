@@ -213,6 +213,9 @@ test('Customer orders table exposes selected-row semantics and deliberate overfl
   for (const theme of ['light', 'dark'] as const) {
     await page.evaluate((selectedTheme) => window.localStorage.setItem('tembus-theme', selectedTheme), theme)
     await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(tableWrapper).toHaveAttribute('role', 'region')
+    await expect(tableWrapper).toHaveAttribute('aria-label', 'Daftar order')
+    await expect(tableWrapper).toHaveAttribute('tabindex', '0')
     await expect(tableWrapper).toHaveCSS('overflow-x', 'auto')
     await expect(page.getByRole('link', { name: 'Lihat detail order ORD-SELECT-1' })).toBeVisible()
 

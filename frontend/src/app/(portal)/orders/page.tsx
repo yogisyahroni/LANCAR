@@ -389,7 +389,7 @@ function OrderListContent() {
             <p className="text-sm">Silakan buat order atau sesuaikan filter Anda.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="Daftar order" tabIndex={0} className="overflow-x-auto">
             <table className="w-full text-left border-collapse select-none" aria-label="Daftar order">
               <caption className="sr-only">Daftar order dengan resi, penerima, tujuan, status, harga, dan tanggal</caption>
               <thead>

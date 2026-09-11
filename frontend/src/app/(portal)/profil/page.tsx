@@ -427,7 +427,7 @@ export default function ProfilPage() {
       </motion.div>
 
       {/* Complete tab header navigation slider */}
-      <div className="flex border-b border-border/40 gap-1 select-none overflow-x-auto">
+      <div role="region" aria-label="Navigasi profil" tabIndex={0} className="flex border-b border-border/40 gap-1 select-none overflow-x-auto">
         {[
           { id: 'akun', label: 'Informasi Akun', icon: User },
           { id: 'rekening', label: 'Rekening Bank', icon: Building2 },

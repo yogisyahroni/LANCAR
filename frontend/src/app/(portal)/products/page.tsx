@@ -301,7 +301,7 @@ export default function ProductsPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="Daftar produk" tabIndex={0} className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-muted-foreground bg-muted/50 uppercase border-b border-border">
                 <tr>

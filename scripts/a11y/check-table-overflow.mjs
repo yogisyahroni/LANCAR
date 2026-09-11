@@ -10,7 +10,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const root = path.resolve('admin-dashboard/src')
+const roots = [
+  path.resolve('frontend/src'),
+  path.resolve('admin-dashboard/src'),
+]
 const extensions = new Set(['.tsx', '.jsx', '.html'])
 const violations = []
 
@@ -30,19 +33,19 @@ function walk(directory) {
 
       const line = source.slice(0, match.index).split('\n').length
       if (!/\brole\s*=\s*["']region["']/.test(openingTag)) {
-        violations.push(`${filePath}:${line}: overflow-x-auto table region is missing role="region"`)
+        violations.push(`${filePath}:${line}: overflow-x-auto region is missing role="region"`)
       }
       if (!/\baria-label\s*=\s*["'][^"']+/.test(openingTag)) {
-        violations.push(`${filePath}:${line}: overflow-x-auto table region is missing a non-empty aria-label`)
+        violations.push(`${filePath}:${line}: overflow-x-auto region is missing a non-empty aria-label`)
       }
       if (!/\btabIndex\s*=\s*\{\s*0\s*\}/.test(openingTag)) {
-        violations.push(`${filePath}:${line}: overflow-x-auto table region is not keyboard-focusable`)
+        violations.push(`${filePath}:${line}: overflow-x-auto region is not keyboard-focusable`)
       }
     }
   }
 }
 
-walk(root)
+for (const root of roots) walk(root)
 
 if (violations.length) {
   console.error('Table overflow guard failed:')
@@ -50,4 +53,4 @@ if (violations.length) {
   process.exit(1)
 }
 
-console.log('Table overflow guard passed: every Admin overflow-x-auto region is named and keyboard-focusable.')
+console.log(`Table overflow guard passed: every Customer/Admin overflow-x-auto region is named and keyboard-focusable across ${roots.length} application roots.`)

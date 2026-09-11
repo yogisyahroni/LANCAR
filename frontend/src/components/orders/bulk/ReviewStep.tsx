@@ -372,7 +372,7 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
       </div>
 
       <div className="rounded-xl border border-border bg-background/50 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div role="region" aria-label="Bulk order review table" tabIndex={0} className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="bg-muted/50 text-muted-foreground border-b border-border">
               {table.getHeaderGroups().map(headerGroup => (

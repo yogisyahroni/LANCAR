@@ -333,7 +333,7 @@ export default function ResiPage() {
         transition={{ duration: 0.4, delay: 0.2 }}
         className="bg-surface-raised border border-border rounded-2xl shadow-sm overflow-hidden"
       >
-        <div className="overflow-x-auto select-none">
+        <div role="region" aria-label="Riwayat resi" tabIndex={0} className="overflow-x-auto select-none">
           <table className="w-full text-left border-collapse select-none">
             <thead>
               <tr className="bg-muted/40 border-b border-border/40 text-xs font-bold text-muted-foreground tracking-tight select-none">
