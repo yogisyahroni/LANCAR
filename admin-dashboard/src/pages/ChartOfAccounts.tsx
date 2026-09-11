@@ -219,7 +219,7 @@ export default function ChartOfAccounts() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-scrim/70 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+          <div className="absolute inset-0 bg-scrim/70 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} aria-hidden="true" />
           <FocusTrap active={isModalOpen} className="relative w-full max-w-md">
           <div
             role="dialog"

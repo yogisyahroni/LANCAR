@@ -567,6 +567,7 @@ export default function PortalLayout({
                     <div
                       className="fixed inset-0 z-40"
                       onClick={() => setIsNotifOpen(false)}
+                      aria-hidden="true"
                     />
                     <FocusTrap active={isNotifOpen} className="absolute right-0 mt-2 w-80 z-50">
                     <motion.div
@@ -728,6 +729,7 @@ export default function PortalLayout({
                     <div
                       className="fixed inset-0 z-40"
                       onClick={() => setIsUserOpen(false)}
+                      aria-hidden="true"
                     />
                     <FocusTrap active={isUserOpen} className="absolute right-0 mt-2 w-48 z-50">
                     <motion.div

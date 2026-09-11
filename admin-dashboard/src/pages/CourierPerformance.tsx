@@ -152,6 +152,7 @@ export default function CourierPerformance() {
           <div 
             className="absolute inset-0 bg-scrim/80 backdrop-blur-sm"
             onClick={() => setSelectedCourier(null)}
+            aria-hidden="true"
           />
           <FocusTrap active={Boolean(selectedCourier)} className="glass-card bg-surface-subtle border border-border rounded-[32px] shadow-2xl max-w-md w-full p-8 relative z-10">
           <div

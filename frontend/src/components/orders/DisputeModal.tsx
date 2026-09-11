@@ -209,6 +209,15 @@ export function DisputeModal({ isOpen, onClose, orderId, isOnDemand = false, onS
               
               <div 
                 onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label="Pilih foto bukti"
                 className="group relative cursor-pointer overflow-hidden rounded-xl border border-dashed border-border bg-surface-subtle p-4 transition hover:bg-surface-subtle"
               >
                 <input

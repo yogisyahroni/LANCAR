@@ -505,6 +505,22 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                       {products.filter(p => p.item_name.toLowerCase().includes(formData.item_name.toLowerCase())).map(product => (
                         <div 
                           key={product.id}
+                          role="option"
+                          tabIndex={0}
+                          aria-selected={formData.item_name === product.item_name}
+                          aria-label={`Pilih produk ${product.item_name}`}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              setFormData({
+                                ...formData,
+                                item_name: product.item_name,
+                                weight: product.weight_kg,
+                                item_image_url: product.image_url || formData.item_image_url
+                              });
+                              setShowProductDropdown(false);
+                            }
+                          }}
                           className="px-4 py-3 hover:bg-muted/50 cursor-pointer flex items-center gap-3 border-b border-border last:border-0"
                           onClick={() => {
                             setFormData({

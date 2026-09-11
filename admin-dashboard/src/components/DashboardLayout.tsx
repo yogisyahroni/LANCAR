@@ -617,6 +617,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div 
                       className="fixed inset-0 z-10" 
                       onClick={() => setIsNotifOpen(false)} 
+                      aria-hidden="true"
                     />
                     <FocusTrap active={isNotifOpen} className="absolute right-0 mt-3 w-80 z-20">
                     <motion.div

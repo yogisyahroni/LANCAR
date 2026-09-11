@@ -188,7 +188,7 @@ export default function DriverWalletHold() {
 
       {appealAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-scrim/80 backdrop-blur-sm" onClick={() => setAppealAction(null)} />
+          <div className="absolute inset-0 bg-scrim/80 backdrop-blur-sm" onClick={() => setAppealAction(null)} aria-hidden="true" />
           <FocusTrap active={Boolean(appealAction)} className="glass-card bg-surface-subtle border border-border rounded-[32px] shadow-2xl max-w-md w-full p-8 relative z-10">
           <div
             role="dialog"

@@ -161,6 +161,7 @@ export function ConfirmPayoutModal({
       <div
         className="absolute inset-0 bg-scrim/70 backdrop-blur-sm"
         onClick={!isPending ? onCancel : undefined}
+        aria-hidden="true"
       />
 
       {/* Modal card */}

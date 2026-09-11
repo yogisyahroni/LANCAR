@@ -3658,7 +3658,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - 4.1.2 Name, Role, Value
 - 4.1.3 Status Messages
 
-- [ ] Use native semantic HTML/control first before custom ARIA recreation. Current source review finds no click-bearing non-native content controls; manual assistive-technology confirmation remains open. Evidence: `docs/task-evidence/A11Y-2026-013.md`.
+- [ ] Use native semantic HTML/control first before custom ARIA recreation. `scripts/a11y/check-native-controls.mjs` now guards Customer/Admin source: non-native interaction requires explicit role, keyboard tab stop and activation contract, while modal backdrops are explicitly `aria-hidden`; manual assistive-technology confirmation remains open. Evidence: `docs/task-evidence/A11Y-2026-013.md`.
 - [x] Heading hierarchy is meaningful; do not choose heading level for font size. Full Customer/Admin Light/Dark route inventory enforces one visible `h1`, first heading level 1, and no heading skips across 198 cases. Evidence: `docs/task-evidence/A11Y-2026-013.md`.
 - [x] Landmarks/navigation/main regions are identifiable. Full Customer/Admin Light/Dark route inventory enforces one visible main region and named visible navigation landmarks across 198 cases. Evidence: `docs/task-evidence/A11Y-2026-013.md`.
 - [x] Accessible name of visible-label controls contains/matches visible label intent. Customer 56/56 and Admin 142/142 route/mobile inventory cases enforce this at runtime. Evidence: `docs/task-evidence/A11Y-2026-013.md`.

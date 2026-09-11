@@ -414,6 +414,16 @@ const ResiTemplates = () => {
                       <div
                         key={el.id}
                         onClick={(e) => { e.stopPropagation(); setSelectedElementId(el.id); }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setSelectedElementId(el.id);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Pilih elemen ${el.type}`}
                         className={`absolute cursor-move select-none ${selectedElementId === el.id ? 'ring-2 ring-primary ring-offset-1' : ''}`}
                         style={{ left: el.x, top: el.y }}
                         draggable

@@ -215,13 +215,15 @@ export default function Notifications() {
                      />
                      <div className="flex flex-wrap gap-2 pt-2">
                         {['{order_id}', '{customer_name}', '{pickup}', '{courier_name}', '{eta}'].map(v => (
-                          <span 
+                          <button
+                            type="button"
                             key={v} 
+                            aria-label={`Tambahkan token ${v}`}
                             onClick={() => setFormData(prev => ({ ...prev, content: prev.content + v }))}
                             className="px-3 py-1.5 rounded-lg bg-surface border border-border text-xs font-mono text-primary-light/60 hover:text-primary-light hover:border-primary/20 cursor-pointer transition-all"
                           >
                              {v}
-                          </span>
+                          </button>
                         ))}
                      </div>
                   </div>

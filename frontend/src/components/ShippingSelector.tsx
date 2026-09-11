@@ -58,6 +58,16 @@ export const ShippingSelector: React.FC<ShippingSelectorProps> = ({ request, onS
             <div
               key={tariff.service_code}
               onClick={() => onSelect(tariff)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onSelect(tariff);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
+              aria-label={`Pilih layanan ${tariff.service_name}`}
               className={`border rounded-lg p-4 cursor-pointer transition-all ${
                 isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border hover:border-info'
               }`}
