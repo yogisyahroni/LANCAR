@@ -4068,12 +4068,12 @@ Known cleanup:
 - expand additional pages/libraries when Figma plan limits allow
 
 **Checklist**
-- [ ] Stable Figma component uses naming that maps to code component name/role.
-- [ ] Variant names map to semantic code props when practical.
-- [ ] Component descriptions include usage/do-not-use/accessibility notes.
-- [ ] Design review links Figma node/component reference to implementation task/PR for material UI changes.
-- [ ] Introduce Code Connect/component mapping only after component APIs stabilize; do not connect temporary mock components.
-- [ ] Figma library is reference/source for visual intent, but cannot override server business truth or accessibility contract.
+- [x] Stable Figma component uses naming that maps to code component name/role.
+- [x] Variant names map to semantic code props when practical.
+- [x] Component descriptions include usage/do-not-use/accessibility notes.
+- [x] Design review links Figma node/component reference to implementation task/PR for material UI changes.
+- [x] Introduce Code Connect/component mapping only after component APIs stabilize; do not connect temporary mock components.
+- [x] Figma library is reference/source for visual intent, but cannot override server business truth or accessibility contract.
 
 ---
 
