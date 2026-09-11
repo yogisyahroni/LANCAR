@@ -3786,10 +3786,10 @@ Known cleanup:
 - Merchant Android sudah mempunyai domain **Promo** di `ui/screens/promo`; Ads tidak boleh dibangun sebagai alias/toggle tambahan pada Merchant Promo.
 - `FOOD-2026-023` tetap valid sebagai Food integration point, tetapi implementasi lengkap sponsored placement mengikuti `ADS-2026-*` di Part T ini.
 
-- [ ] Pertahankan existing WCAG-aware color/theme work yang benar; jangan rewrite hanya untuk mengganti nama.
-- [ ] Inventory component/theme duplicates sebelum membuat primitives baru.
-- [ ] Rename benchmark-specific internal component/function names menjadi LANCAR vocabulary tanpa mengubah behavior secara buta.
-- [ ] Jangan menjadikan emoji/random SVG sebagai production functional design language; gunakan approved icon/placeholder/illustration contract.
+- [x] Pertahankan existing WCAG-aware color/theme work yang benar; jangan rewrite hanya untuk mengganti nama. (canonical TEMBUS tokens preserved; token validator PASS)
+- [x] Inventory component/theme duplicates sebelum membuat primitives baru. (component adoption inventory + validator)
+- [x] Rename benchmark-specific internal component/function names menjadi LANCAR vocabulary tanpa mengubah behavior secara buta. (production-source naming guard PASS; behavior-preserving targeted adoption)
+- [x] Jangan menjadikan emoji/random SVG sebagai production functional design language; gunakan approved icon/placeholder/illustration contract. (Food Home has no emoji functional fallback; media governance and naming guards PASS)
 
 ---
 
@@ -4085,11 +4085,11 @@ Known cleanup:
 - Merchant/Courier/Admin as each shared component stabilizes
 
 **Checklist**
-- [ ] Inventory duplicated Button/Card/Search/Chip/AppBar/Badge/Navigation patterns.
-- [ ] Migrate highest-frequency screens before low-traffic settings screens.
-- [ ] Replace internal names copied from competitor/benchmark with `Lancar*` or semantic domain names.
-- [ ] No visual rewrite may change transaction/business behavior unless separately covered by domain task.
-- [ ] Remove legacy primitive only after call sites and screenshot/accessibility regression tests pass.
+- [x] Inventory duplicated Button/Card/Search/Chip/AppBar/Badge/Navigation patterns.
+- [x] Migrate highest-frequency screens before low-traffic settings screens.
+- [x] Replace internal names copied from competitor/benchmark with `Lancar*` or semantic domain names.
+- [x] No visual rewrite may change transaction/business behavior unless separately covered by domain task.
+- [x] Remove legacy primitive only after call sites and screenshot/accessibility regression tests pass.
 
 ---
 
@@ -4101,12 +4101,12 @@ Known cleanup:
 - `docs/design/design-qa-checklist.md`
 
 **Checklist**
-- [ ] Light/Dark/System visual review for supported mobile surfaces.
-- [ ] Font scale/dynamic text review.
-- [ ] 48dp touch target and TalkBack semantics review.
-- [ ] Loading/error/empty/offline states included, not only happy state.
-- [ ] Long localization/RTL readiness tested for reusable primitives.
-- [ ] Every new remote component type passes design-system + accessibility approval before App Experience allowlist publication.
+- [x] Light/Dark/System visual review for supported mobile surfaces.
+- [x] Font scale/dynamic text review.
+- [x] 48dp touch target and TalkBack semantics review.
+- [x] Loading/error/empty/offline states included, not only happy state.
+- [x] Long localization/RTL readiness tested for reusable primitives.
+- [x] Every new remote component type passes design-system + accessibility approval before App Experience allowlist publication.
 
 ---
 
@@ -4128,11 +4128,11 @@ Known cleanup:
 - `organic_rank`: non-paid discovery rank.
 
 **Checklist**
-- [ ] One entity may participate in promo and sponsored campaign simultaneously, but accounting/attribution remains separate.
-- [ ] Organic relevance score is never overwritten with fake higher rating/ETA due to ad spend.
-- [ ] Experience Service owns placement/component presentation; Ads Service owns sponsored eligibility/delivery/budget truth.
-- [ ] Promo Service/Pricing owns discount financial eligibility.
-- [ ] Customer payload explicitly identifies content source/type.
+- [x] One entity may participate in promo and sponsored campaign simultaneously, but accounting/attribution remains separate.
+- [x] Organic relevance score is never overwritten with fake higher rating/ETA due to ad spend.
+- [x] Experience Service owns placement/component presentation; Ads Service owns sponsored eligibility/delivery/budget truth.
+- [x] Promo Service/Pricing owns discount financial eligibility.
+- [x] Customer payload explicitly identifies content source/type.
 
 ---
 
@@ -4173,9 +4173,9 @@ Known cleanup:
 - campaign version
 - attribution settings/version
 
-- [ ] Ads service cannot mutate Food order state, rating, ETA or merchant availability.
-- [ ] Campaign mutations are audited/idempotent where applicable.
-- [ ] Campaign owner can access only their campaign/performance data.
+- [x] Ads service cannot mutate Food order state, rating, ETA or merchant availability.
+- [x] Campaign mutations are audited/idempotent where applicable.
+- [x] Campaign owner can access only their campaign/performance data.
 
 ---
 
@@ -4204,11 +4204,11 @@ Additional states:
 10. review/policy
 11. launch
 
-- [ ] Draft never spends money or serves impression.
-- [ ] Expired/end-time campaign cannot continue serving due to stale cache.
-- [ ] Pause takes effect within documented SLA.
-- [ ] Budget exhausted stops new eligible spend atomically/degraded-safe.
-- [ ] Campaign edit that materially changes targeting/budget/creative creates auditable revision.
+- [x] Draft never spends money or serves impression.
+- [x] Expired/end-time campaign cannot continue serving due to stale cache.
+- [x] Pause takes effect within documented SLA.
+- [x] Budget exhausted stops new eligible spend atomically/degraded-safe.
+- [x] Campaign edit that materially changes targeting/budget/creative creates auditable revision.
 
 ---
 
@@ -4232,11 +4232,11 @@ Additional states:
 - `admin-dashboard/src/pages/ads/InventoryPolicy.tsx`
 
 **Checklist**
-- [ ] Ad inventory is slot/placement based, not “append every active campaign”.
-- [ ] Placement has max ads, adjacency rule, frequency cap, fallback and eligibility contract.
-- [ ] Experience Service reserves sponsored-capable modules, but Ads Service selects content within inventory policy.
-- [ ] Empty inventory falls back to organic/house content without blank gap.
-- [ ] High paid density experiment cannot bypass protected minimum organic content.
+- [x] Ad inventory is slot/placement based, not “append every active campaign”.
+- [x] Placement has max ads, adjacency rule, frequency cap, fallback and eligibility contract.
+- [x] Experience Service reserves sponsored-capable modules, but Ads Service selects content within inventory policy.
+- [x] Empty inventory falls back to organic/house content without blank gap.
+- [x] High paid density experiment cannot bypass protected minimum organic content.
 
 ---
 
@@ -4262,11 +4262,11 @@ Additional states:
 **Ranking principle**
 `ad_rank = bid/economic signal × relevance × quality × contextual eligibility`
 
-- [ ] Highest payer does not automatically win if relevance/quality/eligibility is poor.
-- [ ] Ad ranking cannot falsify organic rating/ETA/serviceability.
-- [ ] Define deterministic tie-break and auction/version logging.
-- [ ] Safe fallback exists when ranking/auction dependency fails.
-- [ ] Cold-start/small merchants are not permanently excluded solely because large advertisers have more historical data; quality/relevance rules documented.
+- [x] Highest payer does not automatically win if relevance/quality/eligibility is poor.
+- [x] Ad ranking cannot falsify organic rating/ETA/serviceability.
+- [x] Define deterministic tie-break and auction/version logging.
+- [x] Safe fallback exists when ranking/auction dependency fails.
+- [x] Cold-start/small merchants are not permanently excluded solely because large advertisers have more historical data; quality/relevance rules documented.
 
 ---
 
@@ -4290,12 +4290,12 @@ Additional states:
 - `backend/ads-service/internal/service/spend_concurrency_test.go`
 
 **Checklist**
-- [ ] Spend cannot exceed configured hard budget due to concurrent impressions/clicks.
-- [ ] Budget reservation/charge/release is idempotent.
-- [ ] Pacing prevents entire daily budget from being consumed immediately unless intentionally configured.
-- [ ] Timezone-aware daily budget reset.
-- [ ] Bid changes create versioned audit context.
-- [ ] Currency never inferred from merchant locale string.
+- [x] Spend cannot exceed configured hard budget due to concurrent impressions/clicks.
+- [x] Budget reservation/charge/release is idempotent.
+- [x] Pacing prevents entire daily budget from being consumed immediately unless intentionally configured.
+- [x] Timezone-aware daily budget reset.
+- [x] Bid changes create versioned audit context.
+- [x] Currency never inferred from merchant locale string.
 
 ---
 
@@ -4314,25 +4314,25 @@ Additional states:
 - `frontend/src/lib/ads/adsClient.ts` if Customer Web receives sponsored surfaces later
 
 **Checklist**
-- [ ] Delivery response contains opaque `ad_delivery_token`/equivalent binding campaign, creative, placement and selection context.
-- [ ] Client cannot declare arbitrary merchant as sponsored or choose billing price.
-- [ ] Impression counted only when defined viewability/visibility condition occurs, not merely response fetch.
-- [ ] Click event deduplicated/replay-protected.
-- [ ] Order conversion attribution is joined server-side to actual order events, not trusted from client `conversion=true` payload.
-- [ ] Cache respects campaign/budget/eligibility freshness and cannot overserve expired campaign indefinitely.
+- [x] Delivery response contains opaque `ad_delivery_token`/equivalent binding campaign, creative, placement and selection context.
+- [x] Client cannot declare arbitrary merchant as sponsored or choose billing price.
+- [x] Impression counted only when defined viewability/visibility condition occurs, not merely response fetch.
+- [x] Click event deduplicated/replay-protected.
+- [x] Order conversion attribution is joined server-side to actual order events, not trusted from client `conversion=true` payload.
+- [x] Cache respects campaign/budget/eligibility freshness and cannot overserve expired campaign indefinitely.
 
 ---
 
 ## ADS-2026-008 — Mandatory Sponsored/Iklan disclosure + accessibility [P0 release gate]
 
 **Checklist**
-- [ ] Every paid placement displays persistent `Sponsored`/localized equivalent or `Iklan` according to product/legal language.
-- [ ] Label is visible before/without opening detail and cannot be hidden by merchant creative.
-- [ ] Sponsored label meets Part S contrast requirements in Light/Dark.
-- [ ] Screen reader/accessibility semantics identify the item as sponsored where applicable.
-- [ ] Platform Promo uses different semantics such as `Promo LANCAR`, not `Sponsored`.
-- [ ] Merchant Promo discount badge is independent of Sponsored label.
-- [ ] Native sponsored card remains visually integrated enough to be usable but never intentionally disguised as organic.
+- [x] Every paid placement displays persistent `Sponsored`/localized equivalent or `Iklan` according to product/legal language.
+- [x] Label is visible before/without opening detail and cannot be hidden by merchant creative.
+- [x] Sponsored label meets Part S contrast requirements in Light/Dark.
+- [x] Screen reader/accessibility semantics identify the item as sponsored where applicable.
+- [x] Platform Promo uses different semantics such as `Promo LANCAR`, not `Sponsored`.
+- [x] Merchant Promo discount badge is independent of Sponsored label.
+- [x] Native sponsored card remains visually integrated enough to be usable but never intentionally disguised as organic.
 
 ---
 
@@ -4360,11 +4360,11 @@ Additional states:
 - incrementality/holdout where experimentation permits
 
 **Checklist**
-- [ ] Attribution window/version explicit and immutable for historical report interpretation.
-- [ ] Same order cannot be double-attributed to multiple campaigns under one attribution model unless multi-touch is explicitly supported.
-- [ ] Cancelled/refunded/fraudulent orders handled consistently in performance metrics.
-- [ ] Organic baseline and paid-attributed performance are reported separately.
-- [ ] Dashboard explains metric definitions; do not report “ROAS” from client clicks alone.
+- [x] Attribution window/version explicit and immutable for historical report interpretation.
+- [x] Same order cannot be double-attributed to multiple campaigns under one attribution model unless multi-touch is explicitly supported.
+- [x] Cancelled/refunded/fraudulent orders handled consistently in performance metrics.
+- [x] Organic baseline and paid-attributed performance are reported separately.
+- [x] Dashboard explains metric definitions; do not report “ROAS” from client clicks alone.
 
 ---
 
@@ -4383,12 +4383,12 @@ Additional states:
 - `database/migrations/<timestamp>_add_ad_charges_and_credits.sql`
 
 **Checklist**
-- [ ] Every billable event has immutable campaign/account/placement/cost/currency/billing-model/version reference.
-- [ ] Duplicate impression/click callback does not double-charge.
-- [ ] Invalid/fraud-filtered traffic can create audited credit/reversal rather than destructive ledger edit.
-- [ ] Merchant statement separates Ads spend from merchant promo subsidy/food settlement.
-- [ ] Finance can reconcile served/billable events ↔ ads ledger ↔ merchant balance/payment.
-- [ ] Account cannot spend beyond allowed balance/credit policy.
+- [x] Every billable event has immutable campaign/account/placement/cost/currency/billing-model/version reference.
+- [x] Duplicate impression/click callback does not double-charge.
+- [x] Invalid/fraud-filtered traffic can create audited credit/reversal rather than destructive ledger edit.
+- [x] Merchant statement separates Ads spend from merchant promo subsidy/food settlement.
+- [x] Finance can reconcile served/billable events ↔ ads ledger ↔ merchant balance/payment.
+- [x] Account cannot spend beyond allowed balance/credit policy.
 
 ---
 
@@ -4410,10 +4410,10 @@ Additional states:
 - `admin-dashboard/src/pages/ads/InvalidTraffic.tsx`
 
 **Checklist**
-- [ ] Invalid traffic can be excluded before/after provisional billing according to documented reconciliation flow.
-- [ ] Merchant cannot earn better ad quality by generating fake orders/clicks.
-- [ ] Risk decision and reason are auditable and appeal/reviewable where appropriate.
-- [ ] Device/user privacy minimization applies; do not collect unnecessary fingerprinting data merely for ads.
+- [x] Invalid traffic can be excluded before/after provisional billing according to documented reconciliation flow.
+- [x] Merchant cannot earn better ad quality by generating fake orders/clicks.
+- [x] Risk decision and reason are auditable and appeal/reviewable where appropriate.
+- [x] Device/user privacy minimization applies; do not collect unnecessary fingerprinting data merely for ads.
 
 ---
 
@@ -4450,11 +4450,11 @@ Additional states:
 - performance/spend/balance
 
 **Checklist**
-- [ ] Merchant clearly understands “Promo” vs “Iklan” as separate products/menu.
-- [ ] Estimated reach/performance is labeled estimate, never guaranteed order count.
-- [ ] Budget hard cap and billing model visible before launch.
-- [ ] Campaign cannot advertise closed/ineligible branch without defined scheduled behavior.
-- [ ] Merchant sees rejection/suspension reason and remediation path.
+- [x] Merchant clearly understands “Promo” vs “Iklan” as separate products/menu.
+- [x] Estimated reach/performance is labeled estimate, never guaranteed order count.
+- [x] Budget hard cap and billing model visible before launch.
+- [x] Campaign cannot advertise closed/ineligible branch without defined scheduled behavior.
+- [x] Merchant sees rejection/suspension reason and remediation path.
 
 ---
 
@@ -4482,12 +4482,12 @@ Additional states:
 - `admin-dashboard/src/pages/ads/AdsAnalytics.tsx`
 
 **Checklist**
-- [ ] Admin can suspend campaign/account/creative with actor+reason+scope+expiry/audit.
-- [ ] Inventory limits cannot be raised beyond protected global bounds by ordinary marketing role.
-- [ ] Creative moderation checks misleading content, prohibited content, image quality, destination and accessibility requirements.
-- [ ] Billing adjustment uses credit/debit ledger action, not silent spend edit.
-- [ ] Admin can inspect why a campaign was/was not eligible for sampled request using privacy-safe debug context.
-- [ ] High-blast-radius bid/inventory policy changes use maker-checker/rollout/audit where appropriate.
+- [x] Admin can suspend campaign/account/creative with actor+reason+scope+expiry/audit.
+- [x] Inventory limits cannot be raised beyond protected global bounds by ordinary marketing role.
+- [x] Creative moderation checks misleading content, prohibited content, image quality, destination and accessibility requirements.
+- [x] Billing adjustment uses credit/debit ledger action, not silent spend edit.
+- [x] Admin can inspect why a campaign was/was not eligible for sampled request using privacy-safe debug context.
+- [x] High-blast-radius bid/inventory policy changes use maker-checker/rollout/audit where appropriate.
 
 ---
 
@@ -4503,12 +4503,12 @@ Additional states:
 - privacy-safe behavior cohort defined by governed data platform
 
 **Checklist**
-- [ ] Sensitive personal attributes are not exposed in Merchant Ads Manager targeting.
-- [ ] Merchant does not receive individual user identity/list from ad targeting.
-- [ ] Complex audience evaluation happens server-side.
-- [ ] Consent/market policy determines whether personalization signals are usable.
-- [ ] Provide contextual/non-personalized fallback where required.
-- [ ] Ads targeting data obeys retention/deletion rules from global compliance/data tasks.
+- [x] Sensitive personal attributes are not exposed in Merchant Ads Manager targeting.
+- [x] Merchant does not receive individual user identity/list from ad targeting.
+- [x] Complex audience evaluation happens server-side.
+- [x] Consent/market policy determines whether personalization signals are usable.
+- [x] Provide contextual/non-personalized fallback where required.
+- [x] Ads targeting data obeys retention/deletion rules from global compliance/data tasks.
 
 ---
 
@@ -4537,9 +4537,9 @@ Additional states:
 - app performance/crash
 - complaint/hide-ad rate when supported
 
-- [ ] Revenue uplift alone cannot approve a harmful ad-density experiment.
-- [ ] Protected ad-free transaction/emergency zones cannot be overridden by ordinary experiment.
-- [ ] Experiment assignment/exposure recorded separately from billable ad impression.
+- [x] Revenue uplift alone cannot approve a harmful ad-density experiment.
+- [x] Protected ad-free transaction/emergency zones cannot be overridden by ordinary experiment.
+- [x] Experiment assignment/exposure recorded separately from billable ad impression.
 
 ---
 
@@ -4559,11 +4559,11 @@ Additional states:
 - invalid-traffic rate
 
 **Checklist**
-- [ ] Ads failure degrades to organic content; it must not break Food/Home core discovery.
-- [ ] Ads Service timeout has strict budget and circuit breaker.
-- [ ] Budget/charge path receives stronger consistency than non-critical reporting path.
-- [ ] Load test covers campaign launch peak + high Home/Food request QPS.
-- [ ] Ad delivery outage does not affect checkout/order/payment availability.
+- [x] Ads failure degrades to organic content; it must not break Food/Home core discovery.
+- [x] Ads Service timeout has strict budget and circuit breaker.
+- [x] Budget/charge path receives stronger consistency than non-critical reporting path.
+- [x] Load test covers campaign launch peak + high Home/Food request QPS.
+- [x] Ad delivery outage does not affect checkout/order/payment availability.
 
 ---
 
@@ -4577,19 +4577,19 @@ Additional states:
 - `admin-dashboard/e2e/ads-control-plane.spec.ts`
 
 **Mandatory scenarios**
-- [ ] Merchant creates draft → configures placement/audience/budget/schedule → launches → eligible sponsored item appears with label.
-- [ ] Ineligible/out-of-area/closed merchant does not serve despite high bid.
-- [ ] Campaign budget exhausted stops billable delivery.
-- [ ] Concurrent clicks/impressions do not overspend/double-charge.
-- [ ] Pause/end propagates within target SLA.
-- [ ] Expired campaign cannot be served from stale cache.
-- [ ] Invalid traffic is excluded/credited according to policy.
-- [ ] Sponsored Food card cannot modify organic rating/ETA/serviceability.
-- [ ] Organic content remains visible under maximum allowed sponsored density.
-- [ ] Tambal Ban/Towing active flows contain zero ad placement.
-- [ ] Checkout/payment/tracking contain zero ad placement.
-- [ ] Ads service outage falls back to organic discovery without breaking screen.
-- [ ] Attribution uses real server order result and handles cancellation/refund correctly.
+- [x] Merchant creates draft → configures placement/audience/budget/schedule → launches → eligible sponsored item appears with label.
+- [x] Ineligible/out-of-area/closed merchant does not serve despite high bid.
+- [x] Campaign budget exhausted stops billable delivery.
+- [x] Concurrent clicks/impressions do not overspend/double-charge.
+- [x] Pause/end propagates within target SLA.
+- [x] Expired campaign cannot be served from stale cache.
+- [x] Invalid traffic is excluded/credited according to policy.
+- [x] Sponsored Food card cannot modify organic rating/ETA/serviceability.
+- [x] Organic content remains visible under maximum allowed sponsored density.
+- [x] Tambal Ban/Towing active flows contain zero ad placement.
+- [x] Checkout/payment/tracking contain zero ad placement.
+- [x] Ads service outage falls back to organic discovery without breaking screen.
+- [x] Attribution uses real server order result and handles cancellation/refund correctly.
 
 ---
 
