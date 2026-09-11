@@ -357,7 +357,7 @@ export default function Zones() {
 
            {/* Toolbar Overlays */}
            <div className="absolute top-8 left-8 flex flex-col gap-3 z-[1000]">
-              <div className="p-1 rounded-2xl bg-scrim/60 backdrop-blur-xl border border-border flex flex-col">
+              <div className="p-1 rounded-2xl bg-surface-raised border border-border flex flex-col">
                 <button type="button" aria-label="Maximize zone map" title="Maximize zone map" className="p-4 text-foreground hover:text-primary-light transition-all rounded-xl">
                    <Maximize2 size={18} aria-hidden="true" />
                 </button>
@@ -374,7 +374,7 @@ export default function Zones() {
            </div>
 
            <div className="absolute bottom-8 left-8 right-8 z-[1000]">
-              <div className="p-6 rounded-[32px] bg-scrim/80 backdrop-blur-3xl border border-border flex items-center justify-between">
+              <div className="p-6 rounded-[32px] bg-surface-raised border border-border flex items-center justify-between">
                  <div className="flex items-center gap-6">
                     <div className="flex items-center gap-3">
                        <div className="h-2 w-2 rounded-full bg-success animate-pulse" />

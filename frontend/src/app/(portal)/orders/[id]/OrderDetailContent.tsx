@@ -351,7 +351,7 @@ export function OrderDetailContent({
                 </p>
               </div>
 
-              <div className="w-full max-w-xs bg-scrim/40 backdrop-blur-md p-4 border border-border rounded-xl space-y-3.5 relative z-10">
+              <div className="w-full max-w-xs bg-surface-raised p-4 border border-border rounded-xl space-y-3.5 relative z-10">
                 {tracking?.location &&
                   order.status.toLowerCase() !== "cancelled" && (
                     <>

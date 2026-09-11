@@ -238,7 +238,7 @@ export default function LiveMap() {
       )}
 
       {shouldRenderTomTom && (
-        <div className="absolute right-4 top-4 z-[1000] rounded-2xl border border-border bg-surface-subtle p-1 shadow-xl shadow-scrim backdrop-blur-xl">
+        <div className="absolute right-4 top-4 z-[1000] rounded-2xl border border-border bg-surface-raised p-1 shadow-xl shadow-scrim">
           <div className="grid grid-cols-2 gap-1">
             <button
               type="button"

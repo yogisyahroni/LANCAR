@@ -808,7 +808,7 @@ export default function Analytics() {
                 <TomTomRuntimeUnavailable message="TomTom Maps aktif, tetapi browser key runtime belum tersedia. Demand density memakai fallback map sementara." />
               )}
               {(heatError || !hasRows(heatData)) && (
-                <div className="absolute inset-4 z-10 rounded-[28px] bg-scrim/70 backdrop-blur-md border border-border flex items-center justify-center p-6">
+                <div className="absolute inset-4 z-10 rounded-[28px] bg-surface-raised border border-border flex items-center justify-center p-6">
                   <DataState
                     title={heatError ? 'Heatmap gagal dimuat' : 'Belum ada heatmap'}
                     message={heatError ? getQueryErrorMessage(heatQueryError, 'Data demand density belum bisa diambil dari API analytics.') : 'Database belum memiliki titik demand density aktif.'}
@@ -818,7 +818,7 @@ export default function Analytics() {
                 </div>
               )}
               <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
-                <div className="px-3 py-1.5 rounded-lg bg-scrim/60 backdrop-blur-md border border-border text-xs font-black text-foreground-muted uppercase tracking-wide">
+                <div className="px-3 py-1.5 rounded-lg bg-surface-raised border border-border text-xs font-black text-foreground-muted uppercase tracking-wide">
                   {hasRows(heatData) ? 'Live Courier Density' : 'Waiting for Database Points'}
                 </div>
               </div>

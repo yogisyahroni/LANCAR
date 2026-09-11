@@ -286,17 +286,22 @@ test('analytics map zoom controls are keyboard reachable and announce the update
   await installThemeFixture(page)
   await page.goto('/analytics', { waitUntil: 'domcontentloaded' })
 
-  const controls = page.getByRole('group', { name: 'Kontrol zoom demand density' })
-  const zoomIn = controls.getByRole('button', { name: 'Zoom in map' })
-  const zoomStatus = controls.getByRole('status')
-  await expect(zoomIn).toBeVisible()
-  await expect(zoomIn).toBeEnabled()
-  await expect(zoomStatus).toHaveText('Zoom peta: level 12')
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((selectedTheme) => window.localStorage.setItem('lancar-admin-theme', selectedTheme), theme)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    const controls = page.getByRole('group', { name: 'Kontrol zoom demand density' })
+    const zoomIn = controls.getByRole('button', { name: 'Zoom in map' })
+    const zoomStatus = controls.getByRole('status')
+    await expect(zoomIn).toBeVisible()
+    await expect(zoomIn).toBeEnabled()
+    await expect.poll(() => controls.evaluate((element) => getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/)
+    await expect(zoomStatus).toHaveText('Zoom peta: level 12')
 
-  await zoomIn.focus()
-  await expect(zoomIn).toBeFocused()
-  await page.keyboard.press('Enter')
-  await expect(zoomStatus).toHaveText('Zoom peta: level 13')
+    await zoomIn.focus()
+    await expect(zoomIn).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(zoomStatus).toHaveText('Zoom peta: level 13')
+  }
 })
 
 test('analytics chart summaries expose direct values for keyboard and assistive technology users @a11y', async ({ page }) => {

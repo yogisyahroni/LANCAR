@@ -54,7 +54,7 @@ export function isTomTomRuntimeReady(config?: MapsRuntimeConfig | null) {
 
 export function TomTomRuntimeUnavailable({ message }: { message?: string }) {
   return (
-    <div className="absolute inset-x-4 top-20 z-[1000] rounded-2xl border border-warning bg-warning-surface p-4 text-sm text-warning shadow-lg shadow-scrim backdrop-blur-xl">
+    <div className="absolute inset-x-4 top-20 z-[1000] rounded-2xl border border-warning bg-warning-surface p-4 text-sm text-warning shadow-lg shadow-scrim">
       {message || 'Peta sedang dialihkan ke mode aman. Data koordinat dan kontrol operasional tetap tersedia.'}
     </div>
   )
