@@ -490,7 +490,11 @@ interface TEMBUSApiService {
         @Query("lng") lng: Double,
         @Query("search") search: String? = null,
         // ADR 003: filter halal — all (default) | halal_certified | non_halal
-        @Query("halal") halal: String? = null
+        @Query("halal") halal: String? = null,
+        @Query("cuisine") cuisine: String? = null,
+        @Query("sort") sort: String? = null,
+        @Query("limit") limit: Int? = null,
+        @Query("offset") offset: Int? = null,
     ): Response<FoodMerchantListResponse>
 
     @GET("api/v1/food/merchants/{id}")

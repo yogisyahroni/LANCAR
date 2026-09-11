@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"tembus/order-service/internal/domain"
+
+	"github.com/google/uuid"
 )
 
 // Auto-generated split of orderServiceImpl methods (god-file refactor).
@@ -21,6 +24,40 @@ func (s *orderServiceImpl) ListFoodMerchants(ctx context.Context, lat, lng float
 		variant = s.configRepo.GetStringConfig(ctx, "food_discovery_ranking_variant", variant)
 	}
 	return domain.RankFoodMerchants(merchants, variant), nil
+}
+
+// ListFoodMerchantsWithOptions is the server-owned discovery boundary. The
+// optional repository interface lets old unit-test doubles keep the legacy
+// method while production uses the full filter/sort/pagination query.
+func (s *orderServiceImpl) ListFoodMerchantsWithOptions(ctx context.Context, userID string, lat, lng float64, options domain.FoodDiscoveryOptions) ([]domain.FoodMerchantInfo, error) {
+	if s.foodRepo == nil {
+		return nil, fmt.Errorf("food repository not wired")
+	}
+	options.Search = strings.TrimSpace(options.Search)
+	options.Halal = strings.ToLower(strings.TrimSpace(options.Halal))
+	options.Cuisine = strings.TrimSpace(options.Cuisine)
+	options.Sort = strings.ToLower(strings.TrimSpace(options.Sort))
+	if options.Halal != "halal_certified" && options.Halal != "non_halal" {
+		options.Halal = ""
+	}
+	if options.Sort == "" || !domain.IsFoodDiscoverySort(options.Sort) {
+		options.Sort = domain.FoodDiscoverySortDistance
+	}
+	if options.Limit <= 0 || options.Limit > 100 {
+		options.Limit = 50
+	}
+	if options.Offset < 0 {
+		options.Offset = 0
+	}
+	if _, err := uuid.Parse(userID); err == nil {
+		options.CustomerID = userID
+	} else {
+		options.CustomerID = ""
+	}
+	if repo, ok := s.foodRepo.(domain.FoodDiscoveryRepository); ok {
+		return repo.ListFoodMerchantsWithOptions(ctx, lat, lng, options)
+	}
+	return s.ListFoodMerchants(ctx, lat, lng, options.Search, options.Halal)
 }
 
 func (s *orderServiceImpl) GetFoodMerchantDetail(ctx context.Context, merchantID string) (*domain.FoodMerchantInfo, error) {

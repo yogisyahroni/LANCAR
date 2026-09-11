@@ -54,6 +54,12 @@ class FoodViewModel @Inject constructor(
     private val _halalFilter = MutableStateFlow("all")
     val halalFilter: StateFlow<String> = _halalFilter.asStateFlow()
 
+    private val _discoverySort = MutableStateFlow("distance")
+    val discoverySort: StateFlow<String> = _discoverySort.asStateFlow()
+
+    private val _cuisineFilter = MutableStateFlow("")
+    val cuisineFilter: StateFlow<String> = _cuisineFilter.asStateFlow()
+
     // ── Cart state (FB-084: shared via CartStore @Singleton) ──
     val cart: StateFlow<List<CartItem>> = cartStore.cart
     val cartSize: StateFlow<Int> = cartStore.cartSize
@@ -194,7 +200,16 @@ class FoodViewModel @Inject constructor(
             try {
                 // ADR 003: filter halal — null/all (semua) | halal_certified | non_halal
                 val halal = _halalFilter.value.takeIf { it != "all" }
-                val res = apiService.listFoodMerchants(lat, lng, search.ifBlank { null }, halal)
+                val res = apiService.listFoodMerchants(
+                    lat,
+                    lng,
+                    search.ifBlank { null },
+                    halal,
+                    _cuisineFilter.value.ifBlank { null },
+                    _discoverySort.value,
+                    50,
+                    0,
+                )
                 if (res.isSuccessful) {
                     _merchants.value = res.body()?.merchants ?: emptyList()
                 } else {
@@ -225,6 +240,24 @@ class FoodViewModel @Inject constructor(
         _halalFilter.value = filter
         // The browse screen owns its discovery coordinates and reloads them
         // explicitly; never reuse checkout destination state here.
+        val lat = discoveryLat
+        val lng = discoveryLng
+        if (lat != null && lng != null) loadMerchants(lat, lng)
+    }
+
+    fun setDiscoverySort(sort: String) {
+        if (sort !in setOf("distance", "rating", "popular", "recent", "favorites")) return
+        if (_discoverySort.value == sort) return
+        _discoverySort.value = sort
+        val lat = discoveryLat
+        val lng = discoveryLng
+        if (lat != null && lng != null) loadMerchants(lat, lng)
+    }
+
+    fun setCuisineFilter(cuisine: String) {
+        val normalized = cuisine.trim().take(50)
+        if (_cuisineFilter.value == normalized) return
+        _cuisineFilter.value = normalized
         val lat = discoveryLat
         val lng = discoveryLng
         if (lat != null && lng != null) loadMerchants(lat, lng)

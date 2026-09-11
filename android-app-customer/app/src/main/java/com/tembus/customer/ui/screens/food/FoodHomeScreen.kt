@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -154,6 +155,7 @@ fun FoodHomeScreen(
 
             // ── ADR 003: filter halal ──
             val halalFilter by viewModel.halalFilter.collectAsState()
+            val discoverySort by viewModel.discoverySort.collectAsState()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -175,6 +177,30 @@ fun FoodHomeScreen(
                     onClick = { viewModel.setHalalFilter("non_halal") },
                     label = { Text("Non-Halal", fontSize = 12.sp) }
                 )
+            }
+
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(
+                    listOf(
+                    "distance" to "Terdekat",
+                    "rating" to "Rating",
+                    "popular" to "Populer",
+                    "recent" to "Pesanan terakhir",
+                    "favorites" to "Favorit",
+                    ),
+                    key = { it.first },
+                ) { (sort, label) ->
+                    FilterChip(
+                        selected = discoverySort == sort,
+                        onClick = { viewModel.setDiscoverySort(sort) },
+                        label = { Text(label, fontSize = 12.sp) },
+                    )
+                }
             }
 
             when {

@@ -719,6 +719,162 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 	return out, rows.Err()
 }
 
+// ListFoodMerchantsWithOptions is the richer FOOD-2026-014 discovery query.
+// All filters and ranking signals are server-owned. Sponsored eligibility is
+// still a separately labelled lateral signal and is never part of the organic
+// score or sort expression.
+func (r *foodRepo) ListFoodMerchantsWithOptions(ctx context.Context, lat, lng float64, options domain.FoodDiscoveryOptions) ([]domain.FoodMerchantInfo, error) {
+	limit := options.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	offset := options.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	args := []any{lng, lat, options.CustomerID}
+	arg := func(value any) string {
+		args = append(args, value)
+		return fmt.Sprintf("$%d", len(args))
+	}
+	conditions := []string{
+		"m.is_open = TRUE",
+		"m.operating_state IN ('open', 'busy')",
+		"m.verification_status = 'approved'",
+		"(m.paused_until IS NULL OR m.paused_until <= NOW())",
+		"merchant_quality_is_eligible(m.id, 'search')",
+		"NOT merchant_enforcement_is_active(m.id, NULL, NULL, NULL)",
+	}
+	if options.Halal == "halal_certified" || options.Halal == "non_halal" {
+		conditions = append(conditions, "m.halal_status = "+arg(options.Halal))
+	}
+	if search := strings.TrimSpace(options.Search); search != "" {
+		searchArg := arg("%" + search + "%")
+		conditions = append(conditions, "(m.nama_toko ILIKE "+searchArg+" OR m.alamat ILIKE "+searchArg+" OR EXISTS (SELECT 1 FROM merchant_menu_items search_item WHERE search_item.merchant_id = m.id AND search_item.nama ILIKE "+searchArg+"))")
+	}
+	if cuisine := strings.TrimSpace(options.Cuisine); cuisine != "" {
+		cuisineArg := arg("%" + cuisine + "%")
+		conditions = append(conditions, "EXISTS (SELECT 1 FROM merchant_menu_items cuisine_item WHERE cuisine_item.merchant_id = m.id AND cuisine_item.kategori ILIKE "+cuisineArg+")")
+	}
+
+	orderBy := "distance_km ASC NULLS LAST, m.id ASC"
+	switch options.Sort {
+	case domain.FoodDiscoverySortRating:
+		orderBy = "avg_rating DESC, rating_count DESC, distance_km ASC NULLS LAST, m.id ASC"
+	case domain.FoodDiscoverySortPopular:
+		orderBy = "popularity_count DESC, avg_rating DESC, distance_km ASC NULLS LAST, m.id ASC"
+	case domain.FoodDiscoverySortRecent:
+		orderBy = "last_ordered_at DESC NULLS LAST, distance_km ASC NULLS LAST, m.id ASC"
+	case domain.FoodDiscoverySortFavorites:
+		orderBy = "is_favorite DESC, last_ordered_at DESC NULLS LAST, distance_km ASC NULLS LAST, m.id ASC"
+	}
+	limitArg := arg(limit)
+	offsetArg := arg(offset)
+	query := fmt.Sprintf(`
+		SELECT
+			m.id::text, m.nama_toko, m.alamat, m.is_open, m.operating_state, m.operating_state_reason, m.operating_state_until, m.operating_timezone, m.verification_status,
+			COALESCE(ST_Y(m.lokasi::geometry), 0), COALESCE(ST_X(m.lokasi::geometry), 0),
+			m.jam_buka::text, m.jam_tutup::text, m.halal_status,
+			COALESCE(sponsored.id::text, ''), (sponsored.id IS NOT NULL),
+			ROUND(CAST(ST_Distance(m.lokasi, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000 AS NUMERIC), 2)::float AS distance_km,
+			rating.avg_rating, rating.rating_count, popularity.popularity_count,
+			(favorite.merchant_id IS NOT NULL) AS is_favorite, recent.last_ordered_at
+		FROM merchants m
+		LEFT JOIN LATERAL (
+			SELECT p.id
+			FROM promo_campaigns p
+			WHERE p.product_type = 'ads'
+			  AND p.status = 'active' AND p.starts_at <= NOW() AND p.ends_at > NOW()
+			  AND 'food_delivery' = ANY(p.service_codes)
+			  AND p.audience_rules->>'placement' = 'food_discovery'
+			  AND (p.audience_rules->>'merchant_id' IS NULL OR p.audience_rules->>'merchant_id' = m.id::text)
+			  AND merchant_quality_is_eligible(m.id, 'ads')
+			  AND NOT merchant_enforcement_is_active(m.id, NULL, NULL, 'ads')
+			ORDER BY p.published_at DESC NULLS LAST, p.created_at DESC
+			LIMIT 1
+		) sponsored ON TRUE
+		LEFT JOIN LATERAL (
+			SELECT COALESCE(AVG(r.stars), 0)::float AS avg_rating, COUNT(r.id)::int AS rating_count
+			FROM merchant_ratings r
+			WHERE r.merchant_id = m.id
+		) rating ON TRUE
+		LEFT JOIN LATERAL (
+			SELECT COUNT(*)::int AS popularity_count
+			FROM orders popular_order
+			WHERE popular_order.merchant_id = m.id
+			  AND popular_order.service_sub_type = 'food_delivery'
+			  AND popular_order.status NOT IN ('cancelled', 'rejected')
+		) popularity ON TRUE
+		LEFT JOIN customer_favorite_merchants favorite
+			ON favorite.merchant_id = m.id AND favorite.customer_id = NULLIF($3, '')::uuid
+		LEFT JOIN LATERAL (
+			SELECT MAX(recent_order.created_at) AS last_ordered_at
+			FROM orders recent_order
+			WHERE recent_order.merchant_id = m.id
+			  AND recent_order.customer_id = NULLIF($3, '')::uuid
+			  AND recent_order.service_sub_type = 'food_delivery'
+			  AND recent_order.status NOT IN ('cancelled', 'rejected')
+		) recent ON TRUE
+		WHERE %s
+		ORDER BY %s
+		LIMIT %s OFFSET %s`, strings.Join(conditions, " AND "), orderBy, limitArg, offsetArg)
+
+	rows, err := r.readDB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []domain.FoodMerchantInfo{}
+	for rows.Next() {
+		var m domain.FoodMerchantInfo
+		var operatingState, operatingStateReason, operatingTimezone, jamBuka, jamTutup, halalStatus sql.NullString
+		var operatingStateUntil, lastOrderedAt sql.NullTime
+		var sponsoredCampaignID string
+		var isSponsored, isFavorite bool
+		if err := rows.Scan(
+			&m.ID, &m.Name, &m.Address, &m.IsOpen, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingTimezone, &m.VerificationStatus,
+			&m.Lat, &m.Lng, &jamBuka, &jamTutup, &halalStatus, &sponsoredCampaignID, &isSponsored, &m.DistanceKM, &m.AvgRating, &m.RatingCount,
+			&m.PopularityCount, &isFavorite, &lastOrderedAt,
+		); err != nil {
+			return nil, err
+		}
+		if jamBuka.Valid {
+			m.JamBuka = &jamBuka.String
+		}
+		if jamTutup.Valid {
+			m.JamTutup = &jamTutup.String
+		}
+		if operatingState.Valid {
+			m.OperatingState = operatingState.String
+		}
+		if operatingStateReason.Valid {
+			m.OperatingStateReason = &operatingStateReason.String
+		}
+		if operatingStateUntil.Valid {
+			m.OperatingStateUntil = &operatingStateUntil.Time
+		}
+		if operatingTimezone.Valid {
+			m.OperatingTimezone = operatingTimezone.String
+		}
+		if halalStatus.Valid {
+			m.HalalStatus = halalStatus.String
+		}
+		if lastOrderedAt.Valid {
+			m.LastOrderedAt = &lastOrderedAt.Time
+		}
+		m.IsFavorite = isFavorite
+		m.IsSponsored = isSponsored
+		m.SponsoredCampaignID = sponsoredCampaignID
+		if isSponsored {
+			m.AdLabel = "Sponsored"
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
 // GetScheduledFoodOrdersDue — FB-123: order status 'scheduled' yang sudah due
 // untuk aktivasi. Due = scheduled_at ≤ NOW() + prep_time_minutes + buffer 5
 // menit (matching merchant dimulai 5 menit sebelum makanan harus siap).

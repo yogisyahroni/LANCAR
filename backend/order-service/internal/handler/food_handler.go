@@ -88,13 +88,41 @@ func (h *OrderHandler) ListFoodMerchants(w http.ResponseWriter, r *http.Request)
 		halal = ""
 	}
 
-	merchants, err := h.orderSvc.ListFoodMerchants(r.Context(), lat, lng, search, halal)
+	options := domain.FoodDiscoveryOptions{
+		Search:  search,
+		Halal:   halal,
+		Cuisine: r.URL.Query().Get("cuisine"),
+		Sort:    r.URL.Query().Get("sort"),
+		Limit:   parseFoodDiscoveryInt(r.URL.Query().Get("limit"), 50),
+		Offset:  parseFoodDiscoveryInt(r.URL.Query().Get("offset"), 0),
+	}
+	var merchants []domain.FoodMerchantInfo
+	var err error
+	if discoverySvc, ok := h.orderSvc.(domain.FoodDiscoveryService); ok {
+		merchants, err = discoverySvc.ListFoodMerchantsWithOptions(
+			r.Context(),
+			middleware.GetUserIDFromContext(r.Context()),
+			lat,
+			lng,
+			options,
+		)
+	} else {
+		merchants, err = h.orderSvc.ListFoodMerchants(r.Context(), lat, lng, search, halal)
+	}
 	if err != nil {
 		userSafeError(w, r, err, http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"merchants": merchants})
+}
+
+func parseFoodDiscoveryInt(value string, fallback int) int {
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func (h *OrderHandler) GetFoodMerchantDetail(w http.ResponseWriter, r *http.Request) {

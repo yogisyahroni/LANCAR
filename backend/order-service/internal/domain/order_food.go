@@ -175,12 +175,15 @@ type FoodMerchantInfo struct {
 	// FB-109: minimum subtotal order (IDR). 0 = tanpa minimum.
 	MinOrderIDR int64 `json:"min_order_idr"`
 	// FOOD-BIKE-055: metrik browse merchant
-	DistanceKM          *float64 `json:"distance_km,omitempty"`
-	AvgRating           *float64 `json:"avg_rating,omitempty"`
-	RatingCount         int      `json:"rating_count"`
-	IsSponsored         bool     `json:"is_sponsored"`
-	AdLabel             string   `json:"ad_label,omitempty"`
-	SponsoredCampaignID string   `json:"sponsored_campaign_id,omitempty"`
+	DistanceKM          *float64   `json:"distance_km,omitempty"`
+	AvgRating           *float64   `json:"avg_rating,omitempty"`
+	RatingCount         int        `json:"rating_count"`
+	PopularityCount     int        `json:"popularity_count,omitempty"`
+	IsFavorite          bool       `json:"is_favorite"`
+	LastOrderedAt       *time.Time `json:"last_ordered_at,omitempty"`
+	IsSponsored         bool       `json:"is_sponsored"`
+	AdLabel             string     `json:"ad_label,omitempty"`
+	SponsoredCampaignID string     `json:"sponsored_campaign_id,omitempty"`
 	// ADR 003 (2026-08-10): status halal merchant untuk label + filter
 	// customer — halal_certified | non_halal | unknown.
 	HalalStatus string             `json:"halal_status"`
@@ -385,6 +388,50 @@ type FoodRepository interface {
 
 type FoodQuoteService interface {
 	QuoteFood(ctx context.Context, userID string, req CreateFoodOrderRequest) (*FoodQuoteResponse, error)
+}
+
+// FoodDiscoveryOptions is the server-owned browse contract. Sort modes only
+// change discovery ordering; sponsored placement remains a separate labelled
+// signal and never becomes an organic ranking input.
+type FoodDiscoveryOptions struct {
+	Search     string
+	Halal      string
+	Cuisine    string
+	Sort       string
+	Limit      int
+	Offset     int
+	CustomerID string
+}
+
+const (
+	FoodDiscoverySortDistance  = "distance"
+	FoodDiscoverySortRating    = "rating"
+	FoodDiscoverySortPopular   = "popular"
+	FoodDiscoverySortRecent    = "recent"
+	FoodDiscoverySortFavorites = "favorites"
+)
+
+func IsFoodDiscoverySort(value string) bool {
+	switch value {
+	case FoodDiscoverySortDistance, FoodDiscoverySortRating, FoodDiscoverySortPopular, FoodDiscoverySortRecent, FoodDiscoverySortFavorites:
+		return true
+	default:
+		return false
+	}
+}
+
+// FoodDiscoveryRepository is optional for backwards-compatible test doubles
+// and older callers. The production repository implements the richer browse
+// contract while the legacy FoodRepository method remains available.
+type FoodDiscoveryRepository interface {
+	ListFoodMerchantsWithOptions(ctx context.Context, lat, lng float64, options FoodDiscoveryOptions) ([]FoodMerchantInfo, error)
+}
+
+// FoodDiscoveryService is an additive browse contract. Keeping it separate
+// avoids breaking existing service test doubles while enabling the richer
+// server-ranked discovery query for production implementations.
+type FoodDiscoveryService interface {
+	ListFoodMerchantsWithOptions(ctx context.Context, userID string, lat, lng float64, options FoodDiscoveryOptions) ([]FoodMerchantInfo, error)
 }
 
 type FoodInventoryRepository interface {

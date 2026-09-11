@@ -40,3 +40,20 @@ func TestFoodMerchantRankingInputHasNoCommercialCommissionSignal(t *testing.T) {
 		t.Fatalf("organic ranking changed the merchant identity: %+v", result)
 	}
 }
+
+func TestFoodDiscoverySortModesAreExplicitlyAllowlisted(t *testing.T) {
+	for _, sortMode := range []string{
+		FoodDiscoverySortDistance,
+		FoodDiscoverySortRating,
+		FoodDiscoverySortPopular,
+		FoodDiscoverySortRecent,
+		FoodDiscoverySortFavorites,
+	} {
+		if !IsFoodDiscoverySort(sortMode) {
+			t.Fatalf("expected sort mode %q to be allowlisted", sortMode)
+		}
+	}
+	if IsFoodDiscoverySort("commission") || IsFoodDiscoverySort("sponsored_first") {
+		t.Fatal("commercial ordering must not be an organic discovery sort")
+	}
+}
