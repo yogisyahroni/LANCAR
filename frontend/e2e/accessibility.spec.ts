@@ -288,6 +288,41 @@ async function assertVisibleFocusIndicators(page: Page) {
   expect(findings, JSON.stringify(findings)).toEqual([]);
 }
 
+async function assertTembusLogoContrast(page: Page) {
+  const findings = await page.evaluate(() => {
+    const relativeLuminance = (rgb: number[]) => rgb.reduce((sum, channel, index) => {
+      const normalized = channel / 255;
+      const linear = normalized <= 0.03928
+        ? normalized / 12.92
+        : ((normalized + 0.055) / 1.055) ** 2.4;
+      return sum + linear * [0.2126, 0.7152, 0.0722][index];
+    }, 0);
+    const contrast = (first: number[], second: number[]) => {
+      const firstLuminance = relativeLuminance(first);
+      const secondLuminance = relativeLuminance(second);
+      return (Math.max(firstLuminance, secondLuminance) + 0.05)
+        / (Math.min(firstLuminance, secondLuminance) + 0.05);
+    };
+    const parseRgb = (value: string) => {
+      const channels = value.match(/[0-9.]+/g)?.slice(0, 3).map(Number) ?? [];
+      return channels.length === 3 ? channels : null;
+    };
+
+    return Array.from(document.querySelectorAll<HTMLImageElement>('img[src="/tembusweb.svg"]'))
+      .filter((image) => image.getClientRects().length > 0)
+      .flatMap((image) => {
+        const background = getComputedStyle(image).backgroundColor;
+        const rgb = parseRgb(background);
+        const ratio = rgb ? contrast([255, 255, 255], rgb) : 0;
+        return rgb && ratio >= 4.5 && image.alt.trim()
+          ? []
+          : [{ alt: image.alt, background, ratio: Number(ratio.toFixed(2)) }];
+      });
+  });
+
+  expect(findings, JSON.stringify(findings)).toEqual([]);
+}
+
 async function assertDocumentSemantics(page: Page) {
   const findings = await page.evaluate(() => {
     const visible = (element: Element) => {
@@ -473,6 +508,20 @@ test.describe('WCAG 2.1 AA theme matrix', () => {
         expect(results.violations, JSON.stringify({ ...themeCase, route, violations: results.violations })).toEqual([]);
       });
     }
+  }
+});
+
+test.describe('TEMBUS brand artwork contrast', () => {
+  for (const themeCase of THEME_CASES.slice(0, 2)) {
+    test(`keeps the shared logo readable in ${themeCase.mode} mode @a11y`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: themeCase.colorScheme });
+      await page.addInitScript((selectedTheme) => {
+        window.localStorage.setItem('tembus-theme', selectedTheme);
+      }, themeCase.mode);
+      await gotoAccessibilityRoute(page, '/');
+
+      await assertTembusLogoContrast(page);
+    });
   }
 });
 

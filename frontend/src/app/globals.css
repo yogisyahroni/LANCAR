@@ -188,6 +188,13 @@ html {
   background: var(--token-background);
 }
 
+/* The shared TEMBUS artwork is white/translucent. Keep its brand treatment
+   readable when it is rendered on light surfaces as well as dark ones. */
+img[src="/tembusweb.svg"] {
+  background-color: var(--token-scrim);
+  border-radius: 0.5rem;
+}
+
 body {
   @apply bg-background text-foreground antialiased transition-colors duration-200;
   font-family: var(--font-sans);
