@@ -36,7 +36,7 @@ function VoucherDataState({ title, message, onRetry, tone = 'muted' }: { title: 
     )}>
       <AlertCircle className={cn("mx-auto", isError ? "text-error" : "text-foreground-muted")} size={48} aria-hidden="true" />
       <div>
-        <p className="text-foreground-muted font-black italic uppercase tracking-widest">{title}</p>
+      <p className="text-foreground-muted font-black italic uppercase tracking-wide">{title}</p>
         <p className="text-xs text-foreground-muted mt-2">{message}</p>
       </div>
       {onRetry && (
@@ -44,7 +44,7 @@ function VoucherDataState({ title, message, onRetry, tone = 'muted' }: { title: 
           type="button"
           onClick={onRetry}
           className={cn(
-            "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all",
+            "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-xs font-black uppercase tracking-wide transition-all",
             isError ? "bg-error-surface border-error text-error hover:bg-error-surface" : "bg-surface-subtle border-border text-foreground-muted hover:text-foreground"
           )}
         >
@@ -149,7 +149,7 @@ export default function Vouchers() {
         </div>
         <button 
           onClick={handleCreate}
-          className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+          className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-wide hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
         >
           <Plus size={18} aria-hidden="true" />
           Generate Voucher
@@ -171,7 +171,7 @@ export default function Vouchers() {
                    <stat.icon size={24} aria-hidden="true" />
                 </div>
                 <div>
-                   <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">{stat.label}</p>
+                   <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">{stat.label}</p>
                    <p className="text-2xl font-black text-foreground-muted mt-1 tracking-tighter">{stat.value}</p>
                 </div>
              </div>
@@ -233,7 +233,7 @@ export default function Vouchers() {
                   <div>
                      <h4 className="font-bold text-foreground-muted text-lg">{voucher.name || 'Nama voucher belum tersedia'}</h4>
                      <p className="text-sm font-medium text-foreground-muted mt-1">Discount: <span className="text-success font-bold">{voucher.type === 'percentage' ? `${voucher.value}%` : `Rp ${voucher.value?.toLocaleString()}`}</span></p>
-                     <p className="text-[10px] text-foreground-muted mt-2 italic font-medium">
+                     <p className="text-xs text-foreground-muted mt-2 italic font-medium">
                       Min. Order {typeof voucher.min_order_idr === 'number' ? `Rp ${voucher.min_order_idr.toLocaleString()}` : 'belum tersedia'} • Max. {typeof voucher.max_discount_idr === 'number' ? `Rp ${voucher.max_discount_idr.toLocaleString()}` : 'belum tersedia'}
                     </p>
                   </div>
@@ -242,7 +242,7 @@ export default function Vouchers() {
 
               <div className="grid grid-cols-2 gap-8 mt-8 pt-8 border-t border-border relative z-10">
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                    <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
                        <TrendingUp size={12} aria-hidden="true" /> Redemptions
                     </p>
                     <div className="w-full h-1.5 bg-surface-subtle rounded-full overflow-hidden mt-3">
@@ -256,7 +256,7 @@ export default function Vouchers() {
                     </p>
                  </div>
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                    <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
                        <Calendar size={12} aria-hidden="true" /> Expiration
                     </p>
                     <p className="text-xs font-bold text-foreground-muted mt-3">{format(new Date(voucher.valid_until || voucher.expiry_date), 'dd MMM yyyy')}</p>
@@ -267,7 +267,7 @@ export default function Vouchers() {
               <div className="flex items-center gap-3 mt-8 relative z-10">
                  <button 
                    onClick={() => handleEdit(voucher)}
-                   className="flex-1 py-4 rounded-2xl bg-surface-subtle text-foreground-secondary font-black text-xs uppercase tracking-widest hover:bg-primary/20 hover:text-primary-light transition-all border border-border hover:border-primary/20"
+                   className="flex-1 py-4 rounded-2xl bg-surface-subtle text-foreground-secondary font-black text-xs uppercase tracking-wide hover:bg-primary/20 hover:text-primary-light transition-all border border-border hover:border-primary/20"
                  >
                     Modify Parameters
                  </button>
@@ -288,7 +288,7 @@ export default function Vouchers() {
         {!isVouchersError && (!filteredVouchers || filteredVouchers.length === 0) && (
           <div className="col-span-full py-20 text-center space-y-4 glass-card rounded-[40px] border-dashed border-border">
             <Ticket className="mx-auto text-foreground-muted" size={48}  aria-hidden="true"/>
-            <p className="text-foreground-muted font-black italic uppercase tracking-widest italic">
+            <p className="text-foreground-muted font-black italic uppercase tracking-wide italic">
               No digital tokens found in archives
             </p>
           </div>
@@ -395,7 +395,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
                     key={t}
                     onClick={() => setFormData({ ...formData, type: t })}
                     className={cn(
-                      "flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                      "flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all",
                       formData.type === t ? "bg-primary text-on-primary shadow-lg shadow-primary/20" : "text-foreground-muted hover:text-foreground-muted"
                     )}
                   >
@@ -480,7 +480,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-8 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
+                className="px-8 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-wide hover:text-foreground transition-all"
               >
                 Abort
               </button>
@@ -488,7 +488,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
                 type="button"
                 onClick={() => onSave(formData)}
                 disabled={isSaving}
-                className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+                className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
               >
                 {isSaving ? <Loader2 className="animate-spin" size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
                 {voucher ? 'Update Token' : 'Authorize Token'}

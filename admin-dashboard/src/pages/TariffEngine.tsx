@@ -138,7 +138,7 @@ export default function TariffEngine() {
         <div className="flex items-center gap-3">
           <button 
             onClick={handleOpenModal}
-            className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+            className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-wide shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
           >
             <Plus size={18} aria-hidden="true" /> New Rate Card
           </button>
@@ -155,7 +155,7 @@ export default function TariffEngine() {
             key={id}
             onClick={() => setActiveTab(id as any)}
             className={cn(
-              'flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all',
+              'flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wide transition-all',
               activeTab === id
                 ? 'bg-surface-raised text-foreground shadow-lg'
                 : 'text-foreground-muted hover:text-foreground-muted hover:bg-surface-subtle'
@@ -171,7 +171,7 @@ export default function TariffEngine() {
         <div className="glass-card p-8 rounded-[36px] border-border space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black text-foreground-muted italic uppercase">Active & Scheduled Rate Cards</h2>
-            <span className="px-3 py-1 bg-info-surface text-info text-[10px] font-black uppercase tracking-widest rounded-full">
+            <span className="px-3 py-1 bg-info-surface text-info text-xs font-black uppercase tracking-wide rounded-full">
               Surcharges & Insurance
             </span>
           </div>
@@ -181,7 +181,7 @@ export default function TariffEngine() {
               <thead>
                 <tr className="border-b border-border">
                   {['Provider', 'Service', 'Vol Div', 'Min Wt', 'Fuel SC', 'Remote SC', 'Ins. Rate', 'Ret. Rate', 'Period', 'Status'].map(h => (
-                    <th scope="col" key={h} className="pb-4 text-left text-[10px] font-black text-foreground-muted uppercase tracking-widest">{h}</th>
+                    <th scope="col" key={h} className="pb-4 text-left text-xs font-black text-foreground-muted uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -198,14 +198,14 @@ export default function TariffEngine() {
                       <td className="py-4 text-foreground-muted">{card.min_weight_kg} kg</td>
                       <td className="py-4 text-foreground-muted">{card.fuel_surcharge_pct}%</td>
                       <td className="py-4 text-foreground-muted">{formatCurrency(card.remote_area_surcharge_idr)}</td>
-                      <td className="py-4 text-foreground-muted">{card.insurance_fee_pct}% <span className="text-[10px] text-foreground-muted block">(min {formatCurrency(card.insurance_min_fee_idr)})</span></td>
+                      <td className="py-4 text-foreground-muted">{card.insurance_fee_pct}% <span className="text-xs text-foreground-muted block">(min {formatCurrency(card.insurance_min_fee_idr)})</span></td>
                       <td className="py-4 text-foreground-muted">{card.return_fee_pct}%</td>
                       <td className="py-4 text-foreground-muted text-xs">
                         {format(new Date(card.effective_from), 'MMM d, yyyy')} - {card.effective_to ? format(new Date(card.effective_to), 'MMM d, yyyy') : '...'}
                       </td>
                       <td className="py-4">
                         <span className={cn(
-                          "px-2 py-1 rounded-md text-[10px] font-black uppercase",
+                          "px-2 py-1 rounded-md text-xs font-black uppercase",
                           isActive ? "bg-success-surface text-success" : "bg-error-surface text-error"
                         )}>
                           {isActive ? 'Active' : 'Expired'}
@@ -243,7 +243,7 @@ export default function TariffEngine() {
             </div>
             {selectedCardId && (
               <button 
-                className="mt-6 px-6 py-2.5 rounded-xl bg-surface-subtle text-foreground-muted font-black text-xs uppercase tracking-widest hover:bg-surface-subtle transition-all flex items-center gap-2"
+                className="mt-6 px-6 py-2.5 rounded-xl bg-surface-subtle text-foreground-muted font-black text-xs uppercase tracking-wide hover:bg-surface-subtle transition-all flex items-center gap-2"
               >
                 <Settings size={14} aria-hidden="true" /> Upload Lanes CSV
               </button>
@@ -260,7 +260,7 @@ export default function TariffEngine() {
                     <thead>
                       <tr className="border-b border-border">
                         {['Origin', 'Destination', 'Base Rate / Kg', 'SLA (Days)', 'Active'].map(h => (
-                          <th scope="col" key={h} className="pb-4 text-left text-[10px] font-black text-foreground-muted uppercase tracking-widest">{h}</th>
+                          <th scope="col" key={h} className="pb-4 text-left text-xs font-black text-foreground-muted uppercase tracking-wide">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -297,7 +297,7 @@ export default function TariffEngine() {
               <h3 className="text-xl font-black text-foreground-muted italic uppercase">Audit Margin & Tarif Per Pesanan</h3>
               <p className="text-sm text-foreground-muted mt-1">Perbandingan real-time quote biaya dari provider kurir vs tagihan pelanggan & margin platform.</p>
             </div>
-            <span className="px-3 py-1 bg-success-surface text-success text-xs font-black uppercase tracking-widest rounded-full">
+            <span className="px-3 py-1 bg-success-surface text-success text-xs font-black uppercase tracking-wide rounded-full">
               Live Audit Log
             </span>
           </div>
@@ -310,7 +310,7 @@ export default function TariffEngine() {
                 <thead>
                   <tr className="border-b border-border">
                     {['Order ID / No Resi', 'Kurir / Layanan', 'Rute (Asal → Tujuan)', 'Berat', 'Biaya Pelanggan', 'Provider Quote', 'Margin Platform', 'Margin %', 'Waktu Transaksi'].map(h => (
-                      <th scope="col" key={h} className="pb-4 text-left text-[10px] font-black text-foreground-muted uppercase tracking-widest">{h}</th>
+                      <th scope="col" key={h} className="pb-4 text-left text-xs font-black text-foreground-muted uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -324,7 +324,7 @@ export default function TariffEngine() {
                       <tr key={ord.order_id} className="border-b border-border/[0.03] hover:bg-surface/[0.02] transition-colors">
                         <td className="py-4">
                           <p className="font-bold text-foreground-muted font-mono text-xs">{ord.tracking_number || ord.order_id.slice(0, 8)}</p>
-                          <p className="text-[10px] text-foreground-muted font-mono">{ord.order_id.slice(0, 8)}</p>
+                          <p className="text-xs text-foreground-muted font-mono">{ord.order_id.slice(0, 8)}</p>
                         </td>
                         <td className="py-4">
                           <span className="px-2 py-1 rounded bg-surface-subtle text-xs font-bold text-foreground-muted uppercase">{ord.courier_provider} - {ord.service_type}</span>
@@ -444,7 +444,7 @@ export default function TariffEngine() {
                   type="button"
                   onClick={handleSaveCard}
                   disabled={saveCardMutation.isPending}
-                  className="px-6 py-2 rounded-xl bg-primary text-on-primary font-black uppercase tracking-widest hover:bg-primary-light transition-colors flex items-center gap-2"
+                  className="px-6 py-2 rounded-xl bg-primary text-on-primary font-black uppercase tracking-wide hover:bg-primary-light transition-colors flex items-center gap-2"
                 >
                   {saveCardMutation.isPending && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
                   Create Rate Card
