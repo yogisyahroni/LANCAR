@@ -3654,6 +3654,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Release-gate checkpoint 2026-09-11 (continued):** The device's Docker stack was rebuilt and its Cloudflare-tunnel staging surfaces returned HTTP 200. Through the available in-app browser, Customer public/auth/error routes and Admin login were manually spot-checked with AX-tree, screenshot and keyboard evidence; a real missing focus indicator on the Customer landing tracking input was fixed with an explicit `focus-visible` outline and the focused regression cases pass `2/2`. The full current Customer Chromium accessibility/reflow/keyboard/runtime suite passes `270/270`. The manual matrix now records the exact route inventory and honest PARTIAL/NOT_RUN boundaries: native spoken screen-reader output, a controllable Light/actual-zoom session, authenticated Customer/Admin routes, success/dynamic provider states and deferred OTP/payment checks remain unproven, so the A11Y-012 checklist stays unchecked and the task remains BLOCKED on those external/manual prerequisites.
 
+> **CI checkpoint 2026-09-11 (continued):** Current `origin/staging` SHA `86dd3d2e` passed Task Evidence Gate `34601063282`, Security Scan Pipeline `34601063340` and CI/CD Staging `34601063249`. Service/frontend/security/observability/SBOM/image-build gates passed. SSH rollout and authenticated/API/browser validation remained skipped by missing staging configuration; this does not change the documented manual release-gate status.
+
 **Customer Web minimum route groups**
 - landing/public
 - auth
