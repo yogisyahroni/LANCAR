@@ -209,7 +209,7 @@ export default function CourierApplications() {
             <div className="space-y-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Courier Applicant</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">Courier Applicant</p>
                   <h2 className="mt-2 text-3xl font-black text-foreground-muted">{active.full_name}</h2>
                   <p className="mt-1 text-sm text-foreground-muted">{active.email || 'No email'} • {active.phone_number}</p>
                 </div>

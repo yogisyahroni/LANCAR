@@ -34,7 +34,7 @@ export function SettingsContent() {
               queryClient.invalidateQueries()
               toast.info('Syncing latest configuration...')
             }}
-            className="px-8 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+            className="px-8 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-wide shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
           >
             <Save size={18}  aria-hidden="true"/>
             Sync Now
@@ -57,7 +57,7 @@ export function SettingsContent() {
               )}
             >
               <tab.icon size={20} className={cn(activeTab === tab.id ? "text-foreground" : "group-hover:text-primary-light")} aria-hidden="true" />
-              <span className="font-bold text-sm uppercase tracking-widest">{tab.id}</span>
+              <span className="font-bold text-sm uppercase tracking-wide">{tab.id}</span>
             </button>
           ))}
           

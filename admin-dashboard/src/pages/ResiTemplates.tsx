@@ -443,7 +443,7 @@ const ResiTemplates = () => {
                           </div>
                         )}
                         {el.type === 'logo' && (
-                          <div style={{ width: el.width || 120, height: el.height || 32 }} className="bg-surface-subtle border border-border flex items-center justify-center text-[11px] text-foreground-muted font-bold tracking-wide rounded">
+                          <div style={{ width: el.width || 120, height: el.height || 32 }} className="bg-surface-subtle border border-border flex items-center justify-center text-xs text-foreground-muted font-bold tracking-wide rounded">
                             LOGO KURIR
                           </div>
                         )}
@@ -583,8 +583,8 @@ const ResiTemplates = () => {
                   )}
 
                   <div className="mt-8 pt-4 border-t border-border">
-                    <h4 className="text-[10px] font-bold text-foreground-muted uppercase mb-2 tracking-wider">Available Variables</h4>
-                    <ul className="text-[10px] text-foreground-muted space-y-1 font-mono h-40 overflow-y-auto">
+                    <h4 className="text-xs font-bold text-foreground-muted uppercase mb-2 tracking-wide">Available Variables</h4>
+                    <ul className="text-xs text-foreground-muted space-y-1 font-mono h-40 overflow-y-auto">
                       <li>{'{'}{'{'}order_number{'}'}{'}'}</li>
                       <li>{'{'}{'{'}awb_number{'}'}{'}'}</li>
                       <li>{'{'}{'{'}provider_name{'}'}{'}'}</li>

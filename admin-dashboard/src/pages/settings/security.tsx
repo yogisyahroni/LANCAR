@@ -242,7 +242,7 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
                   <>
                     <div className="grid gap-4 md:grid-cols-3">
                       <div className="rounded-3xl border border-border bg-surface/[0.02] p-5">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Launch readiness</p>
+                        <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Launch readiness</p>
                         <p className={cn('mt-2 flex items-center gap-2 text-lg font-black', compliancePolicy.readiness?.is_ready ? 'text-success' : 'text-warning')}>
                           {compliancePolicy.readiness?.is_ready ? <CheckCircle2 size={18} aria-hidden="true" /> : <AlertTriangle size={18} aria-hidden="true" />}
                           {compliancePolicy.readiness?.is_ready ? 'Ready' : 'Not ready'}
@@ -250,12 +250,12 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
                         <p className="mt-2 text-xs text-foreground-muted">{(compliancePolicy.readiness?.reason_codes || []).join(', ') || 'No readiness exceptions'}</p>
                       </div>
                       <div className="rounded-3xl border border-border bg-surface/[0.02] p-5">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Policy version</p>
+                        <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Policy version</p>
                         <p className="mt-2 text-lg font-black text-foreground-muted">v{compliancePolicy.config_version || '—'}</p>
                         <p className="mt-2 text-xs text-foreground-muted">Locale: {compliancePolicy.default_locale || '—'}</p>
                       </div>
                       <div className="rounded-3xl border border-border bg-surface/[0.02] p-5">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Consent records</p>
+                        <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Consent records</p>
                         <p className="mt-2 text-lg font-black text-foreground-muted">{complianceRequirements.filter((item: any) => item.requirement_kind === 'consent').length}</p>
                         <p className="mt-2 text-xs text-foreground-muted">Versioned by locale, purpose, actor, and timestamp</p>
                       </div>
@@ -263,7 +263,7 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
 
                     <div className="grid gap-6 xl:grid-cols-2">
                       <div className="space-y-4">
-                        <h4 className="text-sm font-black uppercase tracking-widest text-foreground-muted">Role requirements</h4>
+                        <h4 className="text-sm font-black uppercase tracking-wide text-foreground-muted">Role requirements</h4>
                         {['customer', 'courier', 'merchant'].map((role) => {
                           const roleItems = complianceRequirements.filter((item: any) => item.role_code === role);
                           return (
@@ -286,7 +286,7 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
                       </div>
 
                       <div className="space-y-4">
-                        <h4 className="text-sm font-black uppercase tracking-widest text-foreground-muted">Retention & artifact access</h4>
+                        <h4 className="text-sm font-black uppercase tracking-wide text-foreground-muted">Retention & artifact access</h4>
                         {[...complianceDataPolicies, ...complianceArtifactPolicies].map((item: any, index: number) => (
                           <div key={`${item.data_class || item.artifact_type}-${index}`} className="flex items-center justify-between gap-4 rounded-3xl border border-border bg-surface/[0.02] p-5">
                             <div>
@@ -304,7 +304,7 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
 
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-black uppercase tracking-widest text-foreground-muted">Service categories by market</h4>
+                        <h4 className="text-sm font-black uppercase tracking-wide text-foreground-muted">Service categories by market</h4>
                         <span className="text-xs text-foreground-muted">Managed in Market Configuration</span>
                       </div>
                       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

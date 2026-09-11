@@ -287,7 +287,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'auto_disbursement_threshold', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       />
-                      <p className="text-[10px] text-foreground-muted font-bold italic">Threshold for automated payouts.</p>
+                      <p className="text-xs text-foreground-muted font-bold italic">Threshold for automated payouts.</p>
                     </div>
                   </div>
                 </div>

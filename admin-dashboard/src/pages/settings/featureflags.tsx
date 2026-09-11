@@ -121,7 +121,7 @@ export function FeatureFlagsPanel({ data }: { data: SettingsData }) {
                       Feature Management
                     </h3>
                     <div className="flex gap-2">
-                       <span className="px-3 py-1 rounded-full bg-warning-surface text-warning text-[10px] font-black uppercase tracking-widest border border-warning">Super Admin Only</span>
+                       <span className="px-3 py-1 rounded-full bg-warning-surface text-warning text-xs font-black uppercase tracking-wide border border-warning">Super Admin Only</span>
                     </div>
                   </div>
 
@@ -159,7 +159,7 @@ export function FeatureFlagsPanel({ data }: { data: SettingsData }) {
                   
                   <button 
                     onClick={() => setIsRegisterModalOpen(true)}
-                    className="w-full py-4 rounded-2xl border border-dashed border-border text-foreground-muted hover:text-foreground-muted hover:border-border transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest"
+                    className="w-full py-4 rounded-2xl border border-dashed border-border text-foreground-muted hover:text-foreground-muted hover:border-border transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wide"
                   >
                     <Plus size={16} aria-hidden="true" />
                     Register New Feature Flag

@@ -77,11 +77,11 @@ export default function RiskReview() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.32em] text-primary-light">Trust &amp; Safety Control</p>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-light">Trust &amp; Safety Control</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-foreground-muted">Risk Review Queue</h1>
           <p className="mt-2 max-w-3xl text-sm text-foreground-muted">Keputusan risiko terpusat dengan reason code, policy version, evidence, reviewer, dan fail-mode yang terlihat jelas.</p>
         </div>
-        <button type="button" onClick={() => reviewsQuery.refetch()} className="inline-flex items-center gap-2 rounded-2xl border border-border bg-surface-subtle px-5 py-3 text-xs font-black uppercase tracking-widest text-foreground-muted hover:bg-surface-subtle">
+        <button type="button" onClick={() => reviewsQuery.refetch()} className="inline-flex items-center gap-2 rounded-2xl border border-border bg-surface-subtle px-5 py-3 text-xs font-black uppercase tracking-wide text-foreground-muted hover:bg-surface-subtle">
           <RefreshCw className={`h-4 w-4 ${reviewsQuery.isFetching ? 'animate-spin' : ''}`} aria-hidden="true" /> Refresh
         </button>
       </div>
@@ -116,9 +116,9 @@ export default function RiskReview() {
               </div>
 
               <div className="mt-5 grid gap-3 md:grid-cols-3">
-                <div className="rounded-2xl bg-surface/[0.04] p-4"><p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Reason codes</p><p className="mt-2 text-xs leading-5 text-foreground-muted">{review.reason_codes?.join(', ') || '-'}</p></div>
-                <div className="rounded-2xl bg-surface/[0.04] p-4"><p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Failure mode</p><p className="mt-2 text-xs text-foreground-muted">{review.failure_mode}</p></div>
-                <div className="rounded-2xl bg-surface/[0.04] p-4"><p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Evidence signals</p><p className="mt-2 text-xs text-foreground-muted">{review.review_evidence?.signal_count ?? 0} coarse signals</p></div>
+                <div className="rounded-2xl bg-surface/[0.04] p-4"><p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Reason codes</p><p className="mt-2 text-xs leading-5 text-foreground-muted">{review.reason_codes?.join(', ') || '-'}</p></div>
+                <div className="rounded-2xl bg-surface/[0.04] p-4"><p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Failure mode</p><p className="mt-2 text-xs text-foreground-muted">{review.failure_mode}</p></div>
+                <div className="rounded-2xl bg-surface/[0.04] p-4"><p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Evidence signals</p><p className="mt-2 text-xs text-foreground-muted">{review.review_evidence?.signal_count ?? 0} coarse signals</p></div>
               </div>
 
               {pending ? <div className="mt-5 grid gap-3 rounded-2xl border border-border bg-surface/[0.03] p-4 md:grid-cols-[180px_1fr_1fr_auto] md:items-end">

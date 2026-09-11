@@ -133,7 +133,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                           className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                         />
                       </div>
-                      <p className="text-[10px] text-foreground-muted font-bold italic">Percentage of declared value per order.</p>
+                      <p className="text-xs text-foreground-muted font-bold italic">Percentage of declared value per order.</p>
                     </div>
 
                     <div className="space-y-4">
@@ -147,7 +147,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                           className="w-full bg-surface-subtle border border-border rounded-2xl py-4 pl-12 pr-4 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                         />
                       </div>
-                      <p className="text-[10px] text-foreground-muted font-bold italic">Minimum fee if rate calculation is lower.</p>
+                      <p className="text-xs text-foreground-muted font-bold italic">Minimum fee if rate calculation is lower.</p>
                     </div>
                   </div>
 
@@ -163,7 +163,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                           className="w-full bg-surface-subtle border border-border rounded-2xl py-4 pl-12 pr-4 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                         />
                       </div>
-                      <p className="text-[10px] text-foreground-muted font-bold italic">Maximum replacement value per order.</p>
+                      <p className="text-xs text-foreground-muted font-bold italic">Maximum replacement value per order.</p>
                     </div>
 
                     <div className="space-y-4">
@@ -177,7 +177,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                           className="w-full bg-surface-subtle border border-border rounded-2xl py-4 pl-12 pr-4 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                         />
                       </div>
-                      <p className="text-[10px] text-foreground-muted font-bold italic">Flat fee added to delivery (if dynamic premium not used).</p>
+                      <p className="text-xs text-foreground-muted font-bold italic">Flat fee added to delivery (if dynamic premium not used).</p>
                     </div>
 
                     <div className="space-y-4">
@@ -189,7 +189,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                       >
                         <option>Internal / Managed</option>
                       </select>
-                      <p className="text-[10px] text-foreground-muted font-bold italic">Active partner for claim settlements.</p>
+                      <p className="text-xs text-foreground-muted font-bold italic">Active partner for claim settlements.</p>
                     </div>
                   </div>
 

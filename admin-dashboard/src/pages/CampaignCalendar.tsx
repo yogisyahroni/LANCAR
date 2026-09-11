@@ -70,7 +70,7 @@ export default function CampaignCalendar() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.32em] text-primary-light">
+          <p className="text-xs font-black uppercase tracking-wide text-primary-light">
             Marketing operations
           </p>
           <h1 className="mt-2 text-3xl font-black text-foreground-muted">
@@ -128,7 +128,7 @@ export default function CampaignCalendar() {
                     {dateLabel(entry.startsAt)}
                   </p>
                   {entry.endsAt && (
-                    <p className="mt-1 text-[11px] text-foreground-muted">
+                    <p className="mt-1 text-xs text-foreground-muted">
                       sampai {dateLabel(entry.endsAt)}
                     </p>
                   )}

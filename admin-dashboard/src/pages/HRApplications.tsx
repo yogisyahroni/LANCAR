@@ -55,7 +55,7 @@ export default function HRApplications() {
         {isLoading ? (
           <div className="text-center py-20"><Loader2 className="animate-spin inline-block text-primary w-8 h-8"  aria-hidden="true"/></div>
         ) : filteredApps?.length === 0 ? (
-          <div className="text-center py-20 text-foreground-muted font-bold uppercase tracking-widest text-xs">No applications found</div>
+          <div className="text-center py-20 text-foreground-muted font-bold uppercase tracking-wide text-xs">No applications found</div>
         ) : filteredApps?.map((app: any) => (
           <div key={app.id} className="glass-card p-6 rounded-3xl border-border shadow-xl flex flex-col md:flex-row justify-between gap-6">
             <div className="space-y-3 flex-1">
@@ -82,7 +82,7 @@ export default function HRApplications() {
             </div>
             
             <div className="flex flex-col gap-2 min-w-[200px]">
-              <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest mb-1">Update Status</p>
+              <p className="text-xs font-black text-foreground-muted uppercase tracking-wide mb-1">Update Status</p>
               <select 
                 value={app.status} 
                 onChange={e => updateStatus.mutate({ id: app.id, status: e.target.value })}

@@ -136,7 +136,7 @@ export default function CourierFaceVerifications() {
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Face Verification Detail</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">Face Verification Detail</p>
                   <h2 className="mt-2 text-2xl font-black text-foreground-muted">{active.full_name || 'Tanpa Nama'}</h2>
                 </div>
                 <StatusBadge status={active.status} labelPrefix="Face verification status" />

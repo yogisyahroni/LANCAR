@@ -164,7 +164,7 @@ export default function KillSwitches() {
     <div className="space-y-8 animate-in">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div><h1 className="flex items-center gap-3 text-3xl font-black tracking-tight text-foreground-muted"><Ban className="text-error" size={26}  aria-hidden="true"/>Kill Switches</h1><p className="mt-2 max-w-3xl text-sm leading-relaxed text-foreground-muted">Kontrol service operational yang semantisnya dibedakan dari marketing visibility. Semua perubahan memakai source of truth feature flags yang sama dengan backend.</p></div>
-        <button type="button" onClick={() => controlsQuery.refetch()} className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-3 text-xs font-black uppercase tracking-widest text-foreground-muted"><RefreshCw size={14} aria-hidden="true" /> Refresh</button>
+        <button type="button" onClick={() => controlsQuery.refetch()} className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-3 text-xs font-black uppercase tracking-wide text-foreground-muted"><RefreshCw size={14} aria-hidden="true" /> Refresh</button>
       </div>
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="space-y-4 rounded-3xl border border-border bg-surface/[0.03] p-5" aria-labelledby="kill-switch-list-title">
@@ -187,7 +187,7 @@ export default function KillSwitches() {
           <label className="text-xs font-bold text-foreground-muted">Reason (wajib)<textarea className="mt-1 min-h-20 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted" value={form.reason} onChange={(event) => set('reason', event.target.value)} placeholder="Contoh: provider food timeout meningkat di id-jk" /></label>
           <label className="text-xs font-bold text-foreground-muted">Rollback plan (wajib untuk high impact)<textarea className="mt-1 min-h-24 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted" value={form.rollback_plan} onChange={(event) => set('rollback_plan', event.target.value)} /></label>
           <div className="flex items-start gap-2 rounded-2xl border border-border bg-surface-subtle p-3 text-xs text-foreground-muted"><Clock3 size={15} className="mt-0.5 shrink-0" aria-hidden="true" />Marketing hide hanya memengaruhi discovery. New-order/provider/checkout gate akan divalidasi ulang oleh backend sesuai tipe control.</div>
-          <button type="button" onClick={submit} disabled={!canMutate || saveMutation.isPending} className="w-full rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-on-primary disabled:opacity-60">{saveMutation.isPending ? 'Saving...' : 'Review & save control'}</button>
+          <button type="button" onClick={submit} disabled={!canMutate || saveMutation.isPending} className="w-full rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-wide text-on-primary disabled:opacity-60">{saveMutation.isPending ? 'Saving...' : 'Review & save control'}</button>
         </section>
       </div>
       <KillSwitchConfirmation open={confirmOpen} busy={saveMutation.isPending} serviceCode={form.service_code} switchType={form.kill_switch_type} active={form.active} reason={form.reason} preserveActiveOrders={form.preserve_active_orders} onCancel={() => setConfirmOpen(false)} onConfirm={() => saveMutation.mutate()} />

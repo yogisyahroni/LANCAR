@@ -3136,6 +3136,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Admin App Experience media/targeting components, LiveMap, Experience Assets and Broadcast Composer were audited for Part S across asset detail/picker metadata, contrast/mode controls, kill-switch confirmation, revision audit trail, targeting summaries, map controls and recipient metadata. Remaining sub-12px labels and extreme tracking were raised to the shared readable `text-xs`/`tracking-wide` hierarchy; identifiers remain scoped data presentation. The selected App Experience/Broadcast axe coverage passes `56/56`, reflow/text-spacing passes `56/56`, and typecheck/ESLint/iconography/table/diff guards pass. Full dynamic state, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Verification checkpoint 2026-09-11 (continued):** The complete Admin route inventory was rerun in isolated processes after the initial parallel run exposed a shared-dev-server lifecycle collision. Axe/semantic inventory passes `142/142`, and reflow/text-spacing inventory passes `210/210` across registered routes, both themes, 320px, 640px and WCAG 1.4.12 overrides; no code regressions were found. Full dynamic state, visual and manual assistive-technology review remains open. External staging deployment remains unverified.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

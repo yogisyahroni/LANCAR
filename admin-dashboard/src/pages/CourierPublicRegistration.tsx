@@ -152,7 +152,7 @@ export default function CourierPublicRegistration() {
         <div className="rounded-[32px] border border-border bg-surface/[0.03] p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.25em] text-primary-light">TEMBUS Courier Registration</p>
+              <p className="text-xs font-black uppercase tracking-wide text-primary-light">TEMBUS Courier Registration</p>
               <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">{linkInfo?.title || `Daftar Kurir ${channelName}`}</h1>
               <p className="mt-2 max-w-2xl text-sm text-foreground-muted">
                 Jalur pendaftaran ini untuk kurir {channelName}. Data dan dokumen akan masuk ke admin TEMBUS untuk proses review.
@@ -274,7 +274,7 @@ function FormSection({ title, children }: { title: string; children: React.React
 function Field({ label, value, onChange, type = 'text' }: { label: string; value: string; type?: string; onChange: (value: string) => void }) {
   return (
     <label className="space-y-2">
-      <span className="text-xs font-black uppercase tracking-[0.18em] text-foreground-muted">{label}</span>
+      <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">{label}</span>
       <input
         type={type}
         value={value}
@@ -288,7 +288,7 @@ function Field({ label, value, onChange, type = 'text' }: { label: string; value
 function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
   return (
     <label className="space-y-2">
-      <span className="text-xs font-black uppercase tracking-[0.18em] text-foreground-muted">{label}</span>
+      <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground-muted outline-none">
         {options.map((option) => <option key={option} value={option}>{option}</option>)}
       </select>

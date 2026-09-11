@@ -121,7 +121,7 @@ export function TeamPanel({ data }: { data: SettingsData }) {
                   </h3>
                   <button 
                     onClick={() => setIsInviteModalOpen(true)}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary/10 text-primary-light border border-primary/20 font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all"
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary/10 text-primary-light border border-primary/20 font-black text-xs uppercase tracking-wide hover:bg-primary/20 transition-all"
                   >
                     <Plus size={14} aria-hidden="true" />
                     Invite Admin
@@ -141,7 +141,7 @@ export function TeamPanel({ data }: { data: SettingsData }) {
                         </div>
                         <div>
                           <p className="text-sm font-black text-foreground-muted">{member.full_name}</p>
-                          <p className="text-xs text-foreground-muted font-medium uppercase tracking-widest">{member.role.replaceAll('_', ' ')}</p>
+                          <p className="text-xs text-foreground-muted font-medium uppercase tracking-wide">{member.role.replaceAll('_', ' ')}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
@@ -170,7 +170,7 @@ export function TeamPanel({ data }: { data: SettingsData }) {
                       </div>
                     </div>
                   )) : (
-                    <div className="p-12 text-center text-foreground-muted font-bold uppercase tracking-widest text-xs">
+                    <div className="p-12 text-center text-foreground-muted font-bold uppercase tracking-wide text-xs">
                       No admins found
                     </div>
                   )}

@@ -126,7 +126,7 @@ export function SLAConfigPanel({ data }: { data: SettingsData }) {
                           key={model}
                           onClick={() => setActiveModel(model)}
                           className={cn(
-                            "px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                            "px-6 py-2 rounded-xl text-xs font-black uppercase tracking-wide transition-all",
                             activeModel === model ? "bg-primary text-on-primary shadow-lg" : "text-foreground-muted hover:text-foreground-muted"
                           )}
                         >
@@ -139,7 +139,7 @@ export function SLAConfigPanel({ data }: { data: SettingsData }) {
                   <div className="space-y-6">
                     {slaData[activeModel as keyof typeof slaData]?.map((item: any, i: number) => (
                       <div key={i} className="p-6 rounded-[32px] bg-surface/[0.02] border border-border flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <p className="text-sm font-black text-foreground-muted uppercase tracking-widest">{item.stage}</p>
+                        <p className="text-sm font-black text-foreground-muted uppercase tracking-wide">{item.stage}</p>
                         <div className="flex items-center gap-4">
                            <div className="space-y-1">
                               <label className="text-xs font-bold text-foreground-muted tracking-wide block">Target</label>
@@ -180,7 +180,7 @@ export function SLAConfigPanel({ data }: { data: SettingsData }) {
 
                   <div className="pt-6 border-t border-border flex items-center gap-3">
                      <Target size={18} className="text-warning" aria-hidden="true" />
-                     <p className="text-[10px] text-foreground-muted italic font-medium">SLA targets are dynamically adjusted during peak hours and weather surges.</p>
+                     <p className="text-xs text-foreground-muted italic font-medium">SLA targets are dynamically adjusted during peak hours and weather surges.</p>
                   </div>
                 </div>
               </motion.div>

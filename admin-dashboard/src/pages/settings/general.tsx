@@ -152,7 +152,7 @@ export function GeneralPanel({ data }: { data: SettingsData }) {
                     {(Array.isArray(healthData) ? healthData : []).map((app: any) => (
                       <div key={app.label} className="p-6 rounded-[32px] bg-surface/[0.02] border border-border space-y-2">
                         <div className="flex items-center justify-between">
-                          <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">{app.label}</p>
+                          <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">{app.label}</p>
                           <span className={cn(
                             "w-2 h-2 rounded-full",
                             app.status === 'Stable' || app.status === 'Healthy' || app.status === 'Live' || app.status === 'Optimal' ? "bg-success shadow-[0_0_10px_rgba(16,185,129,0.4)]" : "bg-warning shadow-[0_0_10px_rgba(245,158,11,0.4)]"
@@ -161,7 +161,7 @@ export function GeneralPanel({ data }: { data: SettingsData }) {
                         <p className="text-lg font-black text-foreground-muted">{app.version}</p>
                         <div className="flex items-center justify-between pt-2">
                            <StatusBadge status={app.status} labelPrefix={`${app.label} status`} />
-                           <p className="text-[10px] text-primary-light font-black tracking-tight">{app.metrics}</p>
+                           <p className="text-xs text-primary-light font-black tracking-tight">{app.metrics}</p>
                         </div>
                       </div>
                     ))}

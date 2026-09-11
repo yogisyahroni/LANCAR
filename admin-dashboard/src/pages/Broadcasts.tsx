@@ -113,7 +113,7 @@ export default function Broadcasts() {
         <button
           type="button"
           onClick={openComposer}
-          className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+          className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-wide hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
         >
           <Plus size={18} aria-hidden="true" />
           Buat Broadcast Baru
@@ -189,7 +189,7 @@ export default function Broadcasts() {
                   <th
                     key={head}
                     scope="col"
-                    className="px-6 py-6 text-xs font-black text-foreground-muted uppercase tracking-[0.2em]"
+                    className="px-6 py-6 text-xs font-black text-foreground-muted uppercase tracking-wide"
                   >
                     {head}
                   </th>
@@ -209,7 +209,7 @@ export default function Broadcasts() {
                 <tr>
                   <td colSpan={7} className="px-8 py-16 text-center space-y-4">
                     <AlertCircle className="w-10 h-10 mx-auto text-error"  aria-hidden="true"/>
-                    <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">Daftar broadcast gagal dimuat</p>
+                    <p className="text-foreground-muted font-black uppercase tracking-wide text-xs">Daftar broadcast gagal dimuat</p>
                     <p className="text-foreground-muted text-xs">
                       {(listQuery.error as any)?.response?.data?.message || 'Coba muat ulang.'}
                     </p>
@@ -342,7 +342,7 @@ export default function Broadcasts() {
                 <tr>
                   <td colSpan={7} className="px-8 py-20 text-center space-y-4">
                     <Megaphone className="w-10 h-10 mx-auto text-foreground-muted" aria-hidden="true" />
-                    <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">
+                    <p className="text-foreground-muted font-black uppercase tracking-wide text-xs">
                       Belum ada broadcast untuk filter ini.
                     </p>
                     <button
@@ -363,7 +363,7 @@ export default function Broadcasts() {
         {/* Pagination */}
         {!listQuery.isLoading && !listQuery.isError && (listQuery.data?.total ?? 0) > 0 && (
           <div className="px-8 py-6 border-t border-border flex items-center justify-between bg-surface/[0.01]">
-            <p className="text-xs text-foreground-muted font-bold uppercase tracking-widest">
+            <p className="text-xs text-foreground-muted font-bold uppercase tracking-wide">
               Halaman {page} dari {totalPages} • {(listQuery.data?.total ?? 0).toLocaleString('id-ID')} broadcast
             </p>
             <div className="flex items-center gap-2">
