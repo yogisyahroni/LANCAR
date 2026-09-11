@@ -398,6 +398,19 @@ func (r *PostgresRepository) SaveDeliveryContext(ctx context.Context, claims dom
 	return err
 }
 
+func (r *PostgresRepository) RecordExperimentExposure(ctx context.Context, exposure domain.ExperimentExposure) (bool, error) {
+	result, err := r.db.ExecContext(ctx, `
+		INSERT INTO ads_experiment_exposures(experiment_key,assignment_key,variant_key,placement,campaign_id)
+		VALUES($1,$2,$3,$4,NULLIF($5,'')::uuid)
+		ON CONFLICT (experiment_key, assignment_key, placement) DO NOTHING`,
+		exposure.ExperimentKey, exposure.AssignmentKey, exposure.VariantKey, exposure.Placement, exposure.CampaignID)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows == 1, err
+}
+
 func (r *PostgresRepository) RecordBillableEvent(ctx context.Context, event domain.AdEvent) (bool, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {

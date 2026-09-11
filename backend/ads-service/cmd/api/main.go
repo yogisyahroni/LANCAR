@@ -120,6 +120,13 @@ func main() {
 		}
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	})
+	mux.HandleFunc("/api/v1/ads/experiments/exposures", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			h.ExperimentExposure(w, r)
+			return
+		}
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	})
 	mux.HandleFunc("/internal/v1/ads/conversions", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			h.ServerConversion(w, r)

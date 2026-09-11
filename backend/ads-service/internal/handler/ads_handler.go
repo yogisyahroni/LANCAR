@@ -336,6 +336,34 @@ func (h *AdsHandler) Event(w http.ResponseWriter, r *http.Request) {
 	h.respond(w, http.StatusAccepted, map[string]any{"accepted": charged, "deduplicated": !charged})
 }
 
+// ExperimentExposure records treatment exposure independently from billable
+// impression/click events. The assignment key is an opaque server-issued
+// hash; no raw user identity is accepted or persisted by this boundary.
+func (h *AdsHandler) ExperimentExposure(w http.ResponseWriter, r *http.Request) {
+	var exposure domain.ExperimentExposure
+	if err := json.NewDecoder(r.Body).Decode(&exposure); err != nil {
+		h.fail(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if exposure.CampaignID != "" {
+		if _, err := uuid.Parse(exposure.CampaignID); err != nil {
+			h.fail(w, http.StatusBadRequest, "invalid campaign id")
+			return
+		}
+	}
+	recorder, ok := h.repo.(service.ExperimentExposureRepository)
+	if !ok {
+		h.fail(w, http.StatusNotImplemented, "experiment exposure repository is not wired")
+		return
+	}
+	accepted, err := service.NewExperimentExposureService(recorder).Record(r.Context(), exposure)
+	if err != nil {
+		h.fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respond(w, http.StatusAccepted, map[string]any{"accepted": accepted, "deduplicated": !accepted, "billable_impression": false})
+}
+
 // ServerConversion is intentionally an internal service boundary. It accepts
 // an order reference only from the authoritative order domain; the Ads
 // repository validates the order state, finds a recent charged click and

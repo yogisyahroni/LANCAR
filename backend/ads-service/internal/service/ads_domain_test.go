@@ -121,3 +121,33 @@ func TestBudgetReservationIsConcurrencySafe(t *testing.T) {
 		t.Fatalf("concurrent budget overspent: charged=%d spent=%d", charged, m.Spent)
 	}
 }
+
+type exposureFakeRepo struct{ seen map[string]bool }
+
+func (f *exposureFakeRepo) RecordExperimentExposure(_ context.Context, exposure domain.ExperimentExposure) (bool, error) {
+	key := exposure.ExperimentKey + ":" + exposure.AssignmentKey + ":" + exposure.Placement
+	if f.seen[key] {
+		return false, nil
+	}
+	f.seen[key] = true
+	return true, nil
+}
+
+func TestExperimentExposureIsSeparateAndReplaySafe(t *testing.T) {
+	repo := &exposureFakeRepo{seen: map[string]bool{}}
+	service := NewExperimentExposureService(repo)
+	exposure := domain.ExperimentExposure{ExperimentKey: "density-v1", AssignmentKey: "1234567890123456789012345678901234567890123", VariantKey: "control", Placement: string(domain.PlacementFoodDiscovery)}
+	accepted, err := service.Record(context.Background(), exposure)
+	if err != nil || !accepted {
+		t.Fatalf("first exposure was not accepted: %v %v", accepted, err)
+	}
+	accepted, err = service.Record(context.Background(), exposure)
+	if err != nil || accepted {
+		t.Fatalf("replayed exposure must deduplicate: %v %v", accepted, err)
+	}
+	protected := exposure
+	protected.Placement = string(domain.PlacementAdFreeCheckout)
+	if _, err := service.Record(context.Background(), protected); err == nil {
+		t.Fatal("protected transaction zone must reject experiment exposure")
+	}
+}

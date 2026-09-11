@@ -107,6 +107,9 @@ Self-click/cadence/bot signals use bounded server hashes and can create an
 auditable exclusion/credit review. Fake orders/clicks do not improve merchant
 quality. Experiment assignment/exposure is stored separately from billable
 impression and is always subordinate to protected ad-free zones and density.
+The authenticated exposure endpoint is `POST /api/v1/ads/experiments/exposures`;
+it accepts an opaque assignment hash and records an idempotent exposure without
+charging a billable impression.
 
 ## Admin and merchant controls
 
