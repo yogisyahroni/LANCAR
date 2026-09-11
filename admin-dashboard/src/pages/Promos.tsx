@@ -773,7 +773,7 @@ function PromoCampaignCard({
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-2xl border border-success bg-success-surface px-4 py-2 text-lg font-black tracking-widest text-success">
+            <span className="rounded-2xl border border-success bg-success-surface px-4 py-2 text-lg font-black tracking-wide text-success">
               {campaign.code}
             </span>
             <PromoStatusPill status={campaign.status} />
