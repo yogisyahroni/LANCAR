@@ -3934,25 +3934,22 @@ Known cleanup:
 ## DS-2026-005 — Logistics + emergency component family [P1]
 
 **Recommended components**
-- `AddressCard`
-- `RouteSummary`
-- `PackageSummary`
-- `CourierCard`
-- `CarrierRateCard`
-- `TrackingTimeline`
-- `ProofCard`
-- `QuoteBreakdown`
-- `VehicleCard`
-- `TechnicianCard`
-- `IncidentSummary`
-- `RequoteApprovalCard`
-- `SafetyNotice`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/logistics/TembusLogistics.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/CourierPriceCard.kt`
+
+**Status:** COMPLETE
+
+**Evidence:** `docs/task-evidence/DS-2026-005.md`
+
+**Implementation:** `84bd69c2`
+
+**Last updated:** 2026-09-11
 
 **Checklist**
-- [ ] Paket/Aggregator/Tambal/Towing reuse primitives where semantics match.
-- [ ] Emergency components prioritize location, capability, ETA, price trust and action over promotional decoration.
-- [ ] Carrier comparison preserves provider truth and is not silently influenced by merchant/commerce Ads Service.
-- [ ] Proof/requote/safety components have high-contrast and explicit state/action semantics.
+- [x] Paket/Aggregator/Tambal/Towing reuse primitives where semantics match.
+- [x] Emergency components prioritize location, capability, ETA, price trust and action over promotional decoration.
+- [x] Carrier comparison preserves provider truth and is not silently influenced by merchant/commerce Ads Service.
+- [x] Proof/requote/safety components have high-contrast and explicit state/action semantics.
 
 ---
 
