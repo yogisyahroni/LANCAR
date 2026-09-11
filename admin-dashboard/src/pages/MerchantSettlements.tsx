@@ -219,10 +219,11 @@ export default function MerchantSettlements() {
           <form onSubmit={handleSaveConfig} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">
-                Hari Penahanan Dana (setelah POD)
+                Hari Penahanan Dana (setelah POD) (wajib)
               </label>
               <input
-                aria-label="Merchant settlement holding days"
+                aria-label="Merchant settlement holding days (wajib)"
+                aria-required="true"
                 type="number"
                 min="0"
                 value={config.holding_days}
@@ -255,10 +256,11 @@ export default function MerchantSettlements() {
 
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">
-                Maksimal Retry Gagal
+                Maksimal Retry Gagal (wajib)
               </label>
               <input
-                aria-label="Maximum merchant settlement retries"
+                aria-label="Maximum merchant settlement retries (wajib)"
+                aria-required="true"
                 type="number"
                 min="1"
                 value={config.max_retry}
@@ -270,10 +272,11 @@ export default function MerchantSettlements() {
 
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">
-                Jeda Waktu Retry (Jam)
+                Jeda Waktu Retry (Jam) (wajib)
               </label>
               <input
-                aria-label="Merchant settlement retry delay hours"
+                aria-label="Merchant settlement retry delay hours (wajib)"
+                aria-required="true"
                 type="number"
                 min="1"
                 value={config.retry_delay_hours}

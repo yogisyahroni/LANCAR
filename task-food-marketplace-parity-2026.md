@@ -3170,6 +3170,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-002/004 form-error relationships now have an AST-backed `scripts/a11y/check-invalid-descriptions.mjs` guard requiring every source `aria-invalid` control to expose `aria-describedby`. Existing Customer/Admin route inventories remain green at `56/56` and `142/142`; complete dynamic state and manual assistive-technology proof remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-004 required-field presentation was extended in audited high-use forms. Customer Forgot PIN and Admin HR Jobs, manual Orders, Meeting Points and Merchant Settlements now show visible `(wajib)` labels and expose `aria-required="true"` alongside native `required`; remaining required/optional controls and full workflow proof remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
@@ -3459,7 +3461,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Focus is never removed without an accessible replacement; retain explicit `:focus-visible` system.
 - [ ] Modal traps focus while open and returns focus to invoking control on close. Evidence: `docs/task-evidence/A11Y-2026-004.md` (audited Customer address/product/dispute/payment and Admin order/account/dispute/agreement dialogs plus existing high-risk dialogs pass; full modal matrix remains open).
 - [ ] Dropdown/menu/select is keyboard navigable and dismissible.
-- [ ] All inputs have programmatic + visible label; required/optional semantics clear. Source guard `scripts/a11y/check-form-control-labels.mjs` now proves persistent programmatic labels across Customer/Admin native controls; visible-label, required/optional and full workflow proof remain open. Evidence: `docs/task-evidence/A11Y-2026-004.md`.
+- [ ] All inputs have programmatic + visible label; required/optional semantics clear. Source guard `scripts/a11y/check-form-control-labels.mjs` proves persistent programmatic labels across Customer/Admin native controls; audited HR Jobs, manual Orders, Forgot PIN, Meeting Points and Merchant Settlements required fields now expose visible `(wajib)` plus `aria-required="true"`. Remaining required controls, optional-field copy and full workflow proof remain open. Evidence: `docs/task-evidence/A11Y-2026-004.md`.
 - [ ] Error message associated to field with `aria-describedby`/equivalent where appropriate. `scripts/a11y/check-invalid-descriptions.mjs` now guards every source control using `aria-invalid`; complete dynamic route/state and manual AT proof remains open. Evidence: `docs/task-evidence/A11Y-2026-002.md` and `docs/task-evidence/A11Y-2026-004.md`.
 - [ ] Checkbox/radio/switch expose name, role, state and disabled state correctly.
 - [ ] Icon-only controls have accessible name. Evidence: `docs/task-evidence/A11Y-2026-004.md` (audited Customer/Admin controls and route inventories pass; complete conditional-control matrix remains open).

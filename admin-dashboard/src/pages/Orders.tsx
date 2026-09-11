@@ -129,11 +129,12 @@ export default function Orders() {
 
               <form onSubmit={handleCreateOrder} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Customer ID</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Customer ID (wajib)</label>
                   <input
                     required
+                    aria-required="true"
                     value={formData.customer_id}
-                    aria-label="Customer UUID"
+                    aria-label="Customer UUID (wajib)"
                     onChange={e => setFormData({ ...formData, customer_id: e.target.value })}
                     placeholder="Enter customer UUID"
                     className="w-full bg-surface-subtle border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -154,13 +155,14 @@ export default function Orders() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-foreground-muted tracking-wide">Total Amount</label>
-                    <input
-                      required
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Total Amount (wajib)</label>
+                  <input
+                    required
+                    aria-required="true"
                       type="number"
                       step="0.01"
                       value={formData.total_amount}
-                      aria-label="Order total amount"
+                    aria-label="Order total amount (wajib)"
                       onChange={e => setFormData({ ...formData, total_amount: e.target.value })}
                       placeholder="0.00"
                       className="w-full bg-surface-subtle border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -168,11 +170,12 @@ export default function Orders() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Pickup Address</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Pickup Address (wajib)</label>
                   <textarea
                     required
+                    aria-required="true"
                     value={formData.pickup_address}
-                    aria-label="Pickup address"
+                    aria-label="Pickup address (wajib)"
                     onChange={e => setFormData({ ...formData, pickup_address: e.target.value })}
                     rows={2}
                     placeholder="Full pickup address..."
@@ -180,11 +183,12 @@ export default function Orders() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Delivery Address</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Delivery Address (wajib)</label>
                   <textarea
                     required
+                    aria-required="true"
                     value={formData.delivery_address}
-                    aria-label="Delivery address"
+                    aria-label="Delivery address (wajib)"
                     onChange={e => setFormData({ ...formData, delivery_address: e.target.value })}
                     rows={2}
                     placeholder="Full delivery address..."
