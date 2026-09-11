@@ -3636,6 +3636,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** The Customer route inventory was reconciled against all 31 registered `page.tsx` surfaces, adding `/forgot-pin`, `/otp-verify`, `/google-callback` and `/apple-callback` to the automated accessibility/reflow suites. The expanded Customer inventory passes `64/64` Light/Dark/mobile accessibility cases and `93/93` 320px/640px/text-spacing cases. This reconciliation found and fixed narrow-layout overflow in the forgot-PIN phone row and OTP controls, plus the Apple callback error landmark semantics. Manual Light/Dark, keyboard-only, assistive-technology, actual browser-zoom, dynamic provider/campaign and current staging/provider-backed checks remain open; the A11Y-2026-012 checklist below therefore stays unchecked for those unproven manual requirements.
 
+> **Execution checkpoint 2026-09-11 (continued):** Focused Customer keyboard/runtime automation passes `16/16`, and focused Admin keyboard/theme/state automation passes `27/27`, covering primary keyboard paths, error association, popovers/dialog focus restoration, Escape handling, switches, theme state, map/chart announcements and runtime campaign media variants. These automated results strengthen the evidence but do not replace dated human keyboard-only, screen-reader, actual browser-zoom or provider-backed staging observations.
+
 **Customer Web minimum route groups**
 - landing/public
 - auth
