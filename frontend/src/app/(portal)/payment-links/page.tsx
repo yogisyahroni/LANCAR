@@ -187,6 +187,7 @@ export default function PaymentLinksPage() {
                     </div>
                     <span
                       aria-label={`Status payment link: ${paymentLinkStatusLabel(link.status)}`}
+                      data-status-badge="true"
                       className={cn(
                       "inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold",
                       isPaid ? "bg-success/10 text-success dark:text-success" :

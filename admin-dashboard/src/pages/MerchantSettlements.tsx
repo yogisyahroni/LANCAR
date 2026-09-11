@@ -483,25 +483,27 @@ export default function MerchantSettlements() {
                       </td>
                       <td className="px-4 py-3">
                         {item.status === 'completed' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-surface text-success dark:text-success">
+                          <span aria-label="Settlement status: Cair (Completed)" data-status-badge="true" className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-surface text-success dark:text-success">
                             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                             Cair (Completed)
                           </span>
                         )}
                         {(item.status === 'holding' || item.status === 'pending') && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-surface text-warning dark:text-warning">
+                          <span aria-label="Settlement status: Holding Escrow" data-status-badge="true" className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-surface text-warning dark:text-warning">
                             <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                             Holding Escrow
                           </span>
                         )}
                         {item.status === 'processing' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-surface text-info dark:text-info">
+                          <span aria-label="Settlement status: Processing" data-status-badge="true" className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-surface text-info dark:text-info">
                             <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                             Processing
                           </span>
                         )}
                         {item.status === 'failed' && (
                           <span
+                            aria-label="Settlement status: Failed"
+                            data-status-badge="true"
                             className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-error/10 text-error dark:text-error"
                             title={item.failure_reason}
                           >

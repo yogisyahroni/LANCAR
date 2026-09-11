@@ -117,7 +117,7 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
                   <p className="text-sm text-foreground-muted">Nomor order</p>
                   <h2 className="mt-1 text-2xl font-black">{data.order_number || data.order_id}</h2>
                 </div>
-                <span aria-label={`Status pengiriman: ${trackingStatus.label}`} className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ${trackingStatus.className}`}>
+                <span aria-label={`Status pengiriman: ${trackingStatus.label}`} data-status-badge="true" className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ${trackingStatus.className}`}>
                   <TrackingStatusIcon aria-hidden="true" className="h-4 w-4" />
                   {trackingStatus.label}
                 </span>

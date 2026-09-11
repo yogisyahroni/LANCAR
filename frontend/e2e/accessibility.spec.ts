@@ -369,6 +369,25 @@ async function mockCustomerSessionAndApi(page: Page) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, orders: [] }) });
       return;
     }
+    if (new URL(url).pathname === '/api/v1/payment-links') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [{
+            id: 'PAYMENT-LINK-A11Y',
+            status: 'paid',
+            item_name: 'Fixture payment link',
+            item_image_url: null,
+            delivery_fee_amount: 2500,
+            dropoff_address: 'Jl. Payment Link Fixture 123, Jakarta',
+            expired_at: '2026-12-31T23:59:59.000Z',
+            payment_url: 'https://example.test/pay/PAYMENT-LINK-A11Y',
+          }],
+        }),
+      });
+      return;
+    }
     if (request.resourceType() === 'xhr' || request.resourceType() === 'fetch') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) });
       return;
