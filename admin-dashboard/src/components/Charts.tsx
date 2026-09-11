@@ -133,7 +133,7 @@ export const OrderDistributionChart = ({ data: externalData }: { data?: unknown[
           />
           <Bar dataKey="value" radius={[6, 6, 0, 0]}>
             {chartData.map((_, index) => (
-              <Cell key={`cell-${index}`} fill={index === 0 ? 'var(--color-primary-dark)' : index === 1 ? 'var(--color-primary)' : 'var(--color-success)'} />
+              <Cell key={`cell-${index}`} fill={index === 0 ? 'var(--color-primary-light)' : index === 1 ? 'var(--color-primary)' : 'var(--color-success)'} />
             ))}
           </Bar>
         </BarChart>

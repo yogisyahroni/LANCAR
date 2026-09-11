@@ -3496,7 +3496,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Horizontal overflow has deliberate responsive strategy; essential actions remain reachable. Evidence: `docs/task-evidence/A11Y-2026-006.md` (Customer Orders plus audited Admin dense-table regions pass; full table/state inventory remains open).
 
 **Charts**
-- [ ] Chart colors pass applicable non-text contrast against background where needed.
+- [x] Chart colors pass applicable non-text contrast against background where needed. Evidence: `docs/task-evidence/A11Y-2026-006.md` and `scripts/a11y/check-chart-contrast.mjs`.
 - [x] Meaning is available through legend/direct label/value/table/accessible summary, not color alone. Evidence: `docs/task-evidence/A11Y-2026-006.md`
 - [x] Tooltip is keyboard/accessibility reachable or equivalent data representation exists; all active Admin chart surfaces expose direct values through an associated accessible summary, with hover tooltip remaining supplemental. Evidence: `docs/task-evidence/A11Y-2026-006.md` and `scripts/a11y/check-chart-accessibility.mjs`.
 

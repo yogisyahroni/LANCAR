@@ -61,8 +61,8 @@ jobs:
         run: npm ci
       - name: Color token contrast guard
         run: node scripts/a11y/check-color-tokens.mjs
-      - name: Tinted status surface guard
-        run: node scripts/a11y/check-tinted-status-surfaces.mjs
+      - name: Chart non-text contrast guard
+        run: node scripts/a11y/check-chart-contrast.mjs
       - name: Tinted status surface guard
         run: node scripts/a11y/check-tinted-status-surfaces.mjs
       - name: Theme hardcode guard

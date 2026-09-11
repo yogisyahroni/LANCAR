@@ -56,7 +56,7 @@ import { id as localeId } from 'date-fns/locale'
 import { useState } from 'react'
 import { ConfirmPayoutModal, type PayoutReviewAction } from '../components/ConfirmPayoutModal'
 
-const COLORS = ['var(--color-primary-dark)', 'var(--color-primary)', 'var(--color-success)', 'var(--color-accent)'];
+const COLORS = ['var(--color-primary-light)', 'var(--color-primary)', 'var(--color-success)', 'var(--color-accent)'];
 
 const activePayoutStatuses = ['requested', 'risk_screening', 'approved_auto', 'risk_hold', 'manual_review', 'under_review', 'approved', 'processing'];
 
