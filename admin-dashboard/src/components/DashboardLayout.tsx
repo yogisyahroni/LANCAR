@@ -361,7 +361,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               aria-expanded={isOpen}
               className="w-full flex items-center justify-between px-3 py-2 cursor-pointer rounded-lg hover:bg-surface-subtle transition-colors select-none group text-left"
             >
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-foreground-muted group-hover:text-foreground">
+              <span className="text-xs font-extrabold uppercase tracking-wide text-foreground-muted group-hover:text-foreground">
                 {group.title}
               </span>
               <ChevronDown
@@ -448,7 +448,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             ? "bg-success"
                             : "bg-info",
                     )} />
-                    <span className="text-[9px] text-foreground-muted font-bold uppercase tracking-widest">Baru Saja</span>
+                    <span className="text-xs text-foreground-muted font-bold uppercase tracking-wide">Baru Saja</span>
                   </div>
                   {toastNotif.deep_link && (
                     <button
@@ -457,7 +457,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         if (toastNotif.deep_link) navigate(toastNotif.deep_link)
                         removeToast(toastNotif.id)
                       }}
-                      className="inline-flex items-center gap-1 text-[9px] text-primary-light font-black uppercase tracking-widest hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      className="inline-flex items-center gap-1 text-xs text-primary-light font-black uppercase tracking-wide hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                     >
                       Lihat Detail <ChevronRight size={10} aria-hidden="true" />
                     </button>
@@ -635,7 +635,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
                         <div className="flex items-center gap-2">
                           <Bell size={14} className="text-primary-light" aria-hidden="true" />
-                          <span className="text-[11px] font-black text-foreground-muted uppercase tracking-[0.2em]">Notifications</span>
+                          <span className="text-xs font-black text-foreground-muted uppercase tracking-wide">Notifications</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <button
@@ -646,7 +646,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 setNotifications([])
                               } catch (e) { clientLog.error('Failed to clear notifications', { error: e }) }
                             }}
-                            className="text-[9px] font-bold text-primary-light hover:text-foreground uppercase tracking-wider transition-colors"
+                            className="text-xs font-bold text-primary-light hover:text-foreground uppercase tracking-wide transition-colors"
                           >
                             Clear All
                           </button>
@@ -682,26 +682,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                               }}
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <h4 className="text-[11px] font-black text-foreground-muted uppercase tracking-widest" title={notif.title}>{notif.title}</h4>
+                                <h4 className="text-xs font-black text-foreground-muted uppercase tracking-wide" title={notif.title}>{notif.title}</h4>
                                 {!notif.is_read && <span className="w-2 h-2 bg-success rounded-full mt-1 shrink-0 animate-pulse" />}
                               </div>
-                              <p className="text-[11px] text-foreground-muted mt-1.5 leading-relaxed line-clamp-2 font-medium" title={notif.body}>{notif.body}</p>
+                              <p className="text-xs text-foreground-muted mt-1.5 leading-relaxed line-clamp-2 font-medium" title={notif.body}>{notif.body}</p>
                               <div className="flex items-center justify-between mt-3">
-                                <span className="text-[9px] text-foreground-muted font-bold uppercase tracking-widest bg-surface-subtle px-1.5 py-0.5 rounded">
+                                <span className="text-xs text-foreground-muted font-bold uppercase tracking-wide bg-surface-subtle px-1.5 py-0.5 rounded">
                                   {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                                 {notif.type === 'dispute_chat' && (
-                                  <span className="text-[8px] bg-error-surface text-error px-2 py-0.5 rounded-full uppercase font-black tracking-[0.1em] border border-error">Dispute</span>
+                                  <span className="text-xs bg-error-surface text-error px-2 py-0.5 rounded-full uppercase font-black tracking-wide border border-error">Dispute</span>
                                 )}
                               </div>
                             </button>
                           ))
                         ) : (
-                          <div className="flex flex-col items-center justify-center py-12 text-center opacity-40">
+                          <div className="flex flex-col items-center justify-center py-12 text-center">
                             <div className="h-14 w-14 bg-surface-subtle rounded-full flex items-center justify-center mb-4 border border-border">
                               <Bell className="h-7 w-7 text-foreground-muted" aria-hidden="true" />
                             </div>
-                            <p className="text-[10px] font-black text-foreground-muted uppercase tracking-[0.2em]">No new notifications</p>
+                            <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">No new notifications</p>
                           </div>
                         )}
                       </div>
@@ -716,7 +716,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex items-center gap-3 group p-1.5 hover:bg-surface-subtle rounded-xl transition-all">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-foreground-muted group-hover:text-primary-light transition-colors">{user?.name || 'Admin Tembus'}</p>
-                <p className="text-[10px] uppercase tracking-widest text-foreground-muted font-bold">{user?.role === 'superadmin' ? 'Super Admin' : 'Admin'}</p>
+                <p className="text-xs uppercase tracking-wide text-foreground-muted font-bold">{user?.role === 'superadmin' ? 'Super Admin' : 'Admin'}</p>
               </div>
               <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-success p-[1px] shadow-lg shadow-primary/10">
                 <div className="h-full w-full rounded-[11px] bg-surface flex items-center justify-center overflow-hidden">

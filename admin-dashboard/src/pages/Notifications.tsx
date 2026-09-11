@@ -88,7 +88,7 @@ export default function Notifications() {
           <h1 className="text-3xl font-black text-foreground-muted tracking-tight italic uppercase">Communication Hub</h1>
           <p className="text-foreground-muted mt-1">Manage automated triggers and notification templates.</p>
         </div>
-        <button className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+        <button className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-wide hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
           <Plus size={18}  aria-hidden="true"/>
           Add Trigger
         </button>
@@ -97,7 +97,7 @@ export default function Notifications() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left: Trigger List */}
         <div className="lg:col-span-4 space-y-3">
-          <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest px-2">Trigger Events</p>
+          <p className="text-xs font-black text-foreground-muted uppercase tracking-wide px-2">Trigger Events</p>
           <div className="space-y-2">
             {templates?.map((t: any) => (
               <motion.div 
@@ -111,7 +111,7 @@ export default function Notifications() {
                 )}
               >
                 <div>
-                   <p className="text-[10px] font-black uppercase tracking-widest mb-1">ID: {t.id}</p>
+                   <p className="text-xs font-black uppercase tracking-wide mb-1">ID: {t.id}</p>
                    <h3 className="font-bold">{t.trigger}</h3>
                 </div>
                 <div className="flex gap-1.5">
@@ -150,7 +150,7 @@ export default function Notifications() {
                      <button 
                         onClick={handleSave}
                         disabled={updateMutation.isPending}
-                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-success text-on-success font-black text-xs uppercase tracking-widest hover:bg-success transition-all disabled:opacity-60"
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-success text-on-success font-black text-xs uppercase tracking-wide hover:bg-success transition-all disabled:opacity-60"
                       >
                         {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Save size={18} aria-hidden="true" />}
                         Save Changes
@@ -161,7 +161,7 @@ export default function Notifications() {
                <div className="space-y-8">
                   {/* Channels */}
                   <div className="space-y-4">
-                     <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Active Channels</p>
+                     <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Active Channels</p>
                      <div className="flex gap-4">
                         {[
                           { id: 'PUSH', icon: Smartphone, label: 'Push' },
@@ -202,7 +202,7 @@ export default function Notifications() {
                         <label className="text-sm font-bold tracking-wide text-foreground-muted">Template Content</label>
                         <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-surface-subtle text-foreground-muted">
                            <Code size={12} aria-hidden="true" />
-                           <span className="text-[9px] font-black uppercase tracking-widest">Dynamic Vars</span>
+                           <span className="text-xs font-black uppercase tracking-wide">Dynamic Vars</span>
                         </div>
                      </div>
                      <textarea 
@@ -216,7 +216,7 @@ export default function Notifications() {
                           <span 
                             key={v} 
                             onClick={() => setFormData(prev => ({ ...prev, content: prev.content + v }))}
-                            className="px-3 py-1.5 rounded-lg bg-surface border border-border text-[10px] font-mono text-primary-light/60 hover:text-primary-light hover:border-primary/20 cursor-pointer transition-all"
+                            className="px-3 py-1.5 rounded-lg bg-surface border border-border text-xs font-mono text-primary-light/60 hover:text-primary-light hover:border-primary/20 cursor-pointer transition-all"
                           >
                              {v}
                           </span>
@@ -226,7 +226,7 @@ export default function Notifications() {
                </div>
              </>
            ) : (
-             <div className="h-[400px] flex items-center justify-center text-foreground-muted font-black uppercase tracking-widest italic">
+             <div className="h-[400px] flex items-center justify-center text-foreground-muted font-black uppercase tracking-wide italic">
                 Select a trigger to edit template
              </div>
            )}

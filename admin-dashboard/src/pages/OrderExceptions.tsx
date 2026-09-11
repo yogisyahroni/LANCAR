@@ -103,15 +103,15 @@ export default function OrderExceptions() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="glass-card rounded-2xl border-border p-5">
-          <p className="text-xs font-bold uppercase tracking-widest text-foreground-muted">Total open signals</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">Total open signals</p>
           <p className="mt-2 text-3xl font-black text-foreground-muted">{exceptionsQuery.data?.total ?? '—'}</p>
         </div>
         <div className="glass-card rounded-2xl border-error p-5">
-          <p className="text-xs font-bold uppercase tracking-widest text-error">Critical</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-error">Critical</p>
           <p className="mt-2 text-3xl font-black text-error">{criticalCount}</p>
         </div>
         <div className="glass-card rounded-2xl border-warning p-5">
-          <p className="text-xs font-bold uppercase tracking-widest text-warning">High priority</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-warning">High priority</p>
           <p className="mt-2 text-3xl font-black text-warning">{highCount}</p>
         </div>
       </div>
@@ -129,7 +129,7 @@ export default function OrderExceptions() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-left text-sm">
-              <thead className="border-b border-border bg-surface/[0.03] text-[10px] uppercase tracking-widest text-foreground-muted">
+              <thead className="border-b border-border bg-surface/[0.03] text-xs uppercase tracking-wide text-foreground-muted">
                 <tr>
                   <th scope="col" className="px-6 py-4">Exception</th>
                   <th scope="col" className="px-6 py-4">Order</th>
@@ -143,13 +143,13 @@ export default function OrderExceptions() {
                   <tr key={`${item.category}-${item.order_id ?? item.provider ?? 'unknown'}-${item.occurred_at}-${index}`} className="transition hover:bg-surface/[0.03]">
                     <td className="px-6 py-5 align-top">
                       <div className="flex items-start gap-3">
-                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${severityClass[item.severity]}`}>
+                        <span className={`rounded-full border px-2.5 py-1 text-xs font-black uppercase tracking-wide ${severityClass[item.severity]}`}>
                           {item.severity}
                         </span>
                         <div>
                           <p className="font-semibold text-foreground-muted">{item.title}</p>
                           <p className="mt-1 max-w-md text-xs leading-relaxed text-foreground-muted">{item.summary}</p>
-                          {item.provider && <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-foreground-muted">Provider: {item.provider}</p>}
+                          {item.provider && <p className="mt-2 text-xs font-bold uppercase tracking-wide text-foreground-muted">Provider: {item.provider}</p>}
                         </div>
                       </div>
                     </td>
@@ -159,13 +159,13 @@ export default function OrderExceptions() {
                           {item.order_number || item.order_id.slice(0, 8)} <ExternalLink size={13} aria-hidden="true" />
                         </Link>
                       ) : <span className="text-foreground-muted">No linked order</span>}
-                      {item.order_status && <p className="mt-1 text-xs uppercase tracking-wider text-foreground-muted">{item.order_status}</p>}
+                      {item.order_status && <p className="mt-1 text-xs uppercase tracking-wide text-foreground-muted">{item.order_status}</p>}
                     </td>
                     <td className="px-6 py-5 align-top text-foreground-muted">
                       <span className="inline-flex items-center gap-1.5"><Clock3 size={14} aria-hidden="true" /> {item.age_minutes}m</span>
                     </td>
                     <td className="max-w-sm px-6 py-5 align-top text-xs leading-relaxed text-foreground-muted">{item.next_action}</td>
-                    <td className="px-6 py-5 align-top text-right text-[10px] text-foreground-muted">
+                    <td className="px-6 py-5 align-top text-right text-xs text-foreground-muted">
                       {new Date(item.occurred_at).toLocaleString('id-ID')}
                     </td>
                   </tr>
