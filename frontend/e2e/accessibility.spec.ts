@@ -525,6 +525,34 @@ test.describe('TEMBUS brand artwork contrast', () => {
   }
 });
 
+test.describe('WCAG 2.4.7 public keyboard focus', () => {
+  for (const themeCase of THEME_CASES.slice(0, 2)) {
+    test(`keeps the landing tracking input visibly focused in ${themeCase.mode} mode @a11y`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: themeCase.colorScheme });
+      await page.addInitScript((selectedTheme) => {
+        window.localStorage.setItem('tembus-theme', selectedTheme);
+      }, themeCase.mode);
+      await page.goto('/', { waitUntil: 'networkidle' });
+
+      const input = page.locator('#landing-resi-input');
+      await input.focus();
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Shift+Tab');
+
+      await expect(input).toBeFocused();
+      await page.waitForTimeout(150);
+      const focusStyles = await input.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { outline: style.outline, boxShadow: style.boxShadow };
+      });
+      expect(
+        focusStyles.outline !== 'none' || focusStyles.boxShadow !== 'none',
+        `landing tracking input has no visible focus indicator: ${JSON.stringify(focusStyles)}`,
+      ).toBeTruthy();
+    });
+  }
+});
+
 test.describe('WCAG 2.1 AA authenticated Customer route matrix', () => {
   for (const themeCase of THEME_CASES) {
     for (const route of AUTHENTICATED_ROUTES) {

@@ -51,7 +51,7 @@ export default function ResiCheckWidget() {
             if (error) setError(null);
           }}
           placeholder={t('landing.trackPlaceholder')}
-          className="min-w-0 flex-1 rounded-xl border border-border bg-surface/[0.06] px-4 py-3 text-sm font-semibold uppercase tracking-wide text-foreground outline-none transition-all placeholder:normal-case placeholder:text-foreground-muted focus:border-success/60 focus:ring-2 focus:ring-focus-ring"
+          className="min-w-0 flex-1 rounded-xl border border-border bg-surface/[0.06] px-4 py-3 text-sm font-semibold uppercase tracking-wide text-foreground outline-none transition-all placeholder:normal-case placeholder:text-foreground-muted focus:border-success/60 focus:ring-2 focus:ring-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         />
         <button
           type="submit"
