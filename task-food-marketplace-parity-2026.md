@@ -3166,6 +3166,10 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S ICON-2026-001 custom-SVG coverage now has an explicit machine-checked exception inventory. `docs/design/iconography-exceptions-2026.json` records all five raw SVG source sites and four active brand SVG assets with rationale and accessible contracts; `scripts/a11y/check-iconography-exceptions.mjs` and the existing iconography guard pass, while conditional non-route icon states and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-013 semantic-control coverage now has an AST-backed `scripts/a11y/check-native-controls.mjs` guard. Customer service-card, product-suggestion, evidence-upload and shell backdrop paths plus Admin notification-token, receipt-template canvas and modal backdrop paths now expose native/equivalent keyboard semantics or explicit `aria-hidden` decoration. Customer inventory passes `56/56`, Admin inventory passes `142/142`, both typechecks/focused ESLint and icon guards pass; manual screen-reader review remains open. Commit/push to `origin/staging` follows this checkpoint.
+
+> **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-002/004 form-error relationships now have an AST-backed `scripts/a11y/check-invalid-descriptions.mjs` guard requiring every source `aria-invalid` control to expose `aria-describedby`. Existing Customer/Admin route inventories remain green at `56/56` and `142/142`; complete dynamic state and manual assistive-technology proof remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
@@ -3456,7 +3460,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Modal traps focus while open and returns focus to invoking control on close. Evidence: `docs/task-evidence/A11Y-2026-004.md` (audited Customer address/product/dispute/payment and Admin order/account/dispute/agreement dialogs plus existing high-risk dialogs pass; full modal matrix remains open).
 - [ ] Dropdown/menu/select is keyboard navigable and dismissible.
 - [ ] All inputs have programmatic + visible label; required/optional semantics clear. Source guard `scripts/a11y/check-form-control-labels.mjs` now proves persistent programmatic labels across Customer/Admin native controls; visible-label, required/optional and full workflow proof remain open. Evidence: `docs/task-evidence/A11Y-2026-004.md`.
-- [ ] Error message associated to field with `aria-describedby`/equivalent where appropriate.
+- [ ] Error message associated to field with `aria-describedby`/equivalent where appropriate. `scripts/a11y/check-invalid-descriptions.mjs` now guards every source control using `aria-invalid`; complete dynamic route/state and manual AT proof remains open. Evidence: `docs/task-evidence/A11Y-2026-002.md` and `docs/task-evidence/A11Y-2026-004.md`.
 - [ ] Checkbox/radio/switch expose name, role, state and disabled state correctly.
 - [ ] Icon-only controls have accessible name. Evidence: `docs/task-evidence/A11Y-2026-004.md` (audited Customer/Admin controls and route inventories pass; complete conditional-control matrix remains open).
 - [x] Skip-to-content or equivalent exists for long Customer/Admin shell navigation where appropriate.
