@@ -3998,16 +3998,24 @@ Known cleanup:
 - `MerchantDetailScreen.kt`
 - Food search/filter/discovery ViewModel/repository paths
 
+**Status:** COMPLETE
+
+**Evidence:** `docs/task-evidence/DS-2026-007.md`
+
+**Implementation:** `d41e58fb`
+
+**Last updated:** 2026-09-11
+
 **Canonical pattern**
 `delivery destination → search → delivery/pickup/filter modes → cuisine/category discovery → editorial/platform promo → bounded sponsored discovery → organic personalized ranking → deal/collection modules → more organic discovery`
 
 **Checklist**
-- [ ] Food home can use richer imagery than transactional services without fragmenting core LANCAR typography/spacing/button language.
-- [ ] Replace emoji fallback with design-system-approved merchant/menu placeholder asset or deterministic neutral placeholder.
-- [ ] Merchant image/card anatomy uses shared commerce components.
-- [ ] Sponsored slots are clearly labeled and never indistinguishable from organic ranking.
-- [ ] Search/filter controls remain sticky/usable without large promotional hero blocking discovery.
-- [ ] Checkout/payment/tracking surfaces return to calm transaction style and are ad-free.
+- [x] Food home can use richer imagery than transactional services without fragmenting core LANCAR typography/spacing/button language.
+- [x] Replace emoji fallback with design-system-approved merchant/menu placeholder asset or deterministic neutral placeholder.
+- [x] Merchant image/card anatomy uses shared commerce components.
+- [x] Sponsored slots are clearly labeled and never indistinguishable from organic ranking.
+- [x] Search/filter controls remain sticky/usable without large promotional hero blocking discovery.
+- [x] Checkout/payment/tracking surfaces return to calm transaction style and are ad-free.
 
 ---
 
