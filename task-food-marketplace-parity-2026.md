@@ -4027,12 +4027,20 @@ Known cleanup:
 - Tambal Ban: emergency shortest path; problem + location + technician capability.
 - Towing: safety + vehicle compatibility + inspection/proof + route.
 
+**Status:** COMPLETE
+
+**Evidence:** `docs/task-evidence/DS-2026-008.md`
+
+**Implementation:** `19634a57`
+
+**Last updated:** 2026-09-11
+
 **Checklist**
-- [ ] One visual system, different information priority per vertical.
-- [ ] Do not give every vertical a unique arbitrary header color/layout merely to “look different”.
-- [ ] Service identity comes from icon, title, contextual accent/illustration and content—not a separate mini-brand.
-- [ ] Tambal/Towing active booking/service flow contains zero paid advertising.
-- [ ] Aggregator carrier-rate comparison contains zero paid carrier ranking unless a future separate regulated/sponsored-carrier product is explicitly designed, disclosed and approved.
+- [x] One visual system, different information priority per vertical.
+- [x] Do not give every vertical a unique arbitrary header color/layout merely to “look different”.
+- [x] Service identity comes from icon, title, contextual accent/illustration and content—not a separate mini-brand.
+- [x] Tambal/Towing active booking/service flow contains zero paid advertising.
+- [x] Aggregator carrier-rate comparison contains zero paid carrier ranking unless a future separate regulated/sponsored-carrier product is explicitly designed, disclosed and approved.
 
 ---
 
