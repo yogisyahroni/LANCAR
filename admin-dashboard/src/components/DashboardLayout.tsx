@@ -604,6 +604,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     : "text-foreground-muted hover:text-foreground hover:bg-surface-subtle"
                 )}
                 aria-label="Notifications" title="Notifications"
+                aria-haspopup="dialog"
+                aria-expanded={isNotifOpen}
               >
                 <Bell className={cn("h-5 w-5 transition-transform", isNotifOpen && "scale-110")} aria-hidden="true" />
                 {notifications.some(n => !n.is_read) && (

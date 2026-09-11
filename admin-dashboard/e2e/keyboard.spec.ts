@@ -186,6 +186,25 @@ test('Admin collapsed sidebar preserves names, current location and focus @keybo
   await expect.poll(() => dashboardLink.evaluate((element) => getComputedStyle(element).outlineWidth)).not.toBe('0px');
 });
 
+test('Admin notification popover exposes expanded state and restores keyboard focus @keyboard @a11y', async ({ page }) => {
+  await installAdminShellFixture(page);
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+
+  const trigger = page.getByRole('button', { name: 'Notifications', exact: true });
+  await expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+
+  const dialog = page.getByRole('dialog', { name: 'Notifications' });
+  await expect(dialog).toBeVisible();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(dialog.getByRole('button', { name: 'Clear All' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+});
+
 test('Admin feature flag switch exposes state and Escape restores focus @keyboard @a11y', async ({ page }) => {
   await page.route('**/*', async (route) => {
     const url = new URL(route.request().url());

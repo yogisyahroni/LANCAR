@@ -122,6 +122,25 @@ test('Customer navigation exposes the current location on desktop and mobile @ke
   }
 });
 
+test('Customer notification popover exposes expanded state and restores keyboard focus @keyboard @a11y', async ({ page }) => {
+  await installCustomerFormFixture(page);
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+
+  const trigger = page.getByRole('button', { name: /notifications|notifikasi/i });
+  await expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+
+  const dialog = page.getByRole('dialog', { name: /notifications|notifikasi/i });
+  await expect(dialog).toBeVisible();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(dialog.locator('button').first()).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+});
+
 test('Customer aggregator form keeps provider and city controls keyboard reachable @keyboard', async ({ page }) => {
   await installCustomerFormFixture(page);
   await page.goto('/orders/new/aggregator', { waitUntil: 'domcontentloaded' });

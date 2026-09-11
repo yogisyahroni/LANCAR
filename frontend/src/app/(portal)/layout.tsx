@@ -550,6 +550,8 @@ export default function PortalLayout({
               <button
                 type="button"
                 aria-label={t("common.notifications")} title={t("common.notifications")}
+                aria-haspopup="dialog"
+                aria-expanded={isNotifOpen}
                 onClick={() => {
                   setIsNotifOpen(!isNotifOpen);
                   setIsUserOpen(false);

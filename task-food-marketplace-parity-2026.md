@@ -3188,6 +3188,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S ICON-2026-003 now also guards nested/conditional icon-only button controls outside table rows. `scripts/a11y/check-icon-button-semantics.mjs` scans Customer/Admin JSX buttons and button components for a decorative icon without an accessible or visible name. It exposed real Resi Template Edit/Delete controls; they now have contextual names/title tooltips, explicit button type, and visible verbs. The populated Resi Template fixture proves Edit accepts keyboard focus and Enter opens its named dialog (`1/1`); all icon guards and Admin typecheck/lint pass. Full canonical page-title/action and destructive workflow inventories remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-004 notification popovers now expose `aria-haspopup="dialog"` and live `aria-expanded` state on both Customer/Admin shell triggers. Customer and Admin keyboard fixtures each pass `1/1`: Enter opens the named popup, focus moves into its focus trap, Escape dismisses it, and focus returns to the trigger. Full dropdown/menu and keyboard-only workflow matrices remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
