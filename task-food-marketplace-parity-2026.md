@@ -3122,6 +3122,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Admin Disputes, DisputeChat and RevisionDiffPreview were audited for Part S across queue/detail/evidence/chat states, release-scope summaries, field-level revision differences and validation outcomes. Essential labels, status metadata and diff markers now use the shared readable `text-xs` floor with `tracking-wide`, while identifier values retain scoped monospace presentation. The affected axe slice passes `16/16`, reflow/text-spacing passes `13/13`, and typecheck/ESLint/iconography/table/diff guards pass. Full dynamic dispute/chat/revision state, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Admin Customers, Cases and Audit Logs were audited for Part S across customer cards, support-case queue/detail states, audit headers/status/actor metadata, retry/export/contact actions and empty states. Remaining sub-12px operational labels were raised to the shared readable `text-xs` floor and uppercase operational copy uses `tracking-wide`; named controls, Lucide semantics and table header scopes remain intact. Customers/AuditLogs axe coverage passes `12/12`, Cases passes `2/2`, and combined reflow/text-spacing coverage passes `9/9`; typecheck/ESLint/iconography/table/diff guards pass. Full dynamic states, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

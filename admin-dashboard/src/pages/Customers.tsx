@@ -64,13 +64,13 @@ function CustomerErrorState({ title, message, onRetry }: { title: string; messag
     <div className="col-span-full py-20 text-center space-y-4 rounded-[32px] border border-error bg-error-surface">
       <AlertCircle className="w-10 h-10 text-error mx-auto" aria-hidden="true" />
       <div>
-        <p className="text-sm font-black text-foreground-muted uppercase tracking-widest">{title}</p>
+        <p className="text-sm font-black text-foreground-muted uppercase tracking-wide">{title}</p>
         <p className="text-xs text-foreground-muted mt-2">{message}</p>
       </div>
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
+        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-xs font-black uppercase tracking-wide hover:bg-error-surface transition-all"
       >
         <RefreshCw size={14} aria-hidden="true" />
         Retry
@@ -152,12 +152,12 @@ export default function Customers() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleExport}
-            className="px-6 py-3 rounded-2xl bg-success-surface border border-success text-success font-black text-sm uppercase tracking-widest hover:bg-success-surface transition-all flex items-center gap-2"
+            className="px-6 py-3 rounded-2xl bg-success-surface border border-success text-success font-black text-sm uppercase tracking-wide hover:bg-success-surface transition-all flex items-center gap-2"
           >
             <Download size={18} aria-hidden="true" />
             Export CSV
           </button>
-          <button className="px-6 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-sm uppercase tracking-widest hover:bg-surface-subtle transition-all flex items-center gap-2">
+          <button className="px-6 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-sm uppercase tracking-wide hover:bg-surface-subtle transition-all flex items-center gap-2">
             <Mail size={18} aria-hidden="true" />
             Bulk Email
           </button>
@@ -179,7 +179,7 @@ export default function Customers() {
                 <stat.icon size={24} aria-hidden="true" />
               </div>
               <div>
-                <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">{stat.label}</p>
+                <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">{stat.label}</p>
                 <p className="text-2xl font-black text-foreground-muted mt-1">{stat.value}</p>
               </div>
             </div>
@@ -239,7 +239,7 @@ export default function Customers() {
                       <div className="flex items-center gap-3">
                         <h3 className="text-xl font-bold text-foreground-muted">{customer.name}</h3>
                         <span className={cn(
-                          "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest border",
+                          "px-2 py-0.5 rounded-md text-xs font-black uppercase tracking-wide border",
                           customer.orders_count > 100 
                             ? "border-primary-light/20 text-primary-light bg-primary-light/5" 
                             : "border-border text-foreground-muted bg-surface-subtle"
@@ -257,14 +257,14 @@ export default function Customers() {
                   <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface/[0.01]">
                     <ShoppingBag size={18} className="text-foreground-muted" aria-hidden="true" />
                     <div>
-                      <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Orders</p>
+                      <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Orders</p>
                       <p className="text-sm font-black text-foreground-muted">{customer.orders_count}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface/[0.01]">
                     <Users size={18} className="text-foreground-muted"  aria-hidden="true"/>
                     <div>
-                      <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Joined</p>
+                      <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Joined</p>
                       <p className="text-sm font-black text-foreground-muted">
                         {customer.joined_at ? format(new Date(customer.joined_at), 'dd MMM yyyy') : '—'}
                       </p>
@@ -272,14 +272,14 @@ export default function Customers() {
                   </div>
                 </div>
 
-                <button className="w-full mt-6 py-4 rounded-2xl bg-surface-subtle text-foreground-secondary font-black text-xs uppercase tracking-[0.2em] hover:bg-primary hover:text-on-primary transition-all flex items-center justify-center gap-2">
+                <button className="w-full mt-6 py-4 rounded-2xl bg-surface-subtle text-foreground-secondary font-black text-xs uppercase tracking-wide hover:bg-primary hover:text-on-primary transition-all flex items-center justify-center gap-2">
                   View Profile Detail
                   <ChevronRight size={14} aria-hidden="true" />
                 </button>
               </motion.div>
             ))}
             {customers.length === 0 && (
-              <div className="col-span-full py-20 text-center text-foreground-muted font-bold italic uppercase tracking-widest">
+              <div className="col-span-full py-20 text-center text-foreground-muted font-bold italic uppercase tracking-wide">
                 No customers found matching your criteria
               </div>
             )}

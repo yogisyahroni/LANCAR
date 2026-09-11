@@ -111,11 +111,11 @@ export default function AuditLogs() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-border bg-surface/[0.02]">
-                <th scope="col" className="px-8 py-6 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Timestamp</th>
-                <th scope="col" className="px-8 py-6 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Entity / Key</th>
-                <th scope="col" className="px-8 py-6 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Action</th>
-                <th scope="col" className="px-8 py-6 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Changed By</th>
-                <th scope="col" className="px-8 py-6 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Reason</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-wide">Timestamp</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-wide">Entity / Key</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-wide">Action</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-wide">Changed By</th>
+                <th scope="col" className="px-8 py-6 text-xs font-black text-foreground-muted uppercase tracking-wide">Reason</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -133,7 +133,7 @@ export default function AuditLogs() {
                     <td className="px-8 py-6">
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-foreground-muted">{format(new Date(log.created_at), 'MMM dd, HH:mm:ss')}</span>
-                        <span className="text-[10px] text-foreground-muted font-medium">{format(new Date(log.created_at), 'yyyy')}</span>
+                        <span className="text-xs text-foreground-muted font-medium">{format(new Date(log.created_at), 'yyyy')}</span>
                       </div>
                     </td>
                     <td className="px-8 py-6">
@@ -158,13 +158,13 @@ export default function AuditLogs() {
                         </div>
                         <div className="flex flex-col">
                           <span className="text-sm font-mono font-black text-foreground-muted tracking-tight">{log.key}</span>
-                          <span className="text-[10px] text-foreground-muted font-bold uppercase tracking-wider">{log.category || 'uncategorized'}</span>
+                          <span className="text-xs text-foreground-muted font-bold uppercase tracking-wide">{log.category || 'uncategorized'}</span>
                         </div>
                       </div>
                     </td>
                     <td className="px-8 py-6">
                       <span className={cn(
-                        "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                        "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide",
                         log.is_enabled ? "bg-success-surface text-success" : "bg-error-surface text-error"
                       )}>
                         {log.is_enabled ? (log.key.includes(':') ? 'ACTION COMPLETED' : 'ENABLED') : 'DISABLED / REJECTED'}
@@ -186,7 +186,7 @@ export default function AuditLogs() {
                             {log.updated_by_name || 'Automated System'}
                           </span>
                           {log.updated_by_name && (
-                            <span className="text-[10px] text-foreground-muted font-bold uppercase tracking-widest">Administrator</span>
+                            <span className="text-xs text-foreground-muted font-bold uppercase tracking-wide">Administrator</span>
                           )}
                         </div>
                       </div>
@@ -201,7 +201,7 @@ export default function AuditLogs() {
                   <td colSpan={5} className="px-8 py-20 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <AlertCircle size={40} className="text-foreground-muted" aria-hidden="true" />
-                      <p className="text-foreground-muted font-bold uppercase tracking-widest text-xs">No audit logs found matching filters.</p>
+                      <p className="text-foreground-muted font-bold uppercase tracking-wide text-xs">No audit logs found matching filters.</p>
                     </div>
                   </td>
                 </tr>
