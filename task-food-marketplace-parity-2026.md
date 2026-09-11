@@ -3156,6 +3156,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S ICON-2026-003 now also has source-level coverage for direct icon-only destructive actions, protecting conditional/reused components beyond rendered fixture routes. The guard found and the UI now labels DisputeChat image-preview removal, Analytics scheduled-report deletion, Courier suspension, HR job deletion and Admin team-member removal with visible `Remove`, `Delete` or `Suspend` verbs beside their Lucide icons. The iconography guard passes for both source roots, and the affected Admin representative/registered Light/Dark/System route slice passes `20/20`; full page-title/action vocabulary, destructive confirmation/impact coverage, custom-SVG exception, visual and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-006 map alternatives were extended beyond keyboard zoom controls. LiveMap now exposes online/offline courier and active-order counts; Analytics demand density exposes loaded point count plus latitude/longitude/weight values; Zones map editor exposes loaded zone count and selected-zone state through `aria-describedby` summaries. The populated Analytics heat-data proof passes `1/1`, and the affected dashboard/analytics/zones representative and registered Light/Dark/System axe slice passes `16/16`; full dense-table state matrix, provider-basemap contrast, dynamic map loading/error states, visual and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

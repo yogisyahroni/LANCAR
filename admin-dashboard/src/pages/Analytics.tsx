@@ -785,7 +785,9 @@ export default function Analytics() {
               aria-describedby="demand-density-map-summary"
             >
               <p id="demand-density-map-summary" className="sr-only">
-                Demand density map. Operational status is also provided by the visible map status label and the data state message.
+                Demand density map. {hasRows(heatData)
+                  ? `${heatData.length} titik demand tersedia. ${heatData.map((point: any, index: number) => `Titik ${index + 1}: latitude ${point.lat ?? '—'}, longitude ${point.lng ?? '—'}, weight ${point.weight ?? 1}`).join('; ')}`
+                  : 'Belum ada titik demand density.'} Operational status is also provided by the visible map status label and the data state message.
               </p>
               <MapContainer
                 center={[-6.2088, 106.8456]}

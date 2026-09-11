@@ -161,7 +161,10 @@ export default function LiveMap() {
     : resolvedTheme === 'dark' ? CARTO_DARK_ATTRIBUTION : CARTO_LIGHT_ATTRIBUTION
 
   return (
-    <div role="region" aria-label="Peta kurir dan order aktif" className="h-full w-full rounded-2xl overflow-hidden relative border border-border shadow-2xl">
+    <div role="region" aria-label="Peta kurir dan order aktif" aria-describedby="live-map-summary" className="h-full w-full rounded-2xl overflow-hidden relative border border-border shadow-2xl">
+      <p id="live-map-summary" className="sr-only">
+        Peta kurir dan order aktif. {onlineCourierCount} kurir online, {offlineCourierCount} kurir tidak aktif, dan {activeOrders.length} order aktif. Status titik tersedia melalui popup peta dan ringkasan ini.
+      </p>
       <MapContainer
         center={center}
         zoom={13}

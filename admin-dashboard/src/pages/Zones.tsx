@@ -294,7 +294,10 @@ export default function Zones() {
         </div>
 
         {/* Right: Map Area */}
-        <div className="lg:col-span-8 glass-card rounded-[48px] border-border overflow-hidden relative h-[700px] min-h-[700px] bg-background">
+        <div className="lg:col-span-8 glass-card rounded-[48px] border-border overflow-hidden relative h-[700px] min-h-[700px] bg-background" role="region" aria-label="Zone map editor" aria-describedby="zones-map-summary">
+          <p id="zones-map-summary" className="sr-only">
+            Zone map editor. {Array.isArray(zones) ? `${zones.length} zone polygon${zones.length === 1 ? '' : 's'} loaded.` : 'Zone data is loading.'} {selectedZone?.name ? `Selected zone: ${selectedZone.name}.` : 'No zone is selected.'} Polygon selection and drawing state are also represented by the visible editor controls.
+          </p>
           <MapContainer
             center={mapCenter}
             zoom={13}

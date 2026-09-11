@@ -302,6 +302,7 @@ test('analytics chart summaries expose direct values for keyboard and assistive 
       '/api/v1/admin/analytics/sla': [{ name: '09 Sep', south: 90, central: 95, west: 88 }],
       '/api/v1/admin/analytics/surge': [{ time: '08:00', frequency: 12, impact: 1.4 }],
       '/api/v1/admin/analytics/scan-accuracy': [{ confidence: 'High', count: 8 }],
+      '/api/v1/admin/analytics/heat-data': [{ lat: -6.2, lng: 106.8, weight: 3 }],
     }
     if (pathname in fixtures) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixtures[pathname]) })
@@ -314,9 +315,12 @@ test('analytics chart summaries expose direct values for keyboard and assistive 
   await expect(page.locator('#sla-chart-summary')).toContainText('09 Sep: South 90%, Central 95%, West 88%')
   await expect(page.locator('#surge-chart-summary')).toContainText('08:00: frequency 12, impact 1.4')
   await expect(page.locator('#accuracy-chart-summary')).toContainText('High: 8')
+  await expect(page.locator('#demand-density-map-summary')).toContainText('1 titik demand tersedia')
+  await expect(page.locator('#demand-density-map-summary')).toContainText('Titik 1: latitude -6.2, longitude 106.8, weight 3')
   await expect(page.locator('[aria-label="Grafik persentase SLA per wilayah"]')).toHaveAttribute('aria-describedby', 'sla-chart-summary')
   await expect(page.locator('[aria-label="Grafik frekuensi dan dampak surge"]')).toHaveAttribute('aria-describedby', 'surge-chart-summary')
   await expect(page.locator('[aria-label="Histogram reliabilitas hasil scan"]')).toHaveAttribute('aria-describedby', 'accuracy-chart-summary')
+  await expect(page.locator('[aria-label="Demand density map"]')).toHaveAttribute('aria-describedby', 'demand-density-map-summary')
 })
 
 test('operational status surfaces expose readable labels and supplemental icons @a11y', async ({ page }) => {
