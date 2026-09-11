@@ -343,6 +343,23 @@ test('live and zone maps keep visible controls and operational summaries in both
     await expect(page.getByText('TomTom Maps aktif, tetapi browser key runtime belum tersedia. Admin memakai fallback map sementara.')).toBeVisible()
     await expect(controls.getByRole('button', { name: 'Zoom in map' })).toBeVisible()
     await expect.poll(() => controls.evaluate((element) => getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/)
+    await page.locator('.leaflet-marker-icon').first().dispatchEvent('click')
+    const popupColors = await page.locator('.leaflet-popup-content-wrapper').evaluate((element) => {
+      const parse = (value: string) => value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)?.slice(1).map(Number) ?? []
+      const luminance = (value: string) => {
+        const channels = parse(value).map((channel) => channel / 255).map((channel) => (channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4))
+        return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+      }
+      const style = getComputedStyle(element)
+      const contentStyle = getComputedStyle(element.querySelector('.leaflet-popup-content') as HTMLElement)
+      const foreground = luminance(contentStyle.color)
+      const background = luminance(style.backgroundColor)
+      return { background: style.backgroundColor, text: contentStyle.color, ratio: (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05) }
+    })
+    await expect(page.locator('.leaflet-popup-content-wrapper')).toBeVisible()
+    expect(popupColors.background).toMatch(/^rgb\(/)
+    expect(popupColors.text).toMatch(/^rgb\(/)
+    expect(popupColors.ratio).toBeGreaterThanOrEqual(4.5)
   }
 
   await page.goto('/zones', { waitUntil: 'domcontentloaded' })

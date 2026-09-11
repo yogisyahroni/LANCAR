@@ -3503,7 +3503,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 **Maps**
 - [x] Map controls, zoom buttons, markers and overlays remain visible in both themes. Evidence: `docs/task-evidence/A11Y-2026-006.md` (Light/Dark fixture proves live courier marker, zone polygon, labeled zoom controls and TomTom fallback overlay).
 - [x] Operational state is also available outside the map when map color/style alone would hide information. Evidence: `docs/task-evidence/A11Y-2026-006.md` (LiveMap, Analytics demand-density and Zones expose linked textual summaries/status outside the map).
-- [ ] Provider/map basemap dark mode does not reduce overlay label contrast below usable level.
+- [x] Provider/map basemap dark mode does not reduce overlay label contrast below usable level. Evidence: `docs/task-evidence/A11Y-2026-006.md` (Leaflet popup/tip/close surfaces use semantic tokens and Light/Dark fixture measures popup contrast >=4.5:1 independently of the active provider tile).
 
 ---
 

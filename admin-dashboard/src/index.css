@@ -257,6 +257,20 @@ main dd a {
   box-shadow: 0 10px 24px rgb(20 33 26 / 0.08);
 }
 
+.leaflet-container .leaflet-popup-content-wrapper,
+.leaflet-container .leaflet-popup-tip {
+  background: var(--token-surface-raised);
+  color: var(--token-foreground);
+}
+
+.leaflet-container .leaflet-popup-content {
+  color: var(--token-foreground);
+}
+
+.leaflet-container .leaflet-popup-close-button {
+  color: var(--token-foreground-muted);
+}
+
 .dark .glass-card {
   box-shadow: 0 14px 30px rgb(0 0 0 / 0.3);
 }
