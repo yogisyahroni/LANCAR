@@ -4047,12 +4047,12 @@ Known cleanup:
 ## DS-2026-009 — Iconography, illustration and media governance for mobile super-app [P1]
 
 **Checklist**
-- [ ] Android functional icons use one approved family/style; decorative 3D/service illustrations are not used as replacements for critical action icons.
-- [ ] Five primary services have distinct canonical icon + label mapping across Home, history, detail and notifications.
-- [ ] Marketing campaign art can change remotely but must respect safe aspect ratios/text zones/accessibility fallback.
-- [ ] Define image aspect-ratio presets for hero banner, merchant card, sponsored card, category tile, campaign intro and empty state.
-- [ ] Define low-bandwidth/static fallback for animated creative.
-- [ ] External merchant creative cannot upload arbitrary UI-like fake buttons, system dialogs or misleading notification treatments.
+- [x] Android functional icons use one approved family/style; decorative 3D/service illustrations are not used as replacements for critical action icons.
+- [x] Five primary services have distinct canonical icon + label mapping across Home, history, detail and notifications.
+- [x] Marketing campaign art can change remotely but must respect safe aspect ratios/text zones/accessibility fallback.
+- [x] Define image aspect-ratio presets for hero banner, merchant card, sponsored card, category tile, campaign intro and empty state.
+- [x] Define low-bandwidth/static fallback for animated creative.
+- [x] External merchant creative cannot upload arbitrary UI-like fake buttons, system dialogs or misleading notification treatments.
 
 ---
 
