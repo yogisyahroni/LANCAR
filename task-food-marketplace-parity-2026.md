@@ -3150,6 +3150,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-006 Analytics chart alternatives were strengthened: SLA, surge and scan-accuracy `aria-describedby` summaries now include direct values from the loaded chart rows, covering the keyboard/assistive-technology equivalent when pointer tooltips are unavailable. Populated chart proof passes `1/1`, the affected `/analytics` and `/app-experience/analytics` axe slice passes `4/4`, and Admin typecheck/ESLint pass. Full chart state, map/provider, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-005 status/disabled coverage was extended on Customer Payment Links. Paid, pending and expired fixtures now render in both themes with visible status text, semantic decorative-hidden icons and themed surfaces; paid status uses `success-surface`, and paid/expired copy actions retain the `opacity-60` + `not-allowed` disabled cue while pending remains enabled. The targeted Light/Dark state proof passes `1/1`, populated payment-link axe coverage passes `2/2`, and Customer typecheck/ESLint pass. Full dynamic status/notification/destructive-workflow matrix, composited contrast and visual/manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

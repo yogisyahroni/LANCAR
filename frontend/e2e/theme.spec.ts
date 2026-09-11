@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-async function installCustomerSessionFixture(page: Page, options: { orders?: Array<Record<string, unknown>>, detailOrder?: Record<string, unknown>, carrierEvents?: Array<Record<string, unknown>>, disputes?: Array<Record<string, unknown>> } = {}) {
+async function installCustomerSessionFixture(page: Page, options: { orders?: Array<Record<string, unknown>>, detailOrder?: Record<string, unknown>, carrierEvents?: Array<Record<string, unknown>>, disputes?: Array<Record<string, unknown>>, paymentLinks?: Array<Record<string, unknown>> } = {}) {
   await page.context().addCookies([
     { name: 'tembus_web_session', value: 'theme-customer-fixture', domain: 'localhost', path: '/' },
   ])
@@ -21,6 +21,10 @@ async function installCustomerSessionFixture(page: Page, options: { orders?: Arr
     }
     if (/\/auth\/web\/orders\/[^/]+$/.test(new URL(url).pathname)) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, order: options.detailOrder, carrier_events: options.carrierEvents ?? [] }) })
+      return
+    }
+    if ((request.resourceType() === 'xhr' || request.resourceType() === 'fetch') && new URL(url).pathname.endsWith('/payment-links')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: options.paymentLinks ?? [] }) })
       return
     }
     if (url.includes('/auth/web/disputes')) {
@@ -261,6 +265,42 @@ test('Customer receipt status keeps the same readable status contract @a11y', as
   const carrierStatus = page.getByLabel('Status carrier: IN TRANSIT')
   await expect(carrierStatus).toBeVisible()
   await expect(carrierStatus.locator('svg')).toHaveAttribute('aria-hidden', 'true')
+})
+
+test('Customer payment-link states retain status meaning and disabled readability in both themes @a11y', async ({ page }) => {
+  await installCustomerSessionFixture(page, {
+    paymentLinks: [
+      { id: 'PAYMENT-LINK-PAID', status: 'PAID', item_name: 'Paid Fixture', delivery_fee_amount: 2500, dropoff_address: 'Jakarta', expired_at: '2026-12-31T23:59:59.000Z', payment_url: 'https://example.test/paid' },
+      { id: 'PAYMENT-LINK-PENDING', status: 'PENDING', item_name: 'Pending Fixture', delivery_fee_amount: 3500, dropoff_address: 'Depok', expired_at: '2026-12-31T23:59:59.000Z', payment_url: 'https://example.test/pending' },
+      { id: 'PAYMENT-LINK-EXPIRED', status: 'EXPIRED', item_name: 'Expired Fixture', delivery_fee_amount: 4500, dropoff_address: 'Bekasi', expired_at: '2026-01-01T00:00:00.000Z', payment_url: 'https://example.test/expired' },
+    ],
+  })
+  await page.goto('/payment-links', { waitUntil: 'domcontentloaded' })
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((selectedTheme) => window.localStorage.setItem('tembus-theme', selectedTheme), theme)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+
+    for (const label of ['Sudah dibayar', 'Menunggu pembayaran', 'Kedaluwarsa']) {
+      const badge = page.getByLabel(`Status payment link: ${label}`)
+      await expect(badge).toBeVisible()
+      await expect(badge.locator('svg')).toHaveAttribute('aria-hidden', 'true')
+      const colors = await badge.evaluate((element) => {
+        const style = getComputedStyle(element)
+        return { color: style.color, background: style.backgroundColor }
+      })
+      expect(colors.color).not.toBe('rgba(0, 0, 0, 0)')
+      expect(colors.background).not.toBe('rgba(0, 0, 0, 0)')
+    }
+
+    const copyButtons = page.getByRole('button', { name: 'Copy Link' })
+    await expect(copyButtons).toHaveCount(3)
+    await expect(copyButtons.nth(0)).toBeDisabled()
+    await expect(copyButtons.nth(0)).toHaveCSS('opacity', '0.6')
+    await expect(copyButtons.nth(0)).toHaveCSS('cursor', 'not-allowed')
+    await expect(copyButtons.nth(1)).toBeEnabled()
+    await expect(copyButtons.nth(2)).toBeDisabled()
+  }
 })
 
 test('Customer order detail carrier status exposes label and icon semantics @a11y', async ({ page }) => {

@@ -190,7 +190,7 @@ export default function PaymentLinksPage() {
                       data-status-badge="true"
                       className={cn(
                       "inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold",
-                      isPaid ? "bg-success/10 text-success dark:text-success" :
+                      isPaid ? "bg-success-surface text-success dark:text-success" :
                       isExpired ? "bg-error-surface text-error dark:text-error" : "bg-warning-surface text-warning dark:text-warning"
                     )}>
                       {isPaid ? <CheckCircle2 size={12} aria-hidden="true" /> : isExpired ? <AlertCircle size={12} aria-hidden="true" /> : <Clock size={12} aria-hidden="true" />}
