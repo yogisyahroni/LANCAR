@@ -3911,22 +3911,23 @@ Known cleanup:
 ## DS-2026-004 — Commerce + marketplace component family [P1]
 
 **Recommended Customer Android components**
-- `.../designsystem/commerce/MerchantCard.kt`
-- `.../designsystem/commerce/MenuItemCard.kt`
-- `.../designsystem/commerce/PromoCard.kt`
-- `.../designsystem/commerce/SponsoredMerchantCard.kt`
-- `.../designsystem/commerce/RatingSummary.kt`
-- `.../designsystem/commerce/EtaDistanceRow.kt`
-- `.../designsystem/commerce/PriceSummary.kt`
-- `.../designsystem/commerce/VoucherChip.kt`
-- `.../designsystem/commerce/CartBar.kt`
-- `.../designsystem/commerce/SponsoredLabel.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/commerce/TembusCommerce.kt`
+- `frontend/src/components/design-system/TembusCommerce.tsx`
+- `docs/design/tembus-commerce-component-family-2026.md`
+
+**Status:** COMPLETE
+
+**Evidence:** `docs/task-evidence/DS-2026-004.md`
+
+**Implementation:** `926340e5`
+
+**Last updated:** 2026-09-11
 
 **Checklist**
-- [ ] Organic `MerchantCard` dan Sponsored variant berbagi content anatomy; Sponsored selalu menambahkan disclosure yang tidak bisa dimatikan oleh merchant creative.
-- [ ] Rating, distance, ETA, open/closed, halal, delivery fee berasal dari authoritative/source-defined data, bukan ad payload.
-- [ ] Promo discount badge tidak berarti sponsored dan Sponsored label tidak berarti merchant sedang memberi discount.
-- [ ] Image aspect, text truncation, fallback image, favorite button dan accessibility semantics distandarkan.
+- [x] Organic `MerchantCard` dan Sponsored variant berbagi content anatomy; Sponsored selalu menambahkan disclosure yang tidak bisa dimatikan oleh merchant creative.
+- [x] Rating, distance, ETA, open/closed, halal, delivery fee berasal dari authoritative/source-defined data, bukan ad payload.
+- [x] Promo discount badge tidak berarti sponsored dan Sponsored label tidak berarti merchant sedang memberi discount.
+- [x] Image aspect, text truncation, fallback image, favorite button dan accessibility semantics distandarkan.
 
 ---
 
