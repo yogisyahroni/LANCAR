@@ -240,7 +240,7 @@ export default function LiveMap() {
             <button
               type="button"
               onClick={() => setMapThemeOverride('dark')}
-              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${
+              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wide transition-all active:scale-[0.98] ${
                 mapTheme === 'dark'
                   ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
                   : 'text-foreground-secondary hover:bg-surface-subtle hover:text-foreground'
@@ -252,7 +252,7 @@ export default function LiveMap() {
             <button
               type="button"
               onClick={() => setMapThemeOverride('light')}
-              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${
+              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wide transition-all active:scale-[0.98] ${
                 mapTheme === 'light'
                   ? 'bg-surface text-foreground-muted shadow-lg shadow-surface-raised'
                   : 'text-foreground-muted hover:bg-surface-subtle hover:text-foreground-muted'

@@ -696,7 +696,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                         <span className="text-xs font-bold text-foreground-muted truncate" title={`${recipient.full_name === recipient.id ? recipient.id : recipient.full_name}${recipient.full_name !== recipient.id ? ` ${recipient.id}` : ''}`}>
                           {recipient.full_name === recipient.id ? recipient.id : recipient.full_name}
                           {recipient.full_name !== recipient.id && (
-                            <span className="ml-2 text-[10px] text-foreground-muted font-mono">{recipient.id}</span>
+                            <span className="ml-2 text-xs text-foreground-muted font-mono">{recipient.id}</span>
                           )}
                         </span>
                         <button

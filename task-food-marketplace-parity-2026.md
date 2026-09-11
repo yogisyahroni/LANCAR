@@ -3134,6 +3134,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Admin performance, safety, dashboard, merchant settlement and shared case timeline surfaces were audited for Part S across performance table headers/IDs, safety severity/evidence states, dashboard activity metadata, settlement helper text and case event timestamps. Remaining sub-12px labels and extreme tracking were raised to the shared readable `text-xs`/restrained-tracking hierarchy; existing visible status/icon meaning and table semantics remain intact. The affected axe slice passes `14/14`, reflow/text-spacing passes `17/17`, typecheck/ESLint/iconography/table/diff guards pass. Full dynamic state, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Admin App Experience media/targeting components, LiveMap, Experience Assets and Broadcast Composer were audited for Part S across asset detail/picker metadata, contrast/mode controls, kill-switch confirmation, revision audit trail, targeting summaries, map controls and recipient metadata. Remaining sub-12px labels and extreme tracking were raised to the shared readable `text-xs`/`tracking-wide` hierarchy; identifiers remain scoped data presentation. The selected App Experience/Broadcast axe coverage passes `56/56`, reflow/text-spacing passes `56/56`, and typecheck/ESLint/iconography/table/diff guards pass. Full dynamic state, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

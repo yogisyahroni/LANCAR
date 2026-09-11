@@ -214,7 +214,7 @@ export default function ExperienceAssets({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.32em] text-primary-light">
+          <p className="text-xs font-black uppercase tracking-wide text-primary-light">
             Presentation source of truth
           </p>
           <h1 className="mt-2 text-3xl font-black text-foreground-muted">
@@ -257,7 +257,7 @@ export default function ExperienceAssets({
             >
               Scoped references
             </h2>
-            <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+            <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">
               {visibleAssets.length}/{assets.length}
             </span>
           </div>
@@ -324,10 +324,10 @@ export default function ExperienceAssets({
                     className="shrink-0"
                   />
                 </div>
-                <p className="mt-2 truncate text-[10px] text-foreground-muted" title={`${asset.content_type || asset.kind} · v${asset.version || "1"}`}>
+                <p className="mt-2 truncate text-xs text-foreground-muted" title={`${asset.content_type || asset.kind} · v${asset.version || "1"}`}>
                   {asset.content_type || asset.kind} · v{asset.version || "1"}
                 </p>
-                <p className="mt-1 text-[10px] text-foreground-muted">
+                <p className="mt-1 text-xs text-foreground-muted">
                   {asset.usages.length} usage refs ·{" "}
                   {asset.width && asset.height
                     ? `${asset.width}×${asset.height}`

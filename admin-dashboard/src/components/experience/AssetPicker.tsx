@@ -46,11 +46,11 @@ export default function AssetPicker({ value, onChange, disabled = false, focusAs
           <h3 id="asset-picker-title" className="text-sm font-black uppercase tracking-wider text-foreground-muted">Asset references</h3>
           <p className="mt-1 text-xs text-foreground-muted">Use a first-party HTTPS/CDN URL and declare delivery metadata. The server and customer app verify it before caching.</p>
         </div>
-        <button type="button" disabled={disabled} onClick={() => onChange([...value, newAsset(value.length)])} className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary-light disabled:opacity-60"><Plus size={14} aria-hidden="true" /> Add</button>
+        <button type="button" disabled={disabled} onClick={() => onChange([...value, newAsset(value.length)])} className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-black uppercase tracking-wide text-primary-light disabled:opacity-60"><Plus size={14} aria-hidden="true" /> Add</button>
       </div>
       {value.length === 0 ? <p className="mt-4 rounded-xl border border-dashed border-border p-4 text-xs text-foreground-muted">No assets. Components without media can be published safely.</p> : <div className="mt-4 space-y-3">
         {value.map((asset, index) => <div key={`${asset.asset_id}-${index}`} className={`rounded-xl border p-3 ${asset.asset_id === focusAssetId ? 'border-accent bg-accent-surface' : 'border-border bg-surface/[0.03]'}`}>
-          {asset.asset_id === focusAssetId ? <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-accent">Offending asset linked from overview</p> : null}
+          {asset.asset_id === focusAssetId ? <p className="mb-3 text-xs font-black uppercase tracking-wide text-accent">Offending asset linked from overview</p> : null}
           <div className="grid gap-3 md:grid-cols-[1fr_2fr_130px_1fr_auto]">
             <label className="text-xs font-bold tracking-wide text-foreground-muted">ID<input className={inputClass} disabled={disabled} value={asset.asset_id} onChange={(event) => update(index, { asset_id: event.target.value })} /></label>
             <label className="text-xs font-bold tracking-wide text-foreground-muted">HTTPS URI<input className={inputClass} disabled={disabled} value={asset.uri} onChange={(event) => update(index, { uri: event.target.value })} placeholder="https://cdn.example.com/banner.webp" /></label>
@@ -71,7 +71,7 @@ export default function AssetPicker({ value, onChange, disabled = false, focusAs
             <label className="text-xs font-bold tracking-wide text-foreground-muted">Fallback asset ID<input className={inputClass} disabled={disabled} value={asset.fallback_asset_id || ''} onChange={(event) => update(index, { fallback_asset_id: event.target.value.trim() || null })} placeholder="lighter-webp" /></label>
             <label className="text-xs font-bold tracking-wide text-foreground-muted">Expires at<input type="datetime-local" className={inputClass} disabled={disabled} value={toDateTimeInput(asset.expires_at)} onChange={(event) => update(index, { expires_at: toIsoDate(event.target.value) })} /></label>
           </div>
-          <p className="mt-2 text-[10px] text-foreground-muted">A fallback is selected on metered/data-saver networks; an expired or unverifiable asset makes the affected campaign ineligible.</p>
+          <p className="mt-2 text-xs text-foreground-muted">A fallback is selected on metered/data-saver networks; an expired or unverifiable asset makes the affected campaign ineligible.</p>
         </div>)}
       </div>}
     </section>
