@@ -148,6 +148,12 @@ async function assertVisibleInteractiveNames(page: Page) {
         }));
     });
 
+    const iconOnlyControlsWithoutTooltip = controls
+      .filter((element) => element.tagName === 'BUTTON' || element.getAttribute('role') === 'button')
+      .filter((element) => !visibleLabel(element) && element.querySelector('svg, img'))
+      .filter((element) => !element.getAttribute('title')?.trim())
+      .map((element) => ({ html: element.outerHTML.slice(0, 220) }));
+
     const semanticFindings = {
       unnamedGraphics: Array.from(document.querySelectorAll<HTMLElement>('[role="img"]'))
         .filter(visible)
@@ -190,12 +196,13 @@ async function assertVisibleInteractiveNames(page: Page) {
         .map((element) => ({ html: element.outerHTML.slice(0, 180) })),
     };
 
-    return { unnamed, labelMismatches, interactiveIconFindings, semanticFindings };
+    return { unnamed, labelMismatches, interactiveIconFindings, iconOnlyControlsWithoutTooltip, semanticFindings };
   });
 
   expect(findings.unnamed, JSON.stringify(findings.unnamed)).toEqual([]);
   expect(findings.labelMismatches, JSON.stringify(findings.labelMismatches)).toEqual([]);
   expect(findings.interactiveIconFindings, JSON.stringify(findings.interactiveIconFindings)).toEqual([]);
+  expect(findings.iconOnlyControlsWithoutTooltip, JSON.stringify(findings.iconOnlyControlsWithoutTooltip)).toEqual([]);
   expect(findings.semanticFindings, JSON.stringify(findings.semanticFindings)).toEqual({
     unnamedGraphics: [],
     unnamedLiveRegions: [],

@@ -1228,7 +1228,9 @@ export default function MapsRuntime() {
                           'rounded-full p-1 transition-all duration-200 active:scale-[0.98]',
                           policy.enabled ? 'text-success hover:bg-success-surface' : 'text-foreground-muted hover:bg-surface-subtle'
                         )}
-                        aria-label={`Toggle ${scope.title}`}
+                        aria-label={`${policy.enabled ? 'Disable' : 'Enable'} ${scope.title}`}
+                        aria-pressed={policy.enabled}
+                        title={`${policy.enabled ? 'Disable' : 'Enable'} ${scope.title}`}
                       >
                         {policy.enabled ? <ToggleRight className="h-8 w-8" aria-hidden="true" /> : <ToggleLeft className="h-8 w-8" aria-hidden="true" />}
                       </button>
