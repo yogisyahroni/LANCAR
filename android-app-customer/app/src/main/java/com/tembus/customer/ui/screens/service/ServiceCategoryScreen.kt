@@ -1,25 +1,14 @@
 package com.tembus.customer.ui.screens.service
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material.icons.filled.TwoWheeler
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,13 +18,14 @@ import com.tembus.customer.ui.localization.CustomerText as Text
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.designsystem.service.TembusParcelIdentity
+import com.tembus.customer.ui.designsystem.service.TembusServiceIdentityCard
+import com.tembus.customer.ui.designsystem.service.TembusTireRepairIdentity
+import com.tembus.customer.ui.designsystem.service.TembusTowingIdentity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,29 +53,20 @@ fun ServiceCategoryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Antar Barang
-            ServiceCategoryCard(
-                icon = Icons.Default.LocalShipping,
-                title = "Antar Barang",
-                description = "Kirim paket dari satu titik ke lain",
-                color = MaterialTheme.colorScheme.primaryContainer,
+            TembusServiceIdentityCard(
+                identity = TembusParcelIdentity,
                 onClick = { onCategorySelected("on_demand") }
             )
             
             // Tambal Ban
-            ServiceCategoryCard(
-                icon = Icons.Default.TwoWheeler,
-                title = "Tambal Ban",
-                description = "Perbaikan ban di lokasi Anda",
-                color = MaterialTheme.colorScheme.secondaryContainer,
+            TembusServiceIdentityCard(
+                identity = TembusTireRepairIdentity,
                 onClick = { onCategorySelected("tambal_ban") }
             )
             
             // Towing
-            ServiceCategoryCard(
-                icon = Icons.Default.DirectionsCar,
-                title = "Towing / Derek",
-                description = "Angkut kendaraan ke lokasi tujuan",
-                color = MaterialTheme.colorScheme.tertiaryContainer,
+            TembusServiceIdentityCard(
+                identity = TembusTowingIdentity,
                 onClick = { onCategorySelected("towing") }
             )
             
@@ -96,55 +77,6 @@ fun ServiceCategoryScreen(
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
-}
-
-@Composable
-private fun ServiceCategoryCard(
-    icon: ImageVector,
-    title: String,
-    description: String,
-    color: androidx.compose.ui.graphics.Color,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(TembusRadius.Card),
-        colors = CardDefaults.cardColors(containerColor = color),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                icon,
-                contentDescription = "",
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurface
-            )
-            
-            Spacer(Modifier.width(16.dp))
-            
-            Column {
-                Text(
-                    title,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    description,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }

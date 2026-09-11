@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.designsystem.service.TembusParcelIdentity
+import com.tembus.customer.ui.designsystem.service.TembusServiceIdentityCard
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -54,6 +56,9 @@ internal fun BookingStepContent(
         contentPadding = PaddingValues(top = 14.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        item {
+            TembusServiceIdentityCard(identity = TembusParcelIdentity)
+        }
         item {
             BookingProgressPills(
                 state = state,

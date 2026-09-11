@@ -1,10 +1,8 @@
 package com.tembus.customer.ui.screens.service
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,12 +37,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.ui.components.CourierPriceCard
+import com.tembus.customer.ui.designsystem.service.TembusServiceEmptyState
+import com.tembus.customer.ui.designsystem.service.TembusServiceIdentityCard
+import com.tembus.customer.ui.designsystem.service.TembusTireRepairIdentity
 import com.tembus.customer.ui.theme.TembusRadius
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,9 +74,11 @@ fun TambalBanSearchScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
+            .padding(padding)
+            .padding(16.dp)
         ) {
+            TembusServiceIdentityCard(identity = TembusTireRepairIdentity)
+            Spacer(Modifier.height(12.dp))
             // Search field
             OutlinedTextField(
                 value = query,
@@ -102,7 +103,7 @@ fun TambalBanSearchScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(TembusRadius.Input),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF00AED6),
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline
                 )
             )
@@ -124,9 +125,9 @@ fun TambalBanSearchScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        "Ketik nama teknisi untuk mencari",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    TembusServiceEmptyState(
+                        title = "Cari teknisi",
+                        message = "Ketik nama teknisi untuk mencari bantuan di sekitar lokasi Anda.",
                     )
                 }
 
@@ -134,19 +135,10 @@ fun TambalBanSearchScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🔍", fontSize = 40.sp)
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Tidak ada teknisi \"$query\"",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "Coba kata kunci lain atau perbesar radius",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    TembusServiceEmptyState(
+                        title = "Teknisi tidak ditemukan",
+                        message = "Tidak ada teknisi \"$query\". Coba kata kunci lain atau perbesar radius.",
+                    )
                 }
 
                 else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -23,7 +23,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -54,6 +53,20 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.tembus.customer.ui.components.VehicleDetailInput
+import com.tembus.customer.ui.designsystem.logistics.TembusAddressData
+import com.tembus.customer.ui.designsystem.logistics.TembusQuoteBreakdown
+import com.tembus.customer.ui.designsystem.logistics.TembusQuoteBreakdownData
+import com.tembus.customer.ui.designsystem.logistics.TembusQuoteLine
+import com.tembus.customer.ui.designsystem.logistics.TembusRouteSummary
+import com.tembus.customer.ui.designsystem.logistics.TembusRouteSummaryData
+import com.tembus.customer.ui.designsystem.logistics.TembusSafetyNotice
+import com.tembus.customer.ui.designsystem.logistics.TembusTechnicianCard
+import com.tembus.customer.ui.designsystem.logistics.TembusTechnicianData
+import com.tembus.customer.ui.designsystem.logistics.TembusRequoteApprovalCard
+import com.tembus.customer.ui.designsystem.logistics.TembusRequoteApprovalData
+import com.tembus.customer.ui.designsystem.service.TembusServiceIdentityCard
+import com.tembus.customer.ui.designsystem.service.TembusTireRepairIdentity
+import com.tembus.customer.ui.designsystem.service.TembusTowingIdentity
 import com.tembus.customer.ui.theme.TembusRadius
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -147,6 +160,16 @@ fun ServiceBookingScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
+            TembusServiceIdentityCard(
+                identity = if (isTowing) TembusTowingIdentity else TembusTireRepairIdentity
+            )
+            if (isTowing) {
+                TembusSafetyNotice(
+                    message = "Pastikan kendaraan berada di lokasi aman, tujuan dropoff benar, dan kondisi kendaraan sesuai detail sebelum petugas berangkat."
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+
             // Vehicle detail input
             VehicleDetailInput(
                 serviceSubType = serviceSubType,
@@ -350,42 +373,15 @@ fun ServiceBookingScreen(
 
             // Selected courier (dari "Pilih Petugas")
             if (courierId != null) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(TembusRadius.Card),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                TembusTechnicianCard(
+                    data = TembusTechnicianData(
+                        name = courierName.ifBlank { "Petugas TEMBUS" },
+                        capabilityLabel = formatServiceName(serviceSubType),
+                        etaLabel = "Petugas dipilih",
+                        ratingLabel = courierRating.takeIf { it > 0 }?.let { "Rating ${"%.1f".format(it)}" },
+                        statusLabel = courierPrice?.takeIf { it > 0 }?.let { "Harga jasa: Rp ${formatRupiah(it)}" },
                     )
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            "Petugas dipilih",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        if (courierName.isNotBlank()) {
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                courierName,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            if (courierRating > 0) {
-                                Text(
-                                    "Rating ${"%.1f".format(courierRating)}",
-                                    fontSize = 13.sp
-                                )
-                            }
-                        }
-                        if (courierPrice != null && courierPrice > 0) {
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "Harga jasa: Rp ${formatRupiah(courierPrice)}",
-                                fontSize = 13.sp
-                            )
-                        }
-                    }
-                }
+                )
                 Spacer(Modifier.height(8.dp))
             } else {
                 // Pilih petugas dulu (wajib untuk tambal ban & towing)
@@ -413,108 +409,57 @@ fun ServiceBookingScreen(
                 }
                 val travelFee = estimate.distanceBase +
                     (estimate.perKmRate * kotlin.math.max(0.0, kotlin.math.ceil(estimate.distanceKm - 1))).toLong()
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(TembusRadius.Card),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text(
-                            if (isTowing) "Estimasi biaya towing" else "Estimasi biaya layanan",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            if (isTowing) "Pembayaran wajib non-tunai lewat aplikasi." else "Pembayaran diproses lewat aplikasi.",
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        Text("Jasa petugas: Rp ${formatRupiah(displayServiceFee)}", fontSize = 14.sp)
-                        Text(
-                            "Biaya perjalanan: Rp ${formatRupiah(travelFee)} (${"%.1f".format(estimate.distanceKm)} km)",
-                            fontSize = 14.sp
-                        )
-                        if (estimate.dynamicPrice > 0) {
-                            Text("Biaya dinamis: Rp ${formatRupiah(estimate.dynamicPrice)}", fontSize = 14.sp)
-                        }
-                        if (estimate.materialCost > 0) {
-                            Text("Material: Rp ${formatRupiah(estimate.materialCost)}", fontSize = 14.sp)
-                        }
-                        if (isTowing) {
-                            Text(
-                                if (estimate.tollCost > 0) "Tol: Rp ${formatRupiah(estimate.tollCost)}" else "Tol: belum termasuk (tarif provider belum tersedia)",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Text("Biaya layanan platform: Rp ${formatRupiah(estimate.platformFee)}", fontSize = 14.sp)
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            "Total estimasi: Rp ${formatRupiah(estimate.totalPrice)}",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        if (isTowing) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "Biaya final dapat disesuaikan admin/support bila ada perubahan rute, tol, atau kondisi kendaraan. Jika dibatalkan setelah petugas berangkat, cancellation fee dapat dikenakan sesuai kebijakan operasional.",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                val route = uiState.rawPriceBreakdown?.routeSnapshot
+                val quoteLines = buildList {
+                    add(TembusQuoteLine("Jasa petugas", "Rp ${formatRupiah(displayServiceFee)}"))
+                    add(TembusQuoteLine("Biaya perjalanan", "Rp ${formatRupiah(travelFee)} (${"%.1f".format(estimate.distanceKm)} km)"))
+                    if (estimate.dynamicPrice > 0) add(TembusQuoteLine("Biaya dinamis", "Rp ${formatRupiah(estimate.dynamicPrice)}"))
+                    if (estimate.materialCost > 0) add(TembusQuoteLine("Material", "Rp ${formatRupiah(estimate.materialCost)}"))
+                    if (isTowing) add(TembusQuoteLine("Tol", if (estimate.tollCost > 0) "Rp ${formatRupiah(estimate.tollCost)}" else "Belum termasuk"))
+                    add(TembusQuoteLine("Biaya layanan platform", "Rp ${formatRupiah(estimate.platformFee)}"))
                 }
+                TembusQuoteBreakdown(
+                    data = TembusQuoteBreakdownData(
+                        title = if (isTowing) "Estimasi biaya towing" else "Estimasi biaya layanan",
+                        lines = quoteLines,
+                        totalLabel = "Rp ${formatRupiah(estimate.totalPrice)}",
+                        providerLabel = route?.provider?.ifBlank { null } ?: "Katalog operasional",
+                    )
+                )
+                Spacer(Modifier.height(8.dp))
+                TembusSafetyNotice(
+                    message = if (isTowing) {
+                        "Pembayaran wajib non-tunai lewat aplikasi. Biaya final dapat berubah jika rute, tol, atau kondisi kendaraan berubah; persetujuan akan diminta sebelum perubahan diterapkan."
+                    } else {
+                        "Pembayaran diproses lewat aplikasi berdasarkan quote server dan detail layanan yang Anda pilih."
+                    }
+                )
 
                 Spacer(Modifier.height(24.dp))
 
                 if (isTowing) {
-                    val route = uiState.rawPriceBreakdown?.routeSnapshot
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(TembusRadius.Card),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f))
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Text("Ringkasan rute towing", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(6.dp))
-                            Text("Pickup: ${uiState.customerAddress.ifBlank { "Lokasi GPS" }}", fontSize = 12.sp)
-                            Text("Tujuan: ${uiState.dropoffAddress}", fontSize = 12.sp)
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                "Operator rute: ${route?.provider?.ifBlank { "Belum tersedia" } ?: "Belum tersedia"} • " +
-                                    "Jarak ${"%.1f".format(estimate.distanceKm)} km",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    TembusRouteSummary(
+                        data = TembusRouteSummaryData(
+                            pickup = TembusAddressData("Pickup kendaraan", uiState.customerAddress.ifBlank { "Lokasi GPS" }),
+                            dropoff = TembusAddressData("Tujuan towing", uiState.dropoffAddress),
+                            distanceLabel = "Jarak ${"%.1f".format(estimate.distanceKm)} km",
+                            providerLabel = route?.provider?.ifBlank { "Belum tersedia" } ?: "Belum tersedia",
+                        )
+                    )
                     Spacer(Modifier.height(16.dp))
                 }
 
                 if (isTowing && uiState.requiresPriceConsent) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = uiState.priceConsent,
-                                onCheckedChange = viewModel::setPriceConsent
-                            )
-                            Text(
-                                "Saya menyetujui kenaikan harga Rp ${formatRupiah(uiState.priceDeltaIdr)} berdasarkan rute/komponen aktual yang ditampilkan server.",
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
+                    TembusRequoteApprovalCard(
+                        data = TembusRequoteApprovalData(
+                            reason = "Saya menyetujui kenaikan harga Rp ${formatRupiah(uiState.priceDeltaIdr)} berdasarkan rute dan komponen aktual yang ditampilkan server.",
+                            originalTotalLabel = "Rp ${formatRupiah((estimate.totalPrice - uiState.priceDeltaIdr).coerceAtLeast(0))}",
+                            newTotalLabel = "Rp ${formatRupiah(estimate.totalPrice)}",
+                            expiresLabel = if (uiState.priceConsent) "Disetujui" else "Persetujuan diperlukan",
+                        ),
+                        onApprove = { viewModel.setPriceConsent(true) },
+                        onReject = { viewModel.setPriceConsent(false) },
+                    )
                     Spacer(Modifier.height(12.dp))
                 }
 

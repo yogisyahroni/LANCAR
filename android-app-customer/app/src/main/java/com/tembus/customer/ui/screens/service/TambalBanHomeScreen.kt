@@ -4,8 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,15 +17,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TwoWheeler
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -46,8 +41,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,13 +52,16 @@ import com.google.android.gms.location.Priority
 import com.tembus.customer.data.model.NearbyCourier
 import com.tembus.customer.data.model.TambalBanServiceProduct
 import com.tembus.customer.ui.components.CourierPriceCard
-import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.designsystem.TembusButton
+import com.tembus.customer.ui.designsystem.TembusButtonVariant
+import com.tembus.customer.ui.designsystem.TembusCard
+import com.tembus.customer.ui.designsystem.TembusControlState
+import com.tembus.customer.ui.designsystem.logistics.TembusQuoteBreakdown
+import com.tembus.customer.ui.designsystem.logistics.TembusQuoteBreakdownData
+import com.tembus.customer.ui.designsystem.logistics.TembusQuoteLine
+import com.tembus.customer.ui.designsystem.service.TembusServiceIdentityCard
+import com.tembus.customer.ui.designsystem.service.TembusTireRepairIdentity
 import com.tembus.customer.ui.theme.Warning
-
-// Brand color tambal ban (design Stitch): cyan #00AED6 → #008EB0
-private val CyanGradient = Brush.linearGradient(
-    listOf(Color(0xFF00AED6), Color(0xFF008EB0))
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -154,59 +150,18 @@ fun TambalBanHomeScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ===== HERO (design Stitch: gradasi cyan) =====
+            // Shared identity first; the emergency priority is expressed by content and badge.
             item {
-                Card(
-                    shape = RoundedCornerShape(TembusRadius.Card),
-                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                    elevation = CardDefaults.cardElevation(0.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(CyanGradient, RoundedCornerShape(TembusRadius.Card))
-                            .padding(20.dp)
-                    ) {
-                        Column {
-                            Text(
-                                "Tambal Ban di Lokasimu",
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "Teknisi datang ±15-30 menit • Buka 24 jam",
-                                fontSize = 13.sp,
-                                color = Color.White.copy(alpha = 0.9f)
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            // Search bar
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(Color.White, RoundedCornerShape(TembusRadius.Input))
-                                    .clickable(enabled = currentLat != 0.0 && currentLng != 0.0) {
-                                        onSearchClick(currentLat, currentLng)
-                                    }
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Search,
-                                    contentDescription = CustomerTextCatalog.translate("Cari"),
-                                    tint = Color(0xFF008EB0),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "Cari teknisi atau layanan...",
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    TembusServiceIdentityCard(identity = TembusTireRepairIdentity)
+                    TembusButton(
+                        text = "Cari teknisi atau layanan",
+                        onClick = { onSearchClick(currentLat, currentLng) },
+                        state = if (currentLat != 0.0 && currentLng != 0.0) TembusControlState.Default else TembusControlState.Disabled,
+                        variant = TembusButtonVariant.Outline,
+                        leadingIcon = Icons.Default.Search,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
 
@@ -250,17 +205,13 @@ fun TambalBanHomeScreen(
             uiState.priceRange?.let { range ->
                 if (range.max > 0) {
                     item {
-                        Card(
-                            shape = RoundedCornerShape(TembusRadius.Card),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F7FA))
-                        ) {
-                            Text(
-                                "💡 Harga jasa petugas: Rp ${formatRupiahIdr(range.min)} - Rp ${formatRupiahIdr(range.max)}",
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(16.dp),
-                                color = Color(0xFF00697A)
+                        TembusQuoteBreakdown(
+                            data = TembusQuoteBreakdownData(
+                                lines = listOf(TembusQuoteLine("Rentang jasa petugas", "Rp ${formatRupiahIdr(range.min)} - Rp ${formatRupiahIdr(range.max)}")),
+                                totalLabel = "Rp ${formatRupiahIdr(range.max)}",
+                                providerLabel = "Katalog operasional",
                             )
-                        }
+                        )
                     }
                 }
             }
@@ -316,33 +267,19 @@ private fun ServiceCard(
     service: TambalBanServiceProduct,
     onClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(TembusRadius.Card),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+    TembusCard(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(Color(0xFFE0F7FA), RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    if (service.code.contains("mobil")) Icons.Default.DirectionsCar else Icons.Default.TwoWheeler,
-                    contentDescription = "",
-                    tint = Color(0xFF008EB0),
-                    modifier = Modifier.size(26.dp)
-                )
-            }
+            Icon(
+                if (service.code.contains("mobil")) Icons.Default.DirectionsCar else Icons.Default.TwoWheeler,
+                contentDescription = if (service.code.contains("mobil")) "Tambal Ban Mobil" else "Tambal Ban Motor",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp)
+            )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -353,11 +290,11 @@ private fun ServiceCard(
                 Text(
                     "Mulai Rp ${formatRupiahIdr(service.baseFareIdr)} + Rp ${formatRupiahIdr(service.perKmIdr)}/km",
                     fontSize = 13.sp,
-                    color = Color(0xFF008EB0),
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium
                 )
             }
-            Text("Pesan ›", fontSize = 14.sp, color = Color(0xFF008EB0), fontWeight = FontWeight.Bold)
+            Text("Pesan", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
         }
     }
 }

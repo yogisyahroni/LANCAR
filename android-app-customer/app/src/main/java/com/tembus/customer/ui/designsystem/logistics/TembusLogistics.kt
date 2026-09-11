@@ -110,6 +110,7 @@ data class TembusQuoteLine(
 data class TembusQuoteBreakdownData(
     val lines: List<TembusQuoteLine>,
     val totalLabel: String,
+    val title: String? = null,
     val quoteIdLabel: String? = null,
     val expiresLabel: String? = null,
     val providerLabel: String? = null,
@@ -256,6 +257,7 @@ fun TembusProofCard(data: TembusProofData, modifier: Modifier = Modifier, onActi
 fun TembusQuoteBreakdown(data: TembusQuoteBreakdownData, modifier: Modifier = Modifier) {
     TembusCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            data.title?.let { Text(it, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
             data.providerLabel?.let { Text("Sumber quote: $it", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             data.lines.forEach { line ->
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
