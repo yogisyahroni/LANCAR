@@ -122,7 +122,7 @@ export default function HRJobs() {
                 </td>
                 <td className="px-8 py-6 flex gap-3">
                   <button type="button" onClick={() => openEdit(job)} aria-label={`Edit job ${job.title}`} title="Edit job" className="text-foreground-muted hover:text-foreground"><Edit size={18} aria-hidden="true" /></button>
-                  <button type="button" onClick={() => deleteJob.mutate(job.id)} aria-label={`Delete job ${job.title}`} title="Delete job" className="text-error hover:text-error"><Trash2 size={18} aria-hidden="true" /></button>
+                  <button type="button" onClick={() => deleteJob.mutate(job.id)} aria-label={`Delete job ${job.title}`} title="Delete job" className="inline-flex items-center gap-1 text-xs font-bold text-error hover:text-error"><Trash2 size={18} aria-hidden="true" /><span>Delete</span></button>
                 </td>
               </tr>
             ))}

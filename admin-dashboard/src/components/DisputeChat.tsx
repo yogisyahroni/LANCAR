@@ -221,9 +221,10 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
                 onClick={() => { setPreviewImage(null); setSelectedFile(null); }}
                 aria-label="Remove image preview"
                 title="Remove image preview"
-                className="absolute -top-2 -right-2 p-1 bg-error text-on-error rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute -top-2 -right-2 inline-flex items-center gap-1 rounded-full bg-error px-2 py-1 text-xs font-bold text-on-error shadow-lg opacity-0 transition-opacity group-hover:opacity-100"
               >
                 <X size={12} aria-hidden="true" />
+                <span>Remove</span>
               </button>
             </div>
             <div className="flex-1">

@@ -75,6 +75,13 @@ function checkIconOnlyButtonNames(source, filePath) {
     if (openingEnd < 0 || attributesAndBody.slice(openingEnd + 1).trim()) continue
 
     const line = source.slice(0, match.index).split('\n').length
+    const labelMatch = attributesAndBody.match(/\baria-label\s*=\s*(?:["']([^"']*)["']|\{\s*`([^`]*)`\s*\})/)
+    const staticAccessibleLabel = labelMatch?.[1] || labelMatch?.[2] || ''
+    if (/\b(delete|remove|cancel|block|reject|force|disable|rollback|revoke|suspend|kill)\b/i.test(staticAccessibleLabel)) {
+      violations.push(`${filePath}:${line}: destructive icon-only button needs a visible action label; found ${staticAccessibleLabel}`)
+      continue
+    }
+
     if (/\baria-label\s*=/.test(attributesAndBody) && !/\btitle\s*=/.test(attributesAndBody)) {
       violations.push(`${filePath}:${line}: icon-only button with an accessible name needs a visible title tooltip`)
     } else if (!/\baria-label\s*=|\btitle\s*=/.test(attributesAndBody)) {

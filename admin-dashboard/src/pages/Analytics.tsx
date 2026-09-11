@@ -1031,9 +1031,10 @@ export default function Analytics() {
                             deleteReport.mutate(report.id)
                           }
                         }}
-                        className="p-2 rounded-lg bg-error-surface text-error opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="inline-flex items-center gap-1 rounded-lg bg-error-surface px-2 py-1 text-xs font-bold text-error opacity-0 transition-opacity group-hover:opacity-100"
                       >
                         <Trash2 size={14} aria-hidden="true" />
+                        <span>Delete</span>
                       </button>
                    </div>
                    <div>

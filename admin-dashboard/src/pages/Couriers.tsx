@@ -726,9 +726,10 @@ export default function Couriers() {
                           onClick={() => updateStatus.mutate({ id: courier.id, status: 'Suspended' })}
                           aria-label={`Suspend courier ${courier.full_name || courier.id}`}
                           title="Suspend courier"
-                          className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-error hover:bg-error-surface transition-all"
+                          className="inline-flex items-center gap-1 rounded-xl bg-surface-subtle px-2.5 py-2 text-xs font-bold text-foreground-muted transition-all hover:bg-error-surface hover:text-error"
                         >
                           <Ban size={18} aria-hidden="true" />
+                          <span>Suspend</span>
                         </button>
                       ) : (
                         <button 

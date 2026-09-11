@@ -163,9 +163,10 @@ export function TeamPanel({ data }: { data: SettingsData }) {
                            }}
                            aria-label={`Remove ${member.full_name} from Admin team`}
                            title="Remove admin"
-                           className="p-2 text-foreground-muted hover:text-error transition-colors"
+                           className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-foreground-muted transition-colors hover:text-error"
                          >
                             <Trash2 size={18} aria-hidden="true" />
+                            <span>Remove</span>
                          </button>
                       </div>
                     </div>
