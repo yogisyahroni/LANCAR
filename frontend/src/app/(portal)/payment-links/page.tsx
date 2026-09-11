@@ -204,7 +204,7 @@ export default function PaymentLinksPage() {
                         </div>
                     )}
                     <div>
-                        <h4 className="font-bold text-foreground text-lg">{link.item_name}</h4>
+                        <h2 className="font-bold text-foreground text-lg">{link.item_name}</h2>
                         <p className="text-xs text-muted-foreground mt-2 italic font-medium">
                         Ongkir Estimate: Rp {link.delivery_fee_amount?.toLocaleString() || 0}
                         </p>
