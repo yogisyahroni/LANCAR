@@ -188,6 +188,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-foreground-muted ml-1">Frequency</label>
                   <select 
+                    aria-label="Frequency"
                     className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted focus:outline-none focus:border-primary/50 transition-all appearance-none"
                     value={formData.frequency}
                     onChange={e => setFormData({ ...formData, frequency: e.target.value })}
@@ -201,6 +202,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
                   <label className="text-sm font-bold text-foreground-muted ml-1">Time (UTC)</label>
                   <input 
                     type="time"
+                    aria-label="Time (UTC)"
                     required
                     className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted focus:outline-none focus:border-primary/50 transition-all"
                     value={formData.time_slot}
@@ -213,6 +215,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-foreground-muted ml-1">Preferred Day</label>
                   <select 
+                    aria-label="Preferred Day"
                     className="w-full bg-surface-subtle border border-border rounded-2xl px-5 py-4 text-foreground-muted focus:outline-none focus:border-primary/50 transition-all appearance-none"
                     value={formData.day_of_week}
                     onChange={e => setFormData({ ...formData, day_of_week: e.target.value })}

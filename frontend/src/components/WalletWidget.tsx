@@ -434,6 +434,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                   <div className="relative">
                     <Landmark size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted pointer-events-none" aria-hidden="true" />
                     <select 
+                      aria-label="Tujuan pencairan (Bank / E-Wallet)"
                       value={withdrawForm.bank_code}
                       onChange={(e) => setWithdrawForm({...withdrawForm, bank_code: e.target.value})}
                       className="w-full pl-10 pr-4 py-3 rounded-2xl bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border text-sm font-semibold text-foreground-muted dark:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer"

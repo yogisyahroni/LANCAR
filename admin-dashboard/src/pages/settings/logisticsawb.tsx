@@ -151,6 +151,7 @@ export function LogisticsAWBPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Link Expiry (Minutes)</label>
                       <input 
                         type="number" 
+                        aria-label="Link Expiry (Minutes)"
                         defaultValue={getConfig('payment_link_expiry_minutes', 10)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'payment_link_expiry_minutes', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -160,6 +161,7 @@ export function LogisticsAWBPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Default Weight (KG)</label>
                       <input 
                         type="number" 
+                        aria-label="Default Weight (KG)"
                         step="0.1"
                         defaultValue={getConfig('payment_link_default_weight_kg', 1.0)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'payment_link_default_weight_kg', value: Number(e.target.value) })}
@@ -173,6 +175,7 @@ export function LogisticsAWBPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Sender Name</label>
                       <input 
                         type="text" 
+                        aria-label="Sender Name"
                         defaultValue={getConfig('awb_sender_name', 'Tembus Logistics')}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_sender_name', value: e.target.value })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -182,6 +185,7 @@ export function LogisticsAWBPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Sender Phone</label>
                       <input 
                         type="text" 
+                        aria-label="Sender Phone"
                         defaultValue={getConfig('awb_sender_phone', '081234567890')}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_sender_phone', value: e.target.value })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -191,6 +195,7 @@ export function LogisticsAWBPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Service Type</label>
                       <input 
                         type="text" 
+                        aria-label="Service Type"
                         defaultValue={getConfig('awb_service_type', 'REG')}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_service_type', value: e.target.value })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -201,6 +206,7 @@ export function LogisticsAWBPanel({ data }: { data: SettingsData }) {
                   <div className="space-y-3">
                     <label className="text-xs font-bold text-foreground-muted tracking-wide">Sender Address</label>
                     <textarea 
+                      aria-label="Sender Address"
                       defaultValue={getConfig('awb_sender_address', 'Jl. Contoh No 123, Jakarta')}
                       onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_sender_address', value: e.target.value })}
                       className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all min-h-[100px]"
@@ -212,6 +218,7 @@ export function LogisticsAWBPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Origin Code</label>
                       <input 
                         type="text" 
+                        aria-label="Origin Code"
                         defaultValue={getConfig('awb_origin_code', 'CGK10000')}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_origin_code', value: e.target.value })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -221,6 +228,7 @@ export function LogisticsAWBPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Destination Code</label>
                       <input 
                         type="text" 
+                        aria-label="Destination Code"
                         defaultValue={getConfig('awb_destination_code', 'BDO10000')}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_destination_code', value: e.target.value })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"

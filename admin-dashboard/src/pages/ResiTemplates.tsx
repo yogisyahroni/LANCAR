@@ -501,6 +501,7 @@ const ResiTemplates = () => {
                           <label className="block text-xs font-medium text-foreground-muted mb-1">Value (e.g. {'{'}{'{'} awb_number {'}'}{'}'})</label>
                           <input 
                             type="text"
+                            aria-label="Value"
                             value={el.value}
                             onChange={(e) => updateElement(el.id, { value: e.target.value })}
                             className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
@@ -511,6 +512,7 @@ const ResiTemplates = () => {
                             <label className="block text-xs font-medium text-foreground-muted mb-1">Font Size</label>
                             <input 
                               type="number"
+                              aria-label="Font Size"
                               value={el.fontSize || 14}
                               onChange={(e) => updateElement(el.id, { fontSize: parseInt(e.target.value) })}
                               className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
@@ -523,6 +525,7 @@ const ResiTemplates = () => {
                               <label className="block text-xs font-medium text-foreground-muted mb-1">Width (px)</label>
                               <input 
                                 type="number"
+                                aria-label="Width (px)"
                                 value={el.width || 100}
                                 onChange={(e) => updateElement(el.id, { width: parseInt(e.target.value) })}
                                 className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
@@ -532,6 +535,7 @@ const ResiTemplates = () => {
                               <label className="block text-xs font-medium text-foreground-muted mb-1">Height (px)</label>
                               <input 
                                 type="number"
+                                aria-label="Height (px)"
                                 value={el.height || 50}
                                 onChange={(e) => updateElement(el.id, { height: parseInt(e.target.value) })}
                                 className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
@@ -544,6 +548,7 @@ const ResiTemplates = () => {
                             <label className="block text-xs font-medium text-foreground-muted mb-1">Bar Width (1.0 - 3.0)</label>
                             <input 
                               type="number"
+                              aria-label="Bar Width (1.0 - 3.0)"
                               step="0.1"
                               value={el.barWidth || 1.5}
                               onChange={(e) => updateElement(el.id, { barWidth: parseFloat(e.target.value) })}
@@ -556,6 +561,7 @@ const ResiTemplates = () => {
                             <label className="block text-xs font-medium text-foreground-muted mb-1">X Position</label>
                             <input 
                               type="number"
+                              aria-label="X Position"
                               value={Math.round(el.x)}
                               onChange={(e) => updateElement(el.id, { x: parseInt(e.target.value) })}
                               className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
@@ -565,6 +571,7 @@ const ResiTemplates = () => {
                             <label className="block text-xs font-medium text-foreground-muted mb-1">Y Position</label>
                             <input 
                               type="number"
+                              aria-label="Y Position"
                               value={Math.round(el.y)}
                               onChange={(e) => updateElement(el.id, { y: parseInt(e.target.value) })}
                               className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"

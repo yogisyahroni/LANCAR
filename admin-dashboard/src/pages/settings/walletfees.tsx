@@ -127,6 +127,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                         <input 
                           type="number" 
+                          aria-label="Customer Withdrawal Fee (IDR)"
                           defaultValue={getConfig('withdrawal_fee_customer', 5000)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'withdrawal_fee_customer', value: Number(e.target.value) })}
                           className="w-full bg-surface-subtle border border-border rounded-2xl py-4 pl-12 pr-4 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -139,6 +140,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                         <input 
                           type="number" 
+                          aria-label="Courier Withdrawal Fee (IDR)"
                           defaultValue={getConfig('withdrawal_fee_courier', 0)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'withdrawal_fee_courier', value: Number(e.target.value) })}
                           className="w-full bg-surface-subtle border border-border rounded-2xl py-4 pl-12 pr-4 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -158,6 +160,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                     <div className="space-y-3">
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Top-Up Fixed Fee (IDR)</label>
                       <input 
+                        aria-label="Top-Up Fixed Fee (IDR)"
                         type="number" 
                         defaultValue={getConfig('topup_fee_fixed', 1000)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'topup_fee_fixed', value: Number(e.target.value) })}
@@ -167,6 +170,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                     <div className="space-y-3">
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Top-Up Percentage (%)</label>
                       <input 
+                        aria-label="Top-Up Percentage (%)"
                         type="number" 
                         step="0.1"
                         defaultValue={getConfig('topup_fee_percent', 0)}
@@ -177,6 +181,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                     <div className="space-y-3">
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Direct Service Fee (IDR)</label>
                       <input 
+                        aria-label="Direct Service Fee (IDR)"
                         type="number" 
                         defaultValue={getConfig('service_fee_fixed', 2000)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'service_fee_fixed', value: Number(e.target.value) })}
@@ -189,6 +194,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                     <div className="space-y-3">
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Platform Fee (IDR)</label>
                       <input 
+                        aria-label="Platform Fee (IDR)"
                         type="number" 
                         defaultValue={getConfig('platform_fee_idr', 1500)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'platform_fee_idr', value: Number(e.target.value) })}
@@ -198,6 +204,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                     <div className="space-y-3">
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Platform Fee Pct (%)</label>
                       <input 
+                        aria-label="Platform Fee Pct (%)"
                         type="number" 
                         step="0.001"
                         defaultValue={getConfig('platform_fee_pct', 0.015)}
@@ -208,6 +215,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                     <div className="space-y-3">
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Merchant Fee Pct (%)</label>
                       <input 
+                        aria-label="Merchant Fee Pct (%)"
                         type="number" 
                         step="0.001"
                         defaultValue={getConfig('merchant_transaction_fee_pct', 0.025)}
@@ -231,6 +239,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">%</span>
                         <input 
                           type="number" 
+                          aria-label="MDR Rate (%)"
                           step="0.001"
                           defaultValue={getConfig('payment_mdr_rate', 0.007)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'payment_mdr_rate', value: Number(e.target.value) })}
@@ -244,6 +253,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">%</span>
                         <input 
                           type="number" 
+                          aria-label="PPN Rate (%)"
                           step="0.001"
                           defaultValue={getConfig('payment_ppn_rate', 0.11)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'payment_ppn_rate', value: Number(e.target.value) })}
@@ -265,6 +275,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Min. Top-Up (IDR)</label>
                       <input 
                         type="number" 
+                        aria-label="Min. Top-Up (IDR)"
                         defaultValue={getConfig('topup_min_amount', 10000)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'topup_min_amount', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -274,6 +285,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Min. Withdrawal (IDR)</label>
                       <input 
                         type="number" 
+                        aria-label="Min. Withdrawal (IDR)"
                         defaultValue={getConfig('withdrawal_min_amount', 50000)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'withdrawal_min_amount', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -283,6 +295,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Auto Disbursement Limit</label>
                       <input 
                         type="number" 
+                        aria-label="Auto Disbursement Limit"
                         defaultValue={getConfig('auto_disbursement_threshold', 1000000)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'auto_disbursement_threshold', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"

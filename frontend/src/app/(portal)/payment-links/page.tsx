@@ -540,6 +540,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                   <label className="text-sm font-bold text-foreground-muted flex items-center gap-2"><Weight size={14} aria-hidden="true" /> Berat (kg)</label>
                   <input 
                     type="number"
+                    aria-label="Berat (kg)"
                     min="1"
                     value={formData.weight}
                     onChange={e => setFormData({ ...formData, weight: parseFloat(e.target.value) || 1 })}
@@ -552,6 +553,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                   <label className="flex items-center justify-center w-full bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border border-dashed rounded-2xl py-4 px-6 cursor-pointer hover:bg-surface-subtle dark:hover:bg-surface-subtle transition-all text-sm font-semibold text-muted-foreground hover:text-foreground">
                     <input 
                       type="file" 
+                      aria-label="Pilih gambar item"
                       accept="image/*" 
                       className="hidden" 
                       onChange={(e) => {

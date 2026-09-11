@@ -109,6 +109,7 @@ export default function SLAConfig() {
                         <div className="flex items-center gap-3 bg-surface-subtle border border-border rounded-xl px-4 py-3">
                            <input 
                              type="number" 
+                             aria-label="Target (Soft)"
                              defaultValue={item.target_minutes} 
                              onBlur={(e) => {
                                const val = Number(e.target.value);
@@ -125,6 +126,7 @@ export default function SLAConfig() {
                         <div className="flex items-center gap-3 bg-error-surface border border-error rounded-xl px-4 py-3">
                            <input 
                              type="number" 
+                             aria-label="Critical (Hard)"
                              defaultValue={item.critical_minutes} 
                              onBlur={(e) => {
                                const val = Number(e.target.value);

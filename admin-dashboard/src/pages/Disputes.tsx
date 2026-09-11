@@ -297,6 +297,7 @@ export default function Disputes() {
                               <User size={20} aria-hidden="true" />
                            </div>
                            <select 
+                            aria-label="Assign Specialist"
                             value={selectedDispute.assigned_to || ''}
                             onChange={(e) => assignMutation.mutate({ id: selectedDispute.id, adminId: e.target.value })}
                             className="bg-transparent border-none text-foreground-muted text-sm font-bold focus:ring-0 w-full cursor-pointer"

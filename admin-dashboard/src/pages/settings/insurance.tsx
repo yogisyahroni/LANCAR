@@ -127,6 +127,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">%</span>
                         <input 
                           type="number" 
+                          aria-label="Premium Rate (%)"
                           step="0.001"
                           defaultValue={getConfig('insurance_premium_rate', 0.002)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'insurance_premium_rate', value: Number(e.target.value) })}
@@ -142,6 +143,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                         <input 
                           type="number" 
+                          aria-label="Minimum Premium (IDR)"
                           defaultValue={getConfig('insurance_min_premium', 1000)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'insurance_min_premium', value: Number(e.target.value) })}
                           className="w-full bg-surface-subtle border border-border rounded-2xl py-4 pl-12 pr-4 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -158,6 +160,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                         <input 
                           type="number" 
+                          aria-label="Maximum Coverage (IDR)"
                           defaultValue={getConfig('insurance_max_coverage_idr', 10000000)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'insurance_max_coverage_idr', value: Number(e.target.value) })}
                           className="w-full bg-surface-subtle border border-border rounded-2xl py-4 pl-12 pr-4 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -172,6 +175,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                         <input 
                           type="number" 
+                          aria-label="Fixed Ins. Fee (IDR)"
                           defaultValue={getConfig('insurance_fee_idr', 5000)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'insurance_fee_idr', value: Number(e.target.value) })}
                           className="w-full bg-surface-subtle border border-border rounded-2xl py-4 pl-12 pr-4 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -183,6 +187,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                     <div className="space-y-4">
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Insurance Provider</label>
                       <select 
+                        aria-label="Insurance Provider"
                         defaultValue={getConfig('insurance_provider', 'Internal / Managed')}
                         onChange={(e) => updateConfigMutation.mutate({ key: 'insurance_provider', value: e.target.value })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all appearance-none"
@@ -203,6 +208,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                         <label className="text-xs font-bold text-foreground-muted tracking-wide">Coverage (IDR)</label>
                         <input 
                           type="number" 
+                          aria-label="Coverage (IDR)"
                           defaultValue={getConfig('bpjstk_coverage_idr', 50000000)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'bpjstk_coverage_idr', value: Number(e.target.value) })}
                           className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -212,6 +218,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                         <label className="text-xs font-bold text-foreground-muted tracking-wide">Monthly Premium (IDR)</label>
                         <input 
                           type="number" 
+                          aria-label="Monthly Premium (IDR)"
                           defaultValue={getConfig('bpjstk_premium_monthly_idr', 16800)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'bpjstk_premium_monthly_idr', value: Number(e.target.value) })}
                           className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -221,6 +228,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                         <label className="text-xs font-bold text-foreground-muted tracking-wide">Company Share (IDR)</label>
                         <input 
                           type="number" 
+                          aria-label="Company Share (IDR)"
                           defaultValue={getConfig('bpjstk_company_share_idr', 10000)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'bpjstk_company_share_idr', value: Number(e.target.value) })}
                           className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -230,6 +238,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                         <label className="text-xs font-bold text-foreground-muted tracking-wide">Courier Share (IDR)</label>
                         <input 
                           type="number" 
+                          aria-label="Courier Share (IDR)"
                           defaultValue={getConfig('bpjstk_courier_share_idr', 6800)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'bpjstk_courier_share_idr', value: Number(e.target.value) })}
                           className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"

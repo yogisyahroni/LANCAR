@@ -818,6 +818,7 @@ export function AggregatorWizard() {
                   <div className="mt-3">
                     <input
                       type="datetime-local"
+                      aria-label="Tanggal dan waktu pickup"
                       {...register("scheduled_at")}
                       className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info [color-scheme:dark]"
                     />
@@ -1123,6 +1124,7 @@ export function AggregatorWizard() {
                           <input
                             {...register("weight_kg", { valueAsNumber: true })}
                             type="number"
+                            aria-label="Berat (kg)"
                             min="0.1"
                             step="0.1"
                             className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
@@ -1136,6 +1138,7 @@ export function AggregatorWizard() {
                           <input
                             {...register("quantity", { valueAsNumber: true })}
                             type="number"
+                            aria-label="Jumlah (Quantity)"
                             min="1"
                             className="w-full rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm focus:border-info focus:outline-none focus:ring-1 focus:ring-info"
                           />
@@ -1264,7 +1267,7 @@ export function AggregatorWizard() {
                         { id: "dg", name: "Default Template DG", tag: "DG" },
                       ].map(tpl => (
                         <div key={tpl.id} className="flex items-center gap-3 px-5 py-3">
-                          <input type="radio" name="template" value={tpl.id} className="accent-indigo-500" />
+                          <input type="radio" name="template" value={tpl.id} aria-label={`Pilih template ${tpl.name}`} className="accent-indigo-500" />
                           <span className="flex-1 text-sm">{tpl.name}</span>
                           <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">{tpl.tag}</span>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">

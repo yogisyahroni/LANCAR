@@ -71,6 +71,8 @@ jobs:
         run: node scripts/a11y/check-disabled-states.mjs
       - name: Placeholder label guard
         run: node scripts/a11y/check-placeholder-labels.mjs
+      - name: Form-control label guard
+        run: node scripts/a11y/check-form-control-labels.mjs
       - name: Run Linter
         working-directory: ./frontend
         run: npm run lint
@@ -113,6 +115,8 @@ jobs:
         run: node scripts/a11y/check-disabled-states.mjs
       - name: Placeholder label guard
         run: node scripts/a11y/check-placeholder-labels.mjs
+      - name: Form-control label guard
+        run: node scripts/a11y/check-form-control-labels.mjs
       - name: Run Linter
         working-directory: ./admin-dashboard
         run: npm run lint

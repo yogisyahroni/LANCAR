@@ -1203,6 +1203,7 @@ export default function Couriers() {
                           <div className="relative">
                             <input
                               type="file"
+                              aria-label="Upload courier photo"
                               accept="image/*"
                               onChange={handleFileUpload}
                               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -1228,6 +1229,7 @@ export default function Couriers() {
                               </div>
                             ) : (
                               <select
+                                aria-label="Pilih perangkat kamera"
                                 value={selectedDeviceId}
                                 onChange={(e) => switchCamera(e.target.value)}
                                 className="w-full rounded-xl border border-border bg-scrim/60 px-3 py-2.5 text-sm font-semibold text-foreground-muted focus:border-primary focus:outline-none transition-all cursor-pointer"

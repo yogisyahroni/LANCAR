@@ -334,6 +334,7 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
         <div className="relative flex items-center gap-2">
           <input 
             type="file" 
+            aria-label="Lampirkan gambar"
             ref={fileInputRef}
             className="hidden" 
             accept="image/jpeg,image/png,image/webp,image/gif"

@@ -150,34 +150,34 @@ export default function HRJobs() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-foreground-muted mb-2">Title</label>
-                  <input required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground" />
+                  <input aria-label="Title" required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-foreground-muted mb-2">Department</label>
-                  <input required value={formData.department} onChange={e => setFormData({ ...formData, department: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground" />
+                  <input aria-label="Department" required value={formData.department} onChange={e => setFormData({ ...formData, department: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-foreground-muted mb-2">Location</label>
-                  <input required value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground" />
+                  <input aria-label="Location" required value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-foreground-muted mb-2">Employment Type</label>
-                  <input required value={formData.employment_type} onChange={e => setFormData({ ...formData, employment_type: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground" />
+                  <input aria-label="Employment Type" required value={formData.employment_type} onChange={e => setFormData({ ...formData, employment_type: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground" />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-foreground-muted mb-2">Description</label>
-                <textarea required rows={4} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground" />
+                <textarea aria-label="Description" required rows={4} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-foreground-muted mb-2">Requirements</label>
-                <textarea required rows={4} value={formData.requirements} onChange={e => setFormData({ ...formData, requirements: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground" />
+                <textarea aria-label="Requirements" required rows={4} value={formData.requirements} onChange={e => setFormData({ ...formData, requirements: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-foreground-muted mb-2">Status</label>
-                <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground">
+                <select aria-label="Status" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full bg-surface border border-border rounded-xl px-4 py-2 text-foreground">
                   <option value="active">Active</option>
                   <option value="draft">Draft</option>
                   <option value="closed">Closed</option>

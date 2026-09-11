@@ -137,6 +137,7 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
                     <label className="text-xs font-bold text-foreground-muted tracking-wide">Public API Key</label>
                     <div className="relative">
                       <input 
+                        aria-label="Public API Key"
                         type={showApiKey ? "text" : "password"} 
                         readOnly
                         value={getConfig('security_public_api_key', '[not configured]')}
@@ -191,6 +192,7 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
                           <div className="flex items-center gap-2 bg-surface-subtle border border-border rounded-xl px-4 py-2">
                                 <input 
                                   type="number" 
+                                  aria-label={rule.label}
                                   defaultValue={value as number || 0}
                                   onBlur={(e) => {
                                     const val = Number(e.target.value);

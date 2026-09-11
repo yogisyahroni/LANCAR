@@ -143,6 +143,7 @@ export default function Orders() {
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-foreground-muted tracking-wide">Type</label>
                     <select
+                      aria-label="Type"
                       value={formData.type}
                       onChange={e => setFormData({ ...formData, type: e.target.value })}
                       className="w-full bg-surface-subtle border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all appearance-none"

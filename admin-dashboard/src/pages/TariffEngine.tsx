@@ -231,6 +231,7 @@ export default function TariffEngine() {
             <div className="flex-1 max-w-sm">
               <label className="text-xs font-bold text-foreground-muted tracking-wide block mb-2">Select Rate Card to View Lanes</label>
               <select 
+                aria-label="Select Rate Card to View Lanes"
                 value={selectedCardId || ''} 
                 onChange={e => setSelectedCardId(e.target.value)}
                 className="w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary"
@@ -387,48 +388,48 @@ export default function TariffEngine() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Volumetric Divisor</label>
-                  <input type="number" value={formData.volumetric_divisor} onChange={e => setFormData({...formData, volumetric_divisor: Number(e.target.value)})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
+                  <input aria-label="Volumetric Divisor" type="number" value={formData.volumetric_divisor} onChange={e => setFormData({...formData, volumetric_divisor: Number(e.target.value)})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Min Weight (Kg)</label>
-                  <input type="number" step="0.1" value={formData.min_weight_kg} onChange={e => setFormData({...formData, min_weight_kg: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
+                  <input aria-label="Min Weight (Kg)" type="number" step="0.1" value={formData.min_weight_kg} onChange={e => setFormData({...formData, min_weight_kg: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Fuel Surcharge (%)</label>
-                  <input type="number" step="0.1" value={formData.fuel_surcharge_pct} onChange={e => setFormData({...formData, fuel_surcharge_pct: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
+                  <input aria-label="Fuel Surcharge (%)" type="number" step="0.1" value={formData.fuel_surcharge_pct} onChange={e => setFormData({...formData, fuel_surcharge_pct: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Remote Area Surcharge (IDR)</label>
-                  <input type="number" value={formData.remote_area_surcharge_idr} onChange={e => setFormData({...formData, remote_area_surcharge_idr: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
+                  <input aria-label="Remote Area Surcharge (IDR)" type="number" value={formData.remote_area_surcharge_idr} onChange={e => setFormData({...formData, remote_area_surcharge_idr: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
                 </div>
               </div>
               
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Insurance Rate (%)</label>
-                  <input type="number" step="0.1" value={formData.insurance_fee_pct} onChange={e => setFormData({...formData, insurance_fee_pct: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
+                  <input aria-label="Insurance Rate (%)" type="number" step="0.1" value={formData.insurance_fee_pct} onChange={e => setFormData({...formData, insurance_fee_pct: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Ins. Min Fee (IDR)</label>
-                  <input type="number" value={formData.insurance_min_fee_idr} onChange={e => setFormData({...formData, insurance_min_fee_idr: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
+                  <input aria-label="Ins. Min Fee (IDR)" type="number" value={formData.insurance_min_fee_idr} onChange={e => setFormData({...formData, insurance_min_fee_idr: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Return Fee (%)</label>
-                  <input type="number" value={formData.return_fee_pct} onChange={e => setFormData({...formData, return_fee_pct: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
+                  <input aria-label="Return Fee (%)" type="number" value={formData.return_fee_pct} onChange={e => setFormData({...formData, return_fee_pct: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Effective From</label>
-                  <input type="date" value={formData.effective_from} onChange={e => setFormData({...formData, effective_from: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
+                  <input aria-label="Effective From" type="date" value={formData.effective_from} onChange={e => setFormData({...formData, effective_from: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Effective To (Optional)</label>
-                  <input type="date" value={formData.effective_to || ''} onChange={e => setFormData({...formData, effective_to: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
+                  <input aria-label="Effective To (Optional)" type="date" value={formData.effective_to || ''} onChange={e => setFormData({...formData, effective_to: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
                 </div>
               </div>
 

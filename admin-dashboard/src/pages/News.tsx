@@ -228,6 +228,7 @@ export default function News() {
                   <label className="block text-sm font-medium text-foreground-muted mb-1.5">Judul</label>
                   <input
                     type="text"
+                    aria-label="Judul"
                     required
                     value={formData.title}
                     onChange={e => setFormData({ ...formData, title: e.target.value })}
@@ -240,6 +241,7 @@ export default function News() {
                   <div className="flex items-center gap-4">
                     <input
                       type="file"
+                      aria-label="Gambar (Opsional)"
                       ref={fileInputRef}
                       accept="image/jpeg, image/png, image/webp"
                       onChange={e => {
@@ -269,6 +271,7 @@ export default function News() {
                 <div>
                   <label className="block text-sm font-medium text-foreground-muted mb-1.5">Status</label>
                   <select
+                    aria-label="Status"
                     value={formData.status}
                     onChange={e => setFormData({ ...formData, status: e.target.value })}
                     className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-foreground focus:outline-none focus:border-primary"
@@ -281,6 +284,7 @@ export default function News() {
                 <div>
                   <label className="block text-sm font-medium text-foreground-muted mb-1.5">Konten</label>
                   <textarea
+                    aria-label="Konten"
                     required
                     rows={8}
                     value={formData.content}

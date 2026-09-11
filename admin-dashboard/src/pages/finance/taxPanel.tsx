@@ -252,6 +252,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                 <label className="text-xs font-bold text-foreground-muted tracking-wide">Periode:</label>
                 <input
                   type="month"
+                  aria-label="Periode"
                   value={pphPeriod}
                   onChange={(e) => setPphPeriod(e.target.value)}
                   className="px-4 py-2 rounded-xl bg-surface/[0.04] border border-border text-foreground-muted text-sm font-bold focus:outline-none focus:border-primary"

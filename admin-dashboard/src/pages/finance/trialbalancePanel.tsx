@@ -140,6 +140,7 @@ export function TrialbalancePanel({ data }: { data: FinanceData }) {
             <div className="flex items-center gap-4">
               <input
                 type="date"
+                aria-label="Trial balance start date"
                 value={ledgerStartDate}
                 onChange={(e) => setLedgerStartDate(e.target.value)}
                 className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
@@ -147,6 +148,7 @@ export function TrialbalancePanel({ data }: { data: FinanceData }) {
               <span className="text-foreground-muted font-black tracking-wide uppercase">To</span>
               <input
                 type="date"
+                aria-label="Trial balance end date"
                 value={ledgerEndDate}
                 onChange={(e) => setLedgerEndDate(e.target.value)}
                 className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none"

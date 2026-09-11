@@ -412,6 +412,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
                 <span className="absolute left-6 top-1/2 -translate-y-1/2 text-foreground-muted font-black text-sm">{formData.type === 'percentage' ? '%' : 'Rp'}</span>
                 <input 
                   type="number"
+                  aria-label="Discount Value"
                   value={formData.value}
                   onChange={e => setFormData({ ...formData, value: Number(e.target.value) })}
                   className="w-full bg-surface-subtle border border-border rounded-2xl py-4 pl-12 pr-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -423,6 +424,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               <label className="text-xs font-bold text-foreground-muted tracking-wide">Min. Transaction</label>
               <input 
                 type="number"
+                aria-label="Min. Transaction"
                 value={formData.min_order_idr}
                 onChange={e => setFormData({ ...formData, min_order_idr: Number(e.target.value) })}
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -432,6 +434,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               <label className="text-xs font-bold text-foreground-muted tracking-wide">Max. Ceiling</label>
               <input 
                 type="number"
+                aria-label="Max. Ceiling"
                 value={formData.max_discount_idr}
                 onChange={e => setFormData({ ...formData, max_discount_idr: Number(e.target.value) })}
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -442,6 +445,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               <label className="text-xs font-bold text-foreground-muted tracking-wide">Valid Until</label>
               <input 
                 type="date"
+                aria-label="Valid Until"
                 value={formData.valid_until}
                 onChange={e => setFormData({ ...formData, valid_until: e.target.value })}
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -451,6 +455,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               <label className="text-xs font-bold text-foreground-muted tracking-wide">Global Quota</label>
               <input 
                 type="number"
+                aria-label="Global Quota"
                 value={formData.quota}
                 onChange={e => setFormData({ ...formData, quota: Number(e.target.value) })}
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"

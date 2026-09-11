@@ -190,6 +190,7 @@ export default function Notifications() {
                      <label className="text-sm font-bold tracking-wide text-foreground-muted">Message Subject</label>
                      <input 
                         type="text" 
+                        aria-label="Message Subject"
                         value={formData.subject}
                         onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
                         className="w-full bg-surface-subtle border border-border rounded-2xl p-4 text-sm font-bold text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -206,6 +207,7 @@ export default function Notifications() {
                         </div>
                      </div>
                      <textarea 
+                        aria-label="Template Content"
                         rows={6}
                         value={formData.content}
                         onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}

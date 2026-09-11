@@ -84,6 +84,7 @@ export default function HRApplications() {
             <div className="flex flex-col gap-2 min-w-[200px]">
               <p className="text-xs font-black text-foreground-muted uppercase tracking-wide mb-1">Update Status</p>
               <select 
+                aria-label="Update Status"
                 value={app.status} 
                 onChange={e => updateStatus.mutate({ id: app.id, status: e.target.value })}
                 className="bg-surface border border-border rounded-xl px-4 py-2 text-foreground text-sm"

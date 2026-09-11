@@ -385,6 +385,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
             <div className="space-y-2">
               <label className="text-sm font-bold text-foreground-muted flex items-center gap-2">Pilihan Layanan</label>
               <select 
+                aria-label="Pilihan Layanan"
                 value={formData.service_code}
                 onChange={e => setFormData({ ...formData, service_code: e.target.value })}
                 className="w-full bg-surface border border-border rounded-2xl py-4 px-6 text-foreground-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"

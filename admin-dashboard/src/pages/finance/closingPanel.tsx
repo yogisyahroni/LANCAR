@@ -164,6 +164,7 @@ export function ClosingPanel({ data }: { data: FinanceData }) {
                   <label className="text-xs font-bold uppercase tracking-wider text-foreground-muted block mb-2">Pilih Bulan Periode</label>
                   <input
                     type="month"
+                    aria-label="Pilih Bulan Periode"
                     value={closingPeriod}
                     onChange={(e) => setClosingPeriod(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl bg-scrim/30 border border-border text-foreground-muted text-sm focus:outline-none focus:border-primary"

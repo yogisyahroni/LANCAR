@@ -245,8 +245,8 @@ export default function CourierGrowthConfig() {
                       Reserved {rupiah(Number(draft.budget_reserved_idr || 0))} · Reconciled {rupiah(Number(draft.budget_reconciled_idr || 0))} · Policy {draft.policy_version || 'courier-incentive-2026-v1'}
                     </p>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <input className="rounded-xl border border-border bg-scrim/30 px-3 py-2 text-sm outline-none focus:border-primary" type="date" value={dateValue(draft.starts_at)} onChange={(e) => setIncentiveDrafts((prev) => ({ ...prev, [campaign.id]: { ...prev[campaign.id], starts_at: e.target.value } }))} />
-                      <input className="rounded-xl border border-border bg-scrim/30 px-3 py-2 text-sm outline-none focus:border-primary" type="date" value={dateValue(draft.ends_at)} onChange={(e) => setIncentiveDrafts((prev) => ({ ...prev, [campaign.id]: { ...prev[campaign.id], ends_at: e.target.value } }))} />
+                      <input aria-label="Campaign start date" className="rounded-xl border border-border bg-scrim/30 px-3 py-2 text-sm outline-none focus:border-primary" type="date" value={dateValue(draft.starts_at)} onChange={(e) => setIncentiveDrafts((prev) => ({ ...prev, [campaign.id]: { ...prev[campaign.id], starts_at: e.target.value } }))} />
+                      <input aria-label="Campaign end date" className="rounded-xl border border-border bg-scrim/30 px-3 py-2 text-sm outline-none focus:border-primary" type="date" value={dateValue(draft.ends_at)} onChange={(e) => setIncentiveDrafts((prev) => ({ ...prev, [campaign.id]: { ...prev[campaign.id], ends_at: e.target.value } }))} />
                     </div>
                   </div>
                 )

@@ -89,6 +89,7 @@ export default function ServiceCapabilities({ courierId, capabilities }: Courier
               <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
+                  aria-label={`Enable ${service.name}`}
                   checked={isSelected}
                   onChange={() => toggleService(service.code)}
                   className="rounded border-border bg-surface-subtle text-primary focus:ring-primary"

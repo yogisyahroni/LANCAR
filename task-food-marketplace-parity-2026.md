@@ -3453,7 +3453,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Focus is never removed without an accessible replacement; retain explicit `:focus-visible` system.
 - [ ] Modal traps focus while open and returns focus to invoking control on close. Evidence: `docs/task-evidence/A11Y-2026-004.md` (audited Customer address/product/dispute/payment and Admin order/account/dispute/agreement dialogs plus existing high-risk dialogs pass; full modal matrix remains open).
 - [ ] Dropdown/menu/select is keyboard navigable and dismissible.
-- [ ] All inputs have programmatic + visible label; required/optional semantics clear.
+- [ ] All inputs have programmatic + visible label; required/optional semantics clear. Source guard `scripts/a11y/check-form-control-labels.mjs` now proves persistent programmatic labels across Customer/Admin native controls; visible-label, required/optional and full workflow proof remain open. Evidence: `docs/task-evidence/A11Y-2026-004.md`.
 - [ ] Error message associated to field with `aria-describedby`/equivalent where appropriate.
 - [ ] Checkbox/radio/switch expose name, role, state and disabled state correctly.
 - [ ] Icon-only controls have accessible name. Evidence: `docs/task-evidence/A11Y-2026-004.md` (audited Customer/Admin controls and route inventories pass; complete conditional-control matrix remains open).

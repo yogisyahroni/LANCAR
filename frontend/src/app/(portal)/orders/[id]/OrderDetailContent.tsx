@@ -609,6 +609,7 @@ export function OrderDetailContent({
             <form onSubmit={handleSendMessage} className="flex gap-2">
               <input
                 type="file"
+                aria-label="Lampirkan gambar"
                 ref={fileInputRef}
                 className="hidden"
                 accept="image/*"

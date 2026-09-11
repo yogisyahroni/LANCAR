@@ -240,6 +240,7 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
         <div className="relative flex items-center gap-2">
           <input 
             type="file" 
+            aria-label="Attach image"
             ref={fileInputRef}
             className="hidden" 
             accept="image/*"

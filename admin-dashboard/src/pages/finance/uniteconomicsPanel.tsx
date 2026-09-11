@@ -219,8 +219,8 @@ export function UniteconomicsPanel({ data }: { data: FinanceData }) {
           <div className="glass-card p-10 rounded-[48px] border-border space-y-8">
             <h3 className="text-2xl font-black text-foreground-muted italic uppercase">Neraca Saldo (Trial Balance)</h3>
             <div className="flex gap-4 mb-4">
-              <input type="date" value={ledgerStartDate} onChange={e => setLedgerStartDate(e.target.value)} className="px-4 py-2 bg-scrim/30 text-foreground rounded-xl" />
-              <input type="date" value={ledgerEndDate} onChange={e => setLedgerEndDate(e.target.value)} className="px-4 py-2 bg-scrim/30 text-foreground rounded-xl" />
+              <input aria-label="Trial balance start date" type="date" value={ledgerStartDate} onChange={e => setLedgerStartDate(e.target.value)} className="px-4 py-2 bg-scrim/30 text-foreground rounded-xl" />
+              <input aria-label="Trial balance end date" type="date" value={ledgerEndDate} onChange={e => setLedgerEndDate(e.target.value)} className="px-4 py-2 bg-scrim/30 text-foreground rounded-xl" />
             </div>
             {isLoadingTrialBalance ? (
               <div className="py-12 flex justify-center"><Loader2 className="w-12 h-12 text-primary animate-spin" aria-hidden="true" /></div>

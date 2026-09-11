@@ -146,6 +146,7 @@ export function SLAConfigPanel({ data }: { data: SettingsData }) {
                               <div className="flex items-center gap-2 bg-surface-subtle border border-border rounded-xl px-4 py-2">
                                 <input 
                                   type="text" 
+                                  aria-label="Target"
                                   defaultValue={item.target} 
                                   onBlur={(e) => {
                                     const newSlaData = { ...slaData };
@@ -162,6 +163,7 @@ export function SLAConfigPanel({ data }: { data: SettingsData }) {
                               <div className="flex items-center gap-2 bg-error-surface border border-error rounded-xl px-4 py-2">
                                 <input 
                                   type="text" 
+                                  aria-label="Critical"
                                   defaultValue={item.critical} 
                                   onBlur={(e) => {
                                     const newSlaData = { ...slaData };

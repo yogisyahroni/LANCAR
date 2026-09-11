@@ -128,6 +128,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       </label>
                       <input 
                         type="number" 
+                        aria-label="Max Courier Weight (KG)"
                         defaultValue={getConfig('max_weight_kg', 20)}
                         onBlur={(e) => {
                           const val = Number(e.target.value);
@@ -143,6 +144,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       </label>
                       <input 
                         type="number" 
+                        aria-label="Max Leg Distance (KM)"
                         defaultValue={getConfig('max_distance_km', 15)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'max_distance_km', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -155,6 +157,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Relay Score Wt</label>
                       <input 
                         type="number" step="0.01"
+                        aria-label="Relay Score Wt"
                         defaultValue={getConfig('relay_score_weight', 0.4)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'relay_score_weight', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black"
@@ -164,6 +167,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Proximity Score Wt</label>
                       <input 
                         type="number" step="0.01"
+                        aria-label="Proximity Score Wt"
                         defaultValue={getConfig('proximity_score_weight', 0.25)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'proximity_score_weight', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black"
@@ -173,6 +177,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Acceptance Score Wt</label>
                       <input 
                         type="number" step="0.01"
+                        aria-label="Acceptance Score Wt"
                         defaultValue={getConfig('acceptance_score_weight', 0.15)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'acceptance_score_weight', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black"
@@ -182,6 +187,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Idle Time Wt</label>
                       <input 
                         type="number" step="0.01"
+                        aria-label="Idle Time Wt"
                         defaultValue={getConfig('idle_time_weight', 0.1)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'idle_time_weight', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black"
@@ -201,6 +207,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Tier 1 Weight (KG)</label>
                       <input 
                         type="number" 
+                        aria-label="Tier 1 Weight (KG)"
                         defaultValue={getConfig('weight_tier1_threshold_kg', 3)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'weight_tier1_threshold_kg', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -210,6 +217,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Tier 1 Surcharge</label>
                       <input 
                         type="number" step="0.01"
+                        aria-label="Tier 1 Surcharge"
                         defaultValue={getConfig('weight_surcharge_tier1', 0.15)}
                         onBlur={(e) => {
                           const cfgTier = 'weight_surcharge_tier1';
@@ -222,6 +230,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Peak Hour Surge (x)</label>
                       <input 
                         type="number" step="0.01"
+                        aria-label="Peak Hour Surge (x)"
                         defaultValue={getConfig('surge_peak_hour_multiplier', 0.2)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'surge_peak_hour_multiplier', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -231,6 +240,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Tier 2 Weight (KG)</label>
                       <input 
                         type="number" 
+                        aria-label="Tier 2 Weight (KG)"
                         defaultValue={getConfig('weight_tier2_threshold_kg', 10)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'weight_tier2_threshold_kg', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -240,6 +250,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Tier 2 Surcharge</label>
                       <input 
                         type="number" step="0.01"
+                        aria-label="Tier 2 Surcharge"
                         defaultValue={getConfig('weight_surcharge_tier2', 0.3)}
                         onBlur={(e) => {
                           const cfgTier = 'weight_surcharge_tier2';
@@ -252,6 +263,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">High Demand Surge (x)</label>
                       <input 
                         type="number" step="0.01"
+                        aria-label="High Demand Surge (x)"
                         defaultValue={getConfig('surge_high_demand_multiplier', 0.15)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'surge_high_demand_multiplier', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -261,6 +273,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Surge Step Incr.</label>
                       <input 
                         type="number" step="0.01"
+                        aria-label="Surge Step Incr."
                         defaultValue={getConfig('surge_demand_multiplier_step', 0.25)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'surge_demand_multiplier_step', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -270,6 +283,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Demand Ratio Thr.</label>
                       <input 
                         type="number" step="0.1"
+                        aria-label="Demand Ratio Thr."
                         defaultValue={getConfig('surge_demand_ratio_threshold', 1.5)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'surge_demand_ratio_threshold', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -279,6 +293,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Max Surge Mult.</label>
                       <input 
                         type="number" step="0.1"
+                        aria-label="Max Surge Mult."
                         defaultValue={getConfig('surge_max_multiplier', 2.5)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'surge_max_multiplier', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -298,6 +313,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Speed Alert (km/h)</label>
                       <input 
                         type="number" 
+                        aria-label="Speed Alert (km/h)"
                         defaultValue={getConfig('speed_threshold_kmh', 60)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'speed_threshold_kmh', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -307,6 +323,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Battery Alert (%)</label>
                       <input 
                         type="number" 
+                        aria-label="Battery Alert (%)"
                         defaultValue={getConfig('battery_alert_pct', 20)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'battery_alert_pct', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -316,6 +333,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       <label className="text-xs font-bold text-foreground-muted tracking-wide">Platform Fee (%)</label>
                       <input 
                         type="number" 
+                        aria-label="Platform Fee (%)"
                         defaultValue={getConfig('admin_fee_pct', 5)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'admin_fee_pct', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -331,6 +349,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       </label>
                       <input 
                         type="number" 
+                        aria-label="Weather Reserve Fund (IDR)"
                         defaultValue={getConfig('weather_reserve_idr', 0)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'weather_reserve_idr', value: Number(e.target.value) })}
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"

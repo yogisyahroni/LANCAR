@@ -137,6 +137,7 @@ export function PnlPanel({ data }: { data: FinanceData }) {
             <label className="text-xs font-bold text-foreground-muted tracking-wide">Periode:</label>
             <input
               type="month"
+              aria-label="Periode"
               value={pnlPeriod}
               onChange={(e) => setPnlPeriod(e.target.value)}
               className="px-4 py-2 rounded-xl bg-surface/[0.04] border border-border text-foreground-muted text-sm font-bold focus:outline-none focus:border-primary"
@@ -157,6 +158,7 @@ export function PnlPanel({ data }: { data: FinanceData }) {
                     <label className="text-xs font-bold text-foreground-muted tracking-wide">Modal Infra (Rp/Trx)</label>
                     <input 
                       type="number" 
+                      aria-label="Modal Infra (Rp/Trx)"
                       value={simInfraCost} 
                       onChange={(e) => setSimInfraCost(Number(e.target.value))}
                       className="w-full px-4 py-3 rounded-xl bg-surface-subtle border border-border text-foreground-muted text-sm font-bold focus:outline-none focus:border-primary"
@@ -166,6 +168,7 @@ export function PnlPanel({ data }: { data: FinanceData }) {
                     <label className="text-xs font-bold text-foreground-muted tracking-wide">Gaji/Operasional (Rp/Trx)</label>
                     <input 
                       type="number" 
+                      aria-label="Gaji/Operasional (Rp/Trx)"
                       value={simSalaryCost} 
                       onChange={(e) => setSimSalaryCost(Number(e.target.value))}
                       className="w-full px-4 py-3 rounded-xl bg-surface-subtle border border-border text-foreground-muted text-sm font-bold focus:outline-none focus:border-primary"
@@ -175,6 +178,7 @@ export function PnlPanel({ data }: { data: FinanceData }) {
                     <label className="text-xs font-bold text-foreground-muted tracking-wide">Kas Perusahaan (Rp/Trx)</label>
                     <input 
                       type="number" 
+                      aria-label="Kas Perusahaan (Rp/Trx)"
                       value={simReserveCost} 
                       onChange={(e) => setSimReserveCost(Number(e.target.value))}
                       className="w-full px-4 py-3 rounded-xl bg-surface-subtle border border-border text-foreground-muted text-sm font-bold focus:outline-none focus:border-primary"

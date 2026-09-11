@@ -147,6 +147,7 @@ export function LedgerPanel({ data }: { data: FinanceData }) {
                 className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none w-40"
               />
               <select
+                aria-label="Journal Type"
                 value={ledgerJournalTypeFilter}
                 onChange={(e) => setLedgerJournalTypeFilter(e.target.value)}
                 className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
@@ -162,6 +163,7 @@ export function LedgerPanel({ data }: { data: FinanceData }) {
               </select>
               <input
                 type="date"
+                aria-label="Ledger start date"
                 value={ledgerStartDate}
                 onChange={(e) => setLedgerStartDate(e.target.value)}
                 className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
@@ -169,6 +171,7 @@ export function LedgerPanel({ data }: { data: FinanceData }) {
               <span className="text-foreground-muted font-black tracking-wide uppercase">To</span>
               <input
                 type="date"
+                aria-label="Ledger end date"
                 value={ledgerEndDate}
                 onChange={(e) => setLedgerEndDate(e.target.value)}
                 className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none"

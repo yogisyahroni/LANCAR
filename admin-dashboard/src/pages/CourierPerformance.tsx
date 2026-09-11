@@ -170,6 +170,7 @@ export default function CourierPerformance() {
               <div>
                 <label className="block text-xs font-bold text-foreground-muted tracking-wide mb-2">New Tier</label>
                 <select 
+                  aria-label="New Tier"
                   className="w-full bg-surface-subtle border border-border rounded-xl p-3 text-sm text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all appearance-none"
                   value={newTier}
                   onChange={(e) => setNewTier(e.target.value)}

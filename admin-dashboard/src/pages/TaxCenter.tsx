@@ -462,7 +462,7 @@ export default function TaxCenter() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Tax Type</label>
-                  <select value={formData.tax_type} onChange={e => setFormData({...formData, tax_type: e.target.value as any})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary">
+                  <select aria-label="Tax Type" value={formData.tax_type} onChange={e => setFormData({...formData, tax_type: e.target.value as any})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary">
                     <option value="PPN">PPN (VAT)</option>
                     <option value="PPh">PPh (Income Tax)</option>
                   </select>
@@ -487,11 +487,11 @@ export default function TaxCenter() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Effective From</label>
-                  <input type="date" value={formData.effective_from} onChange={e => setFormData({...formData, effective_from: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
+                  <input aria-label="Effective From" type="date" value={formData.effective_from} onChange={e => setFormData({...formData, effective_from: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-foreground-muted tracking-wide">Effective To (Optional)</label>
-                  <input type="date" value={formData.effective_to || ''} onChange={e => setFormData({...formData, effective_to: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
+                  <input aria-label="Effective To (Optional)" type="date" value={formData.effective_to || ''} onChange={e => setFormData({...formData, effective_to: e.target.value})} className="mt-1 w-full bg-surface-subtle border border-border rounded-xl px-4 py-2 text-foreground focus:outline-none focus:border-primary" />
                 </div>
               </div>
 
