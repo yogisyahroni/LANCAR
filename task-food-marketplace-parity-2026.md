@@ -3176,6 +3176,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-005 tinted status surfaces now have `scripts/a11y/check-tinted-status-surfaces.mjs`, rejecting low-opacity same-hue status text combinations in checked source class literals. Customer dashboard/tracking/payment-link/dispute/notification/order/wallet and Admin audit-log/courier-market/merchant-settlement surfaces now use semantic `bg-*-surface` tokens; affected Customer `44/44` and Admin `18/18` Light/Dark route cases pass, with typechecks, lint and token/disabled/icon guards green. Computed class composition, full visual compositing and manual assistive-technology proof remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-006 table overflow guard wiring is now complete: staging frontend and both production web jobs run `scripts/a11y/check-table-overflow.mjs` beside table semantics. The guard passes across both source roots; full stateful row hover/selection/focus and manual dense-table review remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
