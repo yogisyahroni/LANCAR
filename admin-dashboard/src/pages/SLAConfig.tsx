@@ -60,7 +60,7 @@ export default function SLAConfig() {
            >
               <RotateCcw size={18} aria-hidden="true" />
            </button>
-           <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all">
+           <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide hover:bg-primary-light shadow-lg shadow-primary/20 transition-all">
               <Save size={18} aria-hidden="true" />
               Deploy Config
            </button>
@@ -73,7 +73,7 @@ export default function SLAConfig() {
             key={model}
             onClick={() => setActiveModel(model)}
             className={cn(
-              "px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+              "px-8 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all",
               activeModel === model ? "bg-primary text-on-primary shadow-lg" : "text-foreground-muted hover:text-foreground-muted"
             )}
           >
@@ -116,7 +116,7 @@ export default function SLAConfig() {
                              }}
                              className="bg-transparent w-12 text-sm font-bold text-foreground-muted focus:outline-none"
                            />
-                           <span className="text-[10px] text-foreground-muted font-bold uppercase">Min</span>
+                           <span className="text-xs text-foreground-muted font-bold uppercase">Min</span>
                            <Clock size={14} className="text-foreground-muted"  aria-hidden="true"/>
                         </div>
                      </div>
@@ -132,7 +132,7 @@ export default function SLAConfig() {
                              }}
                              className="bg-transparent w-12 text-sm font-bold text-error focus:outline-none"
                            />
-                           <span className="text-[10px] text-error font-bold uppercase">Min</span>
+                           <span className="text-xs text-error font-bold uppercase">Min</span>
                            <ShieldAlert size={14} className="text-error" aria-hidden="true" />
                         </div>
                      </div>
@@ -141,7 +141,7 @@ export default function SLAConfig() {
              </motion.div>
            ))}
            {(!configs || configs.length === 0) && (
-             <div className="py-20 text-center text-foreground-muted font-bold italic uppercase tracking-widest italic">
+             <div className="py-20 text-center text-foreground-muted font-bold italic uppercase tracking-wide italic">
                No SLA configurations found for this model
              </div>
            )}
@@ -163,7 +163,7 @@ export default function SLAConfig() {
                     <div className="h-1.5 bg-surface-subtle rounded-full overflow-hidden">
                        <div className="h-full bg-primary w-[85%] rounded-full" />
                     </div>
-                    <p className="text-[10px] text-foreground-muted italic">Couriers with lower scores will require manual approval.</p>
+                    <p className="text-xs text-foreground-muted italic">Couriers with lower scores will require manual approval.</p>
                  </div>
 
                  <div className="space-y-4">
@@ -181,13 +181,13 @@ export default function SLAConfig() {
            <div className="glass-card p-10 rounded-[48px] border-success bg-success/[0.02] space-y-6">
               <div className="flex items-center gap-3 text-success">
                  <Target size={20} aria-hidden="true" />
-                 <h4 className="font-black text-xs uppercase tracking-widest">Optimized Mode</h4>
+                 <h4 className="font-black text-xs uppercase tracking-wide">Optimized Mode</h4>
               </div>
               <p className="text-xs text-foreground-muted leading-relaxed">
                  Settings currently aligned with <span className="text-foreground-muted font-bold">Peak Hour Strategy</span>.
                  SLA targets are automatically extended by 15% during heavy rain or demand spikes.
               </p>
-              <button className="w-full py-4 rounded-2xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground text-[10px] font-black uppercase tracking-widest transition-all">
+              <button className="w-full py-4 rounded-2xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground text-xs font-black uppercase tracking-wide transition-all">
                  Review Peak Rules
               </button>
            </div>

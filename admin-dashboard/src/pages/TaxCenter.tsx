@@ -179,14 +179,14 @@ export default function TaxCenter() {
                 toast.error('Gagal export tax pack')
               }
             }}
-            className="px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-widest hover:bg-surface-subtle transition-all flex items-center gap-2"
+            className="px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-wide hover:bg-surface-subtle transition-all flex items-center gap-2"
           >
             <Download size={16} aria-hidden="true" /> Export Tax Pack
           </button>
           {activeTab === 'rules' && (
             <button 
               onClick={() => handleOpenModal()}
-              className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+              className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-wide shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
             >
               <Plus size={18} aria-hidden="true" /> New Rule
             </button>
@@ -204,7 +204,7 @@ export default function TaxCenter() {
             key={id}
             onClick={() => setActiveTab(id as any)}
             className={cn(
-              'flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all',
+              'flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wide transition-all',
               activeTab === id
                 ? 'bg-surface-raised text-foreground shadow-lg'
                 : 'text-foreground-muted hover:text-foreground-muted hover:bg-surface-subtle'
@@ -266,7 +266,7 @@ export default function TaxCenter() {
                      </div>
                      <div className="text-right">
                        <p className="font-black text-primary-light">{formatCurrency(Number(d.total_ppn_idr || 0))}</p>
-                       <p className="text-[10px] text-foreground-muted uppercase tracking-widest">PPN Collected</p>
+                       <p className="text-xs text-foreground-muted uppercase tracking-wide">PPN Collected</p>
                      </div>
                    </div>
                  ))}
@@ -294,7 +294,7 @@ export default function TaxCenter() {
                 <thead>
                   <tr className="border-b border-border">
                     {['No Faktur', 'Order ID', 'NPWP / Pelanggan', 'DPP (IDR)', 'PPN (IDR)', 'Tarif %', 'Tanggal', 'Status'].map(h => (
-                      <th scope="col" key={h} className="pb-4 text-left text-[10px] font-black text-foreground-muted uppercase tracking-widest">{h}</th>
+                      <th scope="col" key={h} className="pb-4 text-left text-xs font-black text-foreground-muted uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -334,7 +334,7 @@ export default function TaxCenter() {
                 <thead>
                   <tr className="border-b border-border">
                     {['Bulan / Periode', 'Tipe Pajak', 'Mitra / Kategori', 'Total DPP', 'Total PPh Dipotong', 'Status Bukti Potong'].map(h => (
-                      <th scope="col" key={h} className="pb-4 text-left text-[10px] font-black text-foreground-muted uppercase tracking-widest">{h}</th>
+                      <th scope="col" key={h} className="pb-4 text-left text-xs font-black text-foreground-muted uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -371,7 +371,7 @@ export default function TaxCenter() {
         <div className="glass-card p-8 rounded-[36px] border-border space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black text-foreground-muted italic uppercase">Tax Config Engine</h2>
-            <span className="px-3 py-1 bg-warning-surface text-warning text-[10px] font-black uppercase tracking-widest rounded-full">
+            <span className="px-3 py-1 bg-warning-surface text-warning text-xs font-black uppercase tracking-wide rounded-full">
               Rules apply to new orders only
             </span>
           </div>
@@ -381,7 +381,7 @@ export default function TaxCenter() {
               <thead>
                 <tr className="border-b border-border">
                   {['Code', 'Name', 'Type', 'Effective %', 'Statutory %', 'Formula', 'Invoice Req', 'Period', 'Actions'].map(h => (
-                    <th scope="col" key={h} className="pb-4 text-left text-[10px] font-black text-foreground-muted uppercase tracking-widest">{h}</th>
+                    <th scope="col" key={h} className="pb-4 text-left text-xs font-black text-foreground-muted uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -512,7 +512,7 @@ export default function TaxCenter() {
                   type="button"
                   onClick={handleSaveRule}
                   disabled={saveRuleMutation.isPending}
-                  className="px-6 py-2 rounded-xl bg-primary text-on-primary font-black uppercase tracking-widest hover:bg-primary-light transition-colors flex items-center gap-2"
+                  className="px-6 py-2 rounded-xl bg-primary text-on-primary font-black uppercase tracking-wide hover:bg-primary-light transition-colors flex items-center gap-2"
                 >
                   {saveRuleMutation.isPending && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
                   Save Rule

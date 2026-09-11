@@ -121,7 +121,7 @@ export default function DeepLinks({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.32em] text-primary-light">
+          <p className="text-xs font-black uppercase tracking-wide text-primary-light">
             Navigation safety
           </p>
           <h1 className="mt-2 text-3xl font-black text-foreground-muted">
@@ -206,7 +206,7 @@ export default function DeepLinks({
             type="button"
             disabled={!externalUrl.trim() || externalMutation.isPending}
             onClick={() => externalMutation.mutate()}
-            className="rounded-xl bg-primary px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-on-primary disabled:opacity-60"
+            className="rounded-xl bg-primary px-4 py-2.5 text-xs font-black uppercase tracking-wide text-on-primary disabled:opacity-60"
           >
             Validate URL
           </button>
@@ -254,13 +254,13 @@ export default function DeepLinks({
                 <StatusBadge
                   status={route.status}
                   labelPrefix="Route status"
-                  className="px-2 py-1 text-[9px] uppercase tracking-widest"
+                  className="px-2 py-1 text-xs uppercase tracking-wide"
                 />
               </div>
-              <p className="mt-2 font-mono text-[10px] text-foreground-muted">
+              <p className="mt-2 font-mono text-xs text-foreground-muted">
                 {route.template}
               </p>
-              <p className="mt-2 text-[10px] text-foreground-muted">
+              <p className="mt-2 text-xs text-foreground-muted">
                 min app {route.min_app_version} · {count} reference
                 {count === 1 ? "" : "s"}
               </p>
@@ -269,7 +269,7 @@ export default function DeepLinks({
         </div>
         {selectedRoute ? (
           <div className="mt-5 rounded-2xl border border-warning bg-warning/[0.06] p-4 text-xs text-warning">
-            <p className="font-black uppercase tracking-widest">
+            <p className="font-black uppercase tracking-wide">
               <ShieldAlert size={14} className="mr-1 inline" aria-hidden="true" /> References
               before deprecation
             </p>
@@ -284,7 +284,7 @@ export default function DeepLinks({
                 {routeUsage.slice(0, 8).map((usage) => (
                   <p
                     key={`${usage.manifest_id}-${usage.revision}-${usage.deep_link}`}
-                    className="font-mono text-[10px]"
+                    className="font-mono text-xs"
                   >
                     {usage.manifest_id} · r{usage.revision} · {usage.state} ·{" "}
                     {usage.deep_link}
@@ -300,7 +300,7 @@ export default function DeepLinks({
         )}
       </section>
       <div className="rounded-2xl border border-primary/20 bg-primary/[0.05] p-4 text-xs leading-relaxed text-foreground-secondary">
-        <div className="flex items-center gap-2 font-black uppercase tracking-widest text-primary-light">
+        <div className="flex items-center gap-2 font-black uppercase tracking-wide text-primary-light">
           <Link2 size={14} aria-hidden="true" /> Draft handoff
         </div>
         <p className="mt-2">
