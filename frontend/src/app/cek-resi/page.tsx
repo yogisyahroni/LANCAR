@@ -241,7 +241,7 @@ function CekResiContent() {
           </nav>
         </header>
 
-        <div className="rounded-3xl border border-success/20 bg-success/10 p-3 text-success w-fit">
+        <div className="rounded-3xl border border-success/20 bg-success-surface p-3 text-success w-fit">
           <PackageSearch aria-hidden="true" className="h-7 w-7" />
         </div>
         <h1 className="mt-4 text-3xl font-black tracking-tight">Lacak Kiriman</h1>

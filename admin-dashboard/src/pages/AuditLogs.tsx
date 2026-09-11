@@ -143,7 +143,7 @@ export default function AuditLogs() {
                           log.category === 'finance' ? "bg-success-surface text-success" :
                           log.category === 'logistics' ? "bg-info-surface text-info" :
                           log.category === 'insurance' ? "bg-info-surface text-info" :
-                          log.category === 'security' ? "bg-error/10 text-error" :
+                          log.category === 'security' ? "bg-error-surface text-error" :
                           log.category === 'marketing' ? "bg-accent-surface text-accent" :
                           log.category === 'feature' ? "bg-primary/10 text-primary-light" :
                           "bg-surface-subtle text-foreground-muted"

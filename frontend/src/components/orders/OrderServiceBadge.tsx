@@ -26,7 +26,7 @@ export function OrderServiceBadge({ compact = false, ...order }: OrderServiceBad
       </div>
       {isAggregator && (
         <div className="flex flex-wrap items-center gap-1 text-xs font-semibold">
-          <span className="rounded border border-success/20 bg-success/5 px-2 py-0.5 text-success">{presentation.firstMileLabel}</span>
+          <span className="rounded border border-success/20 bg-success-surface px-2 py-0.5 text-success">{presentation.firstMileLabel}</span>
           <ArrowRight className="h-3 w-3 text-foreground-muted" aria-hidden="true" />
           <span className="inline-flex items-center gap-1 rounded border border-info bg-info-surface px-2 py-0.5 text-info">
             <ExternalLink className="h-3 w-3" aria-hidden="true" />

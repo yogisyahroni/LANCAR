@@ -306,7 +306,7 @@ export default function NotifikasiPage() {
                           className={`mt-0.5 shrink-0 rounded-xl p-2 ${
                             notif.is_read
                               ? 'text-muted-foreground'
-                              : 'bg-primary-soft text-primary dark:bg-success/15 dark:text-success'
+                              : 'bg-primary-soft text-primary dark:bg-success-surface dark:text-success'
                           }`}
                         >
                           <CategoryIcon className="h-4 w-4" />

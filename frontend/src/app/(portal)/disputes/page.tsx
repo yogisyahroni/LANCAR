@@ -108,7 +108,7 @@ export default function DisputesPage() {
         <button
           onClick={() => setFilterMode('attention')}
           className={`px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
-            filterMode === 'attention' ? 'bg-error/10 text-error shadow-sm' : 'text-muted-foreground hover:text-error'
+            filterMode === 'attention' ? 'bg-error-surface text-error shadow-sm' : 'text-muted-foreground hover:text-error'
           }`}
         >
           <AlertTriangle aria-hidden="true" className="h-4 w-4" />

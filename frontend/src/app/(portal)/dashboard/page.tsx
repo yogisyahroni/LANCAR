@@ -279,7 +279,7 @@ export default function DashboardPage() {
                   <p className="text-xs font-medium text-muted-foreground">Total Ongkir</p>
                   <p className="text-2xl font-extrabold text-foreground mt-2">{formatIDR(totalSpend)}</p>
                 </div>
-                <div className="h-10 w-10 bg-info/10 rounded-xl flex items-center justify-center text-info">
+                <div className="h-10 w-10 bg-info-surface rounded-xl flex items-center justify-center text-info">
                   <CreditCard className="h-5 w-5 shrink-0" aria-hidden="true" />
                 </div>
               </div>
@@ -292,7 +292,7 @@ export default function DashboardPage() {
                   <p className="text-xs font-medium text-error">Perlu Perhatian</p>
                   <p className="text-2xl font-extrabold text-foreground mt-2">{cancelledOrdersCount}</p>
                 </div>
-                <div className="h-10 w-10 bg-error/10 rounded-xl flex items-center justify-center text-error animate-pulse">
+                <div className="h-10 w-10 bg-error-surface rounded-xl flex items-center justify-center text-error animate-pulse">
                   <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
                 </div>
               </div>
@@ -305,9 +305,9 @@ export default function DashboardPage() {
             <h2 className="text-base font-bold text-foreground mb-4">Status Order Kamu</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                {[
-                 { label: 'Aktif', count: activeOrdersCount, color: 'text-info', bg: 'bg-info/10' },
-                 { label: 'Selesai', count: completedOrdersCount, color: 'text-success', bg: 'bg-success/10' },
-                 { label: 'Dibatalkan', count: cancelledOrdersCount, color: 'text-error', bg: 'bg-error/10' },
+                 { label: 'Aktif', count: activeOrdersCount, color: 'text-info', bg: 'bg-info-surface' },
+                 { label: 'Selesai', count: completedOrdersCount, color: 'text-success', bg: 'bg-success-surface' },
+                 { label: 'Dibatalkan', count: cancelledOrdersCount, color: 'text-error', bg: 'bg-error-surface' },
                  { label: 'Total', count: dashboardStats ? (dashboardStats.active_orders + dashboardStats.completed_orders_month + dashboardStats.cancelled_orders_month) : orders.length, color: 'text-muted-foreground', bg: 'bg-muted' }
                ].map((stat, idx) => (
                  <div key={idx} className="p-4 rounded-xl border border-border/40 flex items-center justify-between">
@@ -362,7 +362,7 @@ export default function DashboardPage() {
               <p className="text-xs font-medium text-muted-foreground">Selesai Bulan Ini</p>
               <p className="text-2xl font-extrabold text-foreground mt-2">{completedOrdersCount}</p>
             </div>
-            <div className="h-10 w-10 bg-success/10 rounded-xl flex items-center justify-center text-success group-hover:scale-105 transition-all">
+            <div className="h-10 w-10 bg-success-surface rounded-xl flex items-center justify-center text-success group-hover:scale-105 transition-all">
               <CheckCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
             </div>
           </div>
@@ -383,7 +383,7 @@ export default function DashboardPage() {
                 {formatIDR(totalSpend)}
               </p>
             </div>
-            <div className="h-10 w-10 bg-info/10 rounded-xl flex items-center justify-center text-info group-hover:scale-105 transition-all">
+            <div className="h-10 w-10 bg-info-surface rounded-xl flex items-center justify-center text-info group-hover:scale-105 transition-all">
               <CreditCard className="h-5 w-5 shrink-0" aria-hidden="true" />
             </div>
           </div>
@@ -402,7 +402,7 @@ export default function DashboardPage() {
               <p className="text-xs font-medium text-muted-foreground">Dibatalkan Bulan Ini</p>
               <p className="text-2xl font-extrabold text-foreground mt-2">{cancelledOrdersCount}</p>
             </div>
-            <div className="h-10 w-10 bg-error/10 rounded-xl flex items-center justify-center text-error group-hover:scale-105 transition-all">
+            <div className="h-10 w-10 bg-error-surface rounded-xl flex items-center justify-center text-error group-hover:scale-105 transition-all">
               <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
             </div>
           </div>

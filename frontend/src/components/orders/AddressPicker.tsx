@@ -518,7 +518,7 @@ export function AddressPicker({
           <div className={[
             "flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-xs",
             location
-              ? "border-success/25 bg-success/10 text-success"
+              ? "border-success/25 bg-success-surface text-success"
               : "border-border bg-surface/[0.03] text-muted-foreground"
           ].join(" ")}>
             <div className="min-w-0">

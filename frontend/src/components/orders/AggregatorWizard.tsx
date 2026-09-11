@@ -1448,7 +1448,7 @@ export function AggregatorWizard() {
                           <div className="mt-3 flex items-end justify-between">
                             <div className="text-xs">
                               {idx === 0 && (
-                                <span className="rounded border border-success/30 bg-success/10 px-1.5 py-0.5 text-success">Termurah</span>
+                                <span className="rounded border border-success/30 bg-success-surface px-1.5 py-0.5 text-success">Termurah</span>
                               )}
                             </div>
                             <div className="text-right">

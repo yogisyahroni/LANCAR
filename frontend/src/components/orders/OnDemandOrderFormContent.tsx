@@ -214,7 +214,7 @@ export function OnDemandOrderFormContent({
         <input type="hidden" {...register("size_tier")} />
 
         {draftRestoredAt && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-success/20 bg-success/10 px-4 py-3 text-sm text-success">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-success/20 bg-success-surface px-4 py-3 text-sm text-success">
             <span>
               Draft pengiriman dipulihkan dari sesi browser pukul{" "}
               {new Date(draftRestoredAt).toLocaleTimeString("id-ID", {
@@ -549,7 +549,7 @@ export function OnDemandOrderFormContent({
               </p>
             )}
             {receiverLocationLink?.submitted_address && (
-              <div className="mt-3 rounded-lg border border-success/20 bg-success/10 px-3 py-2 text-xs text-success">
+              <div className="mt-3 rounded-lg border border-success/20 bg-success-surface px-3 py-2 text-xs text-success">
                 <p className="font-semibold">Alamat dari penerima</p>
                 <p className="mt-1 leading-5">
                   {receiverLocationLink.submitted_address}

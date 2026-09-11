@@ -507,7 +507,7 @@ export default function MerchantSettlements() {
                           <span
                             aria-label="Settlement status: Failed"
                             data-status-badge="true"
-                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-error/10 text-error dark:text-error"
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-error-surface text-error dark:text-error"
                             title={item.failure_reason}
                           >
                             <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />

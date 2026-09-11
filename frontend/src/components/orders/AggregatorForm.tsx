@@ -736,7 +736,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
                     <div className="mt-3 flex items-end justify-between">
                       <div className="text-xs text-muted-foreground">
                         {isCheapest && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-success">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success-surface px-2 py-0.5 text-success">
                             <TrendingDown className="h-3 w-3"  aria-hidden="true" />
                             Termurah
                           </span>

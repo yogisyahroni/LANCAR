@@ -366,7 +366,7 @@ function RoadRoutePreview({
           <circle cx={routeMap.end.x} cy={routeMap.end.y} r="7" fill="#f97316" stroke="#fff7ed" strokeWidth="3" />
         </svg>
         {tileSource.provider === "none" ? (
-          <div className="absolute bottom-1 left-2 rounded bg-success/75 px-1.5 py-0.5 text-xs font-medium text-success">
+          <div className="absolute bottom-1 left-2 rounded bg-success-surface px-1.5 py-0.5 text-xs font-medium text-success">
             {t('order.routeMapPreparing')}
           </div>
         ) : (
@@ -551,13 +551,13 @@ export function OrderSummary({
               aria-label={t('order.check')}
               onClick={onValidatePromo}
               disabled={!pricing || !promoCode.trim() || isLoading || isPromoChecking}
-              className="rounded-xl border border-success/20 bg-success/10 px-4 py-2 text-sm font-bold text-success transition-all hover:bg-success/15 disabled:pointer-events-none disabled:opacity-60 active:scale-[0.98]"
+              className="rounded-xl border border-success/20 bg-success-surface px-4 py-2 text-sm font-bold text-success transition-all hover:bg-success-surface disabled:pointer-events-none disabled:opacity-60 active:scale-[0.98]"
             >
               {isPromoChecking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : t('order.check')}
             </button>
           </div>
           {promoQuote?.eligible && (
-            <div className="mt-3 rounded-lg border border-success/20 bg-success/10 px-3 py-2 text-xs text-success">
+            <div className="mt-3 rounded-lg border border-success/20 bg-success-surface px-3 py-2 text-xs text-success">
               {t('order.activePromo', { amount: formatMoneyForLocale(promoDiscountMinor, promoQuote?.currency || currency, promoQuote?.currency_minor_unit ?? currencyMinorUnit) })}
             </div>
           )}
@@ -578,7 +578,7 @@ export function OrderSummary({
                   type="button"
                   onClick={() => onPromoCodeChange(promo.code)}
                   disabled={!pricing || isLoading || isPromoChecking}
-                  className="rounded-full border border-success/20 bg-success/10 px-3 py-1.5 text-xs font-bold text-success transition-all hover:bg-success/15 disabled:pointer-events-none disabled:opacity-60 active:scale-[0.98]"
+              className="rounded-full border border-success/20 bg-success-surface px-3 py-1.5 text-xs font-bold text-success transition-all hover:bg-success-surface disabled:pointer-events-none disabled:opacity-60 active:scale-[0.98]"
                   title={promo.name}
                 >
                   {promo.code}
@@ -662,7 +662,7 @@ export function OrderSummary({
                 </p>
               </div>
             </div>
-            <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-success">
+            <span className="rounded-full bg-success-surface px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-success">
               {routeProvider}
             </span>
           </div>

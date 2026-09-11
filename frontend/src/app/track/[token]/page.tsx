@@ -35,11 +35,11 @@ type TrackingStatusPresentation = {
 
 const getTrackingStatusPresentation = (status?: string): TrackingStatusPresentation => {
   const normalized = (status || '').toLowerCase();
-  if (['delivered', 'completed'].includes(normalized)) return { label: 'Selesai', icon: CheckCircle2, className: 'bg-success/15 text-success' };
-  if (['in_transit', 'picked_up'].includes(normalized)) return { label: 'Dalam pengantaran', icon: Truck, className: 'bg-info/15 text-info' };
+  if (['delivered', 'completed'].includes(normalized)) return { label: 'Selesai', icon: CheckCircle2, className: 'bg-success-surface text-success' };
+  if (['in_transit', 'picked_up'].includes(normalized)) return { label: 'Dalam pengantaran', icon: Truck, className: 'bg-info-surface text-info' };
   if (['accepted', 'assigned', 'matched'].includes(normalized)) return { label: 'Kurir menuju pickup', icon: Navigation, className: 'bg-accent/15 text-accent' };
-  if (['cancelled', 'failed'].includes(normalized)) return { label: 'Tidak aktif', icon: XCircle, className: 'bg-error/15 text-error' };
-  return { label: 'Menunggu update', icon: Clock, className: 'bg-warning/15 text-warning' };
+  if (['cancelled', 'failed'].includes(normalized)) return { label: 'Tidak aktif', icon: XCircle, className: 'bg-error-surface text-error' };
+  return { label: 'Menunggu update', icon: Clock, className: 'bg-warning-surface text-warning' };
 };
 
 const formatTime = (value?: string | null) => {
@@ -97,7 +97,7 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
             <p className="text-xs font-bold uppercase tracking-wide text-success">TEMBUS Tracking</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight">Status Pengiriman</h1>
           </div>
-          <div className="rounded-2xl bg-success/15 p-3 text-success">
+          <div className="rounded-2xl bg-success-surface p-3 text-success">
             <Truck aria-hidden="true" className="h-7 w-7" />
           </div>
         </div>

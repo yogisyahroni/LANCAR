@@ -774,7 +774,7 @@ export default function ProfilPage() {
                         </div>
 
                         {item.is_current ? (
-                          <span className="inline-flex items-center gap-1 text-xs bg-success/10 text-success border border-success/20 font-bold px-1.5 py-0.5 rounded-full select-none uppercase">
+                          <span className="inline-flex items-center gap-1 text-xs bg-success-surface text-success border border-success/20 font-bold px-1.5 py-0.5 rounded-full select-none uppercase">
                             <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
                             Sesi Aktif
                           </span>

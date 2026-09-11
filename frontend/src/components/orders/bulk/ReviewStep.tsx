@@ -324,7 +324,7 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         </div>
 
         <div className="flex gap-4">
-          <div className="flex flex-col items-center bg-success/10 text-success px-4 py-2 rounded-lg border border-success/20">
+          <div className="flex flex-col items-center bg-success-surface text-success px-4 py-2 rounded-lg border border-success/20">
             <span className="text-xl font-bold">{validCount}</span>
             <span className="text-xs uppercase tracking-wider">Valid</span>
           </div>

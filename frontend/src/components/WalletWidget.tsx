@@ -251,9 +251,9 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
           >
             <div className={cn(
               "p-2 rounded-xl flex-shrink-0",
-              notification.type === 'success' && "bg-success/10 text-success",
-              notification.type === 'error' && "bg-error/10 text-error",
-              notification.type === 'info' && "bg-info/10 text-info"
+              notification.type === 'success' && "bg-success-surface text-success",
+              notification.type === 'error' && "bg-error-surface text-error",
+              notification.type === 'info' && "bg-info-surface text-info"
             )}>
               {notification.type === 'success' && <CheckCircle2 size={18} aria-hidden="true" />}
               {notification.type === 'error' && <AlertCircle size={18} aria-hidden="true" />}
@@ -398,7 +398,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
               >
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-success/10 text-success">
+                  <div className="p-2 rounded-xl bg-success-surface text-success">
                     <ArrowUpRight size={18} aria-hidden="true" />
                   </div>
                   <div>

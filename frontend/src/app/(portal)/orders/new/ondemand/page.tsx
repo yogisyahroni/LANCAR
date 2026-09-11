@@ -643,7 +643,7 @@ export default function NewOrderPage() {
       )}
 
       {transactionNotice && (
-        <div role="status" className={`mb-6 flex items-start gap-3 rounded-2xl border p-4 text-sm ${transactionPending ? "border-warning bg-warning-surface text-warning" : "border-success/20 bg-success/10 text-success"}`}>
+        <div role="status" className={`mb-6 flex items-start gap-3 rounded-2xl border p-4 text-sm ${transactionPending ? "border-warning bg-warning-surface text-warning" : "border-success/20 bg-success-surface text-success"}`}>
           <Info className="mt-0.5 h-5 w-5 shrink-0"  aria-hidden="true" />
           <p>{transactionNotice}</p>
         </div>
