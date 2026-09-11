@@ -699,9 +699,9 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [x] Unit tests PASS: approve updates price, reject skips price, wrong-customer rejected, wrong-status rejected, already-decided rejected.
 
 ## FOOD-2026-014 — Discovery/ranking [P1]
-- [x] Cuisine/filter/sort/recent/favorites/popular. (open+approved+paused-excluded+halal filter; search nama/alamat/menu; ORDER BY distance)
-- [x] Server-ranked pagination. (LIMIT/OFFSET, clamp 1-100, default 50)
-- [x] Sponsored content labeled and separated from organic. (organic discovery = logic; sponsored via ADS-2026-*)
+- [x] Cuisine/filter/sort/recent/favorites/popular. (server allowlisted cuisine/search/halal filters; distance/rating/popular/recent/favorites sorts; favorites/recent/popularity derived from server data)
+- [x] Server-ranked pagination. (server-owned LIMIT/OFFSET, clamp 1-100, default 50)
+- [x] Sponsored content labeled and separated from organic. (organic ranking/sort is separate from the labelled sponsored signal)
 
 ## FOOD-2026-015 — Operating hours [P1]
 - [x] Regular/holiday/temp closure/last-order/future schedule. (7-day schedule + special closure + last-order 0-180m + worker auto-toggle + overnight + WIB clock)
