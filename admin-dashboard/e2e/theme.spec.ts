@@ -328,6 +328,29 @@ test('analytics chart summaries expose direct values for keyboard and assistive 
   await expect(page.locator('[aria-label="Demand density map"]')).toHaveAttribute('aria-describedby', 'demand-density-map-summary')
 })
 
+test('finance payout chart exposes direct values without relying on a hover tooltip @a11y', async ({ page }) => {
+  await installThemeFixture(page)
+  await page.route('**/*', async (route) => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/admin/finance/stats')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          model_breakdown: [],
+          burn_time_series: [{ date: '2026-09-10', amount: 125000 }],
+        }),
+      })
+      return
+    }
+    await route.fallback()
+  })
+
+  await page.goto('/finance', { waitUntil: 'domcontentloaded' })
+  await expect(page.locator('#finance-burn-analysis-summary')).toContainText('2026-09-10: Rp 125.000')
+  await expect(page.locator('[aria-label="Payout burn analysis chart"]')).toHaveAttribute('aria-describedby', 'finance-burn-analysis-summary')
+})
+
 test('operational status surfaces expose readable labels and supplemental icons @a11y', async ({ page }) => {
   await installThemeFixture(page)
   await page.route('**/*', async (route) => {

@@ -128,6 +128,10 @@ export function RekeningGridSection({ data }: { data: FinanceData }) {
     pphBadan22,
   } = data;
 
+  const burnTimeSeries = Array.isArray(financialData?.burn_time_series)
+    ? financialData.burn_time_series as Array<{ date?: string; amount?: number | string }>
+    : [];
+
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -214,7 +218,10 @@ export function RekeningGridSection({ data }: { data: FinanceData }) {
               aria-describedby="finance-burn-analysis-summary"
            >
               <p id="finance-burn-analysis-summary" className="sr-only">
-                 Payout burn analysis by date. The adjacent chart data and tooltip expose payout amount values.
+                 Payout burn analysis by date.{' '}
+                 {burnTimeSeries.length > 0
+                   ? burnTimeSeries.map((point) => `${point.date || 'Periode'}: ${formatCurrency(point.amount ?? 0)}`).join('; ')
+                   : 'Belum ada data payout.'}
               </p>
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                  <BarChart data={financialData?.burn_time_series}>

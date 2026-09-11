@@ -3484,7 +3484,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 **Charts**
 - [ ] Chart colors pass applicable non-text contrast against background where needed.
 - [x] Meaning is available through legend/direct label/value/table/accessible summary, not color alone. Evidence: `docs/task-evidence/A11Y-2026-006.md`
-- [ ] Tooltip is keyboard/accessibility reachable or equivalent data representation exists.
+- [x] Tooltip is keyboard/accessibility reachable or equivalent data representation exists; all active Admin chart surfaces expose direct values through an associated accessible summary, with hover tooltip remaining supplemental. Evidence: `docs/task-evidence/A11Y-2026-006.md` and `scripts/a11y/check-chart-accessibility.mjs`.
 
 **Maps**
 - [ ] Map controls, zoom buttons, markers and overlays remain visible in both themes.
