@@ -32,7 +32,7 @@ export default function ResiCheckWidget() {
     <form onSubmit={handleSubmit} className="w-full" noValidate>
       <label
         htmlFor="landing-resi-input"
-        className="mb-2 block text-xs font-bold uppercase tracking-widest text-foreground-muted"
+        className="mb-2 block text-xs font-bold uppercase tracking-wide text-foreground-muted"
       >
         {t('landing.trackLabel')}
       </label>

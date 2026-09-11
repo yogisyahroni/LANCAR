@@ -151,7 +151,7 @@ function StatusStepper({ data }: { data: PublicResiData }) {
                 {reached ? <CheckCircle2 aria-hidden="true" className="h-5 w-5" /> : <Circle aria-hidden="true" className="h-4 w-4" />}
               </span>
               <span
-                className={`max-w-[72px] text-center text-[10px] font-semibold leading-tight sm:max-w-none sm:text-xs ${
+                className={`max-w-[72px] text-center text-xs font-semibold leading-tight sm:max-w-none sm:text-xs ${
                   reached ? 'text-success' : 'text-foreground-muted'
                 }`}
               >
@@ -253,7 +253,7 @@ function CekResiContent() {
         <form onSubmit={handleSubmit} className="mt-6" noValidate>
           <label
             htmlFor="cek-resi-input"
-            className="mb-2 block text-xs font-bold uppercase tracking-widest text-foreground-muted"
+            className="mb-2 block text-xs font-bold uppercase tracking-wide text-foreground-muted"
           >
             Nomor Resi
           </label>
@@ -340,7 +340,7 @@ function CekResiContent() {
               <div className="rounded-3xl border border-border bg-surface/[0.04] p-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-xs uppercase tracking-widest text-foreground-muted">Nomor resi</p>
+                    <p className="text-xs uppercase tracking-wide text-foreground-muted">Nomor resi</p>
                     <h2 className="mt-1 break-all text-2xl font-black tracking-tight">{state.data.resi}</h2>
                   </div>
                   <OrderStatusBadge
@@ -351,7 +351,7 @@ function CekResiContent() {
                 </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl bg-surface p-4">
-                    <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-foreground-muted">
+                    <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-foreground-muted">
                       <MapPin aria-hidden="true" className="h-3.5 w-3.5" /> Rute
                     </p>
                     <p className="mt-1.5 text-sm font-semibold">
@@ -359,14 +359,14 @@ function CekResiContent() {
                     </p>
                   </div>
                   <div className="rounded-2xl bg-surface p-4">
-                    <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-foreground-muted">
+                    <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-foreground-muted">
                         <Clock aria-hidden="true" className="h-3.5 w-3.5" /> Estimasi tiba
                     </p>
                     <p className="mt-1.5 text-sm font-semibold">{formatTime(state.data.estimated_delivery_at)}</p>
                   </div>
                   {state.data.courier_first_name && (
                     <div className="rounded-2xl bg-surface p-4">
-                      <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-foreground-muted">
+                      <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-foreground-muted">
                         <User aria-hidden="true" className="h-3.5 w-3.5" /> Kurir
                       </p>
                       <p className="mt-1.5 text-sm font-semibold">{state.data.courier_first_name}</p>

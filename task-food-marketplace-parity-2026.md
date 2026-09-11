@@ -3138,6 +3138,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Verification checkpoint 2026-09-11 (continued):** The complete Admin route inventory was rerun in isolated processes after the initial parallel run exposed a shared-dev-server lifecycle collision. Axe/semantic inventory passes `142/142`, and reflow/text-spacing inventory passes `210/210` across registered routes, both themes, 320px, 640px and WCAG 1.4.12 overrides; no code regressions were found. Full dynamic state, visual and manual assistive-technology review remains open. External staging deployment remains unverified.
 
+> **Execution checkpoint 2026-09-11 (continued):** Customer public readability was continued across the landing page, pricing table, resi lookup/status, location-request, food reorder, landing resi widget and not-found surfaces. Extreme uppercase tracking was reduced to `tracking-wide`, small status labels were raised to the shared `text-xs` floor, and the pricing note header retains explicit `scope="col"`; OTP/PIN code-entry spacing remains intentionally monospace. Customer axe inventory passes `56/56`, Customer reflow/text-spacing inventory passes `81/81`, localization/direction/long-copy passes `3/3`, and Customer typecheck/ESLint/iconography/table/diff guards pass. Full dynamic state, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

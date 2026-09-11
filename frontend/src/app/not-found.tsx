@@ -3,7 +3,7 @@ import Link from 'next/link';
 export default function NotFound() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-16 text-center text-foreground">
-      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground-muted">404</p>
+      <p className="text-sm font-semibold uppercase tracking-wide text-foreground-muted">404</p>
       <h1 className="mt-3 text-3xl font-bold tracking-tight">Halaman tidak ditemukan</h1>
       <p className="mt-3 max-w-md text-sm text-foreground-muted">
         Tautan yang Anda buka tidak tersedia atau sudah tidak aktif.

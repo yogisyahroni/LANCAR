@@ -53,7 +53,7 @@ export default async function ReceiverLocationRequestPage({ params }: { params: 
         <div className="rounded-[2rem] bg-gradient-to-br from-primary via-primary to-info p-6 text-foreground shadow-xl">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.26em] text-foreground-secondary">PAKET MASUK</p>
+              <p className="text-xs font-black uppercase tracking-wide text-foreground-secondary">PAKET MASUK</p>
               <h1 className="mt-3 text-3xl font-black tracking-tight">Konfirmasi titik penerima</h1>
             </div>
             <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-surface-subtle">

@@ -185,7 +185,7 @@ export default function FoodReorderPage() {
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center gap-3">
         <Link href={`/orders/${orderId}`} className="rounded-xl border border-border p-2 text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5"  aria-hidden="true"/></Link>
-        <div><p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Food delivery</p><h1 className="text-2xl font-black text-foreground">Pesan Lagi dari {check.merchant_name}</h1></div>
+        <div><p className="text-xs font-bold uppercase tracking-wide text-primary">Food delivery</p><h1 className="text-2xl font-black text-foreground">Pesan Lagi dari {check.merchant_name}</h1></div>
       </div>
 
       {check.has_changes && <div className="rounded-2xl border border-warning bg-warning-surface p-4 text-sm text-warning">Harga dan ketersediaan sudah divalidasi ulang dari menu saat ini. Total baru: <strong>{formatPrice(check.total_new)}</strong>.</div>}

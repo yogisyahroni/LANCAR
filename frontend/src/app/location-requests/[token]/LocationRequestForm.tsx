@@ -180,7 +180,7 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
   return (
     <form onSubmit={submitLocation} className="rounded-[2rem] border border-border bg-surface p-5 shadow-lg sm:p-7">
       <div className="mb-6 rounded-3xl bg-surface-subtle p-5">
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-success">Pickup</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-success">Pickup</p>
         <p className="mt-2 text-base font-black text-foreground-muted">{initialRequest.pickup_address}</p>
       </div>
 
