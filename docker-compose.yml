@@ -372,6 +372,42 @@ services:
       - tembus-net
 
   # ─────────────────────────────────────────────
+  # ADS SERVICE — Go (canonical paid-visibility lifecycle/delivery/billing)
+  # promo_campaigns remains the canonical campaign registry; Ads event tables
+  # are append-only execution/accounting evidence.
+  # ─────────────────────────────────────────────
+  ads-service:
+    build:
+      context: ./backend/ads-service
+      dockerfile: Dockerfile
+    container_name: tembus-ads
+    restart: unless-stopped
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      db-read:
+        condition: service_started
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
+      ADS_SERVICE_PORT: 8091
+      ADS_DELIVERY_SIGNING_KEY: ${ADS_DELIVERY_SIGNING_KEY:-tembus-ads-delivery-signing-key-local-32}
+      # Must match the gateway signer. Set an explicit strong secret in
+      # staging/production; the fallback keeps local compose deterministic.
+      INTERNAL_GATEWAY_SECRET: ${INTERNAL_GATEWAY_SECRET:-${JWT_SECRET:-changeme_in_production_min32chars}}
+      ADS_ORDER_EVENT_SECRET: ${ADS_ORDER_EVENT_SECRET:-tembus-ads-order-events-local-32}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    ports:
+      - "8091:8091"
+    healthcheck:
+      test: ["CMD", "/ads-service", "--healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - tembus-net
+
+  # ─────────────────────────────────────────────
   # INTEGRATION GATEWAY — Go 1.25 (Anti-Corruption Layer)
   # ─────────────────────────────────────────────
   integration-gateway:
@@ -710,6 +746,8 @@ services:
         condition: service_started
       developer-platform-service:
         condition: service_started
+      ads-service:
+        condition: service_started
       redis:
         condition: service_healthy
     environment:
@@ -719,6 +757,7 @@ services:
       ROUTING_SERVICE_URL: "http://routing-service:8082"
       PAYMENT_SERVICE_URL: "http://payment-service:8084"
       DEVELOPER_PLATFORM_SERVICE_URL: "http://developer-platform-service:8090"
+      ADS_SERVICE_URL: "http://ads-service:8091"
       # Always use the compose-network Redis hostname. The root .env may carry
       # localhost for host-side tools, which is unreachable from this container.
       REDIS_URL: "redis://redis:6379"

@@ -680,6 +680,11 @@ data class PromoActiveRequest(
     @SerializedName("is_active") val isActive: Boolean
 )
 
+data class AdsLifecycleRequest(
+    @SerializedName("to") val to: String,
+    @SerializedName("reason") val reason: String = ""
+)
+
 // ── MERCH-2026-007: merchant-funded Ads / paid visibility ──
 data class MerchantAd(
     @SerializedName("id") val id: String = "",
@@ -691,6 +696,8 @@ data class MerchantAd(
     @SerializedName("creative_headline") val creativeHeadline: String = "",
     @SerializedName("creative_body") val creativeBody: String = "",
     @SerializedName("creative_image_url") val creativeImageUrl: String = "",
+    @SerializedName("rejection_reason") val rejectionReason: String = "",
+    @SerializedName("suspension_reason") val suspensionReason: String = "",
     @SerializedName("total_budget_idr") val totalBudgetIdr: Long = 0,
     @SerializedName("daily_budget_idr") val dailyBudgetIdr: Long = 0,
     @SerializedName("starts_at") val startsAt: String = "",
@@ -712,7 +719,24 @@ data class MerchantAdRequest(
     @SerializedName("total_budget_idr") val totalBudgetIdr: Long,
     @SerializedName("daily_budget_idr") val dailyBudgetIdr: Long,
     @SerializedName("starts_at") val startsAt: String,
-    @SerializedName("ends_at") val endsAt: String
+    @SerializedName("ends_at") val endsAt: String,
+    @SerializedName("market_code") val marketCode: String = "id-jk",
+    @SerializedName("objective") val objective: String = "visibility",
+    @SerializedName("placements") val placements: List<String> = listOf("food_discovery"),
+    @SerializedName("branch_ids") val branchIds: List<String> = emptyList(),
+    @SerializedName("audience") val audience: AdsAudience = AdsAudience(),
+    @SerializedName("billing_model") val billingModel: String = "cpc",
+    @SerializedName("bid_max_minor") val bidMaxMinor: Long = 100,
+    @SerializedName("creative_alt_text") val creativeAltText: String = "Merchant sponsored food advertisement"
+)
+
+data class AdsAudience(
+    @SerializedName("market_codes") val marketCodes: List<String> = emptyList(),
+    @SerializedName("zone_codes") val zoneCodes: List<String> = emptyList(),
+    @SerializedName("service_area_codes") val serviceAreaCodes: List<String> = emptyList(),
+    @SerializedName("relationship") val relationship: String = "",
+    @SerializedName("intent_categories") val intentCategories: List<String> = emptyList(),
+    @SerializedName("app_versions") val appVersions: List<String> = emptyList()
 )
 
 data class MerchantAdListResponse(

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.tembus.customer.data.CartStore
 import com.tembus.customer.data.api.TEMBUSApiService
 import com.tembus.customer.data.model.CartItem
+import com.tembus.customer.data.model.AdsEventRequest
 import com.tembus.customer.data.model.CreateFoodOrderRequest
 import com.tembus.customer.data.model.CustomerAddress
 import com.tembus.customer.data.model.FoodMenuItem
@@ -226,10 +227,33 @@ class FoodViewModel @Inject constructor(
     fun recordSponsoredEvent(merchantId: String, campaignId: String, eventType: String) {
         viewModelScope.launch {
             runCatching {
+                // New Ads delivery uses an opaque token. The legacy Food event
+                // endpoint remains a compatibility bridge for old feed rows
+                // until the staging feed is fully tokenized.
                 apiService.recordFoodSponsoredEvent(
                     merchantId,
                     mapOf("campaign_id" to campaignId, "event_type" to eventType, "session_id" to discoverySessionId)
                 )
+            }
+        }
+    }
+
+    fun recordSponsoredEvent(merchantId: String, campaignId: String, deliveryToken: String?, eventType: String) {
+        if (deliveryToken.isNullOrBlank()) {
+            recordSponsoredEvent(merchantId, campaignId, eventType)
+            return
+        }
+        viewModelScope.launch {
+            runCatching {
+                val request = AdsEventRequest(deliveryToken, sessionHash = discoverySessionId)
+                val idempotencyKey = "ads-${eventType}-${deliveryToken.hashCode()}-${discoverySessionId}"
+                if (eventType == "click") {
+                    apiService.recordAdsClick(idempotencyKey, request)
+                } else if (eventType == "impression") {
+                    apiService.recordAdsImpression(idempotencyKey, request)
+                } else {
+                    Unit
+                }
             }
         }
     }

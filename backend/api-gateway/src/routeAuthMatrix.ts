@@ -257,6 +257,13 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: prefix('/api/v1/wallet'),
   },
   {
+    id: 'commerce-ads-api',
+    requirement: 'jwt',
+    matches: (method, path) =>
+      prefix('/api/v1/ads')(method, path) ||
+      prefix('/api/v1/merchant/ads')(method, path),
+  },
+  {
     id: 'auth-service-protected',
     requirement: 'jwt',
     matches: (method, path) =>

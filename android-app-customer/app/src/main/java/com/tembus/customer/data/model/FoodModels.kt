@@ -27,6 +27,10 @@ data class FoodMerchant(
     @SerialName("is_sponsored") val isSponsored: Boolean = false,
     @SerialName("ad_label") val adLabel: String? = null,
     @SerialName("sponsored_campaign_id") val sponsoredCampaignId: String? = null,
+    @SerialName("source_type") val sourceType: String = "organic_rank",
+    // Opaque Ads-service context. The customer must send this token for
+    // billable events; campaign ids are retained only for legacy fallback.
+    @SerialName("ad_delivery_token") val adDeliveryToken: String? = null,
     @SerialName("menu_items") val menuItems: List<FoodMenuItem> = emptyList(),
     // FOOD-IMG (2026-08-27): merchant cover/hero image (food photo). Backend optional;
     // UI falls back to a branded gradient placeholder when null.

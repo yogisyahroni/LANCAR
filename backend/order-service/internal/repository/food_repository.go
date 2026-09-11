@@ -101,6 +101,7 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 	if halalStatus.Valid {
 		m.HalalStatus = halalStatus.String
 	}
+	m.SourceType = "organic_rank"
 	return m, nil
 }
 
@@ -713,6 +714,9 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 		m.SponsoredCampaignID = sponsoredCampaignID
 		if isSponsored {
 			m.AdLabel = "Sponsored"
+			m.SourceType = "sponsored_ad"
+		} else {
+			m.SourceType = "organic_rank"
 		}
 		out = append(out, m)
 	}
@@ -869,6 +873,9 @@ func (r *foodRepo) ListFoodMerchantsWithOptions(ctx context.Context, lat, lng fl
 		m.SponsoredCampaignID = sponsoredCampaignID
 		if isSponsored {
 			m.AdLabel = "Sponsored"
+			m.SourceType = "sponsored_ad"
+		} else {
+			m.SourceType = "organic_rank"
 		}
 		out = append(out, m)
 	}

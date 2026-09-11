@@ -184,6 +184,10 @@ type FoodMerchantInfo struct {
 	IsSponsored         bool       `json:"is_sponsored"`
 	AdLabel             string     `json:"ad_label,omitempty"`
 	SponsoredCampaignID string     `json:"sponsored_campaign_id,omitempty"`
+	// SourceType is an explicit provenance contract for discovery consumers.
+	// It is never used as an organic ranking signal.
+	SourceType      string `json:"source_type"`
+	AdDeliveryToken string `json:"ad_delivery_token,omitempty"`
 	// ADR 003 (2026-08-10): status halal merchant untuk label + filter
 	// customer — halal_certified | non_halal | unknown.
 	HalalStatus string             `json:"halal_status"`

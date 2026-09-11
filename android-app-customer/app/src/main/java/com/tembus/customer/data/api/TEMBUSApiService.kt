@@ -502,6 +502,29 @@ interface TEMBUSApiService {
         @Path("id") id: String
     ): Response<FoodMerchantDetailResponse>
 
+    // Commerce Ads delivery is a separate authority from Food ranking. The
+    // server returns the opaque token; clients cannot select a sponsor or set
+    // a price. Protected/ad-free placements are handled by Ads service policy.
+    @GET("api/v1/ads/placements/{placement}")
+    suspend fun getAdsPlacement(
+        @Path("placement") placement: String,
+        @Query("market") market: String,
+        @Query("session_id") sessionId: String,
+        @Query("intent") intent: String? = null,
+    ): Response<AdsPlacementResponse>
+
+    @POST("api/v1/ads/impressions")
+    suspend fun recordAdsImpression(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: AdsEventRequest,
+    ): Response<AdsEventResponse>
+
+    @POST("api/v1/ads/clicks")
+    suspend fun recordAdsClick(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: AdsEventRequest,
+    ): Response<AdsEventResponse>
+
     @POST("api/v1/food/merchants/{merchantId}/sponsored-event")
     suspend fun recordFoodSponsoredEvent(
         @Path("merchantId") merchantId: String,

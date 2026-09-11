@@ -331,6 +331,18 @@ interface TEMBUSApiService {
         @Body request: PromoActiveRequest
     ): Response<SuccessResponse>
 
+    @POST("api/v1/merchant/ads/{id}/lifecycle")
+    suspend fun transitionMerchantAd(
+        @Path("id") id: String,
+        @Body request: AdsLifecycleRequest
+    ): Response<MerchantAd>
+
+    @POST("api/v1/merchant/ads/{id}/clone")
+    suspend fun cloneMerchantAd(
+        @Path("id") id: String,
+        @Header("X-Idempotency-Key") idempotencyKey: String
+    ): Response<MerchantAd>
+
     @GET("api/v1/merchant/ads/performance")
     suspend fun getMerchantMarketingPerformance(
         @Query("period") period: String

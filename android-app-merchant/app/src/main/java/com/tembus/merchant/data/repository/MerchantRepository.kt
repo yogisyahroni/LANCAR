@@ -216,6 +216,12 @@ class MerchantRepository(
     suspend fun setMerchantAdActive(id: String, active: Boolean): Result<Boolean> =
         request { api.setMerchantAdActive(id, PromoActiveRequest(active)) }.map { it.success }
 
+    suspend fun transitionMerchantAd(id: String, to: String, reason: String = ""): Result<MerchantAd> =
+        request { api.transitionMerchantAd(id, AdsLifecycleRequest(to, reason)) }
+
+    suspend fun cloneMerchantAd(id: String): Result<MerchantAd> =
+        request { api.cloneMerchantAd(id, "ads-clone-${java.util.UUID.randomUUID()}") }
+
     suspend fun getMerchantMarketingPerformance(period: String): Result<MerchantMarketingPerformance> =
         request { api.getMerchantMarketingPerformance(period) }
 

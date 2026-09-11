@@ -45,6 +45,7 @@ import {
   Monitor,
   MessageSquareWarning,
   WalletCards,
+  Target,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router'
@@ -272,6 +273,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       items: [
         { icon: Ticket, label: "Vouchers", path: "/vouchers" },
         { icon: BadgePercent, label: "Promos (Financial)", path: "/promos" },
+        { icon: Target, label: "Commerce Ads (Iklan)", path: "/commerce-ads", allowedRoles: ['super_admin', 'admin', 'ops_admin', 'finance_admin', 'ops_security'] },
         { icon: Newspaper, label: "Berita & Artikel", path: "/news", restrictedRoles: ['cs_agent'] },
         { icon: Megaphone, label: "Broadcast Center", path: "/broadcasts", allowedRoles: ['super_admin', 'admin', 'ops_admin'] }, // 10.2
         { icon: FileText, label: "Resi Templates", path: "/resi-templates", restrictedRoles: ['cs_agent', 'finance', 'finance_admin'] },

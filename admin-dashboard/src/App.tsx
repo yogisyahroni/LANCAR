@@ -58,6 +58,7 @@ import Experiments from './pages/Experiments'
 import AppExperience from './pages/AppExperience'
 import LocalizedContentPacks from './pages/LocalizedContentPacks'
 import MobileReleasePolicies from './pages/MobileReleasePolicies'
+import CommerceAds from './pages/ads/CommerceAds'
 import AppVersionPolicy from './pages/AppVersionPolicy'
 import DashboardLayout from './components/DashboardLayout'
 import ExperienceScopedPage from './components/experience/ExperienceScopedPage'
@@ -405,6 +406,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/commerce-ads" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'ops_admin', 'finance_admin', 'ops_security']}><CommerceAds /></ProtectedRoute>} />
           <Route 
             path="/notifications" 
             element={

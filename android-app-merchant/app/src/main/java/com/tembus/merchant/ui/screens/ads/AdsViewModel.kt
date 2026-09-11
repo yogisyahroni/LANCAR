@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.merchant.data.model.MerchantAd
 import com.tembus.merchant.data.model.MerchantAdRequest
+import com.tembus.merchant.data.model.MerchantMarketingPerformance
 import com.tembus.merchant.data.repository.MerchantRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +16,8 @@ data class AdsUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val actionLoadingId: String? = null,
-    val createCompleted: Boolean = false
+    val createCompleted: Boolean = false,
+    val performance: MerchantMarketingPerformance? = null
 )
 
 class AdsViewModel(
@@ -42,6 +44,8 @@ class AdsViewModel(
                         errorMessage = error.message ?: "Gagal memuat iklan"
                     )
                 }
+            merchantRepository.getMerchantMarketingPerformance("daily")
+                .onSuccess { performance -> _uiState.value = _uiState.value.copy(performance = performance) }
         }
     }
 
@@ -65,7 +69,12 @@ class AdsViewModel(
     fun toggleActive(ad: MerchantAd) {
         _uiState.value = _uiState.value.copy(actionLoadingId = ad.id, errorMessage = null)
         viewModelScope.launch {
-            merchantRepository.setMerchantAdActive(ad.id, !ad.status.equals("active", ignoreCase = true))
+            val result = if (ad.status.equals("draft", ignoreCase = true)) {
+                merchantRepository.transitionMerchantAd(ad.id, "validating", "merchant submitted campaign for policy review").map { true }
+            } else {
+                merchantRepository.setMerchantAdActive(ad.id, !ad.status.equals("active", ignoreCase = true))
+            }
+            result
                 .onSuccess { load() }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
@@ -78,5 +87,23 @@ class AdsViewModel(
 
     fun clearCreateCompleted() {
         _uiState.value = _uiState.value.copy(createCompleted = false)
+    }
+
+    fun clone(ad: MerchantAd) {
+        _uiState.value = _uiState.value.copy(actionLoadingId = ad.id, errorMessage = null)
+        viewModelScope.launch {
+            merchantRepository.cloneMerchantAd(ad.id)
+                .onSuccess { load() }
+                .onFailure { error -> _uiState.value = _uiState.value.copy(actionLoadingId = null, errorMessage = error.message ?: "Gagal menyalin kampanye") }
+        }
+    }
+
+    fun end(ad: MerchantAd) {
+        _uiState.value = _uiState.value.copy(actionLoadingId = ad.id, errorMessage = null)
+        viewModelScope.launch {
+            merchantRepository.transitionMerchantAd(ad.id, "ended", "merchant ended campaign")
+                .onSuccess { load() }
+                .onFailure { error -> _uiState.value = _uiState.value.copy(actionLoadingId = null, errorMessage = error.message ?: "Gagal mengakhiri kampanye") }
+        }
     }
 }

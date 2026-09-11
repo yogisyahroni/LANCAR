@@ -196,6 +196,7 @@ const orderBreaker = createServiceBreaker('order-service');
 const adminBreaker = createServiceBreaker('admin-service');
 const paymentBreaker = createServiceBreaker('payment-service');
 const merchantBreaker = createServiceBreaker('merchant-service'); // FOOD-BIKE-019
+const adsBreaker = createServiceBreaker('ads-service');
 const routingBreaker = createServiceBreaker('routing-service');
 const developerPlatformBreaker = createServiceBreaker('developer-platform-service');
 const customerMobileBreaker = createServiceBreaker('customer-mobile', customerProxyBreakerOptions);
@@ -205,6 +206,7 @@ const orderBulkhead = new Bulkhead(resolveBulkheadLimit('order-service'));
 const adminBulkhead = new Bulkhead(resolveBulkheadLimit('admin-service'));
 const paymentBulkhead = new Bulkhead(resolveBulkheadLimit('payment-service'));
 const merchantBulkhead = new Bulkhead(resolveBulkheadLimit('merchant-service'));
+const adsBulkhead = new Bulkhead(resolveBulkheadLimit('ads-service'));
 const routingBulkhead = new Bulkhead(resolveBulkheadLimit('routing-service'));
 const developerPlatformBulkhead = new Bulkhead(resolveBulkheadLimit('developer-platform-service'));
 const customerMobileBulkhead = new Bulkhead(resolveBulkheadLimit('customer-mobile'));
@@ -302,6 +304,11 @@ const directProxyPolicies: DirectProxyPolicy[] = [
     matches: (path) => path.startsWith('/api/v1/notifications'),
     serviceName: 'order-service', breaker: orderBreaker,
     bulkhead: new Bulkhead(resolveBulkheadLimit('order-service')), observeResponse: true,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/ads') || path.startsWith('/api/v1/merchant/ads'),
+    serviceName: 'ads-service', breaker: adsBreaker,
+    bulkhead: adsBulkhead, observeResponse: true,
   },
   {
     matches: (path) => path.startsWith('/api/v1/merchant'),
@@ -525,6 +532,7 @@ const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:8081'
 const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://localhost:8083';
 const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://localhost:8084';
 const MERCHANT_SERVICE_URL = process.env.MERCHANT_SERVICE_URL || 'http://localhost:8085'; // FOOD-BIKE-019
+const ADS_SERVICE_URL = process.env.ADS_SERVICE_URL || 'http://localhost:8091';
 const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://localhost:3000';
 const ROUTING_SERVICE_URL = process.env.ROUTING_SERVICE_URL || 'http://localhost:8082';
 const DEVELOPER_PLATFORM_SERVICE_URL = process.env.DEVELOPER_PLATFORM_SERVICE_URL || 'http://localhost:8090';
@@ -535,6 +543,7 @@ logger.logger.info({
   admin_service_configured: Boolean(ADMIN_SERVICE_URL),
   order_service_configured: Boolean(ORDER_SERVICE_URL),
   developer_platform_service_configured: Boolean(DEVELOPER_PLATFORM_SERVICE_URL),
+  ads_service_configured: Boolean(ADS_SERVICE_URL),
 }, 'Gateway upstream services configured');
 
 const phoneRegex = /^(08|628|\+628)[0-9]{8,11}$/;
@@ -566,6 +575,13 @@ const prepareProxyRequest = (proxyReq: any, req: Request) => {
   if (req.body) {
     deepNormalizePhone(req.body);
   }
+  // The Ads service must never trust a client-provided context-resolution
+  // marker.  Authentication and route policy have already run in the
+  // gateway at this point, so the gateway is the only component allowed to
+  // assert that the request passed through the server-side context boundary.
+  // This also keeps direct/mobile clients from selecting a sponsored item by
+  // adding the header themselves.
+  proxyReq.removeHeader('X-Ads-Context-Resolved');
   applyInternalGatewayAuth(proxyReq, req);
   applyProxyObservabilityHeaders(proxyReq, req);
   fixRequestBody(proxyReq, req);
@@ -1600,6 +1616,35 @@ app.use(createProxyMiddleware({
       prepareProxyRequest(proxyReq, req);
     }
   }
+}));
+
+// Commerce Ads owns paid campaign lifecycle, delivery, budget and billing.
+// Keep this route ahead of the generic merchant proxy so `/merchant/ads` does
+// not fall back to the compatibility facade in merchant-service.
+app.use(createProxyMiddleware({
+  pathFilter: (pathname: string) => pathname.startsWith('/api/v1/ads') || pathname.startsWith('/api/v1/merchant/ads'),
+  target: ADS_SERVICE_URL,
+  changeOrigin: true,
+    on: {
+      proxyReq: (proxyReq: any, req: any) => {
+        logProxyForward('ads_service', req, ADS_SERVICE_URL);
+        prepareProxyRequest(proxyReq, req);
+        // This route is protected by the gateway auth matrix.  Set the
+        // marker only after the gateway has authenticated the caller; Ads
+        // treats a missing marker as an organic fallback.
+        proxyReq.setHeader('X-Ads-Context-Resolved', 'true');
+      },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) recordBreakerFailure(adsBreaker);
+    },
+    error: (err: Error, req: any, res: any) => {
+      recordBreakerFailure(adsBreaker);
+      logProxyError('ads_service', ADS_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(502).json({ status: 'error', code: 'ERR_ADS_UNAVAILABLE', message: 'Ads unavailable; use organic discovery' });
+      }
+    },
+  },
 }));
 
 app.use('/api/v1/merchant', authenticateJWT);

@@ -67,6 +67,14 @@ fun AdsZipScreen(
     var imageUrl by remember { mutableStateOf("") }
     var totalBudget by remember { mutableStateOf("") }
     var dailyBudget by remember { mutableStateOf("") }
+    var objective by remember { mutableStateOf("visibility") }
+    var placement by remember { mutableStateOf("food_discovery") }
+    var branchIds by remember { mutableStateOf("") }
+    var audience by remember { mutableStateOf("") }
+    var bid by remember { mutableStateOf("100") }
+    var daypart by remember { mutableStateOf("全天") }
+    var startAt by remember { mutableStateOf(Instant.now().plusSeconds(60).toString()) }
+    var endAt by remember { mutableStateOf(Instant.now().plus(Duration.ofDays(7)).toString()) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(state.createCompleted) {
@@ -118,6 +126,7 @@ fun AdsZipScreen(
                         }
                         Text("Iklan membeli visibilitas di discovery. Iklan tidak mengubah harga, ETA, rating, atau urutan organik.")
                         Text("Saldo merchant akan dipotong saat kampanye dibuat; performa paid dan organik dilaporkan terpisah.", style = MaterialTheme.typography.bodySmall)
+                        Text("Promo adalah penawaran harga di Menu Promo. Iklan adalah produk visibilitas terpisah.", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -131,9 +140,16 @@ fun AdsZipScreen(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Buat kampanye Iklan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         OutlinedTextField(name, { name = it }, label = { Text("Nama kampanye") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(objective, { objective = it }, label = { Text("Objective") }, supportingText = { Text("Contoh: visibility, new_customer") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(placement, { placement = it }, label = { Text("Placement") }, supportingText = { Text("Food discovery atau food search; posisi tetap dibatasi policy") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(branchIds, { branchIds = it }, label = { Text("Branch/location (opsional)") }, supportingText = { Text("Pisahkan beberapa branch dengan koma") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(audience, { audience = it }, label = { Text("Audience kontekstual (opsional)") }, supportingText = { Text("Kategori/area/time; tanpa atribut sensitif atau daftar user") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(headline, { headline = it }, label = { Text("Headline kreatif") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(body, { body = it }, label = { Text("Teks kreatif (opsional)") }, maxLines = 3, modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(imageUrl, { imageUrl = it }, label = { Text("URL gambar HTTPS (opsional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(daypart, { daypart = it }, label = { Text("Daypart / jam tayang") }, supportingText = { Text("Estimate; gunakan timezone market merchant") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(startAt, { startAt = it }, label = { Text("Mulai (RFC3339)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(endAt, { endAt = it }, label = { Text("Selesai (RFC3339)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 totalBudget,
@@ -153,6 +169,23 @@ fun AdsZipScreen(
                                 singleLine = true,
                                 modifier = Modifier.weight(1f)
                             )
+                            OutlinedTextField(
+                                bid,
+                                { bid = it.filter(Char::isDigit) },
+                                label = { Text("Max bid") },
+                                prefix = { Text("Rp ") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer), modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Preview Iklan", fontWeight = FontWeight.Bold)
+                                Text(headline.ifBlank { "Headline kreatif tampil di sini" }, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text("Sponsored / Iklan · Estimasi jangkauan, bukan jaminan order", style = MaterialTheme.typography.bodySmall)
+                                Text("Hard cap: ${Format.rupiah(total)} · Model: CPC · Daypart: $daypart", style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                         validationError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -160,7 +193,7 @@ fun AdsZipScreen(
                             onClick = {
                                 validationError = validateAdForm(name, headline, imageUrl, total, daily)
                                 if (validationError == null) {
-                                    val start = Instant.now().plusSeconds(60)
+                                    val branchList = branchIds.split(',').map(String::trim).filter(String::isNotBlank)
                                     viewModel.create(
                                         MerchantAdRequest(
                                             name = name.trim(),
@@ -170,8 +203,15 @@ fun AdsZipScreen(
                                             creativeImageUrl = imageUrl.trim(),
                                             totalBudgetIdr = total,
                                             dailyBudgetIdr = daily,
-                                            startsAt = start.toString(),
-                                            endsAt = start.plus(Duration.ofDays(7)).toString()
+                                            startsAt = startAt,
+                                            endsAt = endAt,
+                                            marketCode = "id-jk",
+                                            objective = objective.trim().ifBlank { "visibility" },
+                                            placements = listOf(placement.trim().ifBlank { "food_discovery" }),
+                                            branchIds = branchList,
+                                            audience = com.tembus.merchant.data.model.AdsAudience(intentCategories = listOf(placement.trim()).filter(String::isNotBlank)),
+                                            bidMaxMinor = bid.toLongOrNull() ?: 100L,
+                                            creativeAltText = "Merchant sponsored food advertisement"
                                         )
                                     )
                                 }
@@ -185,13 +225,24 @@ fun AdsZipScreen(
                     }
                 }
             }
+            item {
+                state.performance?.let { performance ->
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Performa Iklan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("${performance.paid.impressions} tayangan · ${performance.paid.clicks} klik · ${performance.paid.attributedOrders} attributed order")
+                            Text("Spend paid: ${Format.rupiah(performance.paid.spendIdr)} · organic tetap terpisah", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
             item { Text("Kampanye saya", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
             if (state.isLoading && state.items.isEmpty()) {
                 item { CircularProgressIndicator(Modifier.padding(vertical = 20.dp), color = Primary) }
             } else if (state.items.isEmpty()) {
                 item { Text("Belum ada kampanye Iklan.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
-                items(state.items, key = { it.id }) { ad -> MerchantAdCard(ad, state.actionLoadingId, viewModel::toggleActive) }
+                items(state.items, key = { it.id }) { ad -> MerchantAdCard(ad, state.actionLoadingId, viewModel::toggleActive, viewModel::clone, viewModel::end) }
             }
             item { Spacer(Modifier.height(20.dp)) }
         }
@@ -206,7 +257,7 @@ private fun validateAdForm(name: String, headline: String, imageUrl: String, tot
 }
 
 @Composable
-private fun MerchantAdCard(ad: MerchantAd, actionLoadingId: String?, onToggle: (MerchantAd) -> Unit) {
+private fun MerchantAdCard(ad: MerchantAd, actionLoadingId: String?, onToggle: (MerchantAd) -> Unit, onClone: (MerchantAd) -> Unit, onEnd: (MerchantAd) -> Unit) {
     val active = ad.status.equals("active", ignoreCase = true) || ad.status.equals("scheduled", ignoreCase = true)
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -223,7 +274,7 @@ private fun MerchantAdCard(ad: MerchantAd, actionLoadingId: String?, onToggle: (
                 Switch(
                     checked = active,
                     onCheckedChange = { onToggle(ad) },
-                    enabled = actionLoadingId != ad.id
+                    enabled = actionLoadingId != ad.id && !ad.status.equals("rejected", true) && !ad.status.equals("suspended", true)
                 )
             }
             Text("Status: ${ad.status.ifBlank { "unknown" }}", style = MaterialTheme.typography.labelMedium)
@@ -233,6 +284,15 @@ private fun MerchantAdCard(ad: MerchantAd, actionLoadingId: String?, onToggle: (
                 Text("Spend ${Format.rupiah(ad.chargedAmountIdr)}", style = MaterialTheme.typography.bodySmall, color = Primary)
             }
             Text("Attributed: ${ad.attributedOrders} order · ${Format.rupiah(ad.attributedRevenueIdr)}", style = MaterialTheme.typography.bodySmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (ad.status.equals("draft", true)) {
+                    OutlinedButton(onClick = { onToggle(ad) }, enabled = actionLoadingId != ad.id) { Text("Ajukan launch") }
+                }
+                OutlinedButton(onClick = { onClone(ad) }, enabled = actionLoadingId != ad.id) { Text("Clone") }
+                OutlinedButton(onClick = { onEnd(ad) }, enabled = actionLoadingId != ad.id && !ad.status.equals("ended", true)) { Text("Akhiri") }
+            }
+            if (ad.rejectionReason.isNotBlank()) Text("Ditolak: ${ad.rejectionReason}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            if (ad.suspensionReason.isNotBlank()) Text("Ditangguhkan: ${ad.suspensionReason}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

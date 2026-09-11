@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -234,15 +236,24 @@ fun FoodHomeScreen(
                     }
                 }
                 else -> {
+                    val listState = rememberLazyListState()
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(merchants, key = { it.id }) { merchant ->
-                            if (merchant.isSponsored && !merchant.sponsoredCampaignId.isNullOrBlank()) {
-                                LaunchedEffect(merchant.id, merchant.sponsoredCampaignId) {
-                                    viewModel.recordSponsoredEvent(merchant.id, merchant.sponsoredCampaignId!!, "impression")
+                        itemsIndexed(merchants, key = { _, merchant -> merchant.id }) { index, merchant ->
+                            val isViewable = listState.layoutInfo.visibleItemsInfo.any { it.index == index }
+                            if (merchant.isSponsored && (!merchant.adDeliveryToken.isNullOrBlank() || !merchant.sponsoredCampaignId.isNullOrBlank())) {
+                                // A billable impression requires the LazyColumn item to
+                                // be in the viewport for the minimum viewability dwell.
+                                // Rendering/composition alone is intentionally insufficient.
+                                LaunchedEffect(merchant.id, merchant.sponsoredCampaignId, merchant.adDeliveryToken, isViewable) {
+                                    if (isViewable) {
+                                        delay(250)
+                                        viewModel.recordSponsoredEvent(merchant.id, merchant.sponsoredCampaignId.orEmpty(), merchant.adDeliveryToken, "impression")
+                                    }
                                 }
                             }
                             // Check if this merchant is in favorites
@@ -250,8 +261,8 @@ fun FoodHomeScreen(
                             val isFav = favorites.any { it.merchantId == merchant.id }
                             val cardModel = merchant.toTembusMerchantCardModel(isFavorite = isFav)
                             val cardClick = {
-                                if (merchant.isSponsored && !merchant.sponsoredCampaignId.isNullOrBlank()) {
-                                    viewModel.recordSponsoredEvent(merchant.id, merchant.sponsoredCampaignId!!, "click")
+                                if (merchant.isSponsored && (!merchant.adDeliveryToken.isNullOrBlank() || !merchant.sponsoredCampaignId.isNullOrBlank())) {
+                                    viewModel.recordSponsoredEvent(merchant.id, merchant.sponsoredCampaignId.orEmpty(), merchant.adDeliveryToken, "click")
                                 }
                                 onMerchantClick(merchant.id)
                             }
