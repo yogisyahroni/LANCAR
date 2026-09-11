@@ -3632,6 +3632,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** The fixed Customer loading semantics were rerun through the full registered inventory: Customer Light/Dark/mobile axe and semantic checks pass `56/56`; Admin Light/Dark/mobile inventory remains green at `142/142`. Admin Light/Dark visual regression baselines were inspected and regenerated for the intentional `(wajib)` label/layout changes, then the visual suite passes `3/3`; Customer public visual regression passes `2/2`. Automated route, visual and reflow evidence is current, while dated manual screen-reader, actual browser-zoom, dynamic provider/campaign and staging/provider-backed review remain open.
 
+> **Execution checkpoint 2026-09-11 (continued):** A11Y-2026-012 now also has a reusable visible-focus assertion in both route inventories. The representative Customer focus slice passes `4/4` and Admin focus slice passes `14/14` across Light/Dark dashboard, On-Demand, Cases and App Experience routes; typecheck/lint pass. This proves rendered focus indicators for sampled controls, while full keyboard-only completion, screen-reader review and manual route-state observation remain open.
+
 **Customer Web minimum route groups**
 - landing/public
 - auth

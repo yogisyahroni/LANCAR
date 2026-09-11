@@ -259,6 +259,23 @@ async function assertVisibleIconSemantics(page: Page) {
   expect(findings, JSON.stringify(findings)).toEqual([]);
 }
 
+async function assertVisibleFocusIndicators(page: Page) {
+  const findings = await page.evaluate(() => {
+    const selectors = 'button, a[href], input:not([type="hidden"]), select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [role="tab"]';
+    const visible = (element: Element) => element instanceof HTMLElement && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden';
+    return Array.from(document.querySelectorAll<HTMLElement>(selectors))
+      .filter(visible)
+      .slice(0, 12)
+      .flatMap((element) => {
+        element.focus({ preventScroll: true });
+        const style = getComputedStyle(element);
+        const hasIndicator = style.outlineStyle !== 'none' && style.outlineWidth !== '0px' || style.boxShadow !== 'none';
+        return hasIndicator ? [] : [{ tag: element.tagName.toLowerCase(), name: element.getAttribute('aria-label') || element.textContent?.trim().slice(0, 80) || '' }];
+      });
+  });
+  expect(findings, JSON.stringify(findings)).toEqual([]);
+}
+
 async function assertDocumentSemantics(page: Page) {
   const findings = await page.evaluate(() => {
     const visible = (element: Element) => {
@@ -482,6 +499,7 @@ test.describe('WCAG 2.1 AA full Customer route inventory', () => {
         expect(results.violations, JSON.stringify({ route, theme, violations: results.violations })).toEqual([]);
         await assertVisibleInteractiveNames(page);
         await assertVisibleIconSemantics(page);
+        await assertVisibleFocusIndicators(page);
         await assertDocumentSemantics(page);
       });
     }
