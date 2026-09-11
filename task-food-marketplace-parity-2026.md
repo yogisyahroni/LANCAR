@@ -3648,6 +3648,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Verification checkpoint 2026-09-11 (continued):** Android verification was attempted through the available headless `Pixel_5_kurir` emulator. Chrome/TalkBack exposed the Customer WebView's page name, named logo (`TEMBUS`) and primary actions. Screenshot inspection found the shared white/translucent logo was not readable on the pale landing header; `frontend/src/app/globals.css` now adds a semantic dark scrim, and the refreshed mobile screenshot shows the artwork clearly. The new Light/Dark logo contrast guard passes `2/2` with computed `16.64:1` contrast, and the current Customer Docker matrix passes `266/266`. Human screen-reader speech output, dated manual route/state review and staging/provider-backed validation remain explicitly unproven; checklist rows stay unchecked.
 
+> **Release-gate checkpoint 2026-09-11 (continued):** Implementation commit `ca3a8533` and evidence/master commit `2260c5a7` are on `origin/staging`. Task Evidence Gate `34591815873` and CI/CD Staging `34591815927` completed successfully, including frontend accessibility guards, service/migration/security/observability/SBOM checks and image build/push. SSH deployment and authenticated/API/browser validation jobs were skipped by missing staging configuration, so A11Y-012 remains blocked only on the external manual and deployed-runtime release proof.
+
 **Customer Web minimum route groups**
 - landing/public
 - auth
