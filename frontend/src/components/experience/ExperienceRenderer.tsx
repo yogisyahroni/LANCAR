@@ -38,6 +38,7 @@ function ExperienceCard({ section, manifest }: { section: ExperienceSection; man
       data-experience-manifest={manifest.manifest_id}
       data-experience-revision={manifest.revision}
       data-campaign-id={campaignId}
+      data-media-composition="separate-content"
     >
       {imageAsset?.uri ? (
         <img
@@ -46,9 +47,10 @@ function ExperienceCard({ section, manifest }: { section: ExperienceSection; man
           aria-hidden={imageDecorative || undefined}
           loading="lazy"
           className="mb-4 max-h-56 w-full rounded-xl object-cover"
+          data-experience-media="true"
         />
       ) : null}
-      {target ? <Link href={target} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">{content}</Link> : content}
+      {target ? <Link href={target} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" data-experience-copy="true">{content}</Link> : <div data-experience-copy="true">{content}</div>}
     </article>
   );
 }

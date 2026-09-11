@@ -3497,8 +3497,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 **Checklist**
 - [ ] Text over banner/image/animation uses deterministic solid/scrim/gradient overlay whose final contrast is validated at worst-case image area.
-- [ ] Do not approve text-over-image by checking only one sample asset; CMS preview/validator must account for configured text surface.
-- [ ] Critical transactional copy is not placed directly on arbitrary campaign art.
+- [x] Do not approve text-over-image by checking only one sample asset; the current CMS preview/schema exposes media as a separate asset slot and rejects unsupported overlay configuration. Evidence: `docs/task-evidence/A11Y-2026-007.md`.
+- [x] Critical transactional copy is not placed directly on arbitrary campaign art; the runtime renders campaign media before a separate copy block and proves the separation by geometry. Evidence: `docs/task-evidence/A11Y-2026-007.md`.
 - [x] Glass/translucent cards are prohibited for dense/critical content unless effective background contrast remains guaranteed.
 - [x] Informative images have meaningful alt text; decorative images use empty alt/aria-hidden as appropriate.
 - [x] Animation/campaign content honors reduced-motion strategy and has static fallback when needed.

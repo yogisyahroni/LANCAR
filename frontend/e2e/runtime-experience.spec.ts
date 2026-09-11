@@ -145,8 +145,12 @@ test.describe('Runtime experience contract', () => {
 
     const image = page.getByRole('img', { name: 'Illustrative food delivery banner' });
     const title = page.getByRole('heading', { name: 'Informative campaign title' });
+    const article = page.locator('[data-campaign-id="media-hero"]');
     await expect(image).toBeVisible();
     await expect(title).toBeVisible();
+    await expect(article).toHaveAttribute('data-media-composition', 'separate-content');
+    await expect(article.locator('[data-experience-media="true"]')).toHaveCount(1);
+    await expect(article.locator('[data-experience-copy="true"]')).toHaveCount(1);
     const [imageBox, titleBox] = await Promise.all([image.boundingBox(), title.boundingBox()]);
     expect(imageBox).not.toBeNull();
     expect(titleBox).not.toBeNull();

@@ -63,6 +63,7 @@ describe('runtime experience contract fuzz corpus', () => {
       expect(contract.static_fallback).toBe(true);
       expect(contract.presentation_only).toBe(true);
       expect(contract.media_semantics).toMatch(/^(none|alt_label_or_decorative)$/);
+      expect(contract.media_composition).toBe(contract.media_semantics === 'none' ? 'none' : 'separate_content');
     }
   });
 

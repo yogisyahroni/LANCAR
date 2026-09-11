@@ -367,6 +367,33 @@ describe('experience manifest contract', () => {
     }).sections[0].properties).toMatchObject({ image_decorative: true });
   });
 
+  it('keeps campaign copy outside arbitrary media and rejects overlay-only configuration', () => {
+    const mediaProperties = {
+      title: 'Welcome',
+      image_asset_id: 'hero-image',
+      alt_label: 'Hero campaign',
+      text_over_image: true,
+    };
+    const asset = {
+      asset_id: 'hero-image',
+      uri: '/assets/hero.webp',
+      kind: 'image' as const,
+      checksum,
+    };
+
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{ id: 'hero', component: 'hero_banner', properties: mediaProperties }],
+      asset_references: [asset],
+    })).toThrow(/Unrecognized key/);
+
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{ id: 'hero', component: 'hero_banner', properties: { ...mediaProperties, text_over_image: undefined, overlay: 'gradient' } }],
+      asset_references: [asset],
+    })).toThrow(/Unrecognized key/);
+  });
+
   it('converts timezone-less schedule wall-clock values using the declared IANA timezone', () => {
     const parsed = parseExperienceManifestInput({
       ...validInput,

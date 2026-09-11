@@ -620,6 +620,7 @@ const componentValues = new Set<string>(Object.keys(componentSchemas));
 export type ExperienceComponentAccessibilityContract = {
   accessible_name_fields: readonly string[];
   media_semantics: 'none' | 'alt_label_or_decorative';
+  media_composition: 'none' | 'separate_content' | 'deterministic_overlay';
   static_fallback: boolean;
   presentation_only: boolean;
 };
@@ -631,16 +632,16 @@ export type ExperienceComponentAccessibilityContract = {
  * compile-time failure; parseComponent also checks the registry at runtime.
  */
 export const EXPERIENCE_COMPONENT_ACCESSIBILITY_CONTRACT: Record<ExperienceComponent, ExperienceComponentAccessibilityContract> = {
-  hero_banner: { accessible_name_fields: ['title', 'localized_copy.title'], media_semantics: 'alt_label_or_decorative', static_fallback: true, presentation_only: true },
-  campaign_strip: { accessible_name_fields: ['title', 'localized_copy.title'], media_semantics: 'alt_label_or_decorative', static_fallback: true, presentation_only: true },
-  promo_carousel: { accessible_name_fields: ['items[].title', 'items[].localized_copy.title'], media_semantics: 'alt_label_or_decorative', static_fallback: true, presentation_only: true },
-  service_grid: { accessible_name_fields: ['title', 'cards[].code', 'service_entries[].label'], media_semantics: 'none', static_fallback: true, presentation_only: true },
-  info_card: { accessible_name_fields: ['title', 'localized_copy.title', 'body', 'localized_copy.body'], media_semantics: 'none', static_fallback: true, presentation_only: true },
-  quick_actions: { accessible_name_fields: ['actions[].label', 'actions[].localized_copy.label'], media_semantics: 'none', static_fallback: true, presentation_only: true },
-  notice: { accessible_name_fields: ['title', 'localized_copy.title', 'body', 'localized_copy.body'], media_semantics: 'none', static_fallback: true, presentation_only: true },
-  spacer: { accessible_name_fields: [], media_semantics: 'none', static_fallback: true, presentation_only: true },
-  campaign_intro: { accessible_name_fields: ['title', 'localized_copy.title', 'dismissible'], media_semantics: 'none', static_fallback: true, presentation_only: true },
-  design_tokens: { accessible_name_fields: [], media_semantics: 'none', static_fallback: true, presentation_only: true },
+  hero_banner: { accessible_name_fields: ['title', 'localized_copy.title'], media_semantics: 'alt_label_or_decorative', media_composition: 'separate_content', static_fallback: true, presentation_only: true },
+  campaign_strip: { accessible_name_fields: ['title', 'localized_copy.title'], media_semantics: 'alt_label_or_decorative', media_composition: 'separate_content', static_fallback: true, presentation_only: true },
+  promo_carousel: { accessible_name_fields: ['items[].title', 'items[].localized_copy.title'], media_semantics: 'alt_label_or_decorative', media_composition: 'separate_content', static_fallback: true, presentation_only: true },
+  service_grid: { accessible_name_fields: ['title', 'cards[].code', 'service_entries[].label'], media_semantics: 'none', media_composition: 'none', static_fallback: true, presentation_only: true },
+  info_card: { accessible_name_fields: ['title', 'localized_copy.title', 'body', 'localized_copy.body'], media_semantics: 'none', media_composition: 'none', static_fallback: true, presentation_only: true },
+  quick_actions: { accessible_name_fields: ['actions[].label', 'actions[].localized_copy.label'], media_semantics: 'none', media_composition: 'none', static_fallback: true, presentation_only: true },
+  notice: { accessible_name_fields: ['title', 'localized_copy.title', 'body', 'localized_copy.body'], media_semantics: 'none', media_composition: 'none', static_fallback: true, presentation_only: true },
+  spacer: { accessible_name_fields: [], media_semantics: 'none', media_composition: 'none', static_fallback: true, presentation_only: true },
+  campaign_intro: { accessible_name_fields: ['title', 'localized_copy.title', 'dismissible'], media_semantics: 'none', media_composition: 'none', static_fallback: true, presentation_only: true },
+  design_tokens: { accessible_name_fields: [], media_semantics: 'none', media_composition: 'none', static_fallback: true, presentation_only: true },
 };
 
 /**
