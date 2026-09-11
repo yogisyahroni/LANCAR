@@ -141,7 +141,7 @@ export default function ForgotPinPage() {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       aria-label="Phone number"
-                      className="flex-1 px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground"
+                      className="min-w-0 flex-1 px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground"
                       placeholder="+62812345678"
                     />
                     <button

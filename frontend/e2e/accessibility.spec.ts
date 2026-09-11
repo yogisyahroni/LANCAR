@@ -21,6 +21,10 @@ const FULL_CUSTOMER_ROUTE_INVENTORY = [
   '/',
   '/login',
   '/daftar',
+  '/forgot-pin',
+  '/otp-verify',
+  '/google-callback',
+  '/apple-callback',
   '/cek-resi',
   '/track/invalid',
   '/pay/fixture-payment',
@@ -46,6 +50,14 @@ const FULL_CUSTOMER_ROUTE_INVENTORY = [
   '/analytics',
   '/feature-flags',
 ] as const;
+
+function isPublicCustomerRoute(route: string) {
+  return route === '/' || route === '/login' || route === '/daftar'
+    || route === '/forgot-pin' || route === '/otp-verify'
+    || route === '/google-callback' || route === '/apple-callback'
+    || route === '/cek-resi' || route === '/track/invalid'
+    || route.startsWith('/pay/') || route.startsWith('/location-requests/');
+}
 
 type AccessibilityResult = {
   violations: Array<{ id: string; impact?: string | null }>;
@@ -264,7 +276,7 @@ async function assertVisibleFocusIndicators(page: Page) {
     const selectors = 'button, a[href], input:not([type="hidden"]), select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [role="tab"]';
     const visible = (element: Element) => element instanceof HTMLElement && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden';
     return Array.from(document.querySelectorAll<HTMLElement>(selectors))
-      .filter(visible)
+      .filter((element) => visible(element) && !element.matches(':disabled, [aria-disabled="true"]'))
       .slice(0, 12)
       .flatMap((element) => {
         element.focus({ preventScroll: true });
@@ -486,7 +498,7 @@ test.describe('WCAG 2.1 AA full Customer route inventory', () => {
   for (const theme of ['light', 'dark'] as const) {
     for (const route of FULL_CUSTOMER_ROUTE_INVENTORY) {
       test(`${route} has no ${theme} violations in the registered route inventory @a11y @inventory`, async ({ page }) => {
-        if (route !== '/' && route !== '/login' && route !== '/daftar' && route !== '/cek-resi' && route !== '/track/invalid' && route.startsWith('/pay/') === false && route.startsWith('/location-requests/') === false) {
+        if (!isPublicCustomerRoute(route)) {
           await mockCustomerSessionAndApi(page);
         }
         await page.emulateMedia({ colorScheme: theme });

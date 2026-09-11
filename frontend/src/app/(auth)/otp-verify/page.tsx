@@ -63,7 +63,7 @@ function OtpInput({ value, onChange, disabled }: OtpInputProps) {
   };
 
   return (
-    <div className="flex gap-3 justify-center" onPaste={handlePaste}>
+    <div className="grid grid-cols-3 gap-2 justify-items-center sm:flex sm:gap-3 sm:justify-center" onPaste={handlePaste}>
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <input
           key={i}
@@ -75,7 +75,7 @@ function OtpInput({ value, onChange, disabled }: OtpInputProps) {
           disabled={disabled}
           onChange={(e) => handleChange(i, e.target.value)}
           onKeyDown={(e) => handleKey(i, e)}
-          className="w-12 h-14 text-center text-xl font-semibold font-mono bg-background/50 border border-border/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary/60 transition-all text-foreground disabled:opacity-60 disabled:cursor-not-allowed"
+          className="h-11 w-11 text-center text-xl font-semibold font-mono bg-background/50 border border-border/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary/60 transition-all text-foreground disabled:opacity-60 disabled:cursor-not-allowed sm:h-14 sm:w-12"
           aria-label={`Digit ${i + 1}`}
         />
       ))}

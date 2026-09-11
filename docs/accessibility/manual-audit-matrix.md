@@ -4,7 +4,7 @@ This matrix is the release-review queue for checks that browser automation canno
 
 ## Environment record — 2026-09-11
 
-- Playwright Chromium is available and has produced the automated route/theme, semantic, focus, reflow and visual evidence referenced below.
+- Playwright Chromium is available and has produced the automated route/theme, semantic, focus, reflow and visual evidence referenced below. The current Customer inventory is `64/64` across 31 registered routes plus mobile-shell cases, and Customer reflow/text-spacing coverage is `93/93`.
 - The native CUA surface currently reports no browser or application handles. Windows `Narrator.exe` exists, but this execution environment has no authorized native UI/speech-output bridge to operate Narrator and capture an actual spoken review.
 - Consequently, screen-reader rows and manual visual/keyboard rows remain `NOT_RUN` or `PARTIAL`; no automated result is promoted to manual `PASS`.
 

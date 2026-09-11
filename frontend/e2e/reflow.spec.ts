@@ -26,6 +26,10 @@ const FULL_CUSTOMER_ROUTE_INVENTORY = [
   '/',
   '/login',
   '/daftar',
+  '/forgot-pin',
+  '/otp-verify',
+  '/google-callback',
+  '/apple-callback',
   '/cek-resi',
   '/track/invalid',
   '/pay/fixture-payment',
@@ -53,7 +57,10 @@ const FULL_CUSTOMER_ROUTE_INVENTORY = [
 ] as const;
 
 function isPublicCustomerRoute(route: string) {
-  return route === '/' || route === '/login' || route === '/daftar' || route === '/cek-resi'
+  return route === '/' || route === '/login' || route === '/daftar'
+    || route === '/forgot-pin' || route === '/otp-verify'
+    || route === '/google-callback' || route === '/apple-callback'
+    || route === '/cek-resi'
     || route === '/track/invalid' || route.startsWith('/pay/') || route.startsWith('/location-requests/');
 }
 
@@ -86,10 +93,25 @@ async function mockCustomerSessionAndApi(page: Page) {
 }
 
 async function assertNoUnexpectedHorizontalOverflow(page: Page) {
-  const dimensions = await page.evaluate(() => ({
-    viewport: document.documentElement.clientWidth,
-    content: document.documentElement.scrollWidth,
-  }));
+  const dimensions = await page.evaluate(() => {
+    const viewport = document.documentElement.clientWidth;
+    const offenders = Array.from(document.querySelectorAll<HTMLElement>('*'))
+      .map((element) => ({ element, rect: element.getBoundingClientRect() }))
+      .filter(({ element, rect }) => {
+        const style = getComputedStyle(element);
+        return rect.width > 0 && rect.right > viewport + 1 && style.position !== 'fixed';
+      })
+      .slice(0, 8)
+      .map(({ element, rect }) => ({
+        tag: element.tagName.toLowerCase(),
+        id: element.id,
+        className: element.className,
+        right: Math.round(rect.right),
+        width: Math.round(rect.width),
+        text: element.textContent?.replace(/\s+/g, ' ').trim().slice(0, 80),
+      }));
+    return { viewport, content: document.documentElement.scrollWidth, offenders };
+  });
 
   expect(dimensions.content, `Unexpected horizontal overflow: ${JSON.stringify(dimensions)}`).toBeLessThanOrEqual(dimensions.viewport + 1);
 }

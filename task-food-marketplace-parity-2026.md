@@ -3634,6 +3634,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** A11Y-2026-012 now also has a reusable visible-focus assertion in both route inventories. The representative Customer focus slice passes `4/4` and Admin focus slice passes `14/14` across Light/Dark dashboard, On-Demand, Cases and App Experience routes; typecheck/lint pass. This proves rendered focus indicators for sampled controls, while full keyboard-only completion, screen-reader review and manual route-state observation remain open.
 
+> **Execution checkpoint 2026-09-11 (continued):** The Customer route inventory was reconciled against all 31 registered `page.tsx` surfaces, adding `/forgot-pin`, `/otp-verify`, `/google-callback` and `/apple-callback` to the automated accessibility/reflow suites. The expanded Customer inventory passes `64/64` Light/Dark/mobile accessibility cases and `93/93` 320px/640px/text-spacing cases. This reconciliation found and fixed narrow-layout overflow in the forgot-PIN phone row and OTP controls, plus the Apple callback error landmark semantics. Manual Light/Dark, keyboard-only, assistive-technology, actual browser-zoom, dynamic provider/campaign and current staging/provider-backed checks remain open; the A11Y-2026-012 checklist below therefore stays unchecked for those unproven manual requirements.
+
 **Customer Web minimum route groups**
 - landing/public
 - auth
