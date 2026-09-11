@@ -177,6 +177,13 @@ fun OrderCardItem(
     isFood: Boolean = false,
     onReorder: (() -> Unit)? = null
 ) {
+    val serviceIconSpec = getTembusServiceIconSpec(
+        when {
+            isFood -> "food_delivery"
+            !order.serviceSubType.isNullOrBlank() -> order.serviceSubType
+            else -> order.serviceCategory
+        }
+    )
     val statusColor = when(order.status.lowercase()) {
         "delivered" -> Color(0xFF22C55E)
         "failed", "cancelled" -> Error
@@ -201,19 +208,19 @@ fun OrderCardItem(
             ) {
                 Text("No. Resi ${order.orderNumber}", fontSize = 12.sp, color = OnSurfaceVariant)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val serviceLabel = when {
-                        isFood -> "FOOD"
-                        order.serviceCategory.equals("on_demand", ignoreCase = true) || order.serviceSubType == "p2p" -> "PAKET INSTAN"
-                        order.serviceCategory.equals("regular", ignoreCase = true) -> "EKSPEDISI ANTAR-KOTA"
-                        else -> order.serviceSubType?.replace('_', ' ')?.uppercase(Locale.getDefault()) ?: "LAYANAN"
-                    }
+                    Icon(
+                        serviceIconSpec.icon,
+                        contentDescription = serviceIconSpec.label,
+                        tint = if (isFood) Primary else OnSurfaceVariant,
+                        modifier = Modifier.size(16.dp).padding(end = 2.dp),
+                    )
                     Card(
                         colors = CardDefaults.cardColors(containerColor = if (isFood) PrimaryLight.copy(alpha = 0.25f) else Color(0xFFE8EAF6)),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.padding(end = 6.dp)
                     ) {
                         Text(
-                            text = serviceLabel,
+                            text = serviceIconSpec.label.uppercase(Locale.getDefault()),
                             color = if (isFood) Primary else Color(0xFF3949AB),
                             fontWeight = FontWeight.Bold,
                             fontSize = 10.sp,

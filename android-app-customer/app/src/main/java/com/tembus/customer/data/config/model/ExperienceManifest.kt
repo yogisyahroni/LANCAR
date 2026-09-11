@@ -1,5 +1,6 @@
 package com.tembus.customer.data.config.model
 
+import com.tembus.customer.data.config.TembusMediaGovernance
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
@@ -66,6 +67,7 @@ data class ExperienceAssetReference(
     @SerialName("cache_policy") val cachePolicy: String = "private",
     @SerialName("retention_until") val retentionUntil: String? = null,
     @SerialName("fallback_asset_id") val fallbackAssetId: String? = null,
+    @SerialName("safe_text_zone") val safeTextZone: String? = null,
 )
 
 data class ExperienceConfigScope(
@@ -168,11 +170,12 @@ object ExperienceManifestValidator {
             }) return null
         if (assets.any { asset ->
                 val fallback = asset.fallbackAssetId?.let { id -> assets.firstOrNull { it.assetId == id } }
-                fallback != null && isImageFamily(asset.kind) != isImageFamily(fallback.kind)
+                fallback != null && !TembusMediaGovernance.fallbackIsCompatible(asset.kind, fallback.kind)
             }) return null
 
+        val assetsById = assets.associateBy { it.assetId }
         val sections = manifest.sections.mapNotNull { section ->
-            sanitizeSection(section, assetIds)
+            sanitizeSection(section, assetsById)
         }
         // A non-empty server manifest with no supported content is not safe to cache.
         // The caller keeps the previous known-good revision or packaged defaults.
@@ -226,6 +229,8 @@ object ExperienceManifestValidator {
         if (contentType.isNotEmpty() && asset.kind != "video" && !contentType.startsWith("image/")) return null
         if (contentType.startsWith("image/") && asset.kind == "video") return null
         if (contentType.startsWith("video/") && asset.kind != "video") return null
+        if (!TembusMediaGovernance.isValidSafeTextZone(asset.safeTextZone)) return null
+        if (TembusMediaGovernance.requiresStaticFallback(asset.kind) && asset.fallbackAssetId.isNullOrBlank()) return null
         if ((asset.width == null) != (asset.height == null)) return null
         if (asset.width != null && asset.height != null && (asset.width !in 1..4096 || asset.height !in 1..4096)) return null
         if (asset.aspectRatio != null && (!asset.aspectRatio.isFinite() || asset.aspectRatio !in 0.1..20.0)) return null
@@ -247,10 +252,11 @@ object ExperienceManifestValidator {
             contentType = contentType,
             cachePolicy = asset.cachePolicy.takeIf { it in CACHE_POLICIES } ?: "private",
             fallbackAssetId = asset.fallbackAssetId?.lowercase(Locale.ROOT),
+            safeTextZone = asset.safeTextZone?.trim()?.lowercase(Locale.ROOT),
         )
     }
 
-    private fun sanitizeSection(section: ExperienceSection, assetIds: Set<String>): ExperienceSection? {
+    private fun sanitizeSection(section: ExperienceSection, assetsById: Map<String, ExperienceAssetReference>): ExperienceSection? {
         val id = section.id.trim().lowercase(Locale.ROOT)
         val component = section.component.trim().lowercase(Locale.ROOT)
         if (!identifier.matches(id)) return null
@@ -258,7 +264,14 @@ object ExperienceManifestValidator {
         if (section.properties.toString().toByteArray(Charsets.UTF_8).size > MAX_COMPONENT_BYTES) return null
         val properties = sanitizeProperties(component, section.properties, allowed) ?: return null
         val referencedAssetIds = collectAssetIds(properties)
-        if (referencedAssetIds.any { it !in assetIds }) return null
+        if (referencedAssetIds.any { assetId ->
+                val asset = assetsById[assetId]
+                asset == null || !TembusMediaGovernance.acceptsAspectRatio(component, asset.aspectRatio)
+            }) return null
+        if (referencedAssetIds.any { assetId ->
+                val asset = assetsById[assetId]
+                TembusMediaGovernance.requiresStaticFallback(asset?.kind.orEmpty()) && asset?.fallbackAssetId.isNullOrBlank()
+            }) return null
         return section.copy(id = id, component = component, properties = properties)
     }
 
@@ -459,8 +472,6 @@ object ExperienceManifestValidator {
     }
 
     private fun parseInstant(value: String?): Long? = value?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
-
-    private fun isImageFamily(kind: String): Boolean = kind in setOf("image", "animation", "icon")
 
     const val MAX_MANIFEST_BYTES = 96 * 1024
     private const val MAX_COMPONENTS = 20

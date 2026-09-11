@@ -34,6 +34,7 @@ import com.tembus.customer.ui.theme.Secondary
 import com.tembus.customer.ui.theme.TembusRadius
 import com.tembus.customer.ui.theme.Warning
 import com.tembus.customer.ui.a11y.criticalAction
+import com.tembus.customer.ui.components.getTembusServiceIconSpec
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -196,6 +197,7 @@ fun OrderDetailScreen(
                 }
                 is OrderDetailUiState.Success -> {
                     val order = res.order
+                    val serviceIconSpec = getTembusServiceIconSpec(order.serviceSubType)
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -208,10 +210,11 @@ fun OrderDetailScreen(
                             colors = CardDefaults.cardColors(containerColor = Primary)
                         ) {
                             Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Info, contentDescription = "", tint = Color.White)
+                                Icon(serviceIconSpec.icon, contentDescription = serviceIconSpec.label, tint = Color.White)
                                 Spacer(Modifier.width(16.dp))
                                 Column {
                                     Text("Status Saat Ini", color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
+                                    Text(serviceIconSpec.label, color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp)
                                     Text(statusDisplayText(order.status, order.serviceSubType), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                                 }
                             }

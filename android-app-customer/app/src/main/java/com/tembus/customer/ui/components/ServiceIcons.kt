@@ -4,31 +4,38 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 
 // ============================================================
 // TEMBUS SERVICE ICONS — shared service vocabulary for Home and App Experience
 // ============================================================
 
+data class TembusServiceIconSpec(
+    val icon: ImageVector,
+    val label: String,
+)
+
 object TembusServiceIcons {
     // Package services
-    val PaketInstan: ImageVector = Icons.Default.LocalShipping
-    val EkspedisiAntarKota: ImageVector = Icons.Default.LocalShipping
-    val Food: ImageVector = Icons.Default.Restaurant
+    val PaketInstan = TembusServiceIconSpec(Icons.Default.LocalShipping, "Paket Instan")
+    val EkspedisiAntarKota = TembusServiceIconSpec(Icons.Default.LocalShipping, "Ekspedisi Antar Kota")
+    val Food = TembusServiceIconSpec(Icons.Default.Restaurant, "Food")
 
     // Tambal Ban icons
-    val TambalBanMotor: ImageVector = Icons.Default.Build // Wrench icon for repair
-    val TambalBanMobil: ImageVector = Icons.Default.Build
+    val TambalBanMotor = TembusServiceIconSpec(Icons.Default.Build, "Tambal Ban Motor")
+    val TambalBanMobil = TembusServiceIconSpec(Icons.Default.Build, "Tambal Ban Mobil")
+    val TambalBan = TembusServiceIconSpec(Icons.Default.Build, "Tambal Ban")
     
     // Towing icons
-    val TowingMotor: ImageVector = Icons.Default.LocalShipping // Truck for towing
-    val TowingMobil: ImageVector = Icons.Default.LocalShipping
+    val TowingMotor = TembusServiceIconSpec(Icons.Default.DirectionsCar, "Towing Motor")
+    val TowingMobil = TembusServiceIconSpec(Icons.Default.DirectionsCar, "Towing Mobil")
+    val Towing = TembusServiceIconSpec(Icons.Default.DirectionsCar, "Towing")
     
     // Vehicle type icons
     val Motor: ImageVector = Icons.Default.TwoWheeler
@@ -38,16 +45,24 @@ object TembusServiceIcons {
     val Available: ImageVector = Icons.Default.CheckCircle
     val InProgress: ImageVector = Icons.Default.Schedule
     val Busy: ImageVector = Icons.Default.Warning
+    val Unknown = TembusServiceIconSpec(Icons.Default.Info, "Layanan TEMBUS")
 }
 
-@Composable
-fun getTembusServiceIcon(serviceCode: String): ImageVector {
-    return when (serviceCode) {
+fun getTembusServiceIconSpec(serviceCode: String?): TembusServiceIconSpec {
+    return when (serviceCode?.trim()?.lowercase()) {
         "tambal_ban_motor" -> TembusServiceIcons.TambalBanMotor
         "tambal_ban_mobil" -> TembusServiceIcons.TambalBanMobil
         "towing_motor" -> TembusServiceIcons.TowingMotor
         "towing_mobil" -> TembusServiceIcons.TowingMobil
         "food_delivery", "food" -> TembusServiceIcons.Food
-        else -> TembusServiceIcons.Motor
+        "regular", "ekspedisi_antar_kota" -> TembusServiceIcons.EkspedisiAntarKota
+        "on_demand", "p2p", "paket_instan", "delivery" -> TembusServiceIcons.PaketInstan
+        else -> TembusServiceIcons.Unknown
     }
 }
+
+fun getTembusServiceIcon(serviceCode: String): ImageVector =
+    getTembusServiceIconSpec(serviceCode).icon
+
+fun getTembusServiceLabel(serviceCode: String?): String =
+    getTembusServiceIconSpec(serviceCode).label

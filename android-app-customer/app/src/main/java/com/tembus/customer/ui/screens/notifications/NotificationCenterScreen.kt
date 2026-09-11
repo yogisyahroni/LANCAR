@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.data.model.NotificationData
+import com.tembus.customer.ui.components.getTembusServiceIconSpec
 import com.tembus.customer.ui.theme.Background
 import com.tembus.customer.ui.theme.OnSurface
 import com.tembus.customer.ui.theme.OnSurfaceVariant
@@ -252,11 +253,12 @@ private fun NotificationRow(
         "support" -> Primary
         else -> PrimaryDark
     }
+    val serviceIconSpec = getTembusServiceIconSpec(notification.serviceCode)
     val icon = when (notification.category) {
         "message" -> Icons.Default.Inbox
         "promo" -> Icons.Default.LocalOffer
         "support" -> Icons.Default.SupportAgent
-        else -> Icons.Default.NotificationsActive
+        else -> if (notification.serviceCode.isNullOrBlank()) Icons.Default.NotificationsActive else serviceIconSpec.icon
     }
 
     Card(
@@ -319,6 +321,10 @@ private fun NotificationRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 NotificationPill(label = notification.category.displayCategory(), color = accent)
                 Spacer(Modifier.width(8.dp))
+                if (!notification.serviceCode.isNullOrBlank()) {
+                    NotificationPill(label = serviceIconSpec.label, color = accent, icon = serviceIconSpec.icon)
+                    Spacer(Modifier.width(8.dp))
+                }
                 if (notification.category == "message") {
                     NotificationPill(label = "Chat", color = Secondary, icon = Icons.Default.ChatBubbleOutline)
                     Spacer(Modifier.width(8.dp))

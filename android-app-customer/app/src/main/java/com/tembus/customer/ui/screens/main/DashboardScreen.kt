@@ -64,6 +64,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import com.tembus.customer.ui.localization.CustomerText as Text
 import com.tembus.customer.ui.localization.CustomerTextCatalog
+import com.tembus.customer.ui.components.TembusServiceIcons
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.TextButton
@@ -595,16 +596,16 @@ private fun TembusHomeServiceGrid(
         Text("Layanan utama TEMBUS, satu tap ke pesanan.", color = Muted, fontSize = 12.sp)
         Spacer(Modifier.height(12.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TembusHomeServiceTile("Paket Instan", Icons.Default.LocalShipping, TembusHomeServiceTone.Primary, onPickupClick, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile(TembusServiceIcons.PaketInstan.label, TembusServiceIcons.PaketInstan.icon, TembusHomeServiceTone.Primary, onPickupClick, modifier = Modifier.weight(1f))
             if (showFood) {
-                TembusHomeServiceTile("Food", Icons.Default.Restaurant, TembusHomeServiceTone.Food, onFoodClick, modifier = Modifier.weight(1f))
+                TembusHomeServiceTile(TembusServiceIcons.Food.label, TembusServiceIcons.Food.icon, TembusHomeServiceTone.Food, onFoodClick, modifier = Modifier.weight(1f))
             }
-            TembusHomeServiceTile("Ekspedisi\nAntar-Kota", Icons.Default.LocalShipping, TembusHomeServiceTone.Secondary, onAggregatorClick, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile(TembusServiceIcons.EkspedisiAntarKota.label, TembusServiceIcons.EkspedisiAntarKota.icon, TembusHomeServiceTone.Secondary, onAggregatorClick, modifier = Modifier.weight(1f))
         }
         Spacer(Modifier.height(14.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TembusHomeServiceTile("Tambal Ban", Icons.Default.Build, TembusHomeServiceTone.Emergency, onTambalBanClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
-            TembusHomeServiceTile("Towing", Icons.Default.DirectionsCar, TembusHomeServiceTone.Towing, onTowingClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile(TembusServiceIcons.TambalBan.label, TembusServiceIcons.TambalBan.icon, TembusHomeServiceTone.Emergency, onTambalBanClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile(TembusServiceIcons.Towing.label, TembusServiceIcons.Towing.icon, TembusHomeServiceTone.Towing, onTowingClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
             Spacer(modifier = Modifier.weight(1f))
         }
     }
