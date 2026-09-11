@@ -175,7 +175,7 @@ export function UniteconomicsPanel({ data }: { data: FinanceData }) {
                 {!!unitEconomicsData?.cohorts?.length && (
                   <div className="rounded-3xl bg-surface/[0.02] border border-border p-6 space-y-4">
                     <h4 className="text-sm font-black text-foreground-muted uppercase tracking-wide">Contribution by Cohort</h4>
-                    <div className="overflow-x-auto">
+                    <div role="region" aria-label="Contribution by cohort table" tabIndex={0} className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead><tr className="border-b border-border text-foreground-muted text-xs uppercase tracking-wide">
                           <th scope="col" className="pb-3 pr-4">Cohort</th><th scope="col" className="pb-3 pr-4">Market</th><th scope="col" className="pb-3 pr-4">Service</th><th scope="col" className="pb-3 pr-4 text-right">Orders</th><th scope="col" className="pb-3 text-right">Contribution</th>
@@ -193,7 +193,7 @@ export function UniteconomicsPanel({ data }: { data: FinanceData }) {
                 {!!unitEconomicsData?.negative_margin_outliers?.length && (
                   <div className="rounded-3xl bg-error/[0.03] border border-error p-6 space-y-4">
                     <h4 className="text-sm font-black text-error uppercase tracking-wide">Negative Margin Outliers</h4>
-                    <div className="overflow-x-auto">
+                    <div role="region" aria-label="Negative margin outliers table" tabIndex={0} className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead><tr className="border-b border-error text-error text-xs uppercase tracking-wide">
                           <th scope="col" className="pb-3 pr-4">Order</th><th scope="col" className="pb-3 pr-4">Service</th><th scope="col" className="pb-3 pr-4">Pricing Rule</th><th scope="col" className="pb-3 text-right">Contribution</th>
@@ -225,7 +225,7 @@ export function UniteconomicsPanel({ data }: { data: FinanceData }) {
             {isLoadingTrialBalance ? (
               <div className="py-12 flex justify-center"><Loader2 className="w-12 h-12 text-primary animate-spin" aria-hidden="true" /></div>
             ) : (
-              <div className="overflow-x-auto">
+              <div role="region" aria-label="Unit economics summary table" tabIndex={0} className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-border text-foreground-muted text-xs font-bold uppercase tracking-wider">

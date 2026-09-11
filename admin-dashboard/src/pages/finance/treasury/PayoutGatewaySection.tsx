@@ -170,7 +170,7 @@ export function PayoutGatewaySection({ data }: { data: FinanceData }) {
                <ChevronRight size={14} aria-hidden="true" />
             </button>
          </div>
-         <div className="overflow-x-auto">
+         <div role="region" aria-label="Payout gateway queue table" tabIndex={0} className="overflow-x-auto">
             <table className="w-full text-left" aria-label="Payout gateway queue">
                <caption className="sr-only">Payout gateway queue with courier, amount, status and available actions</caption>
                <thead>

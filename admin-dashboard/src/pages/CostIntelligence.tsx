@@ -1388,7 +1388,7 @@ export default function CostIntelligence() {
             {recommendations.length === 0 ? (
               <p className="text-foreground-muted text-sm">Belum ada rekomendasi harga yang diajukan.</p>
             ) : (
-              <div className="overflow-x-auto">
+              <div role="region" aria-label="Cost intelligence table" tabIndex={0} className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-foreground-muted">
                   <thead className="text-xs uppercase text-foreground-muted border-b border-border">
                     <tr>

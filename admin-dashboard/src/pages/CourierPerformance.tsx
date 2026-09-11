@@ -91,7 +91,7 @@ export default function CourierPerformance() {
         </div>
       ) : (
         <div className="glass-card rounded-3xl overflow-hidden border border-border shadow-2xl">
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="Courier performance table" tabIndex={0} className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-border text-foreground-muted text-xs font-black uppercase tracking-wide bg-surface/[0.02]">

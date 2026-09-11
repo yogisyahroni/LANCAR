@@ -169,7 +169,7 @@ export function ServiceSettlementSection({ data }: { data: FinanceData }) {
             <p className="mt-4 text-sm font-black text-foreground-muted uppercase tracking-wide">Belum ada order delivered/completed 30 hari terakhir.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="Service settlement table" tabIndex={0} className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-border text-foreground-muted text-xs font-black uppercase tracking-wide">

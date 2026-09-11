@@ -421,7 +421,7 @@ export default function MerchantSettlements() {
             Belum ada data escrow settlement merchant yang ditemukan.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="Merchant settlements table" tabIndex={0} className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-muted/50 text-xs text-muted-foreground uppercase border-b border-border/40">
                 <tr>

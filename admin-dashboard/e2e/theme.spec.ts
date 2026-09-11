@@ -232,6 +232,9 @@ test('orders table exposes header semantics, deliberate overflow and keyboard ro
   const wrapper = table.locator('..')
   await expect(table.locator('thead th')).toHaveCount(5)
   await expect(table.locator('thead th').first()).toHaveAttribute('scope', 'col')
+  await expect(wrapper).toHaveAttribute('role', 'region')
+  await expect(wrapper).toHaveAttribute('aria-label', 'Active orders table')
+  await expect(wrapper).toHaveAttribute('tabindex', '0')
   await expect(wrapper).toHaveCSS('overflow-x', 'auto')
 
   const firstRow = table.locator('tbody tr').first()
@@ -240,6 +243,8 @@ test('orders table exposes header semantics, deliberate overflow and keyboard ro
     await page.reload({ waitUntil: 'domcontentloaded' })
     const themedTable = page.getByRole('table', { name: 'Active orders' })
     const themedWrapper = themedTable.locator('..')
+    await expect(themedWrapper).toHaveAttribute('role', 'region')
+    await expect(themedWrapper).toHaveAttribute('tabindex', '0')
     const themedRow = themedTable.locator('tbody tr').first()
     await expect(themedWrapper).toHaveCSS('overflow-x', 'auto')
     const restingBorder = await themedRow.evaluate((element) => getComputedStyle(element).borderLeftColor)

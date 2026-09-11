@@ -289,7 +289,7 @@ export default function TaxCenter() {
               )}
             </div>
 
-            <div className="overflow-x-auto">
+            <div role="region" aria-label="Tax center obligations table" tabIndex={0} className="overflow-x-auto">
               <table className="w-full text-sm min-w-[800px]">
                 <thead>
                   <tr className="border-b border-border">
@@ -329,7 +329,7 @@ export default function TaxCenter() {
               <p className="text-sm text-foreground-muted mt-1">Pemotongan pajak penghasilan atas pencairan mitra kurir dan merchant.</p>
             </div>
 
-            <div className="overflow-x-auto">
+            <div role="region" aria-label="Tax center certificates table" tabIndex={0} className="overflow-x-auto">
               <table className="w-full text-sm min-w-[700px]">
                 <thead>
                   <tr className="border-b border-border">
@@ -376,7 +376,7 @@ export default function TaxCenter() {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="Tax center audit table" tabIndex={0} className="overflow-x-auto">
             <table className="w-full text-sm min-w-[800px]">
               <thead>
                 <tr className="border-b border-border">

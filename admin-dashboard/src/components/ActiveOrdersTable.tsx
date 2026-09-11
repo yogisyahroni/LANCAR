@@ -966,7 +966,7 @@ export default function ActiveOrdersTable() {
         </select>
       </div>
 
-      <div className="flex-1 overflow-x-auto">
+      <div role="region" aria-label="Active orders table" tabIndex={0} className="flex-1 overflow-x-auto">
         {isLoadingOrders ? (
           <div className="py-20 flex flex-col items-center justify-center space-y-4">
             <Skeleton className="h-10 w-10 rounded-full" />

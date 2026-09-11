@@ -183,7 +183,7 @@ export function LedgerPanel({ data }: { data: FinanceData }) {
             {isLoadingLedgerEntries ? (
               <div className="flex items-center justify-center py-20"><Loader2 size={32} className="animate-spin text-foreground-muted" aria-hidden="true" /></div>
             ) : (
-              <div className="overflow-x-auto">
+              <div role="region" aria-label="Ledger table" tabIndex={0} className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-surface/[0.02]">
                     <tr>

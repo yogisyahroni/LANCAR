@@ -127,7 +127,7 @@ export default function OrderExceptions() {
             <p className="mt-2 text-sm text-foreground-muted">The queue is clear for the selected filter.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="Order exceptions table" tabIndex={0} className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-left text-sm">
               <thead className="border-b border-border bg-surface/[0.03] text-xs uppercase tracking-wide text-foreground-muted">
                 <tr>

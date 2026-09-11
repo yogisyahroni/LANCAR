@@ -125,7 +125,7 @@ export function AuditLogsPanel({ data }: { data: SettingsData }) {
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  <div role="region" aria-label="Settings audit logs table" tabIndex={0} className="overflow-x-auto">
                     <table className="w-full border-separate border-spacing-y-3">
                       <thead>
                         <tr className="text-left">

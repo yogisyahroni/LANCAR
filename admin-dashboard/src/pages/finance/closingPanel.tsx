@@ -204,7 +204,7 @@ export function ClosingPanel({ data }: { data: FinanceData }) {
                   <Loader2 size={28} className="text-primary animate-spin" aria-hidden="true" />
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div role="region" aria-label="Closing entries table" tabIndex={0} className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b border-border text-foreground-muted text-xs font-bold uppercase tracking-wider">

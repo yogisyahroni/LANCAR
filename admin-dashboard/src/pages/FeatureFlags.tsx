@@ -162,7 +162,7 @@ export default function FeatureFlags() {
       <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-8 items-start">
         {/* Flags Table */}
         <div className="glass-card rounded-[40px] border-border overflow-hidden shadow-2xl shadow-scrim">
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="Feature flags table" tabIndex={0} className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-border bg-surface/[0.01]">

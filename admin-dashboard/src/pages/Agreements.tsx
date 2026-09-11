@@ -226,7 +226,7 @@ export default function Agreements() {
         transition={{ delay: 0.1 }}
         className="rounded-[32px] border border-border bg-surface-subtle backdrop-blur-sm overflow-hidden"
       >
-        <div className="overflow-x-auto">
+        <div role="region" aria-label="User agreements table" tabIndex={0} className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">

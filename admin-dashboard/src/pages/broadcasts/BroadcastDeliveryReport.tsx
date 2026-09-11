@@ -262,7 +262,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
                     Belum ada baris penerima untuk broadcast ini.
                   </p>
                 ) : (
-                  <div className="overflow-x-auto rounded-[28px] border border-border">
+                  <div role="region" aria-label="Broadcast delivery report table" tabIndex={0} className="overflow-x-auto rounded-[28px] border border-border">
                     <table className="w-full text-left">
                       <thead>
                         <tr className="border-b border-border bg-surface/[0.01]">

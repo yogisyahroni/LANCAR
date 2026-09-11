@@ -162,7 +162,7 @@ export function TrialbalancePanel({ data }: { data: FinanceData }) {
             {isLoadingTrialBalance ? (
               <div className="flex items-center justify-center py-20"><Loader2 size={32} className="animate-spin text-foreground-muted" aria-hidden="true" /></div>
             ) : (
-              <div className="overflow-x-auto">
+              <div role="region" aria-label="Trial balance table" tabIndex={0} className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-surface/[0.02]">
                     <tr>

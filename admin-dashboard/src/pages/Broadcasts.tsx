@@ -181,7 +181,7 @@ export default function Broadcasts() {
 
       {/* Table */}
       <div className="glass-card rounded-[40px] border-border overflow-hidden shadow-2xl shadow-scrim">
-        <div className="overflow-x-auto">
+      <div role="region" aria-label="Broadcasts table" tabIndex={0} className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-border bg-surface/[0.01]">

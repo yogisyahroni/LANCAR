@@ -119,7 +119,7 @@ export default function Cases() {
 
       <div className="glass-card overflow-hidden rounded-3xl border-border">
         {casesQuery.isLoading ? <div className="p-12 text-center text-sm text-foreground-muted">Loading support cases…</div> : casesQuery.isError ? <div className="p-12 text-center text-sm text-error">Support case queue unavailable.</div> : data.length === 0 ? <div className="p-12 text-center"><CheckCircle2 className="mx-auto text-success" aria-hidden="true" /><p className="mt-3 font-semibold text-foreground-muted">No cases for this filter</p></div> : (
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="Support cases table" tabIndex={0} className="overflow-x-auto">
             <table className="w-full min-w-[960px] text-left text-sm">
               <thead className="border-b border-border bg-surface/[0.03] text-xs uppercase tracking-wide text-foreground-muted"><tr><th scope="col" className="px-6 py-4">Case</th><th scope="col" className="px-6 py-4">Service / market</th><th scope="col" className="px-6 py-4">SLA</th><th scope="col" className="px-6 py-4">Owner</th><th scope="col" className="px-6 py-4" /></tr></thead>
               <tbody className="divide-y divide-border">

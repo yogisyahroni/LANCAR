@@ -607,7 +607,7 @@ export default function Analytics() {
               <span className="rounded-full bg-primary/10 px-3 py-2 text-primary-light">Fetch latency p95: {experienceSummary.fetch_latency_p95_ms} ms</span>
               <span className="rounded-full bg-surface-subtle px-3 py-2">Marketing: {experienceSummary.impressions} imp • {experienceSummary.clicks} click • {experienceSummary.dismissals} dismiss</span>
             </div>
-            <div className="overflow-x-auto rounded-2xl border border-border">
+            <div role="region" aria-label="Analytics service summary table" tabIndex={0} className="overflow-x-auto rounded-2xl border border-border">
               <table className="min-w-full text-left text-xs">
               <thead className="bg-surface/[0.03] text-xs font-bold text-foreground-muted">
                   <tr>
@@ -951,7 +951,7 @@ export default function Analytics() {
              onRetry={() => refetchRetention()}
            />
          ) : (
-         <div className="overflow-x-auto">
+         <div role="region" aria-label="Analytics retention report table" tabIndex={0} className="overflow-x-auto">
             <table className="w-full text-left border-separate border-spacing-y-2">
                <thead>
                   <tr>

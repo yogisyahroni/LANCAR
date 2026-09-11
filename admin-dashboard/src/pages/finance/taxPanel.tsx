@@ -207,6 +207,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                     </button>
                   </div>
                 </div>
+                <div role="region" aria-label="Tax compliance summary table" tabIndex={0} className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
@@ -229,6 +230,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </>
           )}
@@ -285,7 +287,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                       {pphReport.couriers.filter((c: any) => c.subject_to_pph).length} kena PPh
                     </span>
                   </div>
-                  <div className="overflow-auto max-h-80">
+                  <div role="region" aria-label="Courier income tax detail table" tabIndex={0} className="max-h-80 overflow-auto">
                     <table className="w-full text-sm min-w-[600px]">
                       <thead>
                         <tr className="border-b border-border">
