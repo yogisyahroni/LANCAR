@@ -226,6 +226,16 @@ export default function LiveMap() {
           Belum ada kurir duty aktif. Peta tetap memantau lokasi terakhir yang tersedia.
         </div>
       )}
+      {isLoading && (
+        <div role="status" aria-live="polite" className="absolute inset-x-4 top-20 z-[1000] rounded-2xl border border-border bg-surface-raised p-4 text-sm text-foreground-muted shadow-lg shadow-scrim">
+          Memuat lokasi kurir...
+        </div>
+      )}
+      {activeOrdersLoading && (
+        <div role="status" aria-live="polite" className="absolute inset-x-4 top-36 z-[1000] rounded-2xl border border-border bg-surface-raised p-4 text-sm text-foreground-muted shadow-lg shadow-scrim">
+          Memuat layer order aktif...
+        </div>
+      )}
       {isError && (
         <div role="alert" aria-live="assertive" className="absolute inset-x-4 top-20 z-[1000] rounded-2xl border border-error bg-error-surface p-4 text-sm text-error">
           Lokasi kurir belum bisa dimuat.

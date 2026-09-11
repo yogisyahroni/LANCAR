@@ -377,6 +377,70 @@ test('live and zone maps keep visible controls and operational summaries in both
   }
 })
 
+test('map loading and API error states stay announced outside the canvas in both themes @a11y', async ({ page }) => {
+  await installThemeFixture(page)
+
+  let releaseHeatLoading: (() => void) | undefined
+  let releaseOrdersLoading: (() => void) | undefined
+  const heatLoading = new Promise<void>((resolve) => { releaseHeatLoading = resolve })
+  const ordersLoading = new Promise<void>((resolve) => { releaseOrdersLoading = resolve })
+  let mapMode: 'loading' | 'error' = 'loading'
+
+  await page.route('**/*', async (route) => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/admin/analytics/heat-data')) {
+      if (mapMode === 'loading') await heatLoading
+      await route.fulfill({ status: mapMode === 'error' ? 503 : 200, contentType: 'application/json', body: JSON.stringify(mapMode === 'error' ? { message: 'heatmap unavailable' } : []) })
+      return
+    }
+    if (pathname.endsWith('/admin/analytics/live-active-orders')) {
+      if (mapMode === 'loading') await ordersLoading
+      await route.fulfill({ status: mapMode === 'error' ? 503 : 200, contentType: 'application/json', body: JSON.stringify(mapMode === 'error' ? { message: 'active orders unavailable' } : { data: [] }) })
+      return
+    }
+    if (pathname.endsWith('/admin/zones')) {
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'zones unavailable' }) })
+      return
+    }
+    await route.fallback()
+  })
+
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+  const liveMap = page.getByRole('region', { name: 'Peta kurir dan order aktif' })
+  await expect(liveMap.getByText('Memuat lokasi kurir...', { exact: true })).toBeVisible()
+  await expect(liveMap.getByText('Memuat layer order aktif...', { exact: true })).toBeVisible()
+
+  mapMode = 'error'
+  releaseHeatLoading?.()
+  releaseOrdersLoading?.()
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((selectedTheme) => window.localStorage.setItem('lancar-admin-theme', selectedTheme), theme)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    const themedLiveMap = page.getByRole('region', { name: 'Peta kurir dan order aktif' })
+    await expect(themedLiveMap.getByText('Lokasi kurir belum bisa dimuat.', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(themedLiveMap.getByText('Layer order aktif belum bisa dimuat.', { exact: true })).toBeVisible({ timeout: 10000 })
+  }
+
+  await page.goto('/analytics', { waitUntil: 'domcontentloaded' })
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((selectedTheme) => window.localStorage.setItem('lancar-admin-theme', selectedTheme), theme)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    const demandMap = page.getByRole('region', { name: 'Demand density map' })
+    const heatmapError = demandMap.locator('[role="alert"]').filter({ hasText: 'Heatmap gagal dimuat' })
+    await expect(demandMap).toBeVisible()
+    await expect(heatmapError).toBeVisible({ timeout: 10000 })
+    await expect(heatmapError.getByRole('button', { name: 'Retry' })).toBeEnabled()
+    await expect.poll(() => heatmapError.evaluate((element) => getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/)
+  }
+
+  await page.goto('/zones', { waitUntil: 'domcontentloaded' })
+  const zoneMap = page.getByRole('region', { name: 'Zone map editor' })
+  const zoneError = zoneMap.locator('[role="alert"]').filter({ hasText: 'Data zona belum bisa dimuat' })
+  await expect(zoneMap).toBeVisible()
+  await expect(zoneError).toBeVisible()
+  await expect(zoneError.getByRole('button', { name: 'Coba lagi' })).toBeEnabled()
+})
+
 test('analytics chart summaries expose direct values for keyboard and assistive technology users @a11y', async ({ page }) => {
   await installThemeFixture(page)
   await page.route('**/*', async (route) => {

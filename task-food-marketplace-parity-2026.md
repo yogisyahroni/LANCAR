@@ -3178,6 +3178,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-006 table overflow guard wiring is now complete: staging frontend and both production web jobs run `scripts/a11y/check-table-overflow.mjs` beside table semantics. The guard passes across both source roots; full stateful row hover/selection/focus and manual dense-table review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-006 dynamic map states are now explicit. Admin LiveMap exposes opaque polite loading statuses for courier/order layers and assertive API error alerts; Analytics distinguishes heatmap loading from empty data and exposes an accessible retry alert; Zones exposes an accessible error/retry overlay instead of silently presenting an empty map after a failed zone query. The loading/error fixture passes `1/1` across Light/Dark checks, the populated map proof remains `1/1`, the affected Admin axe slice passes `16/16`, and typecheck/ESLint plus color/tinted/chart/table/icon/diff guards pass. Full dense-table state, visual and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

@@ -98,7 +98,7 @@ export default function Zones() {
   const mapTheme = mapThemeOverride ?? resolvedTheme
   const [zonePreview, setZonePreview] = useState<any>(null)
   
-  const { data: zones, isLoading } = useQuery({
+  const { data: zones, isLoading, isError, refetch: refetchZones } = useQuery({
     queryKey: ['zones'],
     queryFn: async () => {
       const res = await api.get('/admin/zones');
@@ -353,6 +353,14 @@ export default function Zones() {
           </MapContainer>
           {mapsRuntimeConfig?.active_provider === 'tomtom_maps' && !shouldRenderTomTomMap && !isDrawing && (
             <TomTomRuntimeUnavailable message="TomTom Maps aktif, tetapi browser key runtime belum tersedia. Zone viewer memakai fallback map sementara." />
+          )}
+          {isError && (
+            <div role="alert" aria-live="assertive" className="absolute inset-x-4 top-20 z-[1000] rounded-2xl border border-error bg-error-surface p-4 text-sm text-error shadow-lg shadow-scrim">
+              <p>Data zona belum bisa dimuat.</p>
+              <button type="button" onClick={() => refetchZones()} className="mt-3 rounded-xl border border-error px-3 py-2 text-xs font-black uppercase tracking-wide text-error hover:bg-error-surface">
+                Coba lagi
+              </button>
+            </div>
           )}
 
            {/* Toolbar Overlays */}

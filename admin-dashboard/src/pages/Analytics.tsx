@@ -268,18 +268,20 @@ function DataState({
   message,
   onRetry,
   tone = 'muted',
+  semanticRole,
 }: {
   title: string
   message: string
   onRetry?: () => void
   tone?: 'muted' | 'error'
+  semanticRole?: 'status' | 'alert'
 }) {
   const isError = tone === 'error'
   return (
     <div className={cn(
       "h-full min-h-[220px] rounded-[32px] border flex flex-col items-center justify-center text-center p-8 gap-4",
       isError ? "bg-error-surface border-error" : "bg-surface/[0.02] border-dashed border-border"
-    )}>
+    )} role={semanticRole} aria-live={semanticRole ? (semanticRole === 'alert' ? 'assertive' : 'polite') : undefined}>
       <AlertCircle className={cn("w-10 h-10", isError ? "text-error" : "text-foreground-muted")} aria-hidden="true" />
       <div>
         <p className="text-sm font-black uppercase tracking-wide text-foreground-muted">{title}</p>
@@ -402,7 +404,7 @@ export default function Analytics() {
     ...analyticsQueryOptions,
   })
 
-  const { data: heatData, isError: heatError, error: heatQueryError, refetch: refetchHeat } = useQuery({
+  const { data: heatData, isLoading: heatLoading, isError: heatError, error: heatQueryError, refetch: refetchHeat } = useQuery({
     queryKey: ['analytics', 'heat'],
     queryFn: () => api.get('/admin/analytics/heat-data').then(res => res.data),
     ...analyticsQueryOptions,
@@ -815,13 +817,24 @@ export default function Analytics() {
               {mapsRuntimeConfig?.active_provider === 'tomtom_maps' && !shouldRenderTomTomMap && (
                 <TomTomRuntimeUnavailable message="TomTom Maps aktif, tetapi browser key runtime belum tersedia. Demand density memakai fallback map sementara." />
               )}
-              {(heatError || !hasRows(heatData)) && (
+              {heatLoading && (
+                <div className="absolute inset-4 z-10 rounded-[28px] bg-surface-raised border border-border flex items-center justify-center p-6">
+                  <DataState
+                    title="Memuat heatmap"
+                    message="Data demand density sedang dimuat dari API analytics."
+                    tone="muted"
+                    semanticRole="status"
+                  />
+                </div>
+              )}
+              {!heatLoading && (heatError || !hasRows(heatData)) && (
                 <div className="absolute inset-4 z-10 rounded-[28px] bg-surface-raised border border-border flex items-center justify-center p-6">
                   <DataState
                     title={heatError ? 'Heatmap gagal dimuat' : 'Belum ada heatmap'}
                     message={heatError ? getQueryErrorMessage(heatQueryError, 'Data demand density belum bisa diambil dari API analytics.') : 'Database belum memiliki titik demand density aktif.'}
                     onRetry={() => refetchHeat()}
                     tone={heatError ? 'error' : 'muted'}
+                    semanticRole={heatError ? 'alert' : 'status'}
                   />
                 </div>
               )}
