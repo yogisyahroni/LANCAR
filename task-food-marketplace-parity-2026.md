@@ -3642,6 +3642,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Commit `8194470d` was pushed to `origin/staging`. GitHub Actions run `34581994914` passed its automated service, frontend, security, observability, SBOM and image-build gates, but SSH deployment and authenticated/provider-backed/browser validation steps were skipped because the staging environment has no configured secrets/variables. The manual A11Y-012 checklist therefore remains unchecked pending authorized reviewer and staging evidence.
 
+> **Verification checkpoint 2026-09-11 (continued):** A11Y-2026-012 found and fixed a real heading-order defect in Customer `/payment-links`: the populated item title used H4 directly after the page H1 and now uses H2. Commit `c14e36819e7652bf2153a83654191ef24ddd4938` is pushed to `origin/staging`. After rebuilding the available Docker runtime, the complete Customer accessibility/reflow/keyboard/runtime matrix passes `266/266` and the complete Admin accessibility/reflow/keyboard/theme matrix passes `470/470`; manual Light/Dark, keyboard-only, native assistive-technology, actual zoom, provider-backed dynamic state and staging deployment evidence remain explicitly open.
+
 **Customer Web minimum route groups**
 - landing/public
 - auth
