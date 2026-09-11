@@ -13,7 +13,7 @@ export default function LocaleSwitcher({ className = '' }: { className?: string 
         aria-label={t('accessibility.localeSwitcher')}
         value={locale}
         onChange={(event) => setLocale(event.target.value as (typeof SUPPORTED_LOCALES)[number])}
-        className="rounded-lg border border-current/20 bg-transparent px-2 py-1.5 font-medium outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="rounded-lg border border-current/20 bg-transparent px-2 py-1.5 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:ring-2 focus-visible:ring-accent"
       >
         {SUPPORTED_LOCALES.map((supportedLocale) => (
           <option key={supportedLocale} value={supportedLocale}>
