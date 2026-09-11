@@ -3650,6 +3650,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Release-gate checkpoint 2026-09-11 (continued):** Implementation commit `ca3a8533` and evidence/master commit `2260c5a7` are on `origin/staging`. Task Evidence Gate `34591815873` and CI/CD Staging `34591815927` completed successfully, including frontend accessibility guards, service/migration/security/observability/SBOM checks and image build/push. SSH deployment and authenticated/API/browser validation jobs were skipped by missing staging configuration, so A11Y-012 remains blocked only on the external manual and deployed-runtime release proof.
 
+> **Verification checkpoint 2026-09-11 (continued):** Firefox and WebKit Playwright engines were installed and run against the current Docker Customer runtime. WebKit exposed that the shared locale `<select>` lost its focus indicator because `outline-none` suppressed the global fallback and the utility ring was not rendered there; `LocaleSwitcher` now has an explicit `focus-visible:outline-*` fallback. After rebuilding, the root Light/Dark cases pass `4/4`, and the complete Firefox/WebKit Customer inventory plus mobile shell passes `128/128`. This expands automated cross-engine proof; dated human keyboard/screen-reader/zoom review and deployed staging/provider validation remain open, so manual checklist rows stay unchecked.
+
 **Customer Web minimum route groups**
 - landing/public
 - auth
