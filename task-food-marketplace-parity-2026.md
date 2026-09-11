@@ -3628,6 +3628,10 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 ## A11Y-2026-012 — Route/state inventory and manual WCAG 2.1 AA audit [P0 release gate]
 
+> **Execution checkpoint 2026-09-11:** The full Customer route inventory found and fixed a real WCAG violation in the On-Demand loading path: `CustomerPageSkeleton` used `aria-label` on an untyped `<div>`. It now exposes a polite `role="status"` loading region. Focused Customer axe/mobile checks pass `8/8` and On-Demand reflow/200%-equivalent checks pass `4/4`; the dated manual visual, screen-reader, provider and dynamic-state rows remain explicitly open.
+
+> **Execution checkpoint 2026-09-11 (continued):** The fixed Customer loading semantics were rerun through the full registered inventory: Customer Light/Dark/mobile axe and semantic checks pass `56/56`; Admin Light/Dark/mobile inventory remains green at `142/142`. Admin Light/Dark visual regression baselines were inspected and regenerated for the intentional `(wajib)` label/layout changes, then the visual suite passes `3/3`; Customer public visual regression passes `2/2`. Automated route, visual and reflow evidence is current, while dated manual screen-reader, actual browser-zoom, dynamic provider/campaign and staging/provider-backed review remain open.
+
 **Customer Web minimum route groups**
 - landing/public
 - auth
