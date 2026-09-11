@@ -226,10 +226,12 @@ test('Customer orders table exposes selected-row semantics and deliberate overfl
 
     await checkbox.focus()
     await expect.poll(() => row.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe('none')
+    await expect.poll(() => row.evaluate((element) => getComputedStyle(element).outlineWidth)).toBe('2px')
     await checkbox.check()
     await expect(checkbox).toBeChecked()
     await expect(row).toHaveAttribute('aria-selected', 'true')
     await expect(row).toHaveCSS('border-left-width', '2px')
+    await expect.poll(() => row.locator('td').first().evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe('none')
     await expect(page.getByText('1 order dipilih')).toBeVisible()
   }
 })

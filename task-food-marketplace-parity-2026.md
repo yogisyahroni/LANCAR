@@ -3180,6 +3180,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-006 dynamic map states are now explicit. Admin LiveMap exposes opaque polite loading statuses for courier/order layers and assertive API error alerts; Analytics distinguishes heatmap loading from empty data and exposes an accessible retry alert; Zones exposes an accessible error/retry overlay instead of silently presenting an empty map after a failed zone query. The loading/error fixture passes `1/1` across Light/Dark checks, the populated map proof remains `1/1`, the affected Admin axe slice passes `16/16`, and typecheck/ESLint plus color/tinted/chart/table/icon/diff guards pass. Full dense-table state, visual and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Part S A11Y-2026-006 row-state contract is now shared across Customer/Admin tables. Both global stylesheets provide hover, focus-within outline and `aria-selected` leading-boundary cues; the new `scripts/a11y/check-table-state-cues.mjs` guard is wired into staging and both production web jobs. Customer and Admin Orders Light/Dark fixtures each pass `1/1`, including the explicit 2px focus outline and selected-row boundary proof; typecheck, focused ESLint, table semantics/overflow, iconography, color and diff guards pass. Horizontal-overflow inventory and visual/manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
@@ -3493,7 +3495,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 **Tables**
  - [x] Header/cell semantics are correct; every explicit application `<th>` declares `scope`, and no interactive sortable-column control exists in the current Admin surface that requires `aria-sort`. Evidence: `docs/task-evidence/A11Y-2026-006.md` and `scripts/a11y/check-table-semantics.mjs`.
-- [ ] Row hover/selection/focus states are distinguishable in both themes without color alone.
+- [x] Row hover/selection/focus states are distinguishable in both themes without color alone. Evidence: `docs/task-evidence/A11Y-2026-006.md`, `scripts/a11y/check-table-state-cues.mjs`, and Customer/Admin Light/Dark browser fixtures.
 - [x] Sticky header/background does not become transparent over scrolling text. Evidence: `docs/task-evidence/A11Y-2026-006.md` (Admin Orders populated browser fixture asserts the sticky header row has a solid background in Light/Dark).
 - [ ] Horizontal overflow has deliberate responsive strategy; essential actions remain reachable. Evidence: `docs/task-evidence/A11Y-2026-006.md` (Customer Orders plus audited Admin dense-table regions pass; full table/state inventory remains open).
 

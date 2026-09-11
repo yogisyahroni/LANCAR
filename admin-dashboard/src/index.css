@@ -250,6 +250,25 @@ main dd a {
   color: var(--token-foreground);
 }
 
+/* Dense-data rows keep hover, focus-within and selected states discoverable
+   even when a page-specific table does not provide a local row class. */
+table tbody tr {
+  transition: background-color 150ms ease, outline-color 150ms ease, box-shadow 150ms ease;
+}
+
+table tbody tr:hover > td {
+  background-color: color-mix(in srgb, var(--token-surface-subtle) 72%, transparent);
+}
+
+table tbody tr:focus-within {
+  outline: 2px solid var(--token-focus-ring);
+  outline-offset: -2px;
+}
+
+table tbody tr[aria-selected='true'] > td:first-child {
+  box-shadow: inset 3px 0 0 var(--token-primary);
+}
+
 /* Operational Admin surfaces are solid. Transparency is opt-in for media only. */
 .glass-card {
   background: var(--token-surface-raised);

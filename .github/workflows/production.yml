@@ -79,6 +79,8 @@ jobs:
         run: node scripts/a11y/check-table-semantics.mjs
       - name: Table overflow guard
         run: node scripts/a11y/check-table-overflow.mjs
+      - name: Table state cue guard
+        run: node scripts/a11y/check-table-state-cues.mjs
       - name: Disabled-state readability guard
         run: node scripts/a11y/check-disabled-states.mjs
       - name: Placeholder label guard
@@ -131,6 +133,8 @@ jobs:
         run: node scripts/a11y/check-table-semantics.mjs
       - name: Table overflow guard
         run: node scripts/a11y/check-table-overflow.mjs
+      - name: Table state cue guard
+        run: node scripts/a11y/check-table-state-cues.mjs
       - name: Disabled-state readability guard
         run: node scripts/a11y/check-disabled-states.mjs
       - name: Placeholder label guard
