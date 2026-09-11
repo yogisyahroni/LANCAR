@@ -212,9 +212,17 @@ test('Customer orders table exposes selected-row semantics and deliberate overfl
     await expect(tableWrapper).toHaveCSS('overflow-x', 'auto')
     await expect(page.getByRole('link', { name: 'Lihat detail order ORD-SELECT-1' })).toBeVisible()
 
+    await page.mouse.move(0, 0)
+    const restingBorder = await row.evaluate((element) => getComputedStyle(element).borderLeftColor)
+    await row.hover()
+    await expect.poll(() => row.evaluate((element) => getComputedStyle(element).borderLeftColor)).not.toBe(restingBorder)
+
+    await checkbox.focus()
+    await expect.poll(() => row.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe('none')
     await checkbox.check()
     await expect(checkbox).toBeChecked()
     await expect(row).toHaveAttribute('aria-selected', 'true')
+    await expect(row).toHaveCSS('border-left-width', '2px')
     await expect(page.getByText('1 order dipilih')).toBeVisible()
   }
 })

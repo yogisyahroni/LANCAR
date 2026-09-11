@@ -439,8 +439,8 @@ function OrderListContent() {
                     <tr
                       key={order.id}
                       aria-selected={isChecked}
-                      className={`hover:bg-surface-subtle transition-colors duration-150 cursor-pointer ${
-                        isChecked ? 'bg-primary/5' : ''
+                      className={`border-l-2 border-transparent hover:border-primary hover:bg-surface-subtle focus-within:outline-none focus-within:ring-2 focus-within:ring-focus-ring focus-within:ring-inset transition-colors duration-150 cursor-pointer ${
+                        isChecked ? 'border-primary bg-primary/5' : ''
                       }`}
                     >
                       <td className="px-5 py-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
