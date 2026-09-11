@@ -3354,10 +3354,10 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 **Checklist**
 - [x] Keep Inter/system sans baseline unless brand typography intentionally changes globally. Evidence: `docs/task-evidence/A11Y-2026-003.md`
 - [x] Define tokens for display/page title/section title/body/body-small/label/caption/table-cell. Evidence: `docs/task-evidence/A11Y-2026-003.md`
-- [ ] Essential body/label text is not made tiny merely to fit dense Admin layouts.
+- [x] Essential body/label text is not made tiny merely to fit dense Admin layouts; the typography guard rejects 9–11px utilities across Customer/Admin source and the route inventories pass. Evidence: `docs/task-evidence/A11Y-2026-003.md`.
 - [ ] Font weight hierarchy remains readable in both themes; do not depend on low-contrast gray for hierarchy alone.
 - [x] Layout survives WCAG text-spacing overrides without clipping/overlap/loss of content. Full Customer 27/27 and Admin 70/70 route inventories pass at 320px with runtime/overflow assertions; evidence: `docs/task-evidence/A11Y-2026-003.md`.
-- [ ] Do not use uppercase + extreme tracking for long operational labels.
+- [x] Do not use uppercase + extreme tracking for long operational labels; the typography guard rejects unreviewed extreme tracking and scopes OTP/PIN exceptions to monospace code-entry fields. Evidence: `docs/task-evidence/A11Y-2026-003.md`.
 - [ ] Truncated content has accessible/full-content path where information is required. Evidence: `docs/task-evidence/A11Y-2026-003.md` (current 96-occurrence Customer/Admin `truncate`/`line-clamp` source inventory gives dynamic operational values native full-content titles; future surfaces and manual typography review remain open).
 
 ---
