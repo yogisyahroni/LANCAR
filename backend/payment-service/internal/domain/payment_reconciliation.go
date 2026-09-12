@@ -3,18 +3,19 @@ package domain
 import "errors"
 
 type ReconciliationRecord struct {
-	IntentID          string
-	Provider          string
-	ProviderReference string
-	Currency          string
-	AmountMinor       int64
-	State             PaymentIntentState
-	BatchDate         string
+	IntentID          string             `json:"intent_id"`
+	Provider          string             `json:"provider"`
+	ProviderReference string             `json:"provider_reference"`
+	Currency          string             `json:"currency"`
+	AmountMinor       int64              `json:"amount_minor"`
+	State             PaymentIntentState `json:"state"`
+	BatchDate         string             `json:"batch_date,omitempty"`
+	Timezone          string             `json:"timezone,omitempty"`
 }
 
 type ReconciliationException struct {
-	Type   string
-	Reason string
+	Type   string `json:"type"`
+	Reason string `json:"reason"`
 }
 
 // CompareReconciliation is deterministic and provider-neutral. A missing,
@@ -32,6 +33,10 @@ func CompareReconciliation(internal, provider, settlement *ReconciliationRecord)
 		return []ReconciliationException{{Type: "REFERENCE_MISMATCH", Reason: "provider reference does not resolve to the internal intent"}}, nil
 	}
 	result := make([]ReconciliationException, 0, 2)
+	// Batch dates are provider metadata, not transaction truth. They are
+	// deliberately carried through to the durable exception record so a
+	// provider's local timezone/batch cut-off cannot be mistaken for a missing
+	// payment or a history rewrite.
 	if provider.AmountMinor != internal.AmountMinor {
 		result = append(result, ReconciliationException{Type: "AMOUNT_MISMATCH", Reason: "provider amount differs from internal intent"})
 	}

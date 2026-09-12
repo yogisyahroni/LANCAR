@@ -150,6 +150,10 @@ func main() {
 	paymentMethodCatalogHandler := handler.NewPaymentMethodCatalogHandler(db)
 	chargebackHandler := handler.NewChargebackHandler(db)
 	refundEventHandler := handler.NewRefundEventHandler(db)
+	balanceRepo := repository.NewPostgresBalanceRepository(db)
+	balanceHandler := handler.NewBalanceHandler(balanceRepo)
+	reconciliationStore := repository.NewPostgresReconciliationStore(db)
+	reconciliationHandler := handler.NewReconciliationHandler(service.NewReconciliationService(reconciliationStore))
 
 	// Router
 	mux := http.NewServeMux()
@@ -166,6 +170,8 @@ func main() {
 	mux.HandleFunc("/api/internal/payment-intents/events", middleware.BaseChain(paymentIntentHandler.ApplyInternalEvent))
 	mux.HandleFunc("/api/internal/payment/chargebacks/events", middleware.BaseChain(chargebackHandler.Ingest))
 	mux.HandleFunc("/api/internal/payment/refunds/events", middleware.BaseChain(refundEventHandler.Ingest))
+	mux.HandleFunc("/api/internal/payment/balances/operations", middleware.BaseChain(balanceHandler.Apply))
+	mux.HandleFunc("/api/internal/payment/reconciliation", middleware.BaseChain(reconciliationHandler.Reconcile))
 	mux.HandleFunc("/api/internal/wallet/refund", middleware.BaseChain(h.Refund))
 
 	// Internal SOS wallet handlers
