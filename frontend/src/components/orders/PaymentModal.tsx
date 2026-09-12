@@ -22,6 +22,8 @@ interface PaymentModalProps {
   snapJsUrl: string;
   clientKey: string;
   redirectUrl?: string;
+  paymentProvider?: string | null;
+  currency?: string;
   amount: number;
   onSuccess: () => void;
 }
@@ -36,6 +38,8 @@ export function PaymentModal({
   snapJsUrl,
   clientKey,
   redirectUrl,
+  paymentProvider,
+  currency = "IDR",
   amount,
   onSuccess
 }: PaymentModalProps) {
@@ -46,6 +50,7 @@ export function PaymentModal({
   const [isChecking, setIsChecking] = useState(false);
   const paymentCheckKeyRef = useRef<string>("");
   const checkInFlightRef = useRef(false);
+  const providerConfigured = paymentProvider !== null;
   useEffect(() => {
     paymentCheckKeyRef.current = "";
     checkInFlightRef.current = false;
@@ -55,6 +60,15 @@ export function PaymentModal({
     if (!isOpen) return;
     setState("loading_snap");
     setMessage(null);
+
+    const provider = paymentProvider === null ? "" : (paymentProvider ?? "midtrans").trim().toLowerCase();
+    if (provider !== "midtrans") {
+      setState("idle");
+      setMessage(paymentProvider
+        ? "Metode pembayaran ini belum tersedia di halaman pembayaran web. Gunakan tautan pembayaran yang disediakan server."
+        : "Belum ada payment provider yang dikonfigurasi untuk market ini.");
+      return;
+    }
 
     if (window.snap) {
       setSnapReady(true);
@@ -85,7 +99,7 @@ export function PaymentModal({
       setMessage("Gagal memuat Midtrans Snap. Periksa koneksi atau client key.");
     };
     document.head.appendChild(script);
-  }, [isOpen, snapJsUrl, clientKey]);
+  }, [isOpen, snapJsUrl, clientKey, paymentProvider]);
 
   const confirmPaid = async () => {
     if (!orderId) {
@@ -150,6 +164,11 @@ export function PaymentModal({
   };
 
   const openSnap = () => {
+    if (paymentProvider === null || (paymentProvider ?? "midtrans").trim().toLowerCase() !== "midtrans") {
+      setState("error");
+      setMessage("Payment provider belum tersedia. Order tetap tersimpan dan dapat dilanjutkan setelah provider dikonfigurasi.");
+      return;
+    }
     if (!snapToken) {
       setState("error");
       setMessage("Snap token tidak tersedia. Pastikan MIDTRANS_SERVER_KEY sudah diisi.");
@@ -207,7 +226,9 @@ export function PaymentModal({
           >
             <div className="flex items-start justify-between border-b border-border p-5">
               <div>
-                <h2 id="payment-modal-title" className="text-xl font-bold tracking-tight text-foreground">{t('payment.title')}</h2>
+                <h2 id="payment-modal-title" className="text-xl font-bold tracking-tight text-foreground">
+                  {providerConfigured ? t('payment.title') : "Pembayaran belum tersedia"}
+                </h2>
                 <p className="mt-1 text-sm text-muted-foreground">{t('payment.description')}</p>
               </div>
               <button type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-full p-2 hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={t('payment.close')} title={t('payment.close')}>
@@ -219,11 +240,13 @@ export function PaymentModal({
               <div className="rounded-xl border border-border bg-surface-subtle p-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{t('payment.total')}</span>
-                  <span className="font-bold text-foreground">{formatCurrency(amount, 'IDR', locale)}</span>
+                  <span className="font-bold text-foreground">{formatCurrency(amount, currency, locale)}</span>
                 </div>
                 <div className="mt-3 flex justify-between text-sm">
                   <span className="text-muted-foreground">{t('payment.gateway')}</span>
-                  <span className="font-semibold text-primary">Midtrans Snap</span>
+                  <span className="font-semibold text-primary">
+                    {paymentProvider ? `${paymentProvider} payment` : "Provider belum dikonfigurasi"}
+                  </span>
                 </div>
               </div>
 
@@ -245,11 +268,13 @@ export function PaymentModal({
                 <button
                   type="button"
                   onClick={openSnap}
-                  disabled={!snapReady || state === "loading_snap" || state === "opened"}
+                  disabled={paymentProvider === null || (paymentProvider ?? "midtrans").trim().toLowerCase() !== "midtrans" || !snapReady || state === "loading_snap" || state === "opened"}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {state === "loading_snap" || state === "opened" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <CreditCard className="h-4 w-4" aria-hidden="true" />}
-                  {state === "loading_snap" ? t('payment.loading') : t('payment.payWith')}
+                  {state === "loading_snap"
+                    ? t('payment.loading')
+                    : providerConfigured ? t('payment.payWith') : "Provider belum dikonfigurasi"}
                 </button>
                 {state === "pending" && (
                   <button

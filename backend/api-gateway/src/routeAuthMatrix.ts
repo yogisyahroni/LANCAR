@@ -286,6 +286,16 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
       prefix('/api/v1/users')(method, path),
   },
   {
+    id: 'payment-intent-api',
+    requirement: 'jwt',
+    matches: prefix('/api/v1/payment-intents'),
+  },
+  {
+    id: 'payment-method-catalog-api',
+    requirement: 'jwt',
+    matches: prefix('/api/v1/payment-methods'),
+  },
+  {
     id: 'payment-api',
     requirement: 'jwt',
     matches: prefix('/api/v1/payments'),

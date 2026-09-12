@@ -3,6 +3,7 @@ package com.tembus.customer.ui.screens.payment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.customer.data.model.FoodPaymentItem
+import com.tembus.customer.data.model.PaymentMethodOption
 import com.tembus.customer.data.repository.OrderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +34,7 @@ sealed class PaymentUiState {
         val amountIdr: Long = 0L,
         val walletBalanceIdr: Long = 0L,
         val activePaymentProvider: String? = null,
+        val availablePaymentMethods: List<PaymentMethodOption> = emptyList(),
         val items: List<FoodPaymentItem>? = null,
         val message: String? = null
     ) : PaymentUiState()
@@ -61,31 +63,38 @@ class PaymentViewModel @Inject constructor(
             val result = repository.getCustomerPaymentStatus(orderId)
             result.onSuccess { payment ->
                 val status = payment.paymentStatus.ifBlank { payment.status }
+                val effectiveSelected = selectedMethodFromCatalog(selected, payment.availablePaymentMethods)
+                val qrisAvailable = payment.availablePaymentMethods.any {
+                    it.paymentMethod.equals(CustomerPaymentMethod.QRIS.apiValue, ignoreCase = true)
+                }
                 when {
                     isPaidOrBypassed(status, payment.orderStatus) -> _uiState.value = PaymentUiState.Paid
                     status == "expired" -> _uiState.value = PaymentUiState.Choosing(
-                        selectedMethod = selected,
+                        selectedMethod = effectiveSelected,
                         amountIdr = payment.amountIdr,
                         walletBalanceIdr = payment.walletBalanceIdr,
                         activePaymentProvider = payment.activePaymentProvider,
+                        availablePaymentMethods = payment.availablePaymentMethods,
                         items = payment.items,
                         message = "Sesi pembayaran sebelumnya kedaluwarsa. Pilih metode pembayaran lagi."
                     )
-                    !payment.redirectUrl.isNullOrBlank() && payment.method.equals("QRIS", ignoreCase = true) -> {
+                    qrisAvailable && !payment.redirectUrl.isNullOrBlank() && payment.method.equals("QRIS", ignoreCase = true) -> {
                         _uiState.value = PaymentUiState.Choosing(
                             selectedMethod = CustomerPaymentMethod.QRIS,
                             amountIdr = payment.amountIdr,
                             walletBalanceIdr = payment.walletBalanceIdr,
                             activePaymentProvider = payment.activePaymentProvider,
+                            availablePaymentMethods = payment.availablePaymentMethods,
                             items = payment.items,
                             message = "Sesi QRIS tersedia. Lanjutkan jika ingin memakai QRIS."
                         )
                     }
                     else -> _uiState.value = PaymentUiState.Choosing(
-                        selectedMethod = selected,
+                        selectedMethod = effectiveSelected,
                         amountIdr = payment.amountIdr,
                         walletBalanceIdr = payment.walletBalanceIdr,
                         activePaymentProvider = payment.activePaymentProvider,
+                        availablePaymentMethods = payment.availablePaymentMethods,
                         items = payment.items
                     )
                 }
@@ -102,18 +111,23 @@ class PaymentViewModel @Inject constructor(
         val amount = amountFrom(current)
         val wallet = walletFrom(current)
         val activeProvider = (current as? PaymentUiState.Choosing)?.activePaymentProvider
+        val availableMethods = (current as? PaymentUiState.Choosing)?.availablePaymentMethods ?: emptyList()
         val items = (current as? PaymentUiState.Choosing)?.items
+        val effectiveMethod = selectedMethodFromCatalog(method, availableMethods)
         _uiState.value = PaymentUiState.Choosing(
-            selectedMethod = method,
+            selectedMethod = effectiveMethod,
             amountIdr = amount,
             walletBalanceIdr = wallet,
             activePaymentProvider = activeProvider,
+            availablePaymentMethods = availableMethods,
             items = items
         )
     }
 
     fun startPayment(orderId: String) {
-        val selected = selectedMethodFrom(_uiState.value)
+        val current = _uiState.value
+        val availableMethods = (current as? PaymentUiState.Choosing)?.availablePaymentMethods ?: emptyList()
+        val selected = selectedMethodFromCatalog(selectedMethodFrom(current), availableMethods)
         viewModelScope.launch {
             _uiState.value = PaymentUiState.Loading(selected)
             val idempotencyKey = paymentSessionKey ?: UUID.randomUUID().toString().also { paymentSessionKey = it }
@@ -202,6 +216,19 @@ class PaymentViewModel @Inject constructor(
             is PaymentUiState.Error -> state.selectedMethod
             else -> CustomerPaymentMethod.LAPAY
         }
+    }
+
+    private fun selectedMethodFromCatalog(
+        current: CustomerPaymentMethod,
+        options: List<PaymentMethodOption>
+    ): CustomerPaymentMethod {
+        if (options.isEmpty()) return current
+        if (options.any { it.paymentMethod.equals(current.apiValue, ignoreCase = true) }) return current
+        return options.firstNotNullOfOrNull { option ->
+            CustomerPaymentMethod.values().firstOrNull {
+                it.apiValue.equals(option.paymentMethod, ignoreCase = true)
+            }
+        } ?: current
     }
 
     private fun amountFrom(state: PaymentUiState): Long {

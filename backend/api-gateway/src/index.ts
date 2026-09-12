@@ -1661,6 +1661,11 @@ app.use(createProxyMiddleware({
 // ─────────────────────────────────────────────
 // Wallet Routes (Payment Service)
 // ─────────────────────────────────────────────
+// Payment intents are customer-owned and must be authenticated before the
+// payment-service state machine sees them. The gateway only forwards identity;
+// it cannot manufacture a paid flag or provider event.
+app.use('/api/v1/payment-intents', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_URL, paymentBreaker, paymentBulkhead));
+app.use('/api/v1/payment-methods', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_URL, paymentBreaker, paymentBulkhead));
 app.use('/api/v1/wallet', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_URL, paymentBreaker, paymentBulkhead));
 
 // ─────────────────────────────────────────────

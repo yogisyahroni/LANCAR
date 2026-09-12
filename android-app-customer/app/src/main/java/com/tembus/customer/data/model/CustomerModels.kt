@@ -2,6 +2,7 @@ package com.tembus.customer.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class CreateOrderRequest(
@@ -381,6 +382,8 @@ data class CustomerPaymentSetup(
     @SerialName("currency") val currency: String = "IDR",
     @SerialName("currency_minor_unit") val currencyMinorUnit: Int = 0,
     @SerialName("amount_minor") val amountMinor: Long = 0L,
+    @SerialName("market_code") val marketCode: String? = null,
+    @SerialName("available_payment_methods") val availablePaymentMethods: List<PaymentMethodOption> = emptyList(),
     @SerialName("wallet_balance_idr") val walletBalanceIdr: Long = 0L,
     // FOOD-BIKE-076: breakdown multi-item (null untuk order non-food)
     @SerialName("items") val items: List<FoodPaymentItem>? = null,
@@ -389,6 +392,16 @@ data class CustomerPaymentSetup(
     @SerialName("midtrans_order_id") val midtransOrderId: String? = null,
     @SerialName("expires_in") val expiresIn: Int = 0,
     @SerialName("expires_at") val expiresAt: String? = null
+)
+
+@Serializable
+data class PaymentMethodOption(
+    @SerialName("payment_method") val paymentMethod: String,
+    @SerialName("provider") val provider: String,
+    @SerialName("currency") val currency: String,
+    @SerialName("min_amount_minor") val minAmountMinor: Long? = null,
+    @SerialName("max_amount_minor") val maxAmountMinor: Long? = null,
+    @SerialName("version") val version: Long = 1L,
 )
 
 /** FOOD-BIKE-076: item makanan di breakdown pembayaran. */
@@ -517,13 +530,17 @@ data class LoyaltyInfoResponse(
 
 @Serializable
 data class LoyaltyInfo(
-    @SerialName("tier") val tier: String = "Bronze",
+    @SerialName("market_code") val marketCode: String = "",
+    @SerialName("tier") val tier: String = "",
+    @SerialName("tier_version") val tierVersion: Int = 0,
+    @SerialName("points_balance") val pointsBalance: Long = 0,
+    @SerialName("benefit_balance") val benefitBalance: Map<String, JsonElement> = emptyMap(),
     @SerialName("monthly_orders") val monthlyOrders: Int = 0,
-    @SerialName("discount_pct") val discountPct: Int = 0,
+    @SerialName("discount_pct") val discountPct: Double = 0.0,
     @SerialName("benefits") val benefits: List<String> = emptyList(),
     @SerialName("next_tier") val nextTier: String? = null,
-    @SerialName("next_tier_discount_pct") val nextTierDiscountPct: Int? = null,
-    @SerialName("orders_to_next_tier") val ordersToNextTier: Int = 0,
+    @SerialName("next_tier_discount_pct") val nextTierDiscountPct: Double? = null,
+    @SerialName("points_to_next_tier") val pointsToNextTier: Long = 0,
     @SerialName("progress_pct") val progressPct: Int = 0
 )
 

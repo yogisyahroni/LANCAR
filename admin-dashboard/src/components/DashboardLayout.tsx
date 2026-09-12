@@ -319,6 +319,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: Bell, label: "Notifications", path: "/notifications" },
         { icon: Search, label: "Search Discovery", path: "/search-discovery", allowedRoles: ['super_admin', 'admin', 'ops_admin'] },
         { icon: Activity, label: "Communication Health", path: "/communication-delivery-health", allowedRoles: ['super_admin', 'admin', 'ops_admin', 'cs_agent'] },
+        { icon: Activity, label: "Platform Operations", path: "/platform-operations", allowedRoles: ['super_admin', 'admin', 'ops_admin', 'ops_security', 'finance_admin', 'finance', 'cs_agent'] },
         { icon: FileText, label: "Perjanjian Hukum", path: "/agreements" },
         { icon: History, label: "Audit Logs", path: "/audit-logs", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },
         { icon: Settings, label: "Settings", path: "/settings", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },

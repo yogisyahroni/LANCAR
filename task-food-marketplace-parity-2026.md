@@ -4985,10 +4985,10 @@ Additional states:
 - chargeback/dispute
 
 **Checklist**
-- [ ] Provider that lacks capability never fakes it.
-- [ ] Credentials/signatures server-side.
-- [ ] Native provider transaction/reference preserved.
-- [ ] Provider adapter has timeout/retry/circuit breaker and contract tests.
+- [x] Provider that lacks capability never fakes it.
+- [x] Credentials/signatures server-side.
+- [x] Native provider transaction/reference preserved.
+- [x] Provider adapter has timeout/retry/circuit breaker and contract tests.
 
 ---
 
@@ -5004,10 +5004,10 @@ Additional states:
 with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIALLY_REFUNDED`, `REFUNDED`, `CHARGEBACK` as model requires.
 
 **Checklist**
-- [ ] Order references payment intent; client does not set `paid=true`.
-- [ ] Provider webhook and client-return races are idempotent.
-- [ ] Late callback cannot revive cancelled/expired intent incorrectly.
-- [ ] State transitions preserve provider raw status + normalized status.
+- [x] Order references payment intent; client does not set `paid=true`.
+- [x] Provider webhook and client-return races are idempotent.
+- [x] Late callback cannot revive cancelled/expired intent incorrectly.
+- [x] State transitions preserve provider raw status + normalized status.
 
 ---
 
@@ -5027,22 +5027,22 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - merchant/service constraints
 
 **Checklist**
-- [ ] Routing rule version logged per payment intent.
-- [ ] Failover only before irreversible provider mutation unless idempotency/lookup proves safe.
-- [ ] Do not create two successful charges while “retrying another provider”.
-- [ ] Provider health can disable new attempts while callback/reconciliation remains active.
-- [ ] Admin override has scope, reason, expiry and audit.
+- [x] Routing rule version logged per payment intent.
+- [x] Failover only before irreversible provider mutation unless idempotency/lookup proves safe.
+- [x] Do not create two successful charges while “retrying another provider”.
+- [x] Provider health can disable new attempts while callback/reconciliation remains active.
+- [x] Admin override has scope, reason, expiry and audit.
 
 ---
 
 ## PAYPLAT-2026-004 — Tokenization, sensitive-card boundary and authentication [P0]
 
 **Checklist**
-- [ ] Raw PAN/card secrets never traverse or persist in systems that can use provider tokenization/hosted field instead.
-- [ ] PCI scope documented per market/provider integration.
-- [ ] 3DS/SCA/challenge state explicitly modeled where applicable.
-- [ ] Saved method tokens scoped to customer/provider/market and revocable.
-- [ ] Logs/telemetry redact sensitive payment payloads.
+- [x] Raw PAN/card secrets never traverse or persist in systems that can use provider tokenization/hosted field instead.
+- [x] PCI scope documented per market/provider integration.
+- [x] 3DS/SCA/challenge state explicitly modeled where applicable.
+- [x] Saved method tokens scoped to customer/provider/market and revocable.
+- [x] Logs/telemetry redact sensitive payment payloads.
 
 ---
 
@@ -5062,10 +5062,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## PAYPLAT-2026-006 — Market payment-method catalog and eligibility [P0]
 
 **Checklist**
-- [ ] Market config determines allowed methods/provider routes/currency/min-max amount.
-- [ ] Customer only sees methods valid for market/order/value/risk context.
-- [ ] Method availability can be remotely disabled without losing active payment recovery.
-- [ ] No hardcoded `Rp` or Indonesian-only method assumption in payment domain.
+- [x] Market config determines allowed methods/provider routes/currency/min-max amount.
+- [x] Customer only sees methods valid for market/order/value/risk context.
+- [x] Method availability can be remotely disabled without losing active payment recovery.
+- [x] No hardcoded `Rp` or Indonesian-only method assumption in payment domain.
 
 ---
 
@@ -5139,10 +5139,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `docs/contracts/safety-incident-2026.md`
 
 **Checklist**
-- [ ] Incident links actor(s), order/service, location snapshot, time, category, severity, evidence references and escalation state.
-- [ ] Severity drives SLA/notification/escalation, not arbitrary UI color.
-- [ ] Safety state is separate from order state; incident creation does not silently complete/cancel order.
-- [ ] Evidence immutability/retention/access policy defined.
+- [x] Incident links actor(s), order/service, location snapshot, time, category, severity, evidence references and escalation state.
+- [x] Severity drives SLA/notification/escalation, not arbitrary UI color.
+- [x] Safety state is separate from order state; incident creation does not silently complete/cancel order.
+- [x] Evidence immutability/retention/access policy defined.
 
 ---
 
@@ -5185,11 +5185,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## SAFE-2026-004 — Share-trip/service and trusted emergency-contact capability [P1]
 
 **Checklist**
-- [ ] Share token contains minimum necessary route/status/identity data.
-- [ ] Token expires/revokes when service ends or user revokes.
-- [ ] Viewer cannot mutate order/contact participants.
-- [ ] Emergency contacts are user-managed and privacy scoped.
-- [ ] Public share page rate-limited and protected from enumeration.
+- [x] Share token contains minimum necessary route/status/identity data.
+- [x] Token expires/revokes when service ends or user revokes.
+- [x] Viewer cannot mutate order/contact participants.
+- [x] Emergency contacts are user-managed and privacy scoped.
+- [x] Public share page rate-limited and protected from enumeration.
 
 ---
 
@@ -5197,10 +5197,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [ ] Market-specific emergency integration/call center/provider is configured, not hardcoded globally.
-- [ ] SOS action records timestamp/location/order/context and delivery/escalation status.
-- [ ] If external emergency integration unavailable, UI presents safe fallback instructions/contact path approved per market.
-- [ ] Never promise emergency response capability that operations cannot actually provide.
-- [ ] Regular support queue cannot silently absorb P0 safety incident without escalation.
+- [x] SOS action records timestamp/location/order/context and delivery/escalation status.
+- [x] If external emergency integration unavailable, UI presents safe fallback instructions/contact path approved per market.
+- [x] Never promise emergency response capability that operations cannot actually provide.
+- [x] Regular support queue cannot silently absorb P0 safety incident without escalation.
 
 ---
 
@@ -5217,10 +5217,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## SAFE-2026-007 — Safety evidence, media integrity and retention [P0]
 
 **Checklist**
-- [ ] Photo/video/audio/document metadata binds incident/order/actor/time.
-- [ ] Upload validates type/size/malware and protects object URL.
-- [ ] Original evidence immutable; redacted derivative used for ordinary support where possible.
-- [ ] Legal hold/retention policy market scoped.
+- [x] Photo/video/audio/document metadata binds incident/order/actor/time.
+- [x] Upload validates type/size/malware and protects object URL.
+- [x] Original evidence immutable; redacted derivative used for ordinary support where possible.
+- [x] Legal hold/retention policy market scoped.
 - [ ] Evidence access/download audited.
 
 ---
@@ -5233,11 +5233,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `admin-dashboard/src/pages/safety/SafetyAnalytics.tsx`
 
 **Checklist**
-- [ ] Queue sorted by severity/SLA, not just newest first.
-- [ ] Incident timeline includes communications, evidence, order actions and reviewer actions.
-- [ ] Role-based sensitive-data reveal.
-- [ ] Escalate/transfer/resolve/reopen with reasons and audit.
-- [ ] Safety admin cannot directly rewrite payment/order state; uses authorized domain actions.
+- [x] Queue sorted by severity/SLA, not just newest first.
+- [x] Incident timeline includes communications, evidence, order actions and reviewer actions.
+- [x] Role-based sensitive-data reveal.
+- [x] Escalate/transfer/resolve/reopen with reasons and audit.
+- [x] Safety admin cannot directly rewrite payment/order state; uses authorized domain actions.
 
 ---
 
@@ -5245,9 +5245,9 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [ ] Safety incident can emit governed risk/reputation signals after appropriate review.
-- [ ] Unverified allegation is not automatically permanent ban/rating truth.
-- [ ] Risk decision can trigger safety review without exposing secret risk logic to counterparty.
-- [ ] Appeals/review path exists for material enforcement.
+- [x] Unverified allegation is not automatically permanent ban/rating truth.
+- [x] Risk decision can trigger safety review without exposing secret risk logic to counterparty.
+- [x] Appeals/review path exists for material enforcement.
 - [ ] Support case references safety incident but ordinary support agents see only necessary data.
 
 ---

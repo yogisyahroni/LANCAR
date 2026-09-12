@@ -180,6 +180,10 @@ private fun PaymentMethodChooser(
     onPay: () -> Unit
 ) {
     val selectedMethod = state.selectedMethod
+    val catalogMethods = state.availablePaymentMethods.map { it.paymentMethod.lowercase() }.toSet()
+    val lapayAvailable = "lapay" in catalogMethods
+    val qrisAvailable = "qris" in catalogMethods
+    val selectedMethodAvailable = selectedMethod.apiValue in catalogMethods
     val lapayInsufficient = selectedMethod == CustomerPaymentMethod.LAPAY &&
         state.amountIdr > 0L &&
         state.walletBalanceIdr < state.amountIdr
@@ -213,14 +217,14 @@ private fun PaymentMethodChooser(
                 )
                 PaymentItemsBlock(state.items)
                 PaymentAmountBlock(state.amountIdr)
-                PaymentMethodCard(
+                if (lapayAvailable) PaymentMethodCard(
                     method = CustomerPaymentMethod.LAPAY,
                     selected = selectedMethod == CustomerPaymentMethod.LAPAY,
                     amountIdr = state.amountIdr,
                     walletBalanceIdr = state.walletBalanceIdr,
                     onClick = { onSelectMethod(CustomerPaymentMethod.LAPAY) }
                 )
-                if (state.activePaymentProvider != "none" && state.activePaymentProvider != "lapay") {
+                if (qrisAvailable) {
                     PaymentMethodCard(
                         method = CustomerPaymentMethod.QRIS,
                         selected = selectedMethod == CustomerPaymentMethod.QRIS,
@@ -236,9 +240,16 @@ private fun PaymentMethodChooser(
                         color = Warning
                     )
                 }
+                if (catalogMethods.isEmpty()) {
+                    Text(
+                        text = "Belum ada metode pembayaran yang aktif untuk market dan mata uang order ini.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
                 Button(
                     onClick = onPay,
-                    enabled = !lapayInsufficient,
+                    enabled = selectedMethodAvailable && !lapayInsufficient,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(58.dp)

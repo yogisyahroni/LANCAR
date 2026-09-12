@@ -690,7 +690,9 @@ export default function NewOrderPage() {
           snapJsUrl={paymentData.snap_js_url}
           clientKey={paymentData.client_key}
           redirectUrl={paymentData.redirect_url}
-          amount={orderData?.total_price_idr || pricing?.total_price_idr || 0}
+          paymentProvider={typeof paymentData.active_payment_provider === "string" ? paymentData.active_payment_provider : null}
+          currency={typeof paymentData.currency === "string" ? paymentData.currency : "IDR"}
+          amount={Number(paymentData.amount_minor ?? orderData?.total_price_idr ?? pricing?.total_price_idr ?? 0)}
           onSuccess={handlePaymentSuccess}
         />
       )}

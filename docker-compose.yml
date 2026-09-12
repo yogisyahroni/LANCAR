@@ -513,6 +513,9 @@ services:
       PAYMENT_SERVICE_URL: "http://payment-service:8084"
       ORDER_SERVICE_URL: "http://order-service:8083"
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-tembus_internal_key_secure}
+      SAFETY_CONTACT_ENCRYPTION_KEY: ${SAFETY_CONTACT_ENCRYPTION_KEY:-}
+      SAFETY_PUBLIC_BASE_URL: ${SAFETY_PUBLIC_BASE_URL:-https://app.bawain.my.id}
+      EMERGENCY_PROVIDER_URL: ${EMERGENCY_PROVIDER_URL:-}
       SUPPORT_FINANCIAL_MARKETS: ${SUPPORT_FINANCIAL_MARKETS:-id-jk,id-sby,id-bdg}
       MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
       MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY:-}
@@ -721,6 +724,7 @@ services:
       REDIS_URL: "redis://redis:6379"
       PAYMENT_PORT: ${PAYMENT_PORT:-8084}
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      INTERNAL_PAYMENT_API_KEY: ${INTERNAL_PAYMENT_API_KEY:-${INTERNAL_API_KEY:-tembus_internal_key_secure}}
     ports:
       - "${PAYMENT_PORT:-8084}:8084"
     healthcheck:

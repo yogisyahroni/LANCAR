@@ -374,8 +374,15 @@ export const publicCustomerPaymentSession = (row: any) => {
     status: paymentStatus,
     payment_status: paymentStatus,
     order_status: row.order_status,
-    active_payment_provider: process.env.ACTIVE_PAYMENT_PROVIDER || 'midtrans',
+    // Never advertise a gateway that has not been configured. A missing vendor
+    // is an explicit unavailable state so clients can keep recovery/read-only
+    // payment flows without presenting a fabricated provider.
+    active_payment_provider: process.env.ACTIVE_PAYMENT_PROVIDER || null,
+    market_code: row.market_code || null,
+    currency: row.currency_code || row.currency || 'IDR',
     amount_idr: Number(row.amount_idr || row.total_price_idr || 0),
+    amount_minor: Number(row.amount_minor || row.amount_idr || row.total_price_idr || 0),
+    available_payment_methods: Array.isArray(row.available_payment_methods) ? row.available_payment_methods : [],
     wallet_balance_idr: Number(row.wallet_balance || 0),
     // FOOD-BIKE-076: breakdown item makanan (null untuk order non-food)
     items: row.items || null,
@@ -487,6 +494,9 @@ export const getCustomerOrderPaymentRow = async (customerId: string, orderId: st
             o.order_number,
             o.status AS order_status,
             o.total_price_idr,
+            o.market_code,
+            COALESCE(o.currency_code, 'IDR') AS currency_code,
+            COALESCE(o.currency_minor_unit, 0) AS currency_minor_unit,
             o.service_snapshot,
             o.recipient_name,
             o.recipient_phone_masked,
@@ -510,6 +520,21 @@ export const getCustomerOrderPaymentRow = async (customerId: string, orderId: st
   );
   if (!rows[0]) return null;
   rows[0].wallet_balance = await getCustomerWalletBalance(customerId);
+  const methodRows = await db.query(
+    `SELECT c.payment_method, c.provider, c.currency, c.min_amount_minor,
+            c.max_amount_minor, c.version
+       FROM payment_method_catalog c
+      LEFT JOIN payment_provider_health h ON h.provider = c.provider
+      WHERE c.market_code = LOWER(COALESCE($1, 'id-jk'))
+        AND c.currency = UPPER(COALESCE($2, 'IDR'))
+        AND c.enabled
+        AND (h.provider IS NULL OR h.allow_new_attempts)
+        AND (c.min_amount_minor IS NULL OR c.min_amount_minor <= $3)
+        AND (c.max_amount_minor IS NULL OR c.max_amount_minor >= $3)
+      ORDER BY c.payment_method, c.provider`,
+    [rows[0].market_code, rows[0].currency_code, Number(rows[0].amount_minor || rows[0].amount_idr || rows[0].total_price_idr || 0)],
+  );
+  rows[0].available_payment_methods = methodRows.rows;
   // FOOD-BIKE-076: breakdown multi-item untuk order food (merchant_id terisi)
   if (rows[0].merchant_id) {
     const itemRows = await db.query(

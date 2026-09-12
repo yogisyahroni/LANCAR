@@ -2,6 +2,11 @@
 
 ## Active
 
+- [ ] **Marketplace parity PART W–AG — payment, safety, mobile, security, reputation/CRM and reality gates**
+  - Status 2026-09-12: staging remains on this device with the canonical boundaries `api.bawain.my.id` (API), `app.bawain.my.id` (customer), `admin.bawain.my.id` (admin), and `bawain.my.id` (landing). W-001..004/006 and SAFE-001/004/008 are locally implemented and evidenced; the remaining W–AG checklist items are still open and must not be treated as complete.
+  - External follow-up: payment/OTP/emergency vendors are intentionally not configured; no provider success is claimed. Android low/high matrix, full safety/reputation/CRM E2E, security exercises, load/capacity drills and production-readiness sign-off remain required.
+  - Evidence: `docs/task-evidence/PAYPLAT-2026-001.md` through `REALITY-2026-012.md`; validator must pass before any additional master checklist item is checked.
+
 - [x] **Migrasi penuh UI/Flow post-login Merchant dari tembus-merchant.zip** - hapus/ganti seluruh UI post-login lama dengan 17 screen ZIP 100%, port ke native Android, lalu wire ke API/repository/database/session/state machine real; splash, onboarding, dan login tetap.
   - Status 2026-08-30: ✅ 16/17 items functional complete (build/lint/test/unit/emulator smoke ALL PASS, 17 route ZIP + state wiring verifikasi, legacy UI cleanup, splash/login untouched). 1 item tersisa: pixel-level visual parity vs stitch_screens (emulator screencap Android 12+ display layer issue — uiautomator hierarchy dump sebagai substitute).
   - ZIP adalah sumber kebenaran UI/flow; existing app hanya menjadi adapter auth, data, API, database, session, permission, dan state machine.

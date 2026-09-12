@@ -1605,7 +1605,9 @@ export function AggregatorWizard() {
           snapJsUrl={payment.snap_js_url || ""}
           clientKey={payment.client_key || ""}
           redirectUrl={payment.redirect_url || undefined}
-          amount={Number(payment.amount_idr || createdOrder.total_price_idr || 0)}
+          paymentProvider={typeof payment.active_payment_provider === "string" ? payment.active_payment_provider : null}
+          currency={typeof payment.currency === "string" ? payment.currency : "IDR"}
+          amount={Number(payment.amount_minor ?? payment.amount_idr ?? createdOrder.total_price_idr ?? 0)}
           onSuccess={handlePaymentSuccess}
         />
       )}

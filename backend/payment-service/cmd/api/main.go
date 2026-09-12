@@ -145,6 +145,11 @@ func main() {
 	svc := service.NewWalletService(repo, ledgerRepo, repo.(domain.SettingsRepository), db, flagReader)
 	h := handler.NewWalletHandler(svc)
 	wh := handler.NewWebhookHandler(svc)
+	paymentIntentRepo := repository.NewPostgresPaymentIntentRepository(db)
+	paymentIntentHandler := handler.NewPaymentIntentHandler(paymentIntentRepo)
+	paymentMethodCatalogHandler := handler.NewPaymentMethodCatalogHandler(db)
+	chargebackHandler := handler.NewChargebackHandler(db)
+	refundEventHandler := handler.NewRefundEventHandler(db)
 
 	// Router
 	mux := http.NewServeMux()
@@ -155,6 +160,12 @@ func main() {
 	mux.HandleFunc("/api/v1/wallet/deposit", middleware.BaseChain(h.Deposit))
 	mux.HandleFunc("/api/v1/wallet/withdraw", middleware.BaseChain(h.Withdraw))
 	mux.HandleFunc("/api/v1/wallet/refund", middleware.BaseChain(h.Refund))
+	mux.HandleFunc("/api/v1/payment-intents", middleware.BaseChain(paymentIntentHandler.Create))
+	mux.HandleFunc("/api/v1/payment-intents/", middleware.BaseChain(paymentIntentHandler.Get))
+	mux.HandleFunc("/api/v1/payment-methods", middleware.BaseChain(paymentMethodCatalogHandler.List))
+	mux.HandleFunc("/api/internal/payment-intents/events", middleware.BaseChain(paymentIntentHandler.ApplyInternalEvent))
+	mux.HandleFunc("/api/internal/payment/chargebacks/events", middleware.BaseChain(chargebackHandler.Ingest))
+	mux.HandleFunc("/api/internal/payment/refunds/events", middleware.BaseChain(refundEventHandler.Ingest))
 	mux.HandleFunc("/api/internal/wallet/refund", middleware.BaseChain(h.Refund))
 
 	// Internal SOS wallet handlers

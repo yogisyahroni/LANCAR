@@ -55,6 +55,9 @@ export type AggregatorOrder = {
 export type AggregatorPayment = {
   payment_status?: string;
   order_status?: string;
+  active_payment_provider?: string | null;
+  currency?: string;
+  amount_minor?: number;
   amount_idr?: number;
   snap_token?: string | null;
   redirect_url?: string | null;

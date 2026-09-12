@@ -108,6 +108,8 @@ export * as merchantSettlement from './merchantSettlement.controller';
 export * from './merchantCommissionContracts.controller';
 export * from './customerFeeCredits.controller';
 export * from './riskReview.controller';
+export * from './safety.controller';
+export * from './platformOperations.controller';
 
 // First-class customer / merchant / courier support cases
 export * from './supportCases.controller';

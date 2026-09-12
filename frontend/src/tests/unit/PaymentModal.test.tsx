@@ -30,6 +30,7 @@ describe("PaymentModal server-owned payment state", () => {
           snapToken="snap-token"
           snapJsUrl="https://example.test/snap.js"
           clientKey="client-key"
+          paymentProvider="midtrans"
           amount={32000}
           onSuccess={vi.fn()}
         />
@@ -56,6 +57,7 @@ describe("PaymentModal server-owned payment state", () => {
           snapToken="snap-token"
           snapJsUrl="https://example.test/snap.js"
           clientKey="client-key"
+          paymentProvider="midtrans"
           amount={32000}
           onSuccess={onSuccess}
         />
@@ -86,6 +88,7 @@ describe("PaymentModal server-owned payment state", () => {
           snapToken="snap-token"
           snapJsUrl="https://example.test/snap.js"
           clientKey="client-key"
+          paymentProvider="midtrans"
           amount={32000}
           onSuccess={vi.fn()}
         />
@@ -98,5 +101,26 @@ describe("PaymentModal server-owned payment state", () => {
     await waitFor(() => expect(trap).toContainElement(document.activeElement as HTMLElement));
     fireEvent.keyDown(dialog, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not present an unconfigured provider as a working payment flow", async () => {
+    render(
+      <I18nProvider initialLocale="id-ID">
+        <PaymentModal
+          isOpen
+          onClose={vi.fn()}
+          orderId="order-unconfigured"
+          snapToken=""
+          snapJsUrl=""
+          clientKey=""
+          paymentProvider={null}
+          amount={32000}
+          onSuccess={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    expect(await screen.findByText("Belum ada payment provider yang dikonfigurasi untuk market ini.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Provider belum dikonfigurasi" })).toBeDisabled();
   });
 });
