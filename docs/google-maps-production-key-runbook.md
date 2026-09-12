@@ -130,7 +130,7 @@ Admin dashboard:
 
 ```bash
 cd admin-dashboard
-VITE_API_URL=https://admin.bawain.my.id/api/v1 VITE_SOCKET_URL=https://admin.bawain.my.id npm run build
+VITE_API_URL=https://api.bawain.my.id/api/v1 VITE_SOCKET_URL=https://api.bawain.my.id npm run build
 ```
 
 Android debug smoke:

@@ -231,6 +231,21 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
       prefix('/api/v1/courier')(method, path),
   },
   {
+    id: 'search-api',
+    requirement: 'web-session-or-jwt',
+    matches: prefix('/api/v1/search'),
+  },
+  {
+    id: 'communication-api',
+    requirement: 'web-session-or-jwt',
+    matches: prefix('/api/v1/communications'),
+  },
+  {
+    id: 'device-token-api',
+    requirement: 'web-session-or-jwt',
+    matches: prefix('/api/v1/device-tokens'),
+  },
+  {
     id: 'order-domain-api',
     requirement: 'jwt',
     matches: (method, path) =>

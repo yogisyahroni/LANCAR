@@ -59,6 +59,8 @@ import AppExperience from './pages/AppExperience'
 import LocalizedContentPacks from './pages/LocalizedContentPacks'
 import MobileReleasePolicies from './pages/MobileReleasePolicies'
 import CommerceAds from './pages/ads/CommerceAds'
+import SearchDiscovery from './pages/SearchDiscovery'
+import CommunicationDeliveryHealth from './pages/CommunicationDeliveryHealth'
 import AppVersionPolicy from './pages/AppVersionPolicy'
 import DashboardLayout from './components/DashboardLayout'
 import ExperienceScopedPage from './components/experience/ExperienceScopedPage'
@@ -415,6 +417,8 @@ function App() {
               </ProtectedRoute>
             } 
           />
+          <Route path="/search-discovery" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'ops_admin']}><SearchDiscovery /></ProtectedRoute>} />
+          <Route path="/communication-delivery-health" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'ops_admin', 'cs_agent']}><CommunicationDeliveryHealth /></ProtectedRoute>} />
           {/* 10.2: Broadcast Center — role match BROADCAST_ROLES backend */}
           <Route
             path="/broadcasts"

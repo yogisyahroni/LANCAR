@@ -21,6 +21,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +33,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.tembus.customer.data.model.UniversalSearchDocument
 import com.tembus.customer.ui.designsystem.TembusAppBar
 import com.tembus.customer.ui.designsystem.TembusCard
 import com.tembus.customer.ui.designsystem.TembusEmptyState
@@ -55,9 +59,18 @@ internal fun resolveTembusSearchIntents(query: String): List<TembusSearchIntent>
 }
 
 @Composable
-fun TembusUniversalSearchScreen(onBack: () -> Unit, onServiceSelected: (String) -> Unit) {
+fun TembusUniversalSearchScreen(
+    onBack: () -> Unit,
+    onServiceSelected: (String) -> Unit,
+    viewModel: UniversalSearchViewModel = hiltViewModel(),
+) {
     var query by remember { mutableStateOf("") }
+    val remoteState by viewModel.uiState.collectAsState()
+    LaunchedEffect(query) { viewModel.search(query) }
     val matches = resolveTembusSearchIntents(query)
+    val safeRemoteResults = remoteState.results.filter {
+        it.serviceCode != null && it.serviceCode in setOf("pickup", "food_delivery", "aggregator", "tambal_ban", "towing")
+    }
     Scaffold(
         topBar = {
             TembusAppBar(
@@ -72,10 +85,24 @@ fun TembusUniversalSearchScreen(onBack: () -> Unit, onServiceSelected: (String) 
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             TembusSearchField(value = query, onValueChange = { query = it }, label = "Cari layanan", placeholder = "Contoh: makanan, paket, tambal ban")
-            Text("Layanan yang cocok", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            if (matches.isEmpty()) {
+            if (remoteState.suggestions.isNotEmpty()) {
+                Text("Saran pencarian", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(remoteState.suggestions.joinToString("  · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (remoteState.isLoading) {
+                Text("Mencari…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (safeRemoteResults.isNotEmpty()) {
+                Text("Hasil pencarian", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    items(safeRemoteResults, key = { it.entityId }) { document ->
+                        SearchResultCard(document = document, onServiceSelected = onServiceSelected)
+                    }
+                }
+            } else if (matches.isEmpty()) {
                 TembusEmptyState(title = "Pilih layanan dari daftar", message = "TEMBUS belum menemukan layanan yang cocok. Gunakan kata kunci layanan atau pilih salah satu opsi yang tersedia di Beranda.")
             } else {
+                Text("Layanan yang cocok", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                     items(matches, key = { it.code }) { intent ->
                         TembusCard(onClick = { onServiceSelected(intent.code) }, modifier = Modifier.fillMaxWidth()) {
@@ -89,6 +116,31 @@ fun TembusUniversalSearchScreen(onBack: () -> Unit, onServiceSelected: (String) 
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResultCard(document: UniversalSearchDocument, onServiceSelected: (String) -> Unit) {
+    val serviceCode = document.serviceCode ?: return
+    val icon = when (serviceCode) {
+        "food_delivery" -> Icons.Default.Restaurant
+        "tambal_ban" -> Icons.Default.Build
+        "towing" -> Icons.Default.DirectionsCar
+        else -> Icons.Default.LocalShipping
+    }
+    TembusCard(onClick = { onServiceSelected(serviceCode) }, modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(icon, contentDescription = "", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(document.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                val state = when {
+                    document.available == false -> document.unavailableReason ?: "Tidak tersedia saat ini"
+                    document.openNow == false -> "Sedang tutup"
+                    else -> "Tersedia untuk dilihat"
+                }
+                Text(state, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

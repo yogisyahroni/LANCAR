@@ -28,6 +28,8 @@ const AUTHENTICATED_ROUTES = [
   '/app-experience/approval',
   '/app-experience/design-tokens',
   '/app-experience/preview',
+  '/search-discovery',
+  '/communication-delivery-health',
 ] as const
 
 const FULL_ADMIN_ROUTE_INVENTORY = [
@@ -72,6 +74,8 @@ const FULL_ADMIN_ROUTE_INVENTORY = [
   '/vouchers',
   '/promos',
   '/notifications',
+  '/search-discovery',
+  '/communication-delivery-health',
   '/broadcasts',
   '/feature-flags',
   '/experiments',
@@ -131,7 +135,7 @@ async function mockAdminSessionAndApi(page: Page) {
       return
     }
 
-    if (isApiRequest && (/\/api\/v1\/(admin|maps|experience)\//.test(pathname) || pathname === '/api/v1/payment-links')) {
+    if (isApiRequest && (/\/api\/v1\/(admin|maps|experience)\//.test(pathname) || pathname === '/api/v1/payment-links' || pathname === '/api/v1/search' || pathname === '/api/v1/search/autocomplete')) {
       const responseByPath: Record<string, unknown> = {
         '/admin/dashboard/events': [],
         '/admin/dashboard/stats': {},
@@ -243,6 +247,13 @@ async function mockAdminSessionAndApi(page: Page) {
         '/admin/vouchers': [],
         '/admin/vouchers/stats': {},
         '/admin/notifications/templates': [],
+        '/admin/communications/templates': { data: [] },
+        '/admin/communications/delivery-health': { data: { window: '24h', items: [] } },
+        '/admin/search/synonyms': { data: [] },
+        '/admin/search/merchandising': { data: [] },
+        '/admin/search/quality': { data: { query_volume: 0, zero_result_rate: 0, average_latency_ms: 0, freshness_by_entity_type: [] } },
+        '/search': { data: { schema_version: 'search.v1', query: 'ayam geprk', intent: { canonical_query: 'ayam geprek', service: 'food_delivery', confidence: 'high' }, results: [], total: 0, ranking_version: 'organic-v1', organic_only: true } },
+        '/search/autocomplete': { data: { schema_version: 'search.autocomplete.v1', suggestions: ['ayam geprek'] } },
         '/admin/courier-retention': { couriers: [] },
         '/admin/logistics-providers': [],
         '/admin/delivery-services': { services: [] },

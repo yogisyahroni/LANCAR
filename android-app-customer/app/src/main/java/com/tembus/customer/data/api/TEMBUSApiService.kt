@@ -10,6 +10,27 @@ import retrofit2.http.*
 
 interface TEMBUSApiService {
 
+    // Universal discovery. Search returns discovery metadata only; prices,
+    // ratings, ETA and transaction truth stay in their owning services.
+    @GET("api/v1/search")
+    suspend fun universalSearch(
+        @Query("q") query: String,
+        @Query("market_code") marketCode: String? = null,
+        @Query("locale") locale: String? = null,
+        @Query("service") service: String? = null,
+        @Query("open_now") openNow: Boolean? = null,
+        @Query("lat") latitude: Double? = null,
+        @Query("lng") longitude: Double? = null,
+        @Query("radius_m") radiusM: Int? = null,
+    ): Response<UniversalSearchEnvelope>
+
+    @GET("api/v1/search/autocomplete")
+    suspend fun universalSearchAutocomplete(
+        @Query("q") query: String,
+        @Query("market_code") marketCode: String? = null,
+        @Query("locale") locale: String? = null,
+    ): Response<UniversalAutocompleteEnvelope>
+
     // System Endpoints
     @GET("api/v1/system/latest-version")
     suspend fun getLatestVersion(
@@ -376,10 +397,15 @@ interface TEMBUSApiService {
         @Path("id") id: String
     ): Response<NotificationUpdateResponse>
 
-    @POST("api/v1/customer/notifications/register-token")
+    @POST("api/v1/device-tokens")
     suspend fun registerDeviceToken(
         @Body request: RegisterTokenRequest
     ): Response<Unit>
+
+    @HTTP(method = "DELETE", path = "api/v1/device-tokens/unregister", hasBody = true)
+    suspend fun unregisterDeviceToken(
+        @Body request: Map<String, String>
+    ): Response<NotificationUpdateResponse>
 
     // Dispute Endpoints
     @Multipart

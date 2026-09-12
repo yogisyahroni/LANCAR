@@ -235,6 +235,7 @@ func main() {
 	}
 
 	notifRepo := repository.NewPostgresNotificationRepo(sqlx.NewDb(db, "postgres"))
+	communicationRepo := repository.NewCommunicationRepository(sqlx.NewDb(db, "postgres"))
 	trackingRepo := repository.NewPostgresTrackingRepo(sqlx.NewDb(db, "postgres"))
 	sosRepo := repository.NewPostgresSosRepo(sqlx.NewDb(db, "postgres"))
 	chatRepo := repository.NewChatRepository(sqlx.NewDb(db, "postgres"))
@@ -265,7 +266,9 @@ func main() {
 	orderSvc.SetRiskService(service.NewMarketplaceRiskService(configRepo, repository.NewPostgresRiskRepository(db), nil, nil))
 	experimentSvc := experiment.NewService(experiment.NewRepository(db), os.Getenv("EXPERIMENT_ASSIGNMENT_SECRET"))
 	if canonicalPublisher, ok := datalakePub.(domain.CanonicalEventPublisher); ok {
-		if configurable, ok := orderSvc.(interface{ SetCanonicalEventPublisher(domain.CanonicalEventPublisher) }); ok {
+		if configurable, ok := orderSvc.(interface {
+			SetCanonicalEventPublisher(domain.CanonicalEventPublisher)
+		}); ok {
 			configurable.SetCanonicalEventPublisher(canonicalPublisher)
 		}
 	}
@@ -286,7 +289,9 @@ func main() {
 	foodSponsoredSvc := service.NewFoodSponsoredService(foodSponsoredRepo)
 	foodBundleRepo := repository.NewFoodBundleRepository(db)
 	foodBundleSvc := service.NewFoodBundleService(foodBundleRepo, pgRepo, foodRepo)
-	if configurable, ok := orderSvc.(interface{ SetFoodMembershipRepository(domain.FoodMembershipRepository) }); ok {
+	if configurable, ok := orderSvc.(interface {
+		SetFoodMembershipRepository(domain.FoodMembershipRepository)
+	}); ok {
 		configurable.SetFoodMembershipRepository(foodMembershipRepo)
 	}
 	// FB-082: piutang cancellation fee merchant (dipotong dari settlement berikutnya)
@@ -368,6 +373,7 @@ func main() {
 	trackingHandler := handler.NewTrackingHandler(trackingSvc)
 	aggregatorFinanceHandler := handler.NewAggregatorFinanceHandler(aggregatorFinanceSvc, aggregatorFinanceRepo)
 	notificationHandler := handler.NewNotificationHandler(notificationSvc, pgRepo, notifRepo)
+	communicationHandler := handler.NewCommunicationHandler(communicationRepo, os.Getenv("INTERNAL_API_KEY"))
 	insuranceHandler := handler.NewInsuranceHandler(insuranceSvc)
 	relayHandler := handler.NewRelayHandler(relayScoreSvc)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsSvc)
@@ -549,8 +555,14 @@ func main() {
 	// FOOD-2026-021: entitlement and free-delivery membership.
 	mux.HandleFunc("/api/v1/food/membership/plans", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ListFoodMembershipPlans)))
 	mux.HandleFunc("/api/v1/food/membership", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet { orderHandler.GetFoodMembership(w, r); return }
-		if r.Method == http.MethodPost { orderHandler.SubscribeFoodMembership(w, r); return }
+		if r.Method == http.MethodGet {
+			orderHandler.GetFoodMembership(w, r)
+			return
+		}
+		if r.Method == http.MethodPost {
+			orderHandler.SubscribeFoodMembership(w, r)
+			return
+		}
 		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
 	})))
 	mux.HandleFunc("/api/v1/food/merchants/{merchant_id}/sponsored-event", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.RecordFoodSponsoredEvent)))
@@ -592,6 +604,7 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/{id}/chats", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(chatHandler.HandleChats))))
 	mux.HandleFunc("/api/v1/orders/{id}/conversation", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(chatHandler.HandleChats))))
 	mux.HandleFunc("/api/v1/orders/{id}/conversation/read", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(chatHandler.HandleChats))))
+	mux.HandleFunc("/api/v1/orders/{id}/chats/report", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(chatHandler.ReportChat))))
 
 	// FB-077: Tips driver — semua service (parcel/tambal/towing/food)
 	mux.HandleFunc("/api/v1/orders/{id}/tips", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "tip.create", middleware.LimitByIP(rdb)(tipHandler.CreateTip)))))
@@ -623,6 +636,7 @@ func main() {
 	mux.HandleFunc("/api/v1/couriers/sos/report", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.SubmitHelperReport)))
 	mux.HandleFunc("/api/v1/couriers/sos/tamper", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.ReportTamper)))
 	mux.HandleFunc("/api/v1/device-tokens", middleware.BaseChain(middleware.AuthMiddleware(deviceTokenHandler.Register)))
+	mux.HandleFunc("/api/v1/device-tokens/unregister", middleware.BaseChain(middleware.AuthMiddleware(deviceTokenHandler.Unregister)))
 
 	// Tambal Ban & Towing Routes
 	mux.HandleFunc("/api/v1/customer/nearby-couriers", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.GetNearbyCouriers)))
@@ -710,6 +724,13 @@ func main() {
 			notificationHandler.NotifyCustomerMerchantAccepted(w, r)
 		}
 	})
+	// PART V: canonical semantic communication event and provider-neutral
+	// delivery receipts. Producers submit an event/template reference; this
+	// service owns idempotency and the notification inbox projection.
+	mux.HandleFunc("/api/v1/internal/communications/events", communicationHandler.CreateEvent)
+	mux.HandleFunc("/api/v1/internal/communications/deliveries/{id}/receipt", communicationHandler.Receipt)
+	mux.HandleFunc("/api/v1/internal/communications/deliveries/{id}/replay", communicationHandler.ReplayDelivery)
+	mux.HandleFunc("/api/v1/communications/preferences", middleware.BaseChain(middleware.AuthMiddleware(communicationHandler.Preference)))
 
 	// Tracking Routes
 	mux.HandleFunc("/api/v1/tracking/location", middleware.BaseChain(middleware.AuthMiddleware(trackingHandler.UpdateLocation)))
@@ -855,6 +876,10 @@ func main() {
 			notificationHandler.ManageTemplates(w, r)
 		}
 	})))
+	mux.HandleFunc("/api/v1/admin/communications/templates", middleware.BaseChain(middleware.AuthMiddleware(communicationHandler.Templates)))
+	mux.HandleFunc("/api/v1/admin/communications/templates/protected-draft", middleware.BaseChain(middleware.AuthMiddleware(communicationHandler.CreateProtectedDraft)))
+	mux.HandleFunc("/api/v1/admin/communications/templates/approve", middleware.BaseChain(middleware.AuthMiddleware(communicationHandler.ApproveTemplate)))
+	mux.HandleFunc("/api/v1/admin/communications/delivery-health", middleware.BaseChain(middleware.AuthMiddleware(communicationHandler.DeliveryHealth)))
 	mux.HandleFunc("/api/v1/admin/sla/dashboard", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			slaHandler.GetDashboard(w, r)

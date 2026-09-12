@@ -197,6 +197,7 @@ const adminBreaker = createServiceBreaker('admin-service');
 const paymentBreaker = createServiceBreaker('payment-service');
 const merchantBreaker = createServiceBreaker('merchant-service'); // FOOD-BIKE-019
 const adsBreaker = createServiceBreaker('ads-service');
+const searchBreaker = createServiceBreaker('search-service');
 const routingBreaker = createServiceBreaker('routing-service');
 const developerPlatformBreaker = createServiceBreaker('developer-platform-service');
 const customerMobileBreaker = createServiceBreaker('customer-mobile', customerProxyBreakerOptions);
@@ -207,6 +208,7 @@ const adminBulkhead = new Bulkhead(resolveBulkheadLimit('admin-service'));
 const paymentBulkhead = new Bulkhead(resolveBulkheadLimit('payment-service'));
 const merchantBulkhead = new Bulkhead(resolveBulkheadLimit('merchant-service'));
 const adsBulkhead = new Bulkhead(resolveBulkheadLimit('ads-service'));
+const searchBulkhead = new Bulkhead(resolveBulkheadLimit('search-service'));
 const routingBulkhead = new Bulkhead(resolveBulkheadLimit('routing-service'));
 const developerPlatformBulkhead = new Bulkhead(resolveBulkheadLimit('developer-platform-service'));
 const customerMobileBulkhead = new Bulkhead(resolveBulkheadLimit('customer-mobile'));
@@ -225,7 +227,9 @@ const isOrderAdminProxyPath = (path: string) =>
   path === '/api/v1/admin/sla/dashboard' ||
   path.startsWith('/api/v1/admin/meeting-points') ||
   path.startsWith('/api/v1/admin/pricing/config') ||
-  path.startsWith('/api/v1/admin/pricing/simulate');
+  path.startsWith('/api/v1/admin/pricing/simulate') ||
+  path.startsWith('/api/v1/admin/communications') ||
+  path.startsWith('/api/v1/admin/search');
 
 const directProxyPolicies: DirectProxyPolicy[] = [
   // These proxy blocks already signal breaker failures in their own callbacks;
@@ -241,7 +245,7 @@ const directProxyPolicies: DirectProxyPolicy[] = [
     bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: false,
   },
   {
-    matches: (path) => path.startsWith('/api/v1/orders/') || path.startsWith('/api/v1/food') || path.startsWith('/api/v1/customer/nearby-couriers') || path.startsWith('/api/v1/customer/tambal-ban') || path.startsWith('/api/v1/customer/rating-reminders') || path.startsWith('/api/v1/courier/service-report') || path.startsWith('/api/v1/customer/couriers/'),
+    matches: (path) => path.startsWith('/api/v1/orders/') || path.startsWith('/api/v1/food') || path.startsWith('/api/v1/customer/nearby-couriers') || path.startsWith('/api/v1/customer/tambal-ban') || path.startsWith('/api/v1/customer/rating-reminders') || path.startsWith('/api/v1/courier/service-report') || path.startsWith('/api/v1/customer/couriers/') || path.startsWith('/api/v1/device-tokens'),
     serviceName: 'order-service', breaker: orderBreaker,
     bulkhead: new Bulkhead(resolveBulkheadLimit('order-service')), observeResponse: false,
   },
@@ -302,6 +306,16 @@ const directProxyPolicies: DirectProxyPolicy[] = [
   },
   {
     matches: (path) => path.startsWith('/api/v1/notifications'),
+    serviceName: 'order-service', breaker: orderBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('order-service')), observeResponse: true,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/search') || path.startsWith('/api/v1/admin/search'),
+    serviceName: 'search-service', breaker: searchBreaker,
+    bulkhead: searchBulkhead, observeResponse: true,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/communications') || path.startsWith('/api/v1/admin/communications'),
     serviceName: 'order-service', breaker: orderBreaker,
     bulkhead: new Bulkhead(resolveBulkheadLimit('order-service')), observeResponse: true,
   },
@@ -453,13 +467,35 @@ const generalLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.method === 'OPTIONS',
+  // Search has its own bounded capacity budget below. Keeping it out of the
+  // broad API bucket prevents the documented 25/50 QPS discovery profiles
+  // from being rejected by an unrelated 100 requests/minute limit.
+  skip: (req) => req.method === 'OPTIONS' || req.path.startsWith('/api/v1/search') || req.path.startsWith('/api/v1/admin/search'),
   message: {
     status: 'error',
     code: 'ERR_TOO_MANY_REQUESTS',
     message: 'Too many requests, please try again later',
   },
   ...rateLimitStoreOptions('general', 60 * 1000),
+});
+
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  // Supports the current 50 QPS multi-city profile with room for short
+  // bursts while retaining a finite per-IP budget.
+  max: 3000,
+  keyGenerator: (req) => {
+    return (req.headers['cf-connecting-ip'] as string) || (req.headers['x-forwarded-for'] as string) || req.ip || 'unknown';
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => !(req.path.startsWith('/api/v1/search') || req.path.startsWith('/api/v1/admin/search')),
+  message: {
+    status: 'error',
+    code: 'ERR_TOO_MANY_REQUESTS',
+    message: 'Search traffic is temporarily throttled',
+  },
+  ...rateLimitStoreOptions('search', 60 * 1000),
 });
 
 const publicMapsLimiter = createPublicEndpointRateLimiter('maps', { recordEvent: recordPublicAbuseEvent });
@@ -471,6 +507,7 @@ const publicPricingAbuseGuard = createPricingAbuseGuard({ recordEvent: recordPub
 
 // 🛡️ Global DDoS & Brute-Force Defense Layer
 app.use(generalLimiter);
+app.use(searchLimiter);
 app.use(stripInternalIdentityHeaders);
 
 // JWT Authentication Middleware
@@ -533,6 +570,7 @@ const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://localhost:808
 const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://localhost:8084';
 const MERCHANT_SERVICE_URL = process.env.MERCHANT_SERVICE_URL || 'http://localhost:8085'; // FOOD-BIKE-019
 const ADS_SERVICE_URL = process.env.ADS_SERVICE_URL || 'http://localhost:8091';
+const SEARCH_SERVICE_URL = process.env.SEARCH_SERVICE_URL || 'http://localhost:8092';
 const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://localhost:3000';
 const ROUTING_SERVICE_URL = process.env.ROUTING_SERVICE_URL || 'http://localhost:8082';
 const DEVELOPER_PLATFORM_SERVICE_URL = process.env.DEVELOPER_PLATFORM_SERVICE_URL || 'http://localhost:8090';
@@ -544,6 +582,7 @@ logger.logger.info({
   order_service_configured: Boolean(ORDER_SERVICE_URL),
   developer_platform_service_configured: Boolean(DEVELOPER_PLATFORM_SERVICE_URL),
   ads_service_configured: Boolean(ADS_SERVICE_URL),
+  search_service_configured: Boolean(SEARCH_SERVICE_URL),
 }, 'Gateway upstream services configured');
 
 const phoneRegex = /^(08|628|\+628)[0-9]{8,11}$/;
@@ -1484,6 +1523,30 @@ app.use(createProxyMiddleware({
 }));
 
 app.use(createProxyMiddleware({
+  pathFilter: (pathname: string) => pathname.startsWith('/api/v1/admin/search'),
+  target: SEARCH_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('search_admin', req, SEARCH_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+  },
+}));
+
+app.use(createProxyMiddleware({
+  pathFilter: (pathname: string) => pathname.startsWith('/api/v1/admin/communications') || pathname.startsWith('/api/v1/communications'),
+  target: ORDER_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('communications', req, ORDER_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+  },
+}));
+
+app.use(createProxyMiddleware({
   pathFilter: '/api/v1/admin',
   target: ADMIN_SERVICE_URL,
   changeOrigin: true,
@@ -1603,8 +1666,36 @@ app.use('/api/v1/wallet', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_U
 // ─────────────────────────────────────────────
 // Merchant Routes (Merchant Service — FOOD-BIKE-019)
 // ─────────────────────────────────────────────
+// Universal Search is a derivative discovery service. Gateway auth context is
+// signed before forwarding; Ads can enrich results but cannot rewrite organic
+// ordering. Search failures are surfaced as a bounded 503 so clients can use
+// their existing vertical discovery fallback.
+app.use(createProxyMiddleware({
+  pathFilter: (pathname: string) => pathname.startsWith('/api/v1/search') || pathname.startsWith('/api/v1/admin/search'),
+  target: SEARCH_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('search_service', req, SEARCH_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    error: (err: Error, req: any, res: any) => {
+      logProxyError('search_service', SEARCH_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(503).json({ status: 'error', code: 'ERR_SEARCH_UNAVAILABLE', message: 'Search unavailable; use vertical discovery' });
+      }
+    },
+  },
+}));
+
 // Merchant notification inbox/preferences are owned by order-service because
 // that service persists notification records and applies delivery policy.
+app.use(createProxyMiddleware({
+  pathFilter: (pathname: string) => pathname.startsWith('/api/v1/device-tokens'),
+  target: ORDER_SERVICE_URL,
+  changeOrigin: true,
+  on: { proxyReq: (proxyReq: any, req: any) => { logProxyForward('device_tokens', req, ORDER_SERVICE_URL); prepareProxyRequest(proxyReq, req); } },
+}));
 app.use('/api/v1/notifications', authenticateJWT);
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/notifications',

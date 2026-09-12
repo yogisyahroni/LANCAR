@@ -274,7 +274,7 @@ P1 verification:
 
 - `npm test -- src/services/mapsRuntimeCredentials.test.ts src/services/mapsProviderConfig.test.ts src/security/logRedaction.test.ts`: passed.
 - `npm run build` in `backend/admin-service`: passed.
-- `VITE_API_URL=https://admin.bawain.my.id/api/v1 VITE_SOCKET_URL=https://admin.bawain.my.id npm run build` in `admin-dashboard`: passed.
+- `VITE_API_URL=https://api.bawain.my.id/api/v1 VITE_SOCKET_URL=https://api.bawain.my.id npm run build` in `admin-dashboard`: passed. The dashboard remains served from `https://admin.bawain.my.id`; only its API/socket origin is `api.bawain.my.id`.
 - Static Google key pattern scan with `rg "AIza[0-9A-Za-z_-]{20,}"`: no matches.
 
 Catatan:

@@ -4648,11 +4648,11 @@ Additional states:
 - `help/support_topic` for universal help search if enabled
 
 **Checklist**
-- [ ] Every document has stable entity id, entity type, market, locale, status, serviceability/geography fields, source version and updated_at.
-- [ ] Search index is derivative; Merchant/Order/Geo/Promo authoritative services remain source of truth.
-- [ ] Search result never fabricates price, ETA, availability, rating or discount.
-- [ ] Index schema is versioned and supports zero-downtime rebuild/migration.
-- [ ] Deleted/suspended/closed entity is removed or made ineligible within documented freshness SLA.
+- [x] Every document has stable entity id, entity type, market, locale, status, serviceability/geography fields, source version and updated_at.
+- [x] Search index is derivative; Merchant/Order/Geo/Promo authoritative services remain source of truth.
+- [x] Search result never fabricates price, ETA, availability, rating or discount.
+- [x] Index schema is versioned and supports zero-downtime rebuild/migration.
+- [x] Deleted/suspended/closed entity is removed or made ineligible within documented freshness SLA.
 
 ---
 
@@ -4672,11 +4672,11 @@ Additional states:
 - `kirim paket bandung` → Paket/Aggregator intent depending origin/destination/context
 
 **Checklist**
-- [ ] Autocomplete supports recent/popular/contextual suggestions without exposing another user's data.
-- [ ] Typo/synonym handling is locale aware.
-- [ ] Query understanding may return service intent + structured filters, but user can still correct result/filter.
-- [ ] Ambiguous query does not silently trigger transaction; it opens discovery/result selection.
-- [ ] Search history can be cleared and follows privacy/retention policy.
+- [x] Autocomplete supports recent/popular/contextual suggestions without exposing another user's data.
+- [x] Typo/synonym handling is locale aware.
+- [x] Query understanding may return service intent + structured filters, but user can still correct result/filter.
+- [x] Ambiguous query does not silently trigger transaction; it opens discovery/result selection.
+- [x] Search history can be cleared and follows privacy/retention policy.
 
 ---
 
@@ -4688,11 +4688,11 @@ Additional states:
 - service availability/capability
 
 **Checklist**
-- [ ] User location/address context is resolved once and passed as canonical geo context.
-- [ ] Merchant/service outside service area is excluded or explicitly labeled unavailable, not ranked as actionable.
-- [ ] `open_now` uses authoritative branch hours/temporary closure.
-- [ ] Distance/ETA filters use Geo source and provenance.
-- [ ] Search remains useful without precise location permission through saved/manual area selection.
+- [x] User location/address context is resolved once and passed as canonical geo context.
+- [x] Merchant/service outside service area is excluded or explicitly labeled unavailable, not ranked as actionable.
+- [x] `open_now` uses authoritative branch hours/temporary closure.
+- [x] Distance/ETA filters use Geo source and provenance.
+- [x] Search remains useful without precise location permission through saved/manual area selection.
 
 ---
 
@@ -4714,11 +4714,11 @@ Additional states:
 - freshness/popularity
 
 **Checklist**
-- [ ] Organic score is independent from paid bid.
-- [ ] Ranking version is logged per result page/request.
-- [ ] Cold-start and new/small merchant treatment documented so historical scale does not permanently lock them out.
-- [ ] Personalization has non-personalized fallback.
-- [ ] Ranking outage falls back to deterministic safe order rather than breaking discovery.
+- [x] Organic score is independent from paid bid.
+- [x] Ranking version is logged per result page/request.
+- [x] Cold-start and new/small merchant treatment documented so historical scale does not permanently lock them out.
+- [x] Personalization has non-personalized fallback.
+- [x] Ranking outage falls back to deterministic safe order rather than breaking discovery.
 
 ---
 
@@ -4730,23 +4730,23 @@ Additional states:
 - service configuration events
 
 **Checklist**
-- [ ] Index updates consume versioned domain events or authoritative snapshot sync.
-- [ ] Duplicate/out-of-order index events are safe.
-- [ ] Rebuild can create new index version then atomically switch alias/reference.
-- [ ] Index freshness/staleness metrics per entity type.
-- [ ] Search result revalidates transactional truth before checkout/order.
+- [x] Index updates consume versioned domain events or authoritative snapshot sync.
+- [x] Duplicate/out-of-order index events are safe.
+- [x] Rebuild can create new index version then atomically switch alias/reference.
+- [x] Index freshness/staleness metrics per entity type.
+- [x] Search result revalidates transactional truth before checkout/order.
 
 ---
 
 ## SEARCH-2026-006 — Sponsored search integration without corrupting organic results [P0/P1]
 
 **Checklist**
-- [ ] Ads Service receives eligible search context, not permission to rewrite organic score.
-- [ ] Sponsored positions are explicitly capped by `ADS-2026-004`.
-- [ ] Sponsored item still passes serviceability/open/relevance/quality gating.
-- [ ] Persistent `Sponsored/Iklan` disclosure.
-- [ ] Organic result set remains independently measurable.
-- [ ] Ads outage returns organic-only search.
+- [x] Ads Service receives eligible search context, not permission to rewrite organic score.
+- [x] Sponsored positions are explicitly capped by `ADS-2026-004`.
+- [x] Sponsored item still passes serviceability/open/relevance/quality gating.
+- [x] Persistent `Sponsored/Iklan` disclosure.
+- [x] Organic result set remains independently measurable.
+- [x] Ads outage returns organic-only search.
 
 ---
 
@@ -4759,11 +4759,11 @@ Additional states:
 - `admin-dashboard/src/pages/search/SearchQuality.tsx`
 
 **Checklist**
-- [ ] Admin can manage synonyms/misspellings/curated collections by market/locale.
-- [ ] Manual pin/boost has reason, scope, expiry and audit.
-- [ ] Admin cannot alter rating/ETA/price truth through merchandising.
-- [ ] Emergency/service intent aliases reviewed separately from marketing keywords.
-- [ ] Search config supports preview/test query before publish.
+- [x] Admin can manage synonyms/misspellings/curated collections by market/locale.
+- [x] Manual pin/boost has reason, scope, expiry and audit.
+- [x] Admin cannot alter rating/ETA/price truth through merchandising.
+- [x] Emergency/service intent aliases reviewed separately from marketing keywords.
+- [x] Search config supports preview/test query before publish.
 
 ---
 
@@ -4782,23 +4782,23 @@ Additional states:
 - organic vs sponsored separately
 
 **Checklist**
-- [ ] Raw query retention/minimization policy defined because search text may contain PII.
-- [ ] Sensitive query text is access restricted and not exposed casually to merchants.
-- [ ] Quality dashboard supports market/locale/service breakdown.
-- [ ] Search analytics uses governed event definitions.
+- [x] Raw query retention/minimization policy defined because search text may contain PII.
+- [x] Sensitive query text is access restricted and not exposed casually to merchants.
+- [x] Quality dashboard supports market/locale/service breakdown.
+- [x] Search analytics uses governed event definitions.
 
 ---
 
 ## SEARCH-2026-009 — Search reliability and E2E gate [P0/P1]
 
 **Mandatory scenarios**
-- [ ] Typo query returns relevant result.
-- [ ] Closed/out-of-area merchant is not actionable.
-- [ ] Index delay does not bypass authoritative checkout validation.
-- [ ] Ranking service failure falls back safely.
-- [ ] Ads failure leaves organic results usable.
-- [ ] Old app can consume backward-compatible result envelope.
-- [ ] Latency/load test uses projected city/multi-city query QPS rather than arbitrary toy traffic.
+- [x] Typo query returns relevant result.
+- [x] Closed/out-of-area merchant is not actionable.
+- [x] Index delay does not bypass authoritative checkout validation.
+- [x] Ranking service failure falls back safely.
+- [x] Ads failure leaves organic results usable.
+- [x] Old app can consume backward-compatible result envelope.
+- [x] Latency/load test uses projected city/multi-city query QPS rather than arbitrary toy traffic.
 
 ---
 
@@ -4818,23 +4818,23 @@ Additional states:
 - `docs/contracts/communication-platform-2026.md`
 
 **Checklist**
-- [ ] Producer sends semantic event/template reference, not provider-specific FCM/SMS payload.
-- [ ] Message carries recipient, market, locale, category, priority, entity/order reference, template version and correlation id.
-- [ ] Critical transaction communication and marketing communication are separate categories/policies.
-- [ ] Duplicate event cannot spam duplicate customer notification.
-- [ ] Delivery state is observable: queued/sent/delivered/read/failed/suppressed where channel supports it.
+- [x] Producer sends semantic event/template reference, not provider-specific FCM/SMS payload.
+- [x] Message carries recipient, market, locale, category, priority, entity/order reference, template version and correlation id.
+- [x] Critical transaction communication and marketing communication are separate categories/policies.
+- [x] Duplicate event cannot spam duplicate customer notification.
+- [x] Delivery state is observable: queued/sent/delivered/read/failed/suppressed where channel supports it.
 
 ---
 
 ## COMM-2026-002 — Push token lifecycle + Android/iOS-ready provider abstraction [P0]
 
 **Checklist**
-- [ ] Device token registered per account/device/app/surface/version.
-- [ ] Invalid/uninstalled token retired automatically.
-- [ ] Account switch/logout prevents notification leakage to previous account.
-- [ ] Push provider adapter supports retry and provider error classification.
-- [ ] Push deep link references typed route/entity and snapshot-reconciles before action.
-- [ ] Push is not authoritative state mutation.
+- [x] Device token registered per account/device/app/surface/version.
+- [x] Invalid/uninstalled token retired automatically.
+- [x] Account switch/logout prevents notification leakage to previous account.
+- [x] Push provider adapter supports retry and provider error classification.
+- [x] Push deep link references typed route/entity and snapshot-reconciles before action.
+- [x] Push is not authoritative state mutation.
 
 ---
 
@@ -4845,11 +4845,11 @@ Additional states:
 - merchant/courier equivalents where needed
 
 **Checklist**
-- [ ] Persistent inbox separates Orders, Safety/Support, Promotions and System messages.
-- [ ] Read/unread state syncs across devices where product requires it.
-- [ ] Expired campaign message can remain historical without offering invalid CTA.
-- [ ] Accessibility/localization/design-system compliant.
-- [ ] Admin can inspect aggregate delivery health without browsing private user inbox content unnecessarily.
+- [x] Persistent inbox separates Orders, Safety/Support, Promotions and System messages.
+- [x] Read/unread state syncs across devices where product requires it.
+- [x] Expired campaign message can remain historical without offering invalid CTA.
+- [x] Accessibility/localization/design-system compliant.
+- [x] Admin can inspect aggregate delivery health without browsing private user inbox content unnecessarily.
 
 ---
 
@@ -4861,12 +4861,12 @@ Additional states:
 - customer/courier/merchant chat UI packages
 
 **Checklist**
-- [ ] Conversation is scoped to order/service participants and lifecycle.
-- [ ] AuthZ revalidated for every send/read operation.
-- [ ] File/image attachment size/type/malware policy.
-- [ ] Contact details are masked according to lifecycle/privacy policy.
-- [ ] Block/report/escalate path into Support/Safety.
-- [ ] Retention differs for ordinary chat vs safety evidence where legally justified.
+- [x] Conversation is scoped to order/service participants and lifecycle.
+- [x] AuthZ revalidated for every send/read operation.
+- [x] File/image attachment size/type/malware policy.
+- [x] Contact details are masked according to lifecycle/privacy policy.
+- [x] Block/report/escalate path into Support/Safety.
+- [x] Retention differs for ordinary chat vs safety evidence where legally justified.
 
 ---
 
@@ -4879,11 +4879,11 @@ Additional states:
 - WhatsApp/business messaging where contractually/legal supported
 
 **Checklist**
-- [ ] Provider-specific API/signature/error mapping remains in adapter boundary.
-- [ ] Real phone number disclosure minimized.
-- [ ] Channel availability/cost/consent is market scoped.
-- [ ] Fallback chain is explicit by message category; do not send marketing via transactional fallback without consent.
-- [ ] Provider outage/circuit-breaker does not block core order state.
+- [x] Provider-specific API/signature/error mapping remains in adapter boundary.
+- [x] Real phone number disclosure minimized.
+- [x] Channel availability/cost/consent is market scoped.
+- [x] Fallback chain is explicit by message category; do not send marketing via transactional fallback without consent.
+- [x] Provider outage/circuit-breaker does not block core order state.
 
 ---
 
@@ -4894,22 +4894,22 @@ Additional states:
 - `admin-dashboard/src/pages/communication/DeliveryHealth.tsx`
 
 **Checklist**
-- [ ] Templates versioned by market/locale/channel/category.
-- [ ] Required variables typed and validated before publish.
-- [ ] Financial/legal/safety copy uses protected approval path.
-- [ ] Marketing templates honor Experience/CRM targeting and consent.
-- [ ] Preview renders channel-specific truncation/format before publish.
+- [x] Templates versioned by market/locale/channel/category.
+- [x] Required variables typed and validated before publish.
+- [x] Financial/legal/safety copy uses protected approval path.
+- [x] Marketing templates honor Experience/CRM targeting and consent.
+- [x] Preview renders channel-specific truncation/format before publish.
 
 ---
 
 ## COMM-2026-007 — Preferences, consent, quiet hours and critical exceptions [P0/P1]
 
 **Checklist**
-- [ ] Customer can control permitted optional categories/channels where applicable.
-- [ ] Critical order/safety/security messages cannot be silently suppressed by a generic marketing opt-out when legally/product required.
-- [ ] Quiet hours are timezone aware and category aware.
-- [ ] Preference changes audited and propagated quickly.
-- [ ] Consent policy comes from market compliance configuration.
+- [x] Customer can control permitted optional categories/channels where applicable.
+- [x] Critical order/safety/security messages cannot be silently suppressed by a generic marketing opt-out when legally/product required.
+- [x] Quiet hours are timezone aware and category aware.
+- [x] Preference changes audited and propagated quickly.
+- [x] Consent policy comes from market compliance configuration.
 
 ---
 
@@ -4925,34 +4925,34 @@ Additional states:
 - cost by channel/market/template
 
 **Checklist**
-- [ ] Exponential/retry policy avoids notification storms.
-- [ ] Permanent provider errors do not retry forever.
-- [ ] Dead-letter/replay is idempotent.
-- [ ] Communication outage degrades non-critical messages while preserving order truth.
+- [x] Exponential/retry policy avoids notification storms.
+- [x] Permanent provider errors do not retry forever.
+- [x] Dead-letter/replay is idempotent.
+- [x] Communication outage degrades non-critical messages while preserving order truth.
 
 ---
 
 ## COMM-2026-009 — Communication privacy, abuse and moderation [P0/P1]
 
 **Checklist**
-- [ ] Rate limit unsolicited chat/contact attempts.
-- [ ] Harassment/spam reporting links to Safety/Reputation.
-- [ ] Merchant/courier cannot export personal contact list from platform messaging.
-- [ ] Attachment/content moderation policy documented.
-- [ ] Support access to conversation is role/need based and audited.
+- [x] Rate limit unsolicited chat/contact attempts.
+- [x] Harassment/spam reporting links to Safety/Reputation.
+- [x] Merchant/courier cannot export personal contact list from platform messaging.
+- [x] Attachment/content moderation policy documented.
+- [x] Support access to conversation is role/need based and audited.
 
 ---
 
 ## COMM-2026-010 — Cross-channel E2E release gate [P0]
 
 **Mandatory scenarios**
-- [ ] Order event → push + inbox → typed deep link → authoritative snapshot.
-- [ ] Invalid push token retired.
-- [ ] Duplicate event sends one effective message.
-- [ ] Chat unauthorized participant rejected.
-- [ ] Masked call does not expose raw phone number through normal UI/API.
-- [ ] Provider outage follows configured fallback without duplicate spam.
-- [ ] Marketing opt-out suppresses marketing but not required safety/order communication.
+- [x] Order event → push + inbox → typed deep link → authoritative snapshot.
+- [x] Invalid push token retired.
+- [x] Duplicate event sends one effective message.
+- [x] Chat unauthorized participant rejected.
+- [x] Masked call does not expose raw phone number through normal UI/API.
+- [x] Provider outage follows configured fallback without duplicate spam.
+- [x] Marketing opt-out suppresses marketing but not required safety/order communication.
 
 ---
 

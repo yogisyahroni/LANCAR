@@ -264,19 +264,10 @@ func notificationUserID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool
 	return userID, true
 }
 
-// In a real application, you would also need admin handlers to manage templates.
-// We provide a stub for Admin Template Management as requested.
+// The legacy route is intentionally closed: returning a fake template response
+// would violate the communication template source-of-truth contract. Clients
+// must use /admin/communications/templates, which persists versioned templates
+// with approval and protected-copy validation.
 func (h *NotificationHandler) ManageTemplates(w http.ResponseWriter, r *http.Request) {
-	// Simple stub for templates
-	if r.Method == http.MethodGet {
-		middleware.WriteSuccess(w, http.StatusOK, map[string]string{"message": "List of templates"})
-		return
-	} else if r.Method == http.MethodPost {
-		var payload map[string]interface{}
-		_ = json.NewDecoder(r.Body).Decode(&payload)
-		middleware.WriteSuccess(w, http.StatusCreated, map[string]interface{}{"message": "Template created", "data": payload})
-		return
-	}
-
-	middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
+	middleware.WriteError(w, http.StatusGone, "ERR_CANONICAL_ROUTE", "Use /api/v1/admin/communications/templates", middleware.GetCorrelationID(r.Context()))
 }

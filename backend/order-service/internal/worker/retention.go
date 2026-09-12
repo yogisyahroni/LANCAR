@@ -125,9 +125,11 @@ func cleanupTable(db *sql.DB, table, column string, maxAgeDays, batchSize int) (
 	totalDeleted := 0
 
 	for {
+		// PostgreSQL does not support DELETE ... LIMIT directly. Select a bounded
+		// ctid batch first, then delete exactly those rows in one statement.
 		query := fmt.Sprintf(
-			"DELETE FROM %s WHERE %s < $1 LIMIT $2",
-			table, column,
+			"WITH batch AS (SELECT ctid FROM %s WHERE %s < $1 LIMIT $2) DELETE FROM %s AS target USING batch WHERE target.ctid = batch.ctid",
+			table, column, table,
 		)
 
 		result, err := db.Exec(query, cutoff, batchSize)

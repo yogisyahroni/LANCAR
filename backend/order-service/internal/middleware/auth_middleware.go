@@ -37,9 +37,14 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
-		// Support web admin session cookie authentication
-		cookie, err := r.Cookie("admin_session")
-		if err == nil && cookie.Value != "" && globalDB != nil {
+		// Support the same DB-backed web session contract as the gateway. The
+		// cookie name is not authorization; user identity and role are read from
+		// the session row on every request.
+		for _, cookieName := range []string{"admin_session", "customer_session", "web_session"} {
+			cookie, err := r.Cookie(cookieName)
+			if err != nil || cookie.Value == "" || globalDB == nil {
+				continue
+			}
 			var userID, role string
 			query := `
 				SELECT s.user_id, u.role 
@@ -49,8 +54,7 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 				  AND s.expires_at > NOW()
 				  AND u.deleted_at IS NULL
 			`
-			err := globalDB.QueryRowContext(r.Context(), query, cookie.Value).Scan(&userID, &role)
-			if err == nil && userID != "" {
+			if err := globalDB.QueryRowContext(r.Context(), query, cookie.Value).Scan(&userID, &role); err == nil && userID != "" {
 				ctx := context.WithValue(r.Context(), UserIDKey, userID)
 				ctx = context.WithValue(ctx, RoleKey, role)
 				r.Header.Set("X-User-ID", userID)
@@ -87,7 +91,7 @@ func RoleCheck(allowedRoles ...string) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			userRole := GetRoleFromContext(r.Context())
-			
+
 			allowed := false
 			for _, role := range allowedRoles {
 				if userRole == role {
@@ -95,14 +99,13 @@ func RoleCheck(allowedRoles ...string) func(http.HandlerFunc) http.HandlerFunc {
 					break
 				}
 			}
-			
+
 			if !allowed {
 				http.Error(w, "Forbidden: insufficient permissions", http.StatusForbidden)
 				return
 			}
-			
+
 			next.ServeHTTP(w, r)
 		}
 	}
 }
-

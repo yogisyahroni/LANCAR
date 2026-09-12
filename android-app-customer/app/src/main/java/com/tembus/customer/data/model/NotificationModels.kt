@@ -6,9 +6,16 @@ import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class RegisterTokenRequest(
-    @SerialName("device_token")
+    @SerialName("token")
     val device_token: String,
-    val platform: String = "android"
+    val platform: String = "android",
+    @SerialName("app_name")
+    val appName: String = "tembus-customer",
+    @SerialName("device_id")
+    val deviceId: String? = null,
+    val surface: String = "customer_mobile",
+    @SerialName("app_version")
+    val appVersion: String? = null,
 )
 
 @Serializable

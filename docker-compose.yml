@@ -408,6 +408,33 @@ services:
       - tembus-net
 
   # ─────────────────────────────────────────────
+  # SEARCH SERVICE — Go (derivative universal discovery index)
+  # ─────────────────────────────────────────────
+  search-service:
+    build:
+      context: ./backend/search-service
+      dockerfile: Dockerfile
+    container_name: tembus-search
+    restart: unless-stopped
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
+      SEARCH_SERVICE_PORT: 8092
+      INTERNAL_GATEWAY_SECRET: ${INTERNAL_GATEWAY_SECRET:-${JWT_SECRET:-changeme_in_production_min32chars}}
+    ports:
+      - "8092:8092"
+    healthcheck:
+      test: ["CMD", "/search-service", "--healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - tembus-net
+
+  # ─────────────────────────────────────────────
   # INTEGRATION GATEWAY — Go 1.25 (Anti-Corruption Layer)
   # ─────────────────────────────────────────────
   integration-gateway:
@@ -748,6 +775,8 @@ services:
         condition: service_started
       ads-service:
         condition: service_started
+      search-service:
+        condition: service_started
       redis:
         condition: service_healthy
     environment:
@@ -758,6 +787,7 @@ services:
       PAYMENT_SERVICE_URL: "http://payment-service:8084"
       DEVELOPER_PLATFORM_SERVICE_URL: "http://developer-platform-service:8090"
       ADS_SERVICE_URL: "http://ads-service:8091"
+      SEARCH_SERVICE_URL: "http://search-service:8092"
       # Always use the compose-network Redis hostname. The root .env may carry
       # localhost for host-side tools, which is unreachable from this container.
       REDIS_URL: "redis://redis:6379"
@@ -848,25 +878,26 @@ services:
 
   # ─────────────────────────────────────────────
   # ADMIN DASHBOARD — Vite / React
-  # Akses: http://localhost:3002
+  # Public UI: https://admin.bawain.my.id
+  # API/socket origin: https://api.bawain.my.id (the UI domain is not an API origin)
   # ─────────────────────────────────────────────
   admin-dashboard:
     build:
       context: ./admin-dashboard
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api/v1}
-        VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:8080}
-        VITE_SOCKET_URL: ${VITE_SOCKET_URL:-http://localhost:8080}
+        VITE_API_URL: ${VITE_API_URL:-https://api.bawain.my.id/api/v1}
+        VITE_WS_URL: ${VITE_WS_URL:-wss://api.bawain.my.id}
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL:-https://api.bawain.my.id}
         VITE_ALLOW_LOCALHOST_FALLBACK: "true"
     container_name: tembus-admin-ui
     restart: unless-stopped
     depends_on:
       - api-gateway
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api/v1}
-      VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:8080}
-      VITE_SOCKET_URL: ${VITE_SOCKET_URL:-http://localhost:8080}
+      VITE_API_URL: ${VITE_API_URL:-https://api.bawain.my.id/api/v1}
+      VITE_WS_URL: ${VITE_WS_URL:-wss://api.bawain.my.id}
+      VITE_SOCKET_URL: ${VITE_SOCKET_URL:-https://api.bawain.my.id}
       VITE_ALLOW_LOCALHOST_FALLBACK: "true"
     ports:
       - "${ADMIN_DASHBOARD_PORT:-3084}:3001"

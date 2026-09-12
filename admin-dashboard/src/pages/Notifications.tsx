@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { 
-  Plus, 
   MessageSquare, 
   Mail, 
   Smartphone, 
@@ -27,14 +26,14 @@ export default function Notifications() {
   const { data: templates, isLoading } = useQuery({
     queryKey: ['notification-templates'],
     queryFn: async () => {
-      const res = await api.get('/admin/notifications/templates');
-      return res.data;
+      const res = await api.get('/admin/communications/templates', { params: { market_code: 'id-jk', locale: 'id-ID' } });
+      return res.data?.data ?? [];
     }
   })
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
-      await api.put(`/admin/notifications/templates/${selectedId}`, data);
+      await api.post('/admin/communications/templates', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notification-templates'] });
@@ -50,9 +49,9 @@ export default function Notifications() {
   useEffect(() => {
     if (selectedTemplate) {
       setFormData({
-        subject: selectedTemplate.subject,
-        content: selectedTemplate.content,
-        channels: selectedTemplate.channels || []
+        subject: selectedTemplate.title_template || '',
+        content: selectedTemplate.body_template || '',
+        channels: selectedTemplate.channel ? [selectedTemplate.channel.toUpperCase()] : []
       })
     } else if (templates?.length > 0 && !selectedId) {
       setSelectedId(templates[0].id)
@@ -69,15 +68,27 @@ export default function Notifications() {
 
   const handleSave = () => {
     if (!selectedId) return;
-    updateMutation.mutate(formData);
+    updateMutation.mutate({
+      template_key: selectedTemplate.template_key,
+      version: selectedTemplate.version,
+      market_code: selectedTemplate.market_code,
+      locale: selectedTemplate.locale,
+      channel: (formData.channels[0] || selectedTemplate.channel || 'in_app').toLowerCase(),
+      category: selectedTemplate.category,
+      title_template: formData.subject,
+      body_template: formData.content,
+      required_variables: selectedTemplate.required_variables || [],
+      approval_status: selectedTemplate.approval_status,
+      protected_copy: selectedTemplate.protected_copy,
+      active: selectedTemplate.active,
+    });
   }
 
   const toggleChannel = (channelId: string) => {
     setFormData(prev => ({
       ...prev,
-      channels: prev.channels.includes(channelId)
-        ? prev.channels.filter(c => c !== channelId)
-        : [...prev.channels, channelId]
+      // A version is stored per channel in the canonical API.
+      channels: [channelId]
     }))
   }
 
@@ -88,10 +99,9 @@ export default function Notifications() {
           <h1 className="text-3xl font-black text-foreground-muted tracking-tight italic uppercase">Communication Hub</h1>
           <p className="text-foreground-muted mt-1">Manage automated triggers and notification templates.</p>
         </div>
-        <button className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-wide hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
-          <Plus size={18}  aria-hidden="true"/>
-          Add Trigger
-        </button>
+        <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted" role="status">
+          Versioned copy · approval protected
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -99,7 +109,7 @@ export default function Notifications() {
         <div className="lg:col-span-4 space-y-3">
           <p className="text-xs font-black text-foreground-muted uppercase tracking-wide px-2">Trigger Events</p>
           <div className="space-y-2">
-            {templates?.map((t: any) => (
+            {templates?.length ? templates.map((t: any) => (
               <motion.div 
                 key={t.id}
                 onClick={() => setSelectedId(t.id)}
@@ -111,16 +121,16 @@ export default function Notifications() {
                 )}
               >
                 <div>
-                   <p className="text-xs font-black uppercase tracking-wide mb-1">ID: {t.id}</p>
-                   <h3 className="font-bold">{t.trigger}</h3>
+                   <p className="text-xs font-black uppercase tracking-wide mb-1">{t.template_key} · v{t.version}</p>
+                   <h3 className="font-bold">{t.category}</h3>
                 </div>
                 <div className="flex gap-1.5">
-                   {t.channels?.includes('PUSH') && <Smartphone size={14} className="opacity-40" aria-hidden="true" />}
-                   {t.channels?.includes('EMAIL') && <Mail size={14} className="opacity-40" aria-hidden="true" />}
-                   {t.channels?.includes('SMS') && <MessageSquare size={14} className="opacity-40" aria-hidden="true" />}
+                   {t.channel === 'push' && <Smartphone size={14} className="opacity-40" aria-hidden="true" />}
+                   {t.channel === 'email' && <Mail size={14} className="opacity-40" aria-hidden="true" />}
+                   {t.channel === 'sms' && <MessageSquare size={14} className="opacity-40" aria-hidden="true" />}
                 </div>
               </motion.div>
-            ))}
+            )) : <p className="rounded-2xl border border-border p-5 text-sm text-foreground-muted">Belum ada template untuk market dan locale ini.</p>}
           </div>
         </div>
 
@@ -130,16 +140,16 @@ export default function Notifications() {
              <>
                <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                     <h3 className="text-xl font-black text-foreground-muted">{selectedTemplate.trigger}</h3>
+                     <h3 className="text-xl font-black text-foreground-muted">{selectedTemplate.template_key}</h3>
                      <p className="text-xs text-foreground-muted">Configure messaging for this event</p>
                   </div>
                   <div className="flex items-center gap-2">
                      <button 
                         type="button"
                         onClick={() => setFormData({
-                          subject: selectedTemplate.subject,
-                          content: selectedTemplate.content,
-                          channels: selectedTemplate.channels || []
+                          subject: selectedTemplate.title_template || '',
+                          content: selectedTemplate.body_template || '',
+                          channels: selectedTemplate.channel ? [selectedTemplate.channel.toUpperCase()] : []
                         })}
                         aria-label="Reset notification template"
                         title="Reset notification template"
@@ -214,7 +224,7 @@ export default function Notifications() {
                         className="w-full bg-surface-subtle border border-border rounded-2xl p-6 text-sm font-medium text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none leading-relaxed"
                      />
                      <div className="flex flex-wrap gap-2 pt-2">
-                        {['{order_id}', '{customer_name}', '{pickup}', '{courier_name}', '{eta}'].map(v => (
+                        {['{{order_id}}', '{{customer_name}}', '{{pickup}}', '{{courier_name}}', '{{eta}}'].map(v => (
                           <button
                             type="button"
                             key={v} 
@@ -230,8 +240,8 @@ export default function Notifications() {
                </div>
              </>
            ) : (
-             <div className="h-[400px] flex items-center justify-center text-foreground-muted font-black uppercase tracking-wide italic">
-                Select a trigger to edit template
+             <div className="h-[400px] flex items-center justify-center text-foreground-muted font-black uppercase tracking-wide italic text-center">
+                Pilih template versi canonical untuk mengedit copy yang sudah terdaftar
              </div>
            )}
         </div>

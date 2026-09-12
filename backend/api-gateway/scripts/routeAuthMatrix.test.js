@@ -31,6 +31,8 @@ assertPolicy('GET', '/api/v1/auth/web/delivery-services', 'public', 'web-auth-pu
 assertPolicy('GET', '/api/v1/auth/web/orders', 'web-session-or-jwt', 'web-session-routes');
 assertPolicy('POST', '/api/v1/auth/web/orders', 'web-session-or-jwt', 'web-session-routes');
 assertPolicy('GET', '/api/v1/customer/orders', 'web-session-or-jwt', 'customer-portal-api');
+assertPolicy('POST', '/api/v1/device-tokens', 'web-session-or-jwt', 'device-token-api');
+assertPolicy('DELETE', '/api/v1/device-tokens/unregister', 'web-session-or-jwt', 'device-token-api');
 assertPolicy('GET', '/api/v1/admin/orders', 'admin-session-or-jwt', 'admin-management');
 assertPolicy('POST', '/api/v1/orders', 'jwt', 'order-domain-api');
 assertPolicy('GET', '/api/v1/orders/detail', 'jwt', 'order-domain-api');
