@@ -131,7 +131,7 @@ private fun LoyaltyContent(
                     )
                     Spacer(Modifier.height(16.dp))
                     Row {
-                        TierStat(label = "Order/bulan", value = info.monthlyOrders.toString())
+                        TierStat(label = "Poin", value = info.pointsBalance.toString())
                         Spacer(Modifier.width(16.dp))
                         TierStat(label = "Benefit", value = if (info.discountPct > 0) "-${info.discountPct}%" else "Dasar")
                     }
@@ -154,7 +154,7 @@ private fun LoyaltyContent(
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Tinggal ${info.ordersToNextTier} order lagi untuk mencapai ${info.nextTier} (diskon ${info.nextTierDiscountPct}%)",
+                        "Tinggal ${info.pointsToNextTier} poin untuk mencapai ${info.nextTier} (diskon ${info.nextTierDiscountPct}%)",
                         fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(10.dp))
@@ -195,7 +195,7 @@ private fun LoyaltyContent(
 
         Spacer(Modifier.height(8.dp))
         Text(
-            "Tier dihitung dari jumlah order selesai dalam 30 hari terakhir.",
+            "Tier dan benefit mengikuti konfigurasi market; aktivitas order ditampilkan sebagai konteks.",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 

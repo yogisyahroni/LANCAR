@@ -3,7 +3,7 @@ import { db, readDb } from '../db';
 import { getActorId } from '../utils/authUtils';
 import { securityLog } from '../security/logRedaction';
 import { requestPaymentConfigChange } from './paymentConfigApproval.controller';
-import { validateCampaignAudience, validateCampaignFundingBreakdown, validateCampaignFrequencyCap } from '../services/crmPolicy';
+import { validateCampaignAudience, validateCampaignFinancialContract, validateCampaignFundingBreakdown, validateCampaignFrequencyCap } from '../services/crmPolicy';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const limitOf = (value: unknown, fallback = 50) => {
@@ -363,7 +363,7 @@ export const upsertAdminReputationResponse = async (req: Request, res: Response)
 export const listAdminCrmControlPlane = async (_req: Request, res: Response): Promise<void> => {
   try {
     const [campaigns, loyalty, exceptions, referrals, memberships] = await Promise.all([
-      readDb.query(`SELECT id, campaign_code, market_code, state, audience_definition, budget_minor, funding_breakdown, frequency_cap, holdout_percent, starts_at, ends_at, created_by, approved_by, created_at, updated_at FROM crm_campaigns ORDER BY updated_at DESC LIMIT 100`),
+      readDb.query(`SELECT id, campaign_code, market_code, state, audience_definition, budget_minor, budget_version, merchant_agreement_version, promo_subsidy_minor, ads_spend_minor, guardrail_policy, funding_breakdown, frequency_cap, holdout_percent, starts_at, ends_at, created_by, approved_by, created_at, updated_at FROM crm_campaigns ORDER BY updated_at DESC LIMIT 100`),
       readDb.query(`SELECT market_code, COUNT(*)::int AS accounts, COALESCE(SUM(points_balance), 0)::bigint AS points_outstanding FROM loyalty_accounts GROUP BY market_code ORDER BY market_code`),
       readDb.query(`SELECT id, source_type, source_id, expected_minor, actual_minor, difference_minor, reason, state, created_at FROM crm_reconciliation_exceptions WHERE state IN ('OPEN','IN_REVIEW') ORDER BY created_at DESC LIMIT 100`),
       readDb.query(`SELECT market_code, status, COUNT(*)::int AS attributions, COALESCE(SUM(reward_liability_minor), 0)::bigint AS reward_liability_minor FROM crm_referral_attributions GROUP BY market_code, status ORDER BY market_code, status`),
@@ -387,25 +387,26 @@ export const createAdminCrmCampaign = async (req: Request, res: Response): Promi
   const audience = validateCampaignAudience(req.body?.audience_definition);
   const frequencyCap = validateCampaignFrequencyCap(req.body?.frequency_cap);
   const funding = validateCampaignFundingBreakdown(req.body?.funding_breakdown, budget);
+  const financial = validateCampaignFinancialContract(req.body, budget, funding.normalized);
   if (audience.normalized.market_code !== undefined && String(audience.normalized.market_code).trim().toLowerCase() !== marketCode) {
     audience.errors.push('audience_market_must_match_campaign_market');
     audience.valid = false;
   }
-  if (!audience.valid || !frequencyCap.valid || !funding.valid) {
+  if (!audience.valid || !frequencyCap.valid || !funding.valid || !financial.valid) {
     res.status(400).json({
       success: false,
       error: 'Campaign audience or frequency cap is not governed',
-      details: [...audience.errors, ...frequencyCap.errors],
+      details: [...audience.errors, ...frequencyCap.errors, ...funding.errors, ...financial.errors],
     });
     return;
   }
   const actor = getActorId(req);
   try {
     const result = await db.query(
-      `INSERT INTO crm_campaigns (campaign_code, market_code, audience_definition, budget_minor, funding_breakdown, frequency_cap, holdout_percent, created_by)
-       VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, $6::jsonb, $7, $8)
-       RETURNING id, campaign_code, market_code, state, budget_minor, holdout_percent, created_at`,
-      [campaignCode, marketCode, JSON.stringify(audience.normalized), budget, JSON.stringify(funding.normalized), JSON.stringify(frequencyCap.normalized), Math.min(Math.max(Number(req.body?.holdout_percent ?? 0), 0), 100), actor],
+      `INSERT INTO crm_campaigns (campaign_code, market_code, audience_definition, budget_minor, budget_version, merchant_agreement_version, promo_subsidy_minor, ads_spend_minor, guardrail_policy, funding_breakdown, frequency_cap, holdout_percent, created_by)
+       VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13)
+       RETURNING id, campaign_code, market_code, state, budget_minor, budget_version, promo_subsidy_minor, ads_spend_minor, holdout_percent, created_at`,
+      [campaignCode, marketCode, JSON.stringify(audience.normalized), budget, financial.normalized.budget_version, financial.normalized.merchant_agreement_version || null, financial.normalized.promo_subsidy_minor, financial.normalized.ads_spend_minor, JSON.stringify(financial.normalized.guardrail_policy), JSON.stringify(funding.normalized), JSON.stringify(frequencyCap.normalized), Math.min(Math.max(Number(req.body?.holdout_percent ?? 0), 0), 100), actor],
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error: any) {

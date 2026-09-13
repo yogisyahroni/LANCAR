@@ -1,8 +1,10 @@
 import crypto from 'crypto';
+import { PoolClient } from 'pg';
 import { db } from '../db';
 import { createNotification } from '../notifications';
 import { canSendCampaign, validateCampaignAudience, validateCampaignFrequencyCap } from './crmPolicy';
 import { securityLog } from '../security/logRedaction';
+import { enqueueOutboxEvent } from './eventOutbox';
 
 type CampaignRow = {
   id: string;
@@ -12,6 +14,8 @@ type CampaignRow = {
   audience_definition: unknown;
   frequency_cap: unknown;
   holdout_percent: number | string;
+  budget_minor?: number | string;
+  guardrail_policy?: unknown;
 };
 
 type DispatchOptions = {
@@ -39,7 +43,7 @@ export const campaignAssignment = (campaignId: string, customerId: string, holdo
   return bucket < Math.round(Math.min(Math.max(holdoutPercent, 0), 100) * 100) ? 'HOLDOUT' : 'TREATMENT';
 };
 
-const campaignRecipients = async (campaign: CampaignRow, limit: number): Promise<Array<{ id: string; personalization_allowed: boolean }>> => {
+export const campaignRecipients = async (campaign: CampaignRow, limit: number): Promise<Array<{ id: string; personalization_allowed: boolean }>> => {
   const audience = validateCampaignAudience(campaign.audience_definition);
   if (!audience.valid) throw Object.assign(new Error('Campaign audience is not governed'), { statusCode: 400 });
   const serviceCodes = Array.isArray(audience.normalized.service_codes)
@@ -87,6 +91,138 @@ const campaignRecipients = async (campaign: CampaignRow, limit: number): Promise
   return result.rows;
 };
 
+export const previewCrmCampaign = async (campaignId: string) => {
+  const campaignResult = await db.query<CampaignRow>(
+    `SELECT id, campaign_code, market_code, state, audience_definition, frequency_cap, holdout_percent
+       FROM crm_campaigns WHERE id = $1`,
+    [campaignId],
+  );
+  const campaign = campaignResult.rows[0];
+  if (!campaign) throw Object.assign(new Error('Campaign not found'), { statusCode: 404 });
+  const audience = validateCampaignAudience(campaign.audience_definition);
+  const cap = validateCampaignFrequencyCap(campaign.frequency_cap);
+  if (!audience.valid || !cap.valid) throw Object.assign(new Error('Campaign governance is invalid'), { statusCode: 409 });
+  const recipients = await campaignRecipients(campaign, 5000);
+  return {
+    campaign_id: campaign.id,
+    campaign_code: campaign.campaign_code,
+    market_code: campaign.market_code,
+    state: campaign.state,
+    estimated_audience: recipients.length,
+    estimate_is_not_conversion: true,
+    dispatch_cap: 5000,
+    audience_definition: audience.normalized,
+    frequency_cap: cap.normalized,
+  };
+};
+
+export const getCrmCampaignMetrics = async (campaignId: string) => {
+  const campaignResult = await db.query<CampaignRow>(
+    `SELECT id, campaign_code, market_code, state, audience_definition, frequency_cap, holdout_percent, budget_minor, guardrail_policy
+       FROM crm_campaigns WHERE id = $1`,
+    [campaignId],
+  );
+  const campaign = campaignResult.rows[0];
+  if (!campaign) throw Object.assign(new Error('Campaign not found'), { statusCode: 404 });
+  const result = await db.query<{
+    assignment: 'TREATMENT' | 'HOLDOUT';
+    exposed: string;
+    converted: string;
+    completed_orders: string;
+    completed_revenue_minor: string;
+  }>(
+    `SELECT e.assignment,
+            COUNT(DISTINCT e.customer_id)::text AS exposed,
+            COUNT(*) FILTER (WHERE e.first_conversion_at IS NOT NULL)::text AS converted,
+            COUNT(DISTINCT o.id) FILTER (WHERE o.status IN ('delivered','completed','pod_completed'))::text AS completed_orders,
+            COALESCE(SUM(CASE WHEN o.status IN ('delivered','completed','pod_completed') THEN COALESCE(o.total_price_minor, o.total_price_idr) ELSE 0 END), 0)::text AS completed_revenue_minor
+       FROM crm_campaign_exposures e
+       LEFT JOIN orders o
+         ON o.customer_id = e.customer_id
+        AND o.created_at >= e.assigned_at
+      WHERE e.campaign_id = $1
+      GROUP BY e.assignment
+      ORDER BY e.assignment`,
+    [campaignId],
+  );
+  const byAssignment = Object.fromEntries(result.rows.map((row) => [row.assignment, {
+    exposed: Number(row.exposed),
+    converted: Number(row.converted),
+    completed_orders: Number(row.completed_orders),
+    completed_revenue_minor: Number(row.completed_revenue_minor),
+  }]));
+  const treatment = byAssignment.TREATMENT || { exposed: 0, converted: 0, completed_orders: 0, completed_revenue_minor: 0 };
+  const holdout = byAssignment.HOLDOUT || { exposed: 0, converted: 0, completed_orders: 0, completed_revenue_minor: 0 };
+  const treatmentRate = treatment.exposed ? treatment.completed_orders / treatment.exposed : null;
+  const holdoutRate = holdout.exposed ? holdout.completed_orders / holdout.exposed : null;
+  return {
+    campaign_id: campaign.id,
+    campaign_code: campaign.campaign_code,
+    budget_minor: Number(campaign.budget_minor || 0),
+    guardrail_policy: safeObject(campaign.guardrail_policy),
+    treatment,
+    holdout,
+    incremental_order_rate: treatmentRate == null || holdoutRate == null ? null : treatmentRate - holdoutRate,
+    metric_source: 'canonical orders completed state joined to immutable campaign exposures',
+    conversion_is_not_coupon_redemption: true,
+  };
+};
+
+const enqueueCampaignExposureEvent = async (queryable: Pick<PoolClient, 'query'>, campaign: CampaignRow, customerId: string, assignment: 'TREATMENT' | 'HOLDOUT', exposureId: string) => {
+  const subjectHash = crypto.createHash('sha256').update(customerId).digest('hex');
+  await enqueueOutboxEvent(queryable, {
+    aggregateType: 'crm_campaign',
+    aggregateId: campaign.id,
+    eventType: 'experiment.exposure',
+    payload: {
+      experiment_key: campaign.campaign_code,
+      experiment_namespace: 'crm.lifecycle',
+      treatment_variant: assignment,
+      exposure_type: 'crm_campaign',
+      surface: 'communication.in_app',
+      assignment_key: subjectHash,
+      exposure_id: exposureId,
+      billable_impression: false,
+    },
+    marketCode: campaign.market_code,
+    serviceName: 'admin-service',
+    actorPseudonymousId: 'system',
+    entityId: campaign.id,
+    correlationId: `crm:${campaign.id}:${subjectHash.slice(0, 24)}`,
+    traceId: `crm:${campaign.id}:${subjectHash.slice(0, 24)}`,
+    piiClassification: 'restricted',
+    fieldPiiClassification: { payload: 'restricted', assignment_key: 'confidential' },
+    retentionClass: 'standard',
+    dedupeKey: `crm-campaign-exposure:${campaign.id}:${customerId}`,
+  });
+};
+
+const persistCampaignExposure = async (campaign: CampaignRow, customerId: string, assignment: 'TREATMENT' | 'HOLDOUT', templateKey: string, templateVersion: number, personalizationAllowed: boolean): Promise<string | null> => {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const exposure = await client.query<{ id: string }>(
+      `INSERT INTO crm_campaign_exposures (campaign_id, customer_id, assignment, consent_snapshot, metadata)
+       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)
+       ON CONFLICT (campaign_id, customer_id) DO NOTHING
+       RETURNING id`,
+      [campaign.id, customerId, assignment, JSON.stringify({ market_code: campaign.market_code, channel: 'in_app', marketing_allowed: true, personalization_allowed: personalizationAllowed, captured_at: new Date().toISOString() }), JSON.stringify({ template_key: templateKey, template_version: templateVersion })],
+    );
+    if (!exposure.rowCount || !exposure.rows[0]) {
+      await client.query('COMMIT');
+      return null;
+    }
+    await enqueueCampaignExposureEvent(client, campaign, customerId, assignment, exposure.rows[0].id);
+    await client.query('COMMIT');
+    return exposure.rows[0].id;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 /**
  * Resolve consented customers, persist treatment/holdout exposure, and send
  * only through the canonical Communication Platform event boundary. A failed
@@ -131,12 +267,7 @@ export const dispatchCrmCampaign = async (campaignId: string, options: DispatchO
     const assignment = campaignAssignment(campaign.id, recipient.id, Number(campaign.holdout_percent || 0));
     if (assignment === 'HOLDOUT') {
       stats.holdout += 1;
-      await db.query(
-        `INSERT INTO crm_campaign_exposures (campaign_id, customer_id, assignment, consent_snapshot, metadata)
-         VALUES ($1, $2, 'HOLDOUT', $3::jsonb, $4::jsonb)
-         ON CONFLICT (campaign_id, customer_id) DO NOTHING`,
-        [campaign.id, recipient.id, JSON.stringify({ market_code: campaign.market_code, channel: 'in_app', marketing_allowed: true, personalization_allowed: recipient.personalization_allowed, captured_at: new Date().toISOString() }), JSON.stringify({ template_key: templateKey, template_version: template.version })],
-      );
+      await persistCampaignExposure(campaign, recipient.id, 'HOLDOUT', templateKey, template.version, recipient.personalization_allowed);
       continue;
     }
     const recent = await db.query<{ count: string }>(
@@ -153,14 +284,8 @@ export const dispatchCrmCampaign = async (campaignId: string, options: DispatchO
       stats.suppressed_frequency += 1;
       continue;
     }
-    const exposure = await db.query<{ id: string }>(
-      `INSERT INTO crm_campaign_exposures (campaign_id, customer_id, assignment, consent_snapshot, metadata)
-       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)
-       ON CONFLICT (campaign_id, customer_id) DO NOTHING
-       RETURNING id`,
-      [campaign.id, recipient.id, assignment, JSON.stringify({ market_code: campaign.market_code, channel: 'in_app', marketing_allowed: true, personalization_allowed: recipient.personalization_allowed, captured_at: new Date().toISOString() }), JSON.stringify({ template_key: templateKey, template_version: template.version })],
-    );
-    if (!exposure.rowCount) continue;
+    const exposureId = await persistCampaignExposure(campaign, recipient.id, assignment, templateKey, template.version, recipient.personalization_allowed);
+    if (!exposureId) continue;
     const eventId = crypto.randomUUID();
     try {
       await db.query(
@@ -196,6 +321,12 @@ export const recordCrmCampaignConversion = async (campaignId: string, customerId
         SET first_conversion_at = COALESCE(first_conversion_at, NOW()),
             metadata = metadata || jsonb_build_object('first_conversion_order_id', $3::text)
       WHERE campaign_id = $1 AND customer_id = $2 AND assignment = 'TREATMENT'
+        AND EXISTS (
+          SELECT 1 FROM orders o
+           WHERE o.id::text = $3::text
+             AND o.customer_id = $2
+             AND o.status IN ('paid','assigned','accepted','in_transit','delivered','completed','pod_completed')
+        )
       RETURNING id`,
     [campaignId, customerId, orderId],
   );

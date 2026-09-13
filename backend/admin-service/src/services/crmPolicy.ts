@@ -115,6 +115,46 @@ export const validateCampaignFundingBreakdown = (value: unknown, budgetMinor: nu
   return { valid: errors.length === 0, errors, normalized: { ...normalized, total } };
 };
 
+export type CampaignFinancialContract = {
+  valid: boolean;
+  errors: string[];
+  normalized: {
+    budget_version: string;
+    merchant_agreement_version?: string;
+    promo_subsidy_minor: number;
+    ads_spend_minor: number;
+    guardrail_policy: Record<string, unknown>;
+  };
+};
+
+/** Budget lineage and promo-vs-Ads separation are required before publication. */
+export const validateCampaignFinancialContract = (value: unknown, budgetMinor: number, funding: CampaignFundingBreakdown): CampaignFinancialContract => {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const errors: string[] = [];
+  const budgetVersion = String(source.budget_version || '').trim().slice(0, 64);
+  const merchantAgreementVersion = String(source.merchant_agreement_version || '').trim().slice(0, 64);
+  const promoSubsidy = Number(source.promo_subsidy_minor ?? budgetMinor);
+  const adsSpend = Number(source.ads_spend_minor ?? 0);
+  const guardrailPolicy = source.guardrail_policy && typeof source.guardrail_policy === 'object' && !Array.isArray(source.guardrail_policy)
+    ? source.guardrail_policy as Record<string, unknown>
+    : {};
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$/.test(budgetVersion)) errors.push('budget_version_required');
+  if (funding.merchant > 0 && !/^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$/.test(merchantAgreementVersion)) errors.push('merchant_agreement_version_required');
+  if (!Number.isSafeInteger(promoSubsidy) || promoSubsidy < 0 || promoSubsidy !== budgetMinor) errors.push('promo_subsidy_must_equal_campaign_budget');
+  if (!Number.isSafeInteger(adsSpend) || adsSpend < 0) errors.push('ads_spend_invalid');
+  return {
+    valid: errors.length === 0,
+    errors,
+    normalized: {
+      budget_version: budgetVersion,
+      ...(merchantAgreementVersion ? { merchant_agreement_version: merchantAgreementVersion } : {}),
+      promo_subsidy_minor: Number.isSafeInteger(promoSubsidy) && promoSubsidy >= 0 ? promoSubsidy : 0,
+      ads_spend_minor: Number.isSafeInteger(adsSpend) && adsSpend >= 0 ? adsSpend : 0,
+      guardrail_policy: guardrailPolicy,
+    },
+  };
+};
+
 export type CampaignFrequencyCapValidation = {
   valid: boolean;
   errors: string[];

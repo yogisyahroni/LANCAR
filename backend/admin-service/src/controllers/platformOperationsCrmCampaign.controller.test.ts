@@ -51,6 +51,7 @@ describe('CRM campaign governance', () => {
         campaign_code: 'winback-2',
         market_code: 'id-jk',
         budget_minor: 2500,
+        budget_version: 'crm-budget-v1',
         audience_definition: { lifecycle_stage: 'at_risk', service_codes: ['delivery'] },
         frequency_cap: { per_user: 2, window_days: 14 },
         funding_breakdown: { platform: 2500 },
@@ -59,7 +60,7 @@ describe('CRM campaign governance', () => {
 
     const call = db.query.mock.calls[0];
     expect(JSON.parse(call[1][2])).toMatchObject({ consent_required: true, lifecycle_stage: 'at_risk' });
-    expect(JSON.parse(call[1][5])).toEqual({ per_user: 2, window_days: 14 });
+    expect(JSON.parse(call[1][10])).toEqual({ per_user: 2, window_days: 14 });
     expect(res.status).toHaveBeenCalledWith(201);
   });
 });

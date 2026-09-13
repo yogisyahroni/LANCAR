@@ -27,10 +27,13 @@ describe('PART W-X/AE-AF platform hardening contracts', () => {
   it('keeps loyalty mutations on an internal authenticated, idempotent ledger boundary', () => {
     const controller = read('backend/admin-service/src/controllers/loyalty.controller.ts');
     const routes = read('backend/admin-service/src/routes.ts');
+    const adminRoutes = read('backend/admin-service/src/routes/admin.routes.ts');
     expect(controller).toContain('timingSafeEqual');
     expect(controller).toContain('ON CONFLICT (idempotency_key) DO NOTHING');
     expect(controller).toContain('loyalty_ledger_entries');
     expect(routes).toContain("/api/internal/loyalty/order-events");
+    expect(controller).toContain("entry_type, points, source_type, source_id, idempotency_key, reason");
+    expect(adminRoutes).toContain('/admin/crm/loyalty/accounts/:accountId/adjust');
   });
 
   it('keeps emergency contacts encrypted and user-scoped', () => {
@@ -112,6 +115,20 @@ describe('PART W-X/AE-AF platform hardening contracts', () => {
     expect(source).toContain("actorRole !== 'super_admin'");
     expect(source).toContain('Campaign publication requires super_admin approval');
     expect(source).toContain("['PENDING_APPROVAL', 'SCHEDULED'].includes(currentState)");
+  });
+
+  it('keeps CRM campaign preview, metrics, accounting lineage and Experiment exposure separate', () => {
+    const migration = read('database/migrations/20260913000001_crm_campaign_accounting_experiments.sql');
+    const service = read('backend/admin-service/src/services/crmCampaign.service.ts');
+    const routes = read('backend/admin-service/src/routes/admin.routes.ts');
+    expect(migration).toContain('merchant_agreement_version');
+    expect(migration).toContain('promo_subsidy_minor');
+    expect(migration).toContain('ads_spend_minor');
+    expect(service).toContain('estimate_is_not_conversion');
+    expect(service).toContain("eventType: 'experiment.exposure'");
+    expect(service).toContain('conversion_is_not_coupon_redemption');
+    expect(routes).toContain('/admin/crm/campaigns/:id/preview');
+    expect(routes).toContain('/admin/crm/campaigns/:id/metrics');
   });
 
   it('guards public reputation aggregation against malformed legacy dimensions', () => {

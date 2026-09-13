@@ -57,6 +57,9 @@ adminRoutes.get('/admin/crm/control-plane', requireRole(['super_admin', 'admin',
 adminRoutes.post('/admin/crm/campaigns', requireRole(['super_admin', 'admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.crm.campaign.create'), (req, res) => controllers.createAdminCrmCampaign(req, res));
 adminRoutes.patch('/admin/crm/campaigns/:id/state', requireRole(['super_admin', 'admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.crm.campaign.state'), (req, res) => controllers.updateAdminCrmCampaignState(req, res));
 adminRoutes.post('/admin/crm/campaigns/:id/dispatch', requireRole(['super_admin', 'admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.crm.campaign.dispatch'), (req, res) => controllers.crmCampaign.dispatchAdminCrmCampaign(req, res));
+adminRoutes.get('/admin/crm/campaigns/:id/preview', requireRole(['super_admin', 'admin', 'ops_admin']), (req, res) => controllers.crmCampaign.previewAdminCrmCampaign(req, res));
+adminRoutes.get('/admin/crm/campaigns/:id/metrics', requireRole(['super_admin', 'admin', 'ops_admin', 'finance_admin', 'finance']), (req, res) => controllers.crmCampaign.getAdminCrmCampaignMetrics(req, res));
+adminRoutes.post('/admin/crm/loyalty/accounts/:accountId/adjust', requireRole(['super_admin', 'finance_admin', 'finance']), requireTotp, requireIdempotencyKey('admin.crm.loyalty.adjustment'), (req, res) => controllers.loyalty.adjustLoyaltyAccount(req, res));
 adminRoutes.get('/admin/courier-support/queue', requireRole(['super_admin', 'ops_security', 'ops_admin', 'cs_agent']), (req, res) => controllers.listAdminCourierSupportQueue(req, res));
 adminRoutes.get('/admin/gps-risk-alerts', (req, res) => controllers.listAdminGpsRiskAlerts(req, res));
 adminRoutes.patch('/admin/gps-risk-alerts/:id', (req, res) => controllers.updateAdminGpsRiskAlert(req, res));

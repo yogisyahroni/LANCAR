@@ -1,4 +1,4 @@
-import { applyLoyaltyOrderEvent, resolveMembershipBenefitEligibility } from './loyalty.controller';
+import { adjustLoyaltyAccount, applyLoyaltyOrderEvent, resolveMembershipBenefitEligibility } from './loyalty.controller';
 
 jest.mock('../db', () => ({
   db: { connect: jest.fn() },
@@ -23,9 +23,9 @@ const response = () => {
   return result;
 };
 
-const request = (body: Record<string, unknown>) => ({
+const request = (body: Record<string, unknown>, idempotencyKey?: string) => ({
   body,
-  header: (name: string) => name.toLowerCase() === 'x-internal-api-key' ? 'test-internal-key' : undefined,
+  header: (name: string) => name.toLowerCase() === 'x-internal-api-key' ? 'test-internal-key' : name.toLowerCase() === 'x-idempotency-key' ? idempotencyKey : undefined,
 } as any);
 
 describe('membership eligibility boundary', () => {
@@ -97,5 +97,23 @@ describe('membership eligibility boundary', () => {
     expect(client.query.mock.calls[1][0]).toContain('FROM orders');
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+  });
+
+  it('records a reasoned finance adjustment as an append-only ledger entry', async () => {
+    const client = { query: jest.fn(), release: jest.fn() };
+    client.query
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ id: 'account-1', points_balance: 100 }] })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'entry-adjustment-1' }] })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ id: 'account-1', market_code: 'id-jk', points_balance: 150, benefit_balance: {} }] })
+      .mockResolvedValueOnce({});
+    db.connect.mockResolvedValue(client);
+    const res = response();
+    await adjustLoyaltyAccount({ params: { accountId: '22222222-2222-4222-8222-222222222222' }, body: { points: 50, reason: 'Finance correction ticket FIN-42' }, header: (name: string) => name.toLowerCase() === 'x-idempotency-key' ? 'adjustment-42' : undefined } as any, res);
+    expect(client.query.mock.calls[2][0]).toContain("'ADJUSTMENT'");
+    expect(client.query.mock.calls[2][0]).toContain('ON CONFLICT (idempotency_key) DO NOTHING');
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, duplicate: false }));
   });
 });

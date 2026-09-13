@@ -1,13 +1,14 @@
 import { Request, Response } from 'express';
+import crypto from 'node:crypto';
 import { getActorId } from '../utils/authUtils';
 import { securityLog } from '../security/logRedaction';
-import { dispatchCrmCampaign, recordCrmCampaignConversion } from '../services/crmCampaign.service';
+import { dispatchCrmCampaign, getCrmCampaignMetrics, previewCrmCampaign, recordCrmCampaignConversion } from '../services/crmCampaign.service';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const internalKeyMatches = (req: Request) => {
   const expected = String(process.env.INTERNAL_API_KEY || '').trim();
   const provided = String(req.header('x-internal-api-key') || '').trim();
-  return Boolean(expected && provided && expected.length === provided.length && require('crypto').timingSafeEqual(Buffer.from(expected), Buffer.from(provided)));
+  return Boolean(expected && provided && expected.length === provided.length && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(provided)));
 };
 
 export const dispatchAdminCrmCampaign = async (req: Request, res: Response): Promise<void> => {
@@ -28,6 +29,34 @@ export const dispatchAdminCrmCampaign = async (req: Request, res: Response): Pro
   } catch (error: any) {
     securityLog.error('crm_campaign_dispatch_failed', { campaign_id: campaignId, error: error?.message });
     res.status(Number(error?.statusCode) || 500).json({ success: false, error: error?.message || 'Campaign dispatch failed' });
+  }
+};
+
+export const previewAdminCrmCampaign = async (req: Request, res: Response): Promise<void> => {
+  const campaignId = String(req.params.id || '').trim();
+  if (!UUID_PATTERN.test(campaignId)) {
+    res.status(400).json({ success: false, error: 'Invalid campaign id' });
+    return;
+  }
+  try {
+    res.json({ success: true, data: await previewCrmCampaign(campaignId) });
+  } catch (error: any) {
+    securityLog.error('crm_campaign_preview_failed', { campaign_id: campaignId, error: error?.message });
+    res.status(Number(error?.statusCode) || 500).json({ success: false, error: error?.message || 'Campaign preview unavailable' });
+  }
+};
+
+export const getAdminCrmCampaignMetrics = async (req: Request, res: Response): Promise<void> => {
+  const campaignId = String(req.params.id || '').trim();
+  if (!UUID_PATTERN.test(campaignId)) {
+    res.status(400).json({ success: false, error: 'Invalid campaign id' });
+    return;
+  }
+  try {
+    res.json({ success: true, data: await getCrmCampaignMetrics(campaignId) });
+  } catch (error: any) {
+    securityLog.error('crm_campaign_metrics_failed', { campaign_id: campaignId, error: error?.message });
+    res.status(Number(error?.statusCode) || 500).json({ success: false, error: error?.message || 'Campaign metrics unavailable' });
   }
 };
 

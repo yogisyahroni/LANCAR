@@ -1,4 +1,4 @@
-import { applyLoyaltyEventOnce, canSendCampaign, campaignFunding, evaluateReferralAbuse, membershipStateAllowsBenefit, resolvePromoStack, validateCampaignAudience, validateCampaignFundingBreakdown, validateLoyaltyEntry } from './crmPolicy';
+import { applyLoyaltyEventOnce, canSendCampaign, campaignFunding, evaluateReferralAbuse, membershipStateAllowsBenefit, resolvePromoStack, validateCampaignAudience, validateCampaignFinancialContract, validateCampaignFundingBreakdown, validateLoyaltyEntry } from './crmPolicy';
 
 describe('CRM and loyalty policy', () => {
   it('keeps loyalty ledger idempotent and separate from cash', () => {
@@ -33,5 +33,8 @@ describe('CRM and loyalty policy', () => {
     expect(validateCampaignAudience({ lifecycle_stage: 'at_risk', consent_required: true }).valid).toBe(true);
     expect(validateCampaignFundingBreakdown({}, 1000)).toMatchObject({ valid: true, normalized: { platform: 1000, total: 1000 } });
     expect(validateCampaignFundingBreakdown({ platform: 500, merchant: 100 }, 1000).valid).toBe(false);
+    const funding = validateCampaignFundingBreakdown({ platform: 1000 }, 1000).normalized;
+    expect(validateCampaignFinancialContract({ budget_version: 'budget-v1' }, 1000, funding)).toMatchObject({ valid: true, normalized: { promo_subsidy_minor: 1000, ads_spend_minor: 0 } });
+    expect(validateCampaignFinancialContract({}, 1000, funding).valid).toBe(false);
   });
 });

@@ -190,11 +190,13 @@ CREATE INDEX IF NOT EXISTS idx_crm_referral_policy_active
 
 -- Append-only financial and provider evidence. Status changes are represented
 -- as a new event, while the current projection may be updated transactionally.
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION reject_platform_financial_history_update() RETURNS trigger AS $$
 BEGIN
   RAISE EXCEPTION '% rows are append-only; create a compensating record', TG_TABLE_NAME;
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 DROP TRIGGER IF EXISTS trg_payment_balance_entries_immutable ON payment_balance_entries;
 CREATE TRIGGER trg_payment_balance_entries_immutable BEFORE UPDATE OR DELETE ON payment_balance_entries
 FOR EACH ROW EXECUTE FUNCTION reject_platform_financial_history_update();
@@ -206,6 +208,7 @@ FOR EACH ROW EXECUTE FUNCTION reject_platform_financial_history_update();
 -- A reviewed compensating migration is required once any financial or
 -- moderation record exists. Existing reputation columns are intentionally
 -- retained during rollback to avoid destructive history changes.
+-- +goose StatementBegin
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM payment_balance_entries LIMIT 1)
@@ -214,6 +217,7 @@ BEGIN
      OR EXISTS (SELECT 1 FROM crm_campaign_exposures LIMIT 1)
   THEN RAISE EXCEPTION 'platform hardening migration contains history; use a compensating migration'; END IF;
 END $$;
+-- +goose StatementEnd
 DROP TRIGGER IF EXISTS trg_payment_chargeback_events_immutable ON payment_chargeback_events;
 DROP TRIGGER IF EXISTS trg_payment_balance_entries_immutable ON payment_balance_entries;
 DROP FUNCTION IF EXISTS reject_platform_financial_history_update();

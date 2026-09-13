@@ -6275,10 +6275,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - merchant/courier education where appropriate
 
 **Checklist**
-- [ ] CRM targeting uses governed non-sensitive segments and consent.
-- [ ] Delivery through Communication Platform.
+- [x] CRM targeting uses governed non-sensitive segments and consent.
+- [x] Delivery through Communication Platform.
 - [ ] UI exposure may use Experience Service.
-- [ ] Frequency caps across overlapping campaigns.
+- [x] Frequency caps across overlapping campaigns.
 - [ ] Conversion/holdout measured through Experiment/Data platform.
 
 ---
@@ -6298,9 +6298,9 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [ ] Churn/propensity score is recommendation signal, not sensitive enforcement.
-- [ ] Consent/personalization policy market scoped.
-- [ ] Non-personalized campaign fallback.
-- [ ] User can control optional marketing communication.
+- [x] Consent/personalization policy market scoped.
+- [x] Non-personalized campaign fallback.
+- [x] User can control optional marketing communication.
 - [ ] Do not expose inferred user segment to merchant.
 
 ---
@@ -6309,8 +6309,8 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [x] Platform-funded vs merchant-funded vs co-funded amount explicit.
-- [ ] Merchant agreement/budget version referenced.
-- [ ] Promo subsidy separated from Ads spend.
+- [x] Merchant agreement/budget version referenced.
+- [x] Promo subsidy separated from Ads spend.
 - [ ] Settlement statement reconciles contribution per order.
 
 ---
@@ -6326,9 +6326,9 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [ ] Draft/preview/audience/budget/schedule/approval/stop.
-- [ ] Estimated audience is not guaranteed conversion.
-- [ ] Sensitive targeting dimensions unavailable.
-- [ ] Financial campaign changes maker-checker where material.
+- [x] Estimated audience is not guaranteed conversion.
+- [x] Sensitive targeting dimensions unavailable.
+- [x] Financial campaign changes maker-checker where material.
 
 ---
 
@@ -6336,7 +6336,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [x] Holdout/control supported for major subsidy campaigns where practical.
-- [ ] Measure incremental orders/revenue, not redeemed coupon only.
+- [x] Measure incremental orders/revenue, not redeemed coupon only.
 - [ ] Guardrail margin/refund/support/spam complaints.
 - [ ] Experiment cannot bypass promo financial limits.
 
@@ -6348,7 +6348,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - [x] Outstanding loyalty/referral/membership liability measurable.
 - [ ] Earn/redeem/reversal ↔ order/payment/refund reconciliation.
 - [ ] Expiry/breakage accounting policy documented with Finance/legal.
-- [ ] Manual credit uses reasoned ledger adjustment.
+- [x] Manual credit uses reasoned ledger adjustment.
 
 ---
 

@@ -335,3 +335,64 @@ export const applyLoyaltyOrderEvent = async (req: Request, res: Response): Promi
     client.release();
   }
 };
+
+/**
+ * Finance-only compensating adjustment. The immutable ledger remains the
+ * source of truth; an adjustment is never an in-place balance edit and must
+ * carry a human reason plus the request idempotency key.
+ */
+export const adjustLoyaltyAccount = async (req: Request, res: Response): Promise<void> => {
+  const accountId = String(req.params.accountId || '').trim();
+  const points = Number(req.body?.points);
+  const reason = String(req.body?.reason || '').trim().slice(0, 500);
+  const idempotencyKey = String(req.header('x-idempotency-key') || '').trim().slice(0, 120);
+  if (!uuidLike(accountId) || !Number.isSafeInteger(points) || points === 0 || !reason || reason.length < 8 || !idempotencyKey) {
+    res.status(400).json({ success: false, code: 'ERR_INVALID_LOYALTY_ADJUSTMENT' });
+    return;
+  }
+  const actor = getActorId(req);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const account = await client.query<{ id: string; points_balance: string }>(
+      `SELECT id, points_balance FROM loyalty_accounts WHERE id = $1 FOR UPDATE`,
+      [accountId],
+    );
+    if (!account.rows[0]) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, code: 'ERR_LOYALTY_ACCOUNT_NOT_FOUND' });
+      return;
+    }
+    const current = Number(account.rows[0].points_balance);
+    if (current + points < 0) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, code: 'ERR_LOYALTY_INSUFFICIENT_POINTS' });
+      return;
+    }
+    const entry = await client.query<{ id: string }>(
+      `INSERT INTO loyalty_ledger_entries
+        (account_id, entry_type, points, source_type, source_id, idempotency_key, reason, metadata)
+       VALUES ($1, 'ADJUSTMENT', $2, 'ADMIN', $3, $4, $5, $6::jsonb)
+       ON CONFLICT (idempotency_key) DO NOTHING
+       RETURNING id`,
+      [accountId, points, actor, `loyalty:manual:${idempotencyKey}`, reason, JSON.stringify({ actor_id: actor, request_idempotency_key: idempotencyKey })],
+    );
+    if (entry.rowCount) {
+      await client.query(`UPDATE loyalty_accounts SET points_balance = points_balance + $2, updated_at = NOW() WHERE id = $1`, [accountId, points]);
+      await client.query(
+        `INSERT INTO audit_logs (actor_id, action, target_id, payload)
+         VALUES ($1, 'crm.loyalty.adjustment.created', $2, $3::jsonb)`,
+        [actor, accountId, JSON.stringify({ points, reason, ledger_entry_id: entry.rows[0].id })],
+      );
+    }
+    const updated = await client.query(`SELECT id, market_code, points_balance, benefit_balance FROM loyalty_accounts WHERE id = $1`, [accountId]);
+    await client.query('COMMIT');
+    res.json({ success: true, duplicate: !entry.rowCount, data: updated.rows[0] });
+  } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    securityLog.error('CRM_LOYALTY_ADJUSTMENT_FAILED', { error: error?.message, account_id: accountId });
+    res.status(500).json({ success: false, code: 'ERR_LOYALTY_ADJUSTMENT_UNAVAILABLE' });
+  } finally {
+    client.release();
+  }
+};

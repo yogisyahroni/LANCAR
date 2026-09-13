@@ -242,11 +242,13 @@ CREATE TABLE IF NOT EXISTS crm_reconciliation_exceptions (
 );
 
 -- Evidence and ledger rows are append-only. Corrections use a new entry/action.
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION reject_immutable_marketplace_evidence() RETURNS trigger AS $$
 BEGIN
   RAISE EXCEPTION '% rows are append-only; create a compensating record', TG_TABLE_NAME;
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 DROP TRIGGER IF EXISTS trg_safety_evidence_immutable ON safety_evidence;
 CREATE TRIGGER trg_safety_evidence_immutable BEFORE UPDATE OR DELETE ON safety_evidence
 FOR EACH ROW EXECUTE FUNCTION reject_immutable_marketplace_evidence();
@@ -259,6 +261,7 @@ FOR EACH ROW EXECUTE FUNCTION reject_immutable_marketplace_evidence();
 
 -- +goose Down
 -- Do not drop marketplace financial/evidence history automatically.
+-- +goose StatementBegin
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM loyalty_ledger_entries LIMIT 1)
@@ -266,6 +269,7 @@ BEGIN
      OR EXISTS (SELECT 1 FROM safety_evidence LIMIT 1)
   THEN RAISE EXCEPTION 'safety/reputation/CRM migration contains history; use a reviewed compensating migration'; END IF;
 END $$;
+-- +goose StatementEnd
 DROP TRIGGER IF EXISTS trg_reputation_actions_immutable ON reputation_actions;
 DROP TRIGGER IF EXISTS trg_loyalty_ledger_immutable ON loyalty_ledger_entries;
 DROP TRIGGER IF EXISTS trg_safety_evidence_immutable ON safety_evidence;
