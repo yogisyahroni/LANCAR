@@ -3,10 +3,38 @@ import { db, readDb } from '../db';
 import { getActorId } from '../utils/authUtils';
 import { securityLog } from '../security/logRedaction';
 import { moderateReview, REPUTATION_REPORT_CATEGORIES, validateReview } from '../services/reputationPolicy';
+import { buildReputationAnalytics } from '../services/reputationAnalytics';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const COMPLETED_ORDER_STATES = ['delivered', 'completed', 'pod_completed'];
 const MAX_REVIEW_BODY = 2000;
+
+export const getAdminReputationAnalytics = async (req: Request, res: Response): Promise<void> => {
+  const days = Math.min(Math.max(Number.parseInt(String(req.query.days || '30'), 10) || 30, 7), 90);
+  try {
+    const result = await readDb.query(
+      `SELECT market_code, service_code, stars, quality_rule_version, source_type,
+              CASE WHEN created_at >= NOW() - ($1::int * INTERVAL '1 day') THEN 'CURRENT' ELSE 'PREVIOUS' END AS period
+         FROM reputation_reviews
+        WHERE state = 'PUBLISHED'
+          AND created_at >= NOW() - (($1::int * 2) * INTERVAL '1 day')
+        ORDER BY market_code, service_code, created_at DESC`,
+      [days],
+    );
+    const observations = result.rows.map((row: any) => ({
+      marketCode: String(row.market_code || '').trim().toLowerCase(),
+      serviceCode: String(row.service_code || '').trim().toLowerCase(),
+      stars: Number(row.stars),
+      period: String(row.period).toUpperCase() === 'PREVIOUS' ? 'PREVIOUS' : 'CURRENT',
+      ruleVersion: String(row.quality_rule_version || 'unknown'),
+      sourceType: String(row.source_type || 'unknown'),
+    } as const));
+    res.json({ success: true, data: { window_days: days, segments: buildReputationAnalytics(observations), protected_attributes_used: false, metric_scope: 'published_reviews_by_market_and_service' } });
+  } catch (error: any) {
+    securityLog.error('admin_reputation_analytics_failed', { error: error?.message });
+    res.status(500).json({ success: false, error: 'Reputation analytics unavailable' });
+  }
+};
 
 const jsonObject = (value: unknown): Record<string, unknown> => (
   value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}

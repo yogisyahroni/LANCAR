@@ -1009,7 +1009,7 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || 'dev-internal-key-super-secret',
+          'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || '',
         },
         body: JSON.stringify({ order_id: orderId, reason, original_status: originalStatus }),
       });

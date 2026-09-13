@@ -27,6 +27,7 @@ export default function PlatformOperations() {
   const safety = useQuery({ queryKey: ['platform-safety'], queryFn: async () => (await api.get('/admin/safety/incidents', { params: { limit: 30 } })).data?.data ?? [] })
   const safetyDetail = useQuery({ queryKey: ['platform-safety-detail', selectedSafetyId], enabled: Boolean(selectedSafetyId), queryFn: async () => (await api.get(`/admin/safety/incidents/${selectedSafetyId}`)).data?.data ?? null })
   const reviews = useQuery({ queryKey: ['platform-reputation'], queryFn: async () => (await api.get('/admin/reputation/reviews', { params: { state: 'REPORTED', limit: 30 } })).data?.data ?? [] })
+  const reputationAnalytics = useQuery({ queryKey: ['platform-reputation-analytics'], queryFn: async () => (await api.get('/admin/reputation/analytics', { params: { days: 30 } })).data?.data ?? { segments: [] } })
   const reputationAppeals = useQuery({ queryKey: ['platform-reputation-appeals'], queryFn: async () => (await api.get('/admin/reputation/appeals')).data?.data ?? [] })
   const crm = useQuery({ queryKey: ['platform-crm'], queryFn: async () => (await api.get('/admin/crm/control-plane')).data?.data ?? { campaigns: [], loyalty: [], exceptions: [] } })
   const healthMutation = useMutation({ mutationFn: () => api.patch('/admin/payment/health', healthDraft, { headers: { 'X-Idempotency-Key': requestKey('provider-health') } }), onSuccess: () => { toast.success('Perubahan health masuk queue approval'); client.invalidateQueries({ queryKey: ['platform-payment-config-changes'] }) }, onError: () => toast.error('Provider health gagal diajukan') })
@@ -70,6 +71,13 @@ export default function PlatformOperations() {
       <p className="text-sm text-foreground-muted">Appeal adalah jalur review terpisah. REVERSED memulihkan aggregate melalui action append-only; tidak ada overwrite bintang manual.</p>
       <QueryState loading={reputationAppeals.isLoading} error={Boolean(reputationAppeals.error)} />
       <div className="space-y-2">{reputationAppeals.data?.map((item: any) => <div className="rounded-2xl bg-surface-subtle p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between" key={item.id}><div><p className="font-bold">{item.stars}/5 · {item.service_code} · {item.market_code}</p><p className="text-xs text-foreground-muted">appeal {item.id} · review {item.review_id}</p><p className="mt-1 text-sm">{item.submitted_reason}</p></div><div className="flex gap-2"><button type="button" disabled={appealMutation.isPending} onClick={() => appealMutation.mutate({ id: item.id, state: 'REVERSED' })} className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary">Reverse enforcement</button><button type="button" disabled={appealMutation.isPending} onClick={() => appealMutation.mutate({ id: item.id, state: 'REJECTED' })} className="rounded-lg border border-error px-3 py-2 text-xs font-bold text-error">Reject</button></div></div>)}</div>
+    </section>
+
+    <section className="glass-card p-6 rounded-3xl border-border space-y-5" aria-labelledby="reputation-analytics-title">
+      <div className="flex items-center gap-2"><AlertTriangle size={18} aria-hidden="true" /><h2 id="reputation-analytics-title" className="font-black uppercase tracking-wide">Reputation analytics</h2></div>
+      <p className="text-sm text-foreground-muted">Distribusi dan drift hanya dihitung dari review published per market/service. Protected attribute tidak dipakai; rule/source version tetap terlihat untuk audit.</p>
+      <QueryState loading={reputationAnalytics.isLoading} error={Boolean(reputationAnalytics.error)} />
+      <div className="grid gap-3 md:grid-cols-3">{reputationAnalytics.data?.segments?.map((item: any) => <div className="rounded-2xl bg-surface-subtle p-4" key={`${item.market_code}-${item.service_code}`}><p className="font-bold">{item.market_code} · {item.service_code}</p><p className="text-sm">Sample {item.sample_size} · Avg {item.average_stars ?? '—'}</p><p className="text-sm">Drift {item.drift_stars ?? '—'} · {item.drift_status}</p><p className="text-xs text-foreground-muted">Rule: {item.rule_versions?.join(', ') || '—'}</p></div>)}</div>
     </section>
 
     <section className="glass-card p-6 rounded-3xl border-border space-y-5" aria-labelledby="crm-ops-title">

@@ -760,7 +760,7 @@ const executeFinancialAction = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || 'dev-internal-key-super-secret',
+        'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || '',
         'X-Idempotency-Key': idempotencyKey,
       },
       body: JSON.stringify(payload),

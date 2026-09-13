@@ -131,6 +131,16 @@ describe('PART W-X/AE-AF platform hardening contracts', () => {
     expect(routes).toContain('/admin/crm/campaigns/:id/metrics');
   });
 
+  it('keeps reputation analytics market/service scoped and out of protected attributes', () => {
+    const analytics = read('backend/admin-service/src/services/reputationAnalytics.ts');
+    const controller = read('backend/admin-service/src/controllers/reputation.controller.ts');
+    const routes = read('backend/admin-service/src/routes/admin.routes.ts');
+    expect(analytics).toContain('PROTECTED_ATTRIBUTE_NAMES');
+    expect(analytics).toContain('human_review_required');
+    expect(controller).toContain('buildReputationAnalytics');
+    expect(routes).toContain("'/admin/reputation/analytics'");
+  });
+
   it('guards public reputation aggregation against malformed legacy dimensions', () => {
     const source = read('backend/admin-service/src/controllers/reputation.controller.ts');
     expect(source).toContain("dimensions->>'service' ~ '^[1-5]$'");

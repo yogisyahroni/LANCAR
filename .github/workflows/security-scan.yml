@@ -191,7 +191,7 @@ jobs:
 
       - name: Install Python dependencies
         if: ${{ hashFiles('requirements.txt') != '' }}
-        run: pip install -r requirements.txt || true
+        run: pip install -r requirements.txt
 
       # -------------------------------------------------------
       # SCA Tool 1: Trivy Filesystem Scan
@@ -457,13 +457,12 @@ jobs:
       # -------------------------------------------------------
       - name: Run Checkov scan
         uses: bridgecrewio/checkov-action@master
-        continue-on-error: true
         with:
           directory: .
           framework: terraform,cloudformation,kubernetes,helm,dockerfile
           output_format: sarif
           output_file_path: checkov-results.sarif
-          soft_fail: true  # Jangan fail dulu, evaluasi di summary
+          soft_fail: false
           download_external_modules: true
 
       # -------------------------------------------------------
@@ -471,14 +470,13 @@ jobs:
       # -------------------------------------------------------
       - name: Run Trivy config scan
         uses: aquasecurity/trivy-action@master
-        continue-on-error: true
         with:
           scan-type: 'config'
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-config-results.sarif'
           severity: ${{ env.TRIVY_SEVERITY }}
-          exit-code: '0'
+          exit-code: '1'
 
       # -------------------------------------------------------
       # Upload Reports
@@ -512,6 +510,8 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Verify platform controls
         run: python scripts/security/verify_platform_controls.py
+      - name: Verify security release controls
+        run: python scripts/security/verify_security_release_controls.py
 
   # JOB 7: SBOM GENERATION
   # ==========================================================
@@ -676,10 +676,11 @@ jobs:
             exit 1
           fi
 
-          # SAST scan boleh warning tapi tidak error
+          # SAST is a release control: findings must be remediated or
+          # explicitly handled through the repository exception process.
           if [ "$SAST" = "failure" ]; then
-            echo "⚠️ WARNING: SAST scan found issues. Review required."
-            # Bisa diubah ke exit 1 jika ingin strict
+            echo "❌ FAIL: SAST scan failed. Review and remediate findings before merge."
+            exit 1
           fi
 
           echo "✅ SECURITY GATE PASSED"

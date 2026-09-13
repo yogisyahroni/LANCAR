@@ -103,7 +103,7 @@ export const updateDisputeStatus = async (req: Request, res: Response) => {
       const orderServiceUrl = process.env.ORDER_SERVICE_URL || 'http://order-service:8080';
       const internalHeaders = {
         'Content-Type': 'application/json',
-        'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || 'dev-internal-key-super-secret'
+        'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || ''
       };
 
       // 1) Partial refund per item (order-service menghitung dari snapshot food_order_items)

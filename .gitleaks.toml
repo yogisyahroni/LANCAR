@@ -1,0 +1,15 @@
+title = "LANCAR secret scanning policy"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Only generated build output and local tool caches are excluded; source, workflows, compose and evidence remain scanned."
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)build/''',
+  '''(^|/)\\.gradle/''',
+  '''(^|/)__pycache__/''',
+  '''(^|/)\\.kilo/''',
+  '''(^|/)admin-dashboard/test-results/'''
+]

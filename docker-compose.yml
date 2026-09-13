@@ -70,7 +70,7 @@ services:
   # Enable with: docker compose --profile scale up -d pgbouncer
   # ─────────────────────────────────────────────
   pgbouncer:
-    image: edoburu/pgbouncer:latest
+    image: edoburu/pgbouncer@sha256:4c1ca296ef525f108f5d3552cc337c0c09587cf8dae7f0067fd93349e47dc1cd
     container_name: tembus-pgbouncer
     restart: unless-stopped
     # ─── PgBouncer WAJIB aktif di VPS untuk menghemat RAM ─────────────────
@@ -252,7 +252,7 @@ services:
   # MIGRATION RUNNER — goose
   # ─────────────────────────────────────────────
   migrate:
-    image: ghcr.io/pressly/goose:latest
+    image: ghcr.io/pressly/goose:v3.24.3
     container_name: tembus-migrate
     depends_on:
       db:
@@ -300,7 +300,7 @@ services:
       OTP_TTL_SECONDS: ${OTP_TTL_SECONDS:-300}
       # ─── Integration Gateway ─────────────────────────────────────────────────
       INTEGRATION_GATEWAY_URL: ${INTEGRATION_GATEWAY_URL:-http://integration-gateway:8085}
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-tembus_internal_key_secure}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY must be supplied by the deployment secret manager}
       # ─── OTP Provider (Zenziva WhatsApp/SMS) ───────────────────────────────
       # Set OTP_PROVIDER=zenziva to use the integration-gateway for live OTP.
       # Tanpa OTP_PROVIDER=zenziva, service fallback ke dry-run (OTP di stdout).
@@ -353,7 +353,7 @@ services:
       READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
       PORT: 8085
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-tembus_internal_key_secure}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY must be supplied by the deployment secret manager}
       ORDER_SERVICE_URL: ${ORDER_SERVICE_URL:-http://order-service:8083}
       # FB-110: foto menu — local disk persistent + URL publik via service ini
       UPLOAD_DIR: /app/public/uploads
@@ -446,7 +446,7 @@ services:
       replicas: 2
     environment:
       INTEGRATION_GATEWAY_PORT: 8085
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-tembus_internal_key_secure}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY must be supplied by the deployment secret manager}
       ACTIVE_OTP_PROVIDER: ${ACTIVE_OTP_PROVIDER:-zenziva}
       ACTIVE_PAYMENT_PROVIDER: ${ACTIVE_PAYMENT_PROVIDER:-midtrans}
       ACTIVE_MAPS_PROVIDER: stub
@@ -512,7 +512,7 @@ services:
       DEV_SEEDED_COURIER_PIN: ${DEV_SEEDED_COURIER_PIN:-kurir123}
       PAYMENT_SERVICE_URL: "http://payment-service:8084"
       ORDER_SERVICE_URL: "http://order-service:8083"
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-tembus_internal_key_secure}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY must be supplied by the deployment secret manager}
       SAFETY_CONTACT_ENCRYPTION_KEY: ${SAFETY_CONTACT_ENCRYPTION_KEY:-}
       SAFETY_PUBLIC_BASE_URL: ${SAFETY_PUBLIC_BASE_URL:-https://app.bawain.my.id}
       EMERGENCY_PROVIDER_URL: ${EMERGENCY_PROVIDER_URL:-}
@@ -649,7 +649,7 @@ services:
       REDIS_URL: "redis://redis:6379"
       ORDER_PORT: ${ORDER_PORT:-8083}
       TRANSACTION_MAX_INFLIGHT: ${TRANSACTION_MAX_INFLIGHT:-64}
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-tembus_internal_key_secure}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY must be supplied by the deployment secret manager}
       INTEGRATION_GATEWAY_URL: ${INTEGRATION_GATEWAY_URL:-http://integration-gateway:8085}
       TOMTOM_SERVER_API_KEY: ${TOMTOM_SERVER_API_KEY:-}
       TOMTOM_API_KEY: ${TOMTOM_API_KEY:-}
@@ -691,7 +691,7 @@ services:
       DEVELOPER_ENVIRONMENT: ${DEVELOPER_ENVIRONMENT:-development}
       ORDER_SERVICE_URL: "http://order-service:8083"
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-tembus_internal_key_secure}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY must be supplied by the deployment secret manager}
       DEVELOPER_WEBHOOK_ENCRYPTION_KEY: ${DEVELOPER_WEBHOOK_ENCRYPTION_KEY:-developer-platform-local-key-32b}
       DEVELOPER_WEBHOOK_WORKER_INTERVAL: ${DEVELOPER_WEBHOOK_WORKER_INTERVAL:-5s}
     ports:
@@ -724,7 +724,7 @@ services:
       REDIS_URL: "redis://redis:6379"
       PAYMENT_PORT: ${PAYMENT_PORT:-8084}
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      INTERNAL_PAYMENT_API_KEY: ${INTERNAL_PAYMENT_API_KEY:-${INTERNAL_API_KEY:-tembus_internal_key_secure}}
+      INTERNAL_PAYMENT_API_KEY: ${INTERNAL_PAYMENT_API_KEY:-${INTERNAL_API_KEY:?INTERNAL_API_KEY must be supplied by the deployment secret manager}}
     ports:
       - "${PAYMENT_PORT:-8084}:8084"
     healthcheck:

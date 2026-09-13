@@ -51,7 +51,7 @@ const orderServiceUrl = () => process.env.ORDER_SERVICE_URL || 'http://order-ser
 
 const internalHeaders = () => ({
   'Content-Type': 'application/json',
-  'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || 'dev-internal-key-super-secret',
+  'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || '',
 });
 
 type RefundTriggerResult = { amountIdr: number | null; error: string | null };

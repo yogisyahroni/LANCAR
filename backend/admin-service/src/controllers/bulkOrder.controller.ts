@@ -911,7 +911,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
           to: row.recipient_phone,
           message: waMsg
         }, {
-          headers: { 'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || 'dev-internal-key-super-secret' }
+          headers: { 'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || '' }
         }).catch(err => {
           securityLog.error(`[bulkOrder] Failed to send WA to ${row.recipient_phone}:`, err.message);
         });

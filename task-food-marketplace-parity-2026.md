@@ -5978,10 +5978,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `docs/security/threat-model-provider-webhooks.md`
 
 **Checklist**
-- [ ] Identify assets/trust boundaries/attackers/abuse cases/controls.
-- [ ] Re-review after material architecture/payment/auth/provider changes.
-- [ ] High-risk threat has owner/remediation/test.
-- [ ] Threat model includes insider/admin misuse, not internet attacker only.
+- [x] Identify assets/trust boundaries/attackers/abuse cases/controls.
+- [x] Re-review after material architecture/payment/auth/provider changes.
+- [x] High-risk threat has owner/remediation/test.
+- [x] Threat model includes insider/admin misuse, not internet attacker only.
 
 ---
 
@@ -5999,7 +5999,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## SECPLAT-2026-003 — Service-to-service identity and least privilege [P0]
 
 **Checklist**
-- [ ] Internal request identity authenticated; network location alone is insufficient trust.
+- [x] Internal request identity authenticated; network location alone is insufficient trust.
 - [ ] mTLS/workload identity/signed service credentials selected based on infra.
 - [ ] Service scopes restrict actions, especially payment/refund/admin/provider mutation.
 - [ ] Credential lifetime minimized and rotated.
@@ -6027,8 +6027,8 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - SBOM generation
 
 **Checklist**
-- [ ] Critical/high vulnerability has remediation SLA and exception process.
-- [ ] CI blocks known leaked secret patterns.
+- [x] Critical/high vulnerability has remediation SLA and exception process.
+- [x] CI blocks known leaked secret patterns.
 - [ ] SBOM stored per release artifact.
 - [ ] Dependency upgrade test covers customer/merchant/courier/backend critical paths.
 
@@ -6048,7 +6048,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## SECPLAT-2026-007 — Edge security, WAF, DDoS and abuse rate limits [P0]
 
 **Checklist**
-- [ ] Public API inventory and rate-limit policy by endpoint/client risk.
+- [x] Public API inventory and rate-limit policy by endpoint/client risk.
 - [ ] OTP/login/search/geocode/quote/tracking/webhook endpoints protected appropriately.
 - [ ] WAF/DDoS controls do not block provider callbacks without tested allow/verification strategy.
 - [ ] Abuse protection has fail-safe for active order/payment recovery.
@@ -6058,9 +6058,9 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## SECPLAT-2026-008 — Vulnerability management + penetration testing [P0/P1]
 
 **Checklist**
-- [ ] Vulnerability intake, severity, owner, SLA and retest process.
+- [x] Vulnerability intake, severity, owner, SLA and retest process.
 - [ ] Regular external/internal penetration test before major expansion/payment changes.
-- [ ] Scope includes mobile API, web, admin, auth, payment, provider webhooks.
+- [x] Scope includes mobile API, web, admin, auth, payment, provider webhooks.
 - [ ] Security findings tracked to closure with evidence.
 
 ---
@@ -6071,7 +6071,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `docs/runbooks/security-incident.md`
 
 **Checklist**
-- [ ] Severity/classification, incident commander, containment, credential rotation, evidence preservation and communication defined.
+- [x] Severity/classification, incident commander, containment, credential rotation, evidence preservation and communication defined.
 - [ ] Audit logs centralized/immutable enough for investigation.
 - [ ] Data breach/privacy notification obligations mapped per market.
 - [ ] Tabletop drill performed before multi-country launch.
@@ -6081,8 +6081,8 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## SECPLAT-2026-010 — Privileged Admin/PAM controls [P0]
 
 **Checklist**
-- [ ] Admin high-risk actions require strong authentication/session controls.
-- [ ] Least privilege/RBAC and maker-checker for global finance/config/safety changes.
+- [x] Admin high-risk actions require strong authentication/session controls.
+- [x] Least privilege/RBAC and maker-checker for global finance/config/safety changes.
 - [ ] Break-glass account tightly controlled, alerted and audited.
 - [ ] Privileged session/action logging retention policy.
 - [ ] No shared super-admin credential.
@@ -6102,8 +6102,8 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [ ] No unresolved critical vulnerability/secret leak.
-- [ ] AuthZ negative tests green.
-- [ ] Webhook replay/signature tests green.
+- [x] AuthZ negative tests green.
+- [x] Webhook replay/signature tests green.
 - [ ] Dependency/SBOM scan attached to release.
 - [ ] Backup/restore and security incident contact current.
 - [ ] High-risk exception has explicit owner/expiry/approval.
@@ -6202,10 +6202,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## REP-2026-008 — Reputation analytics/model governance [P1]
 
 **Checklist**
-- [ ] Monitor score distribution/fairness/drift by market/service.
-- [ ] ML-assisted moderation/ranking has human review/fallback for material enforcement.
+- [x] Monitor score distribution/fairness/drift by market/service.
+- [x] ML-assisted moderation/ranking has human review/fallback for material enforcement.
 - [x] Model/rule version and feature provenance logged.
-- [ ] Sensitive/protected attributes excluded unless explicitly lawful/necessary.
+- [x] Sensitive/protected attributes excluded unless explicitly lawful/necessary.
 
 ---
 
