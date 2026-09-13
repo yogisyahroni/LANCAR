@@ -60,6 +60,17 @@ export type CallSessionPayload = {
   ice_servers: IceServerPayload[];
 };
 
+/** Contact data stays masked; support reveal is disabled until separately approved. */
+export const CONTACT_ACCESS_POLICY = Object.freeze({
+  chatMode: 'masked',
+  callMode: 'masked_call_preferred',
+  callSessionTtlSeconds: 5 * 60,
+  postServiceContactWindowSeconds: 0,
+  supportOverrideAllowed: false,
+  supportOverrideRequiresTotp: true,
+  supportOverrideRequiresAudit: true,
+});
+
 const MESSAGE_MAX_LENGTH = 1000;
 const CLIENT_MESSAGE_ID_MAX_LENGTH = 120;
 const CALL_TOKEN_BYTES = 32;
@@ -157,6 +168,14 @@ export const sanitizeMessageBody = (value: unknown): string => {
     .slice(0, MESSAGE_MAX_LENGTH);
 };
 
+const CONTACT_MASK = '[kontak disamarkan]';
+
+/** Remove common phone, email and contact-link forms before persistence/response. */
+export const maskContactDetails = (value: string): string => value
+  .replace(/\b(?:https?:\/\/)?(?:wa\.me|t\.me|chat\.whatsapp\.com)\/[^\s]+/gi, CONTACT_MASK)
+  .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, CONTACT_MASK)
+  .replace(/(?<!\d)(?:\+?62|0)8(?:[\s-]?\d){8,12}(?!\d)/g, CONTACT_MASK);
+
 export const sanitizeMessageType = (value: unknown): string => {
   const normalized = String(value || 'text').trim().toLowerCase();
   return ['text', 'image', 'system'].includes(normalized) ? normalized : 'text';
@@ -181,6 +200,10 @@ const isRecipientVisibleStatus = (status: string) =>
 
 const isRecipientCallableStatus = (status: string) =>
   ['picked_up', 'in_transit', 'delivering'].includes(String(status || '').toLowerCase());
+
+const isLiveContactStatus = (status: string) =>
+  ['accepted', 'going_to_pickup', 'pickup_pending', 'pickup_arrived', 'picked_up', 'in_transit', 'delivering']
+    .includes(String(status || '').toLowerCase());
 
 const deriveConversationPhase = (orderRow: any): ConversationPhase => {
   const status = String(orderRow?.status || '').trim().toLowerCase();
@@ -560,8 +583,8 @@ export const getConversationAccess = async (
     participantCount: 0,
     recipientJoined: false,
     currentMemberJoinedAt: null,
-    canCallCustomer: Boolean(orderRow.customer_id && memberType !== 'customer'),
-    canCallCourier: Boolean(orderRow.courier_id && memberType !== 'courier'),
+    canCallCustomer: Boolean(orderRow.customer_id && memberType !== 'customer' && isLiveContactStatus(orderRow.status)),
+    canCallCourier: Boolean(orderRow.courier_id && memberType !== 'courier' && isLiveContactStatus(orderRow.status)),
     canCallRecipient: isRecipientCallableStatus(orderRow.status),
     visibilityNotice: null,
   };
@@ -615,7 +638,11 @@ export const listConversationChats = async (orderId: string, user: Communication
 
   return {
     access,
-    chats: rows,
+    // Historical rows may predate masking; sanitize again at the response boundary.
+    chats: rows.map((row) => ({
+      ...row,
+      message: maskContactDetails(String(row.message || '')),
+    })),
     read_receipts: receipts.rows,
   };
 };
@@ -626,7 +653,8 @@ export const sendConversationChat = async (
   body: { message?: unknown; message_type?: unknown; client_message_id?: unknown },
 ): Promise<ChatInsertResult> => {
   const access = await getConversationAccess(orderId, user);
-  const message = sanitizeMessageBody(body.message);
+  const sanitizedMessage = sanitizeMessageBody(body.message);
+  const message = maskContactDetails(sanitizedMessage);
   const requestedMessageType = sanitizeMessageType(body.message_type);
   const messageType = requestedMessageType === 'system' ? 'text' : requestedMessageType;
   const clientMessageId = sanitizeClientMessageId(body.client_message_id);
@@ -698,7 +726,7 @@ export const sendConversationChat = async (
       messageType,
       clientMessageId,
       access.memberType,
-      jsonString({ source: 'mobile_conversation' }),
+      jsonString({ source: 'mobile_conversation', contact_masked: message !== sanitizedMessage }),
     ]
   );
 
@@ -821,7 +849,7 @@ const resolveCallTarget = (access: ConversationAccess, callerType: ConversationA
   const targetType = ['customer', 'courier', 'recipient'].includes(requested) ? requested : fallbackTarget;
 
   if (targetType === 'customer') {
-    if (!access.customerId || callerType === 'customer') {
+    if (!access.customerId || callerType === 'customer' || !access.canCallCustomer) {
       void recordRealtimeMetric('communication_wrong_target_prevented', {
         caller_type: callerType,
         target_type: targetType,
@@ -835,7 +863,7 @@ const resolveCallTarget = (access: ConversationAccess, callerType: ConversationA
   }
 
   if (targetType === 'courier') {
-    if (!access.courierId || callerType === 'courier') {
+    if (!access.courierId || callerType === 'courier' || !access.canCallCourier) {
       void recordRealtimeMetric('communication_wrong_target_prevented', {
         caller_type: callerType,
         target_type: targetType,

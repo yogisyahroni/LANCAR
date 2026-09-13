@@ -40,8 +40,10 @@ snapshot before an action. Push is never an authoritative mutation.
 ## Chat, masking and access
 
 Order chat is scoped to the order and re-checks participant authorization on
-every send/read operation. Text and links containing phone/contact details are
-masked. Attachment requests are rejected until the moderation path is active;
+every send/read operation. Text, phone numbers, email addresses and supported
+contact links are masked at both persistence and response boundaries. Calls use
+short-lived in-app tokens and are accepted only while the order is in a live
+contact status. Attachment requests are rejected until the moderation path is active;
 the reserved policy is image/jpeg, image/png or image/webp, at most 10 MiB,
 virus/malware scan required, no executable/archive content, and no client URL
 is trusted as proof of a completed scan. Reports must enter Support/Safety

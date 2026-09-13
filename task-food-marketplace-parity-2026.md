@@ -5207,10 +5207,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## SAFE-2026-006 — Contact masking / privacy during live service [P0]
 
 **Checklist**
-- [ ] Phone/contact sharing minimized and lifecycle scoped.
-- [ ] Masked call/chat preferred where available.
-- [ ] Contact access expires after configured recovery window.
-- [ ] Support override to reveal sensitive contact requires elevated policy and audit if ever allowed.
+- [x] Phone/contact sharing minimized and lifecycle scoped.
+- [x] Masked call/chat preferred where available.
+- [x] Contact access expires after configured recovery window.
+- [x] Support override to reveal sensitive contact requires elevated policy and audit if ever allowed.
 
 ---
 

@@ -1,7 +1,9 @@
 import {
   createOrderCallSession,
+  CONTACT_ACCESS_POLICY,
   getConversationAccess,
   listConversationChats,
+  maskContactDetails,
   sendConversationChat,
 } from './orderCommunication';
 import crypto from 'crypto';
@@ -45,6 +47,22 @@ describe('orderCommunication', () => {
     delete process.env.TURN_STATIC_PASSWORD;
   });
 
+  it('masks contact data and keeps support reveal disabled by policy', () => {
+    const masked = maskContactDetails('Hubungi 081234567890 atau test@example.com via https://wa.me/6281234567890');
+    expect(masked).not.toContain('081234567890');
+    expect(masked).not.toContain('test@example.com');
+    expect(masked).not.toContain('wa.me');
+    expect(CONTACT_ACCESS_POLICY).toMatchObject({
+      chatMode: 'masked',
+      callMode: 'masked_call_preferred',
+      callSessionTtlSeconds: 300,
+      postServiceContactWindowSeconds: 0,
+      supportOverrideAllowed: false,
+      supportOverrideRequiresTotp: true,
+      supportOverrideRequiresAudit: true,
+    });
+  });
+
   const mockConversationBootstrap = (row = orderRow) => {
     const isGroup = ['picked_up', 'in_transit', 'delivering', 'delivered', 'completed'].includes(String(row.status).toLowerCase()) && row.recipient_name;
     db.query
@@ -82,6 +100,37 @@ describe('orderCommunication', () => {
     )).rejects.toMatchObject({ message: 'client_message_id is required', statusCode: 400 });
 
     expect(db.query).toHaveBeenCalledTimes(5);
+  });
+
+  it('masks phone/email before persisting an order chat message', async () => {
+    mockConversationBootstrap();
+    db.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 'chat-1', message: '[kontak disamarkan]', message_type: 'text' }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await sendConversationChat(
+      orderId,
+      { id: customerId, role: 'customer', full_name: 'Customer' },
+      { message: 'Nomor kurir 081234567890, email test@example.com', client_message_id: 'client-mask-1' },
+    );
+
+    const insertCall = db.query.mock.calls.find(([query]: [string]) => query.includes('INSERT INTO order_chats'));
+    expect(insertCall).toBeTruthy();
+    expect(insertCall[1][3]).toBe('Nomor kurir [kontak disamarkan], email [kontak disamarkan]');
+    expect(JSON.parse(insertCall[1][7])).toMatchObject({ contact_masked: true });
+  });
+
+  it('masks historical unmasked chat text at the response boundary', async () => {
+    mockConversationBootstrap();
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'chat-2', message: 'Call 081234567890 or test@example.com', sender_id: courierId }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const result = await listConversationChats(orderId, { id: customerId, role: 'customer' });
+
+    expect(result.chats[0].message).toBe('Call [kontak disamarkan] or [kontak disamarkan]');
   });
 
   it('keeps one conversation per order and exposes delivery group context after pickup', async () => {
@@ -277,5 +326,15 @@ describe('orderCommunication', () => {
       message: 'Recipient call target is not active for this order',
       statusCode: 409,
     });
+  });
+
+  it('blocks customer calls after the live contact window closes', async () => {
+    mockConversationBootstrap({ ...orderRow, status: 'delivered' });
+
+    await expect(createOrderCallSession(
+      orderId,
+      { id: courierId, role: 'courier', full_name: 'Kurir' },
+      'customer',
+    )).rejects.toMatchObject({ message: 'Customer call target is not available', statusCode: 409 });
   });
 });
