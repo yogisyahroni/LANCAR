@@ -1,4 +1,4 @@
-import { resolveMembershipBenefitEligibility } from './loyalty.controller';
+import { applyLoyaltyOrderEvent, resolveMembershipBenefitEligibility } from './loyalty.controller';
 
 jest.mock('../db', () => ({
   db: { connect: jest.fn() },
@@ -13,7 +13,7 @@ jest.mock('../security/logRedaction', () => ({
   securityLog: { error: jest.fn(), warn: jest.fn() },
 }));
 
-const { readDb } = jest.requireMock('../db') as { readDb: { query: jest.Mock } };
+const { db, readDb } = jest.requireMock('../db') as { db: { connect: jest.Mock }; readDb: { query: jest.Mock } };
 const owner = '11111111-1111-4111-8111-111111111111';
 
 const response = () => {
@@ -75,5 +75,27 @@ describe('membership eligibility boundary', () => {
         plan_version: 2,
       }),
     }));
+  });
+
+  it('accepts earn only after the authoritative order is completed', async () => {
+    const client = { query: jest.fn(), release: jest.fn() };
+    client.query
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ customer_id: owner, status: 'delivered' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'account-1', points_balance: 0 }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'entry-1' }] })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ id: 'account-1', market_code: 'id-jk', points_balance: 100, benefit_balance: {} }] })
+      .mockResolvedValueOnce({});
+    db.connect.mockResolvedValue(client);
+    const res = response();
+    await applyLoyaltyOrderEvent({
+      body: { owner_id: owner, market_code: 'id-jk', order_id: '22222222-2222-4222-8222-222222222222', event_type: 'EARN', points: 100 },
+      header: (name: string) => name.toLowerCase() === 'x-internal-api-key' ? 'test-internal-key' : undefined,
+    } as any, res);
+    expect(client.query.mock.calls[1][0]).toContain('FROM orders');
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
   });
 });

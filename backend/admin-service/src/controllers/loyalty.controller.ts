@@ -257,6 +257,33 @@ export const applyLoyaltyOrderEvent = async (req: Request, res: Response): Promi
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    const order = await client.query<{ customer_id: string; status: string }>(
+      `SELECT customer_id, status FROM orders WHERE id = $1 FOR SHARE`,
+      [orderId],
+    );
+    if (!order.rows[0]) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, code: 'ERR_LOYALTY_ORDER_NOT_FOUND' });
+      return;
+    }
+    if (String(order.rows[0].customer_id) !== ownerId) {
+      await client.query('ROLLBACK');
+      res.status(403).json({ success: false, code: 'ERR_LOYALTY_ORDER_OWNER_MISMATCH' });
+      return;
+    }
+    const orderStatus = String(order.rows[0].status || '').trim().toLowerCase();
+    const qualifyingStatus = ['delivered', 'completed', 'pod_completed'].includes(orderStatus);
+    const reversibleStatus = ['cancelled', 'refunded', 'refund_completed', 'payment_refunded'].includes(orderStatus);
+    if (eventType === 'EARN' && !qualifyingStatus) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, code: 'ERR_LOYALTY_ORDER_NOT_QUALIFYING' });
+      return;
+    }
+    if (eventType === 'REVERSE' && !reversibleStatus) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, code: 'ERR_LOYALTY_ORDER_NOT_REVERSIBLE' });
+      return;
+    }
     const account = await client.query(
       `INSERT INTO loyalty_accounts (owner_id, market_code) VALUES ($1, $2)
        ON CONFLICT (owner_id, market_code) DO UPDATE SET updated_at = loyalty_accounts.updated_at
