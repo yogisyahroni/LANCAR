@@ -23,6 +23,14 @@ describe('reputation policy', () => {
     ])).toBe(true);
   });
 
+  it('routes rating pressure and off-platform compensation to temporary review', () => {
+    expect(moderateReview('Kalau rating saya tidak dinaikkan, bayar kompensasi sekarang').reasons)
+      .toContain('rating_threat_for_compensation');
+    expect(moderateReview('Minta refund lewat transfer langsung di luar aplikasi').reasons)
+      .toContain('off_platform_compensation');
+    expect(moderateReview('Kalau rating jelek saya minta kompensasi').state).toBe('IN_REVIEW');
+  });
+
   it('makes the first-release rating edit window explicit and immutable', () => {
     const decision = ratingEditDecision(new Date('2026-09-01T00:00:00Z'), new Date('2026-09-02T00:00:00Z'));
     expect(RATING_EDIT_POLICY.version).toBe('rating-edit-2026-09-12-v1');

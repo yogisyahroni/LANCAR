@@ -50,9 +50,16 @@ publicRoutes.post('/api/v1/customer/location-requests', requireMobileOrWebAuth, 
 publicRoutes.get('/api/v1/customer/location-requests/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getReceiverLocationRequestForCustomer(req, res));
 publicRoutes.delete('/api/v1/customer/location-requests/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.revokeReceiverLocationRequest(req, res));
 publicRoutes.get('/api/v1/customer/referral', requireMobileOrWebAuth, (req, res) => controllers.referral.getReferralInfo(req, res));
-publicRoutes.post('/api/v1/customer/referral/apply', requireMobileOrWebAuth, (req, res) => controllers.referral.applyReferralCode(req, res));
+publicRoutes.post('/api/v1/customer/referral/apply', requireMobileOrWebAuth, requireIdempotencyKey('customer.referral.apply'), (req, res) => controllers.referral.applyReferralCode(req, res));
 publicRoutes.get('/api/v1/customer/banners', requireMobileOrWebAuth, (req, res) => controllers.listCustomerBanners(req, res));
 publicRoutes.get('/api/v1/customer/loyalty', requireMobileOrWebAuth, (req, res) => controllers.loyalty.getLoyaltyInfo(req, res));
+publicRoutes.get('/api/v1/customer/loyalty/ledger', requireMobileOrWebAuth, (req, res) => controllers.loyalty.getLoyaltyLedger(req, res));
+publicRoutes.get('/api/v1/customer/memberships', requireMobileOrWebAuth, (req, res) => controllers.loyalty.getMembershipEntitlements(req, res));
+publicRoutes.get('/api/v1/reputation/subjects/:subjectId', requireMobileOrWebAuth, (req, res) => controllers.getPublicReputationAggregate(req, res));
+publicRoutes.post('/api/v1/reputation/reviews', requireMobileOrWebAuth, requireIdempotencyKey('customer.reputation.review.create'), (req, res) => controllers.createReputationReview(req, res));
+publicRoutes.post('/api/v1/reputation/reviews/:id/report', requireMobileOrWebAuth, requireIdempotencyKey('customer.reputation.review.report'), (req, res) => controllers.reportReputationReview(req, res));
+publicRoutes.post('/api/v1/reputation/reviews/:id/appeals', requireMobileOrWebAuth, requireIdempotencyKey('customer.reputation.review.appeal'), (req, res) => controllers.submitReputationAppeal(req, res));
+publicRoutes.post('/api/v1/merchant/reputation/reviews/:id/response', requireMobileOrWebAuth, requireIdempotencyKey('merchant.reputation.review.response'), (req, res) => controllers.upsertMerchantReputationResponse(req, res));
 publicRoutes.get('/api/v1/customer/promos/eligible', requireMobileOrWebAuth, promoReadRateLimiter, (req, res) => controllers.listCustomerEligiblePromos(req, res));
 publicRoutes.post('/api/v1/customer/promos/validate', requireMobileOrWebAuth, promoReadRateLimiter, (req, res) => controllers.validateCustomerPromo(req, res));
 publicRoutes.post('/api/v1/customer/promos/reserve', requireMobileOrWebAuth, promoMutationRateLimiter, requireIdempotencyKey('customer.promo.reserve'), (req, res) => controllers.reserveCustomerPromo(req, res));

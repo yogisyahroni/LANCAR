@@ -220,6 +220,22 @@ const findAuthorityContext = async (caseId: string, useWriter = false): Promise<
         orderId = refund.rows[0]?.order_id || null;
         if (orderId) break;
       }
+      if (link.reference_type === 'chargeback' && isUuid(link.reference_id)) {
+        const chargeback = await executor.query<{ order_id: string }>(
+          `SELECT pi.order_id FROM payment_chargebacks cb JOIN payment_intents pi ON pi.id = cb.intent_id WHERE cb.id = $1 LIMIT 1`,
+          [link.reference_id],
+        );
+        orderId = chargeback.rows[0]?.order_id || null;
+        if (orderId) break;
+      }
+      if (link.reference_type === 'safety' && isUuid(link.reference_id)) {
+        const incident = await executor.query<{ order_id: string }>(
+          `SELECT order_id FROM safety_incidents WHERE id = $1 LIMIT 1`,
+          [link.reference_id],
+        );
+        orderId = incident.rows[0]?.order_id || null;
+        if (orderId) break;
+      }
     }
   }
 
@@ -310,6 +326,9 @@ const validateReferenceOwnership = async (
   let ownedReferenceCount = 0;
 
   for (const link of links) {
+    if (actorRole(req) === 'customer' && link.reference_type === 'chargeback') {
+      throw Object.assign(new Error('Customer tidak dapat menautkan chargeback secara langsung'), { statusCode: 403 });
+    }
     if (!isUuid(link.reference_id)) continue;
     let result: { rows: Array<{ customer_id?: string; order_id?: string }> } | null = null;
     if (link.reference_type === 'order') {
@@ -323,6 +342,21 @@ const validateReferenceOwnership = async (
       result = await client.query(
         `SELECT o.customer_id FROM refunds r JOIN orders o ON o.id = r.order_id WHERE r.id = $1 LIMIT 1`,
         [link.reference_id],
+      );
+    } else if (link.reference_type === 'chargeback') {
+      result = await client.query(
+        `SELECT pi.customer_id FROM payment_chargebacks cb JOIN payment_intents pi ON pi.id = cb.intent_id WHERE cb.id = $1 LIMIT 1`,
+        [link.reference_id],
+      );
+    } else if (link.reference_type === 'safety') {
+      result = await client.query(
+        `SELECT si.reporter_id AS customer_id
+           FROM safety_incidents si
+           LEFT JOIN orders o ON o.id = si.order_id
+          WHERE si.id = $1
+            AND (si.reporter_id = $2 OR o.customer_id = $2)
+          LIMIT 1`,
+        [link.reference_id, customerId],
       );
     }
 
@@ -387,7 +421,13 @@ const caseDetail = async (row: CaseRow, req: Request, useWriter = false) => {
   return {
     ...row,
     sla_breached: new Date(row.sla_due_at).getTime() < Date.now() && !['resolved', 'closed'].includes(row.status),
-    links: linksResult.rows.filter((link) => restrictedLinkForActor(link, req)),
+    links: linksResult.rows
+      .filter((link) => restrictedLinkForActor(link, req) || (link.reference_type === 'safety' && actorRole(req) === 'cs_agent'))
+      .map((link) => (
+        link.reference_type === 'safety' && !canViewRestrictedSupportData(actorRole(req))
+          ? { ...link, reference_id: 'REDACTED', reference_label: link.reference_label || 'Safety incident' }
+          : link
+      )),
     events: eventsResult.rows.map((event) => ({
       ...event,
       actor_id: isSupportStaffRole(actorRole(req)) ? event.actor_id : null,

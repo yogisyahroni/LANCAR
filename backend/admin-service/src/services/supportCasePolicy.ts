@@ -8,6 +8,8 @@ export const SUPPORT_REFERENCE_TYPES = [
   'proof',
   'claim',
   'reconciliation',
+  'chargeback',
+  'safety',
 ] as const;
 
 export type SupportReferenceType = (typeof SUPPORT_REFERENCE_TYPES)[number];
@@ -173,7 +175,7 @@ export const getSupportCasePolicy = (input: SupportCasePolicyInput): SupportCase
 export const isSupportStaffRole = (role: string | undefined) => SUPPORT_STAFF_ROLES.has(normalize(role));
 
 export const isRestrictedSupportReference = (referenceType: string) =>
-  referenceType === 'payment' || referenceType === 'proof';
+  referenceType === 'payment' || referenceType === 'proof' || referenceType === 'chargeback' || referenceType === 'safety';
 
 export const canViewRestrictedSupportData = (role: string | undefined) =>
   ['super_admin', 'ops_security', 'finance_admin', 'finance'].includes(normalize(role));

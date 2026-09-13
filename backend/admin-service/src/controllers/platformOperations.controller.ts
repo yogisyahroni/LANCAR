@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db, readDb } from '../db';
 import { getActorId } from '../utils/authUtils';
 import { securityLog } from '../security/logRedaction';
+import { requestPaymentConfigChange } from './paymentConfigApproval.controller';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const limitOf = (value: unknown, fallback = 50) => {
@@ -9,6 +10,11 @@ const limitOf = (value: unknown, fallback = 50) => {
   return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 250) : fallback;
 };
 const jsonObject = (value: unknown) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
+const reviewedEvidenceRefs = (value: unknown): string[] => (
+  Array.isArray(value)
+    ? value.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 20)
+    : []
+);
 
 export const listPaymentProviderHealth = async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -42,36 +48,7 @@ export const listPaymentMethodCatalog = async (req: Request, res: Response): Pro
 };
 
 export const updatePaymentMethodCatalog = async (req: Request, res: Response): Promise<void> => {
-  const marketCode = String(req.body?.market_code || '').trim().toLowerCase().slice(0, 32);
-  const currency = String(req.body?.currency || '').trim().toUpperCase();
-  const paymentMethod = String(req.body?.payment_method || '').trim().toLowerCase().slice(0, 64);
-  const provider = String(req.body?.provider || '').trim().toLowerCase().slice(0, 64);
-  const enabled = req.body?.enabled;
-  const minAmount = req.body?.min_amount_minor == null ? null : Number(req.body.min_amount_minor);
-  const maxAmount = req.body?.max_amount_minor == null ? null : Number(req.body.max_amount_minor);
-  if (!marketCode || !/^[A-Z]{3}$/.test(currency) || !paymentMethod || !provider || typeof enabled !== 'boolean' || (minAmount != null && (!Number.isSafeInteger(minAmount) || minAmount <= 0)) || (maxAmount != null && (!Number.isSafeInteger(maxAmount) || maxAmount < (minAmount || 0)))) {
-    res.status(400).json({ success: false, error: 'market, currency, method, provider, enabled, and valid amount bounds are required' });
-    return;
-  }
-  try {
-    const actor = getActorId(req);
-    const result = await db.query(
-      `INSERT INTO payment_method_catalog
-        (market_code, currency, payment_method, provider, enabled, min_amount_minor, max_amount_minor, risk_context)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
-       ON CONFLICT (market_code, currency, payment_method, provider) DO UPDATE SET
-         enabled = EXCLUDED.enabled, min_amount_minor = EXCLUDED.min_amount_minor,
-         max_amount_minor = EXCLUDED.max_amount_minor, version = payment_method_catalog.version + 1,
-         updated_at = NOW()
-       RETURNING id, market_code, currency, payment_method, provider, enabled, min_amount_minor, max_amount_minor, version, updated_at`,
-      [marketCode, currency, paymentMethod, provider, enabled, minAmount, maxAmount, '{}'],
-    );
-    await db.query(`INSERT INTO audit_logs (actor_id, action, target_id, payload) VALUES ($1, 'payment.method_catalog.updated', $2, $3::jsonb)`, [actor, result.rows[0].id, JSON.stringify({ market_code: marketCode, currency, payment_method: paymentMethod, provider, enabled, min_amount_minor: minAmount, max_amount_minor: maxAmount })]);
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error: any) {
-    securityLog.error('admin_payment_method_catalog_update_failed', { error: error.message, market_code: marketCode, payment_method: paymentMethod });
-    res.status(500).json({ success: false, error: 'Payment method catalog update failed' });
-  }
+  await requestPaymentConfigChange(req, res, 'METHOD_CATALOG');
 };
 
 export const listPaymentIntents = async (req: Request, res: Response): Promise<void> => {
@@ -125,12 +102,18 @@ export const listPaymentChargebacks = async (req: Request, res: Response): Promi
   try {
     const state = String(req.query.state || '').trim().toUpperCase();
     const result = await readDb.query(
-      `SELECT id, intent_id, provider, provider_case_reference, amount_minor, currency,
-              state, evidence_deadline, liability_owner, created_at, updated_at
-         FROM payment_chargebacks
-        WHERE ($1 = '' OR state = $1)
-        ORDER BY CASE WHEN evidence_deadline IS NULL THEN 1 ELSE 0 END,
-                 evidence_deadline ASC NULLS LAST, updated_at DESC LIMIT $2`,
+      `SELECT pc.id, pc.intent_id, pi.order_id, pc.provider, pc.provider_case_reference,
+              pc.amount_minor, pc.currency, pc.state, pc.evidence_deadline,
+              pc.liability_owner, pc.created_at, pc.updated_at,
+              COALESCE((SELECT ARRAY_AGG(scl.case_id ORDER BY scl.created_at ASC)
+                          FROM support_case_links scl
+                         WHERE scl.reference_type = 'chargeback'
+                           AND scl.reference_id = pc.id::text), ARRAY[]::uuid[]) AS support_case_ids
+         FROM payment_chargebacks pc
+         LEFT JOIN payment_intents pi ON pi.id = pc.intent_id
+        WHERE ($1 = '' OR pc.state = $1)
+        ORDER BY CASE WHEN pc.evidence_deadline IS NULL THEN 1 ELSE 0 END,
+                 pc.evidence_deadline ASC NULLS LAST, pc.updated_at DESC LIMIT $2`,
       [state, limitOf(req.query.limit)],
     );
     res.json({ success: true, data: result.rows, state: state || null });
@@ -163,34 +146,7 @@ export const listPaymentIntentEvents = async (req: Request, res: Response): Prom
 };
 
 export const updatePaymentProviderHealth = async (req: Request, res: Response): Promise<void> => {
-  const provider = String(req.body?.provider || '').trim().toLowerCase().slice(0, 64);
-  const state = String(req.body?.state || '').trim().toLowerCase();
-  const reason = String(req.body?.reason || '').trim().slice(0, 1000);
-  if (!provider || !['healthy', 'degraded', 'disabled'].includes(state) || !reason) {
-    res.status(400).json({ success: false, error: 'provider, valid state, and reason are required' });
-    return;
-  }
-  try {
-    const actor = getActorId(req);
-    const result = await db.query(
-      `INSERT INTO payment_provider_health (provider, state, allow_new_attempts, reason, updated_by)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (provider) DO UPDATE SET state = EXCLUDED.state,
-         allow_new_attempts = EXCLUDED.allow_new_attempts, reason = EXCLUDED.reason,
-         updated_by = EXCLUDED.updated_by, updated_at = NOW()
-       RETURNING provider, state, allow_new_attempts, reason, updated_at, updated_by`,
-      [provider, state, state === 'healthy', reason, actor],
-    );
-    await db.query(
-      `INSERT INTO audit_logs (actor_id, action, target_id, payload)
-       VALUES ($1, 'payment.provider_health.updated', NULL, $2::jsonb)`,
-      [actor, JSON.stringify({ provider, state, reason })],
-    );
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error: any) {
-    securityLog.error('admin_payment_health_update_failed', { error: error.message, provider });
-    res.status(500).json({ success: false, error: 'Payment provider health update failed' });
-  }
+  await requestPaymentConfigChange(req, res, 'PROVIDER_HEALTH');
 };
 
 export const requestPaymentAction = async (req: Request, res: Response): Promise<void> => {
@@ -299,7 +255,25 @@ export const listAdminReputationReviews = async (req: Request, res: Response): P
   try {
     const result = await readDb.query(
       `SELECT id, reviewer_id, subject_id, order_id, service_code, market_code, stars,
-              dimensions, body, state, moderation_reason, quality_rule_version, created_at, updated_at
+              dimensions, body, state, moderation_reason, quality_rule_version, created_at, updated_at,
+              (SELECT COUNT(*)::int FROM reputation_reviews aggregate_reviews
+                WHERE aggregate_reviews.subject_id = reputation_reviews.subject_id
+                  AND aggregate_reviews.service_code = reputation_reviews.service_code
+                  AND aggregate_reviews.market_code = reputation_reviews.market_code
+                  AND aggregate_reviews.state = 'PUBLISHED') AS published_sample_size,
+              CASE WHEN (SELECT COUNT(*) FROM reputation_reviews aggregate_reviews
+                          WHERE aggregate_reviews.subject_id = reputation_reviews.subject_id
+                            AND aggregate_reviews.service_code = reputation_reviews.service_code
+                            AND aggregate_reviews.market_code = reputation_reviews.market_code
+                            AND aggregate_reviews.state = 'PUBLISHED') >= 5
+                   THEN 'PUBLISHED_SAMPLE_MEETS_PRIVACY_THRESHOLD'
+                   ELSE 'PUBLISHED_SAMPLE_BELOW_PRIVACY_THRESHOLD'
+              END AS aggregate_visibility_reason,
+              CASE WHEN COUNT(*) OVER (PARTITION BY reviewer_id, stars) >= 3
+                         OR COUNT(*) OVER (PARTITION BY subject_id, stars) >= 3
+                   THEN 'COORDINATED_RATING_SIGNAL'
+                   ELSE NULL
+              END AS rating_abuse_signal
          FROM reputation_reviews
         WHERE ($1 = '' OR state = $1)
           AND ($2 = '' OR reviewer_id = $2::uuid)
@@ -321,7 +295,8 @@ export const moderateAdminReputationReview = async (req: Request, res: Response)
   const reviewId = String(req.params.id || '').trim();
   const state = String(req.body?.state || '').trim().toUpperCase();
   const reason = String(req.body?.reason || '').trim().slice(0, 1000);
-  if (!UUID_PATTERN.test(reviewId) || !['PUBLISHED', 'IN_REVIEW', 'HIDDEN'].includes(state) || !reason) {
+  const evidenceRefs = reviewedEvidenceRefs(req.body?.reviewed_evidence_refs);
+  if (!UUID_PATTERN.test(reviewId) || !['PUBLISHED', 'IN_REVIEW', 'HIDDEN'].includes(state) || !reason || (state === 'HIDDEN' && evidenceRefs.length === 0)) {
     res.status(400).json({ success: false, error: 'review id, governed state, and reason are required' });
     return;
   }
@@ -339,11 +314,11 @@ export const moderateAdminReputationReview = async (req: Request, res: Response)
     await client.query(
       `INSERT INTO reputation_actions (review_id, subject_id, action, reason, evidence_snapshot, rule_version, actor_id)
        VALUES ($1, $2, $3, $4, $5::jsonb, 'admin-moderation-2026-09-12', $6)`,
-      [reviewId, current.rows[0].subject_id, action, reason, JSON.stringify({ previous_state: current.rows[0].state, new_state: state }), actor],
+      [reviewId, current.rows[0].subject_id, action, reason, JSON.stringify({ previous_state: current.rows[0].state, new_state: state, evidence_review_status: state === 'HIDDEN' ? 'REVIEWED' : 'NOT_REQUIRED', reviewed_evidence_refs: evidenceRefs, temporary_until_reviewed: state === 'IN_REVIEW' }), actor],
     );
     await client.query(
       `INSERT INTO audit_logs (actor_id, action, target_id, payload) VALUES ($1, 'reputation.review.moderated', $2, $3::jsonb)`,
-      [actor, reviewId, JSON.stringify({ previous_state: current.rows[0].state, state, reason })],
+      [actor, reviewId, JSON.stringify({ previous_state: current.rows[0].state, state, reason, reviewed_evidence_refs: evidenceRefs })],
     );
     await client.query('COMMIT');
     res.json({ success: true, data: { id: reviewId, state, action } });
@@ -386,12 +361,14 @@ export const upsertAdminReputationResponse = async (req: Request, res: Response)
 
 export const listAdminCrmControlPlane = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const [campaigns, loyalty, exceptions] = await Promise.all([
+    const [campaigns, loyalty, exceptions, referrals, memberships] = await Promise.all([
       readDb.query(`SELECT id, campaign_code, market_code, state, audience_definition, budget_minor, funding_breakdown, frequency_cap, holdout_percent, starts_at, ends_at, created_by, approved_by, created_at, updated_at FROM crm_campaigns ORDER BY updated_at DESC LIMIT 100`),
       readDb.query(`SELECT market_code, COUNT(*)::int AS accounts, COALESCE(SUM(points_balance), 0)::bigint AS points_outstanding FROM loyalty_accounts GROUP BY market_code ORDER BY market_code`),
       readDb.query(`SELECT id, source_type, source_id, expected_minor, actual_minor, difference_minor, reason, state, created_at FROM crm_reconciliation_exceptions WHERE state IN ('OPEN','IN_REVIEW') ORDER BY created_at DESC LIMIT 100`),
+      readDb.query(`SELECT market_code, status, COUNT(*)::int AS attributions, COALESCE(SUM(reward_liability_minor), 0)::bigint AS reward_liability_minor FROM crm_referral_attributions GROUP BY market_code, status ORDER BY market_code, status`),
+      readDb.query(`SELECT p.market_code, e.state, COUNT(*)::int AS entitlements, COALESCE(SUM(p.price_minor), 0)::bigint AS plan_value_minor FROM crm_membership_entitlements e JOIN crm_membership_plans p ON p.id = e.plan_id GROUP BY p.market_code, e.state ORDER BY p.market_code, e.state`),
     ]);
-    res.json({ success: true, data: { campaigns: campaigns.rows, loyalty: loyalty.rows, exceptions: exceptions.rows } });
+    res.json({ success: true, data: { campaigns: campaigns.rows, loyalty: loyalty.rows, exceptions: exceptions.rows, referrals: referrals.rows, memberships: memberships.rows } });
   } catch (error: any) {
     securityLog.error('admin_crm_control_plane_failed', { error: error.message });
     res.status(500).json({ success: false, error: 'CRM control plane unavailable' });
@@ -429,17 +406,43 @@ export const updateAdminCrmCampaignState = async (req: Request, res: Response): 
     return;
   }
   const actor = getActorId(req);
+  const actorRole = String(req.user?.role || '').trim().toLowerCase();
+  const client = await db.connect();
   try {
-    const result = await db.query(
+    await client.query('BEGIN');
+    const current = await client.query<{ state: string }>(
+      `SELECT state FROM crm_campaigns WHERE id = $1 FOR UPDATE`,
+      [id],
+    );
+    if (!current.rows[0]) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, error: 'Campaign not found' });
+      return;
+    }
+    const currentState = String(current.rows[0].state || '').toUpperCase();
+    const publicationAllowed = state === 'SCHEDULED'
+      ? currentState === 'PENDING_APPROVAL'
+      : state === 'ACTIVE'
+        ? ['PENDING_APPROVAL', 'SCHEDULED'].includes(currentState)
+        : true;
+    if (['SCHEDULED', 'ACTIVE'].includes(state) && (actorRole !== 'super_admin' || !publicationAllowed)) {
+      await client.query('ROLLBACK');
+      res.status(403).json({ success: false, error: 'Campaign publication requires super_admin approval from an approved workflow state' });
+      return;
+    }
+    const result = await client.query(
       `UPDATE crm_campaigns SET state = $2, approved_by = CASE WHEN $2 IN ('SCHEDULED','ACTIVE') THEN $3 ELSE approved_by END, updated_at = NOW()
         WHERE id = $1 RETURNING id, campaign_code, state, approved_by, updated_at`,
       [id, state, actor],
     );
-    if (!result.rows[0]) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
-    await db.query(`INSERT INTO audit_logs (actor_id, action, target_id, payload) VALUES ($1, 'crm.campaign.state_updated', $2, $3::jsonb)`, [actor, id, JSON.stringify({ state })]);
+    await client.query(`INSERT INTO audit_logs (actor_id, action, target_id, payload) VALUES ($1, 'crm.campaign.state_updated', $2, $3::jsonb)`, [actor, id, JSON.stringify({ from_state: currentState, state, actor_role: actorRole })]);
+    await client.query('COMMIT');
     res.json({ success: true, data: result.rows[0] });
   } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => undefined);
     securityLog.error('admin_crm_campaign_state_failed', { error: error.message, campaign_id: id });
     res.status(500).json({ success: false, error: 'Campaign state update failed' });
+  } finally {
+    client.release();
   }
 };

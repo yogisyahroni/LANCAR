@@ -6157,10 +6157,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## REP-2026-004 — Retaliation, coercion and rating abuse protection [P0/P1]
 
 **Checklist**
-- [ ] Detect reciprocal/coordinated rating abuse where signals justify.
+- [x] Detect reciprocal/coordinated rating abuse where signals justify.
 - [x] Courier/merchant cannot require a rating before completing service.
-- [ ] Customer cannot use rating threat to demand off-platform compensation without support path.
-- [ ] Suspected abuse feeds Risk/Moderation, not automatic hidden punishment only.
+- [x] Customer cannot use rating threat to demand off-platform compensation without support path.
+- [x] Suspected abuse feeds Risk/Moderation, not automatic hidden punishment only.
 
 ---
 
@@ -6177,10 +6177,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## REP-2026-006 — Enforcement and appeal integration [P0/P1]
 
 **Checklist**
-- [ ] Material restriction references reviewed evidence/signal set.
+- [x] Material restriction references reviewed evidence/signal set.
 - [x] Unverified report can trigger investigation/temporary safety action but is not silently permanent truth.
 - [x] Appeal records reviewer/outcome/reason.
-- [ ] Reversed enforcement recomputes relevant reputation state.
+- [x] Reversed enforcement recomputes relevant reputation state.
 
 ---
 
@@ -6194,7 +6194,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 **Checklist**
 - [x] Search/filter by actor/order/service/market/status.
 - [x] Moderation action RBAC/audit.
-- [ ] Privacy-safe view of why aggregate changed.
+- [x] Privacy-safe view of why aggregate changed.
 - [x] No direct arbitrary star-rating overwrite by ordinary admin.
 
 ---

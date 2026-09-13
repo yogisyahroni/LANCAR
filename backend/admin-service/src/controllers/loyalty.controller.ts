@@ -85,6 +85,49 @@ export const getLoyaltyInfo = async (req: Request, res: Response) => {
   }
 };
 
+/** Customer-scoped immutable history; current balance remains the account projection. */
+export const getLoyaltyLedger = async (req: Request, res: Response): Promise<void> => {
+  const userId = getActorId(req);
+  const marketCode = String(req.query.market_code || '').trim().toLowerCase();
+  const limit = Math.min(Math.max(Number.parseInt(String(req.query.limit || '50'), 10) || 50, 1), 100);
+  try {
+    const result = await readDb.query(
+      `SELECT le.id, la.market_code, le.entry_type, le.points, le.source_type,
+              le.source_id, le.liability_minor, le.reason, le.metadata, le.created_at
+         FROM loyalty_ledger_entries le
+         JOIN loyalty_accounts la ON la.id = le.account_id
+        WHERE la.owner_id = $1 AND ($2 = '' OR la.market_code = $2)
+        ORDER BY le.created_at DESC LIMIT $3`,
+      [userId, marketCode, limit],
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    securityLog.error('GET_LOYALTY_LEDGER_FAILED', { error: error?.message });
+    res.status(500).json({ success: false, code: 'ERR_LOYALTY_LEDGER_UNAVAILABLE' });
+  }
+};
+
+/** Entitlement read model; payment/order services remain authoritative for mutation. */
+export const getMembershipEntitlements = async (req: Request, res: Response): Promise<void> => {
+  const userId = getActorId(req);
+  try {
+    const result = await readDb.query(
+      `SELECT e.id, p.plan_code, p.version, p.market_code, p.currency,
+              p.billing_cycle, p.benefits, e.state, e.current_period_start,
+              e.current_period_end, e.payment_intent_id, e.created_at, e.updated_at
+         FROM crm_membership_entitlements e
+         JOIN crm_membership_plans p ON p.id = e.plan_id
+        WHERE e.owner_id = $1
+        ORDER BY e.current_period_end DESC`,
+      [userId],
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    securityLog.error('GET_MEMBERSHIP_ENTITLEMENTS_FAILED', { error: error?.message });
+    res.status(500).json({ success: false, code: 'ERR_MEMBERSHIP_UNAVAILABLE' });
+  }
+};
+
 type LoyaltyOrderEvent = {
   owner_id?: string;
   market_code?: string;

@@ -46,6 +46,11 @@ export const moderateReview = (body: string | null | undefined): { state: Reputa
     /\b(?:bodoh|ancam|bunuh)\b/.test(value) ? 'harassment_or_threat' : null,
     /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/.test(value) ? 'pii_email' : null,
     /\b(?:\+?\d[\d\s-]{7,}\d)\b/.test(value) ? 'pii_phone' : null,
+    /\b(?:kalau|jika|bila)\b[^.?!]{0,80}\b(?:rating|bintang)\b[^.?!]{0,80}\b(?:bayar|uang|kompensasi|refund)\b/.test(value)
+      || /\b(?:rating|bintang)\b[^.?!]{0,80}\b(?:bayar|uang|kompensasi|refund)\b/.test(value)
+      ? 'rating_threat_for_compensation' : null,
+    /\b(?:kompensasi|ganti rugi|refund|bayar)\b[^.?!]{0,100}\b(?:luar aplikasi|di luar aplikasi|transfer langsung|rekening pribadi)\b/.test(value)
+      ? 'off_platform_compensation' : null,
   ].filter(Boolean) as string[];
   return { state: reasons.length ? 'IN_REVIEW' : 'PUBLISHED', reasons };
 };

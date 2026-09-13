@@ -46,17 +46,20 @@ export const getReferralInfo = async (req: Request, res: Response) => {
     const statsRes = await readDb.query(
       `SELECT
          COUNT(*)::int AS total_referred,
-         COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_referred,
-         COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_rewards,
-         COUNT(*) FILTER (WHERE status = 'completed')::int AS earned_rewards
-       FROM referral_rewards WHERE referrer_id = $1`,
+         COUNT(*) FILTER (WHERE status IN ('QUALIFIED','REWARDED'))::int AS completed_referred,
+         COUNT(*) FILTER (WHERE status IN ('PENDING','REVIEW'))::int AS pending_rewards,
+         COUNT(*) FILTER (WHERE status = 'REWARDED')::int AS earned_rewards
+       FROM crm_referral_attributions WHERE referrer_id = $1`,
       [userId]
     );
 
     const rewardsRes = await readDb.query(
-      `SELECT rr.id, u.full_name AS referred_name, rr.status, rr.reward_type,
-              rr.reward_value, rr.created_at, rr.completed_at
-       FROM referral_rewards rr
+      `SELECT rr.id, u.full_name AS referred_name, rr.status,
+              CASE WHEN rr.reward_points > 0 THEN 'points' ELSE 'credit' END AS reward_type,
+              CASE WHEN rr.reward_points > 0 THEN rr.reward_points ELSE rr.reward_liability_minor END AS reward_value,
+              rr.created_at,
+              CASE WHEN rr.status = 'REWARDED' THEN rr.updated_at ELSE NULL END AS completed_at
+       FROM crm_referral_attributions rr
        LEFT JOIN users u ON u.id = rr.referred_id
        WHERE rr.referrer_id = $1
        ORDER BY rr.created_at DESC
@@ -75,7 +78,7 @@ export const getReferralInfo = async (req: Request, res: Response) => {
       rewards: rewardsRes.rows.map((r: any) => ({
         id: r.id,
         referredName: r.referred_name,
-        status: r.status,
+        status: String(r.status).toLowerCase(),
         rewardType: r.reward_type,
         rewardValue: r.reward_value ? Number(r.reward_value) : null,
         createdAt: r.created_at,
@@ -96,8 +99,12 @@ export const applyReferralCode = async (req: Request, res: Response) => {
     return res.status(401).json({ success: false, message: 'Unauthorized' });
   }
   const code = typeof req.body?.code === 'string' ? req.body.code.trim().toUpperCase() : '';
+  const marketCode = String(req.body?.market_code || req.header('x-market-code') || '').trim().toLowerCase();
   if (!code) {
     return res.status(400).json({ success: false, message: 'Kode referral wajib diisi' });
+  }
+  if (!/^[a-z0-9][a-z0-9_-]{1,31}$/.test(marketCode)) {
+    return res.status(400).json({ success: false, code: 'ERR_REFERRAL_MARKET_REQUIRED', message: 'Market referral wajib diisi' });
   }
   const client = await db.connect();
   try {
@@ -112,8 +119,24 @@ export const applyReferralCode = async (req: Request, res: Response) => {
     }
     const referrerId = referrerRes.rows[0].id;
 
+    const policy = await client.query(
+      `SELECT policy_version, reward_type, reward_points, reward_liability_minor, qualifying_rules
+         FROM crm_referral_policies
+        WHERE market_code = $1 AND active AND effective_from <= NOW()
+          AND (effective_to IS NULL OR effective_to > NOW())
+        ORDER BY effective_from DESC LIMIT 1`,
+      [marketCode],
+    );
+    if (!policy.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(503).json({ success: false, code: 'ERR_REFERRAL_POLICY_UNAVAILABLE' });
+    }
+
     const existing = await client.query(
-      `SELECT id FROM referral_rewards WHERE referred_id = $1`,
+      `SELECT id FROM crm_referral_attributions WHERE referred_id = $1
+       UNION ALL
+       SELECT id FROM referral_rewards WHERE referred_id = $1
+       LIMIT 1`,
       [userId]
     );
     if (existing.rows.length > 0) {
@@ -121,16 +144,30 @@ export const applyReferralCode = async (req: Request, res: Response) => {
       return res.status(409).json({ success: false, message: 'Kamu sudah menggunakan kode referral' });
     }
 
+    const selectedPolicy = policy.rows[0];
     await client.query(
-      `INSERT INTO referral_rewards (referrer_id, referred_id, referral_code, status, reward_type, reward_value)
-       VALUES ($1, $2, $3, 'pending', 'cashback', 5000)`,
-      [referrerId, userId, code]
+      `INSERT INTO crm_referral_attributions
+        (referrer_id, referred_id, referral_code, market_code, status,
+         reward_points, reward_liability_minor, abuse_signals)
+       VALUES ($1, $2, $3, $4, 'PENDING', $5, $6, $7::jsonb)`,
+      [
+        referrerId,
+        userId,
+        code,
+        marketCode,
+        Number(selectedPolicy.reward_points || 0),
+        Number(selectedPolicy.reward_liability_minor || 0),
+        JSON.stringify({ policy_version: selectedPolicy.policy_version, signals: [], state: 'PENDING_REVIEW' }),
+      ]
     );
     await client.query('COMMIT');
     return res.status(201).json({ success: true, message: 'Kode referral berhasil diterapkan' });
   } catch (error) {
     await client.query('ROLLBACK');
     securityLog.error('APPLY_REFERRAL_FAILED', { error });
+    if ((error as any)?.code === '23505') {
+      return res.status(409).json({ success: false, code: 'ERR_REFERRAL_ALREADY_APPLIED', message: 'Kamu sudah menggunakan kode referral' });
+    }
     return res.status(500).json({ success: false, message: 'Gagal menerapkan kode referral' });
   } finally {
     client.release();
