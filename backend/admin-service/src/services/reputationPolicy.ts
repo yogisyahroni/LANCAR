@@ -1,5 +1,22 @@
 export type ReputationReviewState = 'PUBLISHED' | 'REPORTED' | 'IN_REVIEW' | 'HIDDEN';
 export type ReputationDimension = 'service' | 'delivery' | 'merchant' | 'courier' | 'communication';
+export const REPUTATION_REPORT_CATEGORIES = ['HARASSMENT', 'SPAM', 'PII', 'FRAUD', 'SAFETY', 'OTHER'] as const;
+
+/** First governed release keeps submitted ratings immutable and routes corrections through appeal. */
+export const RATING_EDIT_POLICY = Object.freeze({
+  version: 'rating-edit-2026-09-12-v1',
+  editWindowHours: 0,
+  editableFields: [] as const,
+  immutableAfterSubmit: true,
+  rationale: 'Submitted ratings are immutable; corrections use a moderated appeal.',
+});
+
+export const ratingEditDecision = (submittedAt: Date, now = new Date()) => ({
+  allowed: RATING_EDIT_POLICY.editWindowHours > 0
+    && now.getTime() - submittedAt.getTime() <= RATING_EDIT_POLICY.editWindowHours * 60 * 60 * 1000,
+  policyVersion: RATING_EDIT_POLICY.version,
+  immutableAfterSubmit: RATING_EDIT_POLICY.immutableAfterSubmit,
+});
 
 export type ReviewInput = {
   reviewerId: string;
@@ -27,6 +44,8 @@ export const moderateReview = (body: string | null | undefined): { state: Reputa
     value.includes('http://') || value.includes('https://') ? 'spam_link' : null,
     /\b(?:phone|wa|whatsapp)\b/.test(value) ? 'contact_exchange' : null,
     /\b(?:bodoh|ancam|bunuh)\b/.test(value) ? 'harassment_or_threat' : null,
+    /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/.test(value) ? 'pii_email' : null,
+    /\b(?:\+?\d[\d\s-]{7,}\d)\b/.test(value) ? 'pii_phone' : null,
   ].filter(Boolean) as string[];
   return { state: reasons.length ? 'IN_REVIEW' : 'PUBLISHED', reasons };
 };

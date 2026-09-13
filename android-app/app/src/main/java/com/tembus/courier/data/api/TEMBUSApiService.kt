@@ -247,6 +247,7 @@ interface TEMBUSApiService {
 
     @POST("api/v1/courier/safety-events")
     suspend fun createSafetyEvent(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
         @Body request: CourierSafetyEventRequest
     ): Response<ApiResponse<CourierSafetyEventData>>
 
@@ -258,6 +259,7 @@ interface TEMBUSApiService {
     @Multipart
     @POST("api/v1/courier/safety-events/photo")
     suspend fun createSafetyEventWithPhoto(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
         @Part("order_id") orderId: RequestBody?,
         @Part("event_type") eventType: RequestBody,
         @Part("reason_code") reasonCode: RequestBody?,

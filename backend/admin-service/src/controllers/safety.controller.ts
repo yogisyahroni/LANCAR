@@ -1,8 +1,10 @@
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { Request, Response } from 'express';
 import { db, readDb } from '../db';
 import { getActorId } from '../utils/authUtils';
-import { saveSecureUploadBuffer } from '../security/uploadSecurity';
+import { resolvePrivateUploadPath, saveSecureUploadBuffer } from '../security/uploadSecurity';
 import { securityLog } from '../security/logRedaction';
 import { safetyCenterPolicy, safetySlaDueAt, SAFETY_SLA_MINUTES } from '../services/safetyIncidentPolicy';
 
@@ -84,8 +86,14 @@ export const revokeCustomerEmergencyContact = async (req: Request, res: Response
 const readActiveOrder = async (orderId: string, userId: string, role: 'customer' | 'courier') => {
   const ownership = role === 'customer' ? 'o.customer_id = $2' : 'EXISTS (SELECT 1 FROM order_legs ol WHERE ol.order_id = o.id AND ol.courier_id = $2)';
   const result = await readDb.query(
-    `SELECT o.id, o.service_code, o.status, o.market_code
+    `SELECT o.id, o.customer_id, o.service_code, o.status, o.market_code,
+            m.user_id AS merchant_user_id,
+            (SELECT ol.courier_id FROM order_legs ol
+              WHERE ol.order_id = o.id AND ol.courier_id IS NOT NULL
+              ORDER BY ol.updated_at DESC NULLS LAST, ol.created_at DESC NULLS LAST
+              LIMIT 1) AS courier_id
        FROM orders o
+       LEFT JOIN merchants m ON m.id = o.merchant_id
       WHERE o.id = $1 AND ${ownership}
         AND LOWER(COALESCE(o.status::text, '')) <> ALL($3::text[])
       LIMIT 1`,
@@ -155,10 +163,10 @@ export const createCustomerSafetyIncident = async (req: Request, res: Response) 
     if (!order) return res.status(404).json({ success: false, code: 'ERR_ORDER_NOT_FOUND' });
     const result = await db.query(
       `INSERT INTO safety_incidents
-        (reporter_id, order_id, service_code, market_code, category, severity, escalation_state, latitude, longitude, location_recorded_at, context)
-       VALUES ($1, $2, $3, $4, $5, $6, 'NOT_ESCALATED', $7, $8, CASE WHEN $7 IS NULL THEN NULL ELSE NOW() END, $9::jsonb)
+        (reporter_id, counterparty_id, order_id, service_code, market_code, category, severity, escalation_state, latitude, longitude, location_recorded_at, context)
+       VALUES ($1, COALESCE($3, $4), $2, $5, $6, $7, $8, 'NOT_ESCALATED', $9, $10, CASE WHEN $9 IS NULL THEN NULL ELSE NOW() END, $11::jsonb)
        RETURNING id, order_id, service_code, market_code, category, severity, state, escalation_state, latitude, longitude, created_at`,
-      [userId, orderId, order.service_code || null, order.market_code || 'id-jk', category, severity, latitude, longitude, JSON.stringify({ source: 'customer_safety_center', message: String(req.body?.message || '').trim().slice(0, 500) })],
+      [userId, orderId, order.courier_id || null, order.merchant_user_id || null, order.service_code || null, order.market_code || 'id-jk', category, severity, latitude, longitude, JSON.stringify({ source: 'customer_safety_center', message: String(req.body?.message || '').trim().slice(0, 500) })],
     );
     return res.status(201).json({ success: true, data: incidentResponse(result.rows[0], req), escalation: 'recorded' });
   } catch (error) {
@@ -177,10 +185,10 @@ export const createCourierSafetyIncident = async (req: Request, res: Response) =
     const order = await readActiveOrder(orderId, userId, 'courier');
     if (!order) return res.status(404).json({ success: false, code: 'ERR_ORDER_NOT_FOUND' });
     const result = await db.query(
-      `INSERT INTO safety_incidents (reporter_id, order_id, service_code, market_code, category, severity, escalation_state, context)
-       VALUES ($1, $2, $3, $4, $5, $6, 'NOT_ESCALATED', $7::jsonb)
+      `INSERT INTO safety_incidents (reporter_id, counterparty_id, order_id, service_code, market_code, category, severity, escalation_state, context)
+       VALUES ($1, $3, $2, $4, $5, $6, $7, 'NOT_ESCALATED', $8::jsonb)
        RETURNING id, order_id, service_code, market_code, category, severity, state, escalation_state, created_at`,
-      [userId, orderId, order.service_code || null, order.market_code || 'id-jk', category, severity, JSON.stringify({ source: 'courier_safety_center', message: String(req.body?.message || '').trim().slice(0, 500), active_order_preserved: true })],
+      [userId, orderId, order.customer_id || null, order.service_code || null, order.market_code || 'id-jk', category, severity, JSON.stringify({ source: 'courier_safety_center', message: String(req.body?.message || '').trim().slice(0, 500), active_order_preserved: true })],
     );
     return res.status(201).json({ success: true, data: incidentResponse(result.rows[0], req), order_action: 'unchanged' });
   } catch (error) {
@@ -212,10 +220,10 @@ export const triggerCustomerSOS = async (req: Request, res: Response) => {
     const order = await readActiveOrder(orderId, userId, 'customer');
     if (!order) return res.status(404).json({ success: false, code: 'ERR_ORDER_NOT_FOUND' });
     const result = await db.query(
-      `INSERT INTO safety_incidents (reporter_id, order_id, service_code, market_code, category, severity, escalation_state, context)
-       VALUES ($1, $2, $3, $4, 'EMERGENCY_SOS', 'CRITICAL', $5, $6::jsonb)
+      `INSERT INTO safety_incidents (reporter_id, counterparty_id, order_id, service_code, market_code, category, severity, escalation_state, context)
+       VALUES ($1, $3, $2, $4, $5, 'EMERGENCY_SOS', 'CRITICAL', $6, $7::jsonb)
        RETURNING id, order_id, service_code, market_code, category, severity, state, escalation_state, created_at`,
-      [userId, orderId, order.service_code || null, order.market_code || 'id-jk', process.env.EMERGENCY_PROVIDER_URL ? 'PENDING_PROVIDER' : 'FALLBACK_INSTRUCTIONS', JSON.stringify({ source: 'customer_sos', provider_configured: Boolean(process.env.EMERGENCY_PROVIDER_URL) })],
+      [userId, orderId, order.courier_id || order.merchant_user_id || null, order.service_code || null, order.market_code || 'id-jk', process.env.EMERGENCY_PROVIDER_URL ? 'PENDING_PROVIDER' : 'FALLBACK_INSTRUCTIONS', JSON.stringify({ source: 'customer_sos', provider_configured: Boolean(process.env.EMERGENCY_PROVIDER_URL) })],
     );
     const configured = Boolean(process.env.EMERGENCY_PROVIDER_URL);
     return res.status(201).json({ success: true, data: incidentResponse(result.rows[0], req), escalation: configured ? 'pending_provider' : 'fallback_instructions', provider_response_claimed: false });
@@ -338,6 +346,300 @@ export const updateAdminSafetyIncident = async (req: Request, res: Response) => 
   }
 };
 
+const SAFETY_ORDER_ACTIONS = ['PAUSE', 'HOLD', 'REASSIGN', 'RELEASE'] as const;
+const SAFE_REASSIGN_LEG_STATUSES = new Set([
+  'pending',
+  'assigned',
+  'accepted',
+  'going_to_pickup',
+  'pickup_pending',
+  'pickup_arrived',
+]);
+
+/**
+ * Apply an explicit safety control to the authoritative order leg.
+ *
+ * Safety controls are an overlay, not a replacement order status. This keeps
+ * delivery state-machine history intact while preventing courier progress
+ * until Ops has released the control. Reassignment is deliberately limited
+ * to an unpicked leg; a picked-up leg needs a separate handoff policy.
+ */
+export const applyAdminSafetyOrderAction = async (req: Request, res: Response): Promise<void> => {
+  const incidentId = String(req.params.id || '').trim();
+  const action = String(req.body?.action || '').trim().toUpperCase();
+  const reason = String(req.body?.reason || '').trim().slice(0, 1000);
+  const requestedCourierId = req.body?.courier_id == null ? null : String(req.body.courier_id).trim();
+  const actor = actorId(req);
+
+  if (!isUuid(incidentId) || !SAFETY_ORDER_ACTIONS.includes(action as typeof SAFETY_ORDER_ACTIONS[number]) || reason.length < 10) {
+    res.status(400).json({ success: false, code: 'ERR_INVALID_SAFETY_ORDER_ACTION' });
+    return;
+  }
+  if (requestedCourierId && !isUuid(requestedCourierId)) {
+    res.status(400).json({ success: false, code: 'ERR_INVALID_COURIER_ID' });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const incidentResult = await client.query(
+      `SELECT s.id, s.order_id, s.state, o.status AS order_status,
+              ol.id AS leg_id, ol.courier_id, ol.status AS leg_status,
+              ol.safety_control_state
+         FROM safety_incidents s
+         JOIN orders o ON o.id = s.order_id
+         JOIN order_legs ol ON ol.id = (
+           SELECT candidate.id
+             FROM order_legs candidate
+            WHERE candidate.order_id = s.order_id
+            ORDER BY CASE WHEN candidate.courier_id = s.reporter_id THEN 0 ELSE 1 END,
+                     candidate.updated_at DESC NULLS LAST, candidate.leg_number ASC
+            LIMIT 1
+         )
+        WHERE s.id = $1
+        FOR UPDATE OF s, o, ol`,
+      [incidentId],
+    );
+    const incident = incidentResult.rows[0];
+    if (!incident) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, code: 'ERR_SAFETY_NOT_FOUND' });
+      return;
+    }
+    if (['RESOLVED', 'DISMISSED'].includes(String(incident.state))) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, code: 'ERR_SAFETY_INCIDENT_CLOSED' });
+      return;
+    }
+    if (['delivered', 'completed', 'pod_completed', 'cancelled', 'failed', 'returned', 'rejected'].includes(String(incident.order_status).toLowerCase())) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, code: 'ERR_ORDER_FINAL' });
+      return;
+    }
+
+    const currentControl = String(incident.safety_control_state || 'NONE');
+    let nextControl: string;
+    let nextCourierId = incident.courier_id;
+    let nextLegStatus = incident.leg_status;
+
+    if (action === 'RELEASE') {
+      if (currentControl === 'NONE') {
+        await client.query('ROLLBACK');
+        res.status(409).json({ success: false, code: 'ERR_SAFETY_CONTROL_NOT_ACTIVE' });
+        return;
+      }
+      nextControl = 'NONE';
+    } else if (action === 'REASSIGN') {
+      if (!SAFE_REASSIGN_LEG_STATUSES.has(String(incident.leg_status).toLowerCase())) {
+        await client.query('ROLLBACK');
+        res.status(409).json({ success: false, code: 'ERR_REASSIGN_REQUIRES_SAFE_TRANSFER' });
+        return;
+      }
+      if (requestedCourierId) {
+        const courierResult = await client.query(
+          `SELECT cp.user_id
+             FROM courier_profiles cp
+            WHERE cp.user_id = $1
+              AND cp.verification_status = 'approved'
+            LIMIT 1`,
+          [requestedCourierId],
+        );
+        if (!courierResult.rows[0]) {
+          await client.query('ROLLBACK');
+          res.status(409).json({ success: false, code: 'ERR_COURIER_NOT_ELIGIBLE' });
+          return;
+        }
+        nextCourierId = requestedCourierId;
+      } else {
+        nextCourierId = null;
+      }
+      nextLegStatus = 'pending';
+      nextControl = 'REASSIGN_REQUESTED';
+    } else {
+      nextControl = action === 'PAUSE' ? 'PAUSED' : 'HELD';
+    }
+
+    const legResult = await client.query(
+      `UPDATE order_legs
+          SET courier_id = $2,
+              status = $3,
+              safety_control_state = $4,
+              safety_control_reason = $5,
+              safety_control_at = NOW(),
+              safety_control_by = $6,
+              assigned_at = CASE WHEN $4 = 'REASSIGN_REQUESTED' THEN NULL ELSE assigned_at END,
+              updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, order_id, courier_id, status, safety_control_state, safety_control_at`,
+      [incident.leg_id, nextCourierId, nextLegStatus, nextControl, reason, actor],
+    );
+    await client.query(
+      `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+       VALUES ($1, $2, 'safety_order_action', $3, $4::jsonb)`,
+      [
+        incident.order_id,
+        actor,
+        `Safety action ${action} applied to order leg ${incident.leg_id}`,
+        JSON.stringify({
+          incident_id: incidentId,
+          action,
+          reason,
+          from_control: currentControl,
+          to_control: nextControl,
+          from_leg_status: incident.leg_status,
+          to_leg_status: nextLegStatus,
+          previous_courier_id: incident.courier_id,
+          courier_id: nextCourierId,
+          source: 'admin_safety_control',
+        }),
+      ],
+    );
+    await client.query(
+      `UPDATE safety_incidents
+          SET updated_at = NOW(),
+              context = jsonb_set(COALESCE(context, '{}'::jsonb), '{last_order_action}', $2::jsonb, true)
+        WHERE id = $1`,
+      [incidentId, JSON.stringify({ action, reason, actor_id: actor, order_id: incident.order_id, acted_at: new Date().toISOString() })],
+    );
+    await client.query(
+      `INSERT INTO audit_logs (actor_id, action, target_id, payload)
+       VALUES ($1, $2, $3, $4::jsonb)`,
+      [actor, `safety.order.${action.toLowerCase()}`, incidentId, JSON.stringify({ order_id: incident.order_id, leg_id: incident.leg_id, reason, courier_id: nextCourierId })],
+    );
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      data: {
+        incident_id: incidentId,
+        order_id: incident.order_id,
+        action,
+        from_control: currentControl,
+        to_control: nextControl,
+        order_action_is_authoritative: true,
+        leg: legResult.rows[0],
+      },
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    securityLog.error('APPLY_ADMIN_SAFETY_ORDER_ACTION_FAILED', { error, incident_id: incidentId, action });
+    res.status(500).json({ success: false, code: 'ERR_SAFETY_ORDER_ACTION_UNAVAILABLE' });
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Emit a reviewed safety signal into the append-only reputation action log.
+ *
+ * This is intentionally a separate, elevated mutation: an allegation never
+ * becomes reputation truth, and emitting the signal does not ban a subject or
+ * rewrite a rating. The subject is resolved from the incident/order record;
+ * clients cannot choose a reputation target.
+ */
+export const emitAdminSafetyReputationSignal = async (req: Request, res: Response): Promise<void> => {
+  const incidentId = String(req.params.id || '').trim();
+  const reason = String(req.body?.reason || '').trim().slice(0, 1000);
+  if (!isUuid(incidentId) || reason.length < 10) {
+    res.status(400).json({ success: false, code: 'ERR_INVALID_SAFETY_REPUTATION_SIGNAL' });
+    return;
+  }
+
+  const actor = actorId(req);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const incidentResult = await client.query(
+      `SELECT s.id, s.order_id, s.counterparty_id, s.service_code, s.market_code,
+              s.category, s.severity, s.state, s.created_at,
+              COALESCE(
+                s.counterparty_id,
+                (SELECT ol.courier_id FROM order_legs ol
+                  WHERE ol.order_id = s.order_id AND ol.courier_id IS NOT NULL
+                  ORDER BY ol.updated_at DESC NULLS LAST, ol.created_at DESC NULLS LAST
+                  LIMIT 1),
+                m.user_id
+              ) AS subject_id
+         FROM safety_incidents s
+         LEFT JOIN orders o ON o.id = s.order_id
+         LEFT JOIN merchants m ON m.id = o.merchant_id
+        WHERE s.id = $1
+        FOR UPDATE`,
+      [incidentId],
+    );
+    const incident = incidentResult.rows[0];
+    if (!incident) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, code: 'ERR_SAFETY_NOT_FOUND' });
+      return;
+    }
+    if (String(incident.state) !== 'RESOLVED') {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, code: 'ERR_SAFETY_REPUTATION_REVIEW_REQUIRED' });
+      return;
+    }
+    if (!isUuid(String(incident.subject_id || ''))) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, code: 'ERR_SAFETY_REPUTATION_SUBJECT_UNAVAILABLE' });
+      return;
+    }
+
+    const reviewAudit = await client.query(
+      `SELECT actor_id, created_at
+         FROM audit_logs
+        WHERE target_id = $1 AND action = 'safety.incident.resolved'
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [incidentId],
+    );
+    if (!reviewAudit.rows[0]) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, code: 'ERR_SAFETY_REPUTATION_REVIEW_REQUIRED' });
+      return;
+    }
+
+    const evidence = {
+      source: 'safety_verified',
+      source_incident_id: incidentId,
+      source_state: incident.state,
+      source_category: incident.category,
+      source_severity: incident.severity,
+      reviewed_by: reviewAudit.rows[0].actor_id,
+      reviewed_at: reviewAudit.rows[0].created_at,
+    };
+    const signalResult = await client.query(
+      `INSERT INTO reputation_actions
+        (review_id, subject_id, action, reason, evidence_snapshot, rule_version, actor_id)
+       VALUES (NULL, $1, 'QUALITY_RECALCULATE', $2, $3::jsonb, 'safety-reputation-2026-09-12', $4)
+       ON CONFLICT DO NOTHING
+       RETURNING id, subject_id, action, rule_version, created_at`,
+      [incident.subject_id, reason, JSON.stringify(evidence), actor],
+    );
+    const duplicate = signalResult.rows.length === 0;
+    const signal = signalResult.rows[0] || (await client.query(
+      `SELECT id, subject_id, action, rule_version, created_at
+         FROM reputation_actions
+        WHERE action = 'QUALITY_RECALCULATE'
+          AND evidence_snapshot->>'source_incident_id' = $1
+        LIMIT 1`,
+      [incidentId],
+    )).rows[0];
+    await client.query(
+      `INSERT INTO audit_logs (actor_id, action, target_id, payload)
+       VALUES ($1, 'safety.reputation_signal.emitted', $2, $3::jsonb)`,
+      [actor, incidentId, JSON.stringify({ signal_id: signal?.id, subject_id: incident.subject_id, duplicate, reason_length: reason.length })],
+    );
+    await client.query('COMMIT');
+    res.status(duplicate ? 200 : 201).json({ success: true, data: { signal, duplicate, automatic_enforcement: false } });
+  } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    securityLog.error('EMIT_SAFETY_REPUTATION_SIGNAL_FAILED', { error: error?.message, incident_id: incidentId });
+    res.status(500).json({ success: false, code: 'ERR_SAFETY_REPUTATION_SIGNAL_UNAVAILABLE' });
+  } finally {
+    client.release();
+  }
+};
+
 export const uploadSafetyEvidence = async (req: Request, res: Response) => {
   const incidentId = String(req.params.id || '').trim();
   if (!isUuid(incidentId) || !req.file || !req.file.checksumSha256 || !req.file.safeFileName) return res.status(400).json({ success: false, code: 'ERR_INVALID_EVIDENCE' });
@@ -354,5 +656,88 @@ export const uploadSafetyEvidence = async (req: Request, res: Response) => {
   } catch (error) {
     securityLog.error('UPLOAD_SAFETY_EVIDENCE_FAILED', { error, incident_id: incidentId });
     return res.status(500).json({ success: false, code: 'ERR_EVIDENCE_UNAVAILABLE' });
+  }
+};
+
+/**
+ * Evidence is stored outside the public upload route. A successful download
+ * requires an elevated safety role, TOTP (enforced by the route), an
+ * incident/evidence ownership match, and an append-only audit event before
+ * any bytes are sent to the caller.
+ */
+export const downloadAdminSafetyEvidence = async (req: Request, res: Response): Promise<void> => {
+  const incidentId = String(req.params.id || '').trim();
+  const evidenceId = String(req.params.evidenceId || '').trim();
+  const actor = actorId(req);
+  if (!isUuid(incidentId) || !isUuid(evidenceId) || !isUuid(actor)) {
+    res.status(400).json({ success: false, code: 'ERR_INVALID_ID' });
+    return;
+  }
+
+  try {
+    const result = await readDb.query(
+      `SELECT id, incident_id, object_key, sha256, content_type, size_bytes
+         FROM safety_evidence
+        WHERE id = $1 AND incident_id = $2
+        LIMIT 1`,
+      [evidenceId, incidentId],
+    );
+    const evidence = result.rows[0];
+    if (!evidence) {
+      res.status(404).json({ success: false, code: 'ERR_EVIDENCE_NOT_FOUND' });
+      return;
+    }
+
+    const absolutePath = resolvePrivateUploadPath(String(evidence.object_key || ''));
+    if (!absolutePath || !fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
+      securityLog.warn('DOWNLOAD_SAFETY_EVIDENCE_FILE_NOT_FOUND', {
+        incident_id: incidentId,
+        evidence_id: evidenceId,
+      });
+      res.status(404).json({ success: false, code: 'ERR_EVIDENCE_NOT_FOUND' });
+      return;
+    }
+
+    // The audit write is deliberately before sendFile. A database failure
+    // must fail closed rather than create an untracked sensitive download.
+    await db.query(
+      `INSERT INTO audit_logs (actor_id, action, target_id, payload)
+       VALUES ($1, 'safety.evidence.downloaded', $2, $3::jsonb)`,
+      [actor, incidentId, JSON.stringify({
+        incident_id: incidentId,
+        evidence_id: evidenceId,
+        sha256: evidence.sha256,
+        size_bytes: evidence.size_bytes,
+      })],
+    );
+
+    const safeFilename = (path.basename(String(evidence.object_key)) || `evidence-${evidenceId}`)
+      .replace(/[^A-Za-z0-9._-]/g, '_')
+      .slice(0, 120);
+    const allowedContentTypes = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
+    const contentType = allowedContentTypes.has(String(evidence.content_type))
+      ? String(evidence.content_type)
+      : 'application/octet-stream';
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+    res.sendFile(absolutePath, (error) => {
+      if (error && !res.headersSent) {
+        securityLog.error('DOWNLOAD_SAFETY_EVIDENCE_SEND_FAILED', {
+          incident_id: incidentId,
+          evidence_id: evidenceId,
+          error,
+        });
+        res.status(500).json({ success: false, code: 'ERR_EVIDENCE_DOWNLOAD_FAILED' });
+      }
+    });
+  } catch (error) {
+    securityLog.error('DOWNLOAD_SAFETY_EVIDENCE_FAILED', {
+      incident_id: incidentId,
+      evidence_id: evidenceId,
+      error,
+    });
+    if (!res.headersSent) res.status(500).json({ success: false, code: 'ERR_EVIDENCE_DOWNLOAD_UNAVAILABLE' });
   }
 };

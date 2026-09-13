@@ -68,6 +68,15 @@ class OrderSyncWorker @AssistedInject constructor(
             Log.w(TAG, "Background telemetry maintenance skipped or aborted: ${e.message}")
         }
 
+        // Safety reports are replayed before ordinary order mutations so an
+        // incident captured offline reaches Operations as soon as connectivity
+        // returns. Each draft carries its original idempotency key.
+        val safetyResult = orderRepository.syncPendingSafetyIncidents()
+        if (safetyResult.isFailure) {
+            Log.e(TAG, "Safety incident replay failed", safetyResult.exceptionOrNull())
+            return Result.retry()
+        }
+
         // Sync pending orders
         val result = orderRepository.syncPendingOrders()
         

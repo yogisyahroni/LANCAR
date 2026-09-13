@@ -1,5 +1,6 @@
 package com.tembus.courier.ui.screens.order
 
+import android.content.Context
 import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -32,6 +33,8 @@ import com.tembus.courier.data.model.SecurityLogRequest
 import com.tembus.courier.data.repository.OrderRepository
 import com.tembus.courier.data.repository.ServiceReportProofDraftStore
 import com.tembus.courier.data.repository.ServiceReportProofUploader
+import com.tembus.courier.worker.OrderSyncWorker
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.tembus.courier.data.config.RemoteConfigManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,7 +75,8 @@ class OrderViewModel @Inject constructor(
     private val apiService: TEMBUSApiService,
     private val remoteConfigManager: RemoteConfigManager,
     private val proofUploader: ServiceReportProofUploader,
-    private val proofDraftStore: ServiceReportProofDraftStore
+    private val proofDraftStore: ServiceReportProofDraftStore,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     // ── State ─────────────────────────────────────────────────────
@@ -621,12 +625,14 @@ class OrderViewModel @Inject constructor(
         message: String?,
         photoFile: File? = null
     ): Result<String> {
+        val idempotencyKey = "courier-safety-${UUID.randomUUID()}"
         return try {
             val response = if (photoFile != null) {
                 val textType = "text/plain".toMediaTypeOrNull()
                 val photoBody = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
                 val photoPart = MultipartBody.Part.createFormData("photo", photoFile.name, photoBody)
                 apiService.createSafetyEventWithPhoto(
+                    idempotencyKey = idempotencyKey,
                     orderId = orderId?.toRequestBody(textType),
                     eventType = eventType.toRequestBody(textType),
                     reasonCode = reasonCode?.takeIf { it.isNotBlank() }?.toRequestBody(textType),
@@ -643,7 +649,8 @@ class OrderViewModel @Inject constructor(
                 )
             } else {
                 apiService.createSafetyEvent(
-                    CourierSafetyEventRequest(
+                    idempotencyKey = idempotencyKey,
+                    request = CourierSafetyEventRequest(
                         orderId = orderId,
                         eventType = eventType,
                         reasonCode = reasonCode,
@@ -659,18 +666,44 @@ class OrderViewModel @Inject constructor(
             val body = response.body()
             if (response.isSuccessful && body?.success == true) {
                 Result.success(body.message ?: "Laporan terkirim.")
-            } else {
+            } else if (response.code() in 400..499) {
                 Result.failure(
                     Exception(
                         response.errorMessage(
                             serverMessage = body?.message,
-                            fallback = "Gagal mengirim laporan keselamatan."
+                            fallback = "Laporan keselamatan ditolak server. Periksa detail laporan."
                         )
                     )
                 )
+            } else {
+                throw IllegalStateException("Server keselamatan belum tersedia (${response.code()})")
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            runCatching {
+                orderRepository.enqueueSafetyIncident(
+                    orderId = orderId,
+                    eventType = eventType,
+                    reasonCode = reasonCode,
+                    severity = severity,
+                    latitude = latitude,
+                    longitude = longitude,
+                    accuracy = accuracy,
+                    message = message,
+                    idempotencyKey = idempotencyKey,
+                )
+                OrderSyncWorker.enqueue(appContext, "safety_incident_local_capture")
+            }.fold(
+                onSuccess = {
+                    Result.success(
+                        if (photoFile != null) {
+                            "Laporan disimpan di perangkat dan akan dikirim saat koneksi kembali. Foto perlu dikirim ulang setelah online."
+                        } else {
+                            "Laporan disimpan di perangkat dan akan dikirim saat koneksi kembali."
+                        }
+                    )
+                },
+                onFailure = { Result.failure(e) },
+            )
         }
     }
 

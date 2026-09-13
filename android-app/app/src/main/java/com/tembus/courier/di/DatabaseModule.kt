@@ -7,6 +7,7 @@ import androidx.security.crypto.MasterKey
 import com.tembus.courier.data.db.LocationDao
 import com.tembus.courier.data.db.OrderDao
 import com.tembus.courier.data.db.OrderDatabase
+import com.tembus.courier.data.db.SafetyIncidentDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -82,5 +83,11 @@ object DatabaseModule {
     @Singleton
     fun provideLocationDao(database: OrderDatabase): LocationDao {
         return database.locationDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideSafetyIncidentDao(database: OrderDatabase): SafetyIncidentDao {
+        return database.safetyIncidentDao()
     }
 }

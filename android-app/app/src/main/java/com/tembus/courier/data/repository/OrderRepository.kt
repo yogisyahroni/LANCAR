@@ -1,6 +1,7 @@
 package com.tembus.courier.data.repository
 
 import com.tembus.courier.data.api.TEMBUSApiService
+import com.tembus.courier.data.db.SafetyIncidentDao
 import com.tembus.courier.data.db.OrderDao
 import com.tembus.courier.data.model.CourierActiveRoutePlan
 import com.tembus.courier.data.model.Order
@@ -8,6 +9,8 @@ import com.tembus.courier.data.model.StatusUpdateRequest
 import com.tembus.courier.data.model.ServiceAdjustment
 import com.tembus.courier.data.model.ServiceAdjustmentItem
 import com.tembus.courier.data.model.ServiceAdjustmentProposalRequest
+import com.tembus.courier.data.model.CourierSafetyEventRequest
+import com.tembus.courier.data.model.SafetyIncidentDraft
 import com.tembus.courier.domain.canonicalTambalBanStatus
 import com.tembus.courier.domain.isTambalBanOrder
 import com.tembus.courier.domain.CourierProofTypes
@@ -33,8 +36,84 @@ import javax.inject.Singleton
 @Singleton
 class OrderRepository @Inject constructor(
     private val orderDao: OrderDao,
+    private val safetyIncidentDao: SafetyIncidentDao,
     private val apiService: TEMBUSApiService
 ) {
+
+    /** Persist a minimum safety report before attempting network delivery. */
+    suspend fun enqueueSafetyIncident(
+        orderId: String?,
+        eventType: String,
+        reasonCode: String?,
+        severity: String,
+        latitude: Double?,
+        longitude: Double?,
+        accuracy: Float?,
+        message: String?,
+        idempotencyKey: String,
+    ) = withContext(Dispatchers.IO) {
+        safetyIncidentDao.enqueue(
+            SafetyIncidentDraft(
+                localId = UUID.randomUUID().toString(),
+                orderId = orderId,
+                eventType = eventType,
+                reasonCode = reasonCode,
+                severity = severity,
+                latitude = latitude,
+                longitude = longitude,
+                accuracy = accuracy,
+                message = message,
+                idempotencyKey = idempotencyKey,
+                createdAt = System.currentTimeMillis(),
+            )
+        )
+    }
+
+    /** Replay offline safety reports; the idempotency key survives app restarts. */
+    suspend fun syncPendingSafetyIncidents(): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            var synced = 0
+            for (draft in safetyIncidentDao.getPending()) {
+                try {
+                    val response = apiService.createSafetyEvent(
+                        idempotencyKey = draft.idempotencyKey,
+                        request = CourierSafetyEventRequest(
+                            orderId = draft.orderId,
+                            eventType = draft.eventType,
+                            reasonCode = draft.reasonCode,
+                            severity = draft.severity,
+                            latitude = draft.latitude,
+                            longitude = draft.longitude,
+                            accuracy = draft.accuracy,
+                            message = draft.message,
+                        ),
+                    )
+                    if (response.isSuccessful && response.body()?.success == true) {
+                        safetyIncidentDao.markSynced(draft.localId)
+                        synced += 1
+                    } else if (response.code() in 400..499) {
+                        // Keep the draft for local inspection, but do not retry a
+                        // permanently invalid payload forever.
+                        safetyIncidentDao.markAttempt(
+                            draft.localId,
+                            "Server menolak laporan keselamatan (${response.code()})",
+                        )
+                    } else {
+                        throw IllegalStateException("Safety incident replay failed (${response.code()})")
+                    }
+                } catch (error: Exception) {
+                    safetyIncidentDao.markAttempt(
+                        draft.localId,
+                        error.message?.take(240) ?: "Koneksi belum tersedia",
+                    )
+                    throw error
+                }
+            }
+            Result.success(synced)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
 
     /**
      * Get all orders from local database

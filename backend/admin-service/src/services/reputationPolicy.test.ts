@@ -1,4 +1,4 @@
-import { detectCoordinatedRatingAbuse, moderateReview, publicAggregate, qualityScore, validateReview } from './reputationPolicy';
+import { detectCoordinatedRatingAbuse, moderateReview, publicAggregate, qualityScore, ratingEditDecision, RATING_EDIT_POLICY, validateReview } from './reputationPolicy';
 
 describe('reputation policy', () => {
   it('requires completed order and dedupes one review per dimension/service', () => {
@@ -21,5 +21,12 @@ describe('reputation policy', () => {
       { reviewerId: 'u1', subjectId: 's2', createdAt: '2', stars: 1 },
       { reviewerId: 'u2', subjectId: 's3', createdAt: '3', stars: 1 },
     ])).toBe(true);
+  });
+
+  it('makes the first-release rating edit window explicit and immutable', () => {
+    const decision = ratingEditDecision(new Date('2026-09-01T00:00:00Z'), new Date('2026-09-02T00:00:00Z'));
+    expect(RATING_EDIT_POLICY.version).toBe('rating-edit-2026-09-12-v1');
+    expect(RATING_EDIT_POLICY.editWindowHours).toBe(0);
+    expect(decision).toMatchObject({ allowed: false, immutableAfterSubmit: true });
   });
 });

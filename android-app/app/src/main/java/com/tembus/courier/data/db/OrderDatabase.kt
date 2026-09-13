@@ -14,6 +14,7 @@ import com.tembus.courier.data.model.Order
 import com.tembus.courier.data.model.PricingBreakdown
 import com.tembus.courier.data.model.TambalBanReport
 import com.tembus.courier.data.model.TowingReport
+import com.tembus.courier.data.model.SafetyIncidentDraft
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -24,8 +25,8 @@ import kotlinx.serialization.json.Json
  * Handles order synchronization with backend when online.
  */
 @Database(
-    entities = [Order::class, Location::class],
-    version = 23,
+    entities = [Order::class, Location::class, SafetyIncidentDraft::class],
+    version = 24,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -33,6 +34,7 @@ abstract class OrderDatabase : RoomDatabase() {
 
     abstract fun orderDao(): OrderDao
     abstract fun locationDao(): LocationDao
+    abstract fun safetyIncidentDao(): SafetyIncidentDao
 
     companion object {
         @Volatile
@@ -316,6 +318,35 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        /** Version 24: durable minimal safety incident queue for reconnect replay. */
+        val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `safety_incident_drafts` (
+                        `local_id` TEXT NOT NULL,
+                        `order_id` TEXT,
+                        `event_type` TEXT NOT NULL,
+                        `reason_code` TEXT,
+                        `severity` TEXT NOT NULL,
+                        `latitude` REAL,
+                        `longitude` REAL,
+                        `accuracy` REAL,
+                        `message` TEXT,
+                        `idempotency_key` TEXT NOT NULL,
+                        `created_at` INTEGER NOT NULL,
+                        `attempts` INTEGER NOT NULL,
+                        `last_error` TEXT,
+                        `synced_at` INTEGER,
+                        PRIMARY KEY(`local_id`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_safety_incident_drafts_synced_at` ON `safety_incident_drafts` (`synced_at`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_safety_incident_drafts_order_id` ON `safety_incident_drafts` (`order_id`)")
+            }
+        }
+
         val ALL_MIGRATIONS = arrayOf(
             MIGRATION_2_3,
             MIGRATION_3_4,
@@ -338,6 +369,7 @@ abstract class OrderDatabase : RoomDatabase() {
             MIGRATION_20_21,
             MIGRATION_21_22,
             MIGRATION_22_23,
+            MIGRATION_23_24,
             MIGRATION_10_13,
             MIGRATION_11_13
         )

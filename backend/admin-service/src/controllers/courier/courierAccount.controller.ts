@@ -146,6 +146,7 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
           o.batch_id,
           ol.id AS leg_id,
           ol.status AS leg_status,
+          ol.safety_control_state,
           COALESCE(dsp.service_category, '') AS service_category,
           COALESCE(dsp.failed_delivery_policy, CASE WHEN COALESCE(dsp.service_category, '') = 'regular' THEN 'reschedule_then_return' ELSE 'must_deliver' END) AS failed_delivery_policy,
           COALESCE(dsp.regular_max_reschedule_attempts, 3)::int AS regular_max_reschedule_attempts,
@@ -183,6 +184,21 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
     const workflowRole = String(order.workflow_role || 'network');
     const currentStatus = String(order.leg_status || order.order_status || '').toLowerCase();
     const failedDeliveryPolicy = String(order.failed_delivery_policy || '').toLowerCase();
+
+    // SAFE-2026-003: a reviewed safety action is an authoritative hold
+    // overlay. The courier must use the Safety Center/Operations flow to
+    // release or reassign before attempting another lifecycle transition.
+    const safetyControlState = String(order.safety_control_state || 'NONE');
+    if (safetyControlState !== 'NONE') {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        success: false,
+        data: { safety_control_state: safetyControlState },
+        message: 'Order ditahan oleh alur keselamatan. Hubungi operasional sebelum melanjutkan.',
+        code: 'ERR_SAFETY_ORDER_CONTROL_ACTIVE',
+      });
+      return;
+    }
 
     // F8-AN-071 (resurrection guard): order dengan status FINAL tidak boleh
     // diubah lagi — delivered/cancelled immutable. Mencegah event telat /

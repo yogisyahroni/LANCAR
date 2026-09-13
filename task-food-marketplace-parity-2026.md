@@ -5051,11 +5051,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 > Processor/payment `chargeback/dispute` is a financial rail event. It is distinct from customer support case or carrier claim even if they are linked.
 
 **Checklist**
-- [ ] Partial/full refund uses immutable ledger entries and provider reference.
-- [ ] Duplicate refund request/callback cannot double credit.
-- [ ] Chargeback lifecycle and evidence deadline modeled.
-- [ ] Support/Admin links payment dispute to order/case without editing provider state manually.
-- [ ] Won/lost chargeback reconciles ledger and merchant/platform liability policy.
+- [x] Partial/full refund uses immutable ledger entries and provider reference.
+- [x] Duplicate refund request/callback cannot double credit.
+- [x] Chargeback lifecycle and evidence deadline modeled.
+- [x] Support/Admin links payment dispute to order/case without editing provider state manually.
+- [x] Won/lost chargeback reconciles ledger and merchant/platform liability policy.
 
 ---
 
@@ -5077,9 +5077,9 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `backend/payment-service/internal/domain/ledger.go`
 
 **Checklist**
-- [ ] Define balance types: customer credit/refund credit, merchant payable, courier earnings, Ads balance, promotional credit as separate ledgers/owners where semantics differ.
-- [ ] Never silently mix promotional credit with withdrawable cash.
-- [ ] Hold/reserve/release/settle operations idempotent and concurrency tested.
+- [x] Define balance types: customer credit/refund credit, merchant payable, courier earnings, Ads balance, promotional credit as separate ledgers/owners where semantics differ.
+- [x] Never silently mix promotional credit with withdrawable cash.
+- [x] Hold/reserve/release/settle operations idempotent and concurrency tested.
 - [ ] Regulatory/licensing implications reviewed before offering stored-value behavior in a new market.
 
 ---
@@ -5088,9 +5088,9 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [ ] Reconcile internal intent/ledger ↔ provider transaction ↔ provider settlement/report/bank movement where accessible.
-- [ ] Missing/duplicate/mismatched payment enters exception queue.
-- [ ] Reconciliation supports timezone/currency/provider batching differences.
-- [ ] Manual correction is compensating entry, not history overwrite.
+- [x] Missing/duplicate/mismatched payment enters exception queue.
+- [x] Reconciliation supports timezone/currency/provider batching differences.
+- [x] Manual correction is compensating entry, not history overwrite.
 
 ---
 
@@ -5104,11 +5104,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `admin-dashboard/src/pages/payments/PaymentExceptions.tsx`
 
 **Checklist**
-- [ ] Provider health/circuit state visible.
-- [ ] Intent timeline shows internal+provider events.
-- [ ] Refund/void actions permissioned/idempotent/audited.
-- [ ] No ordinary admin can mark payment successful manually.
-- [ ] Routing/config high-impact changes use approval/rollout.
+- [x] Provider health/circuit state visible.
+- [x] Intent timeline shows internal+provider events.
+- [x] Refund/void actions permissioned/idempotent/audited.
+- [x] No ordinary admin can mark payment successful manually.
+- [x] Routing/config high-impact changes use approval/rollout.
 
 ---
 
@@ -5156,9 +5156,9 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - SOS/emergency action where market/legal/operationally supported
 
 **Checklist**
-- [ ] Safety Center remains reachable during active order even if service entry is killed/hidden.
-- [ ] Critical action shows exact consequence and does not depend on advertising/remote marketing content.
-- [ ] Location sharing is scoped/expiring/revocable.
+- [x] Safety Center remains reachable during active order even if service entry is killed/hidden.
+- [x] Critical action shows exact consequence and does not depend on advertising/remote marketing content.
+- [x] Location sharing is scoped/expiring/revocable.
 - [ ] Accessibility and accidental-tap protection appropriate to action severity.
 
 ---
@@ -5175,10 +5175,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - suspected fraud with immediate safety concern
 
 **Checklist**
-- [ ] Courier can report without abandoning authoritative order silently.
-- [ ] Emergency workflow can pause/hold/reassign through explicit order APIs when policy allows.
-- [ ] Safety report cannot be retaliatorily exposed to counterparty.
-- [ ] Offline-safe minimal incident capture where connectivity is poor.
+- [x] Courier can report without abandoning authoritative order silently.
+- [x] Emergency workflow can pause/hold/reassign through explicit order APIs when policy allows.
+- [x] Safety report cannot be retaliatorily exposed to counterparty.
+- [x] Offline-safe minimal incident capture where connectivity is poor.
 
 ---
 
@@ -5221,7 +5221,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - [x] Upload validates type/size/malware and protects object URL.
 - [x] Original evidence immutable; redacted derivative used for ordinary support where possible.
 - [x] Legal hold/retention policy market scoped.
-- [ ] Evidence access/download audited.
+- [x] Evidence access/download audited.
 
 ---
 
@@ -5244,11 +5244,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## SAFE-2026-009 — Safety ↔ Risk ↔ Reputation ↔ Support integration [P0/P1]
 
 **Checklist**
-- [ ] Safety incident can emit governed risk/reputation signals after appropriate review.
+- [x] Safety incident can emit governed risk/reputation signals after appropriate review.
 - [x] Unverified allegation is not automatically permanent ban/rating truth.
 - [x] Risk decision can trigger safety review without exposing secret risk logic to counterparty.
 - [x] Appeals/review path exists for material enforcement.
-- [ ] Support case references safety incident but ordinary support agents see only necessary data.
+- [x] Support case references safety incident but ordinary support agents see only necessary data.
 
 ---
 
@@ -6122,9 +6122,9 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `docs/contracts/reputation-2026.md`
 
 **Checklist**
-- [ ] Signal has subject, source, service, market, time, confidence/review status and version.
-- [ ] Raw signals immutable; aggregate snapshot recomputable/versioned.
-- [ ] Sensitive safety/risk reason not exposed through public rating.
+- [x] Signal has subject, source, service, market, time, confidence/review status and version.
+- [x] Raw signals immutable; aggregate snapshot recomputable/versioned.
+- [x] Sensitive safety/risk reason not exposed through public rating.
 
 ---
 
@@ -6137,20 +6137,20 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - towing handling/vehicle condition
 
 **Checklist**
-- [ ] Rating tied to completed eligible transaction.
-- [ ] One order cannot submit unlimited duplicate rating.
-- [ ] Rating edit window/version policy explicit.
-- [ ] Public aggregate requires sufficient sample/privacy policy.
+- [x] Rating tied to completed eligible transaction.
+- [x] One order cannot submit unlimited duplicate rating.
+- [x] Rating edit window/version policy explicit.
+- [x] Public aggregate requires sufficient sample/privacy policy.
 
 ---
 
 ## REP-2026-003 — Review moderation and merchant response [P1]
 
 **Checklist**
-- [ ] Report review categories and moderation state.
-- [ ] Spam/harassment/PII/prohibited content handling.
-- [ ] Merchant response is clearly identified and cannot edit customer review.
-- [ ] Moderation action reason/audit/appeal where appropriate.
+- [x] Report review categories and moderation state.
+- [x] Spam/harassment/PII/prohibited content handling.
+- [x] Merchant response is clearly identified and cannot edit customer review.
+- [x] Moderation action reason/audit/appeal where appropriate.
 
 ---
 
@@ -6158,7 +6158,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [ ] Detect reciprocal/coordinated rating abuse where signals justify.
-- [ ] Courier/merchant cannot require a rating before completing service.
+- [x] Courier/merchant cannot require a rating before completing service.
 - [ ] Customer cannot use rating threat to demand off-platform compensation without support path.
 - [ ] Suspected abuse feeds Risk/Moderation, not automatic hidden punishment only.
 
@@ -6167,10 +6167,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## REP-2026-005 — Quality score separate from star rating [P1]
 
 **Checklist**
-- [ ] Merchant/courier quality may combine operational metrics, reviews and verified incidents.
-- [ ] Formula/rule version logged.
-- [ ] Quality score used for Ads/Search/matching only through explicit policy.
-- [ ] Cold-start handling prevents impossible “no history = bad” assumption.
+- [x] Merchant/courier quality may combine operational metrics, reviews and verified incidents.
+- [x] Formula/rule version logged.
+- [x] Quality score used for Ads/Search/matching only through explicit policy.
+- [x] Cold-start handling prevents impossible “no history = bad” assumption.
 
 ---
 
@@ -6178,8 +6178,8 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [ ] Material restriction references reviewed evidence/signal set.
-- [ ] Unverified report can trigger investigation/temporary safety action but is not silently permanent truth.
-- [ ] Appeal records reviewer/outcome/reason.
+- [x] Unverified report can trigger investigation/temporary safety action but is not silently permanent truth.
+- [x] Appeal records reviewer/outcome/reason.
 - [ ] Reversed enforcement recomputes relevant reputation state.
 
 ---
@@ -6192,10 +6192,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `admin-dashboard/src/pages/reputation/ReputationDebug.tsx`
 
 **Checklist**
-- [ ] Search/filter by actor/order/service/market/status.
-- [ ] Moderation action RBAC/audit.
+- [x] Search/filter by actor/order/service/market/status.
+- [x] Moderation action RBAC/audit.
 - [ ] Privacy-safe view of why aggregate changed.
-- [ ] No direct arbitrary star-rating overwrite by ordinary admin.
+- [x] No direct arbitrary star-rating overwrite by ordinary admin.
 
 ---
 
@@ -6204,7 +6204,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 **Checklist**
 - [ ] Monitor score distribution/fairness/drift by market/service.
 - [ ] ML-assisted moderation/ranking has human review/fallback for material enforcement.
-- [ ] Model/rule version and feature provenance logged.
+- [x] Model/rule version and feature provenance logged.
 - [ ] Sensitive/protected attributes excluded unless explicitly lawful/necessary.
 
 ---
@@ -6232,21 +6232,21 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `backend/loyalty-service/internal/service/loyalty_service.go`
 
 **Checklist**
-- [ ] Earn/redeem/expire/reverse are ledger entries.
-- [ ] Points/benefits are not confused with withdrawable cash.
-- [ ] Currency-equivalent benefit liability explicit when applicable.
-- [ ] Duplicate order event cannot double earn.
+- [x] Earn/redeem/expire/reverse are ledger entries.
+- [x] Points/benefits are not confused with withdrawable cash.
+- [x] Currency-equivalent benefit liability explicit when applicable.
+- [x] Duplicate order event cannot double earn.
 
 ---
 
 ## CRM-2026-002 — Cross-service referral program + anti-abuse [P1/P2]
 
 **Checklist**
-- [ ] Referral code/invite attribution immutable after defined rule/window.
-- [ ] Reward conditions server authoritative.
+- [x] Referral code/invite attribution immutable after defined rule/window.
+- [x] Reward conditions server authoritative.
 - [ ] Self-referral/device/payment/address abuse signals integrate Risk.
 - [ ] Reward budget/subsidy reconciled.
-- [ ] Market eligibility and legal copy configurable.
+- [x] Market eligibility and legal copy configurable.
 
 ---
 
@@ -6256,7 +6256,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - evolves `FOOD-2026-021` into cross-service entitlement
 
 **Checklist**
-- [ ] Membership plan/version/market/currency/billing cycle/benefit catalog.
+- [x] Membership plan/version/market/currency/billing cycle/benefit catalog.
 - [ ] Benefit eligibility authoritative per order/service.
 - [ ] Free-delivery/subsidy cost attributed correctly.
 - [ ] Cancel/renew/grace/refund states explicit.
@@ -6286,11 +6286,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## CRM-2026-005 — Voucher/promo budget and stacking policy [P0/P1]
 
 **Checklist**
-- [ ] Define stack/exclusion priority across platform promo, merchant promo, membership, loyalty and referral credit.
-- [ ] Pricing backend calculates final eligible discount.
-- [ ] Budget/quota reservation concurrency safe.
-- [ ] Refund/cancel reverses liability consistently.
-- [ ] Client cannot compose unsupported promo stack.
+- [x] Define stack/exclusion priority across platform promo, merchant promo, membership, loyalty and referral credit.
+- [x] Pricing backend calculates final eligible discount.
+- [x] Budget/quota reservation concurrency safe.
+- [x] Refund/cancel reverses liability consistently.
+- [x] Client cannot compose unsupported promo stack.
 
 ---
 
@@ -6308,7 +6308,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## CRM-2026-007 — Merchant-funded/co-funded campaign accounting [P1/P2]
 
 **Checklist**
-- [ ] Platform-funded vs merchant-funded vs co-funded amount explicit.
+- [x] Platform-funded vs merchant-funded vs co-funded amount explicit.
 - [ ] Merchant agreement/budget version referenced.
 - [ ] Promo subsidy separated from Ads spend.
 - [ ] Settlement statement reconciles contribution per order.
@@ -6335,7 +6335,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## CRM-2026-009 — CRM experimentation and incrementality [P2]
 
 **Checklist**
-- [ ] Holdout/control supported for major subsidy campaigns where practical.
+- [x] Holdout/control supported for major subsidy campaigns where practical.
 - [ ] Measure incremental orders/revenue, not redeemed coupon only.
 - [ ] Guardrail margin/refund/support/spam complaints.
 - [ ] Experiment cannot bypass promo financial limits.
@@ -6345,7 +6345,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## CRM-2026-010 — Loyalty/referral finance and reconciliation [P1/P2]
 
 **Checklist**
-- [ ] Outstanding loyalty/referral/membership liability measurable.
+- [x] Outstanding loyalty/referral/membership liability measurable.
 - [ ] Earn/redeem/reversal ↔ order/payment/refund reconciliation.
 - [ ] Expiry/breakage accounting policy documented with Finance/legal.
 - [ ] Manual credit uses reasoned ledger adjustment.
