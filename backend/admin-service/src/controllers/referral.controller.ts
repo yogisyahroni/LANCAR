@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db, readDb } from '../db';
 import { getActorId } from '../utils/authUtils';
 import { securityLog } from '../security/logRedaction';
+import { evaluateReferralAbuse } from '../services/crmPolicy';
 
 /**
  * C8: Referral / invite reward.
@@ -144,24 +145,58 @@ export const applyReferralCode = async (req: Request, res: Response) => {
       return res.status(409).json({ success: false, message: 'Kamu sudah menggunakan kode referral' });
     }
 
+    // Only server-observed, hashed relationships are used as risk signals;
+    // raw device/payment/address values never leave the source tables.
+    const risk = await client.query(
+      `SELECT
+         (SELECT COUNT(DISTINCT other.user_id)::int
+            FROM device_fingerprints own
+            JOIN device_fingerprints other ON other.device_id_hash = own.device_id_hash
+           WHERE own.user_id = $1 AND other.user_id <> $1 AND other.user_id = $2) AS shared_device_users,
+         (SELECT COUNT(DISTINCT psm.customer_id)::int
+            FROM payment_saved_methods own
+            JOIN payment_saved_methods psm
+              ON psm.provider = own.provider
+             AND psm.provider_token_reference = own.provider_token_reference
+           WHERE own.customer_id = $1 AND psm.customer_id = $2 AND psm.customer_id <> $1
+             AND own.revoked_at IS NULL AND psm.revoked_at IS NULL) AS shared_payment_users,
+         (SELECT COUNT(*)::int
+            FROM customer_addresses referred_address
+            JOIN customer_addresses referrer_address
+              ON ST_DWithin(referred_address.location, referrer_address.location, 50)
+           WHERE referred_address.customer_id = $2 AND referrer_address.customer_id = $1
+             AND referred_address.deleted_at IS NULL AND referrer_address.deleted_at IS NULL) AS shared_address_users,
+         EXISTS (SELECT 1 FROM crm_referral_attributions
+                  WHERE (referrer_id = $1 OR referred_id = $2) AND status IN ('REJECTED','REVERSED')) AS prior_rejected_attribution`,
+      [referrerId, userId],
+    );
+    const riskRow = risk.rows[0] || {};
+    const riskDecision = evaluateReferralAbuse({
+      sharedDeviceUsers: Number(riskRow.shared_device_users || 0),
+      sharedPaymentUsers: Number(riskRow.shared_payment_users || 0),
+      sharedAddressUsers: Number(riskRow.shared_address_users || 0),
+      priorRejectedAttribution: Boolean(riskRow.prior_rejected_attribution),
+    });
+
     const selectedPolicy = policy.rows[0];
     await client.query(
       `INSERT INTO crm_referral_attributions
         (referrer_id, referred_id, referral_code, market_code, status,
          reward_points, reward_liability_minor, abuse_signals)
-       VALUES ($1, $2, $3, $4, 'PENDING', $5, $6, $7::jsonb)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
       [
         referrerId,
         userId,
         code,
         marketCode,
+        riskDecision.status,
         Number(selectedPolicy.reward_points || 0),
         Number(selectedPolicy.reward_liability_minor || 0),
-        JSON.stringify({ policy_version: selectedPolicy.policy_version, signals: [], state: 'PENDING_REVIEW' }),
+        JSON.stringify({ policy_version: selectedPolicy.policy_version, signals: riskDecision.reasons, state: riskDecision.status === 'REVIEW' ? 'PENDING_RISK_REVIEW' : 'PENDING_REWARD_QUALIFICATION', reward_releasable: riskDecision.reward_releasable }),
       ]
     );
     await client.query('COMMIT');
-    return res.status(201).json({ success: true, message: 'Kode referral berhasil diterapkan' });
+    return res.status(201).json({ success: true, message: 'Kode referral berhasil diterapkan', data: { status: riskDecision.status, risk_signals: riskDecision.reasons, reward_releasable: riskDecision.reward_releasable } });
   } catch (error) {
     await client.query('ROLLBACK');
     securityLog.error('APPLY_REFERRAL_FAILED', { error });

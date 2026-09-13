@@ -3,6 +3,7 @@ import { db, readDb } from '../db';
 import { getActorId } from '../utils/authUtils';
 import { securityLog } from '../security/logRedaction';
 import { requestPaymentConfigChange } from './paymentConfigApproval.controller';
+import { validateCampaignAudience, validateCampaignFundingBreakdown, validateCampaignFrequencyCap } from '../services/crmPolicy';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const limitOf = (value: unknown, fallback = 50) => {
@@ -383,13 +384,28 @@ export const createAdminCrmCampaign = async (req: Request, res: Response): Promi
     res.status(400).json({ success: false, error: 'campaign_code, market_code, and non-negative integer budget are required' });
     return;
   }
+  const audience = validateCampaignAudience(req.body?.audience_definition);
+  const frequencyCap = validateCampaignFrequencyCap(req.body?.frequency_cap);
+  const funding = validateCampaignFundingBreakdown(req.body?.funding_breakdown, budget);
+  if (audience.normalized.market_code !== undefined && String(audience.normalized.market_code).trim().toLowerCase() !== marketCode) {
+    audience.errors.push('audience_market_must_match_campaign_market');
+    audience.valid = false;
+  }
+  if (!audience.valid || !frequencyCap.valid || !funding.valid) {
+    res.status(400).json({
+      success: false,
+      error: 'Campaign audience or frequency cap is not governed',
+      details: [...audience.errors, ...frequencyCap.errors],
+    });
+    return;
+  }
   const actor = getActorId(req);
   try {
     const result = await db.query(
       `INSERT INTO crm_campaigns (campaign_code, market_code, audience_definition, budget_minor, funding_breakdown, frequency_cap, holdout_percent, created_by)
        VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, $6::jsonb, $7, $8)
        RETURNING id, campaign_code, market_code, state, budget_minor, holdout_percent, created_at`,
-      [campaignCode, marketCode, JSON.stringify(jsonObject(req.body?.audience_definition)), budget, JSON.stringify(jsonObject(req.body?.funding_breakdown)), JSON.stringify(jsonObject(req.body?.frequency_cap)), Math.min(Math.max(Number(req.body?.holdout_percent ?? 0), 0), 100), actor],
+      [campaignCode, marketCode, JSON.stringify(audience.normalized), budget, JSON.stringify(funding.normalized), JSON.stringify(frequencyCap.normalized), Math.min(Math.max(Number(req.body?.holdout_percent ?? 0), 0), 100), actor],
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error: any) {

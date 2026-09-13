@@ -56,6 +56,7 @@ adminRoutes.post('/admin/reputation/reviews/:id/response', requireRole(['super_a
 adminRoutes.get('/admin/crm/control-plane', requireRole(['super_admin', 'admin', 'ops_admin', 'finance_admin']), (req, res) => controllers.listAdminCrmControlPlane(req, res));
 adminRoutes.post('/admin/crm/campaigns', requireRole(['super_admin', 'admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.crm.campaign.create'), (req, res) => controllers.createAdminCrmCampaign(req, res));
 adminRoutes.patch('/admin/crm/campaigns/:id/state', requireRole(['super_admin', 'admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.crm.campaign.state'), (req, res) => controllers.updateAdminCrmCampaignState(req, res));
+adminRoutes.post('/admin/crm/campaigns/:id/dispatch', requireRole(['super_admin', 'admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.crm.campaign.dispatch'), (req, res) => controllers.crmCampaign.dispatchAdminCrmCampaign(req, res));
 adminRoutes.get('/admin/courier-support/queue', requireRole(['super_admin', 'ops_security', 'ops_admin', 'cs_agent']), (req, res) => controllers.listAdminCourierSupportQueue(req, res));
 adminRoutes.get('/admin/gps-risk-alerts', (req, res) => controllers.listAdminGpsRiskAlerts(req, res));
 adminRoutes.patch('/admin/gps-risk-alerts/:id', (req, res) => controllers.updateAdminGpsRiskAlert(req, res));

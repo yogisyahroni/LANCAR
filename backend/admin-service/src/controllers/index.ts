@@ -112,6 +112,7 @@ export * from './safety.controller';
 export * from './platformOperations.controller';
 export * from './paymentConfigApproval.controller';
 export * from './reputation.controller';
+export * as crmCampaign from './crmCampaign.controller';
 
 // First-class customer / merchant / courier support cases
 export * from './supportCases.controller';

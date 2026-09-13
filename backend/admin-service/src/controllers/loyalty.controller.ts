@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { db, readDb } from '../db';
 import { getActorId } from '../utils/authUtils';
 import { securityLog } from '../security/logRedaction';
+import { membershipStateAllowsBenefit } from '../services/crmPolicy';
 
 /**
  * C9: Loyalty / membership tier view.
@@ -125,6 +126,86 @@ export const getMembershipEntitlements = async (req: Request, res: Response): Pr
   } catch (error: any) {
     securityLog.error('GET_MEMBERSHIP_ENTITLEMENTS_FAILED', { error: error?.message });
     res.status(500).json({ success: false, code: 'ERR_MEMBERSHIP_UNAVAILABLE' });
+  }
+};
+
+type MembershipEligibilityRequest = {
+  owner_id?: string;
+  market_code?: string;
+  service_code?: string;
+  benefit_code?: string;
+};
+
+/**
+ * Internal order/pricing read boundary. The order service asks for a benefit
+ * decision; it never accepts a client-composed membership discount. Payment
+ * state remains authoritative, so PENDING_PAYMENT entitlements are ineligible.
+ */
+export const resolveMembershipBenefitEligibility = async (req: Request, res: Response): Promise<void> => {
+  if (!internalKeyMatches(req)) {
+    res.status(401).json({ success: false, code: 'ERR_INTERNAL_UNAUTHORIZED' });
+    return;
+  }
+  const input = (req.body || {}) as MembershipEligibilityRequest;
+  const ownerId = String(input.owner_id || '').trim();
+  const marketCode = String(input.market_code || '').trim().toLowerCase();
+  const serviceCode = String(input.service_code || '').trim().toLowerCase();
+  const benefitCode = String(input.benefit_code || 'free_delivery').trim().toLowerCase();
+  if (!uuidLike(ownerId) || !/^[a-z0-9][a-z0-9_-]{1,31}$/.test(marketCode) || !/^[a-z0-9][a-z0-9_-]{1,63}$/.test(serviceCode) || !/^[a-z0-9][a-z0-9_-]{1,63}$/.test(benefitCode)) {
+    res.status(400).json({ success: false, code: 'ERR_INVALID_MEMBERSHIP_ELIGIBILITY_REQUEST' });
+    return;
+  }
+  try {
+    const result = await readDb.query(
+      `SELECT e.id, e.state, e.current_period_end, e.payment_intent_id,
+              p.plan_code, p.version, p.market_code, p.currency, p.benefits
+         FROM crm_membership_entitlements e
+         JOIN crm_membership_plans p ON p.id = e.plan_id
+        WHERE e.owner_id = $1 AND p.market_code = $2
+        ORDER BY e.current_period_end DESC, e.updated_at DESC LIMIT 1`,
+      [ownerId, marketCode],
+    );
+    const entitlement = result.rows[0];
+    if (!entitlement) {
+      res.json({ success: true, data: { eligible: false, reason: 'NO_ENTITLEMENT', service_code: serviceCode, benefit_code: benefitCode } });
+      return;
+    }
+    const benefitCatalog = entitlement.benefits && typeof entitlement.benefits === 'object' ? entitlement.benefits : {};
+    const configuredBenefit = (benefitCatalog as any)[benefitCode];
+    const benefit = configuredBenefit && typeof configuredBenefit === 'object' ? configuredBenefit : { enabled: configuredBenefit === true };
+    const allowedServices = Array.isArray(benefit.service_codes) ? benefit.service_codes.map((value: unknown) => String(value).toLowerCase()) : null;
+    const active = membershipStateAllowsBenefit(String(entitlement.state) as any, new Date(entitlement.current_period_end));
+    const serviceAllowed = !allowedServices || allowedServices.includes(serviceCode);
+    const eligible = active && serviceAllowed && benefit.enabled !== false;
+    const reason = !active
+      ? 'ENTITLEMENT_NOT_ACTIVE'
+      : !serviceAllowed
+        ? 'SERVICE_NOT_ELIGIBLE'
+        : benefit.enabled === false
+          ? 'BENEFIT_NOT_CONFIGURED'
+          : 'ELIGIBLE';
+    res.json({
+      success: true,
+      data: {
+        eligible,
+        reason,
+        owner_id: ownerId,
+        market_code: entitlement.market_code,
+        service_code: serviceCode,
+        benefit_code: benefitCode,
+        entitlement_id: entitlement.id,
+        plan_code: entitlement.plan_code,
+        plan_version: entitlement.version,
+        currency: entitlement.currency,
+        period_end: entitlement.current_period_end,
+        funding_source: eligible ? 'MEMBERSHIP' : null,
+        subsidy_cap_minor: eligible && Number.isSafeInteger(Number(benefit.cap_minor)) ? Number(benefit.cap_minor) : null,
+        payment_intent_id: entitlement.payment_intent_id || null,
+      },
+    });
+  } catch (error: any) {
+    securityLog.error('RESOLVE_MEMBERSHIP_ELIGIBILITY_FAILED', { error: error?.message, market_code: marketCode });
+    res.status(500).json({ success: false, code: 'ERR_MEMBERSHIP_ELIGIBILITY_UNAVAILABLE' });
   }
 };
 

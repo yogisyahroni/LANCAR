@@ -326,6 +326,7 @@ export const updateNotificationPreferences = async (req: Request, res: Response)
         const pushEnabled = preference.push_enabled !== false;
         const inAppEnabled = preference.in_app_enabled !== false;
         const marketingEnabled = category === 'promo' ? preference.marketing_enabled === true : preference.marketing_enabled !== false;
+        const personalizationAllowed = preference.personalization_allowed === true;
         const quietHoursStart = typeof preference.quiet_hours_start === 'string' ? preference.quiet_hours_start.slice(0, 5) : '21:00';
         const quietHoursEnd = typeof preference.quiet_hours_end === 'string' ? preference.quiet_hours_end.slice(0, 5) : '08:00';
 
@@ -367,6 +368,36 @@ export const updateNotificationPreferences = async (req: Request, res: Response)
         ]);
 
         savedPreferences.push(result.rows[0]);
+
+        // Keep the legacy notification-center control and the CRM/Communication
+        // Platform consent projection in sync. Campaign delivery reads only the
+        // market-scoped projection, so an opt-out cannot be bypassed by another
+        // CRM surface.
+        if (category === 'promo') {
+          const marketCode = String(req.header('x-market-code') || 'id-jk').trim().toLowerCase();
+          const channels = [
+            { crm: 'IN_APP', communication: 'in_app', enabled: marketingEnabled && inAppEnabled },
+            { crm: 'PUSH', communication: 'push', enabled: marketingEnabled && pushEnabled },
+          ];
+          for (const channel of channels) {
+            await client.query(`
+              INSERT INTO crm_preferences (user_id, market_code, channel, marketing_allowed, personalization_allowed, updated_at)
+              VALUES ($1, $2, $3, $4, $5, NOW())
+              ON CONFLICT (user_id, market_code, channel) DO UPDATE SET
+                marketing_allowed = EXCLUDED.marketing_allowed,
+                personalization_allowed = EXCLUDED.personalization_allowed,
+                updated_at = NOW()
+            `, [user_id, marketCode, channel.crm, channel.enabled, channel.enabled && personalizationAllowed]);
+            await client.query(`
+              INSERT INTO communication_preferences (user_id, category, channel, enabled, consent_source, updated_at)
+              VALUES ($1, 'marketing', $2, $3, 'customer_notification_center', NOW())
+              ON CONFLICT (user_id, category, channel) DO UPDATE SET
+                enabled = EXCLUDED.enabled,
+                consent_source = EXCLUDED.consent_source,
+                updated_at = NOW()
+            `, [user_id, channel.communication, channel.enabled]);
+          }
+        }
       }
 
       await client.query('COMMIT');

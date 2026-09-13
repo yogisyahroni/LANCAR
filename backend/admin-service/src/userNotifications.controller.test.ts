@@ -3,6 +3,7 @@ import {
   getUserNotifications,
   markNotificationRead,
   registerDeviceToken,
+  updateNotificationPreferences,
   validateDeviceTokenRegistrationInput
 } from './controllers/userNotifications.controller';
 import { db, readDb } from './db';
@@ -11,6 +12,7 @@ import { ensureUserDevicesTable } from './notifications';
 jest.mock('./db', () => ({
   db: {
     query: jest.fn(),
+    connect: jest.fn(),
   },
   readDb: {
     query: jest.fn(),
@@ -207,5 +209,31 @@ describe('mobile notification device token registration', () => {
         }),
       },
     });
+  });
+
+  it('projects promo opt-out to market-scoped CRM and communication preferences', async () => {
+    const client = { query: jest.fn(), release: jest.fn() };
+    client.query
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ category: 'promo', marketing_enabled: false }] })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+    (db.connect as jest.Mock).mockResolvedValue(client);
+    const req: any = {
+      user: { id: 'customer-user-1', role: 'customer' },
+      body: { preferences: [{ category: 'promo', marketing_enabled: false, push_enabled: true, in_app_enabled: true }] },
+      header: (name: string) => name.toLowerCase() === 'x-market-code' ? 'id-jk' : undefined,
+    };
+    const res = makeResponse();
+
+    await updateNotificationPreferences(req, res);
+
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO crm_preferences'))).toBe(true);
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO communication_preferences'))).toBe(true);
+    expect(client.query).toHaveBeenCalledWith('COMMIT');
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
   });
 });

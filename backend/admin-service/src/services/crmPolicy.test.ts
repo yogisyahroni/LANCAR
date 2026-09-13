@@ -1,4 +1,4 @@
-import { applyLoyaltyEventOnce, canSendCampaign, campaignFunding, membershipStateAllowsBenefit, resolvePromoStack, validateLoyaltyEntry } from './crmPolicy';
+import { applyLoyaltyEventOnce, canSendCampaign, campaignFunding, evaluateReferralAbuse, membershipStateAllowsBenefit, resolvePromoStack, validateCampaignAudience, validateCampaignFundingBreakdown, validateLoyaltyEntry } from './crmPolicy';
 
 describe('CRM and loyalty policy', () => {
   it('keeps loyalty ledger idempotent and separate from cash', () => {
@@ -17,5 +17,21 @@ describe('CRM and loyalty policy', () => {
     expect(canSendCampaign({ optedIn: true, frequencyCount: 3, frequencyCap: 3, holdout: false })).toBe(false);
     expect(membershipStateAllowsBenefit('ACTIVE', new Date('2026-09-13T00:00:00Z'), new Date('2026-09-12T00:00:00Z'))).toBe(true);
     expect(membershipStateAllowsBenefit('PENDING_PAYMENT', new Date('2026-09-13T00:00:00Z'), new Date('2026-09-12T00:00:00Z'))).toBe(false);
+  });
+
+  it('routes referral abuse signals to review before reward release', () => {
+    expect(evaluateReferralAbuse({ sharedDeviceUsers: 1, sharedPaymentUsers: 1 })).toEqual({
+      status: 'REVIEW',
+      reasons: ['shared_device', 'shared_payment_instrument'],
+      reward_releasable: false,
+    });
+    expect(evaluateReferralAbuse({})).toMatchObject({ status: 'PENDING', reward_releasable: true });
+  });
+
+  it('governs CRM audience and funding before campaign publication', () => {
+    expect(validateCampaignAudience({ email: 'private@example.test' }).valid).toBe(false);
+    expect(validateCampaignAudience({ lifecycle_stage: 'at_risk', consent_required: true }).valid).toBe(true);
+    expect(validateCampaignFundingBreakdown({}, 1000)).toMatchObject({ valid: true, normalized: { platform: 1000, total: 1000 } });
+    expect(validateCampaignFundingBreakdown({ platform: 500, merchant: 100 }, 1000).valid).toBe(false);
   });
 });
