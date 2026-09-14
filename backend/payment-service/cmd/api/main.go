@@ -100,6 +100,7 @@ func validateProductionSecrets() {
 	}
 
 	requireProductionURL("DATABASE_URL")
+	requireStrongSecret("INTERNAL_PAYMENT_API_KEY", 32)
 	if strings.EqualFold(os.Getenv("MIDTRANS_ENV"), "production") {
 		requireStrongSecret("MIDTRANS_SERVER_KEY", 16)
 	}

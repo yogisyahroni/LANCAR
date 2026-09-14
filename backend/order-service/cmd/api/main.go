@@ -125,6 +125,7 @@ func validateProductionSecrets() {
 	requireProductionURL("REDIS_URL")
 	requireProductionURL("RABBITMQ_URL")
 	requireStrongSecret("JWT_SECRET", 32)
+	requireStrongSecret("INTERNAL_API_KEY", 32)
 
 	if strings.EqualFold(os.Getenv("MIDTRANS_ENV"), "production") {
 		requireStrongSecret("MIDTRANS_SERVER_KEY", 16)
