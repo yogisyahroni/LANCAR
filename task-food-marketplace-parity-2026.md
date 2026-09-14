@@ -6511,8 +6511,8 @@ Start with clean bounded modules in existing services when ownership and scale p
 
 **Checklist**
 - [x] Drill produces timestamped evidence, gaps, owner and remediation date. (Verified 2026-09-14: ten required dependency scenarios were executed twice by `scripts/operations/run_failure_drill_matrix.py`; raw output is `docs/operations/failure-drill-tabletop-2026-09-14.json`.)
-- [ ] Re-run after material remediation.
-- [ ] No “we have a runbook” substitute for at least staging/tabletop/production-safe rehearsal according to risk.
+- [x] Re-run after material remediation. (Verified 2026-09-14: the deterministic ten-scenario matrix was rerun at post-remediation revision `8b719abf`, with fresh timestamps and raw JSON evidence.)
+- [x] No “we have a runbook” substitute for at least staging/tabletop/production-safe rehearsal according to risk. (Verified 2026-09-14: safety, socket-reconnect and controlled new-order kill-switch drills ran against public staging; remaining dependency scenarios ran in the timestamped tabletop matrix with explicit provider-live limitations.)
 
 ---
 

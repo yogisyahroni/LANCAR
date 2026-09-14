@@ -1,18 +1,18 @@
 {
   "schema_version": "2026.09.14",
   "mode": "deterministic_tabletop_failure_drill_matrix",
-  "started_at": "2026-09-14T12:24:22.775673Z",
-  "finished_at": "2026-09-14T12:24:22.775673Z",
-  "repository_revision": "b064ba6f5eeeffda94f1785b70f3319c0cf43ee7",
+  "started_at": "2026-09-14T15:50:28.158366Z",
+  "finished_at": "2026-09-14T15:50:28.158366Z",
+  "repository_revision": "8b719abfe0e7806a29907cd6b2931a48d2f2df59",
   "environment": "local tabletop; no payment/map/carrier/notification/cloud provider contacted",
   "scenario_count": 10,
   "rerun_count": 2,
   "runs": [
     {
       "run_number": 1,
-      "started_at": "2026-09-14T12:24:22.775673Z",
-      "finished_at": "2026-09-14T12:24:22.775673Z",
-      "repository_revision": "b064ba6f5eeeffda94f1785b70f3319c0cf43ee7",
+      "started_at": "2026-09-14T15:50:28.158366Z",
+      "finished_at": "2026-09-14T15:50:28.158366Z",
+      "repository_revision": "8b719abfe0e7806a29907cd6b2931a48d2f2df59",
       "environment": "local tabletop; no external provider contacted",
       "records": [
         {
@@ -183,9 +183,9 @@
     },
     {
       "run_number": 2,
-      "started_at": "2026-09-14T12:24:22.775673Z",
-      "finished_at": "2026-09-14T12:24:22.775673Z",
-      "repository_revision": "b064ba6f5eeeffda94f1785b70f3319c0cf43ee7",
+      "started_at": "2026-09-14T15:50:28.158366Z",
+      "finished_at": "2026-09-14T15:50:28.158366Z",
+      "repository_revision": "8b719abfe0e7806a29907cd6b2931a48d2f2df59",
       "environment": "local tabletop; no external provider contacted",
       "records": [
         {
