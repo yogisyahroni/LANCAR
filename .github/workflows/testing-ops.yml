@@ -61,7 +61,10 @@ jobs:
         uses: grafana/k6-action@v0.3.1
         with:
           filename: scripts/ci/k6/smoke-test.js
-          flags: --vus 20 --duration 60s
+          # Keep this scheduled health/auth smoke below the gateway's shared
+          # per-client limiter. Dedicated peak capacity is tracked by the
+          # PAYPLAT staging runner and must not be hidden by this smoke job.
+          flags: --vus 2 --duration 30s
         env:
           K6_BASE_URL: https://api.bawain.my.id
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
@@ -150,8 +153,9 @@ jobs:
       - name: Percy snapshot
         run: |
           npm ci
+          npm install --no-save --ignore-scripts @percy/cli@1.32.7
           npx playwright install --with-deps chromium
-          npx --yes @percy/cli@1.32.7 exec -- npm run test:e2e:visual
+          npx --no-install percy exec -- npm run test:e2e:visual
         working-directory: ./frontend
         env:
           BASE_URL: https://app.bawain.my.id
@@ -175,7 +179,7 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
-          npm run test:e2e -- e2e/navigation.spec.ts e2e/portal-auth.spec.ts
+          npm run test:e2e:chromium -- e2e/navigation.spec.ts e2e/portal-auth.spec.ts
         working-directory: ./frontend
         env:
           BASE_URL: https://app.bawain.my.id
