@@ -6468,7 +6468,7 @@ Start with clean bounded modules in existing services when ownership and scale p
 
 **Checklist**
 - [x] Each stage has projected peak QPS/order concurrency/socket/location events/provider callbacks and storage growth. (Verified 2026-09-14: explicit internal/dev through multi-region forecast matrix in `docs/sre/capacity-forecast-2026-09-14.md`, with assumptions labeled and no unmeasured stage represented as PASS.)
-- [ ] Load tests use next-stage forecast + safety margin, not arbitrary impressive number.
+- [x] Load tests use next-stage forecast + safety margin, not arbitrary impressive number. (Verified 2026-09-14: the parameterized payment peak runner defaults to selected next-stage forecast × 50% margin; the executed 113/23/23 profile corresponds to city-production forecast 75/15/15 × 1.5 and its failure is retained as a no-go result.)
 - [ ] Database/queue/cache/provider quotas evaluated before stage promotion.
 - [ ] Capacity result includes cost and bottleneck, not pass/fail only.
 
