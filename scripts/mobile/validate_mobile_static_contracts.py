@@ -253,6 +253,48 @@ def main() -> int:
         )
         forbid(errors, context_path, "email", "phone", "address", "user_id", "order_id", "token")
 
+    # Every authenticated mobile shell exposes a recoverable offline state and
+    # distinguishes a request that remains pending for five seconds. The UI
+    # observes validated connectivity, so a cached snapshot is never reported
+    # as live merely because the last request succeeded.
+    require(
+        errors,
+        "android-app-customer/app/src/main/java/com/tembus/customer/util/NetworkStatus.kt",
+        "registerDefaultNetworkCallback",
+        "NET_CAPABILITY_VALIDATED",
+        "CustomerNetworkRecoveryBanner",
+        "Kamu sedang offline",
+        "Coba lagi",
+        "Data yang tersimpan tetap tersedia",
+    )
+    require(
+        errors,
+        "android-app-merchant/app/src/main/java/com/tembus/merchant/util/NetworkStatus.kt",
+        "registerDefaultNetworkCallback",
+        "NET_CAPABILITY_VALIDATED",
+        "MerchantNetworkRecoveryBanner",
+        "Kamu sedang offline",
+        "Coba lagi",
+        "Data tersimpan tetap dapat dilihat",
+    )
+    require(
+        errors,
+        "android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/main/DashboardScreen.kt",
+        "rememberNetworkAvailable()",
+        "delay(5_000L)",
+        "CustomerNetworkRecoveryBanner",
+        "viewModel::refreshData",
+    )
+    require(
+        errors,
+        "android-app-merchant/app/src/main/java/com/tembus/merchant/ui/MainScreen.kt",
+        "rememberNetworkAvailable()",
+        "delay(5_000L)",
+        "MerchantNetworkRecoveryBanner",
+        "networkRetryNonce += 1",
+        "key(networkRetryNonce)",
+    )
+
     # Server-controlled updates can only carry release metadata, never code.
     require(
         errors,

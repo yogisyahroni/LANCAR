@@ -5905,7 +5905,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - [x] Safe GET/snapshot caching separated from mutation queue.
 - [x] Mutation retry only for idempotent/safe operations.
 - [x] Data saver reduces campaign/media prefetch.
-- [ ] Slow/offline state has explicit UI and recovery.
+- [x] Slow/offline state has explicit UI and recovery. (Verified 2026-09-14: customer and merchant staging APKs observe validated connectivity, show an accessible offline/recovery banner, retry the owning data source, and hide the banner after emulator network restoration; five-second pending-request state is wired for slow connections.)
 
 ---
 

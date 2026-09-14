@@ -28,5 +28,5 @@ Release signing **optional**: set secrets `MERCHANT_RELEASE_KEYSTORE_BASE64`,
 Tanpa secrets → warning + debug APK tetap di-upload.
 
 ## BASE_URL
-- Debug: `https://api.bawain.my.id/api/v1/` (BuildConfig, bisa override via `DEBUG_BASE_URL` / `MOBILE_API_BASE_URL`)
+- Debug: `https://api.bawain.my.id/` (BuildConfig, bisa override via `DEBUG_BASE_URL` / `MOBILE_API_BASE_URL`; endpoint service menambahkan `api/v1/...`)
 - Release: wajib dari `MOBILE_API_BASE_URL` (validasi HTTPS di gradle)

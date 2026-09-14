@@ -121,6 +121,9 @@ import com.tembus.customer.ui.theme.Secondary
 import com.tembus.customer.ui.theme.SecondaryLight
 import com.tembus.customer.ui.theme.Success
 import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.util.CustomerNetworkRecoveryBanner
+import com.tembus.customer.util.rememberNetworkAvailable
+import kotlinx.coroutines.delay
 
 private val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
 private val Muted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
@@ -169,6 +172,8 @@ fun DashboardScreen(
     val banners by viewModel.banners.collectAsState()
     val services by viewModel.services.collectAsState()
     val experienceSnapshot by viewModel.experienceSnapshot.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val isOnline by rememberNetworkAvailable()
     val featureFlags by FeatureFlagManager.snapshot.collectAsState()
     val foodEntryEnabled = featureFlags["customer_food_entry"]?.enabled ?: true
     val visibleServices = if (foodEntryEnabled) services else services.filterNot {
@@ -187,6 +192,15 @@ fun DashboardScreen(
         showNotificationPermissionPrompt
 
     var isRefreshing by remember { mutableStateOf(false) }
+    var slowNetwork by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isLoading) {
+        slowNetwork = false
+        if (isLoading) {
+            delay(5_000L)
+            slowNetwork = true
+        }
+    }
 
     if (isRefreshing) {
         LaunchedEffect(Unit) {
@@ -246,6 +260,14 @@ fun DashboardScreen(
                     contentPadding = PaddingValues(bottom = 30.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
+                    item {
+                        CustomerNetworkRecoveryBanner(
+                            isOnline = isOnline,
+                            isSlow = slowNetwork || (isOnline && dataError != null),
+                            isRetrying = isLoading,
+                            onRetry = viewModel::refreshData,
+                        )
+                    }
                     item {
                         TembusHomeTopBar(
                             customerName = customerName.orEmpty().ifBlank { "Pelanggan" },

@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import com.tembus.merchant.ui.localization.MerchantText as Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -33,6 +34,9 @@ import com.tembus.merchant.ui.screens.profile.StoreProfileZipScreen
 import com.tembus.merchant.ui.screens.report.BusinessInsightsZipScreen
 import com.tembus.merchant.ui.screens.staff.StaffScreen
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import com.tembus.merchant.util.MerchantNetworkRecoveryBanner
+import com.tembus.merchant.util.rememberNetworkAvailable
 
 private data class MainTab(val labelRes: Int, val icon: ImageVector, val key: String)
 
@@ -66,8 +70,14 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     val featureFlags by FeatureFlagManager.snapshot.collectAsState()
     val menuEntryEnabled = featureFlags["merchant_menu_entry"]?.enabled ?: true
+    val isOnline by rememberNetworkAvailable()
+    var networkRetryNonce by rememberSaveable { mutableStateOf(0) }
+    var isRetryingNetwork by remember { mutableStateOf(false) }
+    var slowNetwork by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(networkRetryNonce) {
+        slowNetwork = false
+        isRetryingNetwork = networkRetryNonce > 0
         scope.launch {
             merchantRepository.getProfile()
                 .onSuccess { m: Merchant ->
@@ -76,6 +86,16 @@ fun MainScreen(
                     profileLoaded = true
                 }
                 .onFailure { profileLoaded = true }
+            isRetryingNetwork = false
+        }
+    }
+
+    LaunchedEffect(profileLoaded) {
+        if (!profileLoaded) {
+            delay(5_000L)
+            slowNetwork = true
+        } else {
+            slowNetwork = false
         }
     }
 
@@ -132,6 +152,22 @@ fun MainScreen(
             }
     }
 
+    @Composable
+    fun MerchantMainContent() {
+        Column {
+            MerchantExperienceSlot(experienceConfigRepository, Modifier.padding(12.dp))
+            MerchantNetworkRecoveryBanner(
+                isOnline = isOnline,
+                isSlow = slowNetwork || isRetryingNetwork,
+                isRetrying = isRetryingNetwork,
+                onRetry = { networkRetryNonce += 1 },
+            )
+            Box(Modifier.weight(1f)) {
+                key(networkRetryNonce) { renderScreen() }
+            }
+        }
+    }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val useNavigationRail = maxWidth >= 600.dp
         SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
@@ -144,19 +180,13 @@ fun MainScreen(
                         useNavigationRail = true
                     )
                     Box(Modifier.weight(1f).fillMaxHeight()) {
-                        Column {
-                            MerchantExperienceSlot(experienceConfigRepository, Modifier.padding(12.dp))
-                            Box(Modifier.weight(1f)) { renderScreen() }
-                        }
+                        MerchantMainContent()
                     }
                 }
             } else {
                 Column(modifier = Modifier.fillMaxSize()) {
                     Box(modifier = Modifier.weight(1f)) {
-                        Column {
-                            MerchantExperienceSlot(experienceConfigRepository, Modifier.padding(12.dp))
-                            Box(Modifier.weight(1f)) { renderScreen() }
-                        }
+                        MerchantMainContent()
                     }
                     MerchantNavigation(
                         tabs = tabs,
