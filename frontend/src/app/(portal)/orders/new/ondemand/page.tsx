@@ -12,6 +12,7 @@ import { clientLog } from "@/lib/clientLogger";
 import { useRouter } from "next/navigation";
 import { useNotificationStore } from "@/store/useNotificationStore";
 import { Info } from "lucide-react";
+import { normalizePromoCodes } from "@/lib/promoCodes";
 import {
   createIdempotencyKey,
   isRetryableTransactionError,
@@ -38,6 +39,14 @@ interface PromoQuote {
   eligible: boolean;
   reason?: string | null;
   discount_idr?: number;
+  promotions?: Array<{
+    campaign?: {
+      id?: string;
+      code?: string;
+      name?: string;
+    } | null;
+    discount_idr?: number;
+  }>;
   campaign?: {
     id?: string;
     code?: string;
@@ -424,8 +433,8 @@ export default function NewOrderPage() {
   }, []);
 
   const handleValidatePromo = useCallback(async () => {
-    const code = promoCode.trim().toUpperCase();
-    if (!code || !pricing || !formData.service_code) {
+    const promoCodes = normalizePromoCodes(promoCode);
+    if (promoCodes.length === 0 || !pricing || !formData.service_code) {
       setPromoQuote(null);
       setPromoError("Lengkapi layanan dan harga sebelum memakai promo.");
       return;
@@ -438,7 +447,7 @@ export default function NewOrderPage() {
 
     try {
       const response = await api.post("/auth/web/promos/validate", {
-        code,
+        promo_codes: promoCodes,
         service_code: formData.service_code,
         vehicle_type: deriveRouteVehicleType(selectedService),
         gross_amount_idr: pricing.total_price_idr,
@@ -486,7 +495,7 @@ export default function NewOrderPage() {
       let currentOrderId = orderDataRef.current?.id || orderData?.id;
       let currentOrder: PersistedCustomerOrder | null = (orderDataRef.current || orderData) as PersistedCustomerOrder | null;
 
-      const appliedPromoCode = promoQuote?.eligible ? promoCode.trim().toUpperCase() : undefined;
+      const appliedPromoCodes = promoQuote?.eligible ? normalizePromoCodes(promoCode) : [];
       const payload = {
         ...data,
         price_breakdown: pricing,
@@ -496,7 +505,8 @@ export default function NewOrderPage() {
         quote_expires_at: pricing.expires_at,
         pickup_location_quality: pickupQuality,
         quote_total_price_idr: pricing.total_price_idr,
-        promo_code: appliedPromoCode
+        promo_code: appliedPromoCodes[0],
+        promo_codes: appliedPromoCodes.length > 0 ? appliedPromoCodes : undefined,
       };
       const fingerprint = fingerprintPayload(payload);
 

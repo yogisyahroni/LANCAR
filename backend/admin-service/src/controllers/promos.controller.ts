@@ -17,6 +17,7 @@ import {
   submitPromoCampaignForApproval,
   updatePromoCampaign,
   validatePromoForCheckout,
+  validatePromoStackForCheckout,
 } from '../services/promoEngine';
 
 const respondError = (res: Response, error: unknown) => { securityLog.error('PROMO ERROR:', error);
@@ -175,7 +176,10 @@ export const validateCustomerPromo = async (req: Request, res: Response): Promis
       res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
       return;
     }
-    const result = await validatePromoForCheckout(req.user.id, req.body || {}, 'quote');
+    const payload = req.body || {};
+    const result = Array.isArray(payload.promo_codes) && payload.promo_codes.length > 0
+      ? await validatePromoStackForCheckout(req.user.id, payload, 'quote')
+      : await validatePromoForCheckout(req.user.id, payload, 'quote');
     res.json({ success: true, data: result });
   } catch (error) {
     respondError(res, error);

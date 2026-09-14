@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { customerApiUrl } from "@/lib/runtimeConfig";
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { formatCurrency, formatNumber } from '@/i18n/format';
+import { appendPromoCode, normalizePromoCodes } from '@/lib/promoCodes';
 
 interface RouteSnapshot {
   active_provider?: string;
@@ -81,6 +82,13 @@ interface OrderSummaryProps {
     reason?: string | null;
     discount_idr?: number;
     discount_minor?: number;
+    promotions?: Array<{
+      campaign?: {
+        code?: string;
+        name?: string;
+      } | null;
+      discount_idr?: number;
+    }>;
     currency?: string;
     currency_minor_unit?: number;
     campaign?: {
@@ -412,6 +420,7 @@ export function OrderSummary({
   const totalPriceMinor = pricing?.total_price_minor ?? pricing?.total_price_idr ?? 0;
   const payableTotalMinor = pricing ? Math.max(0, totalPriceMinor - promoDiscountMinor) : 0;
   const promoRequiresValidation = promoCode.trim().length > 0 && !promoQuote?.eligible;
+  const selectedPromoCodes = normalizePromoCodes(promoCode);
   const submitDisabled = !isValid || isLoading || !pricing || isPromoChecking;
   const routeSnapshot = pricing?.route_snapshot || routePreview || null;
   const routeDistanceKm =
@@ -541,10 +550,11 @@ export function OrderSummary({
               aria-label={t('order.promoCode')}
               value={promoCode}
               onChange={(event) => onPromoCodeChange(event.target.value.toUpperCase())}
-              placeholder="TEMBUSHEMAT"
+              placeholder="TEMBUSHEMAT, ONGKIRHEMAT"
+              aria-describedby="customer-promo-help"
               disabled={!pricing || isLoading}
               className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold uppercase tracking-wide text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-success/60 focus:ring-2 focus:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-60"
-              maxLength={40}
+              maxLength={240}
             />
             <button
               type="button"
@@ -556,9 +566,15 @@ export function OrderSummary({
               {isPromoChecking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : t('order.check')}
             </button>
           </div>
+          <p id="customer-promo-help" className="mt-2 text-xs text-muted-foreground">
+            Pisahkan beberapa kode dengan koma. Server akan menentukan prioritas, konflik, dan batas anggaran.
+          </p>
           {promoQuote?.eligible && (
             <div className="mt-3 rounded-lg border border-success/20 bg-success-surface px-3 py-2 text-xs text-success">
-              {t('order.activePromo', { amount: formatMoneyForLocale(promoDiscountMinor, promoQuote?.currency || currency, promoQuote?.currency_minor_unit ?? currencyMinorUnit) })}
+              <span>{t('order.activePromo', { amount: formatMoneyForLocale(promoDiscountMinor, promoQuote?.currency || currency, promoQuote?.currency_minor_unit ?? currencyMinorUnit) })}</span>
+              {selectedPromoCodes.length > 0 && (
+                <span className="mt-1 block font-semibold">{selectedPromoCodes.join(', ')}</span>
+              )}
             </div>
           )}
           {promoError && (
@@ -576,7 +592,7 @@ export function OrderSummary({
                 <button
                   key={promo.id}
                   type="button"
-                  onClick={() => onPromoCodeChange(promo.code)}
+                  onClick={() => onPromoCodeChange(appendPromoCode(promoCode, promo.code))}
                   disabled={!pricing || isLoading || isPromoChecking}
               className="rounded-full border border-success/20 bg-success-surface px-3 py-1.5 text-xs font-bold text-success transition-all hover:bg-success-surface disabled:pointer-events-none disabled:opacity-60 active:scale-[0.98]"
                   title={promo.name}
