@@ -616,7 +616,6 @@ jobs:
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
-        continue-on-error: true
         with:
           name: sbom-${{ matrix.image }}-prod
           path: sbom-${{ matrix.image }}.cdx.json

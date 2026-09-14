@@ -123,6 +123,12 @@ def main() -> int:
     ):
         if marker not in production_workflow:
             errors.append(f"production workflow missing signed-image control: {marker}")
+    if re.search(
+        r"name:\s*Upload SBOM artifact\s+uses:\s*actions/upload-artifact@v4\s+continue-on-error:\s*true",
+        production_workflow,
+        re.DOTALL,
+    ):
+        errors.append("production workflow allows the required SBOM upload to fail")
     for marker in (
         'export AUTH_SERVICE_IMAGE="ghcr.io/${REPO_LOWER_LC}/auth-service:${SHA}"',
         'export PAYMENT_SERVICE_IMAGE="ghcr.io/${REPO_LOWER_LC}/payment-service:${SHA}"',
