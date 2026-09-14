@@ -481,9 +481,18 @@ const logProxyError = (proxy: string, target: string, err: Error, req?: Request)
   }, 'Gateway proxy error');
 };
 
+// Keep the production-safe default finite while allowing an explicitly
+// provisioned staging/load-test window to use the approved traffic profile.
+// A non-positive or invalid override always falls back to the safe default;
+// this must never become an accidental limiter bypass.
+const configuredGeneralRateLimit = Number.parseInt(process.env.GENERAL_RATE_LIMIT_PER_MINUTE || '100', 10);
+const generalRateLimitPerMinute = Number.isFinite(configuredGeneralRateLimit) && configuredGeneralRateLimit >= 100
+  ? Math.min(configuredGeneralRateLimit, 100_000)
+  : 100;
+
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 100, // limit each IP to 100 requests per minute
+  max: generalRateLimitPerMinute,
   keyGenerator: rateLimitClientKey,
   standardHeaders: true,
   legacyHeaders: false,

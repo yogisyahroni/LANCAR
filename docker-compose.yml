@@ -798,6 +798,9 @@ services:
       # merchant-service di-containerize (tembus-merchant) — alamat internal docker network
       MERCHANT_SERVICE_URL: ${MERCHANT_SERVICE_URL:-http://merchant-service:8085}
       GATEWAY_PORT: 8080
+      # Keep the normal per-IP abuse ceiling by default. A staging load-test
+      # window may explicitly raise this value; production keeps the default.
+      GENERAL_RATE_LIMIT_PER_MINUTE: ${GENERAL_RATE_LIMIT_PER_MINUTE:-100}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3002,https://admin.bawain.my.id,https://bawain.my.id,https://merchant.bawain.my.id}}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
