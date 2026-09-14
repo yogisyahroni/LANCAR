@@ -376,6 +376,7 @@ func deductFakeSosPenalty(victimID uuid.UUID, amount int64, referenceID string) 
 
 	req, _ := http.NewRequest("POST", paymentServiceURL+"/api/internal/wallet/sos-penalty", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-API-Key", os.Getenv("INTERNAL_API_KEY"))
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
@@ -401,6 +402,7 @@ func creditSosHelperReward(helperID uuid.UUID, amount int64, referenceID string)
 
 	req, _ := http.NewRequest("POST", paymentServiceURL+"/api/internal/wallet/sos-reward", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-API-Key", os.Getenv("INTERNAL_API_KEY"))
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -61,6 +62,7 @@ func (g *WalletRefundGateway) ProcessRefund(ctx context.Context, orderID string,
 		return "", fmt.Errorf("failed to create refund http request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-API-Key", os.Getenv("INTERNAL_API_KEY"))
 	req.Header.Set("X-User-ID", order.CustomerID)
 	req.Header.Set("X-User-Role", "customer")
 
@@ -110,6 +112,7 @@ func (g *WalletRefundGateway) ProcessTip(ctx context.Context, customerID, courie
 		return fmt.Errorf("failed to create tip http request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-API-Key", os.Getenv("INTERNAL_API_KEY"))
 	req.Header.Set("X-User-ID", customerID.String())
 	req.Header.Set("X-User-Role", "customer")
 
@@ -161,6 +164,7 @@ func (g *WalletRefundGateway) RefundTip(ctx context.Context, customerID, courier
 		return fmt.Errorf("failed to create tip refund http request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-API-Key", os.Getenv("INTERNAL_API_KEY"))
 	req.Header.Set("X-User-ID", customerID.String())
 	req.Header.Set("X-User-Role", "customer")
 

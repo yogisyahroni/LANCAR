@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"tembus/payment-service/internal/domain"
 	"tembus/payment-service/internal/middleware"
 
@@ -15,6 +16,23 @@ type WalletHandler struct {
 
 func NewWalletHandler(svc domain.WalletService) *WalletHandler {
 	return &WalletHandler{svc: svc}
+}
+
+// requireInternal protects wallet mutations that are called by backend
+// services, not by the public API gateway. The shared service credential is
+// deployment-scoped and is deliberately checked before decoding or applying
+// any financial request body.
+func (h *WalletHandler) requireInternal(w http.ResponseWriter, r *http.Request, boundary string) bool {
+	if middleware.RequireInternalAPIKey(
+		r,
+		os.Getenv("INTERNAL_PAYMENT_API_KEY"),
+		r.Header.Get("X-Internal-API-Key"),
+		boundary,
+	) {
+		return true
+	}
+	h.respondError(w, "Unauthorized", http.StatusUnauthorized)
+	return false
 }
 
 // parseUserID validates and parses the X-User-ID header set by the API Gateway
@@ -145,6 +163,9 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WalletHandler) Refund(w http.ResponseWriter, r *http.Request) {
+	if !h.requireInternal(w, r, "wallet_refund.apply") {
+		return
+	}
 	userID, correlationID, ok := h.parseUserID(w, r)
 	if !ok {
 		return
@@ -185,6 +206,9 @@ func (h *WalletHandler) Refund(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WalletHandler) SosPenalty(w http.ResponseWriter, r *http.Request) {
+	if !h.requireInternal(w, r, "wallet_sos.penalty") {
+		return
+	}
 	var req struct {
 		VictimID    uuid.UUID `json:"victim_id"`
 		Amount      int64     `json:"amount"`
@@ -210,6 +234,9 @@ func (h *WalletHandler) SosPenalty(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WalletHandler) SosReward(w http.ResponseWriter, r *http.Request) {
+	if !h.requireInternal(w, r, "wallet_sos.reward") {
+		return
+	}
 	var req struct {
 		HelperID    uuid.UUID `json:"helper_id"`
 		Amount      int64     `json:"amount"`
@@ -237,6 +264,9 @@ func (h *WalletHandler) SosReward(w http.ResponseWriter, r *http.Request) {
 // Tip mentransfer tip dari wallet customer ke wallet courier (FB-077).
 // Internal endpoint — dipanggil order-service setelah validasi order.
 func (h *WalletHandler) Tip(w http.ResponseWriter, r *http.Request) {
+	if !h.requireInternal(w, r, "wallet_tip.transfer") {
+		return
+	}
 	var req struct {
 		CustomerID  uuid.UUID `json:"customer_id"`
 		CourierID   uuid.UUID `json:"courier_id"`
@@ -274,6 +304,9 @@ func (h *WalletHandler) Tip(w http.ResponseWriter, r *http.Request) {
 // credit wallet customer (FB-083). Internal endpoint — dipanggil order-service
 // setelah order di-cancel. Idempotent via reference_id (beda dari reference tip).
 func (h *WalletHandler) TipRefund(w http.ResponseWriter, r *http.Request) {
+	if !h.requireInternal(w, r, "wallet_tip.refund") {
+		return
+	}
 	var req struct {
 		CustomerID  uuid.UUID `json:"customer_id"`
 		CourierID   uuid.UUID `json:"courier_id"`
@@ -311,6 +344,9 @@ func (h *WalletHandler) TipRefund(w http.ResponseWriter, r *http.Request) {
 // (jaminan anti-ghosting). Dipanggil order-service saat order food di-assign
 // (FOOD-BIKE-024). Idempotent via reference_id.
 func (h *WalletHandler) HoldDeduct(w http.ResponseWriter, r *http.Request) {
+	if !h.requireInternal(w, r, "wallet_hold.deduct") {
+		return
+	}
 	var req struct {
 		DriverID    uuid.UUID `json:"driver_id"`
 		Amount      int64     `json:"amount"`
@@ -339,6 +375,9 @@ func (h *WalletHandler) HoldDeduct(w http.ResponseWriter, r *http.Request) {
 // minimum (self-funding dari revenue). Dipanggil berkala oleh worker atau
 // setelah deposit/earning driver (FOOD-BIKE-024).
 func (h *WalletHandler) HoldAutoRefill(w http.ResponseWriter, r *http.Request) {
+	if !h.requireInternal(w, r, "wallet_hold.autorefill") {
+		return
+	}
 	var req struct {
 		DriverID uuid.UUID `json:"driver_id"`
 	}
@@ -358,6 +397,9 @@ func (h *WalletHandler) HoldAutoRefill(w http.ResponseWriter, r *http.Request) {
 
 // SetHoldMinimum — internal endpoint: tetapkan jaminan minimum driver.
 func (h *WalletHandler) SetHoldMinimum(w http.ResponseWriter, r *http.Request) {
+	if !h.requireInternal(w, r, "wallet_hold.minimum") {
+		return
+	}
 	var req struct {
 		DriverID uuid.UUID `json:"driver_id"`
 		Minimum  int64     `json:"minimum"`

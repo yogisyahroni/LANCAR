@@ -136,6 +136,7 @@ func callHoldDeduct(driverUserID uuid.UUID, amount int64, referenceID string) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-API-Key", os.Getenv("INTERNAL_API_KEY"))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
