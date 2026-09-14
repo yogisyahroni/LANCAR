@@ -242,7 +242,7 @@ export function OrderDetailContent({
               <label htmlFor="customer-safety-note" className="text-xs font-bold text-foreground">Jelaskan situasi</label>
               <textarea id="customer-safety-note" rows={2} maxLength={500} placeholder="Contoh: lokasi pickup terasa tidak aman" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-error" />
               <button type="button" disabled={safetyActionPending} onClick={(event) => handleReportSafety((event.currentTarget.parentElement?.querySelector('textarea') as HTMLTextAreaElement)?.value || '')} className="rounded-xl border border-error bg-background px-4 py-2 text-sm font-bold text-error disabled:cursor-not-allowed disabled:opacity-60">{safetyActionPending ? 'Mengirim...' : 'Laporkan isu keselamatan'}</button>
-              <button type="button" disabled={safetyActionPending} onClick={handleTriggerSafetySOS} className="rounded-xl bg-error px-4 py-2 text-sm font-extrabold text-error-foreground disabled:cursor-not-allowed disabled:opacity-60">SOS / eskalasi darurat</button>
+              <button type="button" disabled={safetyActionPending} onClick={handleTriggerSafetySOS} className="rounded-xl bg-error px-4 py-2 text-sm font-extrabold text-on-error disabled:cursor-not-allowed disabled:opacity-60">SOS / eskalasi darurat</button>
             </div>
           </div>
           <div className="mt-4 rounded-xl border border-error/30 bg-background/70 p-3 text-xs text-muted-foreground">

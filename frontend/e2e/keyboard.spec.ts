@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function installCustomerFormFixture(page: Page, options: { disputes?: Array<Record<string, unknown>> } = {}) {
   await page.context().addCookies([
-    { name: 'tembus_web_session', value: 'keyboard-customer-fixture', domain: 'localhost', path: '/' },
+    { name: 'tembus_web_session', value: 'keyboard-customer-fixture', url: process.env.BASE_URL || 'http://localhost:3000' },
   ]);
   await page.route('**/*', async (route) => {
     const request = route.request();
@@ -178,7 +178,7 @@ test('Customer On-Demand service cards expose canonical icon and pressed state @
 
 test('Customer Food reorder quantity controls expose item-specific icon-only names @keyboard @a11y @iconography', async ({ page }) => {
   await page.context().addCookies([
-    { name: 'tembus_web_session', value: 'food-reorder-keyboard-fixture', domain: 'localhost', path: '/' },
+    { name: 'tembus_web_session', value: 'food-reorder-keyboard-fixture', url: process.env.BASE_URL || 'http://localhost:3000' },
   ]);
   await page.route('**/*', async (route) => {
     const request = route.request();

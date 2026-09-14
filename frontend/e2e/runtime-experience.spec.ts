@@ -93,7 +93,7 @@ const installApiContract = async (
     }
     await route.fulfill({ json: { success: true, data: {} } });
   });
-  await page.context().addCookies([{ name: 'tembus_web_session', value: 'runtime-test-session', domain: 'localhost', path: '/' }]);
+  await page.context().addCookies([{ name: 'tembus_web_session', value: 'runtime-test-session', url: process.env.BASE_URL || 'http://localhost:3000' }]);
 };
 
 test.describe('Runtime experience contract', () => {

@@ -66,7 +66,7 @@ function isPublicCustomerRoute(route: string) {
 
 async function mockCustomerSessionAndApi(page: Page) {
   await page.context().addCookies([
-    { name: 'tembus_web_session', value: 'reflow-customer-fixture', domain: 'localhost', path: '/' },
+    { name: 'tembus_web_session', value: 'reflow-customer-fixture', url: process.env.BASE_URL || 'http://localhost:3000' },
   ]);
 
   await page.route('**/*', async (route) => {

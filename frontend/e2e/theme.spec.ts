@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 async function installCustomerSessionFixture(page: Page, options: { orders?: Array<Record<string, unknown>>, detailOrder?: Record<string, unknown>, carrierEvents?: Array<Record<string, unknown>>, disputes?: Array<Record<string, unknown>>, paymentLinks?: Array<Record<string, unknown>> } = {}) {
   await page.context().addCookies([
-    { name: 'tembus_web_session', value: 'theme-customer-fixture', domain: 'localhost', path: '/' },
+    { name: 'tembus_web_session', value: 'theme-customer-fixture', url: process.env.BASE_URL || 'http://localhost:3000' },
   ])
   await page.route('**/*', async (route) => {
     const request = route.request()

@@ -5,7 +5,7 @@ const ORDER_ID = 'order-payment-resume-fixture';
 
 test('customer resumes a pending payment after the app page is closed', async ({ page }) => {
   await page.context().addCookies([
-    { name: 'tembus_web_session', value: 'payment-resume-fixture', domain: 'localhost', path: '/' },
+    { name: 'tembus_web_session', value: 'payment-resume-fixture', url: process.env.BASE_URL || 'http://localhost:3000' },
   ]);
 
   await page.context().route('**/*', async (route) => {

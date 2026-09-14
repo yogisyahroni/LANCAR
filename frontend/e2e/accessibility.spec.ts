@@ -378,7 +378,7 @@ async function assertDocumentSemantics(page: Page) {
 
 async function mockCustomerSessionAndApi(page: Page) {
   await page.context().addCookies([
-    { name: 'tembus_web_session', value: 'a11y-customer-fixture', domain: 'localhost', path: '/' },
+    { name: 'tembus_web_session', value: 'a11y-customer-fixture', url: process.env.BASE_URL || 'http://localhost:3000' },
   ]);
   await page.route('**/*', async (route) => {
     const request = route.request();
