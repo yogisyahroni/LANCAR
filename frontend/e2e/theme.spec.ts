@@ -103,7 +103,7 @@ test('Customer order status exposes readable label and supplemental icon semanti
   })
   await page.goto('/orders', { waitUntil: 'domcontentloaded' })
 
-  const status = page.getByLabel('Status order: Dalam perjalanan')
+  const status = page.getByLabel('Status order: Dalam perjalanan').first()
   await expect(status).toBeVisible()
   await expect(status).toContainText('Dalam perjalanan')
   await expect(status.locator('svg')).toHaveAttribute('aria-hidden', 'true')
