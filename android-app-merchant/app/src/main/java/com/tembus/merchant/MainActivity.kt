@@ -22,6 +22,7 @@ import com.tembus.merchant.ui.navigation.MerchantDeepLinkBus
 import com.tembus.merchant.ui.theme.TEMBUSMerchantTheme
 import com.tembus.merchant.ui.localization.MerchantLocaleRuntime
 import com.tembus.merchant.util.UpdateManager
+import com.tembus.merchant.util.MobileCrashContext
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -30,6 +31,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MobileCrashContext.setScreen("main")
         enableEdgeToEdge()
 
         MerchantDeepLinkBus.publish(intent?.data)

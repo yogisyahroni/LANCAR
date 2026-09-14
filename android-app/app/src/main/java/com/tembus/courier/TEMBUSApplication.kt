@@ -28,6 +28,7 @@ import android.os.Build
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.ExistingWorkPolicy
 import com.tembus.courier.util.FirebaseInitializer
+import com.tembus.courier.util.MobileCrashContext
 import javax.inject.Inject
 
 /**
@@ -68,6 +69,7 @@ class TEMBUSApplication : Application(), Configuration.Provider, ImageLoaderFact
         Log.d(TAG, "Application created")
 
         FirebaseInitializer.initializeIfConfigured(this)
+        MobileCrashContext.install(this)
 
         FeatureFlagManager.init(this, tembusApiService)
 

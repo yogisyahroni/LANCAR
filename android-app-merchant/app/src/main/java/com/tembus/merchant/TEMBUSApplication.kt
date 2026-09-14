@@ -18,6 +18,7 @@ import com.tembus.merchant.data.repository.ChatRepository
 import com.tembus.merchant.data.repository.MerchantRepository
 import com.tembus.merchant.data.session.AuthSessionManager
 import com.tembus.merchant.util.UpdateManager
+import com.tembus.merchant.util.MobileCrashContext
 
 /**
  * AppContainer — manual dependency injection (tanpa Hilt; pola ringan & langsung).
@@ -56,6 +57,7 @@ class TEMBUSApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        MobileCrashContext.install()
         container = AppContainer(this)
         FeatureFlagManager.init(this, container.apiService)
         // FB-093: inisialisasi osmdroid (user agent wajib, kalau tidak tile 403)

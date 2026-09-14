@@ -92,6 +92,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.tembus.courier.util.MobileCrashContext.setScreen("main")
 
         // Ingest startup deep-links
         processIntentExtras(intent)

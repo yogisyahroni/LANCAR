@@ -5,6 +5,7 @@ import android.util.Log
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.tembus.merchant.data.api.TEMBUSApiService
+import com.tembus.merchant.util.MobileCrashContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -95,6 +96,7 @@ object FeatureFlagManager {
             MerchantFeatureFlagValue(enabled, variant, revision)
         }
         _snapshot.value = states
+        MobileCrashContext.setFeatureFlagRevision(states.values.maxOfOrNull { it.evaluationRevision } ?: 0L)
         Log.d("FeatureFlagManager", "merchant feature flags refreshed count=${states.size} max_revision=${states.values.maxOfOrNull { it.evaluationRevision } ?: 0L}")
     }
 

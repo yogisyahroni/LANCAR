@@ -11,6 +11,7 @@ import com.tembus.customer.data.config.model.ExperienceConfigSnapshot
 import com.tembus.customer.data.config.model.ExperienceConfigSource
 import com.tembus.customer.data.config.model.ExperienceManifestValidator
 import com.tembus.customer.data.session.AuthSessionManager
+import com.tembus.customer.util.MobileCrashContext
 import com.tembus.customer.worker.ExperienceAssetPrefetchWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -143,6 +144,8 @@ class ExperienceConfigManager @Inject constructor(
     }
 
     private fun recordCrashContext(snapshot: ExperienceConfigSnapshot) {
+        MobileCrashContext.setExperienceRevision(snapshot.manifest.revision)
+        snapshot.scope?.marketCode?.let(MobileCrashContext::setMarketCode)
         runCatching {
             FirebaseCrashlytics.getInstance().apply {
                 setCustomKey("experience_manifest_revision", snapshot.manifest.revision)

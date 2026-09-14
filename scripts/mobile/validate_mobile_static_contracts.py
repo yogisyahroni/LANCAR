@@ -220,6 +220,25 @@ def main() -> int:
     ):
         require(errors, application_path, "ImageLoaderFactory", "maxSizePercent(0.15)")
 
+    # Crash context is allowlisted, bounded, and installed at app startup in
+    # every mobile client. Merchant currently has no remote crash vendor, but
+    # keeps the same safe context contract for future provider wiring.
+    for context_path in (
+        "android-app/app/src/main/java/com/tembus/courier/util/MobileCrashContext.kt",
+        "android-app-customer/app/src/main/java/com/tembus/customer/util/MobileCrashContext.kt",
+        "android-app-merchant/app/src/main/java/com/tembus/merchant/util/MobileCrashContext.kt",
+    ):
+        require(
+            errors,
+            context_path,
+            "setScreen",
+            "setMarketCode",
+            "setFeatureFlagRevision",
+            "MAX_VALUE_LENGTH = 96",
+            "UNSAFE_VALUE",
+        )
+        forbid(errors, context_path, "email", "phone", "address", "user_id", "order_id", "token")
+
     # Server-controlled updates can only carry release metadata, never code.
     require(
         errors,

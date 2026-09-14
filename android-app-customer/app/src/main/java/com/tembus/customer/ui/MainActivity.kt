@@ -56,6 +56,7 @@ class MainActivity : FragmentActivity() {
         val splashScreen = installSplashScreen()
         val splashStartedAt = SystemClock.elapsedRealtime()
         super.onCreate(savedInstanceState)
+        com.tembus.customer.util.MobileCrashContext.setScreen("main")
         enableEdgeToEdge()
 
         splashScreen.setKeepOnScreenCondition {

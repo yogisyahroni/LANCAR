@@ -12,12 +12,14 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.tembus.courier.data.model.ExperienceManifest
 import com.tembus.courier.data.model.ExperienceSection
 import com.tembus.courier.data.repository.ExperienceConfigRepository
+import com.tembus.courier.util.MobileCrashContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -34,6 +36,10 @@ fun CourierExperienceSlot(
     val manifest = produceState<ExperienceManifest?>(initialValue = null, repository) {
         value = repository.load()
     }.value ?: return
+    LaunchedEffect(manifest.revision, manifest.marketCode) {
+        MobileCrashContext.setExperienceRevision(manifest.revision)
+        MobileCrashContext.setMarketCode(manifest.marketCode)
+    }
     val sections = manifest.sections.filter { it.component in RENDERABLE_COMPONENTS }
     if (sections.isEmpty()) return
 

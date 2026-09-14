@@ -148,6 +148,7 @@ object FeatureFlagManager {
         }
         _snapshot.value = states
         val maxRevision = states.values.maxOfOrNull { it.evaluationRevision } ?: 0L
+        com.tembus.courier.util.MobileCrashContext.setFeatureFlagRevision(maxRevision)
         Log.d("FeatureFlagManager", "courier feature flags refreshed evaluation_revision=$maxRevision count=${states.size}")
     }
 }

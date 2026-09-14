@@ -12,12 +12,14 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.tembus.merchant.data.model.ExperienceManifest
 import com.tembus.merchant.data.model.ExperienceSection
 import com.tembus.merchant.data.repository.ExperienceConfigRepository
+import com.tembus.merchant.util.MobileCrashContext
 
 /** Renders only bounded operational content; it cannot navigate or mutate orders. */
 @Composable
@@ -28,6 +30,10 @@ fun MerchantExperienceSlot(
     val manifest = produceState<ExperienceManifest?>(initialValue = null, repository) {
         value = repository.load()
     }.value ?: return
+    LaunchedEffect(manifest.revision, manifest.marketCode) {
+        MobileCrashContext.setExperienceRevision(manifest.revision)
+        MobileCrashContext.setMarketCode(manifest.marketCode)
+    }
     val sections = manifest.sections.filter { it.component in RENDERABLE_COMPONENTS }
     if (sections.isEmpty()) return
 

@@ -8,6 +8,7 @@ import coil.memory.MemoryCache
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.tembus.customer.util.FirebaseInitializer
+import com.tembus.customer.util.MobileCrashContext
 import com.tembus.customer.ui.localization.LocaleApplier
 import com.tembus.customer.data.api.TEMBUSApiService
 import com.tembus.customer.featureflag.FeatureFlagManager
@@ -38,6 +39,7 @@ class TEMBUSApplication : Application(), Configuration.Provider, ImageLoaderFact
         super.onCreate()
         com.getkeepsafe.relinker.ReLinker.loadLibrary(this, "sqlcipher")
         FirebaseInitializer.initializeIfConfigured(this)
+        MobileCrashContext.install(this)
         FeatureFlagManager.init(this, tembusApiService)
         // Experience config is presentation-only and must never delay the
         // native/authenticated shell. It restores cache and refreshes in the
