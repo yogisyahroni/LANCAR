@@ -378,6 +378,7 @@ abstract class OrderDatabase : RoomDatabase() {
             return INSTANCE ?: synchronized(this) {
                 // 🔐 SECURITY: Implementation of SQLCipher SupportFactory for on-disk encryption
                 // In production, the passkey should be derived from Android Keystore
+                SqlCipherLoader.ensureLoaded(context)
                 val passkey = android.provider.Settings.Secure.getString(
                     context.contentResolver,
                     android.provider.Settings.Secure.ANDROID_ID

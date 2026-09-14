@@ -8,6 +8,7 @@ import com.tembus.courier.data.db.LocationDao
 import com.tembus.courier.data.db.OrderDao
 import com.tembus.courier.data.db.OrderDatabase
 import com.tembus.courier.data.db.SafetyIncidentDao
+import com.tembus.courier.data.db.SqlCipherLoader
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -60,6 +61,7 @@ object DatabaseModule {
     fun provideOrderDatabase(
         @ApplicationContext context: Context
     ): OrderDatabase {
+        SqlCipherLoader.ensureLoaded(context)
         val passphrase = getOrCreateDatabasePassphrase(context)
         val factory = SupportOpenHelperFactory(passphrase)
 

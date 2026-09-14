@@ -7,6 +7,7 @@ import androidx.security.crypto.MasterKey
 import com.tembus.customer.data.db.LocationDao
 import com.tembus.customer.data.db.OrderDao
 import com.tembus.customer.data.db.OrderDatabase
+import com.tembus.customer.data.db.SqlCipherLoader
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -58,6 +59,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): OrderDatabase {
+        SqlCipherLoader.ensureLoaded(context)
         val passphrase = getOrCreateDatabasePassphrase(context)
         val factory = SupportOpenHelperFactory(passphrase)
 

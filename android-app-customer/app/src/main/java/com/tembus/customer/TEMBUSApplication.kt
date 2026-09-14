@@ -37,7 +37,6 @@ class TEMBUSApplication : Application(), Configuration.Provider, ImageLoaderFact
 
     override fun onCreate() {
         super.onCreate()
-        com.getkeepsafe.relinker.ReLinker.loadLibrary(this, "sqlcipher")
         FirebaseInitializer.initializeIfConfigured(this)
         MobileCrashContext.install(this)
         FeatureFlagManager.init(this, tembusApiService)

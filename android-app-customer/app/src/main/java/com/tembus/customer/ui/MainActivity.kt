@@ -36,6 +36,13 @@ import com.tembus.customer.domain.config.StartupCampaignCoordinator
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
 
+    private companion object {
+        // Keep the branded splash visible long enough to avoid a flash while
+        // allowing the first usable shell to render without an artificial
+        // one-second startup penalty.
+        const val MIN_SPLASH_DISPLAY_MILLIS = 250L
+    }
+
     @Inject
     lateinit var updateManager: UpdateManager
 
@@ -66,7 +73,7 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
 
         splashScreen.setKeepOnScreenCondition {
-            SystemClock.elapsedRealtime() - splashStartedAt < 1_000L
+            SystemClock.elapsedRealtime() - splashStartedAt < MIN_SPLASH_DISPLAY_MILLIS
         }
 
         // ---- DEBUG-ONLY UAT harness (BuildConfig.DEBUG) ----
