@@ -111,8 +111,8 @@ class AuthViewModelTest {
 
     @Test
     fun `password login with legacy otp message transitions to OtpSent`() = runTest {
-        val email = "customer.mobile@tembus.id"
-        val password = "Customer123!"
+        val email = "uat-customer@example.test"
+        val password = "test-only-password"
         viewModel.setPhoneNumber(email)
         viewModel.setPassword(password)
         coEvery { authRepository.startPasswordLogin(email, password) } returns Result.success(

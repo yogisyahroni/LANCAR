@@ -1,6 +1,11 @@
-import json, urllib.request, urllib.error
+import json, os, urllib.request, urllib.error
 
-BASE = "http://localhost:8080/api/v1"
+BASE = os.getenv("UAT_BASE_URL", "http://localhost:8080/api/v1").rstrip("/")
+EMAIL = os.getenv("UAT_EMAIL", "").strip()
+PASSWORD = os.getenv("UAT_PASSWORD", "")
+
+if not EMAIL or not PASSWORD:
+    raise SystemExit("Set UAT_EMAIL and UAT_PASSWORD in the environment; credentials are never stored in this script.")
 
 def call(method, path, body=None, token=None):
     req = urllib.request.Request(BASE + path, method=method)
@@ -16,7 +21,7 @@ def call(method, path, body=None, token=None):
 
 # 1. customer login
 lg = call("POST", "/auth/customer/login/start", {
-    "email": "customer@tembus.id", "password": "Customer123!",
+    "email": EMAIL, "password": PASSWORD,
     "device_id": "uat-tambal", "device_info": "emulator"})
 tok = lg.get("access_token") or (lg.get("data") or {}).get("access_token")
 print("login:", "OK" if tok else lg)

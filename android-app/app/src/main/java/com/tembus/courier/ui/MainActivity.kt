@@ -374,12 +374,19 @@ class MainActivity : FragmentActivity() {
         val orderId = uri.lastPathSegment ?: return
         if (!orderId.matches(Regex("^[a-zA-Z0-9-]+$"))) return
 
+        val uatEmail = BuildConfig.UAT_EMAIL.trim()
+        val uatPassword = BuildConfig.UAT_PASSWORD
+        if (uatEmail.isBlank() || uatPassword.isBlank()) {
+            Log.e("MainActivity", "UAT debug login disabled: credentials are not configured")
+            return
+        }
+
         activityScope.launch {
             runCatching {
                 val resp = apiService.login(
                     LoginRequest(
-                        username = "raka.pickup@tembus.id",
-                        password = "kurir123",
+                        username = uatEmail,
+                        password = uatPassword,
                         deviceId = "android:emu-uat",
                         deviceInfo = emptyMap()
                     )

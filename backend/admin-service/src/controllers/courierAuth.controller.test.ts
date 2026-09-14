@@ -134,7 +134,7 @@ describe('courier login OTP feature flag', () => {
   it('allows seeded local courier credentials only when the development seed PIN is configured', async () => {
     const previousSeedPin = process.env.DEV_SEEDED_COURIER_PIN;
     const previousNodeEnv = process.env.NODE_ENV;
-    process.env.DEV_SEEDED_COURIER_PIN = 'kurir123';
+    process.env.DEV_SEEDED_COURIER_PIN = 'test-only-courier-pin';
     process.env.NODE_ENV = 'test';
 
     try {
@@ -144,7 +144,7 @@ describe('courier login OTP feature flag', () => {
       const req: any = {
         body: {
           username: 'courier@example.test',
-          password: 'kurir123',
+          password: 'test-only-courier-pin',
           device_id: 'dev-seed-device-1',
           device_info: { model: 'Pixel Seed' },
         },

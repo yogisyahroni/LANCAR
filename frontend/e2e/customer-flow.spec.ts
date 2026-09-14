@@ -14,17 +14,14 @@ const configuredEmail = getConfiguredValue(process.env.TEST_USER_EMAIL);
 const configuredPassword = getConfiguredValue(process.env.TEST_USER_PASSWORD);
 // Login flow baru (customer auth): BACKEND me-lookup user via phone_number OR email (GetByPhoneNumber).
 // Frontend field email (type=email) hanya menerima format email → isi EMAIL (bukan phone).
-// Akun demo staging: customer@tembus.id / Customer123! (phone 6281244445555).
+// Authenticated E2E credentials must be injected by CI/local environment.
 const TEST_EMAIL =
-  configuredEmail && !LEGACY_TEST_EMAILS.has(configuredEmail.toLowerCase())
-    ? configuredEmail
-    : 'customer@tembus.id';
-const TEST_PASSWORD =
-  configuredPassword && configuredPassword !== '123456'
-    ? configuredPassword
-    : 'Customer123!';
+  configuredEmail && !LEGACY_TEST_EMAILS.has(configuredEmail.toLowerCase()) ? configuredEmail : '';
+const TEST_PASSWORD = configuredPassword || '';
 // device_id tetap (trusted device) — menghindari OTP tiap run CI
 const TEST_DEVICE_ID = 'e2e-customer-flow-device-01';
+
+test.skip(!TEST_EMAIL || !TEST_PASSWORD, 'TEST_USER_EMAIL and TEST_USER_PASSWORD are required for authenticated E2E.');
 
 test.use({
   geolocation: { latitude: -6.2, longitude: 106.816666 },

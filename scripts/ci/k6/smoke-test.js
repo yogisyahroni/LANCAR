@@ -15,8 +15,8 @@ export const options = {
 
 const BASE = __ENV.K6_BASE_URL || 'https://api.bawain.my.id';
 const API = `${BASE}/api/v1`;
-const EMAIL = __ENV.TEST_USER_EMAIL || 'customer@tembus.id';
-const PASSWORD = __ENV.TEST_USER_PASSWORD || 'Customer123!';
+const EMAIL = (__ENV.TEST_USER_EMAIL || '').trim();
+const PASSWORD = __ENV.TEST_USER_PASSWORD || '';
 const DEVICE_ID = __ENV.K6_DEVICE_ID || 'k6-load-20260819';
 
 export default function () {
@@ -24,7 +24,13 @@ export default function () {
   const health = http.get(`${BASE}/health`);
   check(health, { 'health 200': (r) => r.status === 200 });
 
-  // 2. Login (customer password login)
+  // 2. Login (customer password login), only when CI injects credentials.
+  if (!EMAIL || !PASSWORD) {
+    console.warn('TEST_USER_EMAIL/TEST_USER_PASSWORD not configured; health-only smoke run.');
+    sleep(1);
+    return;
+  }
+
   const login = http.post(
     `${API}/auth/customer/login/start`,
     JSON.stringify({

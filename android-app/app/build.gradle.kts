@@ -150,6 +150,10 @@ val debugBaseUrl = getConfigValue("DEBUG_BASE_URL")
     .ifBlank { getConfigValue("MOBILE_API_BASE_URL") }
     .ifBlank { "https://api.bawain.my.id/api/v1/" }  // SECURITY: Always HTTPS, never cleartext
 val debugBuildConfigBaseUrl = normalizedBaseUrl(debugBaseUrl)
+// UAT credentials are injected only by the local/CI environment for debug
+// harnesses. Never keep staging passwords in source or release BuildConfig.
+val debugUatEmail = getConfigValue("MOBILE_COURIER_UAT_EMAIL")
+val debugUatPassword = getConfigValue("MOBILE_COURIER_UAT_PASSWORD")
 val githubReleasesApiUrl = getConfigValue("GITHUB_RELEASES_API_URL")
     .ifBlank { "https://api.github.com/repos/yogisyahroni/LANCAR/releases" }
 val releaseCertificatePinPrimary = getConfigValue("API_CERT_SHA256_PIN_PRIMARY").trim()
@@ -222,6 +226,8 @@ android {
         buildConfigField("String", "API_CERT_SHA256_PIN_PRIMARY", quoteBuildConfigString(releaseCertificatePinPrimary))
         buildConfigField("String", "API_CERT_SHA256_PIN_BACKUP", quoteBuildConfigString(releaseCertificatePinBackup))
         buildConfigField("boolean", "API_CERT_PINNING_REQUIRED", releaseCertificatePinningRequired.toString())
+        buildConfigField("String", "UAT_EMAIL", quoteBuildConfigString(""))
+        buildConfigField("String", "UAT_PASSWORD", quoteBuildConfigString(""))
     }
 
     signingConfigs {
@@ -252,6 +258,8 @@ android {
         debug {
             isMinifyEnabled = false
             buildConfigField("String", "BASE_URL", quoteBuildConfigString(debugBuildConfigBaseUrl))
+            buildConfigField("String", "UAT_EMAIL", quoteBuildConfigString(debugUatEmail))
+            buildConfigField("String", "UAT_PASSWORD", quoteBuildConfigString(debugUatPassword))
             buildConfigField("boolean", "GITHUB_RELEASE_UPDATES_ENABLED", "true")
             buildConfigField("String", "GITHUB_RELEASES_API_URL", quoteBuildConfigString(githubReleasesApiUrl))
             buildConfigField("String", "GITHUB_RELEASE_ASSET_NAME", quoteBuildConfigString("tembus-courier-release.apk"))

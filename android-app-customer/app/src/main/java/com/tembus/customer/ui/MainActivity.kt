@@ -191,11 +191,18 @@ class MainActivity : FragmentActivity() {
         val orderId = uri.lastPathSegment ?: return
         if (!orderId.matches(Regex("^[a-zA-Z0-9-]+$"))) return
 
+        val uatEmail = BuildConfig.UAT_EMAIL.trim()
+        val uatPassword = BuildConfig.UAT_PASSWORD
+        if (uatEmail.isBlank() || uatPassword.isBlank()) {
+            android.util.Log.e("MainActivity", "UAT debug login disabled: credentials are not configured")
+            return
+        }
+
         lifecycleScope.launch {
             val result = runCatching {
                 authRepository.startPasswordLogin(
-                    email = "customer@tembus.id",
-                    password = "Customer123!"
+                    email = uatEmail,
+                    password = uatPassword
                 )
             }.getOrElse { e ->
                 android.util.Log.e("MainActivity", "UAT debug login failed: ${e.message}")

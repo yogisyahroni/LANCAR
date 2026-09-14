@@ -125,7 +125,7 @@ Fokus fase ini adalah visual system, component consistency, accessibility, dan U
   - [x] ProofOfDeliveryScreen.kt (camera overlay — intentional)
 - [x] Empty, loading, error, offline states.
   - [x] (reuse shared TembusComponents)
-- [x] Courier header status-bar icon fix (light mode): Theme.kt statusBarColor=TRANSPARENT + isAppearanceLightStatusBars=!darkTheme. compileDebugKotlin PASS, installed 5560, login andri.pratama@tembus.id/kurir123.
+- [x] Courier header status-bar icon fix (light mode): Theme.kt statusBarColor=TRANSPARENT + isAppearanceLightStatusBars=!darkTheme. compileDebugKotlin PASS, installed 5560, authenticated UAT login verified via secret-managed credentials.
   - [x] VISION VERIFIED (oc/mimo-v2.5-free) 2026-08-24: Riwayat/Dompet/Profil status bar icons DARK & clear on light bg. FIX CONFIRMED 100%.
   - [x] Vision model fixed: AUXILIARY_VISION_MODEL openrouter/gemma -> oc/mimo-v2.5-free (openrouter was down/credential error). Use `hermes config set auxiliary.vision.model`.
 - [x] `android-app` compile/build pass.

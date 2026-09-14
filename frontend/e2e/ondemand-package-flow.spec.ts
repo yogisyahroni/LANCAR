@@ -1,8 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
 
-const TEST_EMAIL = process.env.TEST_USER_EMAIL?.trim() || 'customer@tembus.id';
-const TEST_PASSWORD = process.env.TEST_USER_PASSWORD?.trim() || 'Customer123!';
+const TEST_EMAIL = process.env.TEST_USER_EMAIL?.trim() || '';
+const TEST_PASSWORD = process.env.TEST_USER_PASSWORD || '';
 const TEST_DEVICE_ID = 'qa-package-web-flow-20260908';
+
+test.skip(!TEST_EMAIL || !TEST_PASSWORD, 'TEST_USER_EMAIL and TEST_USER_PASSWORD are required for authenticated E2E.');
 
 test.use({
   geolocation: { latitude: -6.2, longitude: 106.816666 },

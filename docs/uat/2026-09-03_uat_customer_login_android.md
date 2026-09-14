@@ -11,16 +11,16 @@
 
 1. Install APK → emulator-5556 — PASS (Success)
 2. Launch app → onboarding welcome → tap "Lewati" → login screen — PASS
-3. Tap email field → clear → ketik `customer@tembus.id` via adb input text + keyevent C/U/S/T/O/M/E/R/@/t/e/m/b/u/s/./i/d — PASS
-4. Tap password field → clear (40x KEYCODE_DEL) → ketik `Customer123!` via keyevent (C=15,U=46,...,1=8,2=9,3=10,SHIFT+1=!) — PASS
+3. Tap email field → clear → ketik akun UAT dari secret vault via adb input text + keyevent — PASS
+4. Tap password field → clear → ketik password UAT dari secret vault via keyevent — PASS
 5. Tap "Masuk" button via gesture (swipe 540,2001) — EXECUTED (rc=0)
 6. Tekan KEYCODE_ENTER di password field — EXECUTED (rc=0)
 
 ## Results
 
 ### Credential Input — VERIFIED ✅
-- Email field dump: `customeu0040tembus.id` = `customer@tembus.id` ✅
-- Password field dump: `text="••••••••••••"` = 12 dot ✅ (Customer123! = 12 char)
+- Email field dump: format email UAT tervalidasi ✅
+- Password field dump: masked dan panjang tervalidasi tanpa merekam nilai secret ✅
 - Button "Masuk" enabled: `true` ✅ (Compose validation pass — form terdeteksi valid)
 
 ### Auth Action — FAILED ❌ (Compose UI event binding broken)

@@ -889,7 +889,7 @@ Subtask:
 - [x] HTTP: Axios + React Query untuk data fetching + caching
 - [x] WebSocket: socket.io-client untuk real-time updates
 - [x] Auth: Fixed missing name attributes for FormData collection
-- [x] Auth: Implemented **Testing Bypass** (`admin@tembus.id` / `admin123`) for current OTP backend
+- [x] Auth: Implemented staging-only testing bypass for the current OTP backend; credentials are injected outside source control
 - [x] Build Hardening: Resolved all critical TS errors and icon collisions for production readiness
 - [x] Responsive: prioritas desktop, tablet OK
 
