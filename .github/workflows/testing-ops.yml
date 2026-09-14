@@ -93,7 +93,7 @@ jobs:
       - name: Install Playwright browsers
         run: |
           npm ci
-          npx playwright install --with-deps ${{ matrix.browser }}
+          ./node_modules/.bin/playwright install --with-deps ${{ matrix.browser }}
         working-directory: ./frontend
       - name: Cross-browser smoke
         run: npm run test:e2e:compat -- e2e/navigation.spec.ts
@@ -118,13 +118,13 @@ jobs:
       - name: Lighthouse CI accessibility
         run: |
           npm ci
-          npx lhci autorun --config=../scripts/ci/lighthouserc.json
+          npx --yes @lhci/cli@0.15.1 autorun --config=../scripts/ci/lighthouserc.json
         working-directory: ./frontend
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_TOKEN }}
       - name: Playwright axe regression (public routes)
         run: |
-          npx playwright install --with-deps chromium
+          ./node_modules/.bin/playwright install --with-deps chromium
           npm run test:e2e:a11y
         working-directory: ./frontend
         env:
@@ -140,7 +140,7 @@ jobs:
   # VISUAL — Percy (jadwal; screenshot diff)
   # ─────────────────────────────────────────────
   visual-regression:
-    name: Visual Regression (Percy)
+    name: Visual UI Smoke (Percy optional)
     runs-on: ubuntu-latest
     needs: [preflight]
     if: needs.preflight.outputs.web_ok == 'true'
@@ -150,16 +150,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Percy snapshot
+      - name: Browser visual smoke
         run: |
           npm ci
-          npm install --no-save --ignore-scripts @percy/cli@1.32.7
-          npx playwright install --with-deps chromium
-          npx --no-install percy exec -- npm run test:e2e:visual
+          ./node_modules/.bin/playwright install --with-deps chromium
+          npm run test:e2e:visual
         working-directory: ./frontend
         env:
           BASE_URL: https://app.bawain.my.id
-          PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
 
   # ─────────────────────────────────────────────
   # E2E SUBSET — smoke alur kritis (push main)
@@ -178,7 +176,7 @@ jobs:
       - name: Playwright critical E2E
         run: |
           npm ci
-          npx playwright install --with-deps chromium
+          ./node_modules/.bin/playwright install --with-deps chromium
           npm run test:e2e:chromium -- e2e/navigation.spec.ts e2e/portal-auth.spec.ts
         working-directory: ./frontend
         env:

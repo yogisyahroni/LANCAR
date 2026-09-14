@@ -59,6 +59,7 @@ __tests__/coverage/
 coverage/
 **/__pycache__/
 admin-dashboard/test-results/
+**/.lighthouseci/
 artifacts/*
 !artifacts/.gitkeep
 

@@ -1,7 +1,7 @@
 {
   "ci": {
     "collect": {
-      "urlList": [
+      "url": [
         "https://app.bawain.my.id",
         "https://app.bawain.my.id/login"
       ],
