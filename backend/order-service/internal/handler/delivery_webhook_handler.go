@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/middleware"
 )
 
 // DeliveryWebhookHandler menerima event DELIVERED dari integration-gateway.
@@ -77,7 +78,7 @@ func (h *DeliveryWebhookHandler) HandleChargeback(w http.ResponseWriter, r *http
 	}
 
 	receivedKey := r.Header.Get("X-Internal-Api-Key")
-	if h.internalAPIKey != "" && receivedKey != h.internalAPIKey {
+	if !middleware.IsInternalAPIKeyValid(h.internalAPIKey, receivedKey) {
 		slog.WarnContext(r.Context(), "settlement_chargeback: unauthorized attempt", "remote_addr", r.RemoteAddr)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -126,7 +127,7 @@ func (h *DeliveryWebhookHandler) HandleFoodSettlement(w http.ResponseWriter, r *
 	}
 
 	receivedKey := r.Header.Get("X-Internal-Api-Key")
-	if h.internalAPIKey != "" && receivedKey != h.internalAPIKey {
+	if !middleware.IsInternalAPIKeyValid(h.internalAPIKey, receivedKey) {
 		slog.WarnContext(r.Context(), "food_settlement: unauthorized attempt", "remote_addr", r.RemoteAddr)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -171,7 +172,7 @@ func (h *DeliveryWebhookHandler) HandleDeliveryEvent(w http.ResponseWriter, r *h
 	// Dalam production: tambahkan network policy di Kubernetes/Docker untuk
 	// memastikan hanya pod integration-gateway yang bisa menjangkau endpoint ini.
 	receivedKey := r.Header.Get("X-Internal-Api-Key")
-	if h.internalAPIKey != "" && receivedKey != h.internalAPIKey {
+	if !middleware.IsInternalAPIKeyValid(h.internalAPIKey, receivedKey) {
 		slog.WarnContext(r.Context(), "delivery_webhook: unauthorized attempt",
 			"remote_addr", r.RemoteAddr)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)

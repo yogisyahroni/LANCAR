@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/middleware"
 )
 
 // TrackingPollTargetsHandler exposes only persisted active shipments to the
@@ -25,7 +26,7 @@ func (h *TrackingPollTargetsHandler) Handle(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if h.internalAPIKey != "" && r.Header.Get("X-Internal-Api-Key") != h.internalAPIKey {
+	if !middleware.IsInternalAPIKeyValid(h.internalAPIKey, r.Header.Get("X-Internal-Api-Key")) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}

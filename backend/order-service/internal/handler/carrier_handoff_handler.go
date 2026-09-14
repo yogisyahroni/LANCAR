@@ -57,7 +57,7 @@ func (h *CarrierHandoffHandler) ApplyCarrierAcceptance(w http.ResponseWriter, r 
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if h.internalAPIKey != "" && r.Header.Get("X-Internal-Api-Key") != h.internalAPIKey {
+	if !middleware.IsInternalAPIKeyValid(h.internalAPIKey, r.Header.Get("X-Internal-Api-Key")) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
