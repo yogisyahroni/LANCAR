@@ -5126,6 +5126,8 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - [x] Chargeback and refund cannot double compensate.
 - [ ] Load test covers peak checkout + webhook callbacks.
 
+> **Verification checkpoint 2026-09-15:** The hardened local staging runner (`f602b37d`) completed a bounded 1-worker profile at 2/1/1 RPS with 29 requests/checks, 0% HTTP failure and 0 dropped iterations. The required 14-worker city-production profile at 8/2/2 RPS was executed against the local staging gateway and failed capacity thresholds (857 requests/checks, 28 dropped iterations, max worker HTTP failure 83.87%; gateway observed 2 checkout HTTP 500 responses and worker logs recorded callback EOF/multi-second latency). The load item remains unchecked; no vendor-live payment behavior is claimed. Evidence: `docs/task-evidence/PAYPLAT-2026-010.md`.
+
 ---
 
 # PART X — TRUST & SAFETY PLATFORM
@@ -5844,6 +5846,8 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 # PART AC — MOBILE RELIABILITY & RELEASE ENGINEERING
 
 > **Goal:** global marketplace tidak boleh dinilai hanya dari backend. Customer/Courier/Merchant Android harus punya measurable crash, ANR, startup, memory, battery, network, offline, size dan release-quality budgets.
+
+> **Verification checkpoint 2026-09-15:** Customer/Courier SQLCipher native loading was moved out of `Application.onCreate` into guarded first encrypted-database access (`3de69315`), with Customer/Courier unit tests, debug APK assembly and Customer DB smoke passing. The fresh 20-run Customer mid-proxy follow-ups still fail the startup/jank budget (clean-auth cold p95 6,011 ms and jank p95 100%), so the performance and startup checklist items remain explicitly open. Evidence: `docs/task-evidence/MOBILE-2026-001.md`.
 
 ## MOBILE-2026-001 — Mobile performance budgets [P0]
 
