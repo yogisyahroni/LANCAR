@@ -6467,7 +6467,7 @@ Start with clean bounded modules in existing services when ownership and scale p
 - multi-region
 
 **Checklist**
-- [ ] Each stage has projected peak QPS/order concurrency/socket/location events/provider callbacks and storage growth.
+- [x] Each stage has projected peak QPS/order concurrency/socket/location events/provider callbacks and storage growth. (Verified 2026-09-14: explicit internal/dev through multi-region forecast matrix in `docs/sre/capacity-forecast-2026-09-14.md`, with assumptions labeled and no unmeasured stage represented as PASS.)
 - [ ] Load tests use next-stage forecast + safety margin, not arbitrary impressive number.
 - [ ] Database/queue/cache/provider quotas evaluated before stage promotion.
 - [ ] Capacity result includes cost and bottleneck, not pass/fail only.
