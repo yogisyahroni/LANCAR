@@ -5869,10 +5869,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MOBILE-2026-002 — Crash/ANR observability and symbolication [P0]
 
 **Checklist**
-- [ ] Crash/ANR linked to app version, device/OS, market, screen/feature flag/experience revision where safe.
+- [x] Crash/ANR linked to app version, device/OS, market, screen/feature flag/experience revision where safe. (Verified 2026-09-14: all three clients install the bounded crash-context contract at startup and update screen, market, feature-flag and Experience revision keys; the static privacy/release contract passes.)
  - [x] Release artifact has mapping/symbol metadata retained. (Verified 2026-09-14: release inventory records four R8 mapping/symbol files per customer/courier/merchant release packet; CI retains symbols in a separate restricted artifact and excludes them from the public release asset set.)
-- [ ] PII/secrets excluded from crash logs.
-- [ ] Critical regression can stop staged rollout.
+- [x] PII/secrets excluded from crash logs. (Verified 2026-09-14: each crash-context implementation allowlists bounded metadata, normalizes values, logs only key names and the static privacy gate rejects email/phone/address/user/order/token markers; no provider export is fabricated.)
+- [x] Critical regression can stop staged rollout. (Verified 2026-09-14: the fail-closed `validate_staged_rollout.py` gate rejects guardrail regressions and the mobile CI workflow requires the gate for manual rollout promotion.)
 
 ---
 
@@ -5934,10 +5934,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [ ] Internal → alpha/beta → percentage production rollout.
-- [ ] Crash/ANR/payment/create-order guardrails evaluated before increasing percentage.
-- [ ] Backend remains backward compatible during rollout window.
-- [ ] Bad app version can be soft/hard gated according to `APP-2026-015` while preserving active-order/support recovery.
-- [ ] Release notes/artifact/version traceable to commit/config schema.
+- [x] Crash/ANR/payment/create-order guardrails evaluated before increasing percentage. (Verified 2026-09-14: the redacted packet gate applies versioned thresholds and fails closed on missing or breached crash-free, ANR, payment-success or create-order-success metrics; pass/fail contract tests are green.)
+- [x] Backend remains backward compatible during rollout window. (Verified 2026-09-14: the promotion packet requires both legacy and new clients to remain compatible for the policy window, and the exact-stage gate rejects incompatible packets.)
+- [x] Bad app version can be soft/hard gated according to `APP-2026-015` while preserving active-order/support recovery. (Verified 2026-09-14: the existing scoped update-policy implementation is complete, and the promotion gate independently rejects packets that disable active-order or support recovery.)
+- [x] Release notes/artifact/version traceable to commit/config schema. (Verified 2026-09-14: release artifact inventory and the promotion gate require commit SHA, version code/name, config schema, candidate SHA-256, rollback SHA-256, release notes and rollback plan.)
 
 ---
 
