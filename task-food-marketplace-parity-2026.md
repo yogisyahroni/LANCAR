@@ -6530,10 +6530,10 @@ Start with clean bounded modules in existing services when ownership and scale p
 - contribution margin
 
 **Checklist**
-- [ ] Cost metric linked to actual usage units.
-- [ ] Growth experiment cannot ignore exploding provider/infra cost.
-- [ ] Cost anomaly alerting for unexpected provider/traffic spike.
-- [ ] Financial truth comes from ledger/provider invoice reconciliation where applicable.
+- [x] Cost metric linked to actual usage units. (Verified 2026-09-14: persisted order/payment/carrier/communication/ads/promo/courier usage sources are aggregated and the authenticated staging Admin report returned contract `cost-observability-2026-v1` with four populated sources.)
+- [x] Growth experiment cannot ignore exploding provider/infra cost. (Verified 2026-09-14: pricing experiment guardrails calculate persisted MDR/logistics/provider cost increase and enforce the configured threshold; targeted controller/service tests pass.)
+- [x] Cost anomaly alerting for unexpected provider/traffic spike. (Verified 2026-09-14: hourly worker/outbox path produced one governed `finance.cost.anomaly` event for a synthetic staging spike; exact cleanup returned zero fixtures/events.)
+- [x] Financial truth comes from ledger/provider invoice reconciliation where applicable. (Verified 2026-09-14: unit-economics/cost aggregation uses persisted ledger/order/payment/provider-invoice facts; authenticated Admin reconciliation classified a disposable invoice as `RECONCILED` with `MISSING_AWB` discrepancy without history overwrite.)
 
 ---
 
