@@ -6106,7 +6106,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - [x] No unresolved critical vulnerability/secret leak. (Verified 2026-09-14: npm audit is clean across frontend/admin-dashboard/admin-service/api-gateway after the nanoid fix; govulncheck v1.8.0 is clean across critical Go modules; Docker Gitleaks history scan reports no leaks with only narrow verified non-secret allowlists.)
 - [x] AuthZ negative tests green.
 - [x] Webhook replay/signature tests green.
-- [ ] Dependency/SBOM scan attached to release.
+- [x] Dependency/SBOM scan attached to release. (Verified 2026-09-14: the release-specific workflow is triggered by `release.published`, generates CycloneDX and SPDX SBOMs from the released tag, requires both files, uploads a retained artifact and attaches them to the published GitHub Release; local security-control and YAML checks pass. A live release execution is not fabricated.)
 - [ ] Backup/restore and security incident contact current.
 - [ ] High-risk exception has explicit owner/expiry/approval.
 

@@ -111,6 +111,18 @@ def main() -> int:
         if marker not in workflow:
             errors.append(f"security workflow missing control: {marker}")
 
+    release_sbom_workflow = read(".github/workflows/release-sbom.yml")
+    for marker in (
+        "release:",
+        "types: [published]",
+        "format: cyclonedx-json",
+        "format: spdx-json",
+        "if-no-files-found: error",
+        "softprops/action-gh-release@v2",
+    ):
+        if marker not in release_sbom_workflow:
+            errors.append(f"release SBOM workflow missing control: {marker}")
+
     production_workflow = read(".github/workflows/production.yml")
     if re.search(r"ghcr\.io/[^\s]+:latest", production_workflow):
         errors.append("production workflow publishes a mutable latest image tag")

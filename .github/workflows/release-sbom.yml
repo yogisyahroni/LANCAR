@@ -1,0 +1,50 @@
+name: Release SBOM Attachment
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  attach-sbom:
+    name: Attach CycloneDX and SPDX SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout released commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cyclonedx.json
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-release-${{ github.event.release.tag_name }}
+          path: |
+            sbom.cyclonedx.json
+            sbom.spdx.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Attach SBOMs to published release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: |
+            sbom.cyclonedx.json
+            sbom.spdx.json
