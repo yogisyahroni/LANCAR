@@ -48,7 +48,12 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var authSessionManager: Lazy<com.tembus.customer.data.session.AuthSessionManager>
 
+    @Inject
+    lateinit var mobileTelemetry: com.tembus.customer.util.MobileTelemetry
+
     private var pendingDeepLinkUri by mutableStateOf<Uri?>(null)
+    private var activityStartedAtElapsedRealtime = 0L
+    private var startupReported = false
 
     private val viewModel: MainViewModel by viewModels()
 
@@ -56,6 +61,7 @@ class MainActivity : FragmentActivity() {
         val splashScreen = installSplashScreen()
         val splashStartedAt = SystemClock.elapsedRealtime()
         super.onCreate(savedInstanceState)
+        activityStartedAtElapsedRealtime = splashStartedAt
         com.tembus.customer.util.MobileCrashContext.setScreen("main")
         enableEdgeToEdge()
 
@@ -113,6 +119,7 @@ class MainActivity : FragmentActivity() {
                             onCampaignSkip = startupCampaignCoordinator::skipForSession,
                             onCampaignDismiss = startupCampaignCoordinator::dismiss,
                             onCampaignAssetError = startupCampaignCoordinator::recordAssetError,
+                            telemetry = mobileTelemetry,
                         )
                         updateInfo?.let { info ->
                             UpdateDialog(
@@ -150,6 +157,16 @@ class MainActivity : FragmentActivity() {
             }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        mobileTelemetry.startup(
+            startedAtElapsedRealtime = activityStartedAtElapsedRealtime,
+            mode = if (startupReported) "resume" else "cold",
+        )
+        mobileTelemetry.sampleFrameBudget(this, "main")
+        startupReported = true
     }
 
     override fun onNewIntent(intent: Intent) {

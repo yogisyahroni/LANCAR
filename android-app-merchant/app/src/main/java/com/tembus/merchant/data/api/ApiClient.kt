@@ -3,6 +3,7 @@ package com.tembus.merchant.data.api
 import com.tembus.merchant.BuildConfig
 import com.tembus.merchant.data.device.DeviceIdentityProvider
 import com.tembus.merchant.data.session.AuthSessionManager
+import com.tembus.merchant.util.MobileTelemetry
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -22,6 +23,7 @@ object ApiClient {
         sessionManager: AuthSessionManager,
         deviceIdentityProvider: DeviceIdentityProvider,
         requestReferenceStore: NetworkRequestReferenceStore,
+        mobileTelemetry: MobileTelemetry,
     ): TEMBUSApiService {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
@@ -32,10 +34,10 @@ object ApiClient {
         }
 
         // Service khusus refresh — tanpa AuthInterceptor & Authenticator.
-        val refreshClient = buildBaseClient(logging, requestReferenceStore).build()
+        val refreshClient = buildBaseClient(logging, requestReferenceStore, mobileTelemetry).build()
         val refreshService = buildRetrofit(refreshClient).create(TEMBUSApiService::class.java)
 
-        val client = buildBaseClient(logging, requestReferenceStore)
+        val client = buildBaseClient(logging, requestReferenceStore, mobileTelemetry)
             .addInterceptor(AuthInterceptor(sessionManager))
             .authenticator(TokenAuthenticator(sessionManager, deviceIdentityProvider, refreshService))
             .build()
@@ -46,9 +48,10 @@ object ApiClient {
     private fun buildBaseClient(
         logging: HttpLoggingInterceptor,
         requestReferenceStore: NetworkRequestReferenceStore,
+        mobileTelemetry: MobileTelemetry,
     ): OkHttpClient.Builder =
         OkHttpClient.Builder()
-            .addInterceptor(RequestCorrelationInterceptor(requestReferenceStore))
+            .addInterceptor(RequestCorrelationInterceptor(requestReferenceStore, mobileTelemetry))
             .addInterceptor(SafeGetRetryInterceptor())
             .addInterceptor(logging)
             .retryOnConnectionFailure(false)

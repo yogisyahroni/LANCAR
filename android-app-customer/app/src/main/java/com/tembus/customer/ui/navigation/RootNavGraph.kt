@@ -108,6 +108,7 @@ import com.tembus.customer.ui.screens.rating.MerchantRatingViewModel
 import com.tembus.customer.ui.screens.tip.TipViewModel
 import com.tembus.customer.ui.screens.tracking.TrackingScreen
 import com.tembus.customer.ui.screens.tracking.TrackingViewModel
+import com.tembus.customer.util.MobileTelemetry
 import kotlinx.coroutines.delay
 
 @Composable
@@ -122,6 +123,7 @@ fun RootNavGraph(
     onCampaignSkip: (StartupCampaignDecision) -> Unit = {},
     onCampaignDismiss: (StartupCampaignDecision) -> Unit = {},
     onCampaignAssetError: (StartupCampaignDecision) -> Unit = {},
+    telemetry: MobileTelemetry? = null,
 ) {
     val isLoading by viewModel.isLoading.collectAsState()
     val startDestination by viewModel.startDestination.collectAsState()
@@ -211,6 +213,10 @@ fun RootNavGraph(
         if (currentRoute == Screen.Dashboard.route && campaignDecision != null) {
             onCampaignShown(campaignDecision)
         }
+    }
+
+    LaunchedEffect(currentRoute) {
+        currentRoute?.let { telemetry?.screenView(it) }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {

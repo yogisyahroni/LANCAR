@@ -23,13 +23,18 @@ import com.tembus.merchant.ui.theme.TEMBUSMerchantTheme
 import com.tembus.merchant.ui.localization.MerchantLocaleRuntime
 import com.tembus.merchant.util.UpdateManager
 import com.tembus.merchant.util.MobileCrashContext
+import com.tembus.merchant.util.MobileTelemetry
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var updateManager: UpdateManager
+    private lateinit var mobileTelemetry: MobileTelemetry
+    private var activityStartedAtElapsedRealtime = 0L
+    private var startupReported = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        activityStartedAtElapsedRealtime = android.os.SystemClock.elapsedRealtime()
         super.onCreate(savedInstanceState)
         MobileCrashContext.setScreen("main")
         enableEdgeToEdge()
@@ -38,6 +43,7 @@ class MainActivity : ComponentActivity() {
 
         val app = application as TEMBUSApplication
         updateManager = app.container.updateManager
+        mobileTelemetry = app.container.mobileTelemetry
 
         setContent {
             MerchantLocaleRuntime {
@@ -91,6 +97,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        mobileTelemetry.startup(
+            startedAtElapsedRealtime = activityStartedAtElapsedRealtime,
+            mode = if (startupReported) "resume" else "cold",
+        )
+        mobileTelemetry.sampleFrameBudget(this, "main")
+        startupReported = true
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
@@ -155,6 +156,8 @@ fun AppNavHost() {
     val context = LocalContext.current
     val app = context.applicationContext as TEMBUSApplication
     val navController = rememberNavController()
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentBackStackEntry?.destination?.route
     val scope = rememberCoroutineScope()
     val incomingDeepLink by MerchantDeepLinkBus.uri.collectAsState()
     // Nilai ini menjaga target ketika URI dibuka sebelum autentikasi selesai
@@ -164,6 +167,10 @@ fun AppNavHost() {
     val isLoggedIn by app.container.sessionManager.isLoggedIn.collectAsState(initial = false)
     val onboardingDone by app.container.onboardingPreferences.onboardingCompleted
         .collectAsState(initial = false)
+
+    LaunchedEffect(currentRoute) {
+        currentRoute?.let { app.container.mobileTelemetry.screenView(it) }
+    }
 
     // Redirect otomatis berdasarkan state sesi + onboarding
     LaunchedEffect(incomingDeepLink) {

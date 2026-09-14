@@ -5944,10 +5944,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MOBILE-2026-009 — Client telemetry and privacy-safe performance tracing [P0/P1]
 
 **Checklist**
-- [ ] Screen/API/startup/frame metrics use governed event names.
+- [x] Screen/API/startup/frame metrics use governed event names. (Verified 2026-09-14: customer, courier and merchant runtime hooks use the allowlisted `screen_view`, `api_request`, `app_start` and `frame_budget` events; debug Kotlin compile and static contract validator pass.)
 - [ ] Trace links client request to backend correlation id where practical.
-- [ ] User content/PII not embedded in metric labels.
-- [ ] High-cardinality dimensions controlled.
+- [x] User content/PII not embedded in metric labels. (Verified 2026-09-14: telemetry dimensions are bounded and the static privacy gate rejects email, phone, address, order ID and token markers in each client telemetry implementation.)
+- [x] High-cardinality dimensions controlled. (Verified 2026-09-14: raw request paths are reduced to operation categories, screens to allowlisted buckets, and request IDs remain support references rather than metric labels.)
 
 ---
 

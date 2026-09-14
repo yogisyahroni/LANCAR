@@ -19,6 +19,8 @@ import com.tembus.merchant.data.repository.MerchantRepository
 import com.tembus.merchant.data.session.AuthSessionManager
 import com.tembus.merchant.util.UpdateManager
 import com.tembus.merchant.util.MobileCrashContext
+import com.tembus.merchant.util.FirebaseInitializer
+import com.tembus.merchant.util.MobileTelemetry
 
 /**
  * AppContainer — manual dependency injection (tanpa Hilt; pola ringan & langsung).
@@ -31,8 +33,14 @@ class AppContainer(context: Context) {
     val onboardingPreferences: OnboardingPreferences = OnboardingPreferences(context)
     val deviceIdentityProvider: DeviceIdentityProvider = DeviceIdentityProvider(context)
     val requestReferenceStore: NetworkRequestReferenceStore = NetworkRequestReferenceStore()
+    val mobileTelemetry: MobileTelemetry = MobileTelemetry(appContext)
 
-    val apiService: TEMBUSApiService = ApiClient.createService(sessionManager, deviceIdentityProvider, requestReferenceStore)
+    val apiService: TEMBUSApiService = ApiClient.createService(
+        sessionManager,
+        deviceIdentityProvider,
+        requestReferenceStore,
+        mobileTelemetry,
+    )
 
     val authRepository: AuthRepository = AuthRepository(apiService, sessionManager, onboardingPreferences, deviceIdentityProvider)
     val merchantOfflineCache: MerchantOfflineCache = MerchantOfflineCache(appContext) { sessionManager.getUserIdSync() }
@@ -57,6 +65,7 @@ class TEMBUSApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        FirebaseInitializer.initializeIfConfigured(this)
         MobileCrashContext.install()
         container = AppContainer(this)
         FeatureFlagManager.init(this, container.apiService)

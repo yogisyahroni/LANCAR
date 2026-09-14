@@ -30,10 +30,17 @@ sent to analytics, Crashlytics or an observability backend.
 
 ## Current implementation mapping
 
-- Customer and Courier add `X-Request-ID`, retain a sanitized support reference
-  for failed calls and clear it after a successful response.
-- Merchant uses the same interceptor/reference boundary in its manual DI
-  `ApiClient`.
+- Customer, Courier and Merchant now instantiate `MobileTelemetry` at the app
+  boundary. MainActivity lifecycle hooks emit `app_start` and asynchronous
+  `frame_budget`; navigation observers emit bounded `screen_view` events.
+- All three request clients add `X-Request-ID`, retain a sanitized support
+  reference for failed calls and clear it after a successful response. The
+  same interceptor records `api_request` with an operation category and HTTP
+  status class; raw encoded paths never reach the event dimensions.
+- Firebase Analytics is an optional sink. `FirebaseInitializer` validates the
+  generated API-key resource and telemetry fails open when staging/provider
+  configuration is absent, so diagnostics cannot block auth, order, payment,
+  safety or recovery flows.
 - Customer Experience telemetry uses the allowlisted event family above and
   records manifest revision/source rather than raw campaign/user data.
 - The performance collector writes raw samples to release evidence files; it

@@ -7,6 +7,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -78,6 +79,12 @@ class MainActivity : FragmentActivity() {
 
     @Inject
     lateinit var updateManager: UpdateManager
+
+    @Inject
+    lateinit var mobileTelemetry: com.tembus.courier.util.MobileTelemetry
+
+    private var activityStartedAtElapsedRealtime = 0L
+    private var startupReported = false
     // Reactive state flows for deterministic notification deep-linking
     private val selectedOrderIdFlow = MutableStateFlow<String?>(null)
     private val selectedChatOrderIdFlow = MutableStateFlow<String?>(null)
@@ -91,6 +98,7 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        activityStartedAtElapsedRealtime = SystemClock.elapsedRealtime()
         super.onCreate(savedInstanceState)
         com.tembus.courier.util.MobileCrashContext.setScreen("main")
 
@@ -115,6 +123,10 @@ class MainActivity : FragmentActivity() {
                 ) {
                     // Auth gate — observe login state reactively
                     val isLoggedIn by authSessionManager.isLoggedIn.collectAsState(initial = false)
+
+                    LaunchedEffect(isLoggedIn) {
+                        mobileTelemetry.screenView(if (isLoggedIn) "main" else "auth")
+                    }
                     
                     // Collect active deep links reactively
                     val deepLinkOrderId by selectedOrderIdFlow.collectAsState()
@@ -279,6 +291,12 @@ class MainActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
+        mobileTelemetry.startup(
+            startedAtElapsedRealtime = activityStartedAtElapsedRealtime,
+            mode = if (startupReported) "resume" else "cold",
+        )
+        mobileTelemetry.sampleFrameBudget(this, "main")
+        startupReported = true
         // 🚨 Cold/Warm Boot Anti-Tamper Check
         val prefs = getSharedPreferences("sos_prefs", Context.MODE_PRIVATE)
         val isSosActive = prefs.getBoolean("is_sos_active", false)

@@ -321,6 +321,34 @@ def main() -> int:
         "high-cardinality metric label",
     )
 
+    # Every mobile client emits only the governed runtime telemetry families;
+    # network instrumentation stays behind the existing request-correlation
+    # boundary and preserves the fail-open behavior when Firebase is absent.
+    telemetry_paths = (
+        "android-app-customer/app/src/main/java/com/tembus/customer/util/MobileTelemetry.kt",
+        "android-app/app/src/main/java/com/tembus/courier/util/MobileTelemetry.kt",
+        "android-app-merchant/app/src/main/java/com/tembus/merchant/util/MobileTelemetry.kt",
+    )
+    for telemetry_path in telemetry_paths:
+        require(
+            errors,
+            telemetry_path,
+            "screen_view",
+            "api_request",
+            "app_start",
+            "frame_budget",
+            "FirebaseInitializer.isInitialized",
+            "ALLOWED_EVENTS",
+            "ALLOWED_DIMENSIONS",
+        )
+        forbid(errors, telemetry_path, "email", "phone", "address", "order_id", "token")
+    for interceptor_path in (
+        "android-app-customer/app/src/main/java/com/tembus/customer/data/api/RequestCorrelationInterceptor.kt",
+        "android-app/app/src/main/java/com/tembus/courier/data/api/RequestCorrelationInterceptor.kt",
+        "android-app-merchant/app/src/main/java/com/tembus/merchant/data/api/RequestCorrelationInterceptor.kt",
+    ):
+        require(errors, interceptor_path, "X-Request-ID", "encodedPath", "apiRequest")
+
     if errors:
         print("MOBILE STATIC CONTRACT FAILED")
         print("\n".join(f"- {error}" for error in errors))
