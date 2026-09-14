@@ -34,7 +34,10 @@ in-app notification projection. Provider failure is recorded as failed.
 `POST /api/internal/crm/campaigns/:id/conversion` is service-authenticated and
 accepts a conversion only when the order belongs to the customer and is in an
 authoritative paid/fulfilment/completed state. It does not accept client revenue
-or coupon-redemption claims.
+or coupon-redemption claims. A first conversion is idempotently recorded and
+publishes a pseudonymous `experiment.conversion` event to the same durable
+Experiment/Data outbox transaction; duplicate conversion calls do not emit a
+second conversion event.
 
 `GET /admin/crm/campaigns/:id/metrics` reports treatment and holdout exposure,
 completed orders and completed revenue from the canonical `orders` state. A

@@ -138,6 +138,8 @@ describe('PART W-X/AE-AF platform hardening contracts', () => {
     expect(migration).toContain('ads_spend_minor');
     expect(service).toContain('estimate_is_not_conversion');
     expect(service).toContain("eventType: 'experiment.exposure'");
+    expect(service).toContain("eventType: 'experiment.conversion'");
+    expect(service).toContain('first_conversion_at IS NULL');
     expect(service).toContain('conversion_is_not_coupon_redemption');
     expect(routes).toContain('/admin/crm/campaigns/:id/preview');
     expect(routes).toContain('/admin/crm/campaigns/:id/metrics');

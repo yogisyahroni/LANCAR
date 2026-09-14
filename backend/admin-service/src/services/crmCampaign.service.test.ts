@@ -1,4 +1,4 @@
-import { campaignAssignment, dispatchCrmCampaign, getCrmCampaignMetrics } from './crmCampaign.service';
+import { campaignAssignment, dispatchCrmCampaign, getCrmCampaignMetrics, recordCrmCampaignConversion } from './crmCampaign.service';
 
 jest.mock('../db', () => ({ db: { query: jest.fn(), connect: jest.fn() } }));
 jest.mock('../notifications', () => ({ createNotification: jest.fn().mockResolvedValue({ id: 'notification-1' }) }));
@@ -86,5 +86,24 @@ describe('CRM campaign delivery boundary', () => {
 
     await expect(dispatchCrmCampaign('campaign-1', { templateKey: 'crm.winback', locale: 'id-ID' })).rejects.toMatchObject({ statusCode: 409 });
     expect(db.connect).not.toHaveBeenCalled();
+  });
+
+  it('records an authoritative conversion and emits one Experiment/Data event transactionally', async () => {
+    const client = { query: jest.fn(), release: jest.fn() };
+    client.query
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ id: 'exposure-1', campaign_code: 'winback', market_code: 'id-jk' }] })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'exposure-1' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'outbox-1' }] })
+      .mockResolvedValueOnce({});
+    db.connect.mockResolvedValueOnce(client);
+
+    await expect(recordCrmCampaignConversion('campaign-1', 'customer-1', 'order-1')).resolves.toBe(true);
+
+    expect(String(client.query.mock.calls[1][0])).toContain('o.status IN');
+    expect(String(client.query.mock.calls[2][0])).toContain('first_conversion_at');
+    expect(String(client.query.mock.calls[3][0])).toContain('INSERT INTO event_outbox');
+    expect(String(client.query.mock.calls[3][1])).toContain('experiment.conversion');
+    expect(client.query.mock.calls[client.query.mock.calls.length - 1]?.[0]).toBe('COMMIT');
   });
 });

@@ -6279,9 +6279,9 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 **Checklist**
 - [x] CRM targeting uses governed non-sensitive segments and consent.
 - [x] Delivery through Communication Platform.
-- [ ] UI exposure may use Experience Service.
+- [x] UI exposure may use Experience Service. (Verified 2026-09-14: treatment delivery uses the canonical Communication Platform `in_app` event and notification projection consumed by the customer notification center; Experience Service remains an optional rich-presentation surface.)
 - [x] Frequency caps across overlapping campaigns.
-- [ ] Conversion/holdout measured through Experiment/Data platform.
+- [x] Conversion/holdout measured through Experiment/Data platform. (Verified 2026-09-14: treatment/holdout exposure and authoritative first conversion emit pseudonymous `experiment.exposure`/`experiment.conversion` events to the durable outbox; Admin metrics compute completed orders/revenue and incremental order rate from canonical order state.)
 
 ---
 

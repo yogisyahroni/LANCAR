@@ -396,19 +396,78 @@ export const dispatchCrmCampaign = async (campaignId: string, options: DispatchO
 };
 
 export const recordCrmCampaignConversion = async (campaignId: string, customerId: string, orderId: string) => {
-  const result = await db.query(
-    `UPDATE crm_campaign_exposures
-        SET first_conversion_at = COALESCE(first_conversion_at, NOW()),
-            metadata = metadata || jsonb_build_object('first_conversion_order_id', $3::text)
-      WHERE campaign_id = $1 AND customer_id = $2 AND assignment = 'TREATMENT'
-        AND EXISTS (
-          SELECT 1 FROM orders o
-           WHERE o.id::text = $3::text
-             AND o.customer_id = $2
-             AND o.status IN ('paid','assigned','accepted','in_transit','delivered','completed','pod_completed')
-        )
-      RETURNING id`,
-    [campaignId, customerId, orderId],
-  );
-  return Boolean(result.rowCount);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const exposureResult = await client.query<{
+      id: string;
+      campaign_code: string;
+      market_code: string;
+    }>(
+      `SELECT e.id, c.campaign_code, c.market_code
+         FROM crm_campaign_exposures e
+         JOIN crm_campaigns c ON c.id = e.campaign_id
+        WHERE e.campaign_id = $1 AND e.customer_id = $2 AND e.assignment = 'TREATMENT'
+          AND EXISTS (
+            SELECT 1 FROM orders o
+             WHERE o.id::text = $3::text
+               AND o.customer_id = $2
+               AND o.status IN ('paid','assigned','accepted','in_transit','delivered','completed','pod_completed')
+          )
+        LIMIT 1
+        FOR UPDATE OF e`,
+      [campaignId, customerId, orderId],
+    );
+    const exposure = exposureResult.rows[0];
+    if (!exposure) {
+      await client.query('COMMIT');
+      return false;
+    }
+
+    const result = await client.query(
+      `UPDATE crm_campaign_exposures
+          SET first_conversion_at = NOW(),
+              metadata = metadata || jsonb_build_object('first_conversion_order_id', $2::text)
+        WHERE id = $1 AND first_conversion_at IS NULL
+        RETURNING id`,
+      [exposure.id, orderId],
+    );
+    if (!result.rowCount) {
+      await client.query('COMMIT');
+      return false;
+    }
+
+    const subjectHash = crypto.createHash('sha256').update(customerId).digest('hex');
+    const orderHash = crypto.createHash('sha256').update(orderId).digest('hex');
+    await enqueueOutboxEvent(client, {
+      aggregateType: 'crm_campaign',
+      aggregateId: campaignId,
+      eventType: 'experiment.conversion',
+      payload: {
+        experiment_key: exposure.campaign_code,
+        experiment_namespace: 'crm.lifecycle',
+        conversion_type: 'completed_order',
+        exposure_id: exposure.id,
+        assignment_key: subjectHash,
+        conversion_order_key: orderHash,
+      },
+      marketCode: exposure.market_code,
+      serviceName: 'admin-service',
+      actorPseudonymousId: 'system',
+      entityId: campaignId,
+      correlationId: `crm:${campaignId}:${orderHash.slice(0, 24)}`,
+      traceId: `crm:${campaignId}:${orderHash.slice(0, 24)}`,
+      piiClassification: 'restricted',
+      fieldPiiClassification: { payload: 'restricted', assignment_key: 'confidential', conversion_order_key: 'confidential' },
+      retentionClass: 'standard',
+      dedupeKey: `crm-campaign-conversion:${campaignId}:${orderId}`,
+    });
+    await client.query('COMMIT');
+    return true;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 };
