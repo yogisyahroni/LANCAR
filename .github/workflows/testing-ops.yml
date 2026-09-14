@@ -92,7 +92,8 @@ jobs:
           npm ci --prefix frontend
           npx playwright install --with-deps ${{ matrix.browser }}
       - name: Cross-browser smoke
-        run: npm run test:e2e:compat -- --grep "@compat"
+        run: npm run test:e2e:compat -- e2e/navigation.spec.ts
+        working-directory: ./frontend
         env:
           BASE_URL: https://app.bawain.my.id
 
@@ -112,14 +113,16 @@ jobs:
           node-version: '22'
       - name: Lighthouse CI accessibility
         run: |
-          npm ci --prefix frontend
-          npx lhci autorun --config=scripts/ci/lighthouserc.json
+          npm ci
+          npx lhci autorun --config=../scripts/ci/lighthouserc.json
+        working-directory: ./frontend
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_TOKEN }}
       - name: Playwright axe regression (public routes)
         run: |
           npx playwright install --with-deps chromium
           npm run test:e2e:a11y
+        working-directory: ./frontend
         env:
           BASE_URL: https://app.bawain.my.id
       - name: axe-core scan against staging (blocking)
@@ -127,6 +130,7 @@ jobs:
           npx --yes @axe-core/cli https://app.bawain.my.id https://app.bawain.my.id/login \
             --tags wcag2a,wcag2aa,wcag21aa,wcag22aa,best-practice \
             --exit
+        working-directory: ./frontend
 
   # ─────────────────────────────────────────────
   # VISUAL — Percy (jadwal; screenshot diff)
@@ -144,9 +148,10 @@ jobs:
           node-version: '22'
       - name: Percy snapshot
         run: |
-          npm ci --prefix frontend
+          npm ci
           npx playwright install --with-deps chromium
           npx --yes @percy/cli@1.32.7 exec -- npm run test:e2e:visual
+        working-directory: ./frontend
         env:
           BASE_URL: https://app.bawain.my.id
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
@@ -167,8 +172,9 @@ jobs:
           node-version: '22'
       - name: Playwright critical E2E
         run: |
-          npm ci --prefix frontend
+          npm ci
           npx playwright install --with-deps chromium
-          npm run test:e2e -- --grep "@critical"
+          npm run test:e2e -- e2e/navigation.spec.ts e2e/portal-auth.spec.ts
+        working-directory: ./frontend
         env:
           BASE_URL: https://app.bawain.my.id

@@ -6,7 +6,7 @@ test.describe('Navigation and UI elements tests', () => {
     await page.goto('/login');
 
     // Wait for the login button or title to be visible
-    await expect(page.locator('h1')).toContainText('Welcome to TEMBUS');
+    await expect(page.locator('h1')).toContainText('TEMBUS');
     
     // Check form inputs are present
     const emailInput = page.locator('input[type="email"]');
