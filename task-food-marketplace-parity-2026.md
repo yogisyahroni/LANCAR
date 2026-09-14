@@ -6009,7 +6009,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - [ ] mTLS/workload identity/signed service credentials selected based on infra.
 - [ ] Service scopes restrict actions, especially payment/refund/admin/provider mutation.
 - [ ] Credential lifetime minimized and rotated.
-- [ ] Internal auth failures observable without logging secrets.
+- [x] Internal auth failures observable without logging secrets. (Verified 2026-09-15: order-service and payment-service internal-auth boundaries emit low-cardinality structured `internal_auth_failure` events with boundary/reason/correlation context and no credential/body/signature; both service suites verify redaction. Evidence: `docs/task-evidence/SECPLAT-2026-003.md`.)
 
 ---
 
