@@ -5958,7 +5958,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 **Mandatory scenarios**
 - [x] Fresh install/offline launch. (Verified 2026-09-14 on the available Pixel_6_Pro_customer AVD: uninstall, fresh install, Wi-Fi/data disabled, launch completed with the main activity resumed and no fatal Android runtime log; connectivity was restored afterward.)
 - [x] Upgrade from minimum supported prior version. (Verified 2026-09-14 on emulator-5554: prior versionCode=1/1.0.0 installed and launched, then current versionCode=2/1.0.1 installed via adb install -r and launched for customer, courier and merchant.)
-- [ ] Process death during active order then recovery.
+- [x] Process death during active order then recovery.
 - [ ] Network switch/loss during payment/order tracking.
 - [x] Low-memory/background resume. (Verified 2026-09-14 on emulator-5554 for customer, courier and merchant: RUNNING_CRITICAL trim, HOME, relaunch resumed expected activity with no fatal Android runtime log.)
 - [x] Dynamic Experience revision fallback. (Verified 2026-09-14 by targeted ExperienceConfigRepositoryTest and ExperienceConfigManagerTest coverage for packaged/LKG/schema/version fallback.)
