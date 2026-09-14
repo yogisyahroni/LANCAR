@@ -57,6 +57,8 @@ backend/*-service/gosec-report
 # Test artifacts
 __tests__/coverage/
 coverage/
+**/__pycache__/
+admin-dashboard/test-results/
 artifacts/*
 !artifacts/.gitkeep
 
