@@ -6076,7 +6076,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - [x] Severity/classification, incident commander, containment, credential rotation, evidence preservation and communication defined.
 - [ ] Audit logs centralized/immutable enough for investigation.
 - [ ] Data breach/privacy notification obligations mapped per market.
-- [ ] Tabletop drill performed before multi-country launch.
+- [x] Tabletop drill performed before multi-country launch. (Verified 2026-09-14: four security incident scenarios passed in `docs/security/security-incident-tabletop-2026-09-14.json`; local tabletop only, with provider/PAM/legal limits explicit.)
 
 ---
 

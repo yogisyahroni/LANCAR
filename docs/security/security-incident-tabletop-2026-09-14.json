@@ -1,0 +1,85 @@
+{
+  "schema_version": "2026.09.14",
+  "mode": "deterministic_security_incident_tabletop",
+  "started_at": "2026-09-14T16:18:56.478109Z",
+  "finished_at": "2026-09-14T16:18:56.478109Z",
+  "repository_revision": "0e28e04eea8902bbcda6de6d8f51e127c6633d3e",
+  "environment": "local tabletop; no provider, customer, courier or regulator contacted",
+  "scenario_count": 4,
+  "records": [
+    {
+      "id": "credential-compromise",
+      "evidence_level": "SECURITY_TABLETOP_CONTRACT",
+      "failure_injected": "A provider or service credential is suspected exposed.",
+      "expected": "Contain only the affected scope, preserve redacted evidence, rotate credentials, and keep active-order safety available.",
+      "observed": {
+        "severity": "P0",
+        "contained_scope": "affected_credential_and_sessions",
+        "credential_rotation_required": true,
+        "evidence_preserved": true,
+        "secret_values_recorded": false,
+        "active_orders_preserved": true
+      },
+      "result": "PASS",
+      "owner": "Security + service owner",
+      "gap": "Actual provider revocation and replacement require the owning secret/KMS account."
+    },
+    {
+      "id": "suspected-data-exposure",
+      "evidence_level": "SECURITY_TABLETOP_CONTRACT",
+      "failure_injected": "A route may have exposed a classified customer or courier field.",
+      "expected": "Disable the access path, preserve a redacted record, request legal hold, and defer notification wording to privacy review.",
+      "observed": {
+        "severity": "P1",
+        "access_path_disabled": true,
+        "data_classification_required": true,
+        "legal_hold_requested": true,
+        "customer_notification": "decision_pending_privacy_review",
+        "raw_pii_copied_to_record": false
+      },
+      "result": "PASS",
+      "owner": "Security + Privacy/Legal",
+      "gap": "Market notification deadlines and approved contacts require market/legal review."
+    },
+    {
+      "id": "privileged-admin-compromise",
+      "evidence_level": "SECURITY_TABLETOP_CONTRACT",
+      "failure_injected": "A privileged Admin session is suspected hijacked.",
+      "expected": "Revoke the session, block high-risk mutations, require approved break-glass access, and retain the audit trail without shared credentials.",
+      "observed": {
+        "severity": "P0",
+        "admin_session_revoked": true,
+        "high_risk_mutations_blocked": true,
+        "break_glass_requires_approval": true,
+        "audit_trail_preserved": true,
+        "shared_credential_used": false
+      },
+      "result": "PASS",
+      "owner": "Security + Admin operations",
+      "gap": "Break-glass/PAM provisioning and privileged-session retention still require the production identity platform."
+    },
+    {
+      "id": "forged-or-replayed-callback",
+      "evidence_level": "SECURITY_TABLETOP_CONTRACT",
+      "failure_injected": "A callback has an invalid signature or duplicate event identity.",
+      "expected": "Reject the callback, do not mutate canonical state, preserve a safe reference, and route the mismatch to reconciliation.",
+      "observed": {
+        "severity": "P1",
+        "signature_valid": false,
+        "replay_accepted": false,
+        "state_mutated": false,
+        "raw_payload_reference_preserved": true,
+        "reconciliation_required": true
+      },
+      "result": "PASS",
+      "owner": "Security + Payments/Integration",
+      "gap": "A provider sandbox replay and live callback evidence remain external validation."
+    }
+  ],
+  "limitations": [
+    "This is tabletop contract evidence, not a live security incident or production response claim.",
+    "Notification deadlines, regulatory contacts and provider revocation remain market/owner validation.",
+    "No secret values, raw PII, credentials or provider payloads are included in this record."
+  ],
+  "audit_status": "PASS"
+}
