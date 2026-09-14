@@ -400,7 +400,11 @@ jobs:
             otel/opentelemetry-collector-contrib:0.128.0 \
             validate --config=/etc/otelcol/config.yml
       - name: Docker Compose observability config check
-        run: GRAFANA_ADMIN_PASSWORD=ci-only-observability-password docker compose config --quiet
+        run: >-
+          GRAFANA_ADMIN_PASSWORD=ci-only-observability-password
+          INTERNAL_API_KEY=ci-only-internal-api-key
+          INTERNAL_PAYMENT_API_KEY=ci-only-payment-api-key
+          docker compose config --quiet
 
   regional-resilience:
     name: Regional Resilience Contract
