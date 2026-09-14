@@ -76,6 +76,7 @@ import {
 } from './_shared';
 import { evaluatePickupLocationQuality } from '../../services/pickupLocationQuality';
 import { isExperienceKillSwitchActive } from '../../services/experienceKillSwitches';
+import { formatCustomerOrderNumber } from '../../services/orderNumber';
 
 export const createCustomerOrder = async (req: Request, res: Response): Promise<void> => {
   const client = await db.connect();
@@ -609,8 +610,13 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       };
     }
 
-    // Generate simple order number
-    const order_number = `TMB-${Date.now().toString().slice(-6)}`;
+    // The timestamp-only format collided under concurrent checkout. The
+    // sequence is allocated atomically by PostgreSQL; timestamp remains only
+    // a human-friendly prefix and is not treated as the uniqueness guarantee.
+    const orderNumberSequence = await client.query<{ sequence_no: string }>(
+      "SELECT nextval('customer_order_number_seq')::text AS sequence_no",
+    );
+    const order_number = formatCustomerOrderNumber(Date.now(), orderNumberSequence.rows[0]?.sequence_no || '0');
 
     const insertQuery = `
       INSERT INTO orders (
