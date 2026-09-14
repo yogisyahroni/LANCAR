@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "app_slug": "customer",
+  "version_code": "unknown",
+  "version_name": "unknown",
+  "commit": "a0a60304210c1568ad8e8339361877f0d20ecf2c",
+  "generated_at": "2026-09-14T08:17:33.099850+00:00",
+  "artifacts": [
+    {
+      "kind": "apk",
+      "channel": "release",
+      "path": "android-app-customer/app/build/outputs/apk/release/app-release.apk",
+      "size_bytes": 156621658,
+      "sha256": "d6bf5df2a22a9abe0625991c5b3ddd5e9be5a159cf84cabef379f23fdffa1db2"
+    }
+  ],
+  "secret_handling": "Hashes and metadata only; no signing key, credential or token is recorded."
+}

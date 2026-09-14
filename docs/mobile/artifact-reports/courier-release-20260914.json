@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "app_slug": "courier",
+  "version_code": "unknown",
+  "version_name": "unknown",
+  "commit": "a0a60304210c1568ad8e8339361877f0d20ecf2c",
+  "generated_at": "2026-09-14T08:17:32.866892+00:00",
+  "artifacts": [
+    {
+      "kind": "apk",
+      "channel": "release",
+      "path": "android-app/app/build/outputs/apk/release/app-release.apk",
+      "size_bytes": 194516666,
+      "sha256": "6c683f24a84b6d3661effa3aa252adf35447239e181b9a955852826c4dbd7e89"
+    }
+  ],
+  "secret_handling": "Hashes and metadata only; no signing key, credential or token is recorded."
+}
