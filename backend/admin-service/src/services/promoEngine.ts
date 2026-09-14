@@ -1,5 +1,6 @@
 import { PoolClient } from 'pg';
 import { z } from 'zod';
+import crypto from 'crypto';
 import { db, readDb } from '../db';
 import { createNotification } from '../notifications';
 import { securityLog } from '../security/logRedaction';
@@ -13,6 +14,7 @@ export type PromoActor = {
 export type PromoValidationInput = {
   code?: string;
   campaign_id?: string;
+  promo_codes?: string[];
   service_code: string;
   vehicle_type?: string;
   zone_code?: string;
@@ -62,6 +64,7 @@ const campaignMutationSchema = z.object({
 const validationSchema = z.object({
   code: z.string().trim().max(40).optional(),
   campaign_id: z.string().uuid().optional(),
+  promo_codes: z.array(z.string().trim().min(3).max(40)).min(1).max(5).optional(),
   service_code: serviceCodeSchema,
   vehicle_type: z.string().trim().max(40).optional(),
   zone_code: z.string().trim().max(80).optional(),
@@ -71,8 +74,8 @@ const validationSchema = z.object({
   tax_amount_idr: z.coerce.number().int().min(0).max(1_000_000_000).optional(),
   idempotency_key: z.string().trim().min(8).max(120).optional(),
   order_id: z.string().uuid().optional(),
-}).refine((value) => Boolean(value.code || value.campaign_id), {
-  message: 'code or campaign_id is required',
+}).refine((value) => Boolean(value.code || value.campaign_id || value.promo_codes?.length), {
+  message: 'code, campaign_id or promo_codes is required',
 });
 
 const promoNotificationSchema = z.object({
@@ -98,6 +101,96 @@ const decimalValue = (value: unknown, fallback = 0) => {
 };
 
 const jsonValue = (value: unknown) => JSON.stringify(value ?? {});
+
+export type PromoStackCandidate = {
+  campaign: Record<string, any>;
+  discount_idr: number;
+  economics?: Record<string, any>;
+  result?: any;
+};
+
+export type PromoStackSelection = {
+  selected: PromoStackCandidate[];
+  excluded: Array<{ code: string; reason: string; winner?: string }>;
+  total_discount_idr: number;
+  contribution_margin_idr: number | null;
+};
+
+const stackPriority = (candidate: PromoStackCandidate) => {
+  const explicit = Number(candidate.campaign.stack_priority);
+  if (Number.isFinite(explicit)) return explicit;
+  const configured = Number(candidate.campaign.eligibility_rules?.stack_priority);
+  return Number.isFinite(configured) ? configured : 0;
+};
+
+/**
+ * Apply the canonical platform-promo stacking policy before any budget
+ * reservation. One campaign wins per stacking_key, with deterministic
+ * priority/discount/code ordering. A candidate that would cross the service
+ * margin floor is excluded rather than silently making an unprofitable order.
+ */
+export const selectCanonicalPromoStack = (
+  candidates: PromoStackCandidate[],
+): PromoStackSelection => {
+  const ordered = [...candidates].sort((left, right) =>
+    stackPriority(right) - stackPriority(left)
+    || right.discount_idr - left.discount_idr
+    || String(left.campaign.code || '').localeCompare(String(right.campaign.code || ''))
+  );
+  const selected: PromoStackCandidate[] = [];
+  const excluded: PromoStackSelection['excluded'] = [];
+  const stackingKeys = new Map<string, string>();
+  const firstEconomics = ordered.find((candidate) => candidate.economics)?.economics;
+  const baseMargin = firstEconomics
+    ? Number(firstEconomics.contribution_margin_idr || 0) + Number(ordered.find((candidate) => candidate.economics)?.discount_idr || 0)
+    : null;
+  const marginFloor = firstEconomics
+    ? Math.max(
+      Number(firstEconomics.min_margin_amount_idr || 0),
+      Number(firstEconomics.gross_amount_idr || 0) * (Number(firstEconomics.min_margin_percent || 0) / 100),
+    )
+    : null;
+  let totalDiscount = 0;
+
+  for (const candidate of ordered) {
+    const code = String(candidate.campaign.code || candidate.campaign.id || 'unknown');
+    const key = String(candidate.campaign.stacking_key || `scope:${candidate.campaign.component_scope || 'shipping'}`);
+    const winner = stackingKeys.get(key);
+    if (winner) {
+      excluded.push({ code, reason: 'STACKING_KEY_CONFLICT', winner });
+      continue;
+    }
+
+    const totalBudget = Number(candidate.campaign.total_budget_idr || 0);
+    const availableBudget = totalBudget > 0
+      ? totalBudget - Number(candidate.campaign.reserved_budget_idr || 0) - Number(candidate.campaign.redeemed_budget_idr || 0)
+      : Number.MAX_SAFE_INTEGER;
+    if (availableBudget < candidate.discount_idr) {
+      excluded.push({ code, reason: 'BUDGET_UNAVAILABLE' });
+      continue;
+    }
+
+    const proposedDiscount = totalDiscount + Math.max(0, Number(candidate.discount_idr || 0));
+    if (baseMargin != null && marginFloor != null && baseMargin - proposedDiscount < marginFloor) {
+      excluded.push({ code, reason: 'MARGIN_FLOOR' });
+      continue;
+    }
+
+    stackingKeys.set(key, code);
+    selected.push(candidate);
+    totalDiscount = proposedDiscount;
+  }
+
+  return {
+    selected,
+    excluded,
+    total_discount_idr: totalDiscount,
+    contribution_margin_idr: baseMargin == null ? null : baseMargin - totalDiscount,
+  };
+};
+
+const buildPromoStackReservationKey = (baseKey: string, campaignId: string) =>
+  crypto.createHash('sha256').update(`customer-order-promo-stack:${baseKey}:${campaignId}`).digest('hex');
 
 const assertActor = (actor: PromoActor) => {
   if (!actor?.id) {
@@ -935,6 +1028,134 @@ export const validatePromoForCheckout = async (
   } finally {
     client.release();
   }
+};
+
+/**
+ * Validate and, for reserve/redeem modes, persist a canonical multi-promo
+ * stack. Each campaign receives its own idempotency key so existing redemption
+ * and refund/reversal code can reconcile every campaign independently.
+ */
+export const validatePromoStackForCheckout = async (
+  userId: string,
+  rawInput: PromoValidationInput,
+  mode: 'quote' | 'reserve' | 'redeem' = 'quote',
+) => {
+  const input = validationSchema.parse(rawInput);
+  const requestedCodes = (input.promo_codes?.length
+    ? input.promo_codes
+    : [input.code || ''])
+    .map((code) => String(code).trim().toUpperCase())
+    .filter(Boolean);
+  const uniqueCodes = [...new Set(requestedCodes)];
+  if (uniqueCodes.length === 0) {
+    const error = new Error('At least one promo code is required');
+    (error as any).statusCode = 400;
+    throw error;
+  }
+  if (uniqueCodes.length !== requestedCodes.length) {
+    const error = new Error('Promo code cannot be repeated in one stack');
+    (error as any).statusCode = 409;
+    throw error;
+  }
+
+  const quoteResults: Array<PromoStackCandidate & { result: any }> = [];
+  for (const code of uniqueCodes) {
+    const result = await validatePromoForCheckout(userId, {
+      ...input,
+      code,
+      promo_codes: undefined,
+    }, 'quote');
+    if (!result.eligible || !result.campaign) {
+      return {
+        eligible: false,
+        reason: result.reason || `Promo ${code} tidak dapat digunakan.`,
+        campaign: result.campaign || null,
+        discount_idr: 0,
+        promotions: [],
+        excluded: [{ code, reason: 'CAMPAIGN_INELIGIBLE' }],
+      };
+    }
+    quoteResults.push({
+      campaign: result.campaign,
+      discount_idr: Number(result.discount_idr || 0),
+      economics: result.economics,
+      result,
+    });
+  }
+
+  const selection = selectCanonicalPromoStack(quoteResults);
+  if (selection.selected.length !== quoteResults.length) {
+    return {
+      eligible: false,
+      reason: 'Promo yang dipilih tidak dapat digabung sesuai prioritas dan budget.',
+      campaign: selection.selected[0]?.campaign || quoteResults[0]?.campaign || null,
+      discount_idr: 0,
+      promotions: [],
+      excluded: selection.excluded,
+      stack: selection,
+    };
+  }
+
+  const baseResult = selection.selected[0]?.result;
+  const promotions = selection.selected.map((candidate) => ({
+    campaign: candidate.campaign,
+    discount_idr: candidate.discount_idr,
+    economics: candidate.economics,
+    result: candidate.result,
+  }));
+  if (mode === 'quote') {
+    return {
+      eligible: true,
+      reason: null,
+      campaign: promotions[0]?.campaign || null,
+      discount_idr: selection.total_discount_idr,
+      promotions,
+      excluded: selection.excluded,
+      stack: selection,
+      mode,
+    };
+  }
+
+  if (!input.idempotency_key) {
+    const error = new Error('idempotency_key is required for promo reservation or redemption');
+    (error as any).statusCode = 400;
+    throw error;
+  }
+
+  const reserved: Array<Record<string, any>> = [];
+  try {
+    for (const promotion of promotions) {
+      const reservationKey = buildPromoStackReservationKey(input.idempotency_key, String(promotion.campaign.id));
+      const result = await validatePromoForCheckout(userId, {
+        ...input,
+        code: String(promotion.campaign.code),
+        promo_codes: undefined,
+        idempotency_key: reservationKey,
+      }, mode);
+      reserved.push({
+        campaign: result.campaign || promotion.campaign,
+        discount_idr: Number(result.discount_idr || promotion.discount_idr),
+        economics: result.economics || promotion.economics,
+        reservation_key: reservationKey,
+      });
+    }
+  } catch (error) {
+    for (const reservation of reserved) {
+      await releasePromoReservation(userId, reservation.reservation_key).catch(() => undefined);
+    }
+    throw error;
+  }
+
+  return {
+    eligible: true,
+    reason: null,
+    campaign: reserved[0]?.campaign || baseResult?.campaign || null,
+    discount_idr: reserved.reduce((sum, promotion) => sum + Number(promotion.discount_idr || 0), 0),
+    promotions: reserved,
+    excluded: selection.excluded,
+    stack: selection,
+    mode,
+  };
 };
 
 export const releasePromoReservation = async (userId: string, idempotencyKey: string) => {

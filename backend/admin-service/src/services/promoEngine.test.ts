@@ -21,7 +21,9 @@ jest.mock('../security/logRedaction', () => ({
 import {
   previewPromoNotificationAudience,
   releasePromoReservation,
+  selectCanonicalPromoStack,
   validatePromoForCheckout,
+  validatePromoStackForCheckout,
 } from './promoEngine';
 
 describe('promoEngine checkout guards', () => {
@@ -230,5 +232,81 @@ describe('promoEngine checkout guards', () => {
       max_per_week: 3,
     }));
     expect(mockReadDbQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('selects one winner per stacking key in deterministic priority order', () => {
+    const result = selectCanonicalPromoStack([
+      {
+        campaign: { ...campaign, code: 'SHIPPING-LOW', stacking_key: 'shipping', stack_priority: 10 },
+        discount_idr: 4000,
+        economics: { ...campaign, gross_amount_idr: 50000, contribution_margin_idr: 20000, min_margin_amount_idr: 3000, min_margin_percent: 5 },
+      },
+      {
+        campaign: { ...campaign, code: 'SHIPPING-HIGH', stacking_key: 'shipping', stack_priority: 20 },
+        discount_idr: 5000,
+        economics: { gross_amount_idr: 50000, contribution_margin_idr: 19000, min_margin_amount_idr: 3000, min_margin_percent: 5 },
+      },
+      {
+        campaign: { ...campaign, code: 'INSURANCE', stacking_key: 'insurance', stack_priority: 1 },
+        discount_idr: 1000,
+        economics: { gross_amount_idr: 50000, contribution_margin_idr: 24000, min_margin_amount_idr: 3000, min_margin_percent: 5 },
+      },
+    ]);
+
+    expect(result.selected.map((item) => item.campaign.code)).toEqual(['SHIPPING-HIGH', 'INSURANCE']);
+    expect(result.total_discount_idr).toBe(6000);
+    expect(result.excluded).toEqual([{ code: 'SHIPPING-LOW', reason: 'STACKING_KEY_CONFLICT', winner: 'SHIPPING-HIGH' }]);
+  });
+
+  it('does not select a campaign whose remaining budget cannot cover the discount', () => {
+    const result = selectCanonicalPromoStack([
+      {
+        campaign: { ...campaign, code: 'EMPTY', stacking_key: 'shipping', total_budget_idr: 5000, reserved_budget_idr: 5000 },
+        discount_idr: 5000,
+        economics: { gross_amount_idr: 50000, contribution_margin_idr: 20000, min_margin_amount_idr: 3000, min_margin_percent: 5 },
+      },
+      {
+        campaign: { ...campaign, code: 'AVAILABLE', stacking_key: 'insurance', total_budget_idr: 10000, reserved_budget_idr: 0 },
+        discount_idr: 1000,
+        economics: { gross_amount_idr: 50000, contribution_margin_idr: 24000, min_margin_amount_idr: 3000, min_margin_percent: 5 },
+      },
+    ]);
+
+    expect(result.selected.map((item) => item.campaign.code)).toEqual(['AVAILABLE']);
+    expect(result.excluded).toEqual([{ code: 'EMPTY', reason: 'BUDGET_UNAVAILABLE' }]);
+  });
+
+  it('validates a multi-campaign checkout stack before any reservation', async () => {
+    const secondCampaign = {
+      ...campaign,
+      id: '33333333-3333-4333-8333-333333333333',
+      code: 'INSURE5000',
+      discount_value_idr: 2000,
+      stacking_key: 'insurance',
+      component_scope: 'insurance',
+    };
+    mockReadDbQuery
+      .mockResolvedValueOnce({ rows: [{ ...campaign, stack_priority: 20 }] })
+      .mockResolvedValueOnce({ rows: [{ ...servicePolicy }] })
+      .mockResolvedValueOnce({ rows: [{ count: 0 }] })
+      .mockResolvedValueOnce({ rows: [secondCampaign] })
+      .mockResolvedValueOnce({ rows: [{ ...servicePolicy }] })
+      .mockResolvedValueOnce({ rows: [{ count: 0 }] });
+
+    const result = await validatePromoStackForCheckout(
+      '22222222-2222-4222-8222-222222222222',
+      { ...validationInput, promo_codes: ['HEMAT10', 'INSURE5000'] },
+      'quote',
+    );
+
+    expect(result).toEqual(expect.objectContaining({
+      eligible: true,
+      discount_idr: 7000,
+      promotions: expect.arrayContaining([
+        expect.objectContaining({ campaign: expect.objectContaining({ code: 'HEMAT10' }), discount_idr: 5000 }),
+        expect.objectContaining({ campaign: expect.objectContaining({ code: 'INSURE5000' }), discount_idr: 2000 }),
+      ]),
+    }));
+    expect(mockConnect).not.toHaveBeenCalled();
   });
 });

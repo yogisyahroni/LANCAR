@@ -43,7 +43,7 @@ import {
 import { validateTowingBookingContract } from './towingBookingContract';
 import { evaluateTowingQuoteConsent } from './towingQuotePolicy';
 
-import { releasePromoReservation, validatePromoForCheckout } from '../../services/promoEngine';
+import { releasePromoReservation, validatePromoStackForCheckout } from '../../services/promoEngine';
 import {
   insertWebhookAuditEvent,
   resolveRawBody,
@@ -55,7 +55,6 @@ import {
 
 
 import {
-  buildPromoReservationKey,
   calculateCustomerPriceBreakdown,
   customerQuoteInputFingerprint,
   hashPhoneForPrivateLookup,
@@ -80,7 +79,7 @@ import { isExperienceKillSwitchActive } from '../../services/experienceKillSwitc
 
 export const createCustomerOrder = async (req: Request, res: Response): Promise<void> => {
   const client = await db.connect();
-  let reservedPromoKey: string | null = null;
+  let reservedPromoReservations: Array<{ campaignId: string; reservationKey: string }> = [];
   let reservedPromoCustomerId: string | null = null;
   let isPaymentBypassed = false;
   try {
@@ -94,6 +93,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
+    reservedPromoCustomerId = customer_id;
 
     const {
       pickup_address,
@@ -114,6 +114,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       service_code,
       size_tier,
       promo_code,
+      promo_codes,
       voucher_code, // FB-078: kode voucher diskon (opsional, terpisah dari promo)
       logistics_provider,
       logistics_service_type,
@@ -416,9 +417,14 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       grossTotalPrice,
       trustedPriceBreakdown.insurance_premium_idr || 0
     );
-    const requestedPromoCode = promo_code ?? price_breakdown?.promo_code ?? price_breakdown?.promo?.code;
-    const normalizedPromoCode = normalizePromoCode(requestedPromoCode);
-    if (requestedPromoCode && !normalizedPromoCode) {
+    const requestedPromoCodes = Array.isArray(promo_codes) && promo_codes.length > 0
+      ? promo_codes
+      : [promo_code ?? price_breakdown?.promo_code ?? price_breakdown?.promo?.code];
+    const normalizedPromoCodes = requestedPromoCodes
+      .filter((code: unknown) => code != null && String(code).trim().length > 0)
+      .map((code: unknown) => normalizePromoCode(code));
+    const normalizedPromoCode = normalizedPromoCodes[0] || null;
+    if (normalizedPromoCodes.some((code: string | null) => !code)) {
       client.release();
       res.status(400).json({
         code: 'ERR_PROMO_CODE_INVALID',
@@ -430,7 +436,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     // A voucher and a platform promo are separate sources and cannot be
     // composed. Reject before reserving promo budget so an unsupported client
     // stack cannot leave an orphaned reservation behind.
-    if (normalizedPromoCode && voucher_code) {
+    if (normalizedPromoCodes.length > 0 && voucher_code) {
       client.release();
       res.status(409).json({
         code: 'ERR_VOUCHER_CONFLICT',
@@ -442,19 +448,19 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     let promoDiscountIdr = 0;
     let promoCampaignId: string | null = null;
     let appliedPromoCode: string | null = null;
-    if (normalizedPromoCode) {
-      const reservationKey = buildPromoReservationKey(res.locals.idempotencyKey, customer_id, normalizedPromoCode);
-      const promoResult = await validatePromoForCheckout(
+    let appliedPromoCodes: string[] = [];
+    if (normalizedPromoCodes.length > 0) {
+      const promoResult = await validatePromoStackForCheckout(
         customer_id,
         {
-          code: normalizedPromoCode,
+          promo_codes: normalizedPromoCodes as string[],
           service_code: service.code,
           vehicle_type: trustedRouteSnapshot.vehicle_type || trustedRouteSnapshot.route_profile || service.vehicle_types?.[0],
           gross_amount_idr: grossTotalPrice,
           insurance_amount_idr: trustedPriceBreakdown.insurance_premium_idr || 0,
           payment_fee_idr: grossSettlement.mdr_idr,
           tax_amount_idr: grossSettlement.ppn_idr,
-          idempotency_key: reservationKey,
+          idempotency_key: res.locals.idempotencyKey,
         },
         'reserve'
       );
@@ -468,11 +474,15 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         return;
       }
 
-      reservedPromoKey = reservationKey;
-      reservedPromoCustomerId = customer_id;
+      const promotions = Array.isArray(promoResult.promotions) ? promoResult.promotions : [];
+      reservedPromoReservations = promotions.map((promotion: any) => ({
+        campaignId: String(promotion.campaign?.id || ''),
+        reservationKey: String(promotion.reservation_key || ''),
+      })).filter((promotion: { campaignId: string; reservationKey: string }) => promotion.campaignId && promotion.reservationKey);
       promoDiscountIdr = Math.max(0, Math.min(Number(promoResult.discount_idr || 0), grossTotalPrice));
-      promoCampaignId = promoResult.campaign?.id || null;
-      appliedPromoCode = promoResult.campaign?.code || normalizedPromoCode;
+      promoCampaignId = promotions[0]?.campaign?.id || promoResult.campaign?.id || null;
+      appliedPromoCodes = promotions.map((promotion: any) => String(promotion.campaign?.code || '').trim().toUpperCase()).filter(Boolean);
+      appliedPromoCode = appliedPromoCodes[0] || normalizedPromoCode;
     }
 
     let totalPrice = Math.max(0, grossTotalPrice - promoDiscountIdr);
@@ -486,6 +496,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
             promo_discount_idr: promoDiscountIdr,
             promo_campaign_id: promoCampaignId,
             promo_code: appliedPromoCode,
+            promo_codes: appliedPromoCodes,
             pricing_breakdown: {
                           service_fee_idr: trustedPriceBreakdown.service_fee_idr || 0,
                           travel_fee_idr: trustedPriceBreakdown.travel_fee_idr || 0,
@@ -782,7 +793,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       );
     }
 
-    if (reservedPromoKey && promoCampaignId) {
+    for (const reservation of reservedPromoReservations) {
       await client.query(
         `UPDATE promo_redemptions
             SET order_id = $3
@@ -790,7 +801,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
             AND idempotency_key = $2
             AND user_id = $4
             AND status = 'reserved'`,
-        [promoCampaignId, reservedPromoKey, newOrder.id, customer_id]
+        [reservation.campaignId, reservation.reservationKey, newOrder.id, customer_id]
       );
       await client.query(
         `UPDATE promo_budget_ledger
@@ -800,7 +811,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
             AND user_id = $4
             AND ledger_type = 'reserve'
             AND status = 'active'`,
-        [promoCampaignId, reservedPromoKey, newOrder.id, customer_id]
+        [reservation.campaignId, reservation.reservationKey, newOrder.id, customer_id]
       );
     }
 
@@ -898,6 +909,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         promo_discount_idr: promoDiscountIdr,
         promo_campaign_id: promoCampaignId,
         promo_code: appliedPromoCode,
+        promo_codes: appliedPromoCodes,
         voucher_discount_idr: voucherDiscountIdr, // FB-078
         voucher_code: voucherId ? (appliedPromoCode || voucher_code) : null, // FB-078
         distance_km: trustedPriceBreakdown.distance_km || 0,
@@ -946,8 +958,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
   } catch (error: any) {
     await client.query('ROLLBACK').catch(() => undefined);
-    if (reservedPromoKey && reservedPromoCustomerId) {
-      await releasePromoReservation(reservedPromoCustomerId, reservedPromoKey).catch(() => undefined);
+    for (const reservation of reservedPromoReservations) {
+      await releasePromoReservation(reservedPromoCustomerId || '', reservation.reservationKey).catch(() => undefined);
     }
     client.release();
     securityLog.error("[DEBUG] Create Order Error:", error);
