@@ -5945,7 +5945,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [x] Screen/API/startup/frame metrics use governed event names. (Verified 2026-09-14: customer, courier and merchant runtime hooks use the allowlisted `screen_view`, `api_request`, `app_start` and `frame_budget` events; debug Kotlin compile and static contract validator pass.)
-- [ ] Trace links client request to backend correlation id where practical.
+- [x] Trace links client request to backend correlation id where practical. (Verified 2026-09-14: all three mobile clients propagate `X-Request-ID`; staging API health probe returned both `X-Request-ID` and `X-Correlation-ID` headers. Raw IDs are omitted from evidence.)
 - [x] User content/PII not embedded in metric labels. (Verified 2026-09-14: telemetry dimensions are bounded and the static privacy gate rejects email, phone, address, order ID and token markers in each client telemetry implementation.)
 - [x] High-cardinality dimensions controlled. (Verified 2026-09-14: raw request paths are reduced to operation categories, screens to allowlisted buckets, and request IDs remain support references rather than metric labels.)
 
