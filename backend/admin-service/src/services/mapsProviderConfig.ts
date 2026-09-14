@@ -12,6 +12,7 @@ import {
   hasTomTomMapsServerCredential,
   resetMapsRuntimeCredentialCacheForTests,
 } from './mapsRuntimeCredentials';
+import { AsyncRequestCoalescer } from './routeRequestCoalescer';
 
 export type MapProviderId = 'tomtom_maps' | 'openstreetmap' | 'disabled';
 export type MapProviderScope = 'global' | 'customer_mobile' | 'courier_mobile' | 'web_customer' | 'web_admin' | 'tracking';
@@ -513,6 +514,7 @@ const parseCachedReverseGeocodeResult = (value: string | null): MapsGeocodeResul
 };
 
 const redisClient = redis as any;
+const routeRequestCoalescer = new AsyncRequestCoalescer<RouteEtaSnapshot>();
 
 const safeRedisGet = async (key: string): Promise<string | null> => {
   if (typeof redisClient.get !== 'function') return null;
@@ -1661,59 +1663,61 @@ const buildTomTomRoute = async (
     return { ...cached, provider: `${cached.provider || initialPolicy.provider}_cache`, credential_alias: credential.keyAlias } as any;
   }
 
-  let payload: RouteEtaSnapshot;
-  try {
-    assertTomTomQuotaHealthy();
-    await assertProviderCircuitClosed(initialPolicy.provider);
-    payload = await routeFromTomTomRoutesApi(from, to, fallback, providerConfig, context, credential.apiKey, initialPolicy);
-  } catch (routesError: any) {
-    if (shouldRetryTomTomTwoWheelerAsDrive(initialPolicy, routesError)) {
-      const drivePolicy = resolveTomTomRoutePolicy(context, 'car');
-      try {
-        await assertProviderCircuitClosed(drivePolicy.provider);
-        payload = await routeFromTomTomRoutesApi(from, to, fallback, providerConfig, context, credential.apiKey, drivePolicy);
-      } catch (driveRoutesError: any) {
-        if (String(process.env.TOMTOM_LEGACY_FALLBACK_DISABLED || '').toLowerCase() === 'true') {
-          await recordProviderFailure(drivePolicy.provider);
-          const stale = await getStaleCachedRoute(cacheKey, drivePolicy.provider, TomTomRoutesErrorCode(driveRoutesError));
-          if (stale) return stale;
-          throw driveRoutesError;
+  return routeRequestCoalescer.run(cacheKey, async () => {
+    let payload: RouteEtaSnapshot;
+    try {
+      assertTomTomQuotaHealthy();
+      await assertProviderCircuitClosed(initialPolicy.provider);
+      payload = await routeFromTomTomRoutesApi(from, to, fallback, providerConfig, context, credential.apiKey, initialPolicy);
+    } catch (routesError: any) {
+      if (shouldRetryTomTomTwoWheelerAsDrive(initialPolicy, routesError)) {
+        const drivePolicy = resolveTomTomRoutePolicy(context, 'car');
+        try {
+          await assertProviderCircuitClosed(drivePolicy.provider);
+          payload = await routeFromTomTomRoutesApi(from, to, fallback, providerConfig, context, credential.apiKey, drivePolicy);
+        } catch (driveRoutesError: any) {
+          if (String(process.env.TOMTOM_LEGACY_FALLBACK_DISABLED || '').toLowerCase() === 'true') {
+            await recordProviderFailure(drivePolicy.provider);
+            const stale = await getStaleCachedRoute(cacheKey, drivePolicy.provider, TomTomRoutesErrorCode(driveRoutesError));
+            if (stale) return stale;
+            throw driveRoutesError;
+          }
+          const fallbackReason = `TOMTOM_two_wheeler_unavailable_drive_legacy_used:${TomTomRoutesErrorCode(driveRoutesError)}`;
+          payload = await routeFromTomTomLegacyDirections(
+            from,
+            to,
+            fallback,
+            providerConfig,
+            context,
+            credential.apiKey,
+            drivePolicy,
+            fallbackReason
+          );
         }
-        const fallbackReason = `TOMTOM_two_wheeler_unavailable_drive_legacy_used:${TomTomRoutesErrorCode(driveRoutesError)}`;
+      } else if (String(process.env.TOMTOM_LEGACY_FALLBACK_DISABLED || '').toLowerCase() === 'true') {
+        await recordProviderFailure(initialPolicy.provider);
+        const stale = await getStaleCachedRoute(cacheKey, initialPolicy.provider, TomTomRoutesErrorCode(routesError));
+        if (stale) return stale;
+        throw routesError;
+      } else {
+        const fallbackReason = `TOMTOM_ROUTING_api_unavailable_legacy_directions_used:${TomTomRoutesErrorCode(routesError)}`;
         payload = await routeFromTomTomLegacyDirections(
-          from,
-          to,
-          fallback,
-          providerConfig,
-          context,
-          credential.apiKey,
-          drivePolicy,
-          fallbackReason
-        );
+            from,
+            to,
+            fallback,
+            providerConfig,
+            context,
+            credential.apiKey,
+            initialPolicy,
+            fallbackReason
+          );
       }
-    } else if (String(process.env.TOMTOM_LEGACY_FALLBACK_DISABLED || '').toLowerCase() === 'true') {
-      await recordProviderFailure(initialPolicy.provider);
-      const stale = await getStaleCachedRoute(cacheKey, initialPolicy.provider, TomTomRoutesErrorCode(routesError));
-      if (stale) return stale;
-      throw routesError;
-    } else {
-      const fallbackReason = `TOMTOM_ROUTING_api_unavailable_legacy_directions_used:${TomTomRoutesErrorCode(routesError)}`;
-      payload = await routeFromTomTomLegacyDirections(
-          from,
-          to,
-          fallback,
-          providerConfig,
-          context,
-          credential.apiKey,
-          initialPolicy,
-          fallbackReason
-        );
     }
-  }
-  payload = { ...payload, credential_alias: credential.keyAlias } as any;
-  await recordProviderSuccess(initialPolicy.provider);
-  await setCachedRoute(cacheKey, payload);
-  return payload;
+    payload = { ...payload, credential_alias: credential.keyAlias } as any;
+    await recordProviderSuccess(initialPolicy.provider);
+    await setCachedRoute(cacheKey, payload);
+    return payload;
+  });
 };
 
 const buildOpenStreetMapRoute = async (
@@ -1728,53 +1732,55 @@ const buildOpenStreetMapRoute = async (
   const cached = await getCachedRoute(cacheKey);
   if (cached) return { ...cached, provider: `${engine.provider}_cache` };
 
-  await assertProviderCircuitClosed(engine.provider);
+  return routeRequestCoalescer.run(cacheKey, async () => {
+    await assertProviderCircuitClosed(engine.provider);
 
-  const coordinates = `${from.longitude},${from.latitude};${to.longitude},${to.latitude}`;
-  try {
-    const response = await axios.get(`${engine.baseUrl}/route/v1/${engine.profile}/${coordinates}`, {
-      params: {
-        overview: 'full',
-        geometries: 'polyline',
-        steps: false,
-      },
-      headers: {
-        'User-Agent': process.env.OSM_USER_AGENT || 'TEMBUS-Logistics/1.0 maps-runtime',
-      },
-      timeout: osmRoutingTimeoutMs(),
-    });
+    const coordinates = `${from.longitude},${from.latitude};${to.longitude},${to.latitude}`;
+    try {
+      const response = await axios.get(`${engine.baseUrl}/route/v1/${engine.profile}/${coordinates}`, {
+        params: {
+          overview: 'full',
+          geometries: 'polyline',
+          steps: false,
+        },
+        headers: {
+          'User-Agent': process.env.OSM_USER_AGENT || 'TEMBUS-Logistics/1.0 maps-runtime',
+        },
+        timeout: osmRoutingTimeoutMs(),
+      });
 
-    const route = response.data?.routes?.[0];
-    if (!route) throw new Error(response.data?.code || 'OSM_NO_ROUTE');
+      const route = response.data?.routes?.[0];
+      if (!route) throw new Error(response.data?.code || 'OSM_NO_ROUTE');
 
-    const geometry = typeof route.geometry === 'string' ? route.geometry.trim() : '';
-    if (!geometry) throw new Error('OSM_ROUTE_GEOMETRY_MISSING');
+      const geometry = typeof route.geometry === 'string' ? route.geometry.trim() : '';
+      if (!geometry) throw new Error('OSM_ROUTE_GEOMETRY_MISSING');
 
-    const durationSeconds = Number(route.duration);
-    const distanceMeters = Number(route.distance);
-    if (!Number.isFinite(durationSeconds) || durationSeconds < 0) throw new Error('OSM_ROUTE_DURATION_INVALID');
-    if (!Number.isFinite(distanceMeters) || distanceMeters < 0) throw new Error('OSM_ROUTE_DISTANCE_INVALID');
+      const durationSeconds = Number(route.duration);
+      const distanceMeters = Number(route.distance);
+      if (!Number.isFinite(durationSeconds) || durationSeconds < 0) throw new Error('OSM_ROUTE_DURATION_INVALID');
+      if (!Number.isFinite(distanceMeters) || distanceMeters < 0) throw new Error('OSM_ROUTE_DISTANCE_INVALID');
 
-    const payload: RouteEtaSnapshot = enrichRouteSnapshot({
-      eta: `${Math.max(1, Math.ceil(durationSeconds / 60))} menit`,
-      eta_minutes: Math.max(1, Math.ceil(durationSeconds / 60)),
-      distance_km: Number((distanceMeters / 1000).toFixed(2)),
-      distance_meters: distanceMeters,
-      duration_seconds: durationSeconds,
-      route_polyline: geometry,
-      route_geometry: geometry,
-      provider: engine.provider,
-      fallback_reason: engine.fallbackReason,
-    }, fallback, providerConfig, context, engine.confidence);
-    await recordProviderSuccess(engine.provider);
-    await setCachedRoute(cacheKey, payload);
-    return payload;
-  } catch (error: any) {
-    await recordProviderFailure(engine.provider);
-    const stale = await getStaleCachedRoute(cacheKey, engine.provider, error?.message || 'osm_route_provider_failed');
-    if (stale) return stale;
-    throw error;
-  }
+      const payload: RouteEtaSnapshot = enrichRouteSnapshot({
+        eta: `${Math.max(1, Math.ceil(durationSeconds / 60))} menit`,
+        eta_minutes: Math.max(1, Math.ceil(durationSeconds / 60)),
+        distance_km: Number((distanceMeters / 1000).toFixed(2)),
+        distance_meters: distanceMeters,
+        duration_seconds: durationSeconds,
+        route_polyline: geometry,
+        route_geometry: geometry,
+        provider: engine.provider,
+        fallback_reason: engine.fallbackReason,
+      }, fallback, providerConfig, context, engine.confidence);
+      await recordProviderSuccess(engine.provider);
+      await setCachedRoute(cacheKey, payload);
+      return payload;
+    } catch (error: any) {
+      await recordProviderFailure(engine.provider);
+      const stale = await getStaleCachedRoute(cacheKey, engine.provider, error?.message || 'osm_route_provider_failed');
+      if (stale) return stale;
+      throw error;
+    }
+  });
 };
 
 export const buildMapsRouteEtaSnapshot = async (
