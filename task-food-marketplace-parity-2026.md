@@ -6029,8 +6029,8 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 **Checklist**
 - [x] Critical/high vulnerability has remediation SLA and exception process.
 - [x] CI blocks known leaked secret patterns.
-- [ ] SBOM stored per release artifact.
-- [ ] Dependency upgrade test covers customer/merchant/courier/backend critical paths.
+- [x] SBOM stored per release artifact. (Verified 2026-09-14: security-scan CI generates CycloneDX and SPDX SBOMs, uploads `sbom-reports`, and attaches them on release events.)
+- [x] Dependency upgrade test covers customer/merchant/courier/backend critical paths. (Verified 2026-09-14: PR compatibility matrix covers customer/merchant web, admin service, auth/order/payment/routing Go services, and courier/customer/merchant Android unit-test paths; local Android and critical Go test suites passed.)
 
 ---
 

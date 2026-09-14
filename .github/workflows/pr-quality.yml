@@ -285,6 +285,15 @@ jobs:
           - label: Routing backend
             ecosystem: go
             working_directory: backend/routing-service
+          - label: Courier Android
+            ecosystem: gradle
+            working_directory: android-app
+          - label: Customer Android
+            ecosystem: gradle
+            working_directory: android-app-customer
+          - label: Merchant Android
+            ecosystem: gradle
+            working_directory: android-app-merchant
     steps:
       - uses: actions/checkout@v4
 
@@ -326,3 +335,18 @@ jobs:
           go mod download
           go vet ./...
           go test -v -timeout 5m ./...
+
+      - name: Set up JDK
+        if: matrix.ecosystem == 'gradle'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Test Android dependency set
+        if: matrix.ecosystem == 'gradle'
+        working-directory: ${{ matrix.working_directory }}
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest --no-daemon --stacktrace
