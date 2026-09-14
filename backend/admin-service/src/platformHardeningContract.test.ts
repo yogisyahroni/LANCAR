@@ -117,6 +117,18 @@ describe('PART W-X/AE-AF platform hardening contracts', () => {
     expect(source).toContain("['PENDING_APPROVAL', 'SCHEDULED'].includes(currentState)");
   });
 
+  it('wires due CRM campaign activation to a startup worker and shared service', () => {
+    const index = read('backend/admin-service/src/index.ts');
+    const worker = read('backend/admin-service/src/workers/crm-campaign-scheduler-worker.ts');
+    const service = read('backend/admin-service/src/services/crmCampaignScheduler.service.ts');
+    const controller = read('backend/admin-service/src/controllers/platformOperations.controller.ts');
+    expect(index).toContain('startCrmCampaignSchedulerWorker();');
+    expect(worker).toContain('activateDueCrmCampaigns');
+    expect(service).toContain("state = 'ACTIVE'");
+    expect(service).toContain('crm.campaign.scheduler_state_transition');
+    expect(controller).toContain('activateDueCrmCampaigns()');
+  });
+
   it('keeps CRM campaign preview, metrics, accounting lineage and Experiment exposure separate', () => {
     const migration = read('database/migrations/20260913000001_crm_campaign_accounting_experiments.sql');
     const service = read('backend/admin-service/src/services/crmCampaign.service.ts');
@@ -129,6 +141,33 @@ describe('PART W-X/AE-AF platform hardening contracts', () => {
     expect(service).toContain('conversion_is_not_coupon_redemption');
     expect(routes).toContain('/admin/crm/campaigns/:id/preview');
     expect(routes).toContain('/admin/crm/campaigns/:id/metrics');
+  });
+
+  it('keeps CRM per-order subsidy reservation and reconciliation on the order truth boundary', () => {
+    const accounting = read('backend/admin-service/src/services/crmAccounting.service.ts');
+    const controller = read('backend/admin-service/src/controllers/crmAccounting.controller.ts');
+    const routes = read('backend/admin-service/src/routes/admin.routes.ts');
+    expect(accounting).toContain('orders.promo_subsidy_minor');
+    expect(accounting).toContain('crm_reconciliation_exceptions');
+    expect(accounting).toContain('ON CONFLICT (campaign_id, order_id) DO NOTHING');
+    expect(accounting).toContain('reconcileLoyaltyAccount');
+    expect(controller).toContain('ERR_INTERNAL_UNAUTHORIZED');
+    expect(routes).toContain('/api/internal/crm/campaigns/:campaignId/orders/:orderId/reservation');
+    expect(routes).toContain('/admin/crm/reservations/:id/reconcile');
+    expect(routes).toContain('/admin/crm/loyalty/accounts/:accountId/reconcile');
+  });
+
+  it('keeps membership entitlement lifecycle payment-authenticated and idempotent', () => {
+    const policy = read('backend/admin-service/src/services/crmPolicy.ts');
+    const controller = read('backend/admin-service/src/controllers/loyalty.controller.ts');
+    const routes = read('backend/admin-service/src/routes.ts');
+    const migration = read('database/migrations/20260914000001_crm_membership_payment_events.sql');
+    expect(policy).toContain('resolveMembershipPaymentTransition');
+    expect(controller).toContain('crm_membership_payment_events');
+    expect(controller).toContain('ERR_MEMBERSHIP_PAYMENT_INTENT_MISMATCH');
+    expect(controller).toContain('ON CONFLICT (idempotency_key) DO NOTHING');
+    expect(routes).toContain('/api/internal/membership/entitlements/:entitlementId/payment-events');
+    expect(migration).toContain('resulting_state');
   });
 
   it('keeps reputation analytics market/service scoped and out of protected attributes', () => {

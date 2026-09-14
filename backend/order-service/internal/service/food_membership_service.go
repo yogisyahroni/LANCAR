@@ -58,3 +58,13 @@ func (s *foodMembershipService) CalculateBenefit(ctx context.Context, userID str
 	}
 	return domain.CalculateFoodMembershipBenefit(entitlement, plan, subtotalIDR, deliveryFeeIDR, deliveryMethod), nil
 }
+
+func (s *foodMembershipService) ApplyPaymentEvent(ctx context.Context, entitlementID, paymentState, paymentIntentID, providerReference, idempotencyKey string) (*domain.FoodMembershipEntitlement, error) {
+	if s.repo == nil {
+		return nil, fmt.Errorf("membership repository is not configured")
+	}
+	if strings.TrimSpace(entitlementID) == "" || strings.TrimSpace(idempotencyKey) == "" {
+		return nil, fmt.Errorf("entitlement id and idempotency key are required")
+	}
+	return s.repo.ApplyFoodMembershipPaymentEvent(ctx, entitlementID, paymentState, paymentIntentID, providerReference, idempotencyKey)
+}

@@ -506,6 +506,17 @@ jobs:
             --app-name "${{ matrix.app_name }}" \
             --min-size-mb 1
 
+      - name: Record release artifact inventory
+        if: github.event_name != 'pull_request' && (steps.android_maps_key.outputs.release_artifacts_enabled == 'true' || steps.prepare_signing.outputs.release_artifacts_enabled == 'true')
+        run: |
+          python scripts/mobile/record_artifact_inventory.py \
+            --working-dir "${{ matrix.working_dir }}" \
+            --app-slug "${{ matrix.app_slug }}" \
+            --version-code "${{ github.run_number }}" \
+            --version-name "1.0.${{ github.run_number }}" \
+            --require-release \
+            --output "${{ matrix.working_dir }}/app/build/mobile-artifact-manifest.json"
+
       - name: Prepare named release assets
         if: github.event_name != 'pull_request' && (steps.android_maps_key.outputs.release_artifacts_enabled == 'true' || steps.prepare_signing.outputs.release_artifacts_enabled == 'true')
         shell: bash
@@ -542,6 +553,7 @@ jobs:
           cp "${debug_apk}" "${asset_dir}/${{ matrix.asset_prefix }}-debug.apk"
           cp "${release_apk}" "${asset_dir}/${{ matrix.asset_prefix }}-release.apk"
           cp "${release_aab}" "${asset_dir}/${{ matrix.asset_prefix }}-release.aab"
+          cp "${{ matrix.working_dir }}/app/build/mobile-artifact-manifest.json" "${asset_dir}/${{ matrix.asset_prefix }}-artifact-manifest.json"
 
           ls -lh "${asset_dir}"
 
@@ -555,9 +567,14 @@ jobs:
           retention-days: 30
           compression-level: 9
 
-      # 4. Enterprise Security Scan (Placeholder)
-      - name: Security Check
-        run: echo "🚀 Running Security Scan for ${{ matrix.app_name }}..."
+      # 4. Repository security/release controls are real gates. Provider,
+      # managed-KMS and physical-device evidence remains a separate release
+      # packet item and is never represented by this static check.
+      - name: Verify security and release controls
+        run: |
+          python scripts/security/verify_platform_controls.py
+          python scripts/security/verify_security_release_controls.py
+          python scripts/mobile/validate_mobile_static_contracts.py
 
 
 

@@ -38,10 +38,10 @@ func (h *RefundHandler) CreateItemRefund(w http.ResponseWriter, r *http.Request)
 	}
 
 	var req struct {
-		OrderID            string                      `json:"order_id"`
-		Items              []domain.ItemRefundRequest  `json:"items"`
-		IncludeDeliveryFee bool                        `json:"include_delivery_fee"`
-		Reason             string                      `json:"reason"`
+		OrderID            string                     `json:"order_id"`
+		Items              []domain.ItemRefundRequest `json:"items"`
+		IncludeDeliveryFee bool                       `json:"include_delivery_fee"`
+		Reason             string                     `json:"reason"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
@@ -95,7 +95,7 @@ func (h *RefundHandler) CreateRefund(w http.ResponseWriter, r *http.Request) {
 		}
 
 		record, err := h.refundService.CalculateAndTriggerRefund(r.Context(), oid, reason, domain.RefundOptions{
-			OriginalStatus:        domain.OrderStatus(req.OriginalStatus),
+			OriginalStatus:          domain.OrderStatus(req.OriginalStatus),
 			ChargeCancellationFeeTo: req.ChargeCancellationFeeTo,
 		})
 		if err != nil {

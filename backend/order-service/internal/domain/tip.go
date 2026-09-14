@@ -24,10 +24,10 @@ type DriverTip struct {
 }
 
 type TipSummary struct {
-	TotalTips    int   `json:"total_tips"`
-	TotalAmount  int64 `json:"total_amount_idr"`
-	TodayAmount  int64 `json:"today_amount_idr"`
-	TodayTips    int   `json:"today_tips"`
+	TotalTips   int   `json:"total_tips"`
+	TotalAmount int64 `json:"total_amount_idr"`
+	TodayAmount int64 `json:"today_amount_idr"`
+	TodayTips   int   `json:"today_tips"`
 }
 
 type TipRepository interface {

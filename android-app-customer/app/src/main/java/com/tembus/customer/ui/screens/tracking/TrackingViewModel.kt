@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.tembus.customer.ui.components.maps.LatLng
 import com.tembus.customer.data.model.MapsProviderConfig
 import com.tembus.customer.data.model.OrderTrackingDetail
+import com.tembus.customer.data.model.SafetyCenterData
 import com.tembus.customer.data.repository.NotificationRepository
 import com.tembus.customer.data.repository.OrderRepository
 import com.tembus.customer.data.repository.TrackingRepository
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import java.util.UUID
 
 data class TrackingUiState(
     val isLoading: Boolean = false,
@@ -33,7 +35,10 @@ data class TrackingUiState(
     val mapsProviderError: String? = null,
     val lastLiveTrackingAt: Long? = null,
     val staleTrackingReason: String? = null,
-    val hasUnreadMessage: Boolean = false
+    val hasUnreadMessage: Boolean = false,
+    val safetyCenter: SafetyCenterData? = null,
+    val safetyActionPending: Boolean = false,
+    val safetyMessage: String? = null
 )
 
 @HiltViewModel
@@ -49,6 +54,7 @@ class TrackingViewModel @Inject constructor(
 
     private var pollingJob: Job? = null
     private var realtimeJob: Job? = null
+    private val safetyActionKeys = mutableMapOf<String, String>()
 
     /**
      * Commences deterministic loop to pull telemetric coordinates every 5 seconds.
@@ -58,6 +64,7 @@ class TrackingViewModel @Inject constructor(
         pollingJob?.cancel()
         
         _uiState.update { it.copy(orderId = orderId, isLoading = true) }
+        viewModelScope.launch { fetchSafetyCenter(orderId) }
         socketManager.connect()
         socketManager.joinOrderRoom(orderId)
 
@@ -101,6 +108,7 @@ class TrackingViewModel @Inject constructor(
             fetchLatestOrder(targetOrderId)
             fetchLatestTracking(targetOrderId)
             fetchUnreadMessageState()
+            fetchSafetyCenter(targetOrderId)
             _uiState.update { it.copy(isLoading = false) }
         }
     }
@@ -170,6 +178,52 @@ class TrackingViewModel @Inject constructor(
             _uiState.update {
                 it.copy(mapsProviderError = exception.message)
             }
+        }
+    }
+
+    private suspend fun fetchSafetyCenter(orderId: String) {
+        repository.getSafetyCenter(orderId).onSuccess { center ->
+            _uiState.update { it.copy(safetyCenter = center) }
+        }.onFailure { exception ->
+            // Terminal orders may legitimately return 404; do not show stale actions.
+            if (_uiState.value.safetyCenter != null && exception.message?.contains("404") == true) {
+                _uiState.update { it.copy(safetyCenter = null) }
+            }
+        }
+    }
+
+    fun reportSafety(orderId: String, message: String) {
+        val note = message.trim().take(500)
+        if (note.isBlank()) {
+            _uiState.update { it.copy(safetyMessage = "Jelaskan situasi sebelum mengirim laporan.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(safetyActionPending = true, safetyMessage = null) }
+            val key = safetyActionKeys.getOrPut("report:$orderId") { "customer-safety-${UUID.randomUUID()}" }
+            repository.reportSafety(orderId, note, key).onSuccess {
+                safetyActionKeys.remove("report:$orderId")
+                _uiState.update { it.copy(safetyMessage = "Laporan keselamatan tercatat. Status order tidak diubah otomatis.") }
+                fetchSafetyCenter(orderId)
+            }.onFailure { exception ->
+                _uiState.update { it.copy(safetyMessage = exception.message ?: "Laporan keselamatan belum dapat dikirim.") }
+            }
+            _uiState.update { it.copy(safetyActionPending = false) }
+        }
+    }
+
+    fun triggerSafetySos(orderId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(safetyActionPending = true, safetyMessage = null) }
+            val key = safetyActionKeys.getOrPut("sos:$orderId") { "customer-sos-${UUID.randomUUID()}" }
+            repository.triggerSafetySos(orderId, key).onSuccess { result ->
+                safetyActionKeys.remove("sos:$orderId")
+                _uiState.update { it.copy(safetyMessage = if (result.escalation == "fallback_instructions") "SOS tercatat. Vendor darurat belum dikonfigurasi; ikuti instruksi darurat lokal dan hubungi bantuan resmi." else "SOS tercatat dan menunggu jalur eskalasi market.") }
+                fetchSafetyCenter(orderId)
+            }.onFailure { exception ->
+                _uiState.update { it.copy(safetyMessage = exception.message ?: "SOS belum dapat dikirim. Gunakan layanan darurat lokal bila Anda dalam bahaya.") }
+            }
+            _uiState.update { it.copy(safetyActionPending = false) }
         }
     }
 

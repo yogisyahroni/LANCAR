@@ -16,8 +16,8 @@ const (
 type UserRole string
 
 const (
-	RoleCustomer   UserRole = "customer"
-	RoleCourier    UserRole = "courier"
+	RoleCustomer UserRole = "customer"
+	RoleCourier  UserRole = "courier"
 	// FOOD-BIKE-002 + FB-119: merchant food — chat customer↔merchant.
 	RoleMerchant   UserRole = "merchant"
 	RoleAdmin      UserRole = "admin"

@@ -84,11 +84,11 @@ func (h *HandoffHandler) IssueProofToken(w http.ResponseWriter, r *http.Request)
 	}
 
 	token, plaintext, err := h.svc.IssueProofToken(r.Context(), domain.IssueProofTokenRequest{
-		OrderID:       orderID,
-		Stage:         stage,
-		TokenFormat:   body.TokenFormat,
-		ExpiresAt:     time.Now().Add(10 * time.Minute).UTC(),
-		MaxAttempts:   maxAttempts,
+		OrderID:     orderID,
+		Stage:       stage,
+		TokenFormat: body.TokenFormat,
+		ExpiresAt:   time.Now().Add(10 * time.Minute).UTC(),
+		MaxAttempts: maxAttempts,
 	}, actorID, actorRole)
 	if err != nil {
 		status := http.StatusBadRequest
@@ -212,7 +212,7 @@ func (h *HandoffHandler) GetProofRequirements(w http.ResponseWriter, r *http.Req
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":      "success",
+		"status":       "success",
 		"requirements": requirements,
 	})
 }

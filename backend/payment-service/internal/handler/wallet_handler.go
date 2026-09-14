@@ -498,10 +498,10 @@ func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 	// ─── ASSEMBLE VALIDATED REQUEST ──────────────────────────────────────────────
 	withdrawReq := domain.WithdrawRequest{
 		Amount:         raw.Amount,
-		AccountNumber:  raw.AccountNumber,                         // numerik murni
-		AccountHolder:  rawHolder,                                 // sudah di-trim dan divalidasi
-		BankCode:       toUpperCase(rawBankCode),                  // normalisasi ke huruf besar
-		IdempotencyKey: idempotencyUUID.String(),                  // canonical UUID string
+		AccountNumber:  raw.AccountNumber,        // numerik murni
+		AccountHolder:  rawHolder,                // sudah di-trim dan divalidasi
+		BankCode:       toUpperCase(rawBankCode), // normalisasi ke huruf besar
+		IdempotencyKey: idempotencyUUID.String(), // canonical UUID string
 	}
 
 	// ─── DELEGATE KE SERVICE LAYER ───────────────────────────────────────────────
@@ -566,7 +566,6 @@ func toUpperCase(s string) string {
 	}
 	return string(result)
 }
-
 
 func (h *WalletHandler) respondJSON(w http.ResponseWriter, data any, status int) {
 	w.Header().Set("Content-Type", "application/json")

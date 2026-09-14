@@ -103,8 +103,8 @@ func (s *serviceAdjustmentService) Decide(ctx context.Context, req *domain.Decid
 	}
 
 	fingerprint, err := serviceAdjustmentFingerprint(map[string]any{
-		"adjustment_id":   req.AdjustmentID,
-		"decision":        req.Decision,
+		"adjustment_id":    req.AdjustmentID,
+		"decision":         req.Decision,
 		"rejection_reason": req.RejectionReason,
 	})
 	if err != nil {

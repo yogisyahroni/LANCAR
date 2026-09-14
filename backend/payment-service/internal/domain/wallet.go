@@ -152,4 +152,3 @@ type WalletService interface {
 	HandleTopUpCallback(ctx context.Context, referenceID string) error
 	HandleDisbursementCallback(ctx context.Context, referenceID string, status string) error
 }
-

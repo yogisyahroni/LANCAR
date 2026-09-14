@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"tembus/order-service/internal/domain"
 	"time"
 )
@@ -58,6 +59,93 @@ func (r *foodMembershipRepository) CreatePendingFoodMembership(ctx context.Conte
 	return e, nil
 }
 
+func (r *foodMembershipRepository) ApplyFoodMembershipPaymentEvent(ctx context.Context, entitlementID, paymentState, paymentIntentID, providerReference, idempotencyKey string) (*domain.FoodMembershipEntitlement, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	var current domain.FoodMembershipEntitlement
+	var currentPaymentIntent sql.NullString
+	err = tx.QueryRowContext(ctx, `
+		SELECT id::text, user_id::text, plan_id::text, status, current_period_start,
+		       current_period_end, free_delivery_used_idr, payment_intent_id::text
+		  FROM food_membership_entitlements WHERE id = $1::uuid FOR UPDATE`, entitlementID).
+		Scan(&current.ID, &current.UserID, &current.PlanID, &current.Status, &current.CurrentPeriodStart, &current.CurrentPeriodEnd, &current.FreeDeliveryUsedIDR, &currentPaymentIntent)
+	if err != nil {
+		return nil, fmt.Errorf("load membership entitlement: %w", err)
+	}
+	if currentPaymentIntent.Valid && paymentIntentID != "" && currentPaymentIntent.String != paymentIntentID {
+		return nil, fmt.Errorf("membership payment intent mismatch")
+	}
+	nextStatus, err := domain.ResolveFoodMembershipPaymentTransition(current.Status, paymentState)
+	if err != nil {
+		return nil, err
+	}
+	var inserted string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO food_membership_payment_events
+		  (entitlement_id, idempotency_key, payment_state, resulting_status, payment_intent_id, provider_reference)
+		VALUES ($1::uuid, $2, $3, $4, NULLIF($5, '')::uuid, NULLIF($6, ''))
+		ON CONFLICT (idempotency_key) DO NOTHING
+		RETURNING id::text`, entitlementID, idempotencyKey, strings.ToUpper(paymentState), nextStatus, paymentIntentID, providerReference).Scan(&inserted)
+	if err == sql.ErrNoRows {
+		var existingState, existingIntent, existingReference, existingResult string
+		err = tx.QueryRowContext(ctx, `
+			SELECT payment_state, COALESCE(payment_intent_id::text, ''),
+			       COALESCE(provider_reference, ''), resulting_status
+			  FROM food_membership_payment_events WHERE idempotency_key = $1`, idempotencyKey).
+			Scan(&existingState, &existingIntent, &existingReference, &existingResult)
+		if err != nil {
+			return nil, fmt.Errorf("load duplicate membership payment event: %w", err)
+		}
+		if existingState != strings.ToUpper(strings.TrimSpace(paymentState)) || existingIntent != paymentIntentID || existingReference != providerReference || existingResult != nextStatus {
+			return nil, fmt.Errorf("membership payment event idempotency key reuse")
+		}
+		err = tx.QueryRowContext(ctx, `
+			SELECT id::text, user_id::text, plan_id::text, status, current_period_start,
+			       current_period_end, free_delivery_used_idr
+			  FROM food_membership_entitlements WHERE id = $1::uuid`, entitlementID).
+			Scan(&current.ID, &current.UserID, &current.PlanID, &current.Status, &current.CurrentPeriodStart, &current.CurrentPeriodEnd, &current.FreeDeliveryUsedIDR)
+		if err != nil {
+			return nil, fmt.Errorf("load duplicate membership entitlement: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+		return &current, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("record membership payment event: %w", err)
+	}
+	row := tx.QueryRowContext(ctx, `
+		UPDATE food_membership_entitlements
+		   SET status = $2::text,
+		       payment_intent_id = COALESCE(payment_intent_id, NULLIF($3, '')::uuid),
+		       current_period_start = CASE
+		         WHEN $4::text = 'SUCCEEDED' AND status = 'active' THEN current_period_start
+		         WHEN $2::text = 'active' AND status <> 'active' THEN NOW()
+		         ELSE current_period_start
+		       END,
+		       current_period_end = CASE
+		         WHEN $4::text = 'SUCCEEDED' AND status = 'active' THEN GREATEST(current_period_end, NOW()) + INTERVAL '30 days'
+		         WHEN $2::text = 'active' AND status <> 'active' THEN NOW() + INTERVAL '30 days'
+		         ELSE current_period_end
+		       END,
+		       updated_at = NOW()
+		 WHERE id = $1::uuid
+		 RETURNING id::text, user_id::text, plan_id::text, status, current_period_start,
+		           current_period_end, free_delivery_used_idr`, entitlementID, nextStatus, paymentIntentID, strings.ToUpper(paymentState))
+	var updated domain.FoodMembershipEntitlement
+	if err := row.Scan(&updated.ID, &updated.UserID, &updated.PlanID, &updated.Status, &updated.CurrentPeriodStart, &updated.CurrentPeriodEnd, &updated.FreeDeliveryUsedIDR); err != nil {
+		return nil, fmt.Errorf("apply membership payment state: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return &updated, nil
+}
+
 func (r *foodMembershipRepository) RecordFoodMembershipSubsidy(ctx context.Context, entitlementID, orderID string, amountIDR int64) error {
 	if amountIDR <= 0 {
 		return nil
@@ -76,7 +164,9 @@ func (r *foodMembershipRepository) RecordFoodMembershipSubsidy(ctx context.Conte
 		return tx.Commit()
 	}
 	result, err := tx.ExecContext(ctx, `UPDATE food_membership_entitlements SET free_delivery_used_idr = free_delivery_used_idr + $2, updated_at = NOW() WHERE id = $1::uuid AND status = 'active' AND free_delivery_used_idr + $2 <= (SELECT free_delivery_cap_idr FROM food_membership_plans p WHERE p.id = food_membership_entitlements.plan_id)`, entitlementID, amountIDR)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	count, _ := result.RowsAffected()
 	if count != 1 {
 		return fmt.Errorf("membership subsidy cap exceeded or entitlement inactive")

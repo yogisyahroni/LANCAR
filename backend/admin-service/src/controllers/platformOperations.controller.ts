@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
+import crypto from 'node:crypto';
 import { db, readDb } from '../db';
 import { getActorId } from '../utils/authUtils';
 import { securityLog } from '../security/logRedaction';
 import { requestPaymentConfigChange } from './paymentConfigApproval.controller';
 import { validateCampaignAudience, validateCampaignFinancialContract, validateCampaignFundingBreakdown, validateCampaignFrequencyCap } from '../services/crmPolicy';
+import { activateDueCrmCampaigns } from '../services/crmCampaignScheduler.service';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const limitOf = (value: unknown, fallback = 50) => {
@@ -16,6 +18,12 @@ const reviewedEvidenceRefs = (value: unknown): string[] => (
     ? value.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 20)
     : []
 );
+
+const internalKeyMatches = (req: Request) => {
+  const expected = String(process.env.INTERNAL_API_KEY || '').trim();
+  const provided = String(req.header('x-internal-api-key') || '').trim();
+  return Boolean(expected && provided && expected.length === provided.length && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(provided)));
+};
 
 export const listPaymentProviderHealth = async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -362,14 +370,15 @@ export const upsertAdminReputationResponse = async (req: Request, res: Response)
 
 export const listAdminCrmControlPlane = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const [campaigns, loyalty, exceptions, referrals, memberships] = await Promise.all([
+    const [campaigns, loyalty, exceptions, referrals, memberships, loyaltyAccounts] = await Promise.all([
       readDb.query(`SELECT id, campaign_code, market_code, state, audience_definition, budget_minor, budget_version, merchant_agreement_version, promo_subsidy_minor, ads_spend_minor, guardrail_policy, funding_breakdown, frequency_cap, holdout_percent, starts_at, ends_at, created_by, approved_by, created_at, updated_at FROM crm_campaigns ORDER BY updated_at DESC LIMIT 100`),
       readDb.query(`SELECT market_code, COUNT(*)::int AS accounts, COALESCE(SUM(points_balance), 0)::bigint AS points_outstanding FROM loyalty_accounts GROUP BY market_code ORDER BY market_code`),
       readDb.query(`SELECT id, source_type, source_id, expected_minor, actual_minor, difference_minor, reason, state, created_at FROM crm_reconciliation_exceptions WHERE state IN ('OPEN','IN_REVIEW') ORDER BY created_at DESC LIMIT 100`),
       readDb.query(`SELECT market_code, status, COUNT(*)::int AS attributions, COALESCE(SUM(reward_liability_minor), 0)::bigint AS reward_liability_minor FROM crm_referral_attributions GROUP BY market_code, status ORDER BY market_code, status`),
       readDb.query(`SELECT p.market_code, e.state, COUNT(*)::int AS entitlements, COALESCE(SUM(p.price_minor), 0)::bigint AS plan_value_minor FROM crm_membership_entitlements e JOIN crm_membership_plans p ON p.id = e.plan_id GROUP BY p.market_code, e.state ORDER BY p.market_code, e.state`),
+      readDb.query(`SELECT id, owner_id, market_code, points_balance, updated_at FROM loyalty_accounts ORDER BY updated_at DESC LIMIT 100`),
     ]);
-    res.json({ success: true, data: { campaigns: campaigns.rows, loyalty: loyalty.rows, exceptions: exceptions.rows, referrals: referrals.rows, memberships: memberships.rows } });
+    res.json({ success: true, data: { campaigns: campaigns.rows, loyalty: loyalty.rows, loyalty_accounts: loyaltyAccounts.rows, exceptions: exceptions.rows, referrals: referrals.rows, memberships: memberships.rows } });
   } catch (error: any) {
     securityLog.error('admin_crm_control_plane_failed', { error: error.message });
     res.status(500).json({ success: false, error: 'CRM control plane unavailable' });
@@ -380,8 +389,16 @@ export const createAdminCrmCampaign = async (req: Request, res: Response): Promi
   const campaignCode = String(req.body?.campaign_code || '').trim().toLowerCase().slice(0, 80);
   const marketCode = String(req.body?.market_code || '').trim().toLowerCase().slice(0, 32);
   const budget = Number(req.body?.budget_minor ?? 0);
+  const startsAtRaw = req.body?.starts_at == null ? null : String(req.body.starts_at).trim();
+  const endsAtRaw = req.body?.ends_at == null ? null : String(req.body.ends_at).trim();
+  const startsAt = startsAtRaw ? new Date(startsAtRaw) : null;
+  const endsAt = endsAtRaw ? new Date(endsAtRaw) : null;
   if (!/^[a-z0-9][a-z0-9._-]{2,79}$/.test(campaignCode) || !marketCode || !Number.isSafeInteger(budget) || budget < 0) {
     res.status(400).json({ success: false, error: 'campaign_code, market_code, and non-negative integer budget are required' });
+    return;
+  }
+  if ((startsAtRaw && Number.isNaN(startsAt?.getTime())) || (endsAtRaw && Number.isNaN(endsAt?.getTime())) || (startsAt && endsAt && endsAt <= startsAt)) {
+    res.status(400).json({ success: false, error: 'starts_at/ends_at must be valid instants with ends_at after starts_at' });
     return;
   }
   const audience = validateCampaignAudience(req.body?.audience_definition);
@@ -403,10 +420,10 @@ export const createAdminCrmCampaign = async (req: Request, res: Response): Promi
   const actor = getActorId(req);
   try {
     const result = await db.query(
-      `INSERT INTO crm_campaigns (campaign_code, market_code, audience_definition, budget_minor, budget_version, merchant_agreement_version, promo_subsidy_minor, ads_spend_minor, guardrail_policy, funding_breakdown, frequency_cap, holdout_percent, created_by)
-       VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13)
-       RETURNING id, campaign_code, market_code, state, budget_minor, budget_version, promo_subsidy_minor, ads_spend_minor, holdout_percent, created_at`,
-      [campaignCode, marketCode, JSON.stringify(audience.normalized), budget, financial.normalized.budget_version, financial.normalized.merchant_agreement_version || null, financial.normalized.promo_subsidy_minor, financial.normalized.ads_spend_minor, JSON.stringify(financial.normalized.guardrail_policy), JSON.stringify(funding.normalized), JSON.stringify(frequencyCap.normalized), Math.min(Math.max(Number(req.body?.holdout_percent ?? 0), 0), 100), actor],
+      `INSERT INTO crm_campaigns (campaign_code, market_code, audience_definition, budget_minor, budget_version, merchant_agreement_version, promo_subsidy_minor, ads_spend_minor, guardrail_policy, funding_breakdown, frequency_cap, holdout_percent, created_by, starts_at, ends_at)
+       VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13, $14, $15)
+       RETURNING id, campaign_code, market_code, state, budget_minor, budget_version, promo_subsidy_minor, ads_spend_minor, holdout_percent, starts_at, ends_at, created_at`,
+      [campaignCode, marketCode, JSON.stringify(audience.normalized), budget, financial.normalized.budget_version, financial.normalized.merchant_agreement_version || null, financial.normalized.promo_subsidy_minor, financial.normalized.ads_spend_minor, JSON.stringify(financial.normalized.guardrail_policy), JSON.stringify(funding.normalized), JSON.stringify(frequencyCap.normalized), Math.min(Math.max(Number(req.body?.holdout_percent ?? 0), 0), 100), actor, startsAt, endsAt],
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error: any) {
@@ -427,8 +444,8 @@ export const updateAdminCrmCampaignState = async (req: Request, res: Response): 
   const client = await db.connect();
   try {
     await client.query('BEGIN');
-    const current = await client.query<{ state: string }>(
-      `SELECT state FROM crm_campaigns WHERE id = $1 FOR UPDATE`,
+    const current = await client.query<{ state: string; starts_at: Date | string | null; ends_at: Date | string | null }>(
+      `SELECT state, starts_at, ends_at FROM crm_campaigns WHERE id = $1 FOR UPDATE`,
       [id],
     );
     if (!current.rows[0]) {
@@ -437,6 +454,18 @@ export const updateAdminCrmCampaignState = async (req: Request, res: Response): 
       return;
     }
     const currentState = String(current.rows[0].state || '').toUpperCase();
+    const currentStartsAt = current.rows[0].starts_at ? new Date(current.rows[0].starts_at) : null;
+    const currentEndsAt = current.rows[0].ends_at ? new Date(current.rows[0].ends_at) : null;
+    if (state === 'SCHEDULED' && (!currentStartsAt || Number.isNaN(currentStartsAt.getTime()) || (currentEndsAt && currentEndsAt <= currentStartsAt))) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, error: 'Scheduled campaign requires a valid future window' });
+      return;
+    }
+    if (state === 'ACTIVE' && currentStartsAt && currentStartsAt > new Date()) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, error: 'Campaign cannot activate before starts_at; use SCHEDULED' });
+      return;
+    }
     const publicationAllowed = state === 'SCHEDULED'
       ? currentState === 'PENDING_APPROVAL'
       : state === 'ACTIVE'
@@ -461,5 +490,20 @@ export const updateAdminCrmCampaignState = async (req: Request, res: Response): 
     res.status(500).json({ success: false, error: 'Campaign state update failed' });
   } finally {
     client.release();
+  }
+};
+
+/** Internal scheduler boundary. It is the only non-Admin actor allowed to
+ * activate an already approved scheduled CRM campaign. */
+export const activateDueAdminCrmCampaigns = async (req: Request, res: Response): Promise<void> => {
+  if (!internalKeyMatches(req)) {
+    res.status(401).json({ success: false, code: 'ERR_INTERNAL_UNAUTHORIZED' });
+    return;
+  }
+  try {
+    res.json({ success: true, data: await activateDueCrmCampaigns() });
+  } catch (error: any) {
+    securityLog.error('admin_crm_campaign_scheduler_failed', { error: error?.message });
+    res.status(500).json({ success: false, error: 'CRM campaign scheduler unavailable' });
   }
 };

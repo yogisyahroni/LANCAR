@@ -9,6 +9,13 @@ const DEFAULT_INTERNAL_ERROR = {
 
 const RESPONSE_ALREADY_SANITIZED_KEY = 'tembusErrorResponseSanitized';
 
+// These envelopes are deliberately safe, user-facing operational outcomes.
+// Keep the allowlist narrow: arbitrary 5xx bodies must still be replaced.
+const SAFE_OPERATIONAL_ERROR_CODES = new Set([
+  'NEW_ORDER_GATE_ACTIVE',
+  'SERVICE_AVAILABILITY_UNAVAILABLE',
+]);
+
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -18,6 +25,12 @@ const isSafeInternalErrorEnvelope = (body: unknown) =>
   body.error === DEFAULT_INTERNAL_ERROR.message &&
   body.message === DEFAULT_INTERNAL_ERROR.message &&
   body.code === DEFAULT_INTERNAL_ERROR.code;
+
+const isSafeOperationalErrorEnvelope = (body: unknown) =>
+  isObject(body) &&
+  body.success === false &&
+  typeof body.code === 'string' &&
+  SAFE_OPERATIONAL_ERROR_CODES.has(body.code);
 
 const parseJsonString = (body: unknown) => {
   if (typeof body !== 'string') return body;
@@ -30,7 +43,7 @@ const parseJsonString = (body: unknown) => {
 
 const shouldSanitizeResponse = (statusCode: number, body: unknown) => {
   if (statusCode < 500) return false;
-  if (isSafeInternalErrorEnvelope(body)) return false;
+  if (isSafeInternalErrorEnvelope(body) || isSafeOperationalErrorEnvelope(body)) return false;
   if (!isObject(body)) return true;
   return Boolean(body.error || body.message || body.stack || body.detail || body.details);
 };
@@ -78,7 +91,8 @@ export const sanitizeErrorResponses = (req: Request, res: Response, next: NextFu
     if (res.locals[RESPONSE_ALREADY_SANITIZED_KEY]) return originalSend(body);
 
     if (res.statusCode >= 500) {
-      if (isSafeInternalErrorEnvelope(parseJsonString(body))) return originalSend(body);
+      const parsedBody = parseJsonString(body);
+      if (isSafeInternalErrorEnvelope(parsedBody) || isSafeOperationalErrorEnvelope(parsedBody)) return originalSend(body);
 
       logUnsafeServerError(req, res, body);
       res.setHeader('Content-Type', 'application/json; charset=utf-8');

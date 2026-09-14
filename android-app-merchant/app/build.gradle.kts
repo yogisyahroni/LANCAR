@@ -211,6 +211,10 @@ dependencies {
     // DataStore & Security
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    // Security Crypto's Tink annotations are referenced during R8 shrinking;
+    // keep the release graph complete instead of relying on missing-class
+    // suppression, which can hide an incomplete production artifact.
+    implementation("com.google.errorprone:error_prone_annotations:2.26.1")
 
     // Networking
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

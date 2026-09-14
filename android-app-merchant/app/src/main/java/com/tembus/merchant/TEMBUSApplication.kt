@@ -2,7 +2,11 @@ package com.tembus.merchant
 
 import android.app.Application
 import android.content.Context
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.memory.MemoryCache
 import com.tembus.merchant.data.api.ApiClient
+import com.tembus.merchant.data.api.NetworkRequestReferenceStore
 import com.tembus.merchant.data.api.TEMBUSApiService
 import com.tembus.merchant.featureflag.FeatureFlagManager
 import com.tembus.merchant.data.cache.MerchantOfflineCache
@@ -25,8 +29,9 @@ class AppContainer(context: Context) {
     val sessionManager: AuthSessionManager = AuthSessionManager(context)
     val onboardingPreferences: OnboardingPreferences = OnboardingPreferences(context)
     val deviceIdentityProvider: DeviceIdentityProvider = DeviceIdentityProvider(context)
+    val requestReferenceStore: NetworkRequestReferenceStore = NetworkRequestReferenceStore()
 
-    val apiService: TEMBUSApiService = ApiClient.createService(sessionManager, deviceIdentityProvider)
+    val apiService: TEMBUSApiService = ApiClient.createService(sessionManager, deviceIdentityProvider, requestReferenceStore)
 
     val authRepository: AuthRepository = AuthRepository(apiService, sessionManager, onboardingPreferences, deviceIdentityProvider)
     val merchantOfflineCache: MerchantOfflineCache = MerchantOfflineCache(appContext) { sessionManager.getUserIdSync() }
@@ -44,7 +49,7 @@ class AppContainer(context: Context) {
     val updateManager: UpdateManager = UpdateManager(apiService, appContext)
 }
 
-class TEMBUSApplication : Application() {
+class TEMBUSApplication : Application(), ImageLoaderFactory {
 
     lateinit var container: AppContainer
         private set
@@ -59,4 +64,10 @@ class TEMBUSApplication : Application() {
         )
         org.osmdroid.config.Configuration.getInstance().userAgentValue = packageName
     }
+
+    override fun newImageLoader(): ImageLoader =
+        ImageLoader.Builder(this)
+            .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.15).build() }
+            .crossfade(true)
+            .build()
 }

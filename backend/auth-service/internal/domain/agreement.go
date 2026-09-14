@@ -8,9 +8,9 @@ import (
 type AgreementType string
 
 const (
-	AgreementMitra        AgreementType = "mitra_agreement"
-	AgreementCustomerTOS  AgreementType = "customer_tos"
-	AgreementPrivacy      AgreementType = "privacy_policy"
+	AgreementMitra       AgreementType = "mitra_agreement"
+	AgreementCustomerTOS AgreementType = "customer_tos"
+	AgreementPrivacy     AgreementType = "privacy_policy"
 )
 
 type Agreement struct {

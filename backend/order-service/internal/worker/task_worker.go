@@ -207,23 +207,23 @@ func (w *TaskWorker) handleOrderStatusUpdated(task queue.Task) error {
 	// 💬 Notifikasi kontekstual per status (standar industri: informatif,
 	// bukan template generik). Status arrived → kurir sudah tiba.
 	switch status {
-		case "arrived":
-			// 💬 Auto-chat ke thread order (sistem): kurir sudah tiba
-			if w.chatSvc != nil {
-				_, errChat := w.chatSvc.SendMessage(
-					context.Background(),
-					orderID,
-					"system",
-					"TEMBUS",
-					"system",
-					"Kurir kamu sudah tiba di lokasi layanan 🛠️ Mohon bersiap ya.",
-					"text",
-				)
-				if errChat != nil {
-					log.Printf("[TaskWorker] Auto-chat arrived gagal utk order %s: %v", orderID, errChat)
-				}
+	case "arrived":
+		// 💬 Auto-chat ke thread order (sistem): kurir sudah tiba
+		if w.chatSvc != nil {
+			_, errChat := w.chatSvc.SendMessage(
+				context.Background(),
+				orderID,
+				"system",
+				"TEMBUS",
+				"system",
+				"Kurir kamu sudah tiba di lokasi layanan 🛠️ Mohon bersiap ya.",
+				"text",
+			)
+			if errChat != nil {
+				log.Printf("[TaskWorker] Auto-chat arrived gagal utk order %s: %v", orderID, errChat)
 			}
-			return w.notificationSvc.Send(context.Background(), domain.NotificationRequest{
+		}
+		return w.notificationSvc.Send(context.Background(), domain.NotificationRequest{
 			UserID:  userID,
 			Title:   "Kurir sudah tiba 🛠️",
 			Message: "Kurir kamu sudah tiba di lokasi layanan. Bantuan akan segera dikerjakan.",

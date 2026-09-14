@@ -25,6 +25,7 @@ describe('CRM campaign delivery boundary', () => {
     db.connect.mockResolvedValueOnce(client);
     db.query
       .mockResolvedValueOnce({ rows: [{ id: 'campaign-1', campaign_code: 'winback', market_code: 'id-jk', state: 'ACTIVE', audience_definition: {}, frequency_cap: { per_user: 1, window_days: 7 }, holdout_percent: 0 }] })
+      .mockResolvedValueOnce({ rows: [{ completed_orders: '1', completed_revenue_minor: '1000', margin_complete_orders: '1', contribution_margin_minor: '500', refunded_orders: '0', support_orders: '0', spam_orders: '0' }] })
       .mockResolvedValueOnce({ rows: [{ version: 2, title_template: 'Kabar', body_template: 'Halo {{first_name}}', required_variables: ['first_name'] }] })
       .mockResolvedValueOnce({ rows: [{ id: 'customer-1', personalization_allowed: false }] })
       .mockResolvedValueOnce({ rows: [{ count: '0' }] })
@@ -51,6 +52,7 @@ describe('CRM campaign delivery boundary', () => {
     db.connect.mockResolvedValueOnce(client);
     db.query
       .mockResolvedValueOnce({ rows: [{ id: 'campaign-1', campaign_code: 'winback', market_code: 'id-jk', state: 'ACTIVE', audience_definition: {}, frequency_cap: { per_user: 1, window_days: 7 }, holdout_percent: 100 }] })
+      .mockResolvedValueOnce({ rows: [{ completed_orders: '1', completed_revenue_minor: '1000', margin_complete_orders: '1', contribution_margin_minor: '500', refunded_orders: '0', support_orders: '0', spam_orders: '0' }] })
       .mockResolvedValueOnce({ rows: [{ version: 1, title_template: 'Kabar', body_template: 'Halo', required_variables: [] }] })
       .mockResolvedValueOnce({ rows: [{ id: 'customer-1', personalization_allowed: false }] });
 
@@ -67,12 +69,22 @@ describe('CRM campaign delivery boundary', () => {
       .mockResolvedValueOnce({ rows: [
         { assignment: 'TREATMENT', exposed: '10', converted: '4', completed_orders: '4', completed_revenue_minor: '4000' },
         { assignment: 'HOLDOUT', exposed: '10', converted: '2', completed_orders: '2', completed_revenue_minor: '1800' },
-      ] });
+      ] })
+      .mockResolvedValueOnce({ rows: [{ completed_orders: '4', completed_revenue_minor: '4000', margin_complete_orders: '4', contribution_margin_minor: '1200', refunded_orders: '0', support_orders: '0', spam_orders: '0' }] });
     await expect(getCrmCampaignMetrics('campaign-1')).resolves.toMatchObject({
       treatment: { exposed: 10, completed_orders: 4, completed_revenue_minor: 4000 },
       holdout: { exposed: 10, completed_orders: 2, completed_revenue_minor: 1800 },
       incremental_order_rate: 0.2,
       conversion_is_not_coupon_redemption: true,
     });
+  });
+
+  it('does not dispatch when guardrail data is insufficient', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'campaign-1', campaign_code: 'winback', market_code: 'id-jk', state: 'ACTIVE', audience_definition: {}, frequency_cap: {}, holdout_percent: 0 }] })
+      .mockResolvedValueOnce({ rows: [{ completed_orders: '0', completed_revenue_minor: '0', margin_complete_orders: '0', contribution_margin_minor: null, refunded_orders: '0', support_orders: '0', spam_orders: '0' }] });
+
+    await expect(dispatchCrmCampaign('campaign-1', { templateKey: 'crm.winback', locale: 'id-ID' })).rejects.toMatchObject({ statusCode: 409 });
+    expect(db.connect).not.toHaveBeenCalled();
   });
 });

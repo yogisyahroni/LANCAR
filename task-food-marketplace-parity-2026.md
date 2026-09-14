@@ -5115,13 +5115,13 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## PAYPLAT-2026-010 — Payment chaos/concurrency/E2E release gate [P0]
 
 **Mandatory scenarios**
-- [ ] Duplicate create/callback/refund.
+- [x] Duplicate create/callback/refund.
 - [ ] Client closes app during challenge then resumes.
-- [ ] Provider timeout before known result → lookup/reconcile, not blind second charge.
-- [ ] Provider outage routes only when safe.
-- [ ] Late successful callback after customer-visible timeout reconciles correctly.
-- [ ] Multi-currency rounding/reconciliation.
-- [ ] Chargeback and refund cannot double compensate.
+- [x] Provider timeout before known result → lookup/reconcile, not blind second charge.
+- [x] Provider outage routes only when safe.
+- [x] Late successful callback after customer-visible timeout reconciles correctly.
+- [x] Multi-currency rounding/reconciliation.
+- [x] Chargeback and refund cannot double compensate.
 - [ ] Load test covers peak checkout + webhook callbacks.
 
 ---
@@ -5159,7 +5159,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - [x] Safety Center remains reachable during active order even if service entry is killed/hidden.
 - [x] Critical action shows exact consequence and does not depend on advertising/remote marketing content.
 - [x] Location sharing is scoped/expiring/revocable.
-- [ ] Accessibility and accidental-tap protection appropriate to action severity.
+- [x] Accessibility and accidental-tap protection appropriate to action severity.
 
 ---
 
@@ -5255,13 +5255,13 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## SAFE-2026-010 — Safety drill/E2E release gate [P0]
 
 **Mandatory scenarios**
-- [ ] Customer emergency report during active Towing.
-- [ ] Courier unsafe-location report during Paket.
-- [ ] Safety incident survives socket/network reconnect.
-- [ ] Safety evidence access is denied to unauthorized role.
-- [ ] Kill-switch/new-order outage does not remove active Safety Center.
-- [ ] High-severity incident appears in Ops within target SLA.
-- [ ] Market without SOS integration uses approved fallback instead of fake success.
+- [x] Customer emergency report during active Towing. (Verified 2026-09-14 by repeatable public staging drill through `https://api.bawain.my.id`; temporary active Towing order returned HTTP 201 and persisted incident was observed before cleanup.)
+- [x] Courier unsafe-location report during Paket. (Verified 2026-09-14 by repeatable public staging drill through `https://api.bawain.my.id`; temporary active Paket order returned HTTP 201 and order state remained unchanged.)
+- [x] Safety incident survives socket/network reconnect. (Verified 2026-09-14 by repeatable public staging Socket.IO polling drill through `https://api.bawain.my.id`: first connection, aborted polling request, second connection, and authoritative Safety Center REST read all succeeded; temporary order was cleaned up.)
+- [x] Safety evidence access is denied to unauthorized role. (Verified 2026-09-14 by public staging negative request; customer role received HTTP 403 on the protected Admin safety-evidence route.)
+- [x] Kill-switch/new-order outage does not remove active Safety Center. (Verified 2026-09-14 by repeatable public staging drill through `https://api.bawain.my.id`; temporary `tembus_instant` new-order gate returned HTTP 503 `NEW_ORDER_GATE_ACTIVE` with `active_orders_preserved=true`, and the temporary control was removed after the drill.)
+- [x] High-severity incident appears in Ops within target SLA. (Verified 2026-09-14 by public staging drill; Admin safety queue returned HTTP 200 with the critical incident and `sla_due_at`.)
+- [x] Market without SOS integration uses approved fallback instead of fake success. (Verified 2026-09-14 by public staging drill; Safety Center exposed `status=fallback` and SOS returned `fallback_instructions` with no provider-success claim.)
 
 ---
 
@@ -5879,20 +5879,20 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MOBILE-2026-003 — Startup architecture and first-usable-screen budget [P0]
 
 **Checklist**
-- [ ] Startup critical path measured.
-- [ ] Remote config/campaign/analytics do not block first usable screen.
-- [ ] Lazy initialize non-critical SDKs.
-- [ ] Startup offline uses packaged/LKG config.
-- [ ] Startup trace identifies slow dependency.
+- [ ] Startup critical path measured. (A single cold launch was observed on 2026-09-14 on the available Pixel_6_Pro_customer AVD with `adb shell am start -W`: `TotalTime=4002ms`, `WaitTime=4058ms`; the required low/mid/high p95 matrix is not yet proven.)
+- [x] Remote config/campaign/analytics do not block first usable screen.
+- [x] Lazy initialize non-critical SDKs.
+- [x] Startup offline uses packaged/LKG config.
+- [x] Startup trace identifies slow dependency.
 
 ---
 
 ## MOBILE-2026-004 — Battery, location, background work and memory [P0]
 
 **Checklist**
-- [ ] Customer app does not run continuous background location without active justified use.
-- [ ] Courier active-job location frequency adapts to lifecycle/accuracy/battery policy.
-- [ ] Background workers obey OS constraints/backoff.
+- [x] Customer app does not run continuous background location without active justified use.
+- [x] Courier active-job location frequency adapts to lifecycle/accuracy/battery policy.
+- [x] Background workers obey OS constraints/backoff.
 - [ ] Large images/maps/animations use bounded memory/cache.
 - [ ] Leak detection/testing in development/CI where practical.
 
@@ -5901,10 +5901,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MOBILE-2026-005 — Network resilience/data saver/offline contract [P0]
 
 **Checklist**
-- [ ] API timeout/retry/cancellation policy shared.
-- [ ] Safe GET/snapshot caching separated from mutation queue.
-- [ ] Mutation retry only for idempotent/safe operations.
-- [ ] Data saver reduces campaign/media prefetch.
+- [x] API timeout/retry/cancellation policy shared.
+- [x] Safe GET/snapshot caching separated from mutation queue.
+- [x] Mutation retry only for idempotent/safe operations.
+- [x] Data saver reduces campaign/media prefetch.
 - [ ] Slow/offline state has explicit UI and recovery.
 
 ---
@@ -5912,10 +5912,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MOBILE-2026-006 — App size and modular delivery discipline [P1]
 
 **Checklist**
-- [ ] Track APK/AAB/module size per release.
+- [x] Track APK/AAB/module size per release. (CI records commit/version, APK/AAB kind, byte size and SHA-256 in the uploaded release artifact manifest via `scripts/mobile/record_artifact_inventory.py`; local 2026-09-14 manifests cover the current staging APKs.)
 - [ ] Remove duplicate icon/image/font/SDK dependencies.
 - [ ] Large optional features evaluated for modular/on-demand delivery if platform supports and complexity justified.
-- [ ] Do not trade transaction reliability for aggressive dynamic code delivery.
+- [x] Do not trade transaction reliability for aggressive dynamic code delivery.
 
 ---
 
@@ -5954,7 +5954,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MOBILE-2026-010 — Mobile release acceptance suite [P0]
 
 **Mandatory scenarios**
-- [ ] Fresh install/offline launch.
+- [x] Fresh install/offline launch. (Verified 2026-09-14 on the available Pixel_6_Pro_customer AVD: uninstall, fresh install, Wi-Fi/data disabled, launch completed with the main activity resumed and no fatal Android runtime log; connectivity was restored afterward.)
 - [ ] Upgrade from minimum supported prior version.
 - [ ] Process death during active order then recovery.
 - [ ] Network switch/loss during payment/order tracking.
@@ -6101,7 +6101,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## SECPLAT-2026-012 — Security release gate [P0]
 
 **Checklist**
-- [ ] No unresolved critical vulnerability/secret leak.
+- [x] No unresolved critical vulnerability/secret leak. (Verified 2026-09-14: npm audit is clean across frontend/admin-dashboard/admin-service/api-gateway after the nanoid fix; govulncheck v1.8.0 is clean across critical Go modules; Docker Gitleaks history scan reports no leaks with only narrow verified non-secret allowlists.)
 - [x] AuthZ negative tests green.
 - [x] Webhook replay/signature tests green.
 - [ ] Dependency/SBOM scan attached to release.
@@ -6212,10 +6212,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## REP-2026-009 — Reputation E2E gate [P1]
 
 **Mandatory scenarios**
-- [ ] Completed Food order submits separate food/delivery rating.
-- [ ] Duplicate rating rejected/deduped.
-- [ ] Reported review enters moderation without disappearing silently.
-- [ ] Verified abuse affects quality only through policy/version.
+- [x] Completed Food order submits separate food/delivery rating.
+- [x] Duplicate rating rejected/deduped.
+- [x] Reported review enters moderation without disappearing silently.
+- [x] Verified abuse affects quality only through policy/version.
 - [ ] Successful appeal removes/reverses enforcement effect as designed.
 
 ---
@@ -6244,8 +6244,8 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 **Checklist**
 - [x] Referral code/invite attribution immutable after defined rule/window.
 - [x] Reward conditions server authoritative.
-- [ ] Self-referral/device/payment/address abuse signals integrate Risk.
-- [ ] Reward budget/subsidy reconciled.
+- [x] Self-referral/device/payment/address abuse signals integrate Risk.
+- [x] Reward budget/subsidy reconciled.
 - [x] Market eligibility and legal copy configurable.
 
 ---
@@ -6257,10 +6257,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [x] Membership plan/version/market/currency/billing cycle/benefit catalog.
-- [ ] Benefit eligibility authoritative per order/service.
-- [ ] Free-delivery/subsidy cost attributed correctly.
-- [ ] Cancel/renew/grace/refund states explicit.
-- [ ] Payment failure does not leave ghost entitlement.
+- [x] Benefit eligibility authoritative per order/service.
+- [x] Free-delivery/subsidy cost attributed correctly.
+- [x] Cancel/renew/grace/refund states explicit.
+- [x] Payment failure does not leave ghost entitlement.
 
 ---
 
@@ -6297,11 +6297,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## CRM-2026-006 — Churn/win-back personalization privacy guardrails [P1/P2]
 
 **Checklist**
-- [ ] Churn/propensity score is recommendation signal, not sensitive enforcement.
+- [x] Churn/propensity score is recommendation signal, not sensitive enforcement.
 - [x] Consent/personalization policy market scoped.
 - [x] Non-personalized campaign fallback.
 - [x] User can control optional marketing communication.
-- [ ] Do not expose inferred user segment to merchant.
+- [x] Do not expose inferred user segment to merchant.
 
 ---
 
@@ -6311,7 +6311,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - [x] Platform-funded vs merchant-funded vs co-funded amount explicit.
 - [x] Merchant agreement/budget version referenced.
 - [x] Promo subsidy separated from Ads spend.
-- [ ] Settlement statement reconciles contribution per order.
+- [x] Settlement statement reconciles contribution per order.
 
 ---
 
@@ -6325,7 +6325,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `admin-dashboard/src/pages/crm/PromoBudgets.tsx`
 
 **Checklist**
-- [ ] Draft/preview/audience/budget/schedule/approval/stop.
+- [x] Draft/preview/audience/budget/schedule/approval/stop.
 - [x] Estimated audience is not guaranteed conversion.
 - [x] Sensitive targeting dimensions unavailable.
 - [x] Financial campaign changes maker-checker where material.
@@ -6337,8 +6337,8 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 **Checklist**
 - [x] Holdout/control supported for major subsidy campaigns where practical.
 - [x] Measure incremental orders/revenue, not redeemed coupon only.
-- [ ] Guardrail margin/refund/support/spam complaints.
-- [ ] Experiment cannot bypass promo financial limits.
+- [x] Guardrail margin/refund/support/spam complaints.
+- [x] Experiment cannot bypass promo financial limits.
 
 ---
 
@@ -6346,7 +6346,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [x] Outstanding loyalty/referral/membership liability measurable.
-- [ ] Earn/redeem/reversal ↔ order/payment/refund reconciliation.
+- [x] Earn/redeem/reversal ↔ order/payment/refund reconciliation. (Verified 2026-09-14: CRM accounting reconciliation compares immutable loyalty order entries with canonical order/payment state and succeeded payment refunds; clean staging account reconciled at zero difference, while a legacy missing-payment row created a durable exception.)
 - [ ] Expiry/breakage accounting policy documented with Finance/legal.
 - [x] Manual credit uses reasoned ledger adjustment.
 
@@ -6355,12 +6355,12 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## CRM-2026-011 — CRM/Loyalty E2E gate [P1/P2]
 
 **Mandatory scenarios**
-- [ ] Qualifying order earns once.
-- [ ] Cancel/refund reverses according to policy.
-- [ ] Referral abuse blocked/reviewed.
-- [ ] Membership benefit applies only while entitlement valid.
+- [x] Qualifying order earns once.
+- [x] Cancel/refund reverses according to policy. (Verified 2026-09-14 on public staging with a disposable paid-order fixture: cancellation released the redeemed promotion via one append-only compensating budget entry, restored campaign redeemed budget to zero, and replay did not duplicate the release.)
+- [x] Referral abuse blocked/reviewed.
+- [x] Membership benefit applies only while entitlement valid.
 - [ ] Overlapping promo stack respects canonical priority/budget.
-- [ ] Marketing opt-out respected across CRM channels.
+- [x] Marketing opt-out respected across CRM channels.
 
 ---
 
@@ -6375,10 +6375,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `docs/architecture/service-ownership-map.md`
 
 **Checklist**
-- [ ] Map every capability to source-of-truth owner, API/event contract, storage owner, operational owner and dependent surfaces.
-- [ ] Identify duplicate sources of truth before new implementation.
-- [ ] Customer/Merchant/Courier/Admin ownership explicitly included, not backend only.
-- [ ] Critical capability has named on-call/operational responsibility before production.
+- [x] Map every capability to source-of-truth owner, API/event contract, storage owner, operational owner and dependent surfaces.
+- [x] Identify duplicate sources of truth before new implementation.
+- [x] Customer/Merchant/Courier/Admin ownership explicitly included, not backend only.
+- [x] Critical capability has named on-call/operational responsibility before production.
 
 ---
 
@@ -6394,10 +6394,10 @@ Start with clean bounded modules in existing services when ownership and scale p
 - data/storage model materially independent
 
 **Checklist**
-- [ ] New microservice PR documents why existing service/module is insufficient.
-- [ ] Extraction includes contract, migration, observability, deployment, rollback and ownership plan.
-- [ ] Avoid distributed transaction complexity unless business benefit justifies it.
-- [ ] No service created only because another global company has one.
+- [x] New microservice PR documents why existing service/module is insufficient.
+- [x] Extraction includes contract, migration, observability, deployment, rollback and ownership plan.
+- [x] Avoid distributed transaction complexity unless business benefit justifies it.
+- [x] No service created only because another global company has one.
 
 ---
 
@@ -6449,9 +6449,9 @@ Start with clean bounded modules in existing services when ownership and scale p
 - admin/support recovery?
 - rollback/kill switch?
 
-- [ ] No P0 critical capability launches solely from feature team sign-off.
-- [ ] Review outcome/action owners recorded.
-- [ ] Known risk has explicit acceptance/expiry, not permanent “temporary” workaround.
+- [x] No P0 critical capability launches solely from feature team sign-off.
+- [x] Review outcome/action owners recorded.
+- [x] Known risk has explicit acceptance/expiry, not permanent “temporary” workaround.
 
 ---
 
@@ -6488,9 +6488,9 @@ Start with clean bounded modules in existing services when ownership and scale p
 - crash/ANR
 
 **Checklist**
-- [ ] Launch-day owner for Product/Ops/Engineering/Finance/Support/Safety.
-- [ ] Kill switches and rollback owners known.
-- [ ] Metric threshold defines pause/rollback/escalation.
+- [x] Launch-day owner for Product/Ops/Engineering/Finance/Support/Safety.
+- [x] Kill switches and rollback owners known.
+- [x] Metric threshold defines pause/rollback/escalation.
 - [ ] Market launch retrospective updates master blueprint/runbooks.
 
 ---
@@ -6552,9 +6552,9 @@ Start with clean bounded modules in existing services when ownership and scale p
 - cost efficiency
 
 **Checklist**
-- [ ] Score backed by measurable evidence, not feature count.
-- [ ] Red area creates prioritized remediation task.
-- [ ] Benchmark competitors only for capability principles/public expectations; internal maturity target remains LANCAR-defined.
+- [x] Score backed by measurable evidence, not feature count.
+- [x] Red area creates prioritized remediation task.
+- [x] Benchmark competitors only for capability principles/public expectations; internal maturity target remains LANCAR-defined.
 
 ---
 
@@ -6605,8 +6605,8 @@ Start with clean bounded modules in existing services when ownership and scale p
 - developer platform
 - global support/safety operations
 
-- [ ] Do not move to a milestone merely because previous tasks are coded; mandatory release/evidence gates must be green.
-- [ ] Product expansion can run in parallel only where it does not compromise P0 transaction/safety/finance work.
+- [x] Do not move to a milestone merely because previous tasks are coded; mandatory release/evidence gates must be green.
+- [x] Product expansion can run in parallel only where it does not compromise P0 transaction/safety/finance work.
 
 ---
 

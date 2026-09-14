@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { PoolClient } from 'pg';
 import { db } from '../db';
 import { createNotification } from '../notifications';
-import { canSendCampaign, validateCampaignAudience, validateCampaignFrequencyCap } from './crmPolicy';
+import { canSendCampaign, evaluateCampaignGuardrails, validateCampaignAudience, validateCampaignFrequencyCap, CampaignGuardrailEvaluation } from './crmPolicy';
 import { securityLog } from '../security/logRedaction';
 import { enqueueOutboxEvent } from './eventOutbox';
 
@@ -155,6 +155,7 @@ export const getCrmCampaignMetrics = async (campaignId: string) => {
   const holdout = byAssignment.HOLDOUT || { exposed: 0, converted: 0, completed_orders: 0, completed_revenue_minor: 0 };
   const treatmentRate = treatment.exposed ? treatment.completed_orders / treatment.exposed : null;
   const holdoutRate = holdout.exposed ? holdout.completed_orders / holdout.exposed : null;
+  const guardrails = await getCrmCampaignGuardrailMetrics(campaignId, campaign);
   return {
     campaign_id: campaign.id,
     campaign_code: campaign.campaign_code,
@@ -165,7 +166,82 @@ export const getCrmCampaignMetrics = async (campaignId: string) => {
     incremental_order_rate: treatmentRate == null || holdoutRate == null ? null : treatmentRate - holdoutRate,
     metric_source: 'canonical orders completed state joined to immutable campaign exposures',
     conversion_is_not_coupon_redemption: true,
+    guardrails,
   };
+};
+
+/**
+ * Read campaign guardrails from the same canonical order/refund/support and
+ * reputation stores used by their owning domains. Margin is returned as NULL
+ * when every completed order does not yet have settlement and courier-cost
+ * evidence; an experiment must never mistake incomplete finance data for a
+ * healthy margin.
+ */
+export const getCrmCampaignGuardrailMetrics = async (campaignId: string, campaignOverride?: CampaignRow): Promise<CampaignGuardrailEvaluation> => {
+  const campaign = campaignOverride || (await db.query<CampaignRow>(
+    `SELECT id, campaign_code, market_code, state, audience_definition, frequency_cap, holdout_percent, budget_minor, guardrail_policy
+       FROM crm_campaigns WHERE id = $1`,
+    [campaignId],
+  )).rows[0];
+  if (!campaign) throw Object.assign(new Error('Campaign not found'), { statusCode: 404 });
+  const result = await db.query<{
+    completed_orders: string;
+    completed_revenue_minor: string;
+    margin_complete_orders: string;
+    contribution_margin_minor: string | null;
+    refunded_orders: string;
+    support_orders: string;
+    spam_orders: string;
+  }>(
+    `WITH treatment_orders AS (
+       SELECT DISTINCT e.customer_id, o.id, COALESCE(o.total_price_minor, o.total_price_idr, 0)::bigint AS revenue_minor,
+              COALESCE(o.promo_subsidy_minor, o.promo_subsidy_idr, 0)::bigint AS subsidy_minor
+         FROM crm_campaign_exposures e
+         JOIN orders o ON o.customer_id = e.customer_id AND o.created_at >= e.assigned_at
+        WHERE e.campaign_id = $1 AND e.assignment = 'TREATMENT'
+          AND o.status IN ('delivered','completed','pod_completed')
+     ), order_costs AS (
+       SELECT t.*, ms.net_payout_minor,
+              COALESCE((SELECT SUM(COALESCE(cel.amount_idr, 0))
+                          FROM courier_earnings_ledger cel WHERE cel.order_id = t.id), 0)::bigint AS courier_cost_minor
+         FROM treatment_orders t
+         LEFT JOIN LATERAL (
+           SELECT net_payout_minor
+             FROM merchant_settlements WHERE order_id = t.id
+            ORDER BY created_at DESC LIMIT 1
+         ) ms ON TRUE
+     )
+     SELECT COUNT(*)::text AS completed_orders,
+            COALESCE(SUM(revenue_minor), 0)::text AS completed_revenue_minor,
+            COUNT(*) FILTER (WHERE net_payout_minor IS NOT NULL)::text AS margin_complete_orders,
+            CASE WHEN COUNT(*) = COUNT(*) FILTER (WHERE net_payout_minor IS NOT NULL)
+                 THEN COALESCE(SUM(revenue_minor - net_payout_minor - courier_cost_minor - subsidy_minor), 0)::text
+                 ELSE NULL END AS contribution_margin_minor,
+            COUNT(*) FILTER (WHERE EXISTS (
+              SELECT 1 FROM refunds r WHERE r.order_id = order_costs.id AND r.status IN ('processed','refunded','completed')
+            ))::text AS refunded_orders,
+            COUNT(*) FILTER (WHERE EXISTS (
+              SELECT 1 FROM support_case_links scl WHERE scl.reference_type = 'order' AND scl.reference_id = order_costs.id::text
+            ))::text AS support_orders,
+            COUNT(*) FILTER (WHERE EXISTS (
+              SELECT 1 FROM reputation_reviews rr
+               WHERE rr.order_id = order_costs.id AND (rr.state IN ('REPORTED','IN_REVIEW') OR LOWER(COALESCE(rr.moderation_reason, '')) LIKE '%spam%')
+            ))::text AS spam_orders
+       FROM order_costs`,
+    [campaignId],
+  );
+  const row = result.rows[0];
+  const completedOrders = Number(row?.completed_orders || 0);
+  const denominator = completedOrders || 0;
+  const toRate = (value: string | undefined) => denominator ? (Number(value || 0) / denominator) * 100 : null;
+  return evaluateCampaignGuardrails(campaign.guardrail_policy, {
+    completed_orders: completedOrders,
+    completed_revenue_minor: Number(row?.completed_revenue_minor || 0),
+    contribution_margin_minor: row?.contribution_margin_minor == null ? null : Number(row.contribution_margin_minor),
+    refund_rate_pct: toRate(row?.refunded_orders),
+    support_case_rate_pct: toRate(row?.support_orders),
+    spam_complaint_rate_pct: toRate(row?.spam_orders),
+  });
 };
 
 const enqueueCampaignExposureEvent = async (queryable: Pick<PoolClient, 'query'>, campaign: CampaignRow, customerId: string, assignment: 'TREATMENT' | 'HOLDOUT', exposureId: string) => {
@@ -237,6 +313,10 @@ export const dispatchCrmCampaign = async (campaignId: string, options: DispatchO
   const campaign = campaignResult.rows[0];
   if (!campaign) throw Object.assign(new Error('Campaign not found'), { statusCode: 404 });
   if (String(campaign.state).toUpperCase() !== 'ACTIVE') throw Object.assign(new Error('Campaign must be ACTIVE before dispatch'), { statusCode: 409 });
+  const guardrails = await getCrmCampaignGuardrailMetrics(campaignId, campaign);
+  if (guardrails.status !== 'PASS') {
+    throw Object.assign(new Error(`Campaign guardrails do not permit dispatch: ${guardrails.breaches.join(', ') || 'insufficient_data'}`), { statusCode: 409 });
+  }
   const templateKey = String(options.templateKey || '').trim();
   const locale = String(options.locale || 'id-ID').trim().slice(0, 16);
   if (!templateKey || !locale) throw Object.assign(new Error('Approved marketing template is required'), { statusCode: 400 });

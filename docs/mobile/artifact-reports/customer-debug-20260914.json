@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "app_slug": "customer",
+  "version_code": "1",
+  "version_name": "staging-local",
+  "commit": "fcce455f6e6cb5cd9363fbfdf54887e3efeae7e1",
+  "generated_at": "2026-09-14T06:03:29.182835+00:00",
+  "artifacts": [
+    {
+      "kind": "apk",
+      "channel": "debug",
+      "path": "android-app-customer/app/build/outputs/apk/debug/app-debug.apk",
+      "size_bytes": 186753799,
+      "sha256": "75bf6d789a3ab28f6f59b05f51f5d91230c8fb4ff5b9c981d3da200525eb0b89"
+    },
+    {
+      "kind": "apk",
+      "channel": "release",
+      "path": "android-app-customer/app/build/outputs/apk/release/app-release.apk",
+      "size_bytes": 156277394,
+      "sha256": "4d4303f897b0b29658f0a294185a382e3c2d31d88330ca517245285760fa7b50"
+    }
+  ],
+  "secret_handling": "Hashes and metadata only; no signing key, credential or token is recorded."
+}

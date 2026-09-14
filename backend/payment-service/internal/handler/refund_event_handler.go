@@ -153,6 +153,33 @@ func (h *RefundEventHandler) Ingest(w http.ResponseWriter, r *http.Request) {
 			writePaymentIntentError(w, http.StatusBadRequest, "ERR_REFUND_REFERENCE_REQUIRED")
 			return
 		}
+		var intentAmount, existingRefundAmount, existingChargebackAmount int64
+		err = tx.QueryRowContext(r.Context(), `
+			SELECT pi.amount_minor,
+			       COALESCE((SELECT SUM(amount_minor) FROM payment_refund_ledger_entries WHERE intent_id = pi.id), 0),
+			       COALESCE((SELECT SUM(amount_minor) FROM payment_chargeback_ledger_entries WHERE intent_id = pi.id AND entry_type = 'LOSS'), 0)
+			  FROM payment_intents pi
+			 WHERE pi.id = $1`, intentID).Scan(&intentAmount, &existingRefundAmount, &existingChargebackAmount)
+		if err != nil {
+			writePaymentIntentError(w, http.StatusUnprocessableEntity, "ERR_REFUND_UNAVAILABLE")
+			return
+		}
+		if compensationWouldExceedIntent(existingRefundAmount, existingChargebackAmount, amount, intentAmount) {
+			_, err = tx.ExecContext(r.Context(), `INSERT INTO payment_reconciliation_exceptions
+				(intent_id, provider, provider_reference, exception_type, expected_amount_minor, actual_amount_minor, currency, metadata)
+				SELECT $1, COALESCE(pi.provider, 'unknown'), $2, 'REFUND_AFTER_CHARGEBACK', $3, $4, $5, $6::jsonb
+				FROM payment_intents pi WHERE pi.id = $1 ON CONFLICT DO NOTHING`, intentID, ref, intentAmount-existingRefundAmount-existingChargebackAmount, amount, currency, string(req.Payload))
+			if err != nil {
+				writePaymentIntentError(w, http.StatusUnprocessableEntity, "ERR_REFUND_UNAVAILABLE")
+				return
+			}
+			if err = tx.Commit(); err != nil {
+				writePaymentIntentError(w, http.StatusServiceUnavailable, "ERR_REFUND_UNAVAILABLE")
+				return
+			}
+			writePaymentIntentError(w, http.StatusConflict, "ERR_REFUND_AFTER_CHARGEBACK")
+			return
+		}
 		_, err = tx.ExecContext(r.Context(), `INSERT INTO payment_refund_ledger_entries
 			(refund_id, intent_id, entry_type, provider_reference, amount_minor, currency, idempotency_key)
 			VALUES ($1,$2,'REFUND',$3,$4,$5,$6) ON CONFLICT (refund_id, entry_type) DO NOTHING`, req.RefundID, intentID, ref, amount, currency, "refund-ledger:"+req.RefundID.String())

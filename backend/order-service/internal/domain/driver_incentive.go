@@ -17,11 +17,11 @@ import (
 type ViolationType string
 
 const (
-	ViolationSilentCancel   ViolationType = "silent_cancel"    // accept lalu batal diam-diam tanpa alasan
-	ViolationSoftGhosting   ViolationType = "soft_ghosting"    // accept tapi tidak bergerak menuju pickup
-	ViolationCoercedCancel  ViolationType = "coerced_cancel"   // batal karena paksaan customer/keadaan
-	ViolationNoShowPickup   ViolationType = "no_show_pickup"   // tidak hadir di titik pickup
-	ViolationNone           ViolationType = ""
+	ViolationSilentCancel  ViolationType = "silent_cancel"  // accept lalu batal diam-diam tanpa alasan
+	ViolationSoftGhosting  ViolationType = "soft_ghosting"  // accept tapi tidak bergerak menuju pickup
+	ViolationCoercedCancel ViolationType = "coerced_cancel" // batal karena paksaan customer/keadaan
+	ViolationNoShowPickup  ViolationType = "no_show_pickup" // tidak hadir di titik pickup
+	ViolationNone          ViolationType = ""
 )
 
 // AppealStatus — status banding driver atas penalty.
@@ -36,14 +36,14 @@ const (
 
 // DriverPenaltyLog — satu baris di driver_penalty_log (FOOD-BIKE-009).
 type DriverPenaltyLog struct {
-	ID            uuid.UUID    `json:"id" db:"id"`
-	DriverID      uuid.UUID    `json:"driver_id" db:"driver_id"` // courier_profiles.id
-	OrderID       uuid.UUID    `json:"order_id" db:"order_id"`
-	ViolationType ViolationType `json:"violation_type" db:"violation_type"`
-	AmountDeducted int64       `json:"amount_deducted" db:"amount_deducted"`
-	EvidenceRef   string       `json:"evidence_ref" db:"evidence_ref"`
-	AppealStatus  AppealStatus `json:"appeal_status" db:"appeal_status"`
-	CreatedAt     time.Time    `json:"created_at" db:"created_at"`
+	ID             uuid.UUID     `json:"id" db:"id"`
+	DriverID       uuid.UUID     `json:"driver_id" db:"driver_id"` // courier_profiles.id
+	OrderID        uuid.UUID     `json:"order_id" db:"order_id"`
+	ViolationType  ViolationType `json:"violation_type" db:"violation_type"`
+	AmountDeducted int64         `json:"amount_deducted" db:"amount_deducted"`
+	EvidenceRef    string        `json:"evidence_ref" db:"evidence_ref"`
+	AppealStatus   AppealStatus  `json:"appeal_status" db:"appeal_status"`
+	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
 }
 
 // DriverDailyPoints — akumulasi poin harian (FOOD-BIKE-010).

@@ -1,0 +1,131 @@
+---
+name: github-actions-windows-release
+description: "GitHub Actions workflow for building Windows NSIS installer and creating GitHub Release"
+version: 1.0.0
+author: Hermes Agent
+license: MIT
+platforms: [windows]
+metadata:
+  hermes:
+    tags: [github-actions, windows, nsis, release, ci-cd]
+    related_skills: [ci-preflight-validation, dependabot-triage]
+---
+# GitHub Actions Windows Release
+
+Build Windows NSIS installer and create GitHub Release on push to `main`.
+
+## When to Use
+
+- After building a Windows NSIS installer via `npm run package -- --win nsis --x64 --publish never`
+- On every push to `main` branch (automatic release creation)
+- When user requests Windows release to appear in GitHub Releases
+- Before staging deployment — verify release artifacts are present
+
+## Workflow Structure
+
+The workflow `.github/workflows/windows-build.yml` should include:
+
+### 1. Permissions
+
+Add `permissions: contents: write` at the job level. This is required for the
+GitHub Actions token to create releases. Without this, the `softprops/action-gh-release@v2`
+action will fail with 403 "Resource not accessible by integration".
+
+```yaml
+jobs:
+  windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+```
+
+### 2. Build Step
+
+Build the NSIS installer:
+
+```yaml
+- name: Build Windows NSIS installer
+  run: npm run package -- --win nsis --x64 --publish never
+```
+
+### 3. Create GitHub Release
+
+Use `softprops/action-gh-release@v2` to create a release with the built artifacts.
+Only runs on `main` branch pushes:
+
+```yaml
+- name: Create GitHub Release
+  if: github.ref == 'refs/heads/main'
+  uses: softprops/action-gh-release@v2
+  with:
+    tag_name: v${{ github.run_number }}
+    name: Applyer Indonesia v${{ github.run_number }}
+    body: |
+      Release for Applyer Indonesia
+      Built on ${{ github.run_date }}
+
+      This release contains the Windows NSIS installer for Applyer Indonesia.
+    files: |
+      release/*.exe
+      release/*.blockmap
+      release/latest*.yml
+    draft: false
+    prerelease: false
+    overwrite_files: true
+```
+
+## Pitfalls
+
+- **403 error on release creation**: Always add `permissions: contents: write` at the
+  job level. The GitHub Actions default token lacks this scope.
+
+- **Release already exists**: Set `overwrite_files: true` to allow re-creating the
+  same tag. Without this, the workflow will fail if a release with that tag already
+  exists.
+
+- **Windows path issues**: Ensure `release/` directory contains the expected files
+  (`*.exe`, `*.blockmap`, `latest*.yml`) before the release step. The build step
+  must complete successfully first.
+
+- **Node.js deprecation warnings**: The workflow runs on Node 24 but the project
+  may have Node 20 deprecation notices. These are cosmetic and don't affect the
+  build or release.
+
+## Related Checks
+
+### Preflight Validation
+
+Run `ci-preflight-validation` skill before pushing to confirm:
+
+1. Migration version uniqueness (if SQL migrations exist)
+2. Go build succeeds (`go build ./...`)
+3. TypeScript typecheck passes (`npm run typecheck`)
+4. Lint passes (`npm run lint`)
+
+### Post-Push Verification
+
+After push, verify the release was created:
+
+```bash
+# List recent runs
+gh run list --limit 5
+
+# View a specific run
+gh run view <run_id> --log
+
+# Check the release URL
+open https://github.com/<owner>/<repo>/releases/tag/v<run_number>
+```
+
+## 2026 Toolchain Standard
+
+- Node.js: CI uses Node 24, Dockerfiles must match
+- Go: Use go 1.25.12 baseline across all services
+- Migration timestamps: YYYYMMDDHHmmSS with current year prefix
+- OWASP Top 2025 is the active 2026 standard
+
+## Support Files
+
+- `references/windows-build-workflow.md` - Full workflow YAML reference
+- `scripts/verify-release.sh` - Script to verify release artifacts exist

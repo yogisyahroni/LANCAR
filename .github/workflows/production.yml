@@ -521,13 +521,13 @@ jobs:
       - name: gosec (auth-service)
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
-          cd backend/auth-service && gosec -severity high -confidence high ./... 2>&1 || true
+          cd backend/auth-service && gosec -severity high -confidence high ./...
 
       - name: gosec (routing-service)
-        run: cd backend/routing-service && gosec -severity high -confidence high ./... 2>&1 || true
+        run: cd backend/routing-service && gosec -severity high -confidence high ./...
 
       - name: gosec (order-service)
-        run: cd backend/order-service && gosec -severity high -confidence high ./... 2>&1 || true
+        run: cd backend/order-service && gosec -severity high -confidence high ./...
 
       # ── Secret scanning ───────────────────────────────────
       - name: Gitleaks (secret scanning)
@@ -660,7 +660,6 @@ jobs:
           cache-from: type=gha,scope=auth-prod
           cache-to: type=gha,mode=max,scope=auth-prod
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}/auth-service:latest
             ghcr.io/${{ env.REPO_LOWER }}/auth-service:${{ github.sha }}
 
       - name: Build and Push Routing Service
@@ -672,7 +671,6 @@ jobs:
           cache-from: type=gha,scope=routing-prod
           cache-to: type=gha,mode=max,scope=routing-prod
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}/routing-service:latest
             ghcr.io/${{ env.REPO_LOWER }}/routing-service:${{ github.sha }}
 
       - name: Build and Push Admin Service
@@ -684,7 +682,6 @@ jobs:
           cache-from: type=gha,scope=admin-svc-prod
           cache-to: type=gha,mode=max,scope=admin-svc-prod
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}/admin-service:latest
             ghcr.io/${{ env.REPO_LOWER }}/admin-service:${{ github.sha }}
 
       - name: Build and Push Order Service
@@ -696,7 +693,6 @@ jobs:
           cache-from: type=gha,scope=order-prod
           cache-to: type=gha,mode=max,scope=order-prod
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}/order-service:latest
             ghcr.io/${{ env.REPO_LOWER }}/order-service:${{ github.sha }}
 
       - name: Build and Push Datalake Worker
@@ -708,7 +704,6 @@ jobs:
           cache-from: type=gha,scope=datalake-prod
           cache-to: type=gha,mode=max,scope=datalake-prod
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}/datalake-worker:latest
             ghcr.io/${{ env.REPO_LOWER }}/datalake-worker:${{ github.sha }}
 
       - name: Build and Push Payment Service
@@ -720,7 +715,6 @@ jobs:
           cache-from: type=gha,scope=payment-prod
           cache-to: type=gha,mode=max,scope=payment-prod
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}/payment-service:latest
             ghcr.io/${{ env.REPO_LOWER }}/payment-service:${{ github.sha }}
 
       - name: Build and Push API Gateway
@@ -732,7 +726,6 @@ jobs:
           cache-from: type=gha,scope=gateway-prod
           cache-to: type=gha,mode=max,scope=gateway-prod
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}/api-gateway:latest
             ghcr.io/${{ env.REPO_LOWER }}/api-gateway:${{ github.sha }}
 
       - name: Build and Push Frontend
@@ -748,7 +741,6 @@ jobs:
             NEXT_PUBLIC_WS_URL=${{ vars.NEXT_PUBLIC_WS_URL || 'wss://api.bawain.my.id' }}
             NEXT_PUBLIC_SOCKET_URL=${{ vars.NEXT_PUBLIC_SOCKET_URL || 'https://api.bawain.my.id' }}
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}/frontend:latest
             ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}
 
       - name: Build and Push Admin Dashboard
@@ -764,7 +756,6 @@ jobs:
             VITE_WS_URL=${{ vars.VITE_WS_URL || 'wss://api.bawain.my.id' }}
             VITE_SOCKET_URL=${{ vars.VITE_SOCKET_URL || 'https://api.bawain.my.id' }}
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}/admin-dashboard:latest
             ghcr.io/${{ env.REPO_LOWER }}/admin-dashboard:${{ github.sha }}
 
   # ═══════════════════════════════════════════════════════════
@@ -879,14 +870,25 @@ jobs:
           sed -i "s|^R2_ENDPOINT=.*|R2_ENDPOINT=\"${SECRET_R2_ENDPOINT}\"|" .env
 
           echo "📋 Step 3.5: Auto-Backup Database..."
-          docker run --rm postgres:15-alpine pg_dump "\${SECRET_DB_URL}" > "/tmp/lancar_prod_backup_\$(date +%Y%m%d%H%M%S).sql" || echo "⚠️ Backup failed, but continuing..."
+          BACKUP_PATH="/tmp/lancar_prod_backup_\$(date +%Y%m%d%H%M%S).sql"
+          docker run --rm postgres:15-alpine pg_dump "\${SECRET_DB_URL}" > "\${BACKUP_PATH}"
+          test -s "\${BACKUP_PATH}"
+          echo "✅ Database backup created: \${BACKUP_PATH}"
 
           echo "📋 Step 4: Starting Traefik (if not running)..."
           docker-compose up -d traefik
 
           echo "📋 Step 5: Rolling update services (Zero Downtime)..."
-          export CURRENT_SHA="${SHA}"
-          export REPO="${REPO_LOWER_LC}"
+           export CURRENT_SHA="${SHA}"
+           export REPO="${REPO_LOWER_LC}"
+           export AUTH_SERVICE_IMAGE="ghcr.io/${REPO_LOWER_LC}/auth-service:${SHA}"
+           export ROUTING_SERVICE_IMAGE="ghcr.io/${REPO_LOWER_LC}/routing-service:${SHA}"
+           export ADMIN_SERVICE_IMAGE="ghcr.io/${REPO_LOWER_LC}/admin-service:${SHA}"
+           export ORDER_SERVICE_IMAGE="ghcr.io/${REPO_LOWER_LC}/order-service:${SHA}"
+           export PAYMENT_SERVICE_IMAGE="ghcr.io/${REPO_LOWER_LC}/payment-service:${SHA}"
+           export API_GATEWAY_IMAGE="ghcr.io/${REPO_LOWER_LC}/api-gateway:${SHA}"
+           export FRONTEND_IMAGE="ghcr.io/${REPO_LOWER_LC}/frontend:${SHA}"
+           export ADMIN_DASHBOARD_IMAGE="ghcr.io/${REPO_LOWER_LC}/admin-dashboard:${SHA}"
 
           for svc in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway frontend admin-dashboard; do
             echo "  ↻ Rolling update for \${svc}..."

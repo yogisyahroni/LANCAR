@@ -26,7 +26,7 @@ const (
 	ServiceAdjustmentFinancialPendingCollection = "pending_collection"
 	ServiceAdjustmentFinancialCollected         = "collected"
 	ServiceAdjustmentFinancialWaived            = "waived"
-	ServiceAdjustmentFinancialReversed           = "reversed"
+	ServiceAdjustmentFinancialReversed          = "reversed"
 
 	ServiceAdjustmentItemMaterial = "material"
 	ServiceAdjustmentItemLabor    = "labor"

@@ -199,6 +199,79 @@ export const resolvePromoStack = (requested: PromoSource[], eligible: Set<PromoS
 export const canSendCampaign = (input: { optedIn: boolean; frequencyCount: number; frequencyCap: number; holdout: boolean }): boolean =>
   input.optedIn && !input.holdout && input.frequencyCount < Math.max(0, input.frequencyCap);
 
+export type PropensityRecommendation = {
+  valid: boolean;
+  use: 'RECOMMENDATION_ONLY';
+  merchant_visible: false;
+  errors: string[];
+};
+
+/**
+ * A propensity value may help select a customer communication, but it is not
+ * an eligibility, pricing, risk, or merchant-facing decision. Keep this
+ * contract pure so every future scorer has to pass the same privacy boundary.
+ */
+export const validatePropensityRecommendation = (value: unknown): PropensityRecommendation => {
+  const source = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const errors: string[] = [];
+  if (source.enforcement === true || source.enforce === true) errors.push('propensity_cannot_enforce');
+  if (source.merchant_visible === true || source.expose_to_merchant === true) errors.push('propensity_cannot_be_merchant_visible');
+  const forbidden = ['gender', 'race', 'religion', 'health', 'income', 'address', 'phone', 'email', 'national_id', 'precise_location'];
+  for (const key of Object.keys(source)) {
+    if (forbidden.some((marker) => key.toLowerCase().includes(marker))) errors.push(`propensity_sensitive_field:${key.toLowerCase()}`);
+  }
+  return { valid: errors.length === 0, use: 'RECOMMENDATION_ONLY', merchant_visible: false, errors };
+};
+
+export type CampaignGuardrailMetrics = {
+  completed_orders: number;
+  completed_revenue_minor: number;
+  contribution_margin_minor: number | null;
+  refund_rate_pct: number | null;
+  support_case_rate_pct: number | null;
+  spam_complaint_rate_pct: number | null;
+};
+
+export type CampaignGuardrailEvaluation = {
+  status: 'PASS' | 'BREACH' | 'INSUFFICIENT_DATA';
+  action: 'CONTINUE' | 'PAUSE_AND_REVIEW' | 'NO_DECISION';
+  breaches: string[];
+  metrics: CampaignGuardrailMetrics;
+  policy_version: string;
+};
+
+/**
+ * Campaign experiments must stop when customer harm or subsidy economics
+ * cross the configured bound. Missing margin data is explicit: it cannot be
+ * treated as a passing zero or silently bypassed.
+ */
+export const evaluateCampaignGuardrails = (policyValue: unknown, metrics: CampaignGuardrailMetrics): CampaignGuardrailEvaluation => {
+  const policy = policyValue && typeof policyValue === 'object' && !Array.isArray(policyValue)
+    ? policyValue as Record<string, unknown>
+    : {};
+  const policyVersion = String(policy.policy_version || 'crm-guardrails-2026-v1').slice(0, 96);
+  const minMargin = Number(policy.min_contribution_margin_minor ?? 0);
+  const maxRefund = Number(policy.max_refund_rate_pct ?? 20);
+  const maxSupport = Number(policy.max_support_case_rate_pct ?? 15);
+  const maxSpam = Number(policy.max_spam_complaint_rate_pct ?? 5);
+  const breaches: string[] = [];
+  if (metrics.contribution_margin_minor == null) breaches.push('margin_data_unavailable');
+  else if (Number.isFinite(minMargin) && metrics.contribution_margin_minor < minMargin) breaches.push('contribution_margin_below_floor');
+  if (metrics.refund_rate_pct != null && Number.isFinite(maxRefund) && metrics.refund_rate_pct > maxRefund) breaches.push('refund_rate_above_cap');
+  if (metrics.support_case_rate_pct != null && Number.isFinite(maxSupport) && metrics.support_case_rate_pct > maxSupport) breaches.push('support_case_rate_above_cap');
+  if (metrics.spam_complaint_rate_pct != null && Number.isFinite(maxSpam) && metrics.spam_complaint_rate_pct > maxSpam) breaches.push('spam_complaint_rate_above_cap');
+  const insufficient = metrics.completed_orders === 0 || breaches.includes('margin_data_unavailable');
+  return {
+    status: insufficient ? 'INSUFFICIENT_DATA' : breaches.length ? 'BREACH' : 'PASS',
+    action: insufficient ? 'NO_DECISION' : breaches.length ? 'PAUSE_AND_REVIEW' : 'CONTINUE',
+    breaches,
+    metrics,
+    policy_version: policyVersion,
+  };
+};
+
 export const campaignFunding = (input: { platform: number; merchant: number; membership: number; referral: number }) => {
   const values = Object.fromEntries(Object.entries(input).map(([key, value]) => [key, Math.max(0, Math.trunc(value))]));
   return { ...values, total: Object.values(values).reduce((sum, value) => sum + value, 0) };
@@ -206,3 +279,19 @@ export const campaignFunding = (input: { platform: number; merchant: number; mem
 
 export const membershipStateAllowsBenefit = (state: 'PENDING_PAYMENT' | 'ACTIVE' | 'GRACE' | 'CANCELLED' | 'EXPIRED' | 'REFUNDED', periodEnd: Date, now = new Date()) =>
   (state === 'ACTIVE' || state === 'GRACE') && periodEnd.getTime() > now.getTime();
+
+export type MembershipPaymentState = 'SUCCEEDED' | 'FAILED' | 'REFUNDED' | 'CANCELLED';
+export type MembershipState = 'PENDING_PAYMENT' | 'ACTIVE' | 'GRACE' | 'CANCELLED' | 'EXPIRED' | 'REFUNDED';
+
+/** Payment events are the only input allowed to move an entitlement state. */
+export const resolveMembershipPaymentTransition = (current: MembershipState, payment: MembershipPaymentState): MembershipState => {
+  if (payment === 'REFUNDED') return 'REFUNDED';
+  if (payment === 'CANCELLED') return 'CANCELLED';
+  if (payment === 'SUCCEEDED') return ['PENDING_PAYMENT', 'ACTIVE', 'GRACE'].includes(current) ? 'ACTIVE' : current;
+  if (payment === 'FAILED') {
+    if (current === 'PENDING_PAYMENT') return 'CANCELLED';
+    if (current === 'ACTIVE') return 'GRACE';
+    return current === 'GRACE' ? 'EXPIRED' : current;
+  }
+  return current;
+};

@@ -32,23 +32,45 @@ def find_adb(explicit: str | None) -> str:
     raise RuntimeError("adb was not found; set ANDROID_HOME or pass --adb")
 
 
-def run_adb(adb: str, serial: str, *args: str, check: bool = True) -> str:
+def run_adb(
+    adb: str,
+    serial: str,
+    *args: str,
+    check: bool = True,
+    timeout_seconds: int = 30,
+) -> str:
     command = [adb, "-s", serial, *args]
     try:
-        result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=30)
+        result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=timeout_seconds)
     except subprocess.TimeoutExpired as error:
-        raise RuntimeError(f"adb command timed out after 30s: {' '.join(args)}") from error
+        raise RuntimeError(f"adb command timed out after {timeout_seconds}s: {' '.join(args)}") from error
     output = (result.stdout or "") + (result.stderr or "")
     if check and result.returncode != 0:
         raise RuntimeError(f"adb command failed ({result.returncode}): {' '.join(args)}\n{output[-2000:]}")
     return output
 
 
-def parse_total_time(output: str) -> int:
+def parse_total_time(output: str, allow_timeout_status: bool = False) -> int:
     match = re.search(r"^TotalTime:\s*(\d+)", output, re.MULTILINE)
-    if not match:
-        raise RuntimeError(f"am start -W did not return TotalTime:\n{output[-2000:]}")
-    return int(match.group(1))
+    if match:
+        return int(match.group(1))
+    # Android 16/17 can omit TotalTime when an existing task is brought to
+    # front, while still reporting the measured wait.  WaitTime is the
+    # documented fallback for that valid start result; any other output still
+    # fails closed so incomplete samples cannot pass the release gate.
+    wait_match = re.search(r"^WaitTime:\s*(\d+)", output, re.MULTILINE)
+    if wait_match and re.search(r"^Status:\s*ok", output, re.MULTILINE):
+        return int(wait_match.group(1))
+    # Android's am shell can report Status: timeout after its framework wait
+    # budget even though it names the launched activity and returns a usable
+    # WaitTime.  This opt-in path is reserved for intentionally measuring very
+    # slow launches; the report records that timeout statuses were accepted so
+    # the result cannot be mistaken for a normal launch.
+    if allow_timeout_status and wait_match and re.search(r"^Status:\s*timeout", output, re.MULTILINE) and re.search(
+        r"^Activity:\s*\S+", output, re.MULTILINE
+    ):
+        return int(wait_match.group(1))
+    raise RuntimeError(f"am start -W did not return TotalTime/valid WaitTime:\n{output[-2000:]}")
 
 
 def parse_memory_mb(output: str) -> float:
@@ -132,7 +154,21 @@ def measure(args: argparse.Namespace) -> dict[str, Any]:
         # launch rather than accumulated across all previous samples.
         run_adb(adb, args.serial, "shell", "dumpsys", "gfxinfo", package, "reset", check=False)
         before = net_bytes(adb, args.serial, uid)
-        cold_time = parse_total_time(run_adb(adb, args.serial, "shell", "am", "start", "-W", "-n", args.activity))
+        cold_time = parse_total_time(
+            run_adb(
+                adb,
+                args.serial,
+                "shell",
+                "am",
+                "start",
+                "-W",
+                "-S",
+                "-n",
+                args.activity,
+                timeout_seconds=args.start_timeout_seconds,
+            ),
+            allow_timeout_status=args.allow_start_timeout,
+        )
         time.sleep(args.settle_seconds)
         # Exercise one deterministic vertical gesture so gfxinfo observes a
         # useful frame distribution instead of reporting a single first frame.
@@ -160,7 +196,22 @@ def measure(args: argparse.Namespace) -> dict[str, Any]:
         # already-foreground activity.
         run_adb(adb, args.serial, "shell", "input", "keyevent", "KEYCODE_HOME", check=False)
         time.sleep(0.2)
-        warm.append(parse_total_time(run_adb(adb, args.serial, "shell", "am", "start", "-W", "-n", args.activity)))
+        warm.append(
+            parse_total_time(
+                run_adb(
+                    adb,
+                    args.serial,
+                    "shell",
+                    "am",
+                    "start",
+                    "-W",
+                    "-n",
+                    args.activity,
+                    timeout_seconds=args.start_timeout_seconds,
+                ),
+                allow_timeout_status=args.allow_start_timeout,
+            )
+        )
         print(f"sample {sample_number}/{args.runs}", file=sys.stderr, flush=True)
 
     artifact_size = Path(args.apk).stat().st_size if args.apk else None
@@ -171,6 +222,7 @@ def measure(args: argparse.Namespace) -> dict[str, Any]:
         "tier": args.tier,
         "serial": args.serial,
         "device_profile": args.device_profile,
+        "start_timeout_statuses_accepted": args.allow_start_timeout,
         "samples": {
             "cold_start_ms": cold,
             "warm_start_ms": warm,
@@ -194,6 +246,17 @@ def main() -> int:
     parser.add_argument("--apk")
     parser.add_argument("--runs", type=int, default=20)
     parser.add_argument("--settle-seconds", type=float, default=0.5)
+    parser.add_argument(
+        "--start-timeout-seconds",
+        type=int,
+        default=90,
+        help="Maximum wait for am start -W; slow emulators must be measured, not silently skipped.",
+    )
+    parser.add_argument(
+        "--allow-start-timeout",
+        action="store_true",
+        help="Accept an am start Status: timeout only when Activity and WaitTime are returned; use only to record slow launches.",
+    )
     parser.add_argument("--boot-timeout", type=int, default=180)
     parser.add_argument("--adb")
     parser.add_argument("--output", required=True)

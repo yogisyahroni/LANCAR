@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/service"
-	"strconv"
 	"time"
 )
 
@@ -45,15 +45,15 @@ func toProductDTO(p domain.ProductCatalog) productDTO {
 }
 
 type productPayload struct {
-	Name      string   `json:"name"`
-	ItemName  string   `json:"item_name"`
-	SKU       *string  `json:"sku"`
-	WeightKG  float64  `json:"weight_kg"`
-	Price     *int64   `json:"price"`
-	ItemValue *int64   `json:"item_value"`
-	ItemImage *string  `json:"item_image"`
-	ImageURL  *string  `json:"image_url"`
-	IsActive  *bool    `json:"is_active"`
+	Name      string  `json:"name"`
+	ItemName  string  `json:"item_name"`
+	SKU       *string `json:"sku"`
+	WeightKG  float64 `json:"weight_kg"`
+	Price     *int64  `json:"price"`
+	ItemValue *int64  `json:"item_value"`
+	ItemImage *string `json:"item_image"`
+	ImageURL  *string `json:"image_url"`
+	IsActive  *bool   `json:"is_active"`
 }
 
 func payloadToDomain(payload productPayload) domain.ProductCatalog {

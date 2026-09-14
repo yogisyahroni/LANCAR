@@ -113,6 +113,7 @@ export * from './platformOperations.controller';
 export * from './paymentConfigApproval.controller';
 export * from './reputation.controller';
 export * as crmCampaign from './crmCampaign.controller';
+export * as crmAccounting from './crmAccounting.controller';
 
 // First-class customer / merchant / courier support cases
 export * from './supportCases.controller';

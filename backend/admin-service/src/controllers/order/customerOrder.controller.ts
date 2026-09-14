@@ -67,6 +67,8 @@ import {
   normalizePromoCode,
   packageChargeableWeight,
   publicServiceSnapshot,
+  releaseReservedPromosForOrders,
+  reverseRedeemedPromosForOrders,
   resolveSizeTier,
   summarizePackages,
   toNumber,
@@ -74,6 +76,7 @@ import {
   validatePackagePolicy,
 } from './_shared';
 import { evaluatePickupLocationQuality } from '../../services/pickupLocationQuality';
+import { isExperienceKillSwitchActive } from '../../services/experienceKillSwitches';
 
 export const createCustomerOrder = async (req: Request, res: Response): Promise<void> => {
   const client = await db.connect();
@@ -138,6 +141,42 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       res.status(400).json({
         code: 'ERR_SERVICE_NOT_AVAILABLE',
         error: 'Layanan pengiriman tidak tersedia'
+      });
+      return;
+    }
+
+    // The web/BFF order path must honour the same server-authoritative
+    // new-order gate as the mobile order service.  Active orders remain
+    // readable and recoverable; only new transactions are rejected.
+    let newOrderGateActive = false;
+    try {
+      newOrderGateActive = await isExperienceKillSwitchActive({
+        kill_switch_type: 'new_order_gate',
+        service_code: String(service.code),
+        market_code: String(req.body?.market_code || price_breakdown?.market_code || price_breakdown?.market || 'id-jk'),
+        city_code: String(dropoff_city || pickup_city || ''),
+        zone_code: String(req.body?.zone_code || price_breakdown?.zone_code || ''),
+      });
+    } catch (error) {
+      securityLog.error('Customer order availability control unavailable', {
+        service_code: service.code,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      client.release();
+      res.status(503).json({
+        success: false,
+        code: 'SERVICE_AVAILABILITY_UNAVAILABLE',
+        error: 'Ketersediaan layanan belum dapat diverifikasi. Silakan coba lagi.',
+      });
+      return;
+    }
+    if (newOrderGateActive) {
+      client.release();
+      res.status(503).json({
+        success: false,
+        code: 'NEW_ORDER_GATE_ACTIVE',
+        error: 'Layanan sedang tidak menerima order baru di area ini. Order aktif tetap dapat dilacak dan diselesaikan.',
+        active_orders_preserved: true,
       });
       return;
     }
@@ -384,6 +423,18 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       res.status(400).json({
         code: 'ERR_PROMO_CODE_INVALID',
         error: 'Kode promo tidak valid.'
+      });
+      return;
+    }
+
+    // A voucher and a platform promo are separate sources and cannot be
+    // composed. Reject before reserving promo budget so an unsupported client
+    // stack cannot leave an orphaned reservation behind.
+    if (normalizedPromoCode && voucher_code) {
+      client.release();
+      res.status(409).json({
+        code: 'ERR_VOUCHER_CONFLICT',
+        error: 'Voucher tidak bisa digabung dengan promo.',
       });
       return;
     }
@@ -994,6 +1045,12 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
        VALUES ($1, $2, 'cancelled', 'Dibatalkan oleh pelanggan', $3)`,
       [orderId, customerId, JSON.stringify({ reason, cancelled_by: 'customer' })]
     );
+
+    // Promo budget is part of the same cancellation transaction.  Pending
+    // reservations are released; already-paid redemptions receive an
+    // append-only compensating release before the refund worker is invoked.
+    await releaseReservedPromosForOrders(client, [orderId]);
+    await reverseRedeemedPromosForOrders(client, [orderId], reason);
 
     await client.query('COMMIT');
 

@@ -1,11 +1,14 @@
 package handler
 
 import (
+	"crypto/subtle"
 	"encoding/json"
+	"log/slog"
 	"net/http"
+	"os"
+	"strings"
 	"tembus/payment-service/internal/domain"
 	"tembus/payment-service/internal/middleware"
-	"log/slog"
 )
 
 type WebhookHandler struct {
@@ -16,23 +19,42 @@ func NewWebhookHandler(svc domain.WalletService) *WebhookHandler {
 	return &WebhookHandler{svc: svc}
 }
 
+func verifyXenditCallback(r *http.Request) bool {
+	expected := strings.TrimSpace(os.Getenv("XENDIT_CALLBACK_TOKEN"))
+	provided := strings.TrimSpace(r.Header.Get("x-callback-token"))
+	return expected != "" && provided != "" && len(expected) == len(provided) &&
+		subtle.ConstantTimeCompare([]byte(expected), []byte(provided)) == 1
+}
+
 // XenditWebhook receives payment notifications from Xendit.
 // For FVA (Fixed Virtual Accounts) and Invoices, Xendit sends webhook when paid.
 // For Disbursements, Xendit sends webhook when sent or failed.
 func (h *WebhookHandler) XenditWebhook(w http.ResponseWriter, r *http.Request) {
 	correlationID := middleware.GetCorrelationID(r.Context())
-	
-	// Ensure we verify the Xendit Webhook Verification Token
-	// xenditToken := r.Header.Get("x-callback-token")
-	// For production, you must verify this token against the one in Xendit dashboard
-	
+
+	// Xendit retries callbacks, so authentication must happen before any
+	// provider state mutation. An absent deployment token fails closed.
+	if !verifyXenditCallback(r) {
+		h.respondError(w, "Invalid webhook credentials", http.StatusUnauthorized)
+		return
+	}
+
 	var payload map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		h.respondError(w, "Invalid payload", http.StatusBadRequest)
 		return
 	}
 
-	slog.InfoContext(r.Context(), "xendit_webhook_received", "correlation_id", correlationID, "payload", payload)
+	// Provider payloads are raw external input and may contain credentials or
+	// customer/payment data. Keep structured operational fields only; the
+	// durable provider event/audit boundary owns any permitted raw payload.
+	status, _ := payload["status"].(string)
+	_, hasExternalID := payload["external_id"].(string)
+	slog.InfoContext(r.Context(), "xendit_webhook_received",
+		"correlation_id", correlationID,
+		"provider_status", status,
+		"has_external_id", hasExternalID,
+	)
 
 	// Check if this is an Invoice paid webhook
 	// Usually contains "external_id" and "status"
@@ -46,7 +68,7 @@ func (h *WebhookHandler) XenditWebhook(w http.ResponseWriter, r *http.Request) {
 					h.respondError(w, "Failed to process deposit", http.StatusInternalServerError)
 					return
 				}
-				
+
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte("SUCCESS"))
 				return
@@ -60,7 +82,7 @@ func (h *WebhookHandler) XenditWebhook(w http.ResponseWriter, r *http.Request) {
 					h.respondError(w, "Failed to process disbursement", http.StatusInternalServerError)
 					return
 				}
-				
+
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte("SUCCESS"))
 				return
@@ -74,7 +96,7 @@ func (h *WebhookHandler) XenditWebhook(w http.ResponseWriter, r *http.Request) {
 					h.respondError(w, "Failed to process disbursement failure", http.StatusInternalServerError)
 					return
 				}
-				
+
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte("SUCCESS"))
 				return

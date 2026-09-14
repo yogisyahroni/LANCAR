@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'node:crypto';
 import { db, readDb } from '../db';
 import { getActorId } from '../utils/authUtils';
 import { securityLog } from '../security/logRedaction';
@@ -179,11 +180,12 @@ export const applyReferralCode = async (req: Request, res: Response) => {
     });
 
     const selectedPolicy = policy.rows[0];
-    await client.query(
+    const attribution = await client.query<{ id: string }>(
       `INSERT INTO crm_referral_attributions
         (referrer_id, referred_id, referral_code, market_code, status,
          reward_points, reward_liability_minor, abuse_signals)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+       RETURNING id`,
       [
         referrerId,
         userId,
@@ -195,6 +197,37 @@ export const applyReferralCode = async (req: Request, res: Response) => {
         JSON.stringify({ policy_version: selectedPolicy.policy_version, signals: riskDecision.reasons, state: riskDecision.status === 'REVIEW' ? 'PENDING_RISK_REVIEW' : 'PENDING_REWARD_QUALIFICATION', reward_releasable: riskDecision.reward_releasable }),
       ]
     );
+    const riskReasons = riskDecision.reasons.map((reason) => `referral.${reason}`);
+    const riskDecisionRow = await client.query<{ id: string }>(
+      `INSERT INTO risk_decisions
+        (operation, market_code, entity_type, entity_id, subject_key_hash, decision,
+         risk_score, reason_codes, signal_snapshot, policy_version, failure_mode,
+         correlation_id, idempotency_key)
+       VALUES ('referral_apply', $1, 'crm_referral_attribution', $2, $3, $4, $5,
+               $6::text[], $7::jsonb, $8, 'normal', $9, $10)
+       ON CONFLICT (operation, idempotency_key) DO NOTHING
+       RETURNING id`,
+      [
+        marketCode,
+        attribution.rows[0]?.id,
+        crypto.createHash('sha256').update(`${referrerId}:${userId}`).digest('hex'),
+        riskDecision.status === 'REVIEW' ? 'REVIEW' : 'ALLOW',
+        Math.min(riskDecision.reasons.length * 45, 100),
+        riskReasons,
+        JSON.stringify([{ signals: riskDecision.reasons, source: 'crm_referral_apply', policy_version: selectedPolicy.policy_version }]),
+        selectedPolicy.policy_version,
+        `crm-referral:${userId}`,
+        `crm-referral-apply:${userId}`,
+      ],
+    );
+    if (riskDecision.status === 'REVIEW' && riskDecisionRow.rows[0]) {
+      await client.query(
+        `INSERT INTO risk_manual_reviews (risk_decision_id, status, evidence)
+         VALUES ($1, 'PENDING', $2::jsonb)
+         ON CONFLICT (risk_decision_id) DO NOTHING`,
+        [riskDecisionRow.rows[0].id, JSON.stringify({ referral_attribution_id: attribution.rows[0]?.id, reasons: riskDecision.reasons })],
+      );
+    }
     await client.query('COMMIT');
     return res.status(201).json({ success: true, message: 'Kode referral berhasil diterapkan', data: { status: riskDecision.status, risk_signals: riskDecision.reasons, reward_releasable: riskDecision.reward_releasable } });
   } catch (error) {

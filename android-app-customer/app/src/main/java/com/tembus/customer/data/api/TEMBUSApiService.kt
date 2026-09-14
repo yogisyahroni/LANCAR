@@ -151,6 +151,25 @@ interface TEMBUSApiService {
         @Path("id") id: String
     ): Response<OrderTrackingDetailResponse>
 
+    @GET("api/v1/customer/orders/{id}/safety-center")
+    suspend fun getCustomerSafetyCenter(
+        @Path("id") id: String
+    ): Response<SafetyCenterResponse>
+
+    @POST("api/v1/customer/orders/{id}/safety-incidents")
+    suspend fun reportCustomerSafetyIncident(
+        @Path("id") id: String,
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: SafetyIncidentRequest
+    ): Response<SafetyActionResponse>
+
+    @POST("api/v1/customer/orders/{id}/sos")
+    suspend fun triggerCustomerSafetySos(
+        @Path("id") id: String,
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: Map<String, String> = emptyMap()
+    ): Response<SafetyActionResponse>
+
     @GET("api/v1/customer/delivery-services")
     suspend fun getCustomerDeliveryServices(): Response<DeliveryServicesResponse>
 

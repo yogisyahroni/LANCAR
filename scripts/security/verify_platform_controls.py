@@ -33,8 +33,12 @@ REQUIRED = (
     "database/migrations/20260912000007_payment_orchestration.sql",
     "database/migrations/20260912000008_safety_reputation_crm_platform.sql",
     "database/migrations/20260912000009_platform_hardening.sql",
+    "database/migrations/20260914000001_crm_membership_payment_events.sql",
+    "database/migrations/20260914000002_food_membership_payment_events.sql",
+    "database/migrations/20260914000003_membership_payment_idempotency_guards.sql",
     "docs/contracts/payment-balance-ledger-2026.md",
     "docs/contracts/reputation-2026.md",
+    "docs/contracts/crm-loyalty-finance-policy-2026.md",
     "scripts/load/payment-intents.k6.js",
 )
 

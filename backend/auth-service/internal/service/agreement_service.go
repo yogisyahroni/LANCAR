@@ -9,17 +9,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 	"tembus/auth-service/internal/domain"
 	"tembus/auth-service/pkg/logger"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
 type AgreementService struct {
-	repo       domain.AgreementRepository
-	storageSvc StorageService
-	baseURL    string
+	repo        domain.AgreementRepository
+	storageSvc  StorageService
+	baseURL     string
 	redisClient *redis.Client
 }
 
@@ -65,11 +65,11 @@ func (s *AgreementService) notifyAdmins(ctx context.Context, agreement *domain.A
 	// Real-time push via Redis pub/sub (consumed by admin-service WebSocket)
 	if s.redisClient != nil {
 		payload, _ := json.Marshal(map[string]interface{}{
-			"title":   title,
-			"body":    body,
-			"type":    "agreement",
-			"deep_link": deepLink,
-			"metadata":  metadata,
+			"title":      title,
+			"body":       body,
+			"type":       "agreement",
+			"deep_link":  deepLink,
+			"metadata":   metadata,
 			"created_at": time.Now().Format(time.RFC3339),
 		})
 		err := s.redisClient.Publish(ctx, "tembus:notification:new", payload).Err()

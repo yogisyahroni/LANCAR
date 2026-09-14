@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 	"errors"
-	"testing"
 	"tembus/order-service/internal/domain"
+	"testing"
 )
 
 type fakeServiceAdjustmentRepo struct {
@@ -39,10 +39,18 @@ func TestServiceAdjustmentProposalComputesStructuredDeltaServerSide(t *testing.T
 			{Code: "LABOR", Label: "Jasa tambahan", Type: "labor", Quantity: 1, UnitPriceIDR: 20_000},
 		},
 	}, "courier-1")
-	if err != nil { t.Fatalf("Propose() error = %v", err) }
-	if result.DeltaIDR != 50_000 || repo.delta != 50_000 { t.Fatalf("delta = %d, want 50000", repo.delta) }
-	if repo.proposed.Items[0].TotalIDR != 30_000 { t.Fatalf("server total = %d, want 30000", repo.proposed.Items[0].TotalIDR) }
-	if repo.proposed.RequestFingerprint == "" { t.Fatal("request fingerprint must be populated") }
+	if err != nil {
+		t.Fatalf("Propose() error = %v", err)
+	}
+	if result.DeltaIDR != 50_000 || repo.delta != 50_000 {
+		t.Fatalf("delta = %d, want 50000", repo.delta)
+	}
+	if repo.proposed.Items[0].TotalIDR != 30_000 {
+		t.Fatalf("server total = %d, want 30000", repo.proposed.Items[0].TotalIDR)
+	}
+	if repo.proposed.RequestFingerprint == "" {
+		t.Fatal("request fingerprint must be populated")
+	}
 }
 
 func TestServiceAdjustmentProposalRejectsUnstructuredOrUnsafeItems(t *testing.T) {
@@ -51,7 +59,9 @@ func TestServiceAdjustmentProposalRejectsUnstructuredOrUnsafeItems(t *testing.T)
 		OrderID: "order-1", Reason: "Tambahan pekerjaan", IdempotencyKey: "proposal-key-12345",
 		Items: []domain.ServiceAdjustmentItem{{Code: "X", Label: "Unknown", Type: "free_text", Quantity: 1, UnitPriceIDR: 1}},
 	}, "courier-1")
-	if !errors.Is(err, domain.ErrInvalidServiceAdjustment) { t.Fatalf("error = %v, want invalid adjustment", err) }
+	if !errors.Is(err, domain.ErrInvalidServiceAdjustment) {
+		t.Fatalf("error = %v, want invalid adjustment", err)
+	}
 }
 
 func TestServiceAdjustmentProposalRejectsDeltaAboveSafetyCap(t *testing.T) {
@@ -62,7 +72,9 @@ func TestServiceAdjustmentProposalRejectsDeltaAboveSafetyCap(t *testing.T) {
 			Code: "PREMIUM_MATERIAL", Label: "Material premium", Type: "material", Quantity: 2, UnitPriceIDR: 5_000_001,
 		}},
 	}, "courier-1")
-	if !errors.Is(err, domain.ErrInvalidServiceAdjustment) { t.Fatalf("error = %v, want invalid adjustment", err) }
+	if !errors.Is(err, domain.ErrInvalidServiceAdjustment) {
+		t.Fatalf("error = %v, want invalid adjustment", err)
+	}
 }
 
 func TestServiceAdjustmentDecisionRequiresExplicitApproveOrReject(t *testing.T) {
@@ -70,7 +82,9 @@ func TestServiceAdjustmentDecisionRequiresExplicitApproveOrReject(t *testing.T) 
 	_, err := svc.Decide(context.Background(), &domain.DecideServiceAdjustmentRequest{
 		AdjustmentID: "adj-1", Decision: "maybe", IdempotencyKey: "decision-key-12345",
 	}, "customer-1")
-	if !errors.Is(err, domain.ErrInvalidServiceAdjustment) { t.Fatalf("error = %v, want invalid adjustment", err) }
+	if !errors.Is(err, domain.ErrInvalidServiceAdjustment) {
+		t.Fatalf("error = %v, want invalid adjustment", err)
+	}
 }
 
 func TestServiceAdjustmentRejectRequiresReason(t *testing.T) {
@@ -78,5 +92,7 @@ func TestServiceAdjustmentRejectRequiresReason(t *testing.T) {
 	_, err := svc.Decide(context.Background(), &domain.DecideServiceAdjustmentRequest{
 		AdjustmentID: "adj-1", Decision: "reject", IdempotencyKey: "decision-key-12345",
 	}, "customer-1")
-	if !errors.Is(err, domain.ErrInvalidServiceAdjustment) { t.Fatalf("error = %v, want invalid adjustment", err) }
+	if !errors.Is(err, domain.ErrInvalidServiceAdjustment) {
+		t.Fatalf("error = %v, want invalid adjustment", err)
+	}
 }

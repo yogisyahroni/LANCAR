@@ -228,6 +228,75 @@ export const releaseReservedPromosForOrders = async (client: PoolClient, orderId
   }
 };
 
+/**
+ * Reverse promo liability after a paid order is cancelled or refunded.
+ *
+ * The redeemed budget entry is immutable history.  A separate release entry
+ * carries the compensating movement, while the redemption row remains the
+ * current lifecycle projection.  Both writes are idempotent on the original
+ * reservation key, so retries cannot release the campaign budget twice.
+ */
+export const reverseRedeemedPromosForOrders = async (
+  client: PoolClient,
+  orderIds: string[],
+  reason = 'order_cancelled_or_refunded',
+) => {
+  if (orderIds.length === 0) return;
+
+  const { rows } = await client.query(
+    `SELECT campaign_id, user_id, order_id, discount_idr, idempotency_key
+       FROM promo_redemptions
+      WHERE order_id = ANY($1::uuid[])
+        AND status = 'redeemed'
+      FOR UPDATE`,
+    [orderIds],
+  );
+
+  for (const redemption of rows) {
+    const discountIdr = Number(redemption.discount_idr || 0);
+    if (!Number.isInteger(discountIdr) || discountIdr <= 0) continue;
+
+    const releaseKey = `${redemption.idempotency_key}:refund`;
+    const release = await client.query(
+      `INSERT INTO promo_budget_ledger (
+         campaign_id, user_id, order_id, ledger_type, amount_idr, idempotency_key, status, released_at, metadata
+       )
+       VALUES ($1, $2, $3, 'release', $4, $5, 'released', NOW(), $6::jsonb)
+       ON CONFLICT (campaign_id, idempotency_key, ledger_type) DO NOTHING
+       RETURNING id`,
+      [
+        redemption.campaign_id,
+        redemption.user_id,
+        redemption.order_id,
+        discountIdr,
+        releaseKey,
+        JSON.stringify({ source: 'order_refund', reason }),
+      ],
+    );
+
+    if ((release.rowCount || 0) > 0) {
+      await client.query(
+        `UPDATE promo_campaigns
+            SET redeemed_budget_idr = GREATEST(0, redeemed_budget_idr - $2),
+                updated_at = NOW()
+          WHERE id = $1`,
+        [redemption.campaign_id, discountIdr],
+      );
+    }
+
+    await client.query(
+      `UPDATE promo_redemptions
+          SET status = 'released', released_at = COALESCE(released_at, NOW())
+        WHERE campaign_id = $1
+          AND user_id = $2
+          AND order_id = $3
+          AND idempotency_key = $4
+          AND status = 'redeemed'`,
+      [redemption.campaign_id, redemption.user_id, redemption.order_id, redemption.idempotency_key],
+    );
+  }
+};
+
 export const receiverLocationBaseUrl = () =>
   process.env.RECEIVER_LOCATION_PUBLIC_URL || publicBaseUrl();
 

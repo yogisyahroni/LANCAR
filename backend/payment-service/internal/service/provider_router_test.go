@@ -65,4 +65,14 @@ func TestProviderRouterRequiresAuditedExpiringOverrideAndSafeFailover(t *testing
 	}
 }
 
+func TestProviderOutageNeverFailsOverAfterUnknownMutation(t *testing.T) {
+	intent := &domain.PaymentIntent{ID: uuidForTest(), State: domain.PaymentIntentProcessing}
+	if CanFailover(intent, true, false) {
+		t.Fatal("an outage with an unknown mutation result must not route to another provider")
+	}
+	if !CanFailover(intent, true, true) {
+		t.Fatal("lookup-proven no-charge is the only safe failover path")
+	}
+}
+
 func uuidForTest() uuid.UUID { return uuid.New() }

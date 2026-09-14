@@ -5,7 +5,7 @@ import helmet from 'helmet';
 import pino from 'pino-http';
 import { createProxyMiddleware, fixRequestBody } from 'http-proxy-middleware';
 import dotenv from 'dotenv';
-import { rateLimit } from 'express-rate-limit';
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import { Registry, collectDefaultMetrics, Counter, Histogram } from 'prom-client';
 import CircuitBreaker from 'opossum';
 import { validate } from './middleware/validator';
@@ -70,6 +70,22 @@ const resolveTrustProxy = (value?: string): boolean | number | string => {
   }
   return rawValue;
 };
+
+const resolveClientIpForRateLimit = (req: Request): string => {
+  const cloudflareIp = req.headers['cf-connecting-ip'];
+  if (typeof cloudflareIp === 'string' && cloudflareIp.trim()) {
+    return cloudflareIp.trim();
+  }
+
+  const forwardedFor = req.headers['x-forwarded-for'];
+  if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+    return forwardedFor.split(',')[0].trim();
+  }
+
+  return req.ip || req.socket.remoteAddress || 'unknown';
+};
+
+const rateLimitClientKey = (req: Request): string => ipKeyGenerator(resolveClientIpForRateLimit(req));
 
 app.set('trust proxy', resolveTrustProxy(process.env.TRUST_PROXY));
 
@@ -275,6 +291,14 @@ const directProxyPolicies: DirectProxyPolicy[] = [
     bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: true,
   },
   {
+    // Reputation is owned by admin-service for the current modular boundary.
+    // Keep merchant reputation responses ahead of the broad merchant proxy so
+    // review/report/appeal state cannot be sent to merchant-service by prefix.
+    matches: (path) => path.startsWith('/api/v1/reputation') || path.startsWith('/api/v1/merchant/reputation'),
+    serviceName: 'admin-service', breaker: adminBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: true,
+  },
+  {
     matches: (path) => path.startsWith('/api/v1/auth/web') || path.startsWith('/api/v1/auth/courier') || path.startsWith('/api/v1/auth/merchant'),
     serviceName: 'admin-service', breaker: adminBreaker,
     bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: true,
@@ -424,9 +448,7 @@ if (process.env.NODE_ENV === 'production' && !resolveInternalGatewaySecret()) {
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 30, // limit each IP to 30 requests per 15 minutes
-  keyGenerator: (req) => {
-    return (req.headers['cf-connecting-ip'] as string) || (req.headers['x-forwarded-for'] as string) || req.ip || 'unknown';
-  },
+  keyGenerator: rateLimitClientKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -462,9 +484,7 @@ const logProxyError = (proxy: string, target: string, err: Error, req?: Request)
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 100, // limit each IP to 100 requests per minute
-  keyGenerator: (req) => {
-    return (req.headers['cf-connecting-ip'] as string) || (req.headers['x-forwarded-for'] as string) || req.ip || 'unknown';
-  },
+  keyGenerator: rateLimitClientKey,
   standardHeaders: true,
   legacyHeaders: false,
   // Search has its own bounded capacity budget below. Keeping it out of the
@@ -484,9 +504,7 @@ const searchLimiter = rateLimit({
   // Supports the current 50 QPS multi-city profile with room for short
   // bursts while retaining a finite per-IP budget.
   max: 3000,
-  keyGenerator: (req) => {
-    return (req.headers['cf-connecting-ip'] as string) || (req.headers['x-forwarded-for'] as string) || req.ip || 'unknown';
-  },
+  keyGenerator: rateLimitClientKey,
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => !(req.path.startsWith('/api/v1/search') || req.path.startsWith('/api/v1/admin/search')),
@@ -1182,9 +1200,7 @@ app.use(createProxyMiddleware({
 const trackingPublicLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: Number(process.env.TRACKING_PUBLIC_RATE_LIMIT_PER_MINUTE || 20),
-  keyGenerator: (req) => {
-    return (req.headers['cf-connecting-ip'] as string) || (req.headers['x-forwarded-for'] as string) || req.ip || 'unknown';
-  },
+  keyGenerator: rateLimitClientKey,
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.method === 'OPTIONS',
@@ -1376,6 +1392,33 @@ app.use(createProxyMiddleware({
       logProxyError('support_cases', ADMIN_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(503).json(upstreamUnavailableBody('Support service is currently unavailable'));
+      }
+    },
+  },
+}));
+
+// Reputation reviews, reports, appeals and merchant responses are owned by
+// admin-service in the current modular boundary. Keep this route explicit and
+// ahead of the broad customer/merchant proxies so the same domain has one
+// authoritative moderation and audit path.
+app.use(createProxyMiddleware({
+  pathFilter: (pathname: string) =>
+    pathname.startsWith('/api/v1/reputation') || pathname.startsWith('/api/v1/merchant/reputation'),
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('reputation', req, ADMIN_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) recordBreakerFailure(adminBreaker);
+    },
+    error: (err: Error, req: any, res: any) => {
+      recordBreakerFailure(adminBreaker);
+      logProxyError('reputation', ADMIN_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(503).json(upstreamUnavailableBody('Reputation service is currently unavailable'));
       }
     },
   },

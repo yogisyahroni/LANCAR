@@ -17,6 +17,7 @@ import { startEventOutboxWorker } from './workers/event-outbox-worker';
 import { startBroadcastSchedulerWorker } from './workers/broadcast-scheduler-worker';
 import { startCourierDocumentComplianceWorker } from './workers/courier-document-compliance-worker';
 import { startCourierAvailabilityPolicyWorker } from './workers/courier-availability-policy-worker';
+import { startCrmCampaignSchedulerWorker } from './workers/crm-campaign-scheduler-worker';
 import { initFirebase } from './notifications';
 import { requestContext } from './middleware/requestContext';
 import { genericErrorHandler, sanitizeErrorResponses } from './middleware/errorMapper';
@@ -129,6 +130,7 @@ server.listen(port, async () => {
     startBroadcastSchedulerWorker();
     startCourierDocumentComplianceWorker();
     startCourierAvailabilityPolicyWorker();
+    startCrmCampaignSchedulerWorker();
   } catch (error) {
     console.error(JSON.stringify({
       level: 'fatal',

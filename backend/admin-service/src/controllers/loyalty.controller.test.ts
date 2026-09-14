@@ -1,4 +1,4 @@
-import { adjustLoyaltyAccount, applyLoyaltyOrderEvent, resolveMembershipBenefitEligibility } from './loyalty.controller';
+import { adjustLoyaltyAccount, applyLoyaltyOrderEvent, applyMembershipPaymentEvent, resolveMembershipBenefitEligibility } from './loyalty.controller';
 
 jest.mock('../db', () => ({
   db: { connect: jest.fn() },
@@ -115,5 +115,50 @@ describe('membership eligibility boundary', () => {
     expect(client.query.mock.calls[2][0]).toContain("'ADJUSTMENT'");
     expect(client.query.mock.calls[2][0]).toContain('ON CONFLICT (idempotency_key) DO NOTHING');
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, duplicate: false }));
+  });
+
+  it('does not leave a pending entitlement active after payment failure', async () => {
+    const client = { query: jest.fn(), release: jest.fn() };
+    client.query
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ id: 'entitlement-1', state: 'PENDING_PAYMENT', payment_intent_id: 'payment-1' }] })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'payment-event-1' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'entitlement-1', state: 'CANCELLED', current_period_end: '2026-10-01', payment_intent_id: 'payment-1', updated_at: '2026-09-14' }] })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+    db.connect.mockResolvedValue(client);
+    const res = response();
+
+    await applyMembershipPaymentEvent({
+      params: { entitlementId: '22222222-2222-4222-8222-222222222222' },
+      body: { payment_state: 'FAILED', payment_intent_id: 'payment-1' },
+      header: (name: string) => name.toLowerCase() === 'x-internal-api-key' ? 'test-internal-key' : name.toLowerCase() === 'x-idempotency-key' ? 'membership-payment-1' : undefined,
+    } as any, res);
+
+    expect(client.query.mock.calls[2][0]).toContain('crm_membership_payment_events');
+    expect(client.query.mock.calls[3][1]).toEqual(['22222222-2222-4222-8222-222222222222', 'CANCELLED', 'FAILED']);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, duplicate: false, data: expect.objectContaining({ state: 'CANCELLED' }) }));
+  });
+
+  it('rejects reuse of a membership payment idempotency key with a different event', async () => {
+    const client = { query: jest.fn(), release: jest.fn() };
+    client.query
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [{ id: 'entitlement-1', state: 'PENDING_PAYMENT', payment_intent_id: 'payment-1' }] })
+      .mockResolvedValueOnce({ rowCount: 0, rows: [] })
+      .mockResolvedValueOnce({ rows: [{ payment_state: 'SUCCEEDED', payment_intent_id: 'payment-1', provider_reference: 'provider-success', resulting_state: 'ACTIVE' }] })
+      .mockResolvedValueOnce({});
+    db.connect.mockResolvedValue(client);
+    const res = response();
+
+    await applyMembershipPaymentEvent({
+      params: { entitlementId: '22222222-2222-4222-8222-222222222222' },
+      body: { payment_state: 'FAILED', payment_intent_id: 'payment-1', provider_reference: 'provider-failed' },
+      header: (name: string) => name.toLowerCase() === 'x-internal-api-key' ? 'test-internal-key' : name.toLowerCase() === 'x-idempotency-key' ? 'membership-payment-reused' : undefined,
+    } as any, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({ success: false, code: 'ERR_MEMBERSHIP_IDEMPOTENCY_REUSE' });
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
   });
 });

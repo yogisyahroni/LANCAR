@@ -1210,4 +1210,3 @@ func (s *walletService) RefundTip(ctx context.Context, customerID uuid.UUID, cou
 	})
 	return err
 }
-

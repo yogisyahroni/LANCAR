@@ -23,7 +23,7 @@ func NewDisbursementService(flagReader featureflags.FlagReader) *DisbursementSer
 	if gatewayUrl == "" {
 		gatewayUrl = "http://integration-gateway:8085"
 	}
-	
+
 	return &DisbursementService{
 		gatewayUrl:     gatewayUrl,
 		internalAPIKey: os.Getenv("INTERNAL_API_KEY"),

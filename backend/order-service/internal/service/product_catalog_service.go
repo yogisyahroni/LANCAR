@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
-	"tembus/order-service/internal/domain"
 	"strconv"
 	"strings"
+	"tembus/order-service/internal/domain"
 
 	"github.com/google/uuid"
 )
@@ -71,7 +71,7 @@ func (s *ProductCatalogService) BulkUploadCSV(ctx context.Context, customerID st
 	reader := csv.NewReader(bytes.NewReader(csvContent))
 	// Boleh koma atau titik koma (tergantung aplikasi export CSV di Indonesia seringkali semicolon)
 	reader.LazyQuotes = true
-	
+
 	records, err := reader.ReadAll()
 	if err != nil {
 		return nil, fmt.Errorf("gagal membaca file CSV: %v", err)
@@ -107,7 +107,7 @@ func (s *ProductCatalogService) BulkUploadCSV(ctx context.Context, customerID st
 		name := strings.TrimSpace(row[0])
 		sku := strings.TrimSpace(row[1])
 		weightStr := strings.TrimSpace(row[2])
-		
+
 		if name == "" {
 			errorCount++
 			continue
@@ -160,7 +160,7 @@ func (s *ProductCatalogService) BulkUploadCSV(ctx context.Context, customerID st
 		})
 
 		successCount++
-		
+
 		if successCount >= availableSlot {
 			break // Berhenti jika slot habis
 		}

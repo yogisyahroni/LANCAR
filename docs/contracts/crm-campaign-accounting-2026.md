@@ -43,8 +43,14 @@ campaign cannot claim incrementality when it has no holdout cohort.
 ## Accounting
 
 Per-order campaign reservations must carry the explicit platform/merchant/
-membership/referral funding breakdown. Settlement/reconciliation writes an
-exception or compensating record; it never mutates provider or payment history.
+membership/referral funding breakdown. The order-service boundary is
+`POST /api/internal/crm/campaigns/:campaignId/orders/:orderId/reservation` and
+derives customer and subsidy amount from the canonical order row; it accepts no
+browser/customer request. Finance reconciliation is
+`POST /admin/crm/reservations/:id/reconcile` and compares the reservation with
+`orders.promo_subsidy_minor` (falling back to the legacy IDR projection), then
+updates the reservation lifecycle and writes an auditable exception when the
+amount or funding split differs. It never mutates provider or payment history.
 
 OTP and live payment-provider behavior remain vendor-dependent staging follow-up
 and are not represented by CRM campaign metrics.

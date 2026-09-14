@@ -21,6 +21,14 @@ describe('generic error mapper and log redaction', () => {
   app.get('/throw', () => {
     throw new Error('JWT secret leaked: eyJabc.def.ghi');
   });
+  app.post('/safe-operational', (_req, res) => {
+    res.status(503).json({
+      success: false,
+      code: 'NEW_ORDER_GATE_ACTIVE',
+      error: 'Layanan sedang tidak menerima order baru di area ini.',
+      active_orders_preserved: true,
+    });
+  });
   app.use(genericErrorHandler);
 
   it('maps 500 json responses to a safe envelope', async () => {
@@ -59,6 +67,17 @@ describe('generic error mapper and log redaction', () => {
     expect(res.body.correlation_id).toBe('corr-throw');
     expect(res.body.request_id).toMatch(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
     expect(res.body.trace_id).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it('preserves the narrow, safe operational gate envelope', async () => {
+    const res = await request(app).post('/safe-operational');
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual(expect.objectContaining({
+      success: false,
+      code: 'NEW_ORDER_GATE_ACTIVE',
+      active_orders_preserved: true,
+    }));
   });
 
   it('redacts sensitive strings and object keys before logging', () => {

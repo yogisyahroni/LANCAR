@@ -130,7 +130,7 @@ data class RuntimeDesignTokens(
     }
 
     fun accentContentColor(darkTheme: Boolean): Color = when (accentPreset) {
-        RuntimeAccentPreset.BRAND -> if (darkTheme) DarkOnSurface else OnPrimary
+        RuntimeAccentPreset.BRAND -> if (darkTheme) DarkOnPrimary else OnPrimary
         RuntimeAccentPreset.CAMPAIGN_ORANGE -> if (darkTheme) DarkBackground else OnAccent
         RuntimeAccentPreset.CAMPAIGN_BLUE -> if (darkTheme) DarkBackground else OnPrimary
     }
@@ -168,7 +168,17 @@ data class RuntimeDesignTokens(
                 spacingPreset = RuntimeSpacingPreset.fromWire(properties.stringValue("spacing_preset")),
                 badgePreset = RuntimeBadgePreset.fromWire(properties.stringValue("badge_preset")),
             )
-            return tokens.takeIf { it.isContrastSafe(false) && it.isContrastSafe(true) } ?: PackagedDefault
+            // Resolve unsafe color combinations independently so a malformed
+            // accent/background cannot discard unrelated valid spacing,
+            // corner, or badge presets from the same manifest.
+            var resolved = tokens
+            if (!resolved.isContrastSafe(false) || !resolved.isContrastSafe(true)) {
+                resolved = resolved.copy(accentPreset = RuntimeAccentPreset.BRAND)
+            }
+            if (!resolved.isContrastSafe(false) || !resolved.isContrastSafe(true)) {
+                resolved = resolved.copy(backgroundPreset = RuntimeBackgroundPreset.SURFACE)
+            }
+            return resolved.takeIf { it.isContrastSafe(false) && it.isContrastSafe(true) } ?: PackagedDefault
         }
     }
 }

@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	minTipAmountIDR    = 1000  // Rp1.000
+	minTipAmountIDR    = 1000   // Rp1.000
 	maxTipAmountIDR    = 200000 // Rp200.000 per order
 	tipListDefaultPage = 20
 )
@@ -36,18 +36,18 @@ func NewTipService(
 // tipEligibleStatuses — status order yang masih bisa di-tip: sejak kurir
 // ditugaskan sampai delivered. Tidak bisa untuk cancelled/failed/refunded.
 var tipEligibleStatuses = map[domain.OrderStatus]bool{
-	domain.StatusAccepted:          true,
-	domain.StatusPickingUp:         true,
-	domain.StatusPickedUp:          true,
-	domain.StatusInboundOrigin:     true,
-	domain.StatusOutboundOrigin:    true,
-	domain.StatusInboundDestination: true,
+	domain.StatusAccepted:            true,
+	domain.StatusPickingUp:           true,
+	domain.StatusPickedUp:            true,
+	domain.StatusInboundOrigin:       true,
+	domain.StatusOutboundOrigin:      true,
+	domain.StatusInboundDestination:  true,
 	domain.StatusOutboundDestination: true,
-	domain.StatusDelivering:        true,
-	domain.StatusDelivered:         true,
-	domain.StatusPendingMerchant:   false, // belum ada kurir
-	domain.StatusPreparing:         false,
-	domain.StatusSearching:         false, // belum ada kurir
+	domain.StatusDelivering:          true,
+	domain.StatusDelivered:           true,
+	domain.StatusPendingMerchant:     false, // belum ada kurir
+	domain.StatusPreparing:           false,
+	domain.StatusSearching:           false, // belum ada kurir
 }
 
 func (s *tipService) CreateTip(ctx context.Context, orderID uuid.UUID, customerID uuid.UUID, amount int64) (*domain.DriverTip, error) {
@@ -121,12 +121,12 @@ func (s *tipService) GetTipByOrder(ctx context.Context, orderID uuid.UUID) (*dom
 }
 
 // RefundTipByOrder — FB-083: refund tip saat order dibatalkan.
-// - Tidak ada tip → no-op (bukan error).
-// - Tip sudah refunded → no-op (idempotent).
-// - Tip paid → balik transfer (courier → customer) via payment-service,
-//   lalu status → refunded. Kalau transfer gagal (mis. saldo courier tidak
-//   cukup karena sudah ditarik), error di-return — status tetap paid,
-//   bisa diretry.
+//   - Tidak ada tip → no-op (bukan error).
+//   - Tip sudah refunded → no-op (idempotent).
+//   - Tip paid → balik transfer (courier → customer) via payment-service,
+//     lalu status → refunded. Kalau transfer gagal (mis. saldo courier tidak
+//     cukup karena sudah ditarik), error di-return — status tetap paid,
+//     bisa diretry.
 func (s *tipService) RefundTipByOrder(ctx context.Context, orderID uuid.UUID) error {
 	tip, err := s.tipRepo.GetTipByOrderID(ctx, orderID)
 	if err != nil {

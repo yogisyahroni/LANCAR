@@ -26,6 +26,9 @@ export function useOrderDetailRuntime(id: string) {
   const [proofs, setProofs] = useState<TrackingProof[]>([]);
   const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
   const [tracking, setTracking] = useState<TrackingData | null>(null);
+  const [safetyCenter, setSafetyCenter] = useState<any | null>(null);
+  const [safetyActionPending, setSafetyActionPending] = useState(false);
+  const [safetyActionMessage, setSafetyActionMessage] = useState('');
   const [trackingError, setTrackingError] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -56,6 +59,17 @@ export function useOrderDetailRuntime(id: string) {
     }
   }, [id]);
 
+  const fetchSafetyCenter = useCallback(async () => {
+    if (!id) return;
+    try {
+      const res = await api.get(`/customer/orders/${id}/safety-center`);
+      if (res.data?.success) setSafetyCenter(res.data.data || null);
+    } catch (error: any) {
+      if (error?.response?.status === 404 || error?.response?.status === 401) setSafetyCenter(null);
+      clientLog.error('Failed to fetch customer safety center', { error, orderId: id });
+    }
+  }, [id]);
+
   const fetchOrderDetail = useCallback(async (showLoader = true) => {
     if (!id) return;
     if (showLoader) setLoading(true);
@@ -67,6 +81,7 @@ export function useOrderDetailRuntime(id: string) {
         setEvents(res.data.events || []);
         setCarrierEvents(res.data.carrier_events || []);
         setProofs(res.data.proofs || []);
+        void fetchSafetyCenter();
         if (showLoader) void fetchOrderChats();
       } else if (showLoader) {
         setOrder(null);
@@ -81,7 +96,7 @@ export function useOrderDetailRuntime(id: string) {
     } finally {
       if (showLoader) setLoading(false);
     }
-  }, [addNotification, fetchOrderChats, id]);
+  }, [addNotification, fetchOrderChats, fetchSafetyCenter, id]);
 
   const fetchTracking = useCallback(async () => {
     if (!id) return;
@@ -258,6 +273,41 @@ export function useOrderDetailRuntime(id: string) {
     }
   };
 
+  const handleReportSafety = useCallback(async (message: string) => {
+    const note = message.trim().slice(0, 500);
+    if (!id || !note) return;
+    setSafetyActionPending(true);
+    setSafetyActionMessage('');
+    try {
+      await api.post(`/customer/orders/${id}/safety-incidents`, {
+        category: 'CUSTOMER_SAFETY_REPORT', severity: 'HIGH', message: note,
+      }, { headers: { 'X-Idempotency-Key': `customer-web-safety-${id}-${Date.now()}` } });
+      setSafetyActionMessage('Laporan keselamatan tercatat dan diteruskan ke jalur safety. Status order tidak diubah otomatis.');
+      await fetchSafetyCenter();
+    } catch (error: any) {
+      setSafetyActionMessage(error?.response?.data?.message || 'Laporan keselamatan belum dapat dikirim. Coba lagi.');
+    } finally {
+      setSafetyActionPending(false);
+    }
+  }, [fetchSafetyCenter, id]);
+
+  const handleTriggerSafetySOS = useCallback(async () => {
+    if (!id || !window.confirm('SOS akan membuat insiden CRITICAL dan mengirimkannya ke jalur eskalasi market. Jika vendor belum tersedia, aplikasi hanya menampilkan instruksi darurat yang disetujui—tidak ada respons yang dijanjikan. Lanjutkan?')) return;
+    setSafetyActionPending(true);
+    setSafetyActionMessage('');
+    try {
+      const res = await api.post(`/customer/orders/${id}/sos`, {}, { headers: { 'X-Idempotency-Key': `customer-web-sos-${id}-${Date.now()}` } });
+      setSafetyActionMessage(res.data?.escalation === 'fallback_instructions'
+        ? 'Insiden SOS tercatat. Vendor darurat market belum dikonfigurasi; ikuti instruksi darurat lokal dan hubungi bantuan resmi.'
+        : 'Insiden SOS tercatat dan menunggu jalur eskalasi market.');
+      await fetchSafetyCenter();
+    } catch (error: any) {
+      setSafetyActionMessage(error?.response?.data?.message || 'SOS belum dapat dikirim. Gunakan layanan darurat lokal bila Anda dalam bahaya.');
+    } finally {
+      setSafetyActionPending(false);
+    }
+  }, [fetchSafetyCenter, id]);
+
   return {
     user, addNotification, order, events, carrierEvents, proofs, isDisputeModalOpen, setIsDisputeModalOpen,
     tracking, trackingError, loading, loadError, chatsLoading, sharingTracking, retryingMatching,
@@ -265,6 +315,8 @@ export function useOrderDetailRuntime(id: string) {
     chatInput, setChatInput, chatMessages, uploading, previewImage, setPreviewImage,
     selectedFile, setSelectedFile, chatScrollRef, fileInputRef, handleFileUpload,
     handlePaste, handleSendMessage, handleCreatePublicTrackingLink, handleRetryMatching,
-    handleCancelOrder, handleDownloadResi, handleReportIssue, refresh: () => fetchOrderDetail(),
+    handleCancelOrder, handleDownloadResi, handleReportIssue, handleReportSafety,
+    handleTriggerSafetySOS, safetyCenter, safetyActionPending, safetyActionMessage,
+    refresh: () => fetchOrderDetail(),
   };
 }

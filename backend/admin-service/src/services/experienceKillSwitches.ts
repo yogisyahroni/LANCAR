@@ -158,6 +158,25 @@ const invalidate = async (key: string): Promise<void> => {
 
 const isHighImpact = (type: ExperienceKillSwitchType): boolean => type !== 'marketing_hide';
 
+const matchesScopedValue = (
+  config: Record<string, unknown>,
+  singularKey: string,
+  pluralKey: string,
+  actualValue: string,
+): boolean => {
+  const actual = actualValue.trim().toLowerCase();
+  const raw = Object.prototype.hasOwnProperty.call(config, pluralKey)
+    ? config[pluralKey]
+    : config[singularKey];
+  if (raw === undefined || raw === null) return true;
+  const values = Array.isArray(raw)
+    ? raw.filter((value): value is string => typeof value === 'string').map((value) => value.trim().toLowerCase())
+    : typeof raw === 'string' ? [raw.trim().toLowerCase()] : [];
+  if (values.length === 0) return true;
+  if (!actual) return false;
+  return values.some((value) => value === '*' || value === actual);
+};
+
 export const listExperienceKillSwitchControls = async (filters: {
   market_code?: unknown;
   service_code?: unknown;
@@ -185,6 +204,46 @@ export const listExperienceKillSwitchControls = async (filters: {
     values,
   );
   return result.rows.map(rowToRecord);
+};
+
+/**
+ * Transactional new-order callers must consult the same typed control plane as
+ * the mobile order service.  Marketing visibility is deliberately excluded:
+ * only an active `new_order_gate` may reject a new transaction.  This helper
+ * reads through the writer pool so a control change is effective immediately
+ * even when the read pool is replicated asynchronously.
+ */
+export const isExperienceKillSwitchActive = async (scope: {
+  kill_switch_type: ExperienceKillSwitchType;
+  service_code: string;
+  market_code?: string;
+  city_code?: string;
+  zone_code?: string;
+}): Promise<boolean> => {
+  const result = await db.query(
+    `SELECT is_enabled, config
+       FROM feature_flags
+      WHERE category = 'experience_kill_switch'
+        AND config->>'control_plane' = 'experience'
+        AND config->>'kill_switch_type' = $1`,
+    [scope.kill_switch_type],
+  );
+  const now = Date.now();
+  return result.rows.some((row: Record<string, unknown>) => {
+    if (row.is_enabled !== true) return false;
+    const config = row.config && typeof row.config === 'object' && !Array.isArray(row.config)
+      ? row.config as Record<string, unknown>
+      : {};
+    if (!matchesScopedValue(config, 'service_code', 'service_codes', scope.service_code)) return false;
+    if (!matchesScopedValue(config, 'market_code', 'market_codes', scope.market_code || '')) return false;
+    if (!matchesScopedValue(config, 'city_code', 'city_codes', scope.city_code || '')) return false;
+    if (!matchesScopedValue(config, 'zone_code', 'zone_codes', scope.zone_code || '')) return false;
+    const startsAt = typeof config.starts_at === 'string' ? Date.parse(config.starts_at) : NaN;
+    const expiresAt = typeof config.expires_at === 'string' ? Date.parse(config.expires_at) : NaN;
+    if (Number.isFinite(startsAt) && startsAt > now) return false;
+    if (Number.isFinite(expiresAt) && expiresAt <= now) return false;
+    return true;
+  });
 };
 
 export const upsertExperienceKillSwitch = async (

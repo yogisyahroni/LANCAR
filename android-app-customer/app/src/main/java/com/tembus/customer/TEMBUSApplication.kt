@@ -2,6 +2,9 @@ package com.tembus.customer
 
 import android.app.Application
 import android.util.Log
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.memory.MemoryCache
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.tembus.customer.util.FirebaseInitializer
@@ -15,7 +18,7 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 @HiltAndroidApp
-class TEMBUSApplication : Application(), Configuration.Provider {
+class TEMBUSApplication : Application(), Configuration.Provider, ImageLoaderFactory {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
@@ -50,5 +53,11 @@ class TEMBUSApplication : Application(), Configuration.Provider {
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
+            .build()
+
+    override fun newImageLoader(): ImageLoader =
+        ImageLoader.Builder(this)
+            .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.15).build() }
+            .crossfade(true)
             .build()
 }

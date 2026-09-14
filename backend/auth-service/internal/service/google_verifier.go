@@ -16,7 +16,6 @@ import (
 // Google ID Token Verifier
 // ─────────────────────────────────────────────
 
-
 // GoogleIDTokenClaims contains the verified claims from a Google ID token.
 type GoogleIDTokenClaims struct {
 	Sub           string // Stable Google subject (user identifier) — never log
@@ -174,8 +173,6 @@ func (v *GoogleTokenVerifier) nonceMatches(tokenNonce, expectedNonce string) boo
 	expectedHash := fmt.Sprintf("%x", sum)
 	return tokenNonce == expectedHash
 }
-
-
 
 // verifyViaTokenInfo validates the token using Google's tokeninfo endpoint.
 // This is our signature verification method (avoids dependency on RSA library).

@@ -58,11 +58,11 @@ func (h *VoucherHandler) ValidateVoucher(w http.ResponseWriter, r *http.Request)
 	}
 
 	middleware.WriteSuccess(w, http.StatusOK, map[string]any{
-		"valid":       res.Valid,
-		"voucher_id":  res.VoucherID,
-		"code":        res.Code,
-		"name":        res.Name,
+		"valid":        res.Valid,
+		"voucher_id":   res.VoucherID,
+		"code":         res.Code,
+		"name":         res.Name,
 		"discount_idr": res.DiscountIDR,
-		"error":       res.Error,
+		"error":        res.Error,
 	})
 }

@@ -17,12 +17,12 @@ func (s *orderServiceImpl) publishOrderEvent(ctx context.Context, orderID string
 		version = v
 	}
 	event := domain.OrderEvent{
-		ID:         uuid.NewString(),
-		OrderID:    orderID,
-		Status:     status,
-		Message:    message,
-		CreatedAt:  time.Now(),
-		Version:    version,
+		ID:        uuid.NewString(),
+		OrderID:   orderID,
+		Status:    status,
+		Message:   message,
+		CreatedAt: time.Now(),
+		Version:   version,
 	}
 	if order, err := s.orderRepo.GetByID(ctx, orderID); err == nil && order != nil {
 		event.Version = uint64(order.StateVersion)

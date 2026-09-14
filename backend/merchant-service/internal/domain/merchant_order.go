@@ -61,8 +61,8 @@ type OrderEditData struct {
 
 // EditOrderResult — hasil edit item order (FB-087): harga baru terhitung.
 type EditOrderResult struct {
-	OrderID       string `json:"order_id"`
-	SubtotalIDR   int64  `json:"subtotal_idr"`
+	OrderID        string `json:"order_id"`
+	SubtotalIDR    int64  `json:"subtotal_idr"`
 	PlatformFeeIDR int64  `json:"platform_fee_idr"`
-	TotalIDR      int64  `json:"total_idr"`
+	TotalIDR       int64  `json:"total_idr"`
 }

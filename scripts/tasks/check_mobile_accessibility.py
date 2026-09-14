@@ -70,7 +70,7 @@ def main() -> int:
 
     low_icon_buttons: list[str] = []
     low_size_pattern = re.compile(
-        r"(?:IconButton|FilledIconButton|FloatingActionButton)\((?:(?!\bIcon\().){0,500}?"
+        r"(?:\bIconButton|\bFilledIconButton|\bFloatingActionButton)\((?:(?!\bIcon\().){0,500}?"
         r"modifier\s*=\s*Modifier(?:(?!\bIcon\().){0,250}?\.size\("
         r"(?:[0-9]|[1-3][0-9]|4[0-7])\.dp\)",
         re.DOTALL,

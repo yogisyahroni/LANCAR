@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import { db, readDb } from '../db';
 import { getActorId } from '../utils/authUtils';
 import { securityLog } from '../security/logRedaction';
-import { membershipStateAllowsBenefit } from '../services/crmPolicy';
+import { membershipStateAllowsBenefit, resolveMembershipPaymentTransition, MembershipPaymentState, MembershipState } from '../services/crmPolicy';
 
 /**
  * C9: Loyalty / membership tier view.
@@ -206,6 +206,105 @@ export const resolveMembershipBenefitEligibility = async (req: Request, res: Res
   } catch (error: any) {
     securityLog.error('RESOLVE_MEMBERSHIP_ELIGIBILITY_FAILED', { error: error?.message, market_code: marketCode });
     res.status(500).json({ success: false, code: 'ERR_MEMBERSHIP_ELIGIBILITY_UNAVAILABLE' });
+  }
+};
+
+type MembershipPaymentEvent = {
+  payment_state?: MembershipPaymentState;
+  payment_intent_id?: string;
+  provider_reference?: string;
+};
+
+/** Payment-service callback boundary; pending entitlements cannot become active without success. */
+export const applyMembershipPaymentEvent = async (req: Request, res: Response): Promise<void> => {
+  if (!internalKeyMatches(req)) {
+    res.status(401).json({ success: false, code: 'ERR_INTERNAL_UNAUTHORIZED' });
+    return;
+  }
+  const entitlementId = String(req.params.entitlementId || '').trim();
+  const idempotencyKey = String(req.header('x-idempotency-key') || '').trim().slice(0, 180);
+  const input = (req.body || {}) as MembershipPaymentEvent;
+  const paymentState = String(input.payment_state || '').trim().toUpperCase() as MembershipPaymentState;
+  const paymentIntentId = String(input.payment_intent_id || '').trim();
+  const providerReference = String(input.provider_reference || '').trim().slice(0, 180);
+  if (!uuidLike(entitlementId) || !/^[A-Za-z0-9][A-Za-z0-9._:-]{2,179}$/.test(idempotencyKey) || !['SUCCEEDED', 'FAILED', 'REFUNDED', 'CANCELLED'].includes(paymentState)) {
+    res.status(400).json({ success: false, code: 'ERR_INVALID_MEMBERSHIP_PAYMENT_EVENT' });
+    return;
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const entitlement = await client.query<{ id: string; state: MembershipState; payment_intent_id: string | null }>(
+      `SELECT id, state, payment_intent_id FROM crm_membership_entitlements WHERE id = $1 FOR UPDATE`,
+      [entitlementId],
+    );
+    if (!entitlement.rows[0]) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, code: 'ERR_MEMBERSHIP_ENTITLEMENT_NOT_FOUND' });
+      return;
+    }
+    if (entitlement.rows[0].payment_intent_id && paymentIntentId && entitlement.rows[0].payment_intent_id !== paymentIntentId) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, code: 'ERR_MEMBERSHIP_PAYMENT_INTENT_MISMATCH' });
+      return;
+    }
+    const nextState = resolveMembershipPaymentTransition(entitlement.rows[0].state, paymentState);
+    const inserted = await client.query<{ id: string }>(
+      `INSERT INTO crm_membership_payment_events
+        (entitlement_id, idempotency_key, payment_state, resulting_state, payment_intent_id, provider_reference)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (idempotency_key) DO NOTHING
+       RETURNING id`,
+      [entitlementId, idempotencyKey, paymentState, nextState, paymentIntentId || entitlement.rows[0].payment_intent_id, providerReference || null],
+    );
+    if (!inserted.rowCount) {
+      const existingEvent = await client.query<{ payment_state: string; payment_intent_id: string | null; provider_reference: string | null; resulting_state: string }>(
+        `SELECT payment_state, payment_intent_id, provider_reference, resulting_state
+           FROM crm_membership_payment_events WHERE idempotency_key = $1`,
+        [idempotencyKey],
+      );
+      const replay = existingEvent.rows[0];
+      if (!replay || replay.payment_state !== paymentState || (replay.payment_intent_id || '') !== (paymentIntentId || entitlement.rows[0].payment_intent_id || '') || (replay.provider_reference || '') !== (providerReference || '') || replay.resulting_state !== nextState) {
+        await client.query('ROLLBACK');
+        res.status(409).json({ success: false, code: 'ERR_MEMBERSHIP_IDEMPOTENCY_REUSE' });
+        return;
+      }
+      const current = await client.query(`SELECT id, state, updated_at FROM crm_membership_entitlements WHERE id = $1`, [entitlementId]);
+      await client.query('COMMIT');
+      res.json({ success: true, duplicate: true, data: current.rows[0] });
+      return;
+    }
+    const updated = await client.query(
+      `UPDATE crm_membership_entitlements
+          SET state = $2,
+              current_period_start = CASE
+                WHEN $3 = 'SUCCEEDED' AND state = 'ACTIVE' THEN current_period_start
+                WHEN $2 = 'ACTIVE' AND state <> 'ACTIVE' THEN NOW()
+                ELSE current_period_start
+              END,
+              current_period_end = CASE
+                WHEN $3 = 'SUCCEEDED' AND state = 'ACTIVE' THEN GREATEST(current_period_end, NOW()) + INTERVAL '30 days'
+                WHEN $2 = 'ACTIVE' AND state <> 'ACTIVE' THEN NOW() + INTERVAL '30 days'
+                ELSE current_period_end
+              END,
+              updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, state, current_period_start, current_period_end, payment_intent_id, updated_at`,
+      [entitlementId, nextState, paymentState],
+    );
+    await client.query(
+      `INSERT INTO audit_logs (actor_id, action, target_id, payload)
+       VALUES (NULL, 'crm.membership.payment_state_applied', $1, $2::jsonb)`,
+      [entitlementId, JSON.stringify({ payment_state: paymentState, resulting_state: nextState, payment_intent_id: paymentIntentId || null, provider_reference_present: Boolean(providerReference) })],
+    );
+    await client.query('COMMIT');
+    res.status(200).json({ success: true, duplicate: false, data: updated.rows[0] });
+  } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    securityLog.error('APPLY_MEMBERSHIP_PAYMENT_EVENT_FAILED', { error: error?.message, entitlement_id: entitlementId, payment_state: paymentState });
+    res.status(500).json({ success: false, code: 'ERR_MEMBERSHIP_PAYMENT_EVENT_UNAVAILABLE' });
+  } finally {
+    client.release();
   }
 };
 

@@ -3,7 +3,9 @@ package com.tembus.courier.di
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.tembus.courier.BuildConfig
 import com.tembus.courier.data.api.AuthInterceptor
+import com.tembus.courier.data.api.NetworkReliabilityPolicy
 import com.tembus.courier.data.api.RequestCorrelationInterceptor
+import com.tembus.courier.data.api.SafeGetRetryInterceptor
 import com.tembus.courier.data.api.TEMBUSApiService
 import com.tembus.courier.data.api.TokenExpiryInterceptor
 import com.tembus.courier.data.session.AuthSessionManager
@@ -90,13 +92,16 @@ object NetworkModule {
     ): OkHttpClient {
         val builder = OkHttpClient.Builder()
             .addInterceptor(requestCorrelationInterceptor)
+            .addInterceptor(SafeGetRetryInterceptor())
             .addInterceptor(loggingInterceptor)
             .addInterceptor(AuthInterceptor(sessionManager))
             // 🛡️ Auto-logout on Token Expiration (HTTP 401)
             .addInterceptor(TokenExpiryInterceptor(sessionManager))
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(false)
+            .callTimeout(NetworkReliabilityPolicy.CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .connectTimeout(NetworkReliabilityPolicy.CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(NetworkReliabilityPolicy.READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .writeTimeout(NetworkReliabilityPolicy.WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
         if (!BuildConfig.DEBUG && BuildConfig.API_CERT_PINNING_REQUIRED) {
             builder.certificatePinner(buildCertificatePinner())

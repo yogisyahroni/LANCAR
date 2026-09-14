@@ -1,4 +1,10 @@
-import { experienceKillSwitchInputSchema } from './experienceKillSwitches';
+jest.mock('../db', () => ({
+  db: { query: jest.fn() },
+  readDb: { query: jest.fn() },
+}));
+
+import { db } from '../db';
+import { experienceKillSwitchInputSchema, isExperienceKillSwitchActive } from './experienceKillSwitches';
 
 const base = {
   name: 'Food operational control',
@@ -41,5 +47,44 @@ describe('experience kill switch schema', () => {
       rollback_plan: 'short',
       fallback_behavior: 'reject_new_orders',
     }).success).toBe(false);
+  });
+});
+
+describe('transactional new-order gate evaluation', () => {
+  const query = db.query as jest.Mock;
+
+  beforeEach(() => query.mockReset());
+
+  it('matches an active scoped new-order gate', async () => {
+    query.mockResolvedValue({ rows: [{ is_enabled: true, config: {
+      control_plane: 'experience',
+      kill_switch_type: 'new_order_gate',
+      service_code: 'food_delivery',
+      market_codes: ['id-jk'],
+      city_codes: ['jakarta'],
+      preserve_active_orders: true,
+    } }] });
+
+    await expect(isExperienceKillSwitchActive({
+      kill_switch_type: 'new_order_gate',
+      service_code: 'food_delivery',
+      market_code: 'id-jk',
+      city_code: 'jakarta',
+    })).resolves.toBe(true);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("config->>'kill_switch_type' = $1"), ['new_order_gate']);
+  });
+
+  it('does not gate a different city or an expired control', async () => {
+    query.mockResolvedValue({ rows: [
+      { is_enabled: true, config: { service_code: 'food_delivery', market_codes: ['id-jk'], city_codes: ['bandung'] } },
+      { is_enabled: true, config: { service_code: 'food_delivery', market_codes: ['id-jk'], expires_at: '2026-01-01T00:00:00.000Z' } },
+    ] });
+
+    await expect(isExperienceKillSwitchActive({
+      kill_switch_type: 'new_order_gate',
+      service_code: 'food_delivery',
+      market_code: 'id-jk',
+      city_code: 'jakarta',
+    })).resolves.toBe(false);
   });
 });

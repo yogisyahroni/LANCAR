@@ -13,7 +13,7 @@ type PaymentRequest struct {
 
 func parsePaymentPayload(payload []byte) (*PaymentRequest, error) {
 	var req PaymentRequest
-	// In Go, unmarshaling a decimal/float into int64 will fail if it's not a whole number when strictly typed, 
+	// In Go, unmarshaling a decimal/float into int64 will fail if it's not a whole number when strictly typed,
 	// or we can strictly enforce it with a decoder that disallows unknown fields or custom UnmarshalJSON
 	err := json.Unmarshal(payload, &req)
 	if err != nil {
@@ -42,7 +42,7 @@ func roundToIDR(amount float64) int64 {
 func TestMoneyType_DecimalExploitRejected(t *testing.T) {
 	// Payload containing a float 50000.50 which is invalid for strictly int64 fields
 	payload := []byte(`{"amount_idr": 50000.50}`)
-	
+
 	_, err := parsePaymentPayload(payload)
 	if err == nil {
 		t.Errorf("Expected decimal/float payload to fail unmarshaling into int64, but it succeeded")

@@ -51,7 +51,7 @@ func (r *postgresWalletRepository) WithTx(ctx context.Context, fn func(txCtx con
 	if err != nil {
 		return err
 	}
-	
+
 	txCtx := context.WithValue(ctx, txKey{}, tx)
 	if err := fn(txCtx); err != nil {
 		_ = tx.Rollback()
@@ -325,7 +325,7 @@ func (r *postgresWalletRepository) GetTransactionByReferenceID(ctx context.Conte
 	if referenceID == "" {
 		return nil, errors.New("reference_id cannot be empty")
 	}
-	
+
 	var tx domain.WalletTransaction
 	// Try customer transactions first
 	query := `SELECT id, wallet_id, type, amount, fee, status, reference_id, metadata, created_at, updated_at 
@@ -550,4 +550,3 @@ func (r *postgresWalletRepository) ReconcileWalletLedger(ctx context.Context, wa
 
 	return res, nil
 }
-

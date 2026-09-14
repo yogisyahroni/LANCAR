@@ -7,9 +7,9 @@ import (
 
 func TestValidOrderCoordinateRejectsMissingOrImpossiblePoints(t *testing.T) {
 	tests := []struct {
-		name       string
-		lat, lng   float64
-		wantValid  bool
+		name      string
+		lat, lng  float64
+		wantValid bool
 	}{
 		{name: "valid Jakarta", lat: -6.2, lng: 106.8, wantValid: true},
 		{name: "zero point", lat: 0, lng: 0, wantValid: false},

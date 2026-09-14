@@ -31,10 +31,10 @@ func (x *XenditProvider) CreateInvoice(ctx context.Context, req domain.InvoiceRe
 	}
 
 	payload := map[string]any{
-		"external_id":      req.ReferenceID,
-		"amount":           req.Amount,
-		"payer_email":      req.CustomerEmail,
-		"description":      req.Description,
+		"external_id": req.ReferenceID,
+		"amount":      req.Amount,
+		"payer_email": req.CustomerEmail,
+		"description": req.Description,
 		"customer": map[string]any{
 			"given_names": req.CustomerName,
 		},
@@ -49,7 +49,7 @@ func (x *XenditProvider) CreateInvoice(ctx context.Context, req domain.InvoiceRe
 	if err != nil {
 		return nil, err
 	}
-	
+
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(x.secretKey+":")))
@@ -87,12 +87,12 @@ func (x *XenditProvider) CreateDisbursement(ctx context.Context, req domain.Disb
 	}
 
 	payload := map[string]any{
-		"external_id":          req.ReferenceID,
-		"amount":               req.Amount,
-		"bank_code":            req.BeneficiaryBank,
-		"account_holder_name":  req.BeneficiaryName,
-		"account_number":       req.BeneficiaryAccount,
-		"description":          req.Notes,
+		"external_id":         req.ReferenceID,
+		"amount":              req.Amount,
+		"bank_code":           req.BeneficiaryBank,
+		"account_holder_name": req.BeneficiaryName,
+		"account_number":      req.BeneficiaryAccount,
+		"description":         req.Notes,
 	}
 
 	body, err := json.Marshal(payload)

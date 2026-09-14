@@ -913,7 +913,10 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
         }, {
           headers: { 'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || '' }
         }).catch(err => {
-          securityLog.error(`[bulkOrder] Failed to send WA to ${row.recipient_phone}:`, err.message);
+          securityLog.error('[bulkOrder] Failed to send WA', {
+            error: err?.message,
+            has_recipient_phone: Boolean(row.recipient_phone),
+          });
         });
       }
     }

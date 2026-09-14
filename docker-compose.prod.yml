@@ -197,7 +197,7 @@ services:
     logging: *default-logging
 
   migrate:
-    image: ghcr.io/pressly/goose:latest
+    image: ghcr.io/pressly/goose:v3.27.1
     container_name: tembus-prod-migrate
     depends_on:
       db:

@@ -4,10 +4,10 @@ import "testing"
 
 func TestIsVehicleCapable(t *testing.T) {
 	cases := []struct {
-		name       string
-		vehicle    string
-		subType    string
-		expected   bool
+		name     string
+		vehicle  string
+		subType  string
+		expected bool
 	}{
 		{"motor for motor tambal ban", "motor", "tambal_ban_motor", true},
 		{"bebek for motor tambal ban", "bebek", "tambal_ban_motor", true},

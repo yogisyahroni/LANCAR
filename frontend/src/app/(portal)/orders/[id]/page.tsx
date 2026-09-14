@@ -21,6 +21,7 @@ export default function OrderDetailPage() {
     chatMessages, uploading, previewImage, setPreviewImage, selectedFile, setSelectedFile,
     fileInputRef, chatScrollRef, addNotification, handleCreatePublicTrackingLink,
     handleDownloadResi, handleReportIssue, handleRetryMatching, handleCancelOrder,
+    handleReportSafety, handleTriggerSafetySOS, safetyCenter, safetyActionPending, safetyActionMessage,
     handleSendMessage, handleFileUpload, handlePaste,
   } = runtime;
 
@@ -105,6 +106,8 @@ export default function OrderDetailPage() {
     handleCreatePublicTrackingLink={handleCreatePublicTrackingLink} handleDownloadResi={handleDownloadResi}
     handleReportIssue={handleReportIssue} handleRetryMatching={handleRetryMatching}
     handleCancelOrder={handleCancelOrder} handleSendMessage={handleSendMessage}
+    handleReportSafety={handleReportSafety} handleTriggerSafetySOS={handleTriggerSafetySOS}
+    safetyCenter={safetyCenter} safetyActionPending={safetyActionPending} safetyActionMessage={safetyActionMessage}
     handleFileUpload={handleFileUpload} handlePaste={handlePaste} setShowCancelModal={setShowCancelModal}
     setActivePhoto={setActivePhoto} setIsDisputeModalOpen={setIsDisputeModalOpen} setChatInput={setChatInput}
     setSelectedFile={setSelectedFile} setPreviewImage={setPreviewImage} api={api} cn={cn}

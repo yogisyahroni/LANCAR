@@ -45,8 +45,6 @@ var (
 		window:      5 * 60 * time.Second,
 		keyPrefix:   "rl:order:create",
 	}
-
-
 )
 
 // RateLimiter holds the Redis client and default policy.

@@ -21,15 +21,15 @@ func (m *mockMerchantRepoStaff) GetByID(ctx context.Context, id string) (*domain
 
 type mockStaffRepo struct {
 	domain.StaffRepository
-	create        func(ctx context.Context, s *domain.MerchantStaff) error
-	listByMerch   func(ctx context.Context, merchantID string) ([]*domain.MerchantStaff, error)
-	getByID       func(ctx context.Context, merchantID, staffID string) (*domain.MerchantStaff, error)
-	getByToken    func(ctx context.Context, token string) (*domain.MerchantStaff, error)
-	setUserActive func(ctx context.Context, id, userID string) error
-	updateRole    func(ctx context.Context, id, role string, perms int) error
-	updateStatus  func(ctx context.Context, id, status string) error
+	create         func(ctx context.Context, s *domain.MerchantStaff) error
+	listByMerch    func(ctx context.Context, merchantID string) ([]*domain.MerchantStaff, error)
+	getByID        func(ctx context.Context, merchantID, staffID string) (*domain.MerchantStaff, error)
+	getByToken     func(ctx context.Context, token string) (*domain.MerchantStaff, error)
+	setUserActive  func(ctx context.Context, id, userID string) error
+	updateRole     func(ctx context.Context, id, role string, perms int) error
+	updateStatus   func(ctx context.Context, id, status string) error
 	getActiveByUsr func(ctx context.Context, userID string) (*domain.MerchantStaff, error)
-	setUserRole   func(ctx context.Context, userID, role string) error
+	setUserRole    func(ctx context.Context, userID, role string) error
 }
 
 func (m *mockStaffRepo) Create(ctx context.Context, s *domain.MerchantStaff) error {
@@ -126,7 +126,7 @@ func TestAcceptInvite_Flow(t *testing.T) {
 	staff := &domain.MerchantStaff{ID: "s-1", MerchantID: "m-1", Status: string(domain.StaffStatusPending), Role: "kasir"}
 	var activated, roleSet bool
 	sr := &mockStaffRepo{
-		getByToken:    func(ctx context.Context, token string) (*domain.MerchantStaff, error) { return staff, nil },
+		getByToken: func(ctx context.Context, token string) (*domain.MerchantStaff, error) { return staff, nil },
 		setUserActive: func(ctx context.Context, id, userID string) error {
 			if id != "s-1" || userID != "user-x" {
 				return errors.New("bad")

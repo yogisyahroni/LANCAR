@@ -23,10 +23,10 @@ func newTestGateway(serverKey string) *MidtransGateway {
 // TestGenerateQRISValidation verifies input validation before any HTTP call.
 func TestGenerateQRISValidation(t *testing.T) {
 	tests := []struct {
-		name    string
+		name      string
 		serverKey string
-		amount  int
-		wantErr string
+		amount    int
+		wantErr   string
 	}{
 		{"empty server key", "", 10000, "is not configured"},
 		{"zero amount", "key", 0, "must be greater than zero"},

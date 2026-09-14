@@ -4,7 +4,9 @@ import android.content.Context
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.tembus.customer.BuildConfig
 import com.tembus.customer.data.api.AuthInterceptor
+import com.tembus.customer.data.api.NetworkReliabilityPolicy
 import com.tembus.customer.data.api.RequestCorrelationInterceptor
+import com.tembus.customer.data.api.SafeGetRetryInterceptor
 import com.tembus.customer.data.api.TEMBUSApiService
 import com.tembus.customer.data.api.TokenRefreshInterceptor
 import com.tembus.customer.data.session.AuthSessionManager
@@ -88,13 +90,15 @@ object NetworkModule {
     ): OkHttpClient {
         val builder = OkHttpClient.Builder()
             .addInterceptor(requestCorrelationInterceptor)
+            .addInterceptor(SafeGetRetryInterceptor())
             .addInterceptor(loggingInterceptor)
             .addInterceptor(AuthInterceptor(sessionManager))
             .addInterceptor(tokenRefreshInterceptor)
-            .callTimeout(60, TimeUnit.SECONDS)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(false)
+            .callTimeout(NetworkReliabilityPolicy.CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .connectTimeout(NetworkReliabilityPolicy.CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(NetworkReliabilityPolicy.READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .writeTimeout(NetworkReliabilityPolicy.WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
         if (!BuildConfig.DEBUG && BuildConfig.API_CERT_PINNING_REQUIRED) {
             builder.certificatePinner(buildCertificatePinner())

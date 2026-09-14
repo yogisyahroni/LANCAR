@@ -130,6 +130,35 @@ func (h *ChargebackHandler) Ingest(w http.ResponseWriter, r *http.Request) {
 		writePaymentIntentError(w, http.StatusConflict, "ERR_CHARGEBACK_STATE_REGRESSION")
 		return
 	}
+	if req.State == domain.ChargebackLost {
+		var intentAmount, refundedAmount, existingChargebackAmount int64
+		err = tx.QueryRowContext(r.Context(), `
+			SELECT pi.amount_minor,
+			       COALESCE((SELECT SUM(amount_minor) FROM payment_refund_ledger_entries WHERE intent_id = pi.id), 0),
+			       COALESCE((SELECT SUM(amount_minor) FROM payment_chargeback_ledger_entries WHERE intent_id = pi.id AND entry_type = 'LOSS'), 0)
+			  FROM payment_intents pi
+			 WHERE pi.id = $1`, req.IntentID).Scan(&intentAmount, &refundedAmount, &existingChargebackAmount)
+		if err != nil {
+			writePaymentIntentError(w, http.StatusUnprocessableEntity, "ERR_CHARGEBACK_UNAVAILABLE")
+			return
+		}
+		if compensationWouldExceedIntent(refundedAmount, existingChargebackAmount, req.AmountMinor, intentAmount) {
+			_, err = tx.ExecContext(r.Context(), `INSERT INTO payment_reconciliation_exceptions
+				(intent_id, provider, provider_reference, exception_type, expected_amount_minor, actual_amount_minor, currency, metadata)
+				VALUES ($1,$2,$3,'CHARGEBACK_AFTER_REFUND',$4,$5,$6,$7::jsonb)
+				ON CONFLICT DO NOTHING`, req.IntentID, req.Provider, req.CaseReference, intentAmount-refundedAmount, req.AmountMinor, req.Currency, string(req.Payload))
+			if err != nil {
+				writePaymentIntentError(w, http.StatusUnprocessableEntity, "ERR_CHARGEBACK_UNAVAILABLE")
+				return
+			}
+			if err = tx.Commit(); err != nil {
+				writePaymentIntentError(w, http.StatusServiceUnavailable, "ERR_CHARGEBACK_UNAVAILABLE")
+				return
+			}
+			writePaymentIntentError(w, http.StatusConflict, "ERR_CHARGEBACK_AFTER_REFUND")
+			return
+		}
+	}
 	_, err = tx.ExecContext(r.Context(), `UPDATE payment_chargebacks
 		SET state=$2, amount_minor=$3, currency=$4, evidence_deadline=$5, liability_owner=$6,
 		    provider_raw_payload=$7::jsonb, updated_at=NOW() WHERE id=$1`,
@@ -138,6 +167,18 @@ func (h *ChargebackHandler) Ingest(w http.ResponseWriter, r *http.Request) {
 		_, err = tx.ExecContext(r.Context(), `UPDATE payment_intents
 			SET state='CHARGEBACK', provider_raw_status=$2, provider_reference=COALESCE(provider_reference,$3), version=version+1, updated_at=$4
 			WHERE id=$1 AND state IN ('PAID','CAPTURED','SETTLED','PARTIALLY_REFUNDED')`, req.IntentID, req.ProviderRawStatus, req.CaseReference, req.OccurredAt)
+	}
+	if err == nil && (req.State == domain.ChargebackLost || req.State == domain.ChargebackWon) {
+		outcome := "WIN"
+		if req.State == domain.ChargebackLost {
+			outcome = "LOSS"
+		}
+		_, err = tx.ExecContext(r.Context(), `INSERT INTO payment_chargeback_ledger_entries
+			(chargeback_id, intent_id, entry_type, liability_owner, provider_case_reference, amount_minor, currency, idempotency_key)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+			ON CONFLICT (chargeback_id, entry_type) DO NOTHING`,
+			chargebackID, req.IntentID, outcome, req.LiabilityOwner, req.CaseReference, req.AmountMinor, req.Currency,
+			"chargeback-outcome:"+chargebackID.String()+":"+outcome)
 	}
 	if err != nil {
 		writePaymentIntentError(w, http.StatusUnprocessableEntity, "ERR_CHARGEBACK_UNAVAILABLE")

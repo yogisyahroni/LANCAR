@@ -20,7 +20,8 @@ object ApiClient {
 
     fun createService(
         sessionManager: AuthSessionManager,
-        deviceIdentityProvider: DeviceIdentityProvider
+        deviceIdentityProvider: DeviceIdentityProvider,
+        requestReferenceStore: NetworkRequestReferenceStore,
     ): TEMBUSApiService {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
@@ -31,10 +32,10 @@ object ApiClient {
         }
 
         // Service khusus refresh — tanpa AuthInterceptor & Authenticator.
-        val refreshClient = buildBaseClient(logging).build()
+        val refreshClient = buildBaseClient(logging, requestReferenceStore).build()
         val refreshService = buildRetrofit(refreshClient).create(TEMBUSApiService::class.java)
 
-        val client = buildBaseClient(logging)
+        val client = buildBaseClient(logging, requestReferenceStore)
             .addInterceptor(AuthInterceptor(sessionManager))
             .authenticator(TokenAuthenticator(sessionManager, deviceIdentityProvider, refreshService))
             .build()
@@ -42,12 +43,19 @@ object ApiClient {
         return buildRetrofit(client).create(TEMBUSApiService::class.java)
     }
 
-    private fun buildBaseClient(logging: HttpLoggingInterceptor): OkHttpClient.Builder =
+    private fun buildBaseClient(
+        logging: HttpLoggingInterceptor,
+        requestReferenceStore: NetworkRequestReferenceStore,
+    ): OkHttpClient.Builder =
         OkHttpClient.Builder()
+            .addInterceptor(RequestCorrelationInterceptor(requestReferenceStore))
+            .addInterceptor(SafeGetRetryInterceptor())
             .addInterceptor(logging)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(false)
+            .callTimeout(NetworkReliabilityPolicy.CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .connectTimeout(NetworkReliabilityPolicy.CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(NetworkReliabilityPolicy.READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .writeTimeout(NetworkReliabilityPolicy.WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
     private fun buildRetrofit(client: OkHttpClient): Retrofit =
         Retrofit.Builder()

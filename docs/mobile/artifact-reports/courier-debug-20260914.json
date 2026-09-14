@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "app_slug": "courier",
+  "version_code": "1",
+  "version_name": "staging-local",
+  "commit": "fcce455f6e6cb5cd9363fbfdf54887e3efeae7e1",
+  "generated_at": "2026-09-14T06:03:29.530532+00:00",
+  "artifacts": [
+    {
+      "kind": "apk",
+      "channel": "debug",
+      "path": "android-app/app/build/outputs/apk/debug/app-debug.apk",
+      "size_bytes": 223392999,
+      "sha256": "09ac096a20074e9708558bc516eef9b9b60b8785e3b7829a97a6c2de1a78b56c"
+    }
+  ],
+  "secret_handling": "Hashes and metadata only; no signing key, credential or token is recorded."
+}

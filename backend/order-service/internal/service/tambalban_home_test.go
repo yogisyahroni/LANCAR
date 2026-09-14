@@ -14,8 +14,8 @@ import (
 
 type fakeAvailabilityRepo struct {
 	domain.AvailabilityRepository
-	couriers    []*domain.NearbyCourier
-	services    map[string]*domain.DeliveryServiceProduct
+	couriers []*domain.NearbyCourier
+	services map[string]*domain.DeliveryServiceProduct
 }
 
 func (f *fakeAvailabilityRepo) FindCouriersByCapability(ctx context.Context, serviceSubType string, radiusKM float64, lat, lng float64) ([]*domain.NearbyCourier, error) {
@@ -56,7 +56,7 @@ type errT string
 func (e errT) Error() string { return string(e) }
 
 func errServiceNotFoundT() error { return errT("service not found") }
-func errStateNotFoundT() error  { return errT("state not found") }
+func errStateNotFoundT() error   { return errT("state not found") }
 
 func newFakeRepo() *fakeAvailabilityRepo {
 	return &fakeAvailabilityRepo{
@@ -82,22 +82,22 @@ func newFakeRepo() *fakeAvailabilityRepo {
 		},
 		services: map[string]*domain.DeliveryServiceProduct{
 			"tambal_ban_motor": {
-				Code:            "tambal_ban_motor",
-				Name:            "Tambal Ban Motor",
-				BaseFareIDR:     5000,
-				PerKmIDR:        2000,
-				PlatformFeeIDR:  1000,
-				PlatformFeePct:  2.5,
-				SearchRadiiKM:   []float64{3, 5, 10},
+				Code:           "tambal_ban_motor",
+				Name:           "Tambal Ban Motor",
+				BaseFareIDR:    5000,
+				PerKmIDR:       2000,
+				PlatformFeeIDR: 1000,
+				PlatformFeePct: 2.5,
+				SearchRadiiKM:  []float64{3, 5, 10},
 			},
 			"tambal_ban_mobil": {
-				Code:            "tambal_ban_mobil",
-				Name:            "Tambal Ban Mobil",
-				BaseFareIDR:     10000,
-				PerKmIDR:        3000,
-				PlatformFeeIDR:  1000,
-				PlatformFeePct:  2.5,
-				SearchRadiiKM:   []float64{3, 5, 10},
+				Code:           "tambal_ban_mobil",
+				Name:           "Tambal Ban Mobil",
+				BaseFareIDR:    10000,
+				PerKmIDR:       3000,
+				PlatformFeeIDR: 1000,
+				PlatformFeePct: 2.5,
+				SearchRadiiKM:  []float64{3, 5, 10},
 			},
 		},
 	}

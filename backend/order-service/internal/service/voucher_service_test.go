@@ -13,8 +13,8 @@ import (
 // ── Mock ────────────────────────────────────────────────────────────────
 
 type mockVoucherRepo struct {
-	vouchers map[string]*domain.Voucher // key: code
-	usages   map[string]bool            // key: "voucherID:userID" (single-use)
+	vouchers   map[string]*domain.Voucher // key: code
+	usages     map[string]bool            // key: "voucherID:userID" (single-use)
 	applyCalls int
 }
 
@@ -58,18 +58,18 @@ func makeVoucher(code string, vType string, value int, minOrder int, quota *int)
 	now := time.Now()
 	future := now.Add(24 * time.Hour)
 	return &domain.Voucher{
-		ID:             id,
-		Code:           code,
-		Name:           "Voucher " + code,
-		Type:           vType,
-		Value:          value,
-		MinOrderIDR:    minOrder,
-		Quota:          quota,
-		IsActive:       true,
-		IsSingleUse:    false,
+		ID:               id,
+		Code:             code,
+		Name:             "Voucher " + code,
+		Type:             vType,
+		Value:            value,
+		MinOrderIDR:      minOrder,
+		Quota:            quota,
+		IsActive:         true,
+		IsSingleUse:      false,
 		ApplicableModels: nil,
-		ValidFrom:      now.Add(-time.Hour),
-		ValidUntil:     &future,
+		ValidFrom:        now.Add(-time.Hour),
+		ValidUntil:       &future,
 	}
 }
 

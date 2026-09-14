@@ -19,3 +19,13 @@ func TestCompareReconciliationDetectsMissingProvider(t *testing.T) {
 		t.Fatalf("expected missing provider exception, got %v/%v", exceptions, err)
 	}
 }
+
+func TestCompareReconciliationIgnoresProviderBatchTimezoneDifferences(t *testing.T) {
+	internal := &ReconciliationRecord{IntentID: "intent-2", Provider: "provider-a", ProviderReference: "native-2", AmountMinor: 1000, Currency: "IDR", State: PaymentIntentPaid, BatchDate: "2026-09-14", Timezone: "Asia/Jakarta"}
+	provider := &ReconciliationRecord{IntentID: "intent-2", Provider: "provider-a", ProviderReference: "native-2", AmountMinor: 1000, Currency: "IDR", State: PaymentIntentPaid, BatchDate: "2026-09-13", Timezone: "UTC"}
+	settlement := &ReconciliationRecord{IntentID: "intent-2", Provider: "provider-a", ProviderReference: "native-2", AmountMinor: 1000, Currency: "IDR", State: PaymentIntentPaid, BatchDate: "2026-09-13", Timezone: "UTC"}
+	exceptions, err := CompareReconciliation(internal, provider, settlement)
+	if err != nil || len(exceptions) != 0 {
+		t.Fatalf("batch cut-off metadata must not create a financial mismatch, got %v/%v", exceptions, err)
+	}
+}

@@ -86,7 +86,8 @@ export const revokeCustomerEmergencyContact = async (req: Request, res: Response
 const readActiveOrder = async (orderId: string, userId: string, role: 'customer' | 'courier') => {
   const ownership = role === 'customer' ? 'o.customer_id = $2' : 'EXISTS (SELECT 1 FROM order_legs ol WHERE ol.order_id = o.id AND ol.courier_id = $2)';
   const result = await readDb.query(
-    `SELECT o.id, o.customer_id, o.service_code, o.status, o.market_code,
+    `SELECT o.id, o.customer_id, o.service_code, o.status,
+            COALESCE(o.service_metadata->>'market_code', 'id-jk') AS market_code,
             m.user_id AS merchant_user_id,
             (SELECT ol.courier_id FROM order_legs ol
               WHERE ol.order_id = o.id AND ol.courier_id IS NOT NULL
@@ -164,7 +165,7 @@ export const createCustomerSafetyIncident = async (req: Request, res: Response) 
     const result = await db.query(
       `INSERT INTO safety_incidents
         (reporter_id, counterparty_id, order_id, service_code, market_code, category, severity, escalation_state, latitude, longitude, location_recorded_at, context)
-       VALUES ($1, COALESCE($3, $4), $2, $5, $6, $7, $8, 'NOT_ESCALATED', $9, $10, CASE WHEN $9 IS NULL THEN NULL ELSE NOW() END, $11::jsonb)
+       VALUES ($1, COALESCE($3::uuid, $4::uuid), $2, $5, $6, $7, $8, 'NOT_ESCALATED', $9::numeric, $10::numeric, CASE WHEN $9::numeric IS NULL THEN NULL ELSE NOW() END, $11::jsonb)
        RETURNING id, order_id, service_code, market_code, category, severity, state, escalation_state, latitude, longitude, created_at`,
       [userId, orderId, order.courier_id || null, order.merchant_user_id || null, order.service_code || null, order.market_code || 'id-jk', category, severity, latitude, longitude, JSON.stringify({ source: 'customer_safety_center', message: String(req.body?.message || '').trim().slice(0, 500) })],
     );
@@ -186,7 +187,7 @@ export const createCourierSafetyIncident = async (req: Request, res: Response) =
     if (!order) return res.status(404).json({ success: false, code: 'ERR_ORDER_NOT_FOUND' });
     const result = await db.query(
       `INSERT INTO safety_incidents (reporter_id, counterparty_id, order_id, service_code, market_code, category, severity, escalation_state, context)
-       VALUES ($1, $3, $2, $4, $5, $6, $7, 'NOT_ESCALATED', $8::jsonb)
+       VALUES ($1, $3::uuid, $2, $4, $5, $6, $7, 'NOT_ESCALATED', $8::jsonb)
        RETURNING id, order_id, service_code, market_code, category, severity, state, escalation_state, created_at`,
       [userId, orderId, order.customer_id || null, order.service_code || null, order.market_code || 'id-jk', category, severity, JSON.stringify({ source: 'courier_safety_center', message: String(req.body?.message || '').trim().slice(0, 500), active_order_preserved: true })],
     );

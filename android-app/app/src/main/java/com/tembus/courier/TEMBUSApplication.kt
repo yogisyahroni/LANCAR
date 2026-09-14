@@ -40,6 +40,7 @@ import javax.inject.Inject
  */
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.memory.MemoryCache
 import okhttp3.OkHttpClient
 
 @HiltAndroidApp
@@ -251,6 +252,7 @@ class TEMBUSApplication : Application(), Configuration.Provider, ImageLoaderFact
 
         return ImageLoader.Builder(this)
             .okHttpClient(client)
+            .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.15).build() }
             .crossfade(true)
             .build()
     }

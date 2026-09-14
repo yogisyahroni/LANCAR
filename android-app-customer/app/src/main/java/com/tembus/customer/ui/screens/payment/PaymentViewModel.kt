@@ -78,16 +78,13 @@ class PaymentViewModel @Inject constructor(
                         items = payment.items,
                         message = "Sesi pembayaran sebelumnya kedaluwarsa. Pilih metode pembayaran lagi."
                     )
-                    qrisAvailable && !payment.redirectUrl.isNullOrBlank() && payment.method.equals("QRIS", ignoreCase = true) -> {
-                        _uiState.value = PaymentUiState.Choosing(
-                            selectedMethod = CustomerPaymentMethod.QRIS,
-                            amountIdr = payment.amountIdr,
-                            walletBalanceIdr = payment.walletBalanceIdr,
-                            activePaymentProvider = payment.activePaymentProvider,
-                            availablePaymentMethods = payment.availablePaymentMethods,
-                            items = payment.items,
-                            message = "Sesi QRIS tersedia. Lanjutkan jika ingin memakai QRIS."
-                        )
+                    qrisAvailable && PaymentResumePolicy.shouldResumeQrSession(
+                        paymentMethod = payment.method,
+                        redirectUrl = payment.redirectUrl,
+                        status = status,
+                        orderStatus = payment.orderStatus
+                    ) -> {
+                        _uiState.value = PaymentUiState.Ready(payment.redirectUrl.orEmpty(), status)
                     }
                     else -> _uiState.value = PaymentUiState.Choosing(
                         selectedMethod = effectiveSelected,

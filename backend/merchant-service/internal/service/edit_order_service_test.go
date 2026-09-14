@@ -12,10 +12,10 @@ import (
 
 type mockOrderRepoForEdit struct {
 	domain.MerchantOrderRepository
-	orderEdit         func(ctx context.Context, merchantID, orderID string) (*domain.OrderEditData, error)
-	replaceItems      func(ctx context.Context, orderID string, items []domain.FoodOrderItemSnapshot, subtotal, platformFee, total int64) error
-	recordEvent       func(ctx context.Context, orderID, eventType, description string) error
-	variantDeltas     func(ctx context.Context, orderID string) (map[string]int64, error)
+	orderEdit     func(ctx context.Context, merchantID, orderID string) (*domain.OrderEditData, error)
+	replaceItems  func(ctx context.Context, orderID string, items []domain.FoodOrderItemSnapshot, subtotal, platformFee, total int64) error
+	recordEvent   func(ctx context.Context, orderID, eventType, description string) error
+	variantDeltas func(ctx context.Context, orderID string) (map[string]int64, error)
 }
 
 func (m *mockOrderRepoForEdit) GetOrderItemVariantDeltas(ctx context.Context, orderID string) (map[string]int64, error) {

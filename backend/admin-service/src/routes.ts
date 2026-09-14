@@ -42,6 +42,7 @@ routes.use(supportRoutes);
 // mobile/web route module and requires a server-side shared secret.
 routes.post('/api/internal/loyalty/order-events', (req, res) => controllers.loyalty.applyLoyaltyOrderEvent(req, res));
 routes.post('/api/internal/membership/eligibility', (req, res) => controllers.loyalty.resolveMembershipBenefitEligibility(req, res));
+routes.post('/api/internal/membership/entitlements/:entitlementId/payment-events', (req, res) => controllers.loyalty.applyMembershipPaymentEvent(req, res));
 routes.post('/api/internal/crm/campaigns/:id/conversion', (req, res) => controllers.crmCampaign.recordInternalCrmCampaignConversion(req, res));
 
 routes.get('/api/admin/courier/leaderboard', requireAuth, async (req, res) => {

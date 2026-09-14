@@ -22,7 +22,8 @@ Cookie-authenticated mutations retain the existing CSRF protection.
 ## State and references
 
 Cases keep references to authoritative order, payment, refund, courier,
-merchant, carrier, proof, claim and reconciliation records. They do not copy
+merchant, carrier, proof, claim, reconciliation, chargeback and safety records.
+They do not copy
 those records' state. The detail API resolves current order/payment state for
 policy evaluation at read/action time.
 

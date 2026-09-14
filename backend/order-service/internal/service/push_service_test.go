@@ -12,7 +12,7 @@ import (
 
 // mockDeviceTokenRepo — mock DeviceTokenRepository untuk test push service.
 type mockDeviceTokenRepo struct {
-	tokensByUser map[uuid.UUID][]string
+	tokensByUser  map[uuid.UUID][]string
 	merchantOwner uuid.UUID
 	merchantErr   error
 }
@@ -101,10 +101,18 @@ func customerNotifCases() []struct {
 		name string
 		call func(svc domain.PushService, orderID, msg string) error
 	}{
-		{"MerchantAccepted", func(svc domain.PushService, id, msg string) error { return svc.NotifyCustomerMerchantAccepted(context.Background(), id, msg) }},
-		{"DriverAssigned", func(svc domain.PushService, id, msg string) error { return svc.NotifyCustomerDriverAssigned(context.Background(), id, msg) }},
-		{"PickedUp", func(svc domain.PushService, id, msg string) error { return svc.NotifyCustomerPickedUp(context.Background(), id, msg) }},
-		{"Delivered", func(svc domain.PushService, id, msg string) error { return svc.NotifyCustomerDelivered(context.Background(), id, msg) }},
+		{"MerchantAccepted", func(svc domain.PushService, id, msg string) error {
+			return svc.NotifyCustomerMerchantAccepted(context.Background(), id, msg)
+		}},
+		{"DriverAssigned", func(svc domain.PushService, id, msg string) error {
+			return svc.NotifyCustomerDriverAssigned(context.Background(), id, msg)
+		}},
+		{"PickedUp", func(svc domain.PushService, id, msg string) error {
+			return svc.NotifyCustomerPickedUp(context.Background(), id, msg)
+		}},
+		{"Delivered", func(svc domain.PushService, id, msg string) error {
+			return svc.NotifyCustomerDelivered(context.Background(), id, msg)
+		}},
 	}
 }
 
@@ -157,8 +165,12 @@ func merchantNotifCases() []struct {
 		name string
 		call func(svc domain.PushService, orderID, msg string) error
 	}{
-		{"PickedUp", func(svc domain.PushService, id, msg string) error { return svc.NotifyMerchantPickedUp(context.Background(), id, msg) }},
-		{"Delivered", func(svc domain.PushService, id, msg string) error { return svc.NotifyMerchantDelivered(context.Background(), id, msg) }},
+		{"PickedUp", func(svc domain.PushService, id, msg string) error {
+			return svc.NotifyMerchantPickedUp(context.Background(), id, msg)
+		}},
+		{"Delivered", func(svc domain.PushService, id, msg string) error {
+			return svc.NotifyMerchantDelivered(context.Background(), id, msg)
+		}},
 	}
 }
 

@@ -15,6 +15,7 @@ import {
   FileSignature,
   MessageSquare,
   ShoppingBag,
+  ShieldAlert,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -63,6 +64,11 @@ type OrderDetailContentProps = {
   handleCreatePublicTrackingLink: any;
   handleDownloadResi: any;
   handleReportIssue: any;
+  handleReportSafety: any;
+  handleTriggerSafetySOS: any;
+  safetyCenter: any;
+  safetyActionPending: any;
+  safetyActionMessage: any;
   handleRetryMatching: any;
   handleCancelOrder: any;
   handleSendMessage: any;
@@ -128,6 +134,11 @@ export function OrderDetailContent({
   handleCreatePublicTrackingLink,
   handleDownloadResi,
   handleReportIssue,
+  handleReportSafety,
+  handleTriggerSafetySOS,
+  safetyCenter,
+  safetyActionPending,
+  safetyActionMessage,
   handleRetryMatching,
   handleCancelOrder,
   handleSendMessage,
@@ -215,6 +226,31 @@ export function OrderDetailContent({
           </button>
         </div>
       </div>
+
+      {safetyCenter ? (
+        <section aria-labelledby="customer-safety-center-title" className="rounded-2xl border-2 border-error/40 bg-error-surface p-5 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <ShieldAlert className="mt-0.5 h-6 w-6 shrink-0 text-error" aria-hidden="true" />
+              <div>
+                <h2 id="customer-safety-center-title" className="text-lg font-extrabold text-foreground">Safety Center</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Tetap tersedia selama order aktif. Tindakan ini tidak bergantung pada konten promosi.</p>
+                <p className="mt-2 text-xs text-muted-foreground">Laporan keselamatan membuat insiden terpisah dan tidak mengubah status order secara diam-diam.</p>
+              </div>
+            </div>
+            <div className="flex w-full flex-col gap-2 md:w-auto md:min-w-64">
+              <label htmlFor="customer-safety-note" className="text-xs font-bold text-foreground">Jelaskan situasi</label>
+              <textarea id="customer-safety-note" rows={2} maxLength={500} placeholder="Contoh: lokasi pickup terasa tidak aman" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-error" />
+              <button type="button" disabled={safetyActionPending} onClick={(event) => handleReportSafety((event.currentTarget.parentElement?.querySelector('textarea') as HTMLTextAreaElement)?.value || '')} className="rounded-xl border border-error bg-background px-4 py-2 text-sm font-bold text-error disabled:cursor-not-allowed disabled:opacity-60">{safetyActionPending ? 'Mengirim...' : 'Laporkan isu keselamatan'}</button>
+              <button type="button" disabled={safetyActionPending} onClick={handleTriggerSafetySOS} className="rounded-xl bg-error px-4 py-2 text-sm font-extrabold text-error-foreground disabled:cursor-not-allowed disabled:opacity-60">SOS / eskalasi darurat</button>
+            </div>
+          </div>
+          <div className="mt-4 rounded-xl border border-error/30 bg-background/70 p-3 text-xs text-muted-foreground">
+            {safetyCenter.policy?.sos?.configured ? safetyCenter.policy.sos.consequence : 'Vendor darurat market belum dikonfigurasi. SOS hanya mencatat insiden dan menampilkan jalur bantuan resmi; tidak ada respons vendor yang diklaim.'}
+          </div>
+          {safetyActionMessage ? <p role="status" className="mt-3 text-sm font-semibold text-foreground">{safetyActionMessage}</p> : null}
+        </section>
+      ) : null}
 
       {/* No Courier Found Action Banner */}
       {order.status.toLowerCase() === "no_courier_found" && (

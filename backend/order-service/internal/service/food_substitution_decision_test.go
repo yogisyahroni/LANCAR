@@ -12,9 +12,9 @@ import (
 // substitution methods so the decision logic can be exercised.
 type foodSubstitutionRepo struct {
 	mockFoodRepo
-	order       *domain.Order
-	proposal    *domain.FoodSubstitutionProposal
-	resolved    string
+	order        *domain.Order
+	proposal     *domain.FoodSubstitutionProposal
+	resolved     string
 	priceUpdated *resolvedPrice
 }
 
@@ -57,21 +57,21 @@ func TestDecideFoodSubstitution_Approve_UpdatesItemPrice(t *testing.T) {
 	ctx := context.Background()
 	foodRepo := &foodSubstitutionRepo{
 		order: &domain.Order{
-			ID:        "order-1",
-			Status:    domain.StatusPreparing,
+			ID:         "order-1",
+			Status:     domain.StatusPreparing,
 			CustomerID: "cust-1",
 			MerchantID: ptrString("merchant-1"),
 		},
 		proposal: &domain.FoodSubstitutionProposal{
-			ID:               "prop-1",
-			OrderID:          "order-1",
-			OriginalItemID:   "item-orig",
-			OriginalItemName: "Nasi Goreng",
-			ReplacementItemID: "item-rep",
+			ID:                  "prop-1",
+			OrderID:             "order-1",
+			OriginalItemID:      "item-orig",
+			OriginalItemName:    "Nasi Goreng",
+			ReplacementItemID:   "item-rep",
 			ReplacementItemName: "Nasi Ayam",
-			ReplacementPrice:   30000,
-			PriceDifferenceIDR: 5000,
-			CustomerDecision:   "pending",
+			ReplacementPrice:    30000,
+			PriceDifferenceIDR:  5000,
+			CustomerDecision:    "pending",
 		},
 	}
 	orderRepo := &mockOrderRepo{order: foodRepo.order}
@@ -108,11 +108,11 @@ func TestDecideFoodSubstitution_Reject_DoesNotUpdatePrice(t *testing.T) {
 	foodRepo := &foodSubstitutionRepo{
 		order: &domain.Order{ID: "order-1", Status: domain.StatusPreparing, CustomerID: "cust-1", MerchantID: ptrString("m-1")},
 		proposal: &domain.FoodSubstitutionProposal{
-			ID:                "prop-1",
-			OrderID:           "order-1",
-			OriginalItemID:    "item-orig",
-			ReplacementPrice:  30000,
-			CustomerDecision:  "pending",
+			ID:               "prop-1",
+			OrderID:          "order-1",
+			OriginalItemID:   "item-orig",
+			ReplacementPrice: 30000,
+			CustomerDecision: "pending",
 		},
 	}
 	orderRepo := &mockOrderRepo{order: foodRepo.order}
@@ -139,7 +139,7 @@ func TestDecideFoodSubstitution_Reject_DoesNotUpdatePrice(t *testing.T) {
 func TestDecideFoodSubstitution_WrongCustomer_Rejected(t *testing.T) {
 	ctx := context.Background()
 	foodRepo := &foodSubstitutionRepo{
-		order: &domain.Order{ID: "order-1", Status: domain.StatusPreparing, CustomerID: "cust-1", MerchantID: ptrString("m-1")},
+		order:    &domain.Order{ID: "order-1", Status: domain.StatusPreparing, CustomerID: "cust-1", MerchantID: ptrString("m-1")},
 		proposal: &domain.FoodSubstitutionProposal{ID: "prop-1", OrderID: "order-1", CustomerDecision: "pending"},
 	}
 	orderRepo := &mockOrderRepo{order: foodRepo.order}
@@ -161,7 +161,7 @@ func TestDecideFoodSubstitution_WrongCustomer_Rejected(t *testing.T) {
 func TestDecideFoodSubstitution_NotPreparingOrSearching_Rejected(t *testing.T) {
 	ctx := context.Background()
 	foodRepo := &foodSubstitutionRepo{
-		order: &domain.Order{ID: "order-1", Status: domain.StatusDelivered, CustomerID: "cust-1", MerchantID: ptrString("m-1")},
+		order:    &domain.Order{ID: "order-1", Status: domain.StatusDelivered, CustomerID: "cust-1", MerchantID: ptrString("m-1")},
 		proposal: &domain.FoodSubstitutionProposal{ID: "prop-1", OrderID: "order-1", CustomerDecision: "pending"},
 	}
 	orderRepo := &mockOrderRepo{order: foodRepo.order}
@@ -183,7 +183,7 @@ func TestDecideFoodSubstitution_NotPreparingOrSearching_Rejected(t *testing.T) {
 func TestDecideFoodSubstitution_AlreadyDecided_Rejected(t *testing.T) {
 	ctx := context.Background()
 	foodRepo := &foodSubstitutionRepo{
-		order: &domain.Order{ID: "order-1", Status: domain.StatusPreparing, CustomerID: "cust-1", MerchantID: ptrString("m-1")},
+		order:    &domain.Order{ID: "order-1", Status: domain.StatusPreparing, CustomerID: "cust-1", MerchantID: ptrString("m-1")},
 		proposal: &domain.FoodSubstitutionProposal{ID: "prop-1", OrderID: "order-1", CustomerDecision: "approved"},
 	}
 	orderRepo := &mockOrderRepo{order: foodRepo.order}

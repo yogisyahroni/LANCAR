@@ -9,11 +9,11 @@ import (
 // CORE-2026-007: dedupe test — older/duplicate event versions are dropped.
 func TestWSHandlerDedupeOlderEvents(t *testing.T) {
 	h := &WSHandler{
-		clients:       make(map[*client]bool),
-		rooms:         make(map[string]map[*client]bool),
-		register:      make(chan *client),
-		unregister:    make(chan *client),
-		lastVersion:   make(map[string]uint64),
+		clients:     make(map[*client]bool),
+		rooms:       make(map[string]map[*client]bool),
+		register:    make(chan *client),
+		unregister:  make(chan *client),
+		lastVersion: make(map[string]uint64),
 	}
 
 	// First event: version 1 → should broadcast (seen 0 < 1).

@@ -186,8 +186,8 @@ var (
 	ErrTypedCarrierRateExpired  = &TypedError{Code: CodeCarrierRateExpired, UserMessage: "Tarif kupon sudah kadaluwarna — pilih kupon lain.", Recoverable: true}
 	ErrTypedCarrierEventUnknown = &TypedError{Code: CodeCarrierEventUnknown, UserMessage: "Aksi tidak dikenali driver.", Recoverable: false}
 
-	ErrTypedNotFound      = &TypedError{Code: CodeNotFound, UserMessage: "Data tidak ditemukan.", Recoverable: false}
-	ErrTypedUnauthorized  = &TypedError{Code: CodeUnauthorizedErr, UserMessage: "Sesi berakhir — silakan masuk kembali.", Recoverable: false}
-	ErrTypedInternal      = &TypedError{Code: CodeInternal, UserMessage: "Terjadi kesalahan. Tim kami sudah diberi tahu.", Recoverable: true}
+	ErrTypedNotFound        = &TypedError{Code: CodeNotFound, UserMessage: "Data tidak ditemukan.", Recoverable: false}
+	ErrTypedUnauthorized    = &TypedError{Code: CodeUnauthorizedErr, UserMessage: "Sesi berakhir — silakan masuk kembali.", Recoverable: false}
+	ErrTypedInternal        = &TypedError{Code: CodeInternal, UserMessage: "Terjadi kesalahan. Tim kami sudah diberi tahu.", Recoverable: true}
 	ErrTypedValidationError = &TypedError{Code: CodeValidation, UserMessage: "Masukan tidak valid.", Recoverable: false}
 )

@@ -17,17 +17,17 @@ var (
 	ErrProofTokenExhausted = errors.New("PROOF_TOKEN_EXHAUSTED")
 	ErrProofTokenUsed      = errors.New("PROOF_TOKEN_USED")
 	ErrProofImmutable      = errors.New("PROOF_IMMUTABLE")
-	ErrProofAlreadyExists = errors.New("PROOF_ALREADY_EXISTS")
+	ErrProofAlreadyExists  = errors.New("PROOF_ALREADY_EXISTS")
 
 	// CORE-2026-006 rename compatibility: legacy handoff_token_repository.go
 	// masih panggil domain.ErrHandoffToken*. Alias ke sentinels equivalent.
-	ErrHandoffTokenInvalid      = ErrProofTokenInvalid
-	ErrHandoffTokenExpired      = ErrProofTokenExpired
-	ErrHandoffTokenConsumed     = ErrProofTokenUsed
+	ErrHandoffTokenInvalid       = ErrProofTokenInvalid
+	ErrHandoffTokenExpired       = ErrProofTokenExpired
+	ErrHandoffTokenConsumed      = ErrProofTokenUsed
 	ErrHandoffTokenAttemptsLimit = ErrProofTokenExhausted
-	ErrHandoffOrderMismatch     = ErrProofImmutable
-	ErrHandoffActorMismatch     = ErrProofImmutable
-	ErrHandoffStageMismatch     = ErrProofImmutable
+	ErrHandoffOrderMismatch      = ErrProofImmutable
+	ErrHandoffActorMismatch      = ErrProofImmutable
+	ErrHandoffStageMismatch      = ErrProofImmutable
 )
 
 // ProofType is the kind of chain-of-custody evidence.
@@ -45,19 +45,19 @@ const (
 type TokenFormat string
 
 const (
-	TokenFormatNumeric6   TokenFormat = "numeric_6"
+	TokenFormatNumeric6     TokenFormat = "numeric_6"
 	TokenFormatAlphanumeric TokenFormat = "alphanumeric"
-	TokenFormatQR         TokenFormat = "qr"
+	TokenFormatQR           TokenFormat = "qr"
 )
 
 // ProofRequirement describes what proof is mandatory for a service/stage pair.
 type ProofRequirement struct {
 	ServiceCategory CanonicalServiceCategory `json:"service_category"`
-	Stage           string                    `json:"stage"`
-	ProofType       ProofType                 `json:"proof_type"`
-	Required        bool                      `json:"required"`
-	MinValue        *int                      `json:"min_value,omitempty"`
-	MaxValue        *int                      `json:"max_value,omitempty"`
+	Stage           string                   `json:"stage"`
+	ProofType       ProofType                `json:"proof_type"`
+	Required        bool                     `json:"required"`
+	MinValue        *int                     `json:"min_value,omitempty"`
+	MaxValue        *int                     `json:"max_value,omitempty"`
 }
 
 // ProofRequirementMatrix maps (service_category, stage) to the set of proofs.
@@ -84,7 +84,7 @@ type HandoffToken struct {
 	OrderID     string
 	ActorID     string
 	Stage       HandoffStage
-	Status      string    // pending | active | consumed | expired | blocked
+	Status      string // pending | active | consumed | expired | blocked
 	TokenHash   string
 	Attempts    int
 	MaxAttempts int
@@ -98,44 +98,43 @@ const (
 	HandoffStagePickup   HandoffStage = ProofStagePickup
 )
 
-
 // ProofVerificationToken is the one-time token issued to bind an actor to a
 // proof event. It carries expiry and attempt limits enforced transactionally.
 type ProofVerificationToken struct {
-	ID            string        `json:"id"`
-	OrderID       string        `json:"order_id"`
-	ActorID       string        `json:"actor_id"`
-	ActorRole     string        `json:"actor_role"`
-	Stage         ProofStage    `json:"stage"`
+	ID              string      `json:"id"`
+	OrderID         string      `json:"order_id"`
+	ActorID         string      `json:"actor_id"`
+	ActorRole       string      `json:"actor_role"`
+	Stage           ProofStage  `json:"stage"`
 	ServiceCategory string      `json:"service_category"`
-	TokenHash     string        `json:"-"`
-	TokenSalt     string        `json:"-"`
-	TokenFormat   TokenFormat   `json:"token_format"`
-	ExpiresAt     time.Time     `json:"expires_at"`
-	Attempts      int           `json:"attempts"`
-	MaxAttempts   int           `json:"max_attempts"`
-	UsedAt        *time.Time    `json:"used_at,omitempty"`
-	UsedBy        *string       `json:"used_by,omitempty"`
-	CreatedAt     time.Time     `json:"created_at"`
-	UpdatedAt     time.Time     `json:"updated_at"`
+	TokenHash       string      `json:"-"`
+	TokenSalt       string      `json:"-"`
+	TokenFormat     TokenFormat `json:"token_format"`
+	ExpiresAt       time.Time   `json:"expires_at"`
+	Attempts        int         `json:"attempts"`
+	MaxAttempts     int         `json:"max_attempts"`
+	UsedAt          *time.Time  `json:"used_at,omitempty"`
+	UsedBy          *string     `json:"used_by,omitempty"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
 }
 
 // ProofVerificationResult is returned after a token verify attempt.
 type ProofVerificationResult struct {
-	TokenID    string `json:"token_id"`
-	OrderID    string `json:"order_id"`
-	Consumed   bool   `json:"consumed"`
-	Stage      string `json:"stage"`
+	TokenID         string `json:"token_id"`
+	OrderID         string `json:"order_id"`
+	Consumed        bool   `json:"consumed"`
+	Stage           string `json:"stage"`
 	ServiceCategory string `json:"service_category"`
 }
 
 // IssueProofTokenRequest is the request to mint a one-time verification token.
 type IssueProofTokenRequest struct {
-	OrderID       string
-	Stage         ProofStage
-	TokenFormat   TokenFormat
-	ExpiresAt     time.Time
-	MaxAttempts   int
+	OrderID     string
+	Stage       ProofStage
+	TokenFormat TokenFormat
+	ExpiresAt   time.Time
+	MaxAttempts int
 }
 
 // VerifyProofTokenRequest is the request to consume a one-time verification token.
@@ -202,7 +201,7 @@ func ValidateProofForTransition(requirements []ProofRequirement, stage string) e
 func ParseProofStage(s string) (ProofStage, error) {
 	switch ProofStage(s) {
 	case ProofStagePickup, ProofStagePickedUp, ProofStageDelivering,
-	     ProofStageDelivered, ProofStageFailedDelivery:
+		ProofStageDelivered, ProofStageFailedDelivery:
 		return ProofStage(s), nil
 	default:
 		return "", errors.New("unknown proof stage: " + s)

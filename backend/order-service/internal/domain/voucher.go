@@ -12,23 +12,23 @@ import (
 // Tabel `vouchers` sudah ada (migration 00008) — CRUD admin di admin-service.
 // Nilai default-nya server-side, client hanya kirim kode (zero-trust).
 type Voucher struct {
-	ID               uuid.UUID  `json:"id" db:"id"`
-	Code             string     `json:"code" db:"code"`
-	Name             string     `json:"name" db:"name"`
-	Type             string     `json:"type" db:"type"` // percentage | fixed | free_shipping | sla_compensation
-	Value            int        `json:"value" db:"value"`
-	MaxDiscountIDR   *int       `json:"max_discount_idr,omitempty" db:"max_discount_idr"`
-	MinOrderIDR      int        `json:"min_order_idr" db:"min_order_idr"`
-	Quota            *int       `json:"quota,omitempty" db:"quota"`
-	UsedCount        int        `json:"used_count" db:"used_count"`
-	IsActive         bool       `json:"is_active" db:"is_active"`
-	IsSingleUse      bool       `json:"is_single_use" db:"is_single_use"`
+	ID             uuid.UUID `json:"id" db:"id"`
+	Code           string    `json:"code" db:"code"`
+	Name           string    `json:"name" db:"name"`
+	Type           string    `json:"type" db:"type"` // percentage | fixed | free_shipping | sla_compensation
+	Value          int       `json:"value" db:"value"`
+	MaxDiscountIDR *int      `json:"max_discount_idr,omitempty" db:"max_discount_idr"`
+	MinOrderIDR    int       `json:"min_order_idr" db:"min_order_idr"`
+	Quota          *int      `json:"quota,omitempty" db:"quota"`
+	UsedCount      int       `json:"used_count" db:"used_count"`
+	IsActive       bool      `json:"is_active" db:"is_active"`
+	IsSingleUse    bool      `json:"is_single_use" db:"is_single_use"`
 	// UAT-C-037: pq.StringArray — scan aman untuk kolom text[] (NULL → kosong).
 	ApplicableModels pq.StringArray `json:"applicable_models,omitempty" db:"applicable_models"`
-	ValidFrom        time.Time  `json:"valid_from" db:"valid_from"`
-	ValidUntil       *time.Time `json:"valid_until,omitempty" db:"valid_until"`
-	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at" db:"updated_at"`
+	ValidFrom        time.Time      `json:"valid_from" db:"valid_from"`
+	ValidUntil       *time.Time     `json:"valid_until,omitempty" db:"valid_until"`
+	CreatedAt        time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at" db:"updated_at"`
 }
 
 // VoucherValidationResult — hasil validasi + hitung diskon untuk preview
@@ -41,7 +41,7 @@ type VoucherValidationResult struct {
 	// Harga yang dijadikan basis diskon (subtotal + deliveryFee, sebelum platform fee).
 	// Percentage dihitung dari base; fixed langsung. Dibatasi max_discount_idr.
 	Valid bool   `json:"valid"`
-	Error string  `json:"error,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
 // VoucherRepository — akses data voucher (order-service).

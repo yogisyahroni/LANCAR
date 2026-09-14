@@ -82,6 +82,9 @@ fun TrackingScreen(
     val ratingState by ratingViewModel.uiState.collectAsStateWithLifecycle()
     val merchantRatingState by merchantRatingViewModel.uiState.collectAsStateWithLifecycle()
     val tipState by tipViewModel.uiState.collectAsStateWithLifecycle()
+    var safetyCenterOpen by remember(orderId) { mutableStateOf(false) }
+    var sosConfirmationOpen by remember(orderId) { mutableStateOf(false) }
+    var safetyNote by remember(orderId) { mutableStateOf("") }
 
     // Tracking lifecycle management
     DisposableEffect(orderId) {
@@ -216,8 +219,88 @@ fun TrackingScreen(
             )
         }
 
-        // LAYER 3.5: SOS EMERGENCY FAB — hanya aktif saat kurir dalam perjalanan
-        // S2-CUSTOMER-01: SOS Button implementation removed as per decision
+        // LAYER 3.5: Safety Center remains reachable from the active tracking surface.
+        if (uiState.detail != null) {
+            FloatingActionButton(
+                onClick = { safetyCenterOpen = true },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 88.dp, end = 20.dp)
+                    .size(52.dp)
+                    .criticalAction("Buka Safety Center"),
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
+            ) {
+                Icon(Icons.Filled.Warning, contentDescription = "Buka Safety Center")
+            }
+        }
+
+        if (safetyCenterOpen) {
+            AlertDialog(
+                onDismissRequest = { if (!uiState.safetyActionPending) safetyCenterOpen = false },
+                title = { Text("Safety Center") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Tetap tersedia selama order aktif. Laporan safety membuat insiden terpisah dan tidak mengubah status order secara diam-diam.")
+                        Text(
+                            uiState.safetyCenter?.policy?.sos?.consequence
+                                ?: "Memuat konsekuensi tindakan darurat…",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        OutlinedTextField(
+                            value = safetyNote,
+                            onValueChange = { safetyNote = it.take(500) },
+                            label = { Text("Jelaskan situasi") },
+                            placeholder = { Text("Contoh: lokasi pickup terasa tidak aman") },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !uiState.safetyActionPending,
+                            minLines = 2
+                        )
+                        if (!uiState.safetyMessage.isNullOrBlank()) {
+                            Text(uiState.safetyMessage.orEmpty(), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                },
+                confirmButton = {
+                    Column(horizontalAlignment = Alignment.End) {
+                        OutlinedButton(
+                            onClick = { viewModel.reportSafety(orderId, safetyNote) },
+                            enabled = !uiState.safetyActionPending && safetyNote.isNotBlank(),
+                            modifier = Modifier
+                                .heightIn(min = 48.dp)
+                                .criticalAction("Kirim laporan isu keselamatan")
+                        ) { Text("Laporkan isu") }
+                        Button(
+                            onClick = { sosConfirmationOpen = true },
+                            enabled = !uiState.safetyActionPending,
+                            modifier = Modifier
+                                .heightIn(min = 48.dp)
+                                .criticalAction("Buka konfirmasi SOS"),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) { Text("SOS / eskalasi") }
+                    }
+                },
+                dismissButton = { TextButton(onClick = { safetyCenterOpen = false }, enabled = !uiState.safetyActionPending) { Text("Tutup") } }
+            )
+        }
+
+        if (sosConfirmationOpen) {
+            AlertDialog(
+                onDismissRequest = { sosConfirmationOpen = false },
+                title = { Text("Konfirmasi SOS") },
+                text = { Text("SOS akan membuat insiden CRITICAL dan mengirimkannya ke jalur eskalasi market. Jika vendor belum tersedia, aplikasi hanya mencatat insiden dan menampilkan instruksi darurat yang disetujui—tidak ada respons yang dijanjikan.") },
+                confirmButton = {
+                    Button(
+                        onClick = { sosConfirmationOpen = false; viewModel.triggerSafetySos(orderId) },
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .criticalAction("Kirim SOS setelah konfirmasi"),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    ) { Text("Kirim SOS") }
+                },
+                dismissButton = { TextButton(onClick = { sosConfirmationOpen = false }) { Text("Batal") } }
+            )
+        }
 
         // LAYER 4: LIVE STATUS PANEL
         AnimatedVisibility(

@@ -24,12 +24,12 @@ import (
 
 // merchantServiceImpl — implementasi domain.MerchantService.
 type merchantServiceImpl struct {
-	merchantRepo   domain.MerchantRepository
-	menuRepo       domain.MenuItemRepository
-	orderRepo      domain.MerchantOrderRepository
-	reportRepo     domain.MerchantReportRepository
-	accessRepo     domain.MerchantAccessRepository
-	governanceRepo domain.MenuGovernanceRepository
+	merchantRepo    domain.MerchantRepository
+	menuRepo        domain.MenuItemRepository
+	orderRepo       domain.MerchantOrderRepository
+	reportRepo      domain.MerchantReportRepository
+	accessRepo      domain.MerchantAccessRepository
+	governanceRepo  domain.MenuGovernanceRepository
 	enforcementRepo domain.MerchantEnforcementRepository
 }
 

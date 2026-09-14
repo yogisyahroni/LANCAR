@@ -10,6 +10,7 @@ import (
 
 var ErrCircuitOpen = errors.New("payment provider circuit is open")
 var ErrProviderIdempotencyRequired = errors.New("provider mutation requires an idempotency key")
+var ErrProviderReferenceRequired = errors.New("provider reference is required for result recovery")
 
 // ResilientAdapter is the common provider boundary. It gives every adapter a
 // finite timeout, bounded retry, and circuit state without pretending that a
@@ -64,15 +65,18 @@ func (a *ResilientAdapter) record(err error) {
 	}
 }
 
-func (a *ResilientAdapter) call(ctx context.Context, operation string, fn func(context.Context) error) error {
+func (a *ResilientAdapter) call(ctx context.Context, operation string, maxAttempts int, fn func(context.Context) error) error {
 	if a == nil || a.next == nil {
 		return errors.New("payment provider adapter is nil")
+	}
+	if maxAttempts < 1 {
+		maxAttempts = 1
 	}
 	if !a.allowed() {
 		return ErrCircuitOpen
 	}
 	var last error
-	for attempt := 0; attempt < a.maxAttempts; attempt++ {
+	for attempt := 0; attempt < maxAttempts; attempt++ {
 		callCtx, cancel := context.WithTimeout(ctx, a.timeout)
 		last = fn(callCtx)
 		cancel()
@@ -89,7 +93,7 @@ func (a *ResilientAdapter) call(ctx context.Context, operation string, fn func(c
 		}
 	}
 	a.record(last)
-	return fmt.Errorf("payment provider %s failed after %d attempt(s): %w", operation, a.maxAttempts, last)
+	return fmt.Errorf("payment provider %s failed after %d attempt(s): %w", operation, maxAttempts, last)
 }
 
 func (a *ResilientAdapter) Create(ctx context.Context, request PaymentRequest) (PaymentResponse, error) {
@@ -97,16 +101,30 @@ func (a *ResilientAdapter) Create(ctx context.Context, request PaymentRequest) (
 		return PaymentResponse{}, ErrProviderIdempotencyRequired
 	}
 	var response PaymentResponse
-	err := a.call(ctx, "create", func(callCtx context.Context) error {
+	// Create is intentionally single-attempt. A timeout can mean the provider
+	// accepted the mutation, so a second create is never safe without lookup.
+	err := a.call(ctx, "create", 1, func(callCtx context.Context) error {
 		var err error
 		response, err = a.next.Create(callCtx, request)
 		return err
 	})
 	return response, err
 }
+
+// LookupAfterUnknownCreate is the only supported next step after a create
+// attempt has an unknown result. It intentionally has no fallback Create call:
+// a caller must resolve the provider reference before selecting another
+// provider or asking the customer to pay again.
+func (a *ResilientAdapter) LookupAfterUnknownCreate(ctx context.Context, providerReference string) (PaymentResponse, error) {
+	if providerReference == "" {
+		return PaymentResponse{}, ErrProviderReferenceRequired
+	}
+	return a.Lookup(ctx, providerReference)
+}
+
 func (a *ResilientAdapter) Lookup(ctx context.Context, reference string) (PaymentResponse, error) {
 	var response PaymentResponse
-	err := a.call(ctx, "lookup", func(callCtx context.Context) error {
+	err := a.call(ctx, "lookup", a.maxAttempts, func(callCtx context.Context) error {
 		var err error
 		response, err = a.next.Lookup(callCtx, reference)
 		return err
@@ -118,7 +136,7 @@ func (a *ResilientAdapter) Refund(ctx context.Context, request RefundRequest) (R
 		return RefundResponse{}, ErrProviderIdempotencyRequired
 	}
 	var response RefundResponse
-	err := a.call(ctx, "refund", func(callCtx context.Context) error {
+	err := a.call(ctx, "refund", a.maxAttempts, func(callCtx context.Context) error {
 		var err error
 		response, err = a.next.Refund(callCtx, request)
 		return err
@@ -126,5 +144,5 @@ func (a *ResilientAdapter) Refund(ctx context.Context, request RefundRequest) (R
 	return response, err
 }
 func (a *ResilientAdapter) VerifyWebhook(ctx context.Context, payload []byte, signature string) error {
-	return a.call(ctx, "verify_webhook", func(callCtx context.Context) error { return a.next.VerifyWebhook(callCtx, payload, signature) })
+	return a.call(ctx, "verify_webhook", a.maxAttempts, func(callCtx context.Context) error { return a.next.VerifyWebhook(callCtx, payload, signature) })
 }

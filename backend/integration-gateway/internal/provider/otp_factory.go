@@ -12,7 +12,7 @@ func NewOTPProvider(providerName string) (domain.OTPProvider, error) {
 	if providerName == "" {
 		providerName = os.Getenv("ACTIVE_OTP_PROVIDER")
 	}
-	
+
 	switch strings.ToLower(providerName) {
 	case "zenziva":
 		return NewZenzivaOTPProvider()

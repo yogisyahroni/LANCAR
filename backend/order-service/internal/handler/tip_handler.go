@@ -66,9 +66,9 @@ func (h *TipHandler) CreateTip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	middleware.WriteSuccess(w, http.StatusCreated, map[string]any{
-		"tip":         tip,
-		"message":     "Tip berhasil diberikan",
-		"amount_idr":  tip.AmountIDR,
+		"tip":        tip,
+		"message":    "Tip berhasil diberikan",
+		"amount_idr": tip.AmountIDR,
 	})
 }
 

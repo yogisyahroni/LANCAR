@@ -94,6 +94,11 @@ def main() -> int:
         if "image:" in line and ":latest" in line and "rediscommander" not in line:
             errors.append(f"mutable critical image tag in docker-compose: {line.strip()}")
 
+    production_compose = read("docker-compose.prod.yml")
+    for line in production_compose.splitlines():
+        if "image:" in line and ":latest" in line:
+            errors.append(f"mutable critical image tag in docker-compose.prod.yml: {line.strip()}")
+
     workflow = read(".github/workflows/security-scan.yml")
     for marker in (
         "gitleaks/gitleaks-action",
@@ -105,6 +110,18 @@ def main() -> int:
     ):
         if marker not in workflow:
             errors.append(f"security workflow missing control: {marker}")
+
+    production_workflow = read(".github/workflows/production.yml")
+    if re.search(r"ghcr\.io/[^\s]+:latest", production_workflow):
+        errors.append("production workflow publishes a mutable latest image tag")
+    for marker in (
+        'export AUTH_SERVICE_IMAGE="ghcr.io/${REPO_LOWER_LC}/auth-service:${SHA}"',
+        'export PAYMENT_SERVICE_IMAGE="ghcr.io/${REPO_LOWER_LC}/payment-service:${SHA}"',
+        'export API_GATEWAY_IMAGE="ghcr.io/${REPO_LOWER_LC}/api-gateway:${SHA}"',
+        'export ADMIN_DASHBOARD_IMAGE="ghcr.io/${REPO_LOWER_LC}/admin-dashboard:${SHA}"',
+    ):
+        if marker not in production_workflow:
+            errors.append(f"production workflow missing immutable image mapping: {marker}")
 
     inventory = read("docs/security/public-api-inventory.md")
     for host in (

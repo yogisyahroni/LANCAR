@@ -23,7 +23,7 @@ import (
 //
 // Non-fatal: setiap kegagalan per order hanya dilog, siklus tetap lanjut.
 type GhostDetectionWorker struct {
-	orderRepo domain.OrderRepository
+	orderRepo  domain.OrderRepository
 	penaltySvc domain.DriverPenaltyService
 	timeout    time.Duration
 }

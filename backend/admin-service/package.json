@@ -11,6 +11,9 @@
     "test:e2e:merchant-lifecycle-release-gate": "ts-node --transpile-only src/merchantLifecycleReleaseGateProbe.ts",
     "seed:merchant-demo": "ts-node src/seed-merchant-demo.ts",
     "fcm:probe": "ts-node src/scripts/sendFcmDeviceProbe.ts",
+    "test:e2e:safety-staging-drill": "ts-node --transpile-only src/scripts/safetyStagingDrill.ts",
+    "test:e2e:kill-switch-staging-drill": "ts-node --transpile-only src/scripts/experienceKillSwitchStagingDrill.ts",
+    "test:e2e:safety-socket-reconnect-staging-drill": "ts-node --transpile-only src/scripts/safetySocketReconnectStagingDrill.ts",
     "build": "tsc",
     "seed:comprehensive": "ts-node src/seed-comprehensive.ts"
   },

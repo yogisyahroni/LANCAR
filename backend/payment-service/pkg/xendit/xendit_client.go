@@ -27,13 +27,13 @@ func NewClient(secretKey string) *Client {
 }
 
 type CreateInvoiceRequest struct {
-	ExternalID      string   `json:"external_id"`
-	Amount          int64    `json:"amount"`
-	Description     string   `json:"description,omitempty"`
-	Customer        Customer `json:"customer,omitempty"`
-	CustomerDetails *CustomerDetails `json:"customer_details,omitempty"`
-	SuccessRedirectURL string `json:"success_redirect_url,omitempty"`
-	FailureRedirectURL string `json:"failure_redirect_url,omitempty"`
+	ExternalID         string           `json:"external_id"`
+	Amount             int64            `json:"amount"`
+	Description        string           `json:"description,omitempty"`
+	Customer           Customer         `json:"customer,omitempty"`
+	CustomerDetails    *CustomerDetails `json:"customer_details,omitempty"`
+	SuccessRedirectURL string           `json:"success_redirect_url,omitempty"`
+	FailureRedirectURL string           `json:"failure_redirect_url,omitempty"`
 }
 
 type Customer struct {
@@ -49,22 +49,22 @@ type CustomerDetails struct {
 }
 
 type InvoiceResponse struct {
-	ID                        string `json:"id"`
-	ExternalID                string `json:"external_id"`
-	Status                    string `json:"status"`
-	Amount                    int64  `json:"amount"`
-	InvoiceURL                string `json:"invoice_url"`
-	AvailableBanks            []Bank `json:"available_banks,omitempty"`
-	AvailableRetailOutlets    []RetailOutlet `json:"available_retail_outlets,omitempty"`
-	AvailableEwallets         []Ewallet `json:"available_ewallets,omitempty"`
-	AvailableQRcodes          []QRcode `json:"available_qr_codes,omitempty"`
+	ID                     string         `json:"id"`
+	ExternalID             string         `json:"external_id"`
+	Status                 string         `json:"status"`
+	Amount                 int64          `json:"amount"`
+	InvoiceURL             string         `json:"invoice_url"`
+	AvailableBanks         []Bank         `json:"available_banks,omitempty"`
+	AvailableRetailOutlets []RetailOutlet `json:"available_retail_outlets,omitempty"`
+	AvailableEwallets      []Ewallet      `json:"available_ewallets,omitempty"`
+	AvailableQRcodes       []QRcode       `json:"available_qr_codes,omitempty"`
 }
 
 type Bank struct {
-	BankCode      string `json:"bank_code"`
-	CollectionType string `json:"collection_type"`
+	BankCode          string `json:"bank_code"`
+	CollectionType    string `json:"collection_type"`
 	BankAccountNumber string `json:"bank_account_number"`
-	TransferAmount int64 `json:"transfer_amount"`
+	TransferAmount    int64  `json:"transfer_amount"`
 }
 
 type RetailOutlet struct {

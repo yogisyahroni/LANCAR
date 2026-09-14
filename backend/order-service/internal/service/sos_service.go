@@ -554,7 +554,9 @@ func (s *DefaultSosService) sendFCMPushNotification(ctx context.Context, userIDs
 		for _, token := range tokens {
 			go func(t string) {
 				if err := sendFCMPushNotification(t, data); err != nil {
-					slog.WarnContext(ctx, "failed to send FCM push notification", "token", t, "error", err)
+					// FCM registration tokens are credentials. Never put the token
+					// itself into logs; the structured error remains actionable.
+					slog.WarnContext(ctx, "failed to send FCM push notification", "error", err)
 				}
 			}(token)
 		}

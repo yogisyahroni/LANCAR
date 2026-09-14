@@ -565,6 +565,9 @@ func main() {
 		}
 		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
 	})))
+	// Payment-service callback; handler enforces X-Internal-Api-Key and
+	// X-Idempotency-Key before changing the canonical Food entitlement.
+	mux.HandleFunc("/api/v1/internal/food/membership/", middleware.BaseChain(orderHandler.ApplyFoodMembershipPaymentEvent))
 	mux.HandleFunc("/api/v1/food/merchants/{merchant_id}/sponsored-event", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.RecordFoodSponsoredEvent)))
 
 	// FOOD-2026-024: bundle of independent per-merchant food orders.

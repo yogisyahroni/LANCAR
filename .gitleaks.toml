@@ -11,5 +11,19 @@ paths = [
   '''(^|/)\\.gradle/''',
   '''(^|/)__pycache__/''',
   '''(^|/)\\.kilo/''',
-  '''(^|/)admin-dashboard/test-results/'''
+  '''(^|/)admin-dashboard/test-results/''',
+  '''(^|/)\.agent(s)?/''',
+  '''(^|/)\.codex/''',
+  '''(^|/)(frontend|landing-page)/\.next/''',
+  '''(^|/)(scratch|ondemand-delivery-standards-audit)/''',
+  '''(^|/)docs/task-evidence/ADS-2026-017\.md$'''
+]
+# These exact historical matches are non-secret identifiers: a repository
+# path in the Ads evidence and immutable market compliance policy versions.
+# Keep the patterns narrow so real credentials in the same files remain
+# visible to the scanner.
+regexes = [
+  '''backend/api-gateway/''',
+  '''compliance-id-jk-v1''',
+  '''terms-id-jk-v1'''
 ]

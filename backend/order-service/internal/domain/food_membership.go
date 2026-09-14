@@ -10,8 +10,17 @@ import (
 const (
 	MembershipPending   = "pending_payment"
 	MembershipActive    = "active"
+	MembershipGrace     = "grace"
 	MembershipExpired   = "expired"
 	MembershipCancelled = "cancelled"
+	MembershipRefunded  = "refunded"
+)
+
+const (
+	MembershipPaymentSucceeded = "SUCCEEDED"
+	MembershipPaymentFailed    = "FAILED"
+	MembershipPaymentRefunded  = "REFUNDED"
+	MembershipPaymentCancelled = "CANCELLED"
 )
 
 type FoodMembershipPlan struct {
@@ -47,6 +56,7 @@ type FoodMembershipRepository interface {
 	GetActiveFoodMembership(ctx context.Context, userID string) (*FoodMembershipEntitlement, *FoodMembershipPlan, error)
 	CreatePendingFoodMembership(ctx context.Context, userID, planID, idempotencyKey string) (*FoodMembershipEntitlement, error)
 	RecordFoodMembershipSubsidy(ctx context.Context, entitlementID, orderID string, amountIDR int64) error
+	ApplyFoodMembershipPaymentEvent(ctx context.Context, entitlementID, paymentState, paymentIntentID, providerReference, idempotencyKey string) (*FoodMembershipEntitlement, error)
 }
 
 type FoodMembershipService interface {
@@ -54,6 +64,37 @@ type FoodMembershipService interface {
 	GetEntitlement(ctx context.Context, userID string) (*FoodMembershipEntitlement, error)
 	Subscribe(ctx context.Context, userID, planID, idempotencyKey string) (*FoodMembershipEntitlement, error)
 	CalculateBenefit(ctx context.Context, userID string, subtotalIDR, deliveryFeeIDR int64, deliveryMethod string) (FoodMembershipBenefit, error)
+	ApplyPaymentEvent(ctx context.Context, entitlementID, paymentState, paymentIntentID, providerReference, idempotencyKey string) (*FoodMembershipEntitlement, error)
+}
+
+// ResolveFoodMembershipPaymentTransition is the order-service owner boundary.
+// A provider event is the only input allowed to move a Food entitlement; a
+// pending payment can never become active because a client guessed a state.
+func ResolveFoodMembershipPaymentTransition(current, payment string) (string, error) {
+	current = strings.ToLower(strings.TrimSpace(current))
+	payment = strings.ToUpper(strings.TrimSpace(payment))
+	switch payment {
+	case MembershipPaymentSucceeded:
+		if current == MembershipPending || current == MembershipActive || current == MembershipGrace {
+			return MembershipActive, nil
+		}
+	case MembershipPaymentFailed:
+		switch current {
+		case MembershipPending:
+			return MembershipCancelled, nil
+		case MembershipActive:
+			return MembershipGrace, nil
+		case MembershipGrace:
+			return MembershipExpired, nil
+		}
+	case MembershipPaymentRefunded:
+		return MembershipRefunded, nil
+	case MembershipPaymentCancelled:
+		return MembershipCancelled, nil
+	default:
+		return "", fmt.Errorf("unsupported membership payment state %q", payment)
+	}
+	return current, nil
 }
 
 // CalculateFoodMembershipBenefit is pure and deliberately does not mutate
