@@ -6427,11 +6427,11 @@ Start with clean bounded modules in existing services when ownership and scale p
 `local/dev → integration → staging → pre-production/sandbox-live-like → production`
 
 **Checklist**
-- [ ] Environment config/secrets/provider endpoints isolated.
-- [ ] Production data is not casually copied into lower environment.
-- [ ] Migrations rehearsed on production-like schema volume.
-- [ ] Payment/logistics/maps provider sandbox→production cutover documented.
-- [ ] Feature flags/canary control release independently from code deployment when applicable.
+- [x] Environment config/secrets/provider endpoints isolated. (Verified 2026-09-14: environment boundary matrix covers local, integration, staging, pre-production and production; protected config/secrets and provider endpoint rules are documented.)
+- [x] Production data is not casually copied into lower environment. (Verified 2026-09-14: promotion contract restricts lower environments to synthetic/sanitized data and migration rehearsal used disposable synthetic PostGIS data only.)
+- [x] Migrations rehearsed on production-like schema volume. (Verified 2026-09-14: full Goose chain rehearsed on disposable PostGIS with 10,000 synthetic carrier inbox rows, canonical invariants and latest-migration rollback.)
+- [x] Payment/logistics/maps provider sandbox→production cutover documented. (Verified 2026-09-14: environment promotion cutover sequence and provider adapter/callback/signature/reconciliation boundary are documented; live vendor enablement remains owner-controlled.)
+- [x] Feature flags/canary control release independently from code deployment when applicable. (Verified 2026-09-14: feature-flag contract and promotion sequence define evaluation revision, cohort/percentage rollout, guardrails, rollback and active-order recovery.)
 
 ---
 
