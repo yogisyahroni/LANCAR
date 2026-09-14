@@ -14,6 +14,7 @@ const runtimeRoots = [
   'frontend/src/',
   'android-app/app/src/main/',
   'android-app-customer/app/src/main/',
+  'android-app-merchant/app/src/main/',
 ];
 
 const excludedPathPatterns = [
