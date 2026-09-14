@@ -7,6 +7,12 @@ import {
   UNIT_ECONOMICS_DEFINITION,
   unitEconomicsBaseCte,
 } from '../services/unitEconomics';
+import {
+  COST_OBSERVABILITY_VERSION,
+  costAnomalyPolicyFromEnv,
+  evaluateCostAnomalies,
+  getCostUsageSnapshot,
+} from '../services/costObservability';
 
 const parseWindow = (req: Request): { start: Date; end: Date } => {
   const now = new Date();
@@ -45,8 +51,10 @@ export const getUnitEconomicsV2 = async (req: Request, res: Response): Promise<v
     const outlierLimit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 500) : 100;
     const params = [start, end];
     const cte = unitEconomicsBaseCte(cohort);
+    const periodMs = end.getTime() - start.getTime();
+    const previousStart = new Date(start.getTime() - periodMs);
 
-    const [summaryResult, cohortResult, outlierResult] = await Promise.all([
+    const [summaryResult, cohortResult, outlierResult, currentUsage, previousUsage] = await Promise.all([
       readDb.query(`
         ${cte}
         SELECT
@@ -129,11 +137,15 @@ export const getUnitEconomicsV2 = async (req: Request, res: Response): Promise<v
         ORDER BY platform_contribution_idr ASC, financial_at DESC
         LIMIT $3
       `, [...params, outlierLimit]),
+      getCostUsageSnapshot(start, end),
+      getCostUsageSnapshot(previousStart, start),
     ]);
 
     const summary = normalizeSummary(summaryResult.rows[0] || {});
     const cohorts = cohortResult.rows.map((row) => normalizeSummary(row));
     const outliers = outlierResult.rows.map((row) => normalizeAmountRow(row));
+    const costAnomalies = evaluateCostAnomalies(currentUsage, previousUsage, costAnomalyPolicyFromEnv());
+    const criticalCostAnomalies = costAnomalies.filter((anomaly) => anomaly.severity === 'critical');
     const coverage = {
       order_count: asNumber(summary.order_count),
       paid_payment_orders: asNumber(summary.order_count) - asNumber(summary.missing_payment_order_count),
@@ -181,6 +193,16 @@ export const getUnitEconomicsV2 = async (req: Request, res: Response): Promise<v
         cohorts,
         negative_margin_outliers: outliers,
         source_coverage: coverage,
+        cost_observability: {
+          version: COST_OBSERVABILITY_VERSION,
+          usage_units: currentUsage,
+          anomalies: costAnomalies,
+          growth_guardrail: {
+            status: criticalCostAnomalies.length > 0 ? 'blocked' : costAnomalies.length > 0 ? 'review' : 'clear',
+            blocking_anomaly_count: criticalCostAnomalies.length,
+            rule: 'Growth experiments cannot be approved while a critical provider/infra cost anomaly is active.',
+          },
+        },
         // Existing dashboard consumers can render the same endpoint without
         // being given a second, incompatible financial definition.
         metrics: [

@@ -4,6 +4,12 @@ import { getUnitEconomicsV2 } from './unitEconomics.controller';
 
 jest.mock('../db', () => ({ readDb: { query: jest.fn() } }));
 jest.mock('../security/logRedaction', () => ({ securityLog: { error: jest.fn() } }));
+jest.mock('../services/costObservability', () => ({
+  COST_OBSERVABILITY_VERSION: 'cost-observability-2026-v1',
+  costAnomalyPolicyFromEnv: jest.fn(() => ({ min_units: 5, min_cost_idr: 1000, max_growth_pct: 50, max_unit_cost_growth_pct: 50 })),
+  evaluateCostAnomalies: jest.fn(() => []),
+  getCostUsageSnapshot: jest.fn().mockResolvedValue([]),
+}));
 
 const response = (): Response => ({
   status: jest.fn().mockReturnThis(),
