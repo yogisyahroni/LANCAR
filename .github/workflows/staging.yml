@@ -411,6 +411,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Validate PART AG global reality contract
+        run: python scripts/tasks/validate_global_reality.py --json
       - name: Validate region and residency catalog
         run: python scripts/region_failover_drill.py --validate
       - name: Run deterministic failover and replay drill

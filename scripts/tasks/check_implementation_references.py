@@ -17,7 +17,11 @@ from pathlib import Path
 CODE_SUFFIXES = {".go", ".java", ".js", ".jsx", ".kt", ".py", ".ts", ".tsx"}
 # Static release gates intentionally contain the strings they detect. They
 # remain covered by their own executable tests and are not product stubs.
-SCANNER_FILES = {"scripts/security/verify_platform_controls.py"}
+SCANNER_FILES = {
+    "scripts/security/verify_platform_controls.py",
+    "scripts/tasks/check_implementation_references.py",
+    "scripts/tasks/validate_global_reality.py",
+}
 PLACEHOLDER_PATTERNS = (
     (re.compile(r"TODO\s*:\s*implement", re.IGNORECASE), "explicit TODO implementation placeholder"),
     (re.compile(r"\bnot[_ -]implemented\b", re.IGNORECASE), "explicit not-implemented marker"),
