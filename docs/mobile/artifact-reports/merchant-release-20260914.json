@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "app_slug": "merchant",
-  "version_code": "unknown",
-  "version_name": "unknown",
-  "commit": "a0a60304210c1568ad8e8339361877f0d20ecf2c",
-  "generated_at": "2026-09-14T08:17:33.253928+00:00",
+  "version_code": "local",
+  "version_name": "staging-local",
+  "commit": "a46ab1a733e37cb14bde4607d107682d792cf878",
+  "generated_at": "2026-09-14T08:31:57.157671+00:00",
   "artifacts": [
     {
       "kind": "apk",
@@ -12,6 +12,32 @@
       "path": "android-app-merchant/app/build/outputs/apk/release/app-release.apk",
       "size_bytes": 2387597,
       "sha256": "26c1e0e6f1de2716116c13a6649e5bf653901b0e3b6b20557c79fb7bc8c82492"
+    }
+  ],
+  "symbol_metadata": [
+    {
+      "kind": "android-r8-symbols",
+      "path": "android-app-merchant/app/build/outputs/mapping/release/mapping.txt",
+      "size_bytes": 49803255,
+      "sha256": "6d4efe9e061aec75dc1e9b74aba1429b5b98819a023ae08aef0bbb3266812666"
+    },
+    {
+      "kind": "android-r8-symbols",
+      "path": "android-app-merchant/app/build/outputs/mapping/release/seeds.txt",
+      "size_bytes": 421805,
+      "sha256": "f87bdca3768375a658c70f6532e8bcba37664bca415380b181b44c604c00bd77"
+    },
+    {
+      "kind": "android-r8-symbols",
+      "path": "android-app-merchant/app/build/outputs/mapping/release/usage.txt",
+      "size_bytes": 5364381,
+      "sha256": "20c3c7d85fc8703113226f1929ec1540e587456fab512ac67acc64b55320fcc6"
+    },
+    {
+      "kind": "android-r8-symbols",
+      "path": "android-app-merchant/app/build/outputs/mapping/release/configuration.txt",
+      "size_bytes": 29599,
+      "sha256": "5bc35b4cdb065cdd10fa8b432118a8f04ac04d911bc094a5d653416718a37801"
     }
   ],
   "secret_handling": "Hashes and metadata only; no signing key, credential or token is recorded."

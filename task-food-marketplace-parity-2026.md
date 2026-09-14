@@ -5870,7 +5870,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [ ] Crash/ANR linked to app version, device/OS, market, screen/feature flag/experience revision where safe.
-- [ ] Release artifact has mapping/symbol metadata retained.
+ - [x] Release artifact has mapping/symbol metadata retained. (Verified 2026-09-14: release inventory records four R8 mapping/symbol files per customer/courier/merchant release packet; CI retains symbols in a separate restricted artifact and excludes them from the public release asset set.)
 - [ ] PII/secrets excluded from crash logs.
 - [ ] Critical regression can stop staged rollout.
 

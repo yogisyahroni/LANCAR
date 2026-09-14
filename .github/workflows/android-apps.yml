@@ -515,6 +515,7 @@ jobs:
             --version-code "${{ github.run_number }}" \
             --version-name "1.0.${{ github.run_number }}" \
             --require-release \
+            --require-symbol-metadata \
             --output "${{ matrix.working_dir }}/app/build/mobile-artifact-manifest.json"
 
       - name: Prepare named release assets
@@ -524,12 +525,14 @@ jobs:
           set -euo pipefail
 
           asset_dir="${{ matrix.working_dir }}/app/build/release-assets"
+          symbol_dir="${{ matrix.working_dir }}/app/build/symbol-assets"
           debug_dir="${{ matrix.working_dir }}/app/build/outputs/apk/debug"
           release_apk_dir="${{ matrix.working_dir }}/app/build/outputs/apk/release"
           release_dir="${{ matrix.working_dir }}/app/build/outputs/bundle/release"
+          mapping_dir="${{ matrix.working_dir }}/app/build/outputs/mapping/release"
 
-          rm -rf "${asset_dir}"
-          mkdir -p "${asset_dir}"
+          rm -rf "${asset_dir}" "${symbol_dir}"
+          mkdir -p "${asset_dir}" "${symbol_dir}"
 
           debug_apk="$(find "${debug_dir}" -maxdepth 1 -type f -name '*.apk' -print -quit)"
           release_apk="$(find "${release_apk_dir}" -maxdepth 1 -type f -name '*.apk' -print -quit)"
@@ -550,12 +553,27 @@ jobs:
             exit 1
           fi
 
+          if [[ ! -s "${mapping_dir}/mapping.txt" ]]; then
+            echo "Missing release mapping metadata for ${{ matrix.app_name }} in ${mapping_dir}" >&2
+            exit 1
+          fi
+
           cp "${debug_apk}" "${asset_dir}/${{ matrix.asset_prefix }}-debug.apk"
           cp "${release_apk}" "${asset_dir}/${{ matrix.asset_prefix }}-release.apk"
           cp "${release_aab}" "${asset_dir}/${{ matrix.asset_prefix }}-release.aab"
           cp "${{ matrix.working_dir }}/app/build/mobile-artifact-manifest.json" "${asset_dir}/${{ matrix.asset_prefix }}-artifact-manifest.json"
 
+          # Mapping/symbol files are retained as a restricted CI artifact for
+          # Crash/ANR symbolication. They are deliberately excluded from the
+          # public GitHub Release asset set.
+          for symbol_file in mapping.txt seeds.txt usage.txt configuration.txt; do
+            if [[ -f "${mapping_dir}/${symbol_file}" ]]; then
+              cp "${mapping_dir}/${symbol_file}" "${symbol_dir}/${{ matrix.asset_prefix }}-${symbol_file}"
+            fi
+          done
+
           ls -lh "${asset_dir}"
+          ls -lh "${symbol_dir}"
 
       - name: Upload named release assets
         if: github.event_name != 'pull_request' && (steps.android_maps_key.outputs.release_artifacts_enabled == 'true' || steps.prepare_signing.outputs.release_artifacts_enabled == 'true')
@@ -563,6 +581,16 @@ jobs:
         with:
           name: ${{ matrix.asset_prefix }}-android-${{ github.run_number }}
           path: ./${{ matrix.working_dir }}/app/build/release-assets/*
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 9
+
+      - name: Upload restricted Android symbol metadata
+        if: github.event_name != 'pull_request' && (steps.android_maps_key.outputs.release_artifacts_enabled == 'true' || steps.prepare_signing.outputs.release_artifacts_enabled == 'true')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_prefix }}-android-symbols-${{ github.run_number }}
+          path: ./${{ matrix.working_dir }}/app/build/symbol-assets/*
           if-no-files-found: error
           retention-days: 30
           compression-level: 9

@@ -43,6 +43,15 @@ def artifacts(working_dir: Path, include_debug: bool) -> list[Path]:
     return sorted(path for path in paths if path.is_file())
 
 
+def release_symbol_metadata(working_dir: Path) -> list[Path]:
+    """Return release symbolication files without copying their contents into the report."""
+    mapping_dir = working_dir / "app" / "build" / "outputs" / "mapping" / "release"
+    if not mapping_dir.is_dir():
+        return []
+    names = ("mapping.txt", "seeds.txt", "usage.txt", "configuration.txt")
+    return [mapping_dir / name for name in names if (mapping_dir / name).is_file()]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--working-dir", required=True)
@@ -52,6 +61,7 @@ def main() -> int:
     parser.add_argument("--version-name", default="unknown")
     parser.add_argument("--include-debug", action="store_true")
     parser.add_argument("--require-release", action="store_true")
+    parser.add_argument("--require-symbol-metadata", action="store_true")
     args = parser.parse_args()
 
     working_dir = Path(args.working_dir).resolve()
@@ -62,6 +72,11 @@ def main() -> int:
         return 1
     if not found:
         print(f"No Android artifacts found under {working_dir / 'app' / 'build' / 'outputs'}", file=sys.stderr)
+        return 1
+
+    symbol_files = release_symbol_metadata(working_dir)
+    if args.require_symbol_metadata and not symbol_files:
+        print(f"No release symbol metadata found under {working_dir / 'app' / 'build' / 'outputs' / 'mapping' / 'release'}", file=sys.stderr)
         return 1
 
     root = Path(__file__).resolve().parents[2]
@@ -82,6 +97,15 @@ def main() -> int:
         "commit": git_value("rev-parse", "HEAD"),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "artifacts": rows,
+        "symbol_metadata": [
+            {
+                "kind": "android-r8-symbols",
+                "path": path.relative_to(root).as_posix(),
+                "size_bytes": path.stat().st_size,
+                "sha256": digest(path),
+            }
+            for path in symbol_files
+        ],
         "secret_handling": "Hashes and metadata only; no signing key, credential or token is recorded.",
     }
     output = Path(args.output)
@@ -91,6 +115,7 @@ def main() -> int:
         "app_slug": args.app_slug,
         "commit": report["commit"],
         "artifact_count": len(rows),
+        "symbol_metadata_count": len(symbol_files),
         "artifacts": [{"kind": row["kind"], "channel": row["channel"], "size_bytes": row["size_bytes"]} for row in rows],
         "output": output.as_posix(),
     }))

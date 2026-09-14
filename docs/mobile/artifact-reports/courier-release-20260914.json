@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "app_slug": "courier",
-  "version_code": "unknown",
-  "version_name": "unknown",
-  "commit": "a0a60304210c1568ad8e8339361877f0d20ecf2c",
-  "generated_at": "2026-09-14T08:17:32.866892+00:00",
+  "version_code": "local",
+  "version_name": "staging-local",
+  "commit": "a46ab1a733e37cb14bde4607d107682d792cf878",
+  "generated_at": "2026-09-14T08:31:56.784837+00:00",
   "artifacts": [
     {
       "kind": "apk",
@@ -12,6 +12,32 @@
       "path": "android-app/app/build/outputs/apk/release/app-release.apk",
       "size_bytes": 194516666,
       "sha256": "6c683f24a84b6d3661effa3aa252adf35447239e181b9a955852826c4dbd7e89"
+    }
+  ],
+  "symbol_metadata": [
+    {
+      "kind": "android-r8-symbols",
+      "path": "android-app/app/build/outputs/mapping/release/mapping.txt",
+      "size_bytes": 123898621,
+      "sha256": "537838bbc3bdd7fe1b6e32e0dfd84cf65f8641fde9646036eaaead4c98332eb4"
+    },
+    {
+      "kind": "android-r8-symbols",
+      "path": "android-app/app/build/outputs/mapping/release/seeds.txt",
+      "size_bytes": 32007079,
+      "sha256": "a7fdbf5c01f7c06d843cbaeeca1c97f83ac1c0b8419d77c1b0cf3ca78c466926"
+    },
+    {
+      "kind": "android-r8-symbols",
+      "path": "android-app/app/build/outputs/mapping/release/usage.txt",
+      "size_bytes": 7367467,
+      "sha256": "66a993aeb7796db17dd1a1e0cb0e7ef4dd55938c882734be61d1201f761d8174"
+    },
+    {
+      "kind": "android-r8-symbols",
+      "path": "android-app/app/build/outputs/mapping/release/configuration.txt",
+      "size_bytes": 87661,
+      "sha256": "94777eb67e9c4f9e6b4a289fe391070839706c036c58e804d37ba4fc2c4c0d62"
     }
   ],
   "secret_handling": "Hashes and metadata only; no signing key, credential or token is recorded."
