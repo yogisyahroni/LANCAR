@@ -27,6 +27,7 @@ REQUIRED_FILES = (
     "docs/security/data-governance.md",
     "docs/runbooks/security-incident.md",
     "docs/release/artifact-provenance.md",
+    "database/migrations/20260914000006_security_audit_log_controls.sql",
 )
 
 THREAT_MODELS = (
@@ -149,6 +150,16 @@ def main() -> int:
     ):
         if marker not in production_workflow:
             errors.append(f"production workflow missing immutable image mapping: {marker}")
+
+    audit_migration = read("database/migrations/20260914000006_security_audit_log_controls.sql")
+    for marker in (
+        "CREATE TRIGGER trg_audit_logs_immutable",
+        "REVOKE UPDATE, DELETE, TRUNCATE ON audit_logs",
+        "SECURITY DEFINER",
+        "tembus_cleanup_audit_logs",
+    ):
+        if marker not in audit_migration:
+            errors.append(f"audit-log migration missing control: {marker}")
 
     inventory = read("docs/security/public-api-inventory.md")
     for host in (

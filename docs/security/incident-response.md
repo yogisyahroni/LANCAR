@@ -14,6 +14,11 @@ collect redacted logs and immutable references; assess impact; communicate with
 the approved template; remediate; reconcile financial/state divergence; then
 write a timeline, root cause, action owners, due dates, and re-test evidence.
 
+The canonical cross-service `audit_logs` stream is append-only for application
+roles. Updates/deletes are rejected by the database trigger; expiry cleanup is
+bounded and must use the controlled `tembus_cleanup_audit_logs` maintenance
+function so incident evidence is not silently rewritten by a service.
+
 The safe fallback is explicit when an external SOS/notification provider is
 unavailable. The API records the P0 incident and returns local emergency
 instructions; it does not claim that a vendor call succeeded.

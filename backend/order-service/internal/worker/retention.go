@@ -89,9 +89,10 @@ func runCleanup(db *sql.DB, cfg CleanupConfig) {
 		totalDeleted += deleted
 	}
 
-	// 3. Cleanup audit/security logs
-	deleted, err = cleanupTable(db, "audit_logs",
-		"created_at", cfg.AuditLogsDays, cfg.BatchSize)
+	// 3. Cleanup audit/security logs through the SECURITY DEFINER maintenance
+	// function. The order service must never receive direct DELETE access to the
+	// canonical audit stream.
+	deleted, err = cleanupAuditLogs(db, cfg.AuditLogsDays, cfg.BatchSize)
 	if err != nil {
 		log.Printf("[retention] Failed to cleanup audit_logs: %v", err)
 	} else {
@@ -118,6 +119,14 @@ func runCleanup(db *sql.DB, cfg CleanupConfig) {
 
 	elapsed := time.Since(start)
 	log.Printf("[retention] Cleanup complete — %d rows deleted in %v", totalDeleted, elapsed)
+}
+
+func cleanupAuditLogs(db *sql.DB, maxAgeDays, batchSize int) (int, error) {
+	var deleted int64
+	if err := db.QueryRow("SELECT public.tembus_cleanup_audit_logs($1::integer, $2::integer)", maxAgeDays, batchSize).Scan(&deleted); err != nil {
+		return 0, err
+	}
+	return int(deleted), nil
 }
 
 func cleanupTable(db *sql.DB, table, column string, maxAgeDays, batchSize int) (int, error) {
