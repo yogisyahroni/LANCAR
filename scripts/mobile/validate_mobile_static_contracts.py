@@ -220,6 +220,20 @@ def main() -> int:
     ):
         require(errors, application_path, "ImageLoaderFactory", "maxSizePercent(0.15)")
 
+    # Leak detection is development/CI-only so it can observe retained
+    # activities, views and lifecycle owners without inflating release APKs.
+    for gradle_path in (
+        "android-app/app/build.gradle.kts",
+        "android-app-customer/app/build.gradle.kts",
+        "android-app-merchant/app/build.gradle.kts",
+    ):
+        require(
+            errors,
+            gradle_path,
+            "debugImplementation(\"com.squareup.leakcanary:leakcanary-android:2.14\")",
+            "never shipped in release APKs",
+        )
+
     # Crash context is allowlisted, bounded, and installed at app startup in
     # every mobile client. Merchant currently has no remote crash vendor, but
     # keeps the same safe context contract for future provider wiring.

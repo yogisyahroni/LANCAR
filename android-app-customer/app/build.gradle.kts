@@ -384,6 +384,8 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+    // Development-only retained-object detection; never shipped in release APKs.
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 
     // Hilt
     implementation("com.google.dagger:hilt-android:2.48")
