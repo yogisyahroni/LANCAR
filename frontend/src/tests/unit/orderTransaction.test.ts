@@ -3,6 +3,7 @@ import {
   isRetryableTransactionError,
   isUnknownOutcomeError,
   requestCustomerPaymentSession,
+  requestPendingCustomerPaymentRecovery,
   requestPersistedCustomerOrder,
 } from "@/lib/orderTransaction";
 import { resolveBulkJobRecovery } from "@/lib/bulkJobRecovery";
@@ -73,6 +74,32 @@ describe("server-backed customer order transactions", () => {
       { payment_method: "midtrans" },
       { headers: { "X-Idempotency-Key": "payment-retry-1" } },
     );
+  });
+
+  it("reads the server order before resuming a pending payment after app restart", async () => {
+    const get = vi.fn().mockResolvedValue({ data: { order: { id: "order-recovered", status: "pending_payment" } } });
+    const post = vi.fn().mockResolvedValue({ data: { success: true, payment: { payment_status: "pending", snap_token: "snap-recovered" } } });
+
+    const recovered = await requestPendingCustomerPaymentRecovery({ get, post }, "order-recovered", "payment-recovery-1");
+
+    expect(recovered.order.id).toBe("order-recovered");
+    expect(recovered.payment?.snap_token).toBe("snap-recovered");
+    expect(get).toHaveBeenCalledWith("/auth/web/orders/order-recovered");
+    expect(post).toHaveBeenCalledWith(
+      "/auth/web/orders/order-recovered/payment/session",
+      { payment_method: "midtrans" },
+      { headers: { "X-Idempotency-Key": "payment-recovery-1" } },
+    );
+  });
+
+  it("does not create another payment session after the order is already final", async () => {
+    const get = vi.fn().mockResolvedValue({ data: { order: { id: "order-paid", status: "paid" } } });
+    const post = vi.fn();
+
+    const recovered = await requestPendingCustomerPaymentRecovery({ get, post }, "order-paid", "payment-recovery-2");
+
+    expect(recovered.payment).toBeNull();
+    expect(post).not.toHaveBeenCalled();
   });
 
   it("classifies transport failures as unknown outcome, but not HTTP failures", () => {

@@ -86,6 +86,29 @@ export async function requestCustomerPaymentSession(
   return payment as CustomerPaymentSession;
 }
 
+/**
+ * Recover a known persisted order after a browser/app restart. The order
+ * status is read from the server first; a payment session is requested only
+ * while the canonical order is still pending payment.
+ */
+export async function requestPendingCustomerPaymentRecovery(
+  client: Pick<OrderTransactionClient, "get" | "post">,
+  orderId: string,
+  paymentIdempotencyKey: string,
+): Promise<{ order: PersistedCustomerOrder; payment: CustomerPaymentSession | null }> {
+  const response = await client.get(`/auth/web/orders/${orderId}`);
+  const data = asRecord(response.data);
+  const order = asRecord(data?.order) as PersistedCustomerOrder | null;
+  if (!order || typeof order.id !== "string" || order.id.trim().length === 0 || typeof order.status !== "string") {
+    throw new Error("Server tidak mengembalikan order tersimpan untuk pemulihan");
+  }
+  if (order.status !== "pending_payment") {
+    return { order, payment: null };
+  }
+  const payment = await requestCustomerPaymentSession(client, order.id, paymentIdempotencyKey);
+  return { order, payment };
+}
+
 export function isUnknownOutcomeError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const candidate = error as { response?: unknown; request?: unknown; code?: unknown };

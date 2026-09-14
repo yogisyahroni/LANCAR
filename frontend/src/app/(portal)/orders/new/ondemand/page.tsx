@@ -17,6 +17,7 @@ import {
   createIdempotencyKey,
   isRetryableTransactionError,
   requestCustomerPaymentSession,
+  requestPendingCustomerPaymentRecovery,
   requestPersistedCustomerOrder,
   type PersistedCustomerOrder,
 } from "@/lib/orderTransaction";
@@ -98,10 +99,11 @@ const fingerprintPayload = (payload: unknown): string => {
   return `fnv1a-${(hash >>> 0).toString(16)}`;
 };
 
-const readPendingTransaction = (): PendingOnDemandTransaction | null => {
+  const readPendingTransaction = (): PendingOnDemandTransaction | null => {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.sessionStorage.getItem(PENDING_ON_DEMAND_TRANSACTION_KEY);
+    const raw = window.localStorage.getItem(PENDING_ON_DEMAND_TRANSACTION_KEY)
+      || window.sessionStorage.getItem(PENDING_ON_DEMAND_TRANSACTION_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<PendingOnDemandTransaction>;
     if (
@@ -110,11 +112,13 @@ const readPendingTransaction = (): PendingOnDemandTransaction | null => {
       typeof parsed.created_at !== "number" ||
       Date.now() - parsed.created_at > PENDING_TRANSACTION_TTL_MS
     ) {
+      window.localStorage.removeItem(PENDING_ON_DEMAND_TRANSACTION_KEY);
       window.sessionStorage.removeItem(PENDING_ON_DEMAND_TRANSACTION_KEY);
       return null;
     }
     return parsed as PendingOnDemandTransaction;
   } catch {
+    window.localStorage.removeItem(PENDING_ON_DEMAND_TRANSACTION_KEY);
     window.sessionStorage.removeItem(PENDING_ON_DEMAND_TRANSACTION_KEY);
     return null;
   }
@@ -122,11 +126,12 @@ const readPendingTransaction = (): PendingOnDemandTransaction | null => {
 
 const persistPendingTransaction = (transaction: PendingOnDemandTransaction) => {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(PENDING_ON_DEMAND_TRANSACTION_KEY, JSON.stringify(transaction));
+  window.localStorage.setItem(PENDING_ON_DEMAND_TRANSACTION_KEY, JSON.stringify(transaction));
 };
 
 const clearPendingTransaction = () => {
   if (typeof window === "undefined") return;
+  window.localStorage.removeItem(PENDING_ON_DEMAND_TRANSACTION_KEY);
   window.sessionStorage.removeItem(PENDING_ON_DEMAND_TRANSACTION_KEY);
 };
 
@@ -595,6 +600,50 @@ export default function NewOrderPage() {
     }
   };
 
+  const handleResumePendingPayment = useCallback(async () => {
+    const pending = pendingTransactionRef.current || readPendingTransaction();
+    if (!pending?.order_id) {
+      setTransactionNotice("Referensi order belum tersedia. Isi kembali form untuk memeriksa permintaan sebelumnya.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (paymentKeyRef.current.orderId !== pending.order_id) {
+        paymentKeyRef.current = { orderId: pending.order_id, key: createIdempotencyKey("web-payment") };
+      }
+      const recovery = await requestPendingCustomerPaymentRecovery(
+        api,
+        pending.order_id,
+        paymentKeyRef.current.key,
+      );
+      orderDataRef.current = recovery.order;
+      setOrderData(recovery.order);
+
+      if (!recovery.payment) {
+        clearPendingTransaction();
+        pendingTransactionRef.current = null;
+        setTransactionPending(false);
+        setTransactionNotice(null);
+        router.push(`/orders/${recovery.order.id}`);
+        return;
+      }
+
+      setPaymentData(recovery.payment);
+      setShowPayment(true);
+      setTransactionPending(false);
+      setTransactionNotice("Order tersimpan. Lanjutkan pembayaran dari sesi server yang sama.");
+    } catch (error: any) {
+      addNotification({
+        title: "Pemulihan pembayaran gagal",
+        message: error.response?.data?.error || "Status order tetap tersimpan. Coba lagi beberapa saat lagi.",
+        type: "error",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [addNotification, router]);
+
   const handlePaymentSuccess = () => {
     const persistedOrder = orderDataRef.current || orderData;
     if (!persistedOrder?.id) {
@@ -655,7 +704,19 @@ export default function NewOrderPage() {
       {transactionNotice && (
         <div role="status" className={`mb-6 flex items-start gap-3 rounded-2xl border p-4 text-sm ${transactionPending ? "border-warning bg-warning-surface text-warning" : "border-success/20 bg-success-surface text-success"}`}>
           <Info className="mt-0.5 h-5 w-5 shrink-0"  aria-hidden="true" />
-          <p>{transactionNotice}</p>
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            <p>{transactionNotice}</p>
+            {transactionPending && pendingTransactionRef.current?.order_id && (
+              <button
+                type="button"
+                onClick={handleResumePendingPayment}
+                disabled={isSubmitting}
+                className="w-fit rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-bold text-warning transition-colors hover:bg-warning/20 disabled:pointer-events-none disabled:opacity-60"
+              >
+                {isSubmitting ? "Memulihkan..." : "Lanjutkan pembayaran"}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
