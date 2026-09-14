@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api } from '@/lib/api';
+import { createClientId } from '@/lib/clientId';
 
 interface WalletState {
   balance: number;
@@ -51,7 +52,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   topUp: async (amount: number, idempotencyKey?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const key = idempotencyKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `topup-${Date.now()}-${Math.random()}`);
+      const key = idempotencyKey || createClientId('topup');
       const response = await api.post('/auth/web/wallet/topup', { 
         amount,
         idempotency_key: key 
@@ -69,7 +70,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   withdraw: async (details) => {
     set({ isLoading: true, error: null });
     try {
-      const key = details.idempotency_key || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `withdraw-${Date.now()}-${Math.random()}`);
+      const key = details.idempotency_key || createClientId('withdraw');
       await api.post('/auth/web/wallet/withdraw', {
         ...details,
         idempotency_key: key

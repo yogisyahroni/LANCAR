@@ -1,4 +1,5 @@
 import type { AxiosRequestConfig } from "axios";
+import { createClientId } from "./clientId";
 
 export type OrderTransactionClient = {
   post: (url: string, body?: unknown, config?: AxiosRequestConfig) => Promise<{ data?: unknown }>;
@@ -34,9 +35,7 @@ export type CustomerPaymentSession = {
 };
 
 export function createIdempotencyKey(prefix = "web-order"): string {
-  const webCrypto = typeof globalThis !== "undefined" ? globalThis.crypto : undefined;
-  if (typeof webCrypto?.randomUUID === "function") return webCrypto.randomUUID();
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return createClientId(prefix);
 }
 
 export async function requestPersistedCustomerOrder(

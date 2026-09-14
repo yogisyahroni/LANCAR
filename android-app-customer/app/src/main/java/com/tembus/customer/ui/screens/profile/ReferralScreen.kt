@@ -1,5 +1,7 @@
 package com.tembus.customer.ui.screens.profile
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.*
@@ -117,7 +119,34 @@ fun ReferralScreen(
                                     clipboardManager.setText(AnnotatedString(link))
                                     snackbarMsg = "Link disalin"
                                 },
-                                onShare = { /* TODO: share intent */ },
+                                onShare = {
+                                    val link = info?.referralLink?.trim().orEmpty()
+                                    if (link.isBlank()) {
+                                        snackbarMsg = "Link referral belum tersedia"
+                                    } else {
+                                        val code = info?.referralCode?.trim().orEmpty()
+                                        val shareText = buildString {
+                                            append("Yuk gunakan kode referral TEMBUS")
+                                            if (code.isNotBlank()) append(" $code")
+                                            append(" dan dapatkan benefit saat mendaftar: ")
+                                            append(link)
+                                        }
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, shareText)
+                                        }
+                                        try {
+                                            context.startActivity(
+                                                Intent.createChooser(
+                                                    shareIntent,
+                                                    CustomerTextCatalog.translate("Bagikan kode referral")
+                                                )
+                                            )
+                                        } catch (_: ActivityNotFoundException) {
+                                            snackbarMsg = "Tidak ada aplikasi untuk membagikan link"
+                                        }
+                                    }
+                                },
                                 onEnterCode = { showApplyDialog = true }
                             )
                         }

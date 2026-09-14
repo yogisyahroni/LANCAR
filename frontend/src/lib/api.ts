@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { customerApiUrl } from './runtimeConfig';
+import { createClientId } from './clientId';
 
 const API_URL = customerApiUrl;
 const WEB_APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0';
@@ -41,10 +42,7 @@ const readCsrfTokenFromCookie = (): string | null => {
 };
 
 const createRequestId = () => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return createClientId('web');
 };
 
 const safeRequestId = (value: unknown) => {

@@ -95,7 +95,7 @@ const socketHeaders = (sessionToken: string): Record<string, string> => ({
 });
 
 const socketPollingUrl = (sid?: string) => {
-  const query = new URLSearchParams({ EIO: '4', transport: 'polling', t: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
+  const query = new URLSearchParams({ EIO: '4', transport: 'polling', t: `${Date.now()}-${crypto.randomUUID()}` });
   if (sid) query.set('sid', sid);
   return `${apiBaseUrl}/socket.io/?${query.toString()}`;
 };
