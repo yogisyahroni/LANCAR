@@ -172,6 +172,51 @@ export function UniteconomicsPanel({ data }: { data: FinanceData }) {
                   </p>
                 </div>
 
+                {!!unitEconomicsData?.cost_observability && (
+                  <div className="rounded-3xl bg-surface/[0.02] border border-border p-6 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-sm font-black text-foreground-muted uppercase tracking-wide">Cost &amp; Usage Observability</h4>
+                        <p className="text-xs text-foreground-muted mt-1">Unit dihitung dari fakta operasional tersimpan; biaya kosong tetap ditandai, bukan dianggap gratis.</p>
+                      </div>
+                      <StatusBadge
+                        status={unitEconomicsData.cost_observability.growth_guardrail?.status || 'unknown'}
+                        labelPrefix="Growth cost guardrail"
+                      />
+                    </div>
+                    <div role="region" aria-label="Cost and usage observability table" tabIndex={0} className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead><tr className="border-b border-border text-foreground-muted text-xs uppercase tracking-wide">
+                          <th scope="col" className="pb-3 pr-4">Usage unit</th>
+                          <th scope="col" className="pb-3 pr-4">Source</th>
+                          <th scope="col" className="pb-3 pr-4 text-right">Volume</th>
+                          <th scope="col" className="pb-3 pr-4 text-right">Actual cost</th>
+                          <th scope="col" className="pb-3 text-right">Unpriced</th>
+                        </tr></thead>
+                        <tbody className="divide-y divide-border">{unitEconomicsData.cost_observability.usage_units?.map((row: any) => (
+                          <tr key={row.unit_code}>
+                            <td className="py-3 pr-4 text-xs text-foreground-muted">{row.unit_label}</td>
+                            <td className="py-3 pr-4 text-xs font-mono text-foreground-muted">{row.source_table}</td>
+                            <td className="py-3 pr-4 text-xs font-mono text-foreground-muted text-right">{row.unit_count}</td>
+                            <td className="py-3 pr-4 text-xs font-mono text-foreground-muted text-right">{formatCurrency(row.actual_cost_idr)}</td>
+                            <td className={cn('py-3 text-xs font-mono text-right', Number(row.unpriced_unit_count) > 0 ? 'text-error' : 'text-success')}>{row.unpriced_unit_count}</td>
+                          </tr>
+                        ))}</tbody>
+                      </table>
+                    </div>
+                    {!!unitEconomicsData.cost_observability.anomalies?.length && (
+                      <div className="rounded-2xl border border-error bg-error/[0.03] p-4 space-y-2">
+                        <p className="text-xs font-black uppercase tracking-wide text-error">Active cost anomaly</p>
+                        {unitEconomicsData.cost_observability.anomalies.map((anomaly: any) => (
+                          <p key={`${anomaly.unit_code}-${anomaly.source_table}`} className="text-xs text-foreground-muted">
+                            {anomaly.unit_label}: {anomaly.reason}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {!!unitEconomicsData?.cohorts?.length && (
                   <div className="rounded-3xl bg-surface/[0.02] border border-border p-6 space-y-4">
                     <h4 className="text-sm font-black text-foreground-muted uppercase tracking-wide">Contribution by Cohort</h4>
