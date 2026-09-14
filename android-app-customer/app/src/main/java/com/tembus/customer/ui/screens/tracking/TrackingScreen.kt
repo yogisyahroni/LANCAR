@@ -65,6 +65,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.ui.screens.tip.TipDialog
 import com.tembus.customer.ui.screens.tip.TipViewModel
 import androidx.compose.material.icons.filled.VolunteerActivism
+import com.tembus.customer.util.rememberNetworkAvailable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,6 +83,8 @@ fun TrackingScreen(
     val ratingState by ratingViewModel.uiState.collectAsStateWithLifecycle()
     val merchantRatingState by merchantRatingViewModel.uiState.collectAsStateWithLifecycle()
     val tipState by tipViewModel.uiState.collectAsStateWithLifecycle()
+    val isOnline by rememberNetworkAvailable()
+    var wasOffline by remember(orderId) { mutableStateOf(false) }
     var safetyCenterOpen by remember(orderId) { mutableStateOf(false) }
     var sosConfirmationOpen by remember(orderId) { mutableStateOf(false) }
     var safetyNote by remember(orderId) { mutableStateOf("") }
@@ -92,6 +95,17 @@ fun TrackingScreen(
         tipViewModel.checkTipStatus(orderId)
         onDispose {
             viewModel.stopTracking()
+        }
+    }
+
+    LaunchedEffect(isOnline) {
+        if (!isOnline) {
+            wasOffline = true
+        } else if (wasOffline) {
+            wasOffline = false
+            // Polling continues while online; immediately reconcile after a
+            // network transition so a stale map is not the only visible state.
+            viewModel.refresh(orderId)
         }
     }
 

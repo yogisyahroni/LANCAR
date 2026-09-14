@@ -69,6 +69,8 @@ import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.TembusRadius
 import com.tembus.customer.ui.theme.Warning
 import com.tembus.customer.ui.a11y.criticalAction
+import com.tembus.customer.util.CustomerNetworkRecoveryBanner
+import com.tembus.customer.util.rememberNetworkAvailable
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -86,10 +88,23 @@ fun PaymentScreen(
     }
     val localSecuritySettings by localSecurityManager.settings.collectAsState()
     val state by viewModel.uiState.collectAsState()
+    val isOnline by rememberNetworkAvailable()
+    var wasOffline by remember(orderId) { mutableStateOf(false) }
     var pendingSecurePayment by remember { mutableStateOf(false) }
 
     LaunchedEffect(orderId) {
         viewModel.loadPaymentStatus(orderId)
+    }
+
+    LaunchedEffect(isOnline) {
+        if (!isOnline) {
+            wasOffline = true
+        } else if (wasOffline) {
+            wasOffline = false
+            // Reconcile from the server after a network transition; the
+            // client never infers payment success from the WebView alone.
+            viewModel.loadPaymentStatus(orderId)
+        }
     }
 
     Scaffold(
@@ -110,6 +125,14 @@ fun PaymentScreen(
                 .padding(padding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
+            if (!isOnline) {
+                CustomerNetworkRecoveryBanner(
+                    isOnline = false,
+                    isSlow = false,
+                    isRetrying = state is PaymentUiState.Loading || state is PaymentUiState.Verifying,
+                    onRetry = { viewModel.loadPaymentStatus(orderId) },
+                )
+            }
             when (val result = state) {
                 is PaymentUiState.Choosing -> PaymentMethodChooser(
                     state = result,
