@@ -61,7 +61,10 @@ fun getVersionName(): String {
 }
 
 fun normalizedBaseUrl(value: String): String {
-    val trimmed = value.trim()
+    // Retrofit service paths already include `api/v1`. Accept both a host-root
+    // value and a legacy `/api/v1` value from local/CI configuration, but emit
+    // one canonical root URL so requests never become `/api/v1/api/v1/...`.
+    val trimmed = value.trim().replace(Regex("(?i)/api/v1/?$"), "/")
     return if (trimmed.endsWith("/")) trimmed else "$trimmed/"
 }
 
