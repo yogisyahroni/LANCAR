@@ -5895,8 +5895,8 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - [x] Customer app does not run continuous background location without active justified use.
 - [x] Courier active-job location frequency adapts to lifecycle/accuracy/battery policy.
 - [x] Background workers obey OS constraints/backoff.
-- [ ] Large images/maps/animations use bounded memory/cache.
-- [ ] Leak detection/testing in development/CI where practical.
+- [x] Large images/maps/animations use bounded memory/cache. (Verified 2026-09-14: all three Android Coil image loaders enforce an explicit 15% memory-cache bound and Experience assets require bounded/unmetered prefetch policy; static contract and Android unit suites pass.)
+- [x] Leak detection/testing in development/CI where practical. (Verified 2026-09-14 on `emulator-5554`: customer, courier and merchant debug variants ran explicit activity lifecycle transitions with LeakCanary initialized; courier's temporary retained objects were later garbage-collected and no FATAL/ANR signal occurred. Redacted evidence: `docs/mobile/leak-detection-reports/leakcanary-lifecycle-2026-09-14.md`.)
 
 ---
 
