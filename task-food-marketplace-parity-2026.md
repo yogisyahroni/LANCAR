@@ -6359,7 +6359,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - [x] Cancel/refund reverses according to policy. (Verified 2026-09-14 on public staging with a disposable paid-order fixture: cancellation released the redeemed promotion via one append-only compensating budget entry, restored campaign redeemed budget to zero, and replay did not duplicate the release.)
 - [x] Referral abuse blocked/reviewed.
 - [x] Membership benefit applies only while entitlement valid.
-- [ ] Overlapping promo stack respects canonical priority/budget.
+- [x] Overlapping promo stack respects canonical priority/budget.
 - [x] Marketing opt-out respected across CRM channels.
 
 ---
