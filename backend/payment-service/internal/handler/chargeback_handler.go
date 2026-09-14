@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"tembus/payment-service/internal/domain"
+	"tembus/payment-service/internal/middleware"
 )
 
 type ChargebackEventRequest struct {
@@ -34,9 +35,7 @@ type ChargebackHandler struct{ db *sql.DB }
 func NewChargebackHandler(db *sql.DB) *ChargebackHandler { return &ChargebackHandler{db: db} }
 
 func (h *ChargebackHandler) authorized(r *http.Request) bool {
-	expected := strings.TrimSpace(os.Getenv("INTERNAL_PAYMENT_API_KEY"))
-	provided := strings.TrimSpace(r.Header.Get("X-Internal-API-Key"))
-	return expected != "" && provided != "" && len(expected) == len(provided) && subtleConstantTimeCompare(expected, provided)
+	return middleware.RequireInternalAPIKey(r, os.Getenv("INTERNAL_PAYMENT_API_KEY"), r.Header.Get("X-Internal-API-Key"), "payment_chargeback.ingest")
 }
 
 func validChargebackOwner(owner string) bool {

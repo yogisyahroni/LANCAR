@@ -26,7 +26,7 @@ func (h *TrackingPollTargetsHandler) Handle(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !middleware.IsInternalAPIKeyValid(h.internalAPIKey, r.Header.Get("X-Internal-Api-Key")) {
+	if !middleware.RequireInternalAPIKey(r, h.internalAPIKey, r.Header.Get("X-Internal-Api-Key"), "tracking_poll_targets.list") {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}

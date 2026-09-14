@@ -42,7 +42,7 @@ func (h *NotificationHandler) NotifyCustomerMerchantAccepted(w http.ResponseWrit
 		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
 		return
 	}
-	if !middleware.IsInternalAPIKeyValid(h.internalAPIKey, r.Header.Get("X-Internal-Api-Key")) {
+	if !middleware.RequireInternalAPIKey(r, h.internalAPIKey, r.Header.Get("X-Internal-Api-Key"), "notification.create") {
 		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", middleware.GetCorrelationID(r.Context()))
 		return
 	}

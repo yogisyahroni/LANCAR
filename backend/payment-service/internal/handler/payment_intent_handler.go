@@ -2,7 +2,6 @@ package handler
 
 import (
 	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"tembus/payment-service/internal/domain"
+	"tembus/payment-service/internal/middleware"
 )
 
 type PaymentIntentHandler struct {
@@ -42,9 +42,7 @@ func writePaymentIntentError(w http.ResponseWriter, status int, code string) {
 }
 
 func (h *PaymentIntentHandler) internalAuthorized(r *http.Request) bool {
-	expected := strings.TrimSpace(os.Getenv("INTERNAL_PAYMENT_API_KEY"))
-	provided := strings.TrimSpace(r.Header.Get("X-Internal-API-Key"))
-	return expected != "" && provided != "" && subtle.ConstantTimeCompare([]byte(expected), []byte(provided)) == 1
+	return middleware.RequireInternalAPIKey(r, os.Getenv("INTERNAL_PAYMENT_API_KEY"), r.Header.Get("X-Internal-API-Key"), "payment_intent.apply_internal_event")
 }
 
 func (h *PaymentIntentHandler) Create(w http.ResponseWriter, r *http.Request) {

@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"tembus/payment-service/internal/middleware"
 )
 
 type RefundEventRequest struct {
@@ -27,9 +29,7 @@ type RefundEventHandler struct{ db *sql.DB }
 func NewRefundEventHandler(db *sql.DB) *RefundEventHandler { return &RefundEventHandler{db: db} }
 
 func (h *RefundEventHandler) authorized(r *http.Request) bool {
-	expected := strings.TrimSpace(os.Getenv("INTERNAL_PAYMENT_API_KEY"))
-	provided := strings.TrimSpace(r.Header.Get("X-Internal-API-Key"))
-	return expected != "" && provided != "" && subtleConstantTimeCompare(expected, provided)
+	return middleware.RequireInternalAPIKey(r, os.Getenv("INTERNAL_PAYMENT_API_KEY"), r.Header.Get("X-Internal-API-Key"), "payment_refund_event.ingest")
 }
 
 func validRefundStatus(status string) bool {

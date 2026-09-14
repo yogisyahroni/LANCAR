@@ -1,17 +1,16 @@
 package handler
 
 import (
-	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/google/uuid"
 
 	"tembus/payment-service/internal/domain"
+	"tembus/payment-service/internal/middleware"
 	"tembus/payment-service/internal/repository"
 )
 
@@ -32,9 +31,7 @@ type balanceOperationRequest struct {
 }
 
 func (h *BalanceHandler) authorized(r *http.Request) bool {
-	expected := strings.TrimSpace(os.Getenv("INTERNAL_PAYMENT_API_KEY"))
-	provided := strings.TrimSpace(r.Header.Get("X-Internal-API-Key"))
-	return expected != "" && provided != "" && len(expected) == len(provided) && subtle.ConstantTimeCompare([]byte(expected), []byte(provided)) == 1
+	return middleware.RequireInternalAPIKey(r, os.Getenv("INTERNAL_PAYMENT_API_KEY"), r.Header.Get("X-Internal-API-Key"), "payment_balance.apply")
 }
 
 func (h *BalanceHandler) Apply(w http.ResponseWriter, r *http.Request) {

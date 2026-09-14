@@ -21,7 +21,7 @@ func NewCommunicationHandler(repo *repository.CommunicationRepository, key strin
 	return &CommunicationHandler{repo: repo, internalAPIKey: key}
 }
 func (h *CommunicationHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsInternalAPIKeyValid(h.internalAPIKey, r.Header.Get("X-Internal-Api-Key")) {
+	if !middleware.RequireInternalAPIKey(r, h.internalAPIKey, r.Header.Get("X-Internal-Api-Key"), "communication.create_event") {
 		middleware.WriteError(w, 401, "ERR_UNAUTHORIZED", "internal access required", middleware.GetCorrelationID(r.Context()))
 		return
 	}
@@ -39,7 +39,7 @@ func (h *CommunicationHandler) CreateEvent(w http.ResponseWriter, r *http.Reques
 	middleware.WriteSuccess(w, 200, map[string]any{"accepted": true, "duplicate": !created, "event_id": e.EventID})
 }
 func (h *CommunicationHandler) Receipt(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsInternalAPIKeyValid(h.internalAPIKey, r.Header.Get("X-Internal-Api-Key")) {
+	if !middleware.RequireInternalAPIKey(r, h.internalAPIKey, r.Header.Get("X-Internal-Api-Key"), "communication.receipt") {
 		middleware.WriteError(w, 401, "ERR_UNAUTHORIZED", "internal access required", middleware.GetCorrelationID(r.Context()))
 		return
 	}
@@ -65,7 +65,7 @@ func (h *CommunicationHandler) Receipt(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CommunicationHandler) ReplayDelivery(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsInternalAPIKeyValid(h.internalAPIKey, r.Header.Get("X-Internal-Api-Key")) {
+	if !middleware.RequireInternalAPIKey(r, h.internalAPIKey, r.Header.Get("X-Internal-Api-Key"), "communication.replay_delivery") {
 		middleware.WriteError(w, 401, "ERR_UNAUTHORIZED", "internal access required", middleware.GetCorrelationID(r.Context()))
 		return
 	}
