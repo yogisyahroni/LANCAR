@@ -162,6 +162,7 @@ export default function NewOrderPage() {
   const paymentKeyRef = useRef<{ orderId: string; key: string }>({ orderId: "", key: "" });
   const [transactionPending, setTransactionPending] = useState(false);
   const [transactionNotice, setTransactionNotice] = useState<string | null>(null);
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const previousFormDataRef = useRef<string>("");
 
   const router = useRouter();
@@ -172,6 +173,7 @@ export default function NewOrderPage() {
   useEffect(() => {
     const pending = readPendingTransaction();
     pendingTransactionRef.current = pending;
+    setPendingOrderId(pending?.order_id ?? null);
     if (pending) {
       setTransactionPending(true);
       setTransactionNotice(
@@ -531,11 +533,13 @@ export default function NewOrderPage() {
             created_at: previous?.fingerprint === fingerprint ? previous.created_at : Date.now(),
           };
           pendingTransactionRef.current = pending;
+          setPendingOrderId(null);
           persistPendingTransaction(pending);
           currentOrder = await requestPersistedCustomerOrder(api, payload, idempotencyKey);
           currentOrderId = currentOrder.id;
           const completedPending = { ...pending, order_id: currentOrder.id };
           pendingTransactionRef.current = completedPending;
+          setPendingOrderId(completedPending.order_id);
           persistPendingTransaction(completedPending);
         }
         currentOrderId = currentOrder.id;
@@ -550,6 +554,7 @@ export default function NewOrderPage() {
       if (currentOrder.status !== 'pending_payment') {
         clearPendingTransaction();
         pendingTransactionRef.current = null;
+        setPendingOrderId(null);
         setTransactionPending(false);
         setTransactionNotice(null);
         clearCustomerOrderDraft();
@@ -569,6 +574,7 @@ export default function NewOrderPage() {
       if (payment.payment_status === "paid" || payment.order_status !== "pending_payment") {
         clearPendingTransaction();
         pendingTransactionRef.current = null;
+        setPendingOrderId(null);
         setTransactionPending(false);
         setTransactionNotice(null);
         clearCustomerOrderDraft();
@@ -581,6 +587,7 @@ export default function NewOrderPage() {
       
     } catch (error: any) {
       if (isRetryableTransactionError(error)) {
+        setPendingOrderId(pendingTransactionRef.current?.order_id ?? null);
         setTransactionPending(true);
         setTransactionNotice("Permintaan belum mendapat jawaban server. Order belum dianggap berhasil; tekan Bayar Sekarang untuk retry dengan idempotency key yang sama.");
         addNotification({
@@ -623,6 +630,7 @@ export default function NewOrderPage() {
       if (!recovery.payment) {
         clearPendingTransaction();
         pendingTransactionRef.current = null;
+        setPendingOrderId(null);
         setTransactionPending(false);
         setTransactionNotice(null);
         router.push(`/orders/${recovery.order.id}`);
@@ -653,6 +661,7 @@ export default function NewOrderPage() {
     }
     clearPendingTransaction();
     pendingTransactionRef.current = null;
+    setPendingOrderId(null);
     setTransactionPending(false);
     setTransactionNotice(null);
     setShowPayment(false);
@@ -706,12 +715,12 @@ export default function NewOrderPage() {
           <Info className="mt-0.5 h-5 w-5 shrink-0"  aria-hidden="true" />
           <div className="flex min-w-0 flex-1 flex-col gap-3">
             <p>{transactionNotice}</p>
-            {transactionPending && pendingTransactionRef.current?.order_id && (
+            {transactionPending && pendingOrderId && (
               <button
                 type="button"
                 onClick={handleResumePendingPayment}
                 disabled={isSubmitting}
-                className="w-fit rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-bold text-warning transition-colors hover:bg-warning/20 disabled:pointer-events-none disabled:opacity-60"
+                className="w-fit rounded-lg border border-warning/30 bg-warning-surface px-3 py-2 text-xs font-bold text-warning transition-colors hover:bg-warning-surface disabled:pointer-events-none disabled:opacity-60"
               >
                 {isSubmitting ? "Memulihkan..." : "Lanjutkan pembayaran"}
               </button>
