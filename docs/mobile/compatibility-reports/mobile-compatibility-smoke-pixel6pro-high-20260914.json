@@ -61,38 +61,38 @@
           },
           "launch": {
             "status": "ok",
-            "total_time_ms": 13317,
+            "total_time_ms": 6152,
             "resumed": true
           },
           "scenarios": {
             "process_death_resume": {
               "status": "ok",
-              "total_time_ms": 6015,
+              "total_time_ms": 5401,
               "resumed": true
             },
             "dark_mode_resume": {
               "status": "ok",
-              "total_time_ms": 5730,
+              "total_time_ms": 5740,
               "resumed": true
             },
             "light_mode_resume": {
               "status": "ok",
-              "total_time_ms": 5052,
+              "total_time_ms": 5623,
               "resumed": true
             },
             "dynamic_text_130_percent": {
               "status": "ok",
-              "total_time_ms": 4944,
+              "total_time_ms": 6815,
               "resumed": true
             },
             "rotation_resume": {
               "status": "ok",
-              "total_time_ms": 5067,
+              "total_time_ms": 6817,
               "resumed": true
             },
             "post_rotation_process_death": {
               "status": "ok",
-              "total_time_ms": 4389,
+              "total_time_ms": 6691,
               "resumed": true
             }
           },
@@ -151,38 +151,38 @@
           },
           "launch": {
             "status": "ok",
-            "total_time_ms": 4149,
+            "total_time_ms": 7120,
             "resumed": true
           },
           "scenarios": {
             "process_death_resume": {
               "status": "ok",
-              "total_time_ms": 5251,
+              "total_time_ms": 5415,
               "resumed": true
             },
             "dark_mode_resume": {
               "status": "ok",
-              "total_time_ms": 4603,
+              "total_time_ms": 5260,
               "resumed": true
             },
             "light_mode_resume": {
               "status": "ok",
-              "total_time_ms": 4511,
+              "total_time_ms": 5278,
               "resumed": true
             },
             "dynamic_text_130_percent": {
               "status": "ok",
-              "total_time_ms": 4188,
+              "total_time_ms": 5283,
               "resumed": true
             },
             "rotation_resume": {
               "status": "ok",
-              "total_time_ms": 4380,
+              "total_time_ms": 5135,
               "resumed": true
             },
             "post_rotation_process_death": {
               "status": "ok",
-              "total_time_ms": 4466,
+              "total_time_ms": 5422,
               "resumed": true
             }
           },
@@ -194,6 +194,8 @@
           "component": "com.tembus.merchant/.SplashActivity",
           "permissions": {
             "declared": [
+              "android.permission.ACCESS_ADSERVICES_AD_ID",
+              "android.permission.ACCESS_ADSERVICES_ATTRIBUTION",
               "android.permission.ACCESS_LOCAL_NETWORK",
               "android.permission.ACCESS_NETWORK_STATE",
               "android.permission.BLUETOOTH_CONNECT",
@@ -201,50 +203,54 @@
               "android.permission.POST_NOTIFICATIONS",
               "android.permission.READ_EXTERNAL_STORAGE",
               "android.permission.VIBRATE",
+              "android.permission.WAKE_LOCK",
               "android.permission.WRITE_EXTERNAL_STORAGE"
             ],
             "granted": [
+              "android.permission.ACCESS_ADSERVICES_AD_ID: granted=true",
+              "android.permission.ACCESS_ADSERVICES_ATTRIBUTION: granted=true",
               "android.permission.ACCESS_LOCAL_NETWORK: granted=true",
               "android.permission.ACCESS_NETWORK_STATE: granted=true",
               "android.permission.INTERNET: granted=true",
               "android.permission.POST_NOTIFICATIONS: granted=true",
-              "android.permission.VIBRATE: granted=true"
+              "android.permission.VIBRATE: granted=true",
+              "android.permission.WAKE_LOCK: granted=true"
             ]
           },
           "launch": {
             "status": "ok",
-            "total_time_ms": 2572,
+            "total_time_ms": 3046,
             "resumed": true
           },
           "scenarios": {
             "process_death_resume": {
               "status": "ok",
-              "total_time_ms": 1991,
+              "total_time_ms": 2516,
               "resumed": true
             },
             "dark_mode_resume": {
               "status": "ok",
-              "total_time_ms": 2204,
+              "total_time_ms": 2729,
               "resumed": true
             },
             "light_mode_resume": {
               "status": "ok",
-              "total_time_ms": 2084,
+              "total_time_ms": 2610,
               "resumed": true
             },
             "dynamic_text_130_percent": {
               "status": "ok",
-              "total_time_ms": 1949,
+              "total_time_ms": 6512,
               "resumed": true
             },
             "rotation_resume": {
               "status": "ok",
-              "total_time_ms": 2068,
+              "total_time_ms": 2737,
               "resumed": true
             },
             "post_rotation_process_death": {
               "status": "ok",
-              "total_time_ms": 1999,
+              "total_time_ms": 2484,
               "resumed": true
             }
           },
