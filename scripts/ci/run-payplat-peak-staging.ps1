@@ -4,7 +4,9 @@ param(
   [int]$WorkerQuoteRps = 8,
   [int]$WorkerCheckoutRps = 2,
   [int]$WorkerCallbackRps = 2,
-  [string]$ProfileDuration = '5s'
+  [string]$ProfileDuration = '5s',
+  [string]$NextStage = 'city_production',
+  [int]$SafetyMarginPct = 50
 )
 
 $ErrorActionPreference = 'Stop'
@@ -109,7 +111,7 @@ try {
   $reportMount = $reportDir + ':/reports'
   for ($worker = 1; $worker -le $Workers; $worker++) {
     $jobs += Start-Job -ScriptBlock {
-      param($workerId, $mountPath, $reportMountPath, $apiBase, $token, $userId, $paymentKey, $intent, $run, $quoteRps, $checkoutRps, $callbackRps, $duration, $device)
+      param($workerId, $mountPath, $reportMountPath, $apiBase, $token, $userId, $paymentKey, $intent, $run, $quoteRps, $checkoutRps, $callbackRps, $duration, $device, $nextStage, $marginPct)
       $reportPath = "/reports/worker-$workerId.json"
       $dockerArgs = @(
         'run', '--rm', '--add-host=host.docker.internal:host-gateway', '-v', $mountPath, '-v', $reportMountPath,
@@ -117,13 +119,13 @@ try {
         '-e', "CUSTOMER_TOKEN=$token", '-e', "CUSTOMER_USER_ID=$userId", '-e', "INTERNAL_PAYMENT_API_KEY=$paymentKey",
         '-e', "PAYMENT_INTENT_ID=$intent", '-e', "PAYPLAT_RUN_ID=$run", '-e', "PAYPLAT_WORKER_ID=$workerId",
         '-e', "QUOTE_RPS=$quoteRps", '-e', "CHECKOUT_RPS=$checkoutRps", '-e', "CALLBACK_RPS=$callbackRps",
-        '-e', "PROFILE_DURATION=$duration", '-e', "DEVICE_ID=$device", 'grafana/k6:0.49.0',
+        '-e', "PROFILE_DURATION=$duration", '-e', "DEVICE_ID=$device", '-e', "NEXT_STAGE=$nextStage", '-e', "SAFETY_MARGIN_PCT=$marginPct", 'grafana/k6:0.49.0',
         'run', '--quiet', "--summary-export=$reportPath", '/scripts/payplat-peak-staging.js'
       )
       $logPath = Join-Path $env:TEMP "payplat010-worker-$workerId.log"
       & docker @dockerArgs *> $logPath
       [pscustomobject]@{ worker = $workerId; exit_code = $LASTEXITCODE }
-    } -ArgumentList $worker, $mount, $reportMount, $BaseUrl, $customerToken, $customerUserId, $internalKey, $intentId, $runId, $WorkerQuoteRps, $WorkerCheckoutRps, $WorkerCallbackRps, $ProfileDuration, $deviceId
+    } -ArgumentList $worker, $mount, $reportMount, $BaseUrl, $customerToken, $customerUserId, $internalKey, $intentId, $runId, $WorkerQuoteRps, $WorkerCheckoutRps, $WorkerCallbackRps, $ProfileDuration, $deviceId, $NextStage, $SafetyMarginPct
   }
 
   $results = @($jobs | Wait-Job | Receive-Job)

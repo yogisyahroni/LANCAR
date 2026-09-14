@@ -17,11 +17,26 @@ const PAYMENT_INTENT_ID = __ENV.PAYMENT_INTENT_ID || '';
 const RUN_ID = (__ENV.PAYPLAT_RUN_ID || `payplat-010-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '-');
 const WORKER_ID = __ENV.PAYPLAT_WORKER_ID || 'single';
 const PROFILE_DURATION = __ENV.PROFILE_DURATION || '30s';
-// k6 arrival-rate values are integer requests per second. The default is the
-// ceiling of the forecast × 1.5 profile (112.5 / 22.5 / 22.5).
-const QUOTE_RPS = Number(__ENV.QUOTE_RPS || 113);
-const CHECKOUT_RPS = Number(__ENV.CHECKOUT_RPS || 23);
-const CALLBACK_RPS = Number(__ENV.CALLBACK_RPS || 23);
+const NEXT_STAGE = (__ENV.NEXT_STAGE || 'city_production').trim();
+const SAFETY_MARGIN_PCT = Number(__ENV.SAFETY_MARGIN_PCT || 50);
+const FORECASTS = {
+  closed_beta: { quote: 25, checkout: 5, callback: 5 },
+  city_production: { quote: 75, checkout: 15, callback: 15 },
+  multi_city: { quote: 250, checkout: 25, callback: 25 },
+};
+if (!FORECASTS[NEXT_STAGE]) {
+  throw new Error(`NEXT_STAGE must be one of ${Object.keys(FORECASTS).join(', ')}`);
+}
+if (!Number.isFinite(SAFETY_MARGIN_PCT) || SAFETY_MARGIN_PCT < 0 || SAFETY_MARGIN_PCT > 500) {
+  throw new Error('SAFETY_MARGIN_PCT must be between 0 and 500');
+}
+// k6 arrival-rate values are integer requests per second. Unless explicitly
+// overridden, the workload is the selected next-stage forecast × margin.
+const forecast = FORECASTS[NEXT_STAGE];
+const margin = 1 + SAFETY_MARGIN_PCT / 100;
+const QUOTE_RPS = Number(__ENV.QUOTE_RPS || Math.ceil(forecast.quote * margin));
+const CHECKOUT_RPS = Number(__ENV.CHECKOUT_RPS || Math.ceil(forecast.checkout * margin));
+const CALLBACK_RPS = Number(__ENV.CALLBACK_RPS || Math.ceil(forecast.callback * margin));
 
 const quoteLatency = new Trend('payplat_quote_latency_ms');
 const checkoutLatency = new Trend('payplat_checkout_latency_ms');
