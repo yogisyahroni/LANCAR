@@ -22,6 +22,8 @@ const allowlistedFiles = new Set([
   'frontend/src/app/(portal)/orders/[id]/RouteSnapshotPanel.tsx',
   'frontend/src/app/(portal)/resi/[id]/page.tsx',
   'frontend/src/components/orders/OrderSummary.tsx',
+  // Generated theme maps are the canonical literal-to-CSS-variable boundary.
+  'frontend/src/lib/generated/tembusTokens.ts',
   'admin-dashboard/src/components/LiveMap.tsx',
   'admin-dashboard/src/components/experience/DesignTokenEditor.tsx',
   'admin-dashboard/src/pages/Analytics.tsx',
@@ -30,6 +32,7 @@ const allowlistedFiles = new Set([
   'admin-dashboard/src/pages/Zones.tsx',
   'admin-dashboard/src/pages/finance/treasury/RekeningGridSection.tsx',
   'admin-dashboard/src/pages/useFinanceData.ts',
+  'admin-dashboard/src/lib/generated/tembusTokens.ts',
 ])
 
 const rawUtilityPattern = /\b(?:text|bg|border|ring|from|to|via|divide|shadow)-(?:zinc|gray|slate|neutral|white|black|red|green|orange|yellow|blue|emerald|amber|sky|indigo|purple|pink|teal|violet|rose|brand-emerald)(?:-[0-9]+)?(?:\/(?:[0-9]+|\[[^\]]+\]))?\b/g
