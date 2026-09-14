@@ -84,21 +84,10 @@ class DashboardViewModel @Inject constructor(
             orderRepository.getOrderHistory().collectLatest { result ->
                 _isLoading.value = false
                 result.onSuccess { orders ->
-                    // FB-126: kumpulkan SEMUA order yang masih berjalan
-                    // (food + parcel), bukan firstOrNull. Customer bisa
-                    // punya >1 order aktif sekaligus.
-                    val terminal = setOf("delivered", "completed", "cancelled", "canceled", "failed", "rejected", "payment_failed", "no courier found", "no_courier_found")
-                    val ongoing = orders.filter {
-                        val s = it.status.lowercase()
-                        s !in terminal && !s.contains("cancel")
-                    }
-                    _activeOrders.value = ongoing.ifEmpty {
-                        // FIX 2026-08-11: fallback JANGAN memasukkan status terminal (cancelled dkk)
-                        orders.filter {
-                            val s = it.status.lowercase()
-                            s !in terminal && s != "arrived" && !s.contains("cancel")
-                        }
-                    }
+                    // Keep every recoverable food/parcel order visible after
+                    // process death; the repository is server-first and only
+                    // falls back to the encrypted Room snapshot when offline.
+                    _activeOrders.value = ActiveOrderRecoveryPolicy.recoverableOrders(orders)
                 }.onFailure { error ->
                     _activeOrders.value = emptyList()
                     _dataError.value = userSafeMessage(

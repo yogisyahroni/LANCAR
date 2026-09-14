@@ -165,6 +165,7 @@ fun DashboardScreen(
     HomeStatusBarIcons()
 
     val customerName by viewModel.customerName.collectAsState()
+    val activeOrders by viewModel.activeOrders.collectAsState()
     val incomingPackages by viewModel.incomingPackages.collectAsState()
     val dataError by viewModel.dataError.collectAsState()
     val notificationUnreadCount by viewModel.notificationUnreadCount.collectAsState()
@@ -290,6 +291,17 @@ fun DashboardScreen(
                         }
                     }
 
+                    if (activeOrders.isNotEmpty()) {
+                        item {
+                            ActiveOrdersSection(
+                                orders = activeOrders,
+                                hasUnreadMessage = hasUnreadMessages,
+                                onTrackingClick = onTrackingClick,
+                                onChatClick = onChatClick,
+                            )
+                        }
+                    }
+
                     item {
                         WalletCard()
                     }
@@ -354,6 +366,51 @@ fun DashboardScreen(
         }
     }
 }
+}
+
+@Composable
+private fun ActiveOrdersSection(
+    orders: List<Order>,
+    hasUnreadMessage: Boolean,
+    onTrackingClick: (String) -> Unit,
+    onChatClick: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Pesanan aktif", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                Text("Lanjutkan pelacakan setelah aplikasi dibuka kembali.", color = Muted, fontSize = 13.sp)
+            }
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = RoundedCornerShape(999.dp),
+                border = BorderStroke(1.dp, LcGreen.copy(alpha = 0.18f)),
+            ) {
+                Text(
+                    text = "${orders.size}",
+                    color = LcGreen,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                )
+            }
+        }
+        orders.take(5).forEach { order ->
+            ActiveOrderCard(
+                title = order.dropAddress.ifBlank { order.pickupAddress.ifBlank { "Pesanan ${order.orderNumber.ifBlank { order.orderId }}" } },
+                subtitle = order.orderNumber.ifBlank { order.serviceCategory.orEmpty().ifBlank { "Pesanan TEMBUS" } },
+                status = order.status,
+                hasUnreadMessage = hasUnreadMessage,
+                onClick = { onTrackingClick(order.orderId) },
+                onChatClick = { onChatClick(order.orderId) },
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
