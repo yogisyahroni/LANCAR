@@ -1,0 +1,364 @@
+{
+  "schema_version": "2026.09.14",
+  "mode": "deterministic_tabletop_failure_drill_matrix",
+  "started_at": "2026-09-14T12:24:22.775673Z",
+  "finished_at": "2026-09-14T12:24:22.775673Z",
+  "repository_revision": "b064ba6f5eeeffda94f1785b70f3319c0cf43ee7",
+  "environment": "local tabletop; no payment/map/carrier/notification/cloud provider contacted",
+  "scenario_count": 10,
+  "rerun_count": 2,
+  "runs": [
+    {
+      "run_number": 1,
+      "started_at": "2026-09-14T12:24:22.775673Z",
+      "finished_at": "2026-09-14T12:24:22.775673Z",
+      "repository_revision": "b064ba6f5eeeffda94f1785b70f3319c0cf43ee7",
+      "environment": "local tabletop; no external provider contacted",
+      "records": [
+        {
+          "id": "payment-provider-outage",
+          "dependency": "payment provider",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "provider call unavailable before a known result",
+          "expected": "No transactional success, circuit opens, and retry policy remains bounded.",
+          "observed": {
+            "success": false,
+            "transactional_success": false,
+            "circuit_open": true,
+            "attempts": 3
+          },
+          "result": "PASS",
+          "gap": "Live provider sandbox outage and callback/reconciliation replay remain external release evidence.",
+          "owner": "Payments owner",
+          "remediation_due": "Before enabling a live payment provider or payment-dependent market"
+        },
+        {
+          "id": "map-provider-outage",
+          "dependency": "map/routing provider",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "route provider unavailable",
+          "expected": "Degraded route is explicit and cannot become pricing truth.",
+          "observed": {
+            "status": "degraded",
+            "fallback": "approximate",
+            "pricing_authoritative": false
+          },
+          "result": "PASS",
+          "gap": "Provider sandbox/edge outage and customer degraded-route UI need an approved staging window.",
+          "owner": "Geo/Platform owner",
+          "remediation_due": "Before the next market promotion"
+        },
+        {
+          "id": "carrier-api-webhook-outage",
+          "dependency": "carrier API/webhook",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "carrier event delivery unavailable",
+          "expected": "Canonical status becomes UNKNOWN and the event remains replayable.",
+          "observed": {
+            "canonical_status": "UNKNOWN",
+            "replayable": true
+          },
+          "result": "PASS",
+          "gap": "External carrier sandbox outage and signed webhook replay remain unexecuted.",
+          "owner": "Logistics/provider owner",
+          "remediation_due": "Before enabling each carrier integration"
+        },
+        {
+          "id": "redis-queue-degradation",
+          "dependency": "Redis/queue",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "queue acknowledgement and Redis admission control unavailable",
+          "expected": "Outbox work remains durable/replayable and writes are bounded rather than falsely accepted.",
+          "observed": {
+            "outbox_persisted": true,
+            "ack": false,
+            "requeue": true
+          },
+          "result": "PASS",
+          "gap": "Live staging broker/Redis failover and recovery timing remain to be run in an approved window.",
+          "owner": "SRE/Platform owner",
+          "remediation_due": "Before multi-city promotion"
+        },
+        {
+          "id": "database-failover-restore",
+          "dependency": "database",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "replica/read path unavailable while the writer is fenced",
+          "expected": "No stale transactional read/write; promotion is explicit and writes stay fenced until approval.",
+          "observed": {
+            "read_source": "database_writer",
+            "stale_read": false,
+            "transactional_write": "rejected_until_approved_promotion"
+          },
+          "result": "PASS",
+          "gap": "A real staging replica restore and measured RPO/RTO require provisioned replica infrastructure.",
+          "owner": "Database/SRE owner",
+          "remediation_due": "Before multi-region promotion"
+        },
+        {
+          "id": "notification-outage",
+          "dependency": "notification provider",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "push delivery unavailable after domain commit",
+          "expected": "Domain transaction remains committed, delivery is deferred, and client success is not fabricated.",
+          "observed": {
+            "transaction_committed": true,
+            "delivery_deferred": true,
+            "client_success_without_ack": false
+          },
+          "result": "PASS",
+          "gap": "FCM/provider outage and replay need the approved provider project and device evidence.",
+          "owner": "Communication/Mobile owner",
+          "remediation_due": "Before push-dependent rollout"
+        },
+        {
+          "id": "bad-app-experience-revision",
+          "dependency": "App Experience control plane",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "new-order gate enabled for a bad revision",
+          "expected": "Only new orders are rejected; active-order recovery remains available.",
+          "observed": {
+            "new_orders": "rejected",
+            "active_orders_preserved": true,
+            "reason_code": "NEW_ORDER_GATE_ACTIVE"
+          },
+          "result": "PASS",
+          "gap": "The control is proven by a staging kill-switch drill; a multi-market rollback remains a release exercise.",
+          "owner": "Product/Ops owner",
+          "remediation_due": "Before each market promotion",
+          "related_staging_evidence": "docs/operations/failure-drill-record-2026-09-14.md#drill-2--controlled-new-order-kill-switch"
+        },
+        {
+          "id": "bad-mobile-release",
+          "dependency": "mobile release",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "release policy marks an unsafe version hard-gated",
+          "expected": "New transactions are gated while active-order and support recovery remain available.",
+          "observed": {
+            "new_transactions": "gated_by_release_policy",
+            "active_order_recovery": true,
+            "support_access": true,
+            "executable_code_from_remote_policy": false
+          },
+          "result": "PASS",
+          "gap": "Play/internal percentage rollback and process-death active-order proof remain release-owner evidence.",
+          "owner": "Mobile release owner",
+          "remediation_due": "Before percentage rollout"
+        },
+        {
+          "id": "safety-escalation",
+          "dependency": "safety/SOS",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "SOS provider unavailable for an active incident",
+          "expected": "Incident is persisted and honest local fallback is shown; no provider success is claimed.",
+          "observed": {
+            "incident_persisted": true,
+            "fallback_instructions": true,
+            "fake_provider_success": false
+          },
+          "result": "PASS",
+          "gap": "Market-specific emergency provider/call-center configuration remains an owner decision.",
+          "owner": "Safety/Ops owner",
+          "remediation_due": "Before market launch",
+          "related_staging_evidence": "docs/operations/failure-drill-record-2026-09-14.md#drill-1--safety-incident-fallback-authorization-and-ops-sla"
+        },
+        {
+          "id": "reconciliation-mismatch",
+          "dependency": "ledger/provider reconciliation",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "provider statement and internal amount do not match",
+          "expected": "Mismatch is isolated and corrected only through an append-only compensating entry.",
+          "observed": {
+            "mismatch_isolated": true,
+            "compensating_entry_only": true,
+            "provider_statement_rewritten": false
+          },
+          "result": "PASS",
+          "gap": "Provider invoice/bank movement reconciliation needs a real provider statement and Finance sign-off.",
+          "owner": "Finance/Payments owner",
+          "remediation_due": "Before settlement close or payment-provider launch"
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "run_number": 2,
+      "started_at": "2026-09-14T12:24:22.775673Z",
+      "finished_at": "2026-09-14T12:24:22.775673Z",
+      "repository_revision": "b064ba6f5eeeffda94f1785b70f3319c0cf43ee7",
+      "environment": "local tabletop; no external provider contacted",
+      "records": [
+        {
+          "id": "payment-provider-outage",
+          "dependency": "payment provider",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "provider call unavailable before a known result",
+          "expected": "No transactional success, circuit opens, and retry policy remains bounded.",
+          "observed": {
+            "success": false,
+            "transactional_success": false,
+            "circuit_open": true,
+            "attempts": 3
+          },
+          "result": "PASS",
+          "gap": "Live provider sandbox outage and callback/reconciliation replay remain external release evidence.",
+          "owner": "Payments owner",
+          "remediation_due": "Before enabling a live payment provider or payment-dependent market"
+        },
+        {
+          "id": "map-provider-outage",
+          "dependency": "map/routing provider",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "route provider unavailable",
+          "expected": "Degraded route is explicit and cannot become pricing truth.",
+          "observed": {
+            "status": "degraded",
+            "fallback": "approximate",
+            "pricing_authoritative": false
+          },
+          "result": "PASS",
+          "gap": "Provider sandbox/edge outage and customer degraded-route UI need an approved staging window.",
+          "owner": "Geo/Platform owner",
+          "remediation_due": "Before the next market promotion"
+        },
+        {
+          "id": "carrier-api-webhook-outage",
+          "dependency": "carrier API/webhook",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "carrier event delivery unavailable",
+          "expected": "Canonical status becomes UNKNOWN and the event remains replayable.",
+          "observed": {
+            "canonical_status": "UNKNOWN",
+            "replayable": true
+          },
+          "result": "PASS",
+          "gap": "External carrier sandbox outage and signed webhook replay remain unexecuted.",
+          "owner": "Logistics/provider owner",
+          "remediation_due": "Before enabling each carrier integration"
+        },
+        {
+          "id": "redis-queue-degradation",
+          "dependency": "Redis/queue",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "queue acknowledgement and Redis admission control unavailable",
+          "expected": "Outbox work remains durable/replayable and writes are bounded rather than falsely accepted.",
+          "observed": {
+            "outbox_persisted": true,
+            "ack": false,
+            "requeue": true
+          },
+          "result": "PASS",
+          "gap": "Live staging broker/Redis failover and recovery timing remain to be run in an approved window.",
+          "owner": "SRE/Platform owner",
+          "remediation_due": "Before multi-city promotion"
+        },
+        {
+          "id": "database-failover-restore",
+          "dependency": "database",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "replica/read path unavailable while the writer is fenced",
+          "expected": "No stale transactional read/write; promotion is explicit and writes stay fenced until approval.",
+          "observed": {
+            "read_source": "database_writer",
+            "stale_read": false,
+            "transactional_write": "rejected_until_approved_promotion"
+          },
+          "result": "PASS",
+          "gap": "A real staging replica restore and measured RPO/RTO require provisioned replica infrastructure.",
+          "owner": "Database/SRE owner",
+          "remediation_due": "Before multi-region promotion"
+        },
+        {
+          "id": "notification-outage",
+          "dependency": "notification provider",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "push delivery unavailable after domain commit",
+          "expected": "Domain transaction remains committed, delivery is deferred, and client success is not fabricated.",
+          "observed": {
+            "transaction_committed": true,
+            "delivery_deferred": true,
+            "client_success_without_ack": false
+          },
+          "result": "PASS",
+          "gap": "FCM/provider outage and replay need the approved provider project and device evidence.",
+          "owner": "Communication/Mobile owner",
+          "remediation_due": "Before push-dependent rollout"
+        },
+        {
+          "id": "bad-app-experience-revision",
+          "dependency": "App Experience control plane",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "new-order gate enabled for a bad revision",
+          "expected": "Only new orders are rejected; active-order recovery remains available.",
+          "observed": {
+            "new_orders": "rejected",
+            "active_orders_preserved": true,
+            "reason_code": "NEW_ORDER_GATE_ACTIVE"
+          },
+          "result": "PASS",
+          "gap": "The control is proven by a staging kill-switch drill; a multi-market rollback remains a release exercise.",
+          "owner": "Product/Ops owner",
+          "remediation_due": "Before each market promotion",
+          "related_staging_evidence": "docs/operations/failure-drill-record-2026-09-14.md#drill-2--controlled-new-order-kill-switch"
+        },
+        {
+          "id": "bad-mobile-release",
+          "dependency": "mobile release",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "release policy marks an unsafe version hard-gated",
+          "expected": "New transactions are gated while active-order and support recovery remain available.",
+          "observed": {
+            "new_transactions": "gated_by_release_policy",
+            "active_order_recovery": true,
+            "support_access": true,
+            "executable_code_from_remote_policy": false
+          },
+          "result": "PASS",
+          "gap": "Play/internal percentage rollback and process-death active-order proof remain release-owner evidence.",
+          "owner": "Mobile release owner",
+          "remediation_due": "Before percentage rollout"
+        },
+        {
+          "id": "safety-escalation",
+          "dependency": "safety/SOS",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "SOS provider unavailable for an active incident",
+          "expected": "Incident is persisted and honest local fallback is shown; no provider success is claimed.",
+          "observed": {
+            "incident_persisted": true,
+            "fallback_instructions": true,
+            "fake_provider_success": false
+          },
+          "result": "PASS",
+          "gap": "Market-specific emergency provider/call-center configuration remains an owner decision.",
+          "owner": "Safety/Ops owner",
+          "remediation_due": "Before market launch",
+          "related_staging_evidence": "docs/operations/failure-drill-record-2026-09-14.md#drill-1--safety-incident-fallback-authorization-and-ops-sla"
+        },
+        {
+          "id": "reconciliation-mismatch",
+          "dependency": "ledger/provider reconciliation",
+          "evidence_level": "TABLETOP_CONTRACT",
+          "failure_injected": "provider statement and internal amount do not match",
+          "expected": "Mismatch is isolated and corrected only through an append-only compensating entry.",
+          "observed": {
+            "mismatch_isolated": true,
+            "compensating_entry_only": true,
+            "provider_statement_rewritten": false
+          },
+          "result": "PASS",
+          "gap": "Provider invoice/bank movement reconciliation needs a real provider statement and Finance sign-off.",
+          "owner": "Finance/Payments owner",
+          "remediation_due": "Before settlement close or payment-provider launch"
+        }
+      ],
+      "result": "PASS"
+    }
+  ],
+  "limitations": [
+    "This is tabletop contract evidence, not proof of a live provider outage or production failover.",
+    "Staging references are limited to the separately executed safety/experience drills.",
+    "Live payment, map, carrier, notification, broker, replica, release-rollout and invoice evidence remains owner/environment work."
+  ],
+  "audit_status": "PASS"
+}
