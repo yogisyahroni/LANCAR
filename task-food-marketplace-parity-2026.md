@@ -5116,7 +5116,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Mandatory scenarios**
 - [x] Duplicate create/callback/refund.
-- [ ] Client closes app during challenge then resumes.
+- [x] Client closes app during challenge then resumes.
 - [x] Provider timeout before known result → lookup/reconcile, not blind second charge.
 - [x] Provider outage routes only when safe.
 - [x] Late successful callback after customer-visible timeout reconciles correctly.
