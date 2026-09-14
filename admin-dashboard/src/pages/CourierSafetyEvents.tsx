@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertOctagon, Ban, Check, CircleCheck, Clock, MapPin, MapPinned, MessageSquare, Package, RefreshCw, ShieldAlert, UserRound } from 'lucide-react'
 import { api } from '../lib/api'
+import { createClientId } from '../lib/clientId'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
 import { StatusBadge } from '../components/StatusBadge'
@@ -35,7 +36,7 @@ const actionLabels: Record<string, string> = {
   compensation: 'Kompensasi',
 }
 
-const idempotencyKey = (scope: string) => `courier-support-${scope}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+const idempotencyKey = (scope: string) => createClientId(`courier-support-${scope}`)
 
 const formatDate = (value?: string) => {
   if (!value) return '-'

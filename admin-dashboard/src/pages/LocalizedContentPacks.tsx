@@ -3,6 +3,7 @@ import { Languages, Plus, RefreshCw, Send, ShieldCheck } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
+import { createClientId } from '../lib/clientId'
 import { StatusBadge } from '../components/StatusBadge'
 
 type Surface = 'customer_android' | 'customer_web' | 'merchant_android' | 'courier_android'
@@ -55,7 +56,7 @@ const newForm = (): FormState => ({
   effective_to: '',
 })
 
-const requestKey = (action: string) => `admin.localized_content.${action}.${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`
+const requestKey = (action: string) => `admin.localized_content.${action}.${createClientId('request')}`
 
 const errorMessage = (error: unknown) => {
   const response = error as { response?: { data?: { message?: unknown } } }

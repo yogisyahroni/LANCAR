@@ -3,6 +3,7 @@ import { CheckCircle2, ExternalLink, RefreshCw, Save, ShieldCheck, Smartphone } 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
+import { createClientId } from '../lib/clientId'
 import { useAuthStore } from '../store/useAuthStore'
 import { EXPERIENCE_CAPABILITIES, hasExperiencePermission } from '../lib/experiencePermissions'
 import { StatusBadge } from '../components/StatusBadge'
@@ -98,7 +99,7 @@ const newForm = (): FormState => ({
   reason: 'Release policy updated from admin dashboard',
 })
 
-const requestKey = () => `admin.mobile_release_policy.${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`
+const requestKey = () => `admin.mobile_release_policy.${createClientId('request')}`
 const errorMessage = (error: unknown) => {
   const response = error as { response?: { data?: { message?: unknown } } }
   return typeof response.response?.data?.message === 'string' ? response.response.data.message : 'Release policy operation failed'

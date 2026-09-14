@@ -1,15 +1,13 @@
 import axios from 'axios'
 import { adminApiUrl } from './runtimeConfig'
 import { getOrCreateCsrfToken, CSRF_HEADER_NAME, CSRF_PROTECTED_METHODS } from './csrf'
+import { createClientId } from './clientId'
 
 const API_URL = adminApiUrl
 const SAFE_REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
 
 const createRequestId = () => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `admin-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+  return createClientId('admin')
 }
 
 const safeRequestId = (value: unknown) => {

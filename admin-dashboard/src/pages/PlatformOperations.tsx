@@ -3,10 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Activity, AlertTriangle, CreditCard, Loader2, Megaphone, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
+import { createClientId } from '../lib/clientId'
 
 const inputClass = 'bg-surface-subtle border border-border rounded-xl p-3'
 const formatMoney = (minor: number, currency = 'IDR') => `${currency} ${(Number(minor || 0) / 100).toLocaleString('id-ID')}`
-const requestKey = (scope: string) => `admin.payment.${scope}.${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`
+const requestKey = (scope: string) => `admin.payment.${scope}.${createClientId('request')}`
 const QueryState = ({ loading, error }: { loading: boolean; error: boolean }) => loading ? <Loader2 className="animate-spin" aria-label="Loading" /> : error ? <p className="text-sm text-danger">Data tidak tersedia. Cek API dan migrasi staging.</p> : null
 
 export default function PlatformOperations() {

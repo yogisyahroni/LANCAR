@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { api } from '../lib/api'
+import { createClientId } from '../lib/clientId'
 import { toast } from 'sonner'
 import { StatusBadge } from '../components/StatusBadge'
 
@@ -57,10 +58,7 @@ const initialPayload = JSON.stringify({
   fairness_reviewed: true,
 }, null, 2)
 
-const idempotencyKey = () =>
-  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `economics-${Date.now()}`
+const idempotencyKey = () => createClientId('economics')
 
 const errorMessage = (error: any, fallback: string) =>
   error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback

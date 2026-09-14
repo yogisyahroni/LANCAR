@@ -16,6 +16,7 @@ import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
+import { createClientId } from "../lib/clientId";
 import { useAuthStore } from "../store/useAuthStore";
 import {
   EXPERIENCE_CAPABILITIES,
@@ -110,7 +111,7 @@ type Finding = {
 };
 
 const requestKey = (action: string) =>
-  `admin.experience_${action}.${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+  `admin.experience_${action}.${createClientId("request")}`;
 
 const defaultFilters: OverviewFilters = {
   market_code: "id-jk",

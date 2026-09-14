@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, RefreshCw, ShieldAlert, UserRound } from 'lucide-react'
 import { api } from '../lib/api'
+import { createClientId } from '../lib/clientId'
 import { toast } from 'sonner'
 import { getStatusPresentation, StatusBadge } from '../components/StatusBadge'
 
 const decisions = ['ALLOW', 'CHALLENGE', 'REVIEW', 'HOLD', 'BLOCK'] as const
 type RiskDecision = typeof decisions[number]
 
-const idempotencyKey = (id: string) => `risk-review-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+const idempotencyKey = (id: string) => createClientId(`risk-review-${id}`)
 const riskFilterLabels: Record<'PENDING' | 'RESOLVED' | 'ALL', string> = {
   PENDING: 'Menunggu review',
   RESOLVED: 'Selesai',

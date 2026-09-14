@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
+import { createClientId } from '../lib/clientId'
 import { cn } from '../lib/utils'
 import { StatusBadge } from '../components/StatusBadge'
 
@@ -27,7 +28,7 @@ const resolveUploadUrl = (fileUrl?: string) => {
 }
 
 const formatIDR = (v: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
-const idempotencyKey = (scope: string) => `merchant-onboarding-${scope}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+const idempotencyKey = (scope: string) => createClientId(`merchant-onboarding-${scope}`)
 const lifecycleLabel = (status?: string) => ({
   DRAFT: 'Draft', SUBMITTED: 'Diajukan', VERIFYING: 'Sedang diverifikasi',
   ACTIVE: 'Aktif', REJECTED: 'Ditolak', SUSPENDED: 'Disuspend',

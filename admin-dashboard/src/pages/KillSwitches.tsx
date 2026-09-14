@@ -3,6 +3,7 @@ import { Ban, Bell, Clock3, RefreshCw, ShieldAlert } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
+import { createClientId } from '../lib/clientId'
 import { useAuthStore } from '../store/useAuthStore'
 import { EXPERIENCE_CAPABILITIES, hasExperiencePermission } from '../lib/experiencePermissions'
 import KillSwitchConfirmation from '../components/experience/KillSwitchConfirmation'
@@ -73,7 +74,7 @@ const emptyForm = (): Form => ({
 
 const listValue = (value: string) => value.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean)
 const dateValue = (value: string) => value ? new Date(value).toISOString() : undefined
-const requestKey = () => `admin.experience_service_control.upsert.${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}`
+const requestKey = () => `admin.experience_service_control.upsert.${createClientId('request')}`
 const errorMessage = (error: any) => error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Service control gagal disimpan'
 
 const typeLabel: Record<KillSwitchType, string> = {

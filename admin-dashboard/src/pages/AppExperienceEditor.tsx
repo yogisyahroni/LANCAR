@@ -4,6 +4,7 @@ import AssetPicker from '../components/experience/AssetPicker'
 import TargetingEditor from '../components/experience/TargetingEditor'
 import { hasAudienceConstraints, placementForComponent, type ExperienceForm, type ExperienceSection, type ServiceExposureEntry } from '../components/experience/types'
 import ServiceExposureEditor from '../components/experience/ServiceExposureEditor'
+import { createClientId } from '../lib/clientId'
 
 type Props = {
   value: ExperienceForm
@@ -41,8 +42,7 @@ const EXTENDED_COMPONENTS = [
 ] as const
 
 const createId = (prefix: string) => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return `${prefix}-${crypto.randomUUID()}`
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  return createClientId(prefix)
 }
 
 const newSection = (component: string): ExperienceSection => {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Beaker, Loader2, Plus, Power, RefreshCw, ShieldCheck, X } from 'lucide-react'
 import { api } from '../lib/api'
+import { createClientId } from '../lib/clientId'
 import { toast } from 'sonner'
 import { StatusBadge } from '../components/StatusBadge'
 
@@ -19,9 +20,7 @@ type Experiment = {
 }
 
 const requestKey = (action: string) => {
-  const id = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+  const id = createClientId('experiment')
   return `admin.experiment.${action}.${id}`
 }
 const errorMessage = (error: any) => error?.response?.data?.error || error?.message || 'Operasi experiment gagal'

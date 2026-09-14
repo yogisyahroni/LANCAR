@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Edit2, Trash2, CheckCircle2, XCircle, Code2, Play, Eye, GripVertical, Image as ImageIcon, Type, QrCode, Barcode as BarcodeIcon, Leaf, AlertTriangle, Square, Minus } from 'lucide-react'
 import { api } from '../lib/api'
+import { createClientId } from '../lib/clientId'
 import { toast } from 'sonner'
 import { Button } from '../components/Button'
 import { FocusTrap } from '../components/a11y/FocusTrap'
@@ -220,7 +221,7 @@ const ResiTemplates = () => {
     const y = e.clientY - rect.top
 
     const newElement: DesignElement = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: createClientId('resi-element'),
       type,
       x,
       y,
