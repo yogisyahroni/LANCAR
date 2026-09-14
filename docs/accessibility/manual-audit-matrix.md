@@ -5,7 +5,7 @@ This matrix is the release-review queue for checks that browser automation canno
 ## Environment record — 2026-09-11
 
 - Device staging is reachable through the active Cloudflare tunnel: Customer `https://app.bawain.my.id`, Admin `https://admin.bawain.my.id`, API health `https://api.bawain.my.id/health`. Public HEAD probes returned HTTP `200` for all five configured surfaces, including the landing domain.
-- The Docker stack was rebuilt with the current Customer frontend and returned to running/healthy state. The current local runtime generated all 29 Customer routes; the combined Docker suites pass Customer `266/266` and Admin `470/470`.
+- The Docker stack was rebuilt with the current Customer frontend and returned to running/healthy state. The current local runtime generated all 29 Customer routes; the combined Docker suites pass Customer `266/266` and Admin `470/470`. On 2026-09-14 the canonical Admin tunnel was also opened with an existing authorized session for `/dashboard` and `/app-experience/overview`.
 - Manual spot checks used the Codex in-app browser at a compact viewport of approximately `600x898`. The available surface exposed an accessibility tree and screenshots, but no native spoken screen-reader output bridge. The observed manual color scheme was dark/system; changing to a real light-mode browser session was not available through this surface.
 - OTP, real payment-provider execution and other external-provider callbacks were intentionally deferred per the task instruction. No credential or secret was entered or recorded.
 
@@ -17,7 +17,7 @@ This matrix is the release-review queue for checks that browser automation canno
 | Admin login | PARTIAL — automated Light proof; manual Light session unavailable | PASS — dated `/login` tunnel screenshot/AX spot check at compact viewport | PASS — manual Tab sequence reached email, password, remember-me, forgot-password and submit with visible focus | PARTIAL — AX tree exposed login names; spoken output NOT_RUN | PASS — empty submit produced native `Please fill out this field.` and focused email | NOT_RUN | PARTIAL — automated 640 CSS-width proof; actual browser zoom NOT_RUN | NOT_RUN | OPEN |
 | Admin operational tables/modals | NOT_RUN — authenticated manual session unavailable | NOT_RUN — authenticated manual session unavailable | NOT_RUN | NOT_RUN | NOT_RUN — automated fixture coverage only | NOT_RUN | PARTIAL — automated equivalent only | NOT_RUN | OPEN |
 | Admin charts/maps | NOT_RUN — authenticated manual session unavailable | NOT_RUN — authenticated manual session unavailable | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | PARTIAL — automated equivalent only | NOT_RUN | OPEN |
-| Admin App Experience editor/preview | NOT_RUN — authenticated manual session unavailable | NOT_RUN — authenticated manual session unavailable | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | PARTIAL — automated approval/preview equivalent only | PARTIAL — automated theme/media variants only | OPEN |
+| Admin App Experience editor/preview | PARTIAL — authenticated `/app-experience/overview` opened in the dark/system session; real Light session unavailable and editor/preview routes not opened | PARTIAL — authenticated `/app-experience/overview` AX tree inspected with scoped filters, rollout counters, health, audit and recovery copy; editor/preview routes not opened | PARTIAL — overview controls and named filters were exposed; complete editor/preview primary-action traversal not run | PARTIAL — AX tree exposed headings, labels, tables, filters and buttons; spoken output NOT_RUN | PARTIAL — empty health/audit/revision states and reliability warning copy observed; publish/success/provider state NOT_RUN | PARTIAL — scoped surface/campaign/action selectors were exposed but not fully exercised | PARTIAL — automated equivalent only; actual browser zoom NOT_RUN | PARTIAL — automated theme/media variants only | OPEN |
 
 ## Registered route/state inventory
 
@@ -39,6 +39,12 @@ The full list is the `FULL_ADMIN_ROUTE_INVENTORY` in `admin-dashboard/e2e/access
 - The dated manual observations above are intentionally scoped to routes/states actually opened through the device tunnel. They do not promote an entire route family to `PASS`.
 - `NOT_RUN` items require a reviewer/date/route/viewport/assistive-technology record before moving to `PASS`.
 - No staging/provider-backed or production result is inferred from local fixtures. The device tunnel is real runtime reachability evidence; it is not proof of the GitHub SSH deployment workflow or external-provider behavior.
+
+## Authenticated Admin spot check — 2026-09-14
+
+- `https://admin.bawain.my.id/dashboard` rendered the authenticated Admin shell with skip link, named navigation/search/theme/notification/logout controls, headings, live/historical controls, map summary and zoom controls, service/system health, revenue and recent-events regions. The AX tree exposed status text for both ready and degraded health surfaces and the map's empty-duty recovery message.
+- `https://admin.bawain.my.id/app-experience/overview` rendered the scoped operational cockpit. The AX tree exposed required market/surface/locale/version fields, reset/refresh controls, rollout counters, manifest health, latest release activity, reliability policy steppers/save action, audit-history filters, empty table states and active-revision status summaries.
+- This spot check is limited to the two opened authenticated routes. It does not promote all Admin operational routes, native screen-reader speech, actual zoom, or provider-backed success/campaign states to PASS.
 
 ## Unblock procedure for remaining manual rows
 
