@@ -294,6 +294,16 @@ def main() -> int:
         "networkRetryNonce += 1",
         "key(networkRetryNonce)",
     )
+    require(
+        errors,
+        "scripts/mobile/run_compatibility_smoke.py",
+        "non-destructive Android compatibility smoke",
+        "process_death_resume",
+        "dark_mode_resume",
+        "dynamic_text_130_percent",
+        "post_rotation_process_death",
+        "does not grant permissions",
+    )
 
     # Server-controlled updates can only carry release metadata, never code.
     require(

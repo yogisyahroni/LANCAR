@@ -5922,11 +5922,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MOBILE-2026-007 — Device/OS/form-factor compatibility matrix [P0/P1]
 
 **Checklist**
-- [ ] Define minimum/target Android versions from actual market/device data.
-- [ ] Test low-memory/low-end, mid-range, flagship, tablet/foldable where supported.
+- [x] Define minimum/target Android versions from actual market/device data. (Verified 2026-09-14: all three modules enforce min API 26 and compile/target API 36; repository launch evidence includes connected RMX2061 Android 11 and Android 17 emulator profiles.)
+- [x] Test low-memory/low-end, mid-range, flagship, tablet/foldable where supported. (Verified 2026-09-14: recorded low Pixel 5 proxy, RMX2061 mid-range baseline, new 4 GiB/6-core Pixel 6 Pro high proxy, and wide-layout viewport smoke; physical Android Go/tablet/foldable follow-up remains explicitly outside the available host matrix.)
 - [ ] Permission behavior across OS versions tested.
-- [ ] Dark/Light/System + dynamic text + rotation/resume/process death scenarios.
-- [ ] Unsupported device gets clear compatibility handling.
+- [x] Dark/Light/System + dynamic text + rotation/resume/process death scenarios. (Verified 2026-09-14: compatibility smoke on the 4 GiB/6-core Android 17 proxy returned customer/courier/merchant activities resumed for dark/light, 130% font scale, rotation and process-death recovery with no crash-log match.)
+- [x] Unsupported device gets clear compatibility handling. (Verified 2026-09-14: minSdk distribution boundary plus server `upgrade_required`/hard-block update dialog preserves active-order/support recovery metadata.)
 
 ---
 

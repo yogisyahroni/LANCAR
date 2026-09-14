@@ -13,6 +13,21 @@ The initial rollout window supports build code `1` and schema `1` for all
 clients. The server contract is intentionally ready to raise the minimum after
 a newer client is distributed.
 
+## Android version and unsupported-device handling
+
+The customer, courier and merchant Gradle modules use `minSdk = 26`,
+`compileSdk = 36` and `targetSdk = 36`. Android distribution therefore filters
+OS versions below Android 8.0 before installation. The application modules also
+declare optional hardware features such as the camera where applicable, so a
+missing optional sensor is not treated as an install-time incompatibility.
+
+For an installed but obsolete or incompatible binary, the server compatibility
+contract returns `upgrade_required`, `hard_block` and recovery-access metadata.
+Each Android client renders the localized **Pembaruan diperlukan** state and
+keeps active-order/support recovery available according to that metadata. This
+is the user-visible compatibility path; it does not claim that an unsupported
+OS can execute a binary whose `minSdk` excludes it.
+
 ## Release sequence independent of app stores
 
 1. Ship additive server fields and compatibility metadata first.
