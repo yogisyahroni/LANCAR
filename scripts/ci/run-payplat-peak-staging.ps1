@@ -1,5 +1,8 @@
 param(
-  [string]$BaseUrl = 'http://localhost:8080',
+  # k6 runs inside a Docker container; host.docker.internal is the host
+  # gateway from that container. The fixture calls below normalize it back to
+  # localhost for PowerShell on the host.
+  [string]$BaseUrl = 'http://host.docker.internal:8080',
   [int]$Workers = 14,
   [int]$WorkerQuoteRps = 8,
   [int]$WorkerCheckoutRps = 2,
@@ -11,8 +14,12 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$fixtureBaseUrl = $BaseUrl -replace '^http://host\.docker\.internal:', 'http://localhost:'
+if ($fixtureBaseUrl -match '^http://localhost:') {
+  $fixtureBaseUrl = $fixtureBaseUrl -replace '^http://localhost:', 'http://127.0.0.1:'
+}
 $loginUrl = $env:PAYPLAT_LOGIN_URL
-if ([string]::IsNullOrWhiteSpace($loginUrl)) { $loginUrl = 'https://api.bawain.my.id' }
+if ([string]::IsNullOrWhiteSpace($loginUrl)) { $loginUrl = $fixtureBaseUrl }
 $customerEmail = $env:PAYPLAT_CUSTOMER_EMAIL
 $customerPassword = $env:PAYPLAT_CUSTOMER_PASSWORD
 $deviceId = $env:PAYPLAT_DEVICE_ID
@@ -21,8 +28,18 @@ if ([string]::IsNullOrWhiteSpace($customerEmail) -or [string]::IsNullOrWhiteSpac
 }
 if ([string]::IsNullOrWhiteSpace($deviceId)) { $deviceId = 'k6-payplat-010' }
 
-$login = Invoke-RestMethod -Uri "$loginUrl/api/v1/auth/customer/login/start" -Method Post `
-  -ContentType 'application/json' -Body (@{ email = $customerEmail; password = $customerPassword; device_id = $deviceId } | ConvertTo-Json)
+$loginBody = @{ email = $customerEmail; password = $customerPassword; device_id = $deviceId } | ConvertTo-Json
+$login = $null
+for ($attempt = 1; $attempt -le 4; $attempt++) {
+  try {
+    $login = Invoke-RestMethod -Uri "$loginUrl/api/v1/auth/customer/login/start" -Method Post -Headers @{ Connection = 'close' } `
+      -ContentType 'application/json' -Body $loginBody
+    break
+  } catch {
+    if ($attempt -eq 4) { throw }
+    Start-Sleep -Milliseconds (250 * $attempt)
+  }
+}
 $customerToken = [string]$login.access_token
 if ([string]::IsNullOrWhiteSpace($customerToken)) { throw 'trusted staging login did not return an access token' }
 
@@ -34,7 +51,6 @@ if ([string]::IsNullOrWhiteSpace($customerUserId) -or [string]::IsNullOrWhiteSpa
 }
 
 $runId = "payplat-010-distributed-$(Get-Date -Format yyyyMMddHHmmss)-$([guid]::NewGuid().ToString('N').Substring(0,8))"
-$fixtureBaseUrl = $BaseUrl -replace '^http://host\.docker\.internal:', 'http://localhost:'
 $packageDetails = @{
   item_description = 'PAYPLAT-2026-010 disposable staging package'
   category = 'document'
@@ -67,6 +83,9 @@ try {
     Authorization = "Bearer $customerToken"
     'X-Device-Id' = $deviceId
     'X-Correlation-Id' = "$runId-fixture"
+    # The gateway intentionally closes authenticated fixture responses. Keep
+    # PowerShell from reusing that closed socket for the following order call.
+    Connection = 'close'
   }
   $quoteResponse = Invoke-WebRequest -Uri "$fixtureBaseUrl/api/v1/customer/orders/calculate" -Method Post `
     -Headers $fixtureHeaders -ContentType 'application/json' -Body $quotePayload -SkipHttpErrorCheck
@@ -100,10 +119,19 @@ try {
   $order = $orderResponse.Content | ConvertFrom-Json
   $orderId = [string]$order.order.id
 
-  $intent = Invoke-RestMethod -Uri 'http://localhost:8084/api/v1/payment-intents' -Method Post `
-    -Headers @{ 'X-User-ID' = $customerUserId; 'Idempotency-Key' = "$runId-intent-fixture" } `
-    -ContentType 'application/json' `
-    -Body (@{ order_id = $orderId; market_code = 'id-jk'; currency = 'IDR'; amount_minor = 10000; payment_method = 'qris' } | ConvertTo-Json)
+  $intentBody = @{ order_id = $orderId; market_code = 'id-jk'; currency = 'IDR'; amount_minor = 10000; payment_method = 'qris' } | ConvertTo-Json
+  $intent = $null
+  for ($attempt = 1; $attempt -le 4; $attempt++) {
+    try {
+      $intent = Invoke-RestMethod -Uri 'http://127.0.0.1:8084/api/v1/payment-intents' -Method Post `
+        -Headers @{ 'X-User-ID' = $customerUserId; 'Idempotency-Key' = "$runId-intent-fixture"; Connection = 'close' } `
+        -ContentType 'application/json' -Body $intentBody
+      break
+    } catch {
+      if ($attempt -eq 4) { throw }
+      Start-Sleep -Milliseconds (250 * $attempt)
+    }
+  }
   $intentId = [string]$intent.data.id
   if ([string]::IsNullOrWhiteSpace($intentId)) { throw 'fixture payment intent did not return an id' }
 
@@ -137,10 +165,51 @@ try {
   $maxFailureRate = 0.0
   foreach ($reportFile in $reports) {
     $summary = Get-Content -LiteralPath $reportFile.FullName -Raw | ConvertFrom-Json
-    $totalRequests += [int]$summary.metrics.http_reqs.values.count
-    $totalChecks += [int]$summary.metrics.checks.values.count
-    $totalDropped += [int]$summary.metrics.dropped_iterations.values.count
-    $maxFailureRate = [math]::Max($maxFailureRate, [double]$summary.metrics.http_req_failed.values.rate)
+    function Get-JsonPropertyValue($object, [string]$propertyName) {
+      if ($null -eq $object) { return $null }
+      $property = @($object.PSObject.Properties | Where-Object { $_.Name -eq $propertyName } | Select-Object -First 1)
+      if ($property.Count -eq 1) { return $property[0].Value }
+      return $null
+    }
+    function Get-K6MetricValues($metrics, [string]$metricName) {
+      $metric = Get-JsonPropertyValue $metrics $metricName
+      if ($null -eq $metric) { return $null }
+      $nestedValues = Get-JsonPropertyValue $metric 'values'
+      if ($null -ne $nestedValues) { return $nestedValues }
+      return $metric
+    }
+    $httpReqsValues = Get-K6MetricValues $summary.metrics 'http_reqs'
+    $checksValues = Get-K6MetricValues $summary.metrics 'checks'
+    $droppedValues = Get-K6MetricValues $summary.metrics 'dropped_iterations'
+    $failedValues = Get-K6MetricValues $summary.metrics 'http_req_failed'
+    $requestCount = Get-JsonPropertyValue $httpReqsValues 'count'
+    $checkCount = Get-JsonPropertyValue $checksValues 'count'
+    if ($null -eq $checkCount) {
+      $checkPasses = Get-JsonPropertyValue $checksValues 'passes'
+      $checkFails = Get-JsonPropertyValue $checksValues 'fails'
+      if ($null -ne $checkPasses -and $null -ne $checkFails) {
+        $checkCount = [int]$checkPasses + [int]$checkFails
+      }
+    }
+    $droppedCount = Get-JsonPropertyValue $droppedValues 'count'
+    $failureRate = Get-JsonPropertyValue $failedValues 'rate'
+    if ($null -eq $failureRate) {
+      $failureRate = Get-JsonPropertyValue $failedValues 'value'
+    }
+    if ($null -eq $requestCount -or $null -eq $checkCount -or $null -eq $failureRate) {
+      Write-Output ("k6_summary_top_level=" + (($summary.PSObject.Properties.Name) -join ','))
+      Write-Output ("k6_summary_metric_names=" + ($(if ($summary.metrics) { $summary.metrics.PSObject.Properties.Name -join ',' } else { 'NONE' })))
+      Write-Output ("k6_summary_http_reqs_properties=" + ($(if ($httpReqsValues) { $httpReqsValues.PSObject.Properties.Name -join ',' } else { 'NONE' })))
+      Write-Output ("k6_summary_checks_properties=" + ($(if ($checksValues) { $checksValues.PSObject.Properties.Name -join ',' } else { 'NONE' })))
+      Write-Output ("k6_summary_failed_properties=" + ($(if ($failedValues) { $failedValues.PSObject.Properties.Name -join ',' } else { 'NONE' })))
+      throw "k6 summary is missing required metrics in $($reportFile.Name)"
+    }
+    $totalRequests += [int]$requestCount
+    $totalChecks += [int]$checkCount
+    if ($null -ne $droppedCount) {
+      $totalDropped += [int]$droppedCount
+    }
+    $maxFailureRate = [math]::Max($maxFailureRate, [double]$failureRate)
   }
   Write-Output "distributed_workers=$Workers"
   Write-Output "worker_failures=$workerFailures"
@@ -150,6 +219,7 @@ try {
   Write-Output "aggregate_dropped_iterations=$totalDropped"
   Write-Output ("max_worker_http_failure_rate={0:P2}" -f $maxFailureRate)
   if ($workerFailures -ne 0 -or $reports.Count -ne $Workers) { throw 'one or more distributed k6 workers failed' }
+  if ($totalRequests -le 0 -or $totalChecks -le 0) { throw 'k6 reports contained no request/check samples' }
 }
 finally {
   $safeRunId = $runId.Replace("'", "''")
