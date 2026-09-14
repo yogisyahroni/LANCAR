@@ -439,8 +439,8 @@ services:
   # ─────────────────────────────────────────────
   integration-gateway:
     build:
-      context: ./backend/integration-gateway
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: integration-gateway/Dockerfile
     restart: unless-stopped
     deploy:
       replicas: 2

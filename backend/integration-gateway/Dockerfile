@@ -8,14 +8,21 @@ FROM golang:1.26.6-alpine AS builder
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
 
-WORKDIR /app
+WORKDIR /app/integration-gateway
 
 # Copy dependency files first (better layer caching)
-COPY go.mod go.sum ./
-RUN go mod download && go mod verify
+COPY integration-gateway/go.mod integration-gateway/go.sum ./
+# The integration gateway imports the shared resilience module. The Docker
+# context is the backend root so the local replace target is present in the
+# builder and cannot silently fall back to an unverified dependency.
+COPY pkg/resilience /app/pkg/resilience
+# `tembus/pkg/resilience` is a checked-in local replace and therefore has no
+# module-cache ziphash for `go mod verify`; the external module download still
+# runs here, while the local module is copied from the same build context.
+RUN go mod download
 
 # Copy source
-COPY . .
+COPY integration-gateway/ .
 
 # Build: CGO disabled, stripped binary (-s -w = no debug info, smaller size)
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
