@@ -340,7 +340,6 @@ dependencies {
 
     // Networking
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
@@ -355,19 +354,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
-    // CameraX for Proof of Delivery feature (PTLAAA-53)
-    val cameraxVersion = "1.4.2"
-    implementation("androidx.camera:camera-core:$cameraxVersion")
-    implementation("androidx.camera:camera-camera2:$cameraxVersion")
-    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
-    implementation("androidx.camera:camera-view:$cameraxVersion")
-    
     // ExifInterface for image rotation correction
     implementation("androidx.exifinterface:exifinterface:1.3.6")
 
     // Coil for image loading in Compose
     implementation("io.coil-kt:coil-compose:2.5.0")
-    implementation("io.coil-kt:coil-gif:2.5.0")
     
     // Accompanist for runtime permissions in Compose
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")

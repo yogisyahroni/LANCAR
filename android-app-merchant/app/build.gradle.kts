@@ -181,6 +181,12 @@ android {
 
     composeOptions { kotlinCompilerExtensionVersion = "1.5.5" }
 
+    bundle {
+        language { enableSplit = true }
+        density { enableSplit = true }
+        abi { enableSplit = true }
+    }
+
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }

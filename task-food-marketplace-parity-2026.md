@@ -5913,8 +5913,8 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [x] Track APK/AAB/module size per release. (CI records commit/version, APK/AAB kind, byte size and SHA-256 in the uploaded release artifact manifest via `scripts/mobile/record_artifact_inventory.py`; local 2026-09-14 manifests cover the current staging APKs.)
-- [ ] Remove duplicate icon/image/font/SDK dependencies.
-- [ ] Large optional features evaluated for modular/on-demand delivery if platform supports and complexity justified.
+- [x] Remove duplicate icon/image/font/SDK dependencies. (Verified 2026-09-14: customer unused Gson converter, Coil GIF decoder and CameraX declarations removed; direct dependency audit reports no duplicate literal coordinates across customer/courier/merchant.)
+- [x] Large optional features evaluated for modular/on-demand delivery if platform supports and complexity justified. (Verified 2026-09-14: `docs/mobile/dependency-modularity-audit-2026-09-14.md` evaluates TomTom/WebRTC/CameraX/ML Kit/OSMDroid boundaries and records the base-module decision with bundle language/density/ABI splits.)
 - [x] Do not trade transaction reliability for aggressive dynamic code delivery.
 
 ---
