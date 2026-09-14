@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"tembus/order-service/internal/domain"
+	"tembus/order-service/pkg/alerting"
 )
 
 // merchantSettlementService mengimplementasikan domain.MerchantSettlementService.
@@ -647,7 +648,7 @@ func (s *merchantSettlementService) markFailed(ctx context.Context, settlement *
 		slog.ErrorContext(ctx, "merchant_settlement: UpdateFailed failed",
 			"settlement_id", settlement.ID, "error", err)
 	}
-	// TODO production: kirim alert ke Slack/Telegram/PagerDuty
+	alerting.AlertMerchantSettlementPermanentFailure(settlement.ID.String(), maxRetry)
 	slog.ErrorContext(ctx, "merchant_settlement: PERMANENTLY FAILED — manual intervention required",
 		"settlement_id", settlement.ID, "merchant_id", settlement.MerchantID, "reason", reason)
 	return fmt.Errorf("settlement %s PERMANENTLY FAILED after %d retries: %s", settlement.ID, maxRetry, reason)

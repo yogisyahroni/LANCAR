@@ -115,6 +115,23 @@ func AlertCircuitOpen(serviceName string) {
 	})
 }
 
+// AlertMerchantSettlementPermanentFailure notifies operators when a merchant
+// settlement has exhausted its retry budget. The alert intentionally contains
+// only the internal settlement reference and retry count; bank snapshots,
+// merchant contact details, and provider error bodies stay out of chat
+// channels and remain available through the authenticated settlement audit
+// path.
+func AlertMerchantSettlementPermanentFailure(settlementID string, retryCount int) {
+	Send(Alert{
+		Level:     AlertCritical,
+		Title:     "🔴 Merchant Settlement Permanently Failed",
+		Message:   fmt.Sprintf("Settlement %s exhausted its retry budget after %d attempt(s). Manual reconciliation is required.", settlementID, retryCount),
+		Metric:    "merchant_settlement_permanent_failure",
+		Value:     1,
+		Threshold: 0,
+	})
+}
+
 func sendSlack(alert Alert) {
 	color := map[AlertLevel]string{
 		AlertCritical: "#FF0000",
