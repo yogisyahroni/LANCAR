@@ -5990,7 +5990,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 **Checklist**
 - [ ] Production secrets stored in managed secret/KMS mechanism, not repository/env files committed to source.
 - [ ] Provider/payment/webhook keys have owner, rotation schedule and revocation procedure.
-- [ ] Application logs never print secret values.
+- [x] Application logs never print secret values. *(2026-09-14 — Admin/Auth redaction tests and all five Go service logger package tests passed; evidence: `docs/task-evidence/SECPLAT-2026-002.md`.)*
 - [ ] Rotation can overlap old/new credential safely where provider supports it.
 - [ ] Emergency credential compromise runbook tested.
 
