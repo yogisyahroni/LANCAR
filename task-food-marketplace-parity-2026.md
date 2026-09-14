@@ -6561,8 +6561,8 @@ Start with clean bounded modules in existing services when ownership and scale p
 ## REALITY-2026-011 — No fake completeness gate [P0]
 
 - [ ] A task cannot be marked complete because recommended file exists with stub/TODO.
-- [x] Mock/static/fake success prohibited from production path. (Verified 2026-09-14: `node scripts/ci/check-production-mocks.js` passes over backend, web, customer, courier and merchant production roots.)
-- [ ] Admin GUI requirement is not satisfied by raw API/Postman.
+- [x] Mock/static/fake success prohibited from production path. (Verified 2026-09-14: `node scripts/ci/check-production-mocks.js` passes over backend, web, customer, courier, merchant and admin-dashboard production roots.)
+- [x] Admin GUI requirement is not satisfied by raw API/Postman. (Verified 2026-09-14 on `https://admin.bawain.my.id`: authenticated browser navigation opened the Admin Dashboard and App Experience Overview; the GUI rendered scoped controls, live revision/health panels, audit-history filters and backend-backed status data.)
 - [ ] “ML-ready” is not satisfied by an empty model-service shell.
 - [ ] “Multi-country” is not satisfied by locale dropdown while currency/tax/payment/compliance remain Indonesia-only.
 - [ ] “Multi-region” is not satisfied by deploying same stateless API twice while data/failover semantics remain undefined.
