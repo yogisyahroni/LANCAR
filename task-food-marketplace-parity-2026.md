@@ -6001,7 +6001,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## SECPLAT-2026-003 — Service-to-service identity and least privilege [P0]
 
 **Checklist**
-- [x] Internal request identity authenticated; network location alone is insufficient trust.
+- [x] Internal request identity authenticated; network location alone is insufficient trust. (Verified 2026-09-14: gateway-signed HMAC identity is verified with timestamp/constant-time comparison, and order-service internal API-key boundaries now fail closed when the configured key is absent or mismatched.)
 - [ ] mTLS/workload identity/signed service credentials selected based on infra.
 - [ ] Service scopes restrict actions, especially payment/refund/admin/provider mutation.
 - [ ] Credential lifetime minimized and rotated.
