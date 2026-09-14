@@ -2,6 +2,23 @@ name: Mobile Apps CI/CD
 
 on:
   workflow_dispatch:
+    inputs:
+      rollout_stage:
+        description: "Promotion stage to validate; no store promotion is performed by this workflow"
+        required: true
+        type: choice
+        options:
+          - none
+          - internal
+          - alpha
+          - beta
+          - percentage
+        default: none
+      rollout_packet_path:
+        description: "Repository-relative path to the redacted release metrics packet"
+        required: false
+        type: string
+        default: ""
   push:
     paths:
       - 'android-app/**'
@@ -602,7 +619,38 @@ jobs:
         run: |
           python scripts/security/verify_platform_controls.py
           python scripts/security/verify_security_release_controls.py
+          python scripts/mobile/validate_mobile_release_contract.py
           python scripts/mobile/validate_mobile_static_contracts.py
+          python scripts/mobile/test_staged_rollout.py
+
+
+  mobile-rollout-promotion-gate:
+    name: Validate mobile rollout promotion packet
+    needs: build-android
+    if: github.event_name == 'workflow_dispatch' && inputs.rollout_stage != 'none'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail closed on release guardrails
+        shell: bash
+        env:
+          ROLLOUT_PACKET_PATH: ${{ inputs.rollout_packet_path }}
+          ROLLOUT_STAGE: ${{ inputs.rollout_stage }}
+          WORKFLOW_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${ROLLOUT_PACKET_PATH}" ]]; then
+            echo "A redacted release metrics packet is required for promotion." >&2
+            exit 1
+          fi
+          python scripts/mobile/validate_staged_rollout.py \
+            --policy scripts/mobile/rollout_policy.json \
+            --packet "${ROLLOUT_PACKET_PATH}" \
+            --target-stage "${ROLLOUT_STAGE}" \
+            --expected-commit "${WORKFLOW_COMMIT}"
 
 
 

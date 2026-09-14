@@ -62,6 +62,10 @@ def main() -> int:
         ROOT / "scripts/mobile/verify_release_aab.py",
         ROOT / "scripts/mobile/record_artifact_inventory.py",
         ROOT / "scripts/mobile/run_compatibility_smoke.py",
+        ROOT / "scripts/mobile/rollout_policy.json",
+        ROOT / "scripts/mobile/validate_staged_rollout.py",
+        ROOT / "scripts/mobile/test_staged_rollout.py",
+        ROOT / "docs/mobile/rollout-promotion.md",
     ):
         if not path.is_file():
             errors.append(f"missing mobile gate artifact: {path.relative_to(ROOT)}")

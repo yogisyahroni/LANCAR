@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "stages": [
+    {"name": "internal", "max_percentage": 1},
+    {"name": "alpha", "max_percentage": 5},
+    {"name": "beta", "max_percentage": 25},
+    {"name": "percentage", "max_percentage": 100}
+  ],
+  "guardrails": {
+    "minimum_sample_count": 100,
+    "crash_free_sessions_min": 0.995,
+    "anr_rate_max": 0.005,
+    "payment_success_rate_min": 0.995,
+    "create_order_success_rate_min": 0.995
+  },
+  "compatibility": {
+    "minimum_compatibility_window_hours": 24
+  }
+}
