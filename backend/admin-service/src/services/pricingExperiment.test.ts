@@ -36,6 +36,7 @@ const outcome = (overrides: Partial<PricingExperimentOutcome> = {}): PricingExpe
   supportContactRatePct: 2,
   courierEarningsAvgIdr: 20000,
   marginAvgIdr: 5000,
+  providerCostAvgIdr: 10000,
   ...overrides,
 });
 
@@ -51,6 +52,7 @@ describe('pricing experiment financial guardrails', () => {
         maxSupportContactDeltaPp: 1,
         maxCourierEarningsDropPct: 5,
         maxMarginDropPct: 5,
+        maxProviderCostIncreasePct: 25,
       },
     );
     expect(decision.approved).toBe(false);

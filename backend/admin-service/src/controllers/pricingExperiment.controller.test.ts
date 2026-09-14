@@ -28,6 +28,7 @@ const currentConfig = {
     max_support_contact_delta_pp: 1,
     max_courier_earnings_drop_pct: 5,
     max_margin_drop_pct: 5,
+    max_provider_cost_increase_pct: 25,
   },
 };
 
@@ -85,8 +86,8 @@ describe('pricing experiment control endpoints', () => {
     (readDb.query as jest.Mock)
       .mockResolvedValueOnce({ rows: [{ value: currentConfig }] })
       .mockResolvedValueOnce({ rows: [
-        { variant: 'control', sample_size: 100, cancellation_rate_pct: 5, eta_delta_minutes: 1, support_contact_rate_pct: 2, courier_earnings_avg_idr: 20000, margin_avg_idr: 5000 },
-        { variant: 'treatment', sample_size: 100, cancellation_rate_pct: 9, eta_delta_minutes: 8, support_contact_rate_pct: 4, courier_earnings_avg_idr: 18000, margin_avg_idr: 4000 },
+        { variant: 'control', sample_size: 100, cancellation_rate_pct: 5, eta_delta_minutes: 1, support_contact_rate_pct: 2, courier_earnings_avg_idr: 20000, margin_avg_idr: 5000, provider_cost_avg_idr: 10000 },
+        { variant: 'treatment', sample_size: 100, cancellation_rate_pct: 9, eta_delta_minutes: 8, support_contact_rate_pct: 4, courier_earnings_avg_idr: 18000, margin_avg_idr: 4000, provider_cost_avg_idr: 15000 },
       ] });
 
     const res = response();

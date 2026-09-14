@@ -5,6 +5,7 @@ export type PricingExperimentGuardrails = {
   maxSupportContactDeltaPp: number;
   maxCourierEarningsDropPct: number;
   maxMarginDropPct: number;
+  maxProviderCostIncreasePct: number;
 };
 
 export type PricingExperimentOutcome = {
@@ -14,6 +15,7 @@ export type PricingExperimentOutcome = {
   supportContactRatePct: number;
   courierEarningsAvgIdr: number;
   marginAvgIdr: number;
+  providerCostAvgIdr: number;
 };
 
 export type PricingGuardrailViolation = {
@@ -37,6 +39,7 @@ export const DEFAULT_PRICING_EXPERIMENT_GUARDRAILS: PricingExperimentGuardrails 
   maxSupportContactDeltaPp: 1,
   maxCourierEarningsDropPct: 5,
   maxMarginDropPct: 5,
+  maxProviderCostIncreasePct: 25,
 };
 
 const finite = (value: number, field: string, allowNegative = false): number => {
@@ -55,11 +58,17 @@ const validateOutcome = (outcome: PricingExperimentOutcome, name: string): void 
   finite(outcome.supportContactRatePct, `${name}.supportContactRatePct`);
   finite(outcome.courierEarningsAvgIdr, `${name}.courierEarningsAvgIdr`);
   finite(outcome.marginAvgIdr, `${name}.marginAvgIdr`, true);
+  finite(outcome.providerCostAvgIdr, `${name}.providerCostAvgIdr`);
 };
 
 const percentageDrop = (baseline: number, candidate: number): number => {
   const denominator = Math.max(Math.abs(baseline), 1);
   return ((baseline - candidate) / denominator) * 100;
+};
+
+const percentageIncrease = (baseline: number, candidate: number): number => {
+  const denominator = Math.max(Math.abs(baseline), 1);
+  return ((candidate - baseline) / denominator) * 100;
 };
 
 export const evaluatePricingExperimentGuardrails = (
@@ -105,6 +114,10 @@ export const evaluatePricingExperimentGuardrails = (
   const marginDropPct = percentageDrop(baseline.marginAvgIdr, treatment.marginAvgIdr);
   if (marginDropPct > guardrails.maxMarginDropPct) {
     violations.push({ metric: 'margin_drop_pct', observed: marginDropPct, threshold: guardrails.maxMarginDropPct, direction: 'above' });
+  }
+  const providerCostIncreasePct = percentageIncrease(baseline.providerCostAvgIdr, treatment.providerCostAvgIdr);
+  if (providerCostIncreasePct > guardrails.maxProviderCostIncreasePct) {
+    violations.push({ metric: 'provider_cost_increase_pct', observed: providerCostIncreasePct, threshold: guardrails.maxProviderCostIncreasePct, direction: 'above' });
   }
 
   return { approved: violations.length === 0, baseline, treatment, violations };

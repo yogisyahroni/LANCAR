@@ -63,6 +63,7 @@ const normalizeGuardrails = (raw: unknown): Record<string, number> => {
     max_support_contact_delta_pp: numberField(source.max_support_contact_delta_pp ?? DEFAULT_PRICING_EXPERIMENT_GUARDRAILS.maxSupportContactDeltaPp, 'guardrails.max_support_contact_delta_pp', 0, 100),
     max_courier_earnings_drop_pct: numberField(source.max_courier_earnings_drop_pct ?? DEFAULT_PRICING_EXPERIMENT_GUARDRAILS.maxCourierEarningsDropPct, 'guardrails.max_courier_earnings_drop_pct', 0, 100),
     max_margin_drop_pct: numberField(source.max_margin_drop_pct ?? DEFAULT_PRICING_EXPERIMENT_GUARDRAILS.maxMarginDropPct, 'guardrails.max_margin_drop_pct', 0, 100),
+    max_provider_cost_increase_pct: numberField(source.max_provider_cost_increase_pct ?? DEFAULT_PRICING_EXPERIMENT_GUARDRAILS.maxProviderCostIncreasePct, 'guardrails.max_provider_cost_increase_pct', 0, 1000),
   };
   if (!Number.isInteger(values.min_sample_size)) {
     throw Object.assign(new Error('guardrails.min_sample_size harus integer'), { statusCode: 400 });
@@ -79,6 +80,7 @@ const guardrailsFromConfig = (config: Record<string, any>): PricingExperimentGua
     maxSupportContactDeltaPp: normalized.max_support_contact_delta_pp,
     maxCourierEarningsDropPct: normalized.max_courier_earnings_drop_pct,
     maxMarginDropPct: normalized.max_margin_drop_pct,
+    maxProviderCostIncreasePct: normalized.max_provider_cost_increase_pct,
   };
 };
 
@@ -145,6 +147,7 @@ const metricsQuery = `
         ELSE NULL END AS eta_delta_minutes,
       COALESCE((o.pricing_snapshot->'pricing_breakdown'->>'platform_amount_idr')::numeric,
                (o.pricing_snapshot->'price_components'->>'platform_amount_idr')::numeric, 0) AS margin_idr,
+      (COALESCE(o.mdr_idr, 0) + COALESCE(NULLIF(o.logistics_net_cost_idr, 0), NULLIF(o.provider_net_cost_idr, 0), 0))::numeric AS provider_cost_idr,
       EXISTS (SELECT 1 FROM disputes d WHERE d.order_id = o.id) AS has_support_contact
     FROM orders o
     WHERE o.pricing_snapshot->>'experiment_id' = $1
@@ -164,7 +167,8 @@ const metricsQuery = `
     COALESCE(AVG(eo.eta_delta_minutes), 0)::float8 AS eta_delta_minutes,
     AVG(CASE WHEN eo.has_support_contact THEN 100.0 ELSE 0.0 END)::float8 AS support_contact_rate_pct,
     COALESCE(AVG(ce.earnings_idr), 0)::float8 AS courier_earnings_avg_idr,
-    AVG(eo.margin_idr)::float8 AS margin_avg_idr
+    AVG(eo.margin_idr)::float8 AS margin_avg_idr,
+    AVG(eo.provider_cost_idr)::float8 AS provider_cost_avg_idr
   FROM experiment_orders eo
   LEFT JOIN courier_earnings ce ON ce.order_id = eo.id
   WHERE eo.variant IN ('control', 'treatment')
@@ -177,6 +181,7 @@ const metricOutcome = (row: Record<string, any> | undefined): PricingExperimentO
   supportContactRatePct: Number(row?.support_contact_rate_pct || 0),
   courierEarningsAvgIdr: Number(row?.courier_earnings_avg_idr || 0),
   marginAvgIdr: Number(row?.margin_avg_idr || 0),
+  providerCostAvgIdr: Number(row?.provider_cost_avg_idr || 0),
 });
 
 export const getPricingExperiment = async (req: Request, res: Response): Promise<void> => {
