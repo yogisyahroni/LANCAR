@@ -896,7 +896,7 @@ services:
         VITE_API_URL: ${VITE_API_URL:-https://api.bawain.my.id/api/v1}
         VITE_WS_URL: ${VITE_WS_URL:-wss://api.bawain.my.id}
         VITE_SOCKET_URL: ${VITE_SOCKET_URL:-https://api.bawain.my.id}
-        VITE_ALLOW_LOCALHOST_FALLBACK: "true"
+        VITE_ALLOW_LOCALHOST_FALLBACK: ${VITE_ALLOW_LOCALHOST_FALLBACK:-false}
     container_name: tembus-admin-ui
     restart: unless-stopped
     depends_on:
@@ -905,7 +905,7 @@ services:
       VITE_API_URL: ${VITE_API_URL:-https://api.bawain.my.id/api/v1}
       VITE_WS_URL: ${VITE_WS_URL:-wss://api.bawain.my.id}
       VITE_SOCKET_URL: ${VITE_SOCKET_URL:-https://api.bawain.my.id}
-      VITE_ALLOW_LOCALHOST_FALLBACK: "true"
+      VITE_ALLOW_LOCALHOST_FALLBACK: ${VITE_ALLOW_LOCALHOST_FALLBACK:-false}
     ports:
       - "${ADMIN_DASHBOARD_PORT:-3084}:3001"
     networks:
