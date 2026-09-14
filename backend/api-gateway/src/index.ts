@@ -522,6 +522,23 @@ const publicSystemLimiter = createPublicEndpointRateLimiter('system', { recordEv
 const publicExperienceLimiter = createPublicEndpointRateLimiter('experience', { recordEvent: recordPublicAbuseEvent });
 const publicMapsAbuseGuard = createMapsAbuseGuard({ recordEvent: recordPublicAbuseEvent });
 const publicPricingAbuseGuard = createPricingAbuseGuard({ recordEvent: recordPublicAbuseEvent });
+const providerWebhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  // Provider retries are expected, but an unbounded forged callback burst must
+  // not exhaust the downstream service. Signature verification remains
+  // downstream and this bucket is intentionally high and configurable.
+  max: Number(process.env.PROVIDER_WEBHOOK_RATE_LIMIT_PER_MINUTE || 600),
+  keyGenerator: rateLimitClientKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
+  message: {
+    status: 'error',
+    code: 'ERR_TOO_MANY_REQUESTS',
+    message: 'Provider callback traffic is temporarily throttled',
+  },
+  ...rateLimitStoreOptions('provider-webhook', 60 * 1000),
+});
 
 // 🛡️ Global DDoS & Brute-Force Defense Layer
 app.use(generalLimiter);
@@ -857,6 +874,7 @@ app.post(
 
 app.post(
   '/api/v1/auth/register',
+  authLimiter,
   jsonParser,
   validate(RegisterSchema),
   proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
@@ -912,6 +930,7 @@ app.use(createProxyMiddleware({
 }));
 
 // Auth Service - Web/Admin Auth Routes (High Priority)
+app.use('/api/v1/auth/web', authLimiter);
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/auth/web',
   target: ADMIN_SERVICE_URL,
@@ -937,6 +956,7 @@ app.use(createProxyMiddleware({
 }));
 
 // Courier Mobile Auth Routes (compatibility with Android courier app)
+app.use('/api/v1/auth/courier', authLimiter);
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/auth/courier',
   target: ADMIN_SERVICE_URL,
@@ -953,6 +973,7 @@ app.use(createProxyMiddleware({
 // Upload dokumen + cek status pendaftaran → admin-service (pola courier).
 // Diletakkan SEBELUM '/api/v1/auth' general (auth-service) supaya tidak
 // ketimpa — endpoint ini hanya ada di admin-service.
+app.use('/api/v1/auth/merchant', authLimiter);
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/auth/merchant',
   target: ADMIN_SERVICE_URL,
@@ -966,6 +987,7 @@ app.use(createProxyMiddleware({
 }));
 
 // Auth Service - General Routes
+app.use('/api/v1/auth/providers/zenziva/webhook', providerWebhookLimiter);
 app.use('/api/v1/auth', proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead));
 
 // Auth Service - Protected user profile routes. Keep the full API path when
@@ -1605,6 +1627,7 @@ app.use(createProxyMiddleware({
 }));
 
 // Public payment webhooks handled by Admin Service
+app.use('/api/v1/payments/midtrans', providerWebhookLimiter);
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/payments/midtrans',
   target: ADMIN_SERVICE_URL,
@@ -1621,6 +1644,7 @@ app.use(createProxyMiddleware({
 }));
 
 // Public payment webhooks handled by Payment Service (Xendit)
+app.use('/api/v1/payments/xendit', providerWebhookLimiter);
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/payments/xendit',
   target: PAYMENT_SERVICE_URL,

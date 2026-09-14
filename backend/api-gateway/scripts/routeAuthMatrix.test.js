@@ -25,6 +25,8 @@ assertPolicy('GET', '/api/v1/maps/config', 'public', 'maps-public-runtime');
 assertPolicy('GET', '/track/scoped-token-value', 'public', 'public-trip-share');
 assertPolicy('POST', '/api/v1/public/location-requests/token-1', 'public', 'customer-public-handoff');
 assertPolicy('POST', '/api/v1/pricing/estimate', 'public', 'pricing-estimate-public');
+assertPolicy('POST', '/api/v1/payments/midtrans/callback', 'public', 'payment-provider-webhook');
+assertPolicy('POST', '/api/v1/payments/xendit/webhooks', 'public', 'payment-provider-webhook');
 assertPolicy('POST', '/api/v1/developer/v1/orders', 'developer-api', 'developer-api-credential');
 assertPolicy('GET', '/api/v1/developer/v1/orders/order-1', 'developer-api', 'developer-api-credential');
 assertPolicy('GET', '/api/v1/auth/web/delivery-services', 'public', 'web-auth-public');

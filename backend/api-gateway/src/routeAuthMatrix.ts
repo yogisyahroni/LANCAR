@@ -191,13 +191,21 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     id: 'payment-provider-webhook',
     requirement: 'public',
     publicReason: 'Payment provider webhook is authenticated by provider signature downstream.',
-    matches: prefix('/api/v1/payments/midtrans'),
+    matches: (method, path) =>
+      prefix('/api/v1/payments/midtrans')(method, path) ||
+      prefix('/api/v1/payments/xendit')(method, path),
   },
   {
     id: 'pricing-estimate-public',
     requirement: 'public',
     publicReason: 'Pricing estimate is a public quote endpoint with gateway payload validation.',
     matches: exact('/api/v1/pricing/estimate', ['POST']),
+  },
+  {
+    id: 'public-tracking-lookup',
+    requirement: 'public',
+    publicReason: 'Public tracking lookup is bounded by the dedicated limiter and downstream coarse-data policy.',
+    matches: exact('/api/v1/tracking/public', ['GET']),
   },
   {
     id: 'developer-api-credential',

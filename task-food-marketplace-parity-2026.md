@@ -6049,9 +6049,9 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [x] Public API inventory and rate-limit policy by endpoint/client risk.
-- [ ] OTP/login/search/geocode/quote/tracking/webhook endpoints protected appropriately.
+- [x] OTP/login/search/geocode/quote/tracking/webhook endpoints protected appropriately. *(2026-09-14 — gateway auth matrix, route-specific limiter/guard contract tests and canonical staging negative probes passed; evidence: `docs/task-evidence/SECPLAT-2026-007.md`.)*
 - [ ] WAF/DDoS controls do not block provider callbacks without tested allow/verification strategy.
-- [ ] Abuse protection has fail-safe for active order/payment recovery.
+- [x] Abuse protection has fail-safe for active order/payment recovery. *(2026-09-14 — customer payment resume and active-order-preserving kill-switch staging drills passed; evidence: `docs/task-evidence/SECPLAT-2026-007.md`.)*
 
 ---
 
