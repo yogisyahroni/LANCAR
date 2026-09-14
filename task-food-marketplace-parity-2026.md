@@ -6040,7 +6040,7 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - [ ] Production artifact built by controlled CI from traceable commit.
 - [ ] Container/image digest immutable in deployment manifest.
 - [ ] Artifact/image signing or equivalent provenance verification adopted as infrastructure matures.
-- [ ] Deployment does not pull mutable `latest` for critical service.
+- [x] Deployment does not pull mutable `latest` for critical service.
 - [ ] Rollback artifact remains available and verifiable.
 
 ---

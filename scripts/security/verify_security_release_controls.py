@@ -115,6 +115,15 @@ def main() -> int:
     if re.search(r"ghcr\.io/[^\s]+:latest", production_workflow):
         errors.append("production workflow publishes a mutable latest image tag")
     for marker in (
+        "sign-images:",
+        "cosign sign --yes",
+        "verify-images:",
+        "cosign verify",
+        "certificate-oidc-issuer",
+    ):
+        if marker not in production_workflow:
+            errors.append(f"production workflow missing signed-image control: {marker}")
+    for marker in (
         'export AUTH_SERVICE_IMAGE="ghcr.io/${REPO_LOWER_LC}/auth-service:${SHA}"',
         'export PAYMENT_SERVICE_IMAGE="ghcr.io/${REPO_LOWER_LC}/payment-service:${SHA}"',
         'export API_GATEWAY_IMAGE="ghcr.io/${REPO_LOWER_LC}/api-gateway:${SHA}"',

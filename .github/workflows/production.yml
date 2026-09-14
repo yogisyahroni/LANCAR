@@ -783,11 +783,80 @@ jobs:
   #   ada yang menyetujui secara manual.
   # ═══════════════════════════════════════════════════════════
 
+  sign-images:
+    name: Sign immutable production images
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [docker-build-push]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    steps:
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.7.0
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sign every production image by commit reference
+        env:
+          REPO_LOWER: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="${REPO_LOWER,,}"
+          for image in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway frontend admin-dashboard; do
+            cosign sign --yes "ghcr.io/${repo}/${image}:${SHA}"
+          done
+
+  verify-images:
+    name: Verify signed production images
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [sign-images]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.7.0
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify image signatures and workflow identity
+        env:
+          REPO_LOWER: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="${REPO_LOWER,,}"
+          identity="https://github.com/${REPO_LOWER}/.github/workflows/production.yml@refs/heads/main"
+          for image in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway frontend admin-dashboard; do
+            cosign verify \
+              --certificate-identity-regexp "${identity}" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              "ghcr.io/${repo}/${image}:${SHA}" >/dev/null
+          done
+
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [docker-build-push]
+    needs: [verify-images]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production  # ← Manual approval gate di sini
     steps:
