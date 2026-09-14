@@ -6415,9 +6415,9 @@ Start with clean bounded modules in existing services when ownership and scale p
 - design/accessibility acceptance
 - rollback/recovery validation
 
-- [ ] Documentation-only work may close documentation task, but not implementation capability task.
-- [ ] “Endpoint exists” is insufficient if client/ops flow is unwired.
-- [ ] “Screen exists” is insufficient if backend still mocks/fabricates truth.
+- [x] Documentation-only work may close documentation task, but not implementation capability task. (Verified 2026-09-14: evidence protocol distinguishes governance evidence from implementation capability evidence and the CI gate documents this limitation.)
+- [x] “Endpoint exists” is insufficient if client/ops flow is unwired. (Verified 2026-09-14: validator requires task evidence for checked requirements and CI gate explicitly rejects protocol evidence as proof of unwired runtime flows.)
+- [x] “Screen exists” is insufficient if backend still mocks/fabricates truth. (Verified 2026-09-14: REALITY-2026-011 gate and CI workflow explicitly preserve authoritative-runtime and no-fake-success review.)
 
 ---
 
