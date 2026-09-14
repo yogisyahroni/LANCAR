@@ -106,6 +106,7 @@ export function TembusTextField({ label, supportingText, errorText, state = "def
         <input
           {...props}
           id={inputId}
+          aria-label={label}
           disabled={disabled || state === "disabled"}
           aria-invalid={invalid || undefined}
           aria-describedby={message ? messageId : undefined}
@@ -141,7 +142,7 @@ export function TembusAppBar({ title, navigation, actions, className }: { title:
 }
 
 export function TembusBottomNavigation({ items, className }: { items: Array<{ label: string; icon: ReactNode; selected?: boolean; onClick: () => void; disabled?: boolean }>; className?: string }) {
-  return <nav aria-label="Navigasi utama" className={cn("grid min-h-16 grid-flow-col auto-cols-fr border-t border-border bg-surface", className)}>{items.map((item) => <button key={item.label} type="button" onClick={item.onClick} disabled={item.disabled} aria-current={item.selected ? "page" : undefined} className="inline-flex min-h-16 flex-col items-center justify-center gap-1 px-2 text-xs font-semibold text-foreground-muted transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50 data-[selected=true]:text-primary" data-selected={item.selected ? "true" : "false"}>{item.icon}<span>{item.label}</span></button>)}</nav>;
+  return <nav aria-label="Navigasi utama" className={cn("grid min-h-16 grid-flow-col auto-cols-fr border-t border-border bg-surface", className)}>{items.map((item) => <button key={item.label} type="button" onClick={item.onClick} disabled={item.disabled} aria-current={item.selected ? "page" : undefined} className="inline-flex min-h-16 flex-col items-center justify-center gap-1 px-2 text-xs font-semibold text-foreground-muted transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-60 data-[selected=true]:text-primary" data-selected={item.selected ? "true" : "false"}>{item.icon}<span>{item.label}</span></button>)}</nav>;
 }
 
 export function TembusModal({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
