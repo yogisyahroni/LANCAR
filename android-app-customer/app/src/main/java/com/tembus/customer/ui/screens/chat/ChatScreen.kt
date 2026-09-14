@@ -1,5 +1,7 @@
 package com.tembus.customer.ui.screens.chat
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.widget.Toast
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.animation.AnimatedVisibility
@@ -201,7 +203,7 @@ fun ChatScreen(
                 actions = {
                     if (showFoodOrderContext && uiState.order != null) {
                         // Phone call button
-                        IconButton(onClick = { /* TODO: call courier */ }) {
+                        IconButton(onClick = onInAppCallClick) {
                             Icon(
                                 imageVector = Icons.Default.Call,
                                 contentDescription = CustomerTextCatalog.translate("Telepon kurir"),
@@ -209,12 +211,29 @@ fun ChatScreen(
                             )
                         }
                         // More options menu
-                        IconButton(onClick = { /* TODO: show menu */ }) {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = CustomerTextCatalog.translate("Opsi lainnya"),
-                                tint = Primary
-                            )
+                        Box {
+                            var showFoodMenu by remember { mutableStateOf(false) }
+                            IconButton(onClick = { showFoodMenu = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = CustomerTextCatalog.translate("Opsi lainnya"),
+                                    tint = Primary
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showFoodMenu,
+                                onDismissRequest = { showFoodMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Lihat rincian pesanan") },
+                                    onClick = {
+                                        showFoodMenu = false
+                                        uiState.order?.let { order ->
+                                            onOrderDetailClick(order.orderId.ifBlank { order.orderNumber })
+                                        }
+                                    }
+                                )
+                            }
                         }
                     } else {
                         IconButton(onClick = onInAppCallClick) {
@@ -270,7 +289,12 @@ fun ChatScreen(
                         FoodOrderSummaryCard(
                             order = order,
                             onClick = { onOrderDetailClick(order.orderId.ifBlank { order.orderNumber }) },
-                            onDetailClick = { onOrderDetailClick(order.orderId.ifBlank { order.orderNumber }) }
+                            onDetailClick = { onOrderDetailClick(order.orderId.ifBlank { order.orderNumber }) },
+                            onCopyOrderNumber = { orderNumber ->
+                                val clipboard = context.getSystemService(ClipboardManager::class.java)
+                                clipboard?.setPrimaryClip(ClipData.newPlainText("Nomor pesanan", orderNumber))
+                                Toast.makeText(context, "Nomor pesanan disalin", Toast.LENGTH_SHORT).show()
+                            }
                         )
                     }
                 }
@@ -377,7 +401,13 @@ fun ChatScreen(
                         // Attachment button for food orders
                         if (showFoodOrderContext) {
                             IconButton(
-                                onClick = { /* TODO: open attachment picker */ },
+                                onClick = {
+                                    Toast.makeText(
+                                        context,
+                                        "Lampiran chat belum tersedia untuk order ini.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                },
                                 modifier = Modifier
                                     .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                                     .padding(end = 4.dp)
@@ -720,7 +750,8 @@ private fun ChatLoadingSkeleton(modifier: Modifier = Modifier) {
 private fun FoodOrderSummaryCard(
     order: com.tembus.customer.data.model.Order,
     onClick: () -> Unit,
-    onDetailClick: () -> Unit
+    onDetailClick: () -> Unit,
+    onCopyOrderNumber: (String) -> Unit
 ) {
     val items = order.foodItems ?: emptyList()
     val itemCount = items.size
@@ -840,7 +871,9 @@ private fun FoodOrderSummaryCard(
                             modifier = Modifier
                                 .size(14.dp)
                                 .fillMaxHeight()
-                                .clickable { /* TODO: copy to clipboard */ }
+                                .clickable {
+                                    onCopyOrderNumber(order.orderNumber ?: order.orderId.take(12).uppercase())
+                                }
                         )
                     }
                 }

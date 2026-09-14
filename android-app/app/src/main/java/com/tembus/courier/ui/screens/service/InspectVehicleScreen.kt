@@ -1,5 +1,6 @@
 package com.tembus.courier.ui.screens.service
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,10 +34,11 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun InspectVehicleScreen(
     onBackClick: () -> Unit,
-    onComplete: (String, String) -> Unit // condition, notes
+    onComplete: (String, String, Bitmap?) -> Unit // condition, notes, inspection photo
 ) {
     var condition by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var inspectionPhoto by remember { mutableStateOf<Bitmap?>(null) }
     
     Scaffold(
         topBar = {
@@ -64,7 +66,13 @@ fun InspectVehicleScreen(
             
             Spacer(Modifier.height(16.dp))
             
-            // TODO: Add camera capture for photo
+            InspectionPhotoCard(
+                photo = inspectionPhoto,
+                uploadedUrl = null,
+                title = "Foto kondisi awal kendaraan",
+                description = "Ambil foto kendaraan sebelum proses loading sebagai bukti inspeksi.",
+                onPhotoCaptured = { inspectionPhoto = it }
+            )
             
             OutlinedTextField(
                 value = condition,
@@ -87,9 +95,9 @@ fun InspectVehicleScreen(
             Spacer(Modifier.weight(1f))
             
             Button(
-                onClick = { onComplete(condition, notes) },
+                onClick = { onComplete(condition, notes, inspectionPhoto) },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = condition.isNotBlank(),
+                enabled = condition.isNotBlank() && inspectionPhoto != null,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
