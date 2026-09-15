@@ -80,6 +80,12 @@ import { formatCustomerOrderNumber } from '../../services/orderNumber';
 
 export const createCustomerOrder = async (req: Request, res: Response): Promise<void> => {
   const client = await db.connect();
+  let clientReleased = false;
+  const releaseClient = () => {
+    if (clientReleased) return;
+    clientReleased = true;
+    client.release();
+  };
   let reservedPromoReservations: Array<{ campaignId: string; reservationKey: string }> = [];
   let reservedPromoCustomerId: string | null = null;
   let isPaymentBypassed = false;
@@ -90,7 +96,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
     const customer_id = req.user?.id;
     if (!customer_id) {
-      client.release();
+      releaseClient();
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
@@ -139,7 +145,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
     const service = await findDeliveryServiceByCode(price_breakdown?.service_code || service_code);
     if (!service) {
-      client.release();
+      releaseClient();
       res.status(400).json({
         code: 'ERR_SERVICE_NOT_AVAILABLE',
         error: 'Layanan pengiriman tidak tersedia'
@@ -164,7 +170,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         service_code: service.code,
         error: error instanceof Error ? error.message : String(error),
       });
-      client.release();
+      releaseClient();
       res.status(503).json({
         success: false,
         code: 'SERVICE_AVAILABILITY_UNAVAILABLE',
@@ -173,7 +179,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       return;
     }
     if (newOrderGateActive) {
-      client.release();
+      releaseClient();
       res.status(503).json({
         success: false,
         code: 'NEW_ORDER_GATE_ACTIVE',
@@ -189,7 +195,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         await assertProviderCapability(logistics_provider, 'cod');
       } catch (error) {
         const capabilityError = error instanceof LogisticsCapabilityError ? error : null;
-        client.release();
+        releaseClient();
         res.status(capabilityError?.statusCode || 503).json({
           success: false,
           code: capabilityError?.code || 'LOGISTICS_PROVIDER_CAPABILITY_UNAVAILABLE',
@@ -211,7 +217,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         dropoffLocation: dropoff_location,
       });
       if (!towingContract.valid) {
-        client.release();
+        releaseClient();
         res.status(400).json({
           code: towingContract.code,
           error: towingContract.message,
@@ -232,7 +238,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     const packageChargeableWeight = packageSummary.chargeable_weight_kg;
 
     if (selectedTier?.max_weight_kg && packageActualWeight > toNumber(selectedTier.max_weight_kg)) {
-      client.release();
+      releaseClient();
       res.status(400).json({
         code: 'ERR_SIZE_TIER_WEIGHT_LIMIT',
         error: `Berat aktual melewati tier ${selectedTier.name}. Pilih tier yang lebih besar.`
@@ -241,7 +247,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     }
 
     if (service.max_weight_kg && packageChargeableWeight > service.max_weight_kg) {
-      client.release();
+      releaseClient();
       res.status(400).json({
         code: 'ERR_SERVICE_WEIGHT_LIMIT',
         error: `${service.name} maksimal ${service.max_weight_kg} kg. Berat hitung order ini ${packageChargeableWeight.toFixed(2)} kg.`
@@ -252,7 +258,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     const pickupPoint = normalizeCoordinatePayload(pickup_location);
     const dropoffPoint = normalizeCoordinatePayload(dropoff_location);
     if (!validAddress(pickup_address) || !validAddress(dropoff_address) || !pickupPoint || !dropoffPoint) {
-      client.release();
+      releaseClient();
       res.status(400).json({
         code: 'ERR_ORDER_ROUTE_REQUIRED',
         error: 'Alamat dan koordinat pickup/dropoff wajib valid sebelum order dibuat'
@@ -269,7 +275,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       source: pickup_point?.source,
     });
     if (pickupQuality.needs_correction) {
-      client.release();
+      releaseClient();
       res.status(409).json({
         success: false,
         code: 'PICKUP_LOCATION_CORRECTION_REQUIRED',
@@ -292,7 +298,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       quote_snapshot_hash || price_breakdown?.snapshot_hash || price_breakdown?.route_snapshot?.snapshot_hash || '',
     ).trim();
     const respondRequote = (message: string, currentQuote?: Record<string, any>) => {
-      client.release();
+      releaseClient();
       res.status(409).json({
         success: false,
         code: 'REQUOTE_REQUIRED',
@@ -395,7 +401,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     });
     const priceDeltaIdr = quoteConsent.priceDeltaIdr;
     if (isTowingService && quoteConsent.requiresConsent) {
-      client.release();
+      releaseClient();
       res.status(409).json({
         success: false,
         code: 'REQUOTE_REQUIRED',
@@ -426,7 +432,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       .map((code: unknown) => normalizePromoCode(code));
     const normalizedPromoCode = normalizedPromoCodes[0] || null;
     if (normalizedPromoCodes.some((code: string | null) => !code)) {
-      client.release();
+      releaseClient();
       res.status(400).json({
         code: 'ERR_PROMO_CODE_INVALID',
         error: 'Kode promo tidak valid.'
@@ -438,7 +444,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     // composed. Reject before reserving promo budget so an unsupported client
     // stack cannot leave an orphaned reservation behind.
     if (normalizedPromoCodes.length > 0 && voucher_code) {
-      client.release();
+      releaseClient();
       res.status(409).json({
         code: 'ERR_VOUCHER_CONFLICT',
         error: 'Voucher tidak bisa digabung dengan promo.',
@@ -467,7 +473,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       );
 
       if (!promoResult.eligible) {
-        client.release();
+        releaseClient();
         res.status(409).json({
           code: 'ERR_PROMO_NOT_ELIGIBLE',
           error: promoResult.reason || 'Promo tidak dapat digunakan untuk order ini.'
@@ -523,7 +529,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     let voucherId: string | null = null;
     const voucherFail = async (status: number, code: string, error: string) => {
       await client.query('ROLLBACK').catch(() => undefined);
-      client.release();
+      releaseClient();
       res.status(status).json({ code, error });
     };
     if (voucher_code) {
@@ -926,7 +932,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     });
 
     await client.query('COMMIT');
-    client.release();
+    releaseClient();
 
     // Jika payment di-bypass, langsung dispatch ke kurir tanpa menunggu alur pembayaran
     if (isPaymentBypassed) {
@@ -967,7 +973,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     for (const reservation of reservedPromoReservations) {
       await releasePromoReservation(reservedPromoCustomerId || '', reservation.reservationKey).catch(() => undefined);
     }
-    client.release();
+    releaseClient();
     securityLog.error("[DEBUG] Create Order Error:", error);
     res.status(500).json({ error: error.message });
   }
