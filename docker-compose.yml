@@ -798,6 +798,10 @@ services:
       # merchant-service di-containerize (tembus-merchant) — alamat internal docker network
       MERCHANT_SERVICE_URL: ${MERCHANT_SERVICE_URL:-http://merchant-service:8085}
       GATEWAY_PORT: 8080
+      # Keep the normal customer concurrency ceiling finite. A staging load
+      # rehearsal may provision a larger explicit value without changing the
+      # production-safe default.
+      CUSTOMER_MOBILE_BULKHEAD_LIMIT: ${CUSTOMER_MOBILE_BULKHEAD_LIMIT:-100}
       # Keep the normal per-IP abuse ceiling by default. A staging load-test
       # window may explicitly raise this value; production keeps the default.
       GENERAL_RATE_LIMIT_PER_MINUTE: ${GENERAL_RATE_LIMIT_PER_MINUTE:-100}
