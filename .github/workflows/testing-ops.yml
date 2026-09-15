@@ -131,9 +131,8 @@ jobs:
           BASE_URL: https://app.bawain.my.id
       - name: axe-core scan against staging (blocking)
         run: |
-          npx --yes @axe-core/cli https://app.bawain.my.id https://app.bawain.my.id/login \
-            --tags wcag2a,wcag2aa,wcag21aa,wcag22aa,best-practice \
-            --exit
+          ./node_modules/.bin/playwright install --with-deps chromium
+          node scripts/staging-axe-scan.mjs
         working-directory: ./frontend
 
   # ─────────────────────────────────────────────
