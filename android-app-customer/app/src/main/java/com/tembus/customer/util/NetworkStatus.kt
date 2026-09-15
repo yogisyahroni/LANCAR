@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -48,7 +50,11 @@ fun rememberNetworkAvailable(): State<Boolean> {
             }
 
             override fun onLost(network: Network) {
-                state.value = hasValidatedInternet(context)
+                // During onLost, activeNetwork can still briefly reference
+                // the network being torn down. Do not let that stale handle
+                // keep the UI falsely online; the next available/default
+                // network callback will validate the replacement.
+                state.value = false
             }
 
             override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
@@ -56,7 +62,13 @@ fun rememberNetworkAvailable(): State<Boolean> {
             }
         }
         runCatching {
-            connectivityManager.registerDefaultNetworkCallback(callback)
+            // Compose state is observed by the main-thread recomposer. Keep
+            // connectivity callbacks on that looper so a live Wi-Fi/data
+            // transition updates the mounted screen, not only a cold launch.
+            connectivityManager.registerDefaultNetworkCallback(
+                callback,
+                Handler(Looper.getMainLooper()),
+            )
         }.onFailure {
             state.value = hasValidatedInternet(context)
         }
