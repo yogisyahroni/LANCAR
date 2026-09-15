@@ -60,12 +60,17 @@ class MainViewModel @Inject constructor(
                 .getOrDefault(false)
             authenticatedDestination = runCatching { resolveAuthenticatedDestination() }
                 .getOrDefault(Screen.AuthGraph.route)
-            _startDestination.value = if (onboardingCompleted) {
+            val destination = if (onboardingCompleted) {
                 authenticatedDestination
             } else {
                 Screen.Onboarding.route
             }
+            _startDestination.value = destination
             _isLoading.value = false
+            // FCM token sync is useful but not part of the first usable shell.
+            if (destination == Screen.Dashboard.route) {
+                syncFcmToken()
+            }
         }
     }
 
@@ -77,10 +82,6 @@ class MainViewModel @Inject constructor(
         }
 
         return if (!token.isNullOrEmpty()) {
-            if (onboardingPreferences.isCompleted()) {
-                syncFcmToken()
-            }
-            socketManager.connect()
             Screen.Dashboard.route
         } else {
             Screen.AuthGraph.route
@@ -107,7 +108,12 @@ class MainViewModel @Inject constructor(
             sessionManager.isLoggedIn.collectLatest { loggedIn ->
                 authenticatedDestination = if (loggedIn) Screen.Dashboard.route else Screen.AuthGraph.route
                 if (loggedIn) {
-                    socketManager.connect()
+                    // Realtime is non-critical for the first usable screen.
+                    // Constructing Socket.IO can perform synchronous setup;
+                    // keep it off the main dispatcher after auth is ready.
+                    viewModelScope.launch(Dispatchers.IO) {
+                        socketManager.connect()
+                    }
                 } else {
                     socketManager.disconnect()
                 }
