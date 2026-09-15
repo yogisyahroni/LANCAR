@@ -74,6 +74,15 @@ def source_files() -> list[Path]:
     return files
 
 
+def compose_service_block(compose: str, service: str) -> str:
+    """Return one top-level Compose service without matching nested keys."""
+    match = re.search(
+        rf"(?ms)^  {re.escape(service)}:\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
+        compose,
+    )
+    return match.group("body") if match else ""
+
+
 def main() -> int:
     errors: list[str] = []
     for relative in REQUIRED_FILES:
@@ -99,6 +108,13 @@ def main() -> int:
     for line in production_compose.splitlines():
         if "image:" in line and ":latest" in line:
             errors.append(f"mutable critical image tag in docker-compose.prod.yml: {line.strip()}")
+
+    order_service = compose_service_block(production_compose, "order-service")
+    if "INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY is required}" not in order_service:
+        errors.append("production order-service must receive the fail-closed INTERNAL_API_KEY")
+    payment_service = compose_service_block(production_compose, "payment-service")
+    if "INTERNAL_PAYMENT_API_KEY: ${INTERNAL_PAYMENT_API_KEY:?INTERNAL_PAYMENT_API_KEY is required}" not in payment_service:
+        errors.append("production payment-service must receive the fail-closed INTERNAL_PAYMENT_API_KEY")
 
     workflow = read(".github/workflows/security-scan.yml")
     for marker in (
