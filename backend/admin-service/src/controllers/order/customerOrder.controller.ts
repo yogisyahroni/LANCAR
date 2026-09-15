@@ -79,10 +79,14 @@ import { isExperienceKillSwitchActive } from '../../services/experienceKillSwitc
 import { formatCustomerOrderNumber } from '../../services/orderNumber';
 
 export const createCustomerOrder = async (req: Request, res: Response): Promise<void> => {
-  const client = await db.connect();
+  // Keep the pool connection free while validating the request and calculating
+  // the trusted quote. The transaction client is acquired only immediately
+  // before BEGIN; otherwise route/provider/promo work can starve concurrent
+  // checkouts while holding an idle database session.
+  let client: PoolClient | null = null;
   let clientReleased = false;
   const releaseClient = () => {
-    if (clientReleased) return;
+    if (clientReleased || !client) return;
     clientReleased = true;
     client.release();
   };
@@ -90,7 +94,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
   let reservedPromoCustomerId: string | null = null;
   let isPaymentBypassed = false;
   try {
-    const flagRes = await client.query("SELECT is_enabled FROM feature_flags WHERE key = 'require_payment_gateway' LIMIT 1");
+    const flagRes = await db.query("SELECT is_enabled FROM feature_flags WHERE key = 'require_payment_gateway' LIMIT 1");
     const requirePayment = flagRes.rows.length > 0 ? flagRes.rows[0].is_enabled : true;
     isPaymentBypassed = !requirePayment;
 
@@ -519,6 +523,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
                       }
         };
 
+    client = await db.connect();
     await client.query('BEGIN');
 
     // ── FB-078: Voucher redeem customer ──────────────────────────────
@@ -528,7 +533,9 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     let voucherDiscountIdr = 0;
     let voucherId: string | null = null;
     const voucherFail = async (status: number, code: string, error: string) => {
-      await client.query('ROLLBACK').catch(() => undefined);
+      if (client) {
+        await client.query('ROLLBACK').catch(() => undefined);
+      }
       releaseClient();
       res.status(status).json({ code, error });
     };
@@ -969,7 +976,9 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     });
 
   } catch (error: any) {
-    await client.query('ROLLBACK').catch(() => undefined);
+    if (client) {
+      await client.query('ROLLBACK').catch(() => undefined);
+    }
     for (const reservation of reservedPromoReservations) {
       await releasePromoReservation(reservedPromoCustomerId || '', reservation.reservationKey).catch(() => undefined);
     }
