@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { redis } from '../redis';
 import { buildRouteEtaSnapshot, evaluateLocationQuality, getTrackingFreshness, resolveTowingTrackingStage, resolveTrackingStage, TRACKING_STALE_AFTER_SECONDS } from './onDemandTracking';
+import { resetMapsProviderConfigCacheForTests } from './mapsProviderConfig';
 import {
   getActiveTomTomMapsServerCredential,
   hasTomTomMapsServerCredential,
@@ -62,6 +63,7 @@ describe('on-demand tracking policy', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    resetMapsProviderConfigCacheForTests();
     process.env = { ...originalEnv };
     delete process.env.TOMTOM_SERVER_API_KEY;
     delete process.env.TOMTOM_ROUTING_API_URL;

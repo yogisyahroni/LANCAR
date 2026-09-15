@@ -1,6 +1,7 @@
 import {
   buildMapsRouteEtaSnapshot,
   geocodeAddress,
+  getMapsProviderConfigValue,
   getMapsProviderOpsSnapshot,
   MAPS_ROUTE_CONTRACT_VERSION,
   normalizeMapsProviderConfig,
@@ -116,6 +117,28 @@ describe('mapsProviderConfig', () => {
     expect(config.enabled).toBe(true);
     expect(config.openstreetmap.tile_url_template).toContain('openstreetmap.org');
     expect(JSON.stringify(config)).not.toContain('TomTom');
+  });
+
+  it('coalesces and caches repeated provider-config reads for the configured TTL', async () => {
+    let resolveConfig!: (value: { rows: Array<{ value: unknown }> }) => void;
+    readDb.query.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveConfig = resolve;
+    }));
+
+    const first = getMapsProviderConfigValue();
+    const second = getMapsProviderConfigValue();
+
+    resolveConfig({ rows: [{ value: baseConfig }] });
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+    const configReadsAfterLoad = readDb.query.mock.calls.filter(([, params]: [string, unknown[]]) => (
+      params?.[0] === 'maps_provider_config'
+    ));
+    expect(configReadsAfterLoad).toHaveLength(1);
+
+    const callsAfterLoad = readDb.query.mock.calls.length;
+    await getMapsProviderConfigValue();
+
+    expect(readDb.query).toHaveBeenCalledTimes(callsAfterLoad);
   });
 
   it('falls back from TomTom Maps to OpenStreetMap when server key is missing', () => {

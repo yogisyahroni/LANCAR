@@ -1031,6 +1031,7 @@ export const resetMapsProviderOpsForTests = () => {
   mapsProviderOpsState.counters.clear();
   mapsProviderOpsState.latencySamples = [];
   mapsProviderOpsState.recentEvents = [];
+  resetMapsProviderConfigCacheForTests();
   resetMapsRuntimeCredentialCacheForTests();
 };
 
@@ -1207,47 +1208,69 @@ export const resolvePublicMapsProviderConfig = (
   };
 };
 
-export const getMapsProviderConfigValue = async (): Promise<MapsProviderConfigValue> => {
+const defaultMapsProviderConfig = (tomTomAvailable: boolean): MapsProviderConfigValue => normalizeMapsProviderConfig({
+  ...DEFAULT_CONFIG,
+  active_provider: 'tomtom_maps',
+  fallback_provider: 'openstreetmap',
+  tomtom_maps_enabled: tomTomAvailable,
+  openstreetmap_enabled: true,
+  scopes: {
+    ...DEFAULT_CONFIG.scopes,
+    global: { enabled: true, provider: 'tomtom_maps' },
+    customer_mobile: { enabled: true, provider: 'tomtom_maps' },
+    courier_mobile: { enabled: true, provider: 'tomtom_maps' },
+    web_customer: { enabled: true, provider: 'tomtom_maps' },
+    web_admin: { enabled: true, provider: 'openstreetmap' },
+    tracking: { enabled: true, provider: 'tomtom_maps' },
+  },
+});
+
+const mapsProviderConfigCacheTtlMs = (config: MapsProviderConfigValue) => (
+  Math.max(30, Math.min(3600, config.config_ttl_seconds || DEFAULT_CONFIG.config_ttl_seconds)) * 1000
+);
+
+let mapsProviderConfigCache: {
+  value: MapsProviderConfigValue;
+  expiresAt: number;
+} | null = null;
+let mapsProviderConfigInFlight: Promise<MapsProviderConfigValue> | null = null;
+
+export const resetMapsProviderConfigCacheForTests = () => {
+  mapsProviderConfigCache = null;
+  mapsProviderConfigInFlight = null;
+};
+
+const readMapsProviderConfigValue = async (): Promise<MapsProviderConfigValue> => {
   const queryClient = readDb;
   const TomTomAvailable = await hasTomTomMapsServerCredential();
   if (!queryClient?.query) {
-    return normalizeMapsProviderConfig({
-      ...DEFAULT_CONFIG,
-      active_provider: 'tomtom_maps',
-      fallback_provider: 'openstreetmap',
-      tomtom_maps_enabled: TomTomAvailable,
-      openstreetmap_enabled: true,
-      scopes: {
-        ...DEFAULT_CONFIG.scopes,
-        global: { enabled: true, provider: 'tomtom_maps' },
-        customer_mobile: { enabled: true, provider: 'tomtom_maps' },
-        courier_mobile: { enabled: true, provider: 'tomtom_maps' },
-        web_customer: { enabled: true, provider: 'tomtom_maps' },
-        web_admin: { enabled: true, provider: 'openstreetmap' },
-        tracking: { enabled: true, provider: 'tomtom_maps' },
-      },
-    });
+    return defaultMapsProviderConfig(TomTomAvailable);
   }
   const result = await queryClient.query('SELECT value FROM system_configs WHERE key = $1 LIMIT 1', ['maps_provider_config']);
   if (result.rows[0]?.value) {
     return normalizeMapsProviderConfig(result.rows[0].value);
   }
-  return normalizeMapsProviderConfig({
-    ...DEFAULT_CONFIG,
-    active_provider: 'tomtom_maps',
-    fallback_provider: 'openstreetmap',
-    tomtom_maps_enabled: TomTomAvailable,
-    openstreetmap_enabled: true,
-    scopes: {
-      ...DEFAULT_CONFIG.scopes,
-      global: { enabled: true, provider: 'tomtom_maps' },
-      customer_mobile: { enabled: true, provider: 'tomtom_maps' },
-      courier_mobile: { enabled: true, provider: 'tomtom_maps' },
-      web_customer: { enabled: true, provider: 'tomtom_maps' },
-      web_admin: { enabled: true, provider: 'openstreetmap' },
-      tracking: { enabled: true, provider: 'tomtom_maps' },
-    },
-  });
+  return defaultMapsProviderConfig(TomTomAvailable);
+};
+
+export const getMapsProviderConfigValue = async (): Promise<MapsProviderConfigValue> => {
+  if (mapsProviderConfigCache && mapsProviderConfigCache.expiresAt > Date.now()) {
+    return mapsProviderConfigCache.value;
+  }
+  if (mapsProviderConfigInFlight) return mapsProviderConfigInFlight;
+
+  const request = readMapsProviderConfigValue();
+  mapsProviderConfigInFlight = request;
+  try {
+    const value = await request;
+    mapsProviderConfigCache = {
+      value,
+      expiresAt: Date.now() + mapsProviderConfigCacheTtlMs(value),
+    };
+    return value;
+  } finally {
+    if (mapsProviderConfigInFlight === request) mapsProviderConfigInFlight = null;
+  }
 };
 
 export const getPublicMapsProviderConfig = async (scope?: string): Promise<PublicMapsProviderConfig> => {
@@ -1432,6 +1455,13 @@ export const updateMapsProviderConfigValue = async (patch: Partial<MapsProviderC
       'Runtime maps provider policy for web, customer mobile, and courier mobile clients.',
     ]
   );
+
+  // Make an admin policy change visible immediately in this instance. Other
+  // instances converge through the bounded config TTL above.
+  mapsProviderConfigCache = {
+    value: next,
+    expiresAt: Date.now() + mapsProviderConfigCacheTtlMs(next),
+  };
 
   recordMapsProviderObservation({
     operation: 'config',
