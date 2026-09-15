@@ -65,6 +65,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.ui.screens.tip.TipDialog
 import com.tembus.customer.ui.screens.tip.TipViewModel
 import androidx.compose.material.icons.filled.VolunteerActivism
+import com.tembus.customer.util.CustomerNetworkRecoveryBanner
 import com.tembus.customer.util.rememberNetworkAvailable
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -222,6 +223,19 @@ fun TrackingScreen(
                 )
             }
         }
+
+        // Keep connectivity state visible while the active-order map remains
+        // usable from its last known snapshot. Reconnection is reconciled by
+        // the effect above and retry remains explicitly user-triggerable.
+        CustomerNetworkRecoveryBanner(
+            isOnline = isOnline,
+            isSlow = isOnline && uiState.staleTrackingReason != null,
+            isRetrying = uiState.isLoading,
+            onRetry = { viewModel.refresh(orderId) },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 88.dp),
+        )
 
         // LAYER 3: LOADING OVERLAY
         if (uiState.isLoading && uiState.courierLocation == null) {
