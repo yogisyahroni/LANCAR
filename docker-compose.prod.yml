@@ -265,6 +265,7 @@ services:
       ZENZIVA_WEBHOOK_REPLAY_WINDOW_SECONDS: ${ZENZIVA_WEBHOOK_REPLAY_WINDOW_SECONDS:-300}
       # ─── OTP Hash Security ─────────────────────────────────────────────────
       OTP_HASH_PEPPER: ${OTP_HASH_PEPPER:?OTP_HASH_PEPPER is required in production}
+      TRUSTED_PROXY_IP: ${TRUSTED_PROXY_IP:?TRUSTED_PROXY_IP is required in production}
       OTEL_ENABLED: ${OTEL_ENABLED:-false}
       OTEL_SERVICE_NAME: ${AUTH_OTEL_SERVICE_NAME:-auth-service}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}

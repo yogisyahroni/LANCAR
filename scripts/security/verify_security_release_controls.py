@@ -115,6 +115,9 @@ def main() -> int:
     payment_service = compose_service_block(production_compose, "payment-service")
     if "INTERNAL_PAYMENT_API_KEY: ${INTERNAL_PAYMENT_API_KEY:?INTERNAL_PAYMENT_API_KEY is required}" not in payment_service:
         errors.append("production payment-service must receive the fail-closed INTERNAL_PAYMENT_API_KEY")
+    auth_service = compose_service_block(production_compose, "auth-service")
+    if "TRUSTED_PROXY_IP: ${TRUSTED_PROXY_IP:?TRUSTED_PROXY_IP is required in production}" not in auth_service:
+        errors.append("production auth-service must receive the required TRUSTED_PROXY_IP")
 
     workflow = read(".github/workflows/security-scan.yml")
     for marker in (
