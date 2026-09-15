@@ -3628,7 +3628,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 ## A11Y-2026-012 — Route/state inventory and manual WCAG 2.1 AA audit [P0 release gate]
 
-**Task status:** `BLOCKED` — local implementation, automated verification and device Docker/tunnel staging checks are complete; the P0 manual release gate remains pending native screen-reader/actual-zoom evidence, authenticated Customer/remaining Admin route review and deferred external provider coordination. Evidence: `docs/task-evidence/A11Y-2026-012.md`. Last updated: `2026-09-14`.
+**Task status:** `BLOCKED` — local implementation, automated verification and device Docker/tunnel staging checks are complete; the P0 manual release gate remains pending native screen-reader/actual-zoom evidence, authenticated Customer/remaining Admin route review and deferred external provider coordination. Evidence: `docs/task-evidence/A11Y-2026-012.md`. Last updated: `2026-09-15`.
 
 > **Execution checkpoint 2026-09-11:** The full Customer route inventory found and fixed a real WCAG violation in the On-Demand loading path: `CustomerPageSkeleton` used `aria-label` on an untyped `<div>`. It now exposes a polite `role="status"` loading region. Focused Customer axe/mobile checks pass `8/8` and On-Demand reflow/200%-equivalent checks pass `4/4`; the dated manual visual, screen-reader, provider and dynamic-state rows remain explicitly open.
 
@@ -3659,6 +3659,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 > **CI checkpoint 2026-09-11 (continued):** Current `origin/staging` SHA `86dd3d2e` passed Task Evidence Gate `34601063282`, Security Scan Pipeline `34601063340` and CI/CD Staging `34601063249`. Service/frontend/security/observability/SBOM/image-build gates passed. SSH rollout and authenticated/API/browser validation remained skipped by missing staging configuration; this does not change the documented manual release-gate status.
 
 > **Verification checkpoint 2026-09-14 (continued):** The device-local Docker staging stack was rechecked on the canonical hosts. An existing authorized Admin session was opened on `https://admin.bawain.my.id/dashboard` and `https://admin.bawain.my.id/app-experience/overview`; AX trees exposed the skip link, named navigation landmarks, headings, labels, live/empty/error health states, map zoom controls, tables, scope filters, rollout counters, audit filters and recovery-oriented copy. This is dated authenticated Admin route/state evidence for these two routes only. Native spoken output, actual browser zoom, authenticated Customer routes, remaining Admin routes and OTP/payment/provider-backed states remain open or deferred.
+
+> **Verification checkpoint 2026-09-15 (continued):** Commit `34b0c5a2` replaced the failing `@axe-core/cli`/ChromeDriver staging step with a repository-local Playwright + `axe-core` scan. Device staging scan passed both public Customer routes; the full Customer tagged accessibility suite passed `159/159`. Testing Ops `34911657714`, Task Evidence Gate `34911652144`, Security Scan Pipeline `34911652202` and CI/CD Staging `34911652342` all passed for this commit. The four canonical boundaries remain separate: API `api.bawain.my.id`, Customer `app.bawain.my.id`, Admin `admin.bawain.my.id`, Landing `bawain.my.id`; Admin is not served from the API host. The manual release gate remains blocked on native screen-reader/actual-zoom/authenticated route/provider evidence.
 
 **Customer Web minimum route groups**
 - landing/public
