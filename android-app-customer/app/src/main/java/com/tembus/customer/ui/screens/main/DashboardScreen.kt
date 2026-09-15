@@ -139,12 +139,12 @@ internal val SoftOrange @Composable get() = MaterialTheme.colorScheme.tertiaryCo
 internal val SurfaceLine @Composable get() = MaterialTheme.colorScheme.outline
 
 @Composable
-private fun HomeStatusBarIcons(darkTheme: Boolean = isSystemInDarkTheme()) {
+private fun HomeStatusBarIcons() {
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
         }
     }
 }
@@ -235,7 +235,11 @@ fun DashboardScreen(
                     }
                 }
             ) { paddingValues ->
-                Row(Modifier.fillMaxSize().padding(paddingValues)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = paddingValues.calculateBottomPadding())
+                ) {
                     if (useNavigationRail) {
                         CustomerNavigation(
                             selectedDestination = selectedDestination,
@@ -259,25 +263,32 @@ fun DashboardScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
-                        CustomerNetworkRecoveryBanner(
-                            isOnline = isOnline,
-                            isSlow = slowNetwork || (isOnline && dataError != null),
-                            isRetrying = isLoading,
-                            onRetry = viewModel::refreshData,
-                        )
-                    }
-                    item {
-                        TembusHomeTopBar(
+                        val heroSection = experienceSnapshot.manifest.sections
+                            .firstOrNull { it.enabled && it.component == "hero_banner" }
+
+                        UnifiedHeroHeader(
                             customerName = customerName.orEmpty().ifBlank { "Pelanggan" },
                             notificationUnreadCount = notificationUnreadCount,
+                            heroSection = heroSection,
+                            manifestRevision = experienceSnapshot.manifest.revision,
+                            marketCode = experienceSnapshot.scope?.marketCode ?: experienceSnapshot.manifest.marketCode,
+                            manifestId = experienceSnapshot.manifest.manifestId,
+                            resolveAssetPath = { assetId -> viewModel.resolveExperienceAsset(experienceSnapshot, assetId) },
                             onNotificationsClick = onNotificationsClick,
                             onProfileClick = onProfileClick,
                             onSearchClick = onSearchClick,
+                            onBookingClick = onBookingClick,
+                            onRemoteAction = onRemoteAction,
+                            onBannerEvent = viewModel::recordExperienceBannerEvent,
+                            networkBanner = {
+                                CustomerNetworkRecoveryBanner(
+                                    isOnline = isOnline,
+                                    isSlow = slowNetwork || (isOnline && dataError != null),
+                                    isRetrying = isLoading,
+                                    onRetry = viewModel::refreshData,
+                                )
+                            }
                         )
-                    }
-
-                    item {
-                        WalletCard()
                     }
 
                     item {
@@ -305,6 +316,7 @@ fun DashboardScreen(
                                 resolveAssetPath = { assetId -> viewModel.resolveExperienceAsset(experienceSnapshot, assetId) },
                                 onHistoryClick = onHistoryClick,
                                 onFavoritesClick = { onBookingClick("food_favorites") },
+                                excludeHeroBanner = true,
                             )
                         }
                     }

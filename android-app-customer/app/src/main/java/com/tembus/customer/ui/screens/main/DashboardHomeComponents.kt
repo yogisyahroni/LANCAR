@@ -22,7 +22,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
@@ -39,10 +42,25 @@ import androidx.compose.material3.Surface
 import com.tembus.customer.ui.localization.CustomerText as Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import coil.compose.AsyncImage
+import com.tembus.customer.data.config.model.ExperienceSection
+import com.tembus.customer.data.config.ExperienceBannerEvent
+import com.tembus.customer.data.config.ExperienceBannerEventType
+import com.tembus.customer.ui.navigation.RemoteDeepLinkResolver
+import com.tembus.customer.ui.navigation.RemoteDeepLinkTarget
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -99,12 +117,12 @@ internal fun TembusHomeTopBar(
     onNotificationsClick: () -> Unit,
     onProfileClick: () -> Unit,
     onSearchClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
@@ -130,17 +148,17 @@ internal fun TembusHomeTopBar(
                 Text("Cari layanan, makanan...", color = Muted, fontSize = 14.sp)
             }
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(10.dp))
         Box(contentAlignment = Alignment.TopEnd) {
             IconButton(
                 onClick = onNotificationsClick,
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surface)
-                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), CircleShape)
+                    .background(Color.White.copy(alpha = 0.22f))
+                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)), CircleShape)
             ) {
-                Icon(Icons.Default.NotificationsActive, contentDescription = CustomerTextCatalog.translate("Notifikasi"), tint = Primary, modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.NotificationsActive, contentDescription = CustomerTextCatalog.translate("Notifikasi"), tint = Color.White, modifier = Modifier.size(22.dp))
             }
             if (notificationUnreadCount > 0) {
                 Box(
@@ -155,11 +173,253 @@ internal fun TembusHomeTopBar(
         IconButton(
             onClick = onProfileClick,
             modifier = Modifier
-                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                .sizeIn(minWidth = 44.dp, minHeight = 44.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f))
+                .background(Color.White.copy(alpha = 0.22f))
+                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)), CircleShape)
         ) {
-            Icon(Icons.Default.Person, contentDescription = CustomerTextCatalog.translate("Profil"), tint = MaterialTheme.colorScheme.onPrimary)
+            Icon(Icons.Default.Person, contentDescription = CustomerTextCatalog.translate("Profil"), tint = Color.White)
+        }
+    }
+}
+
+@Composable
+internal fun HomeHeroPromoBanner(
+    heroSection: ExperienceSection?,
+    manifestRevision: Int,
+    marketCode: String,
+    manifestId: String?,
+    resolveAssetPath: suspend (String) -> String?,
+    onBookingClick: (String?) -> Unit,
+    onRemoteAction: (RemoteDeepLinkTarget) -> Unit,
+    onBannerEvent: (ExperienceBannerEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isCms = heroSection != null
+    val properties = heroSection?.properties
+    val title = (properties?.get("title") as? JsonPrimitive)?.contentOrNull
+        ?: "Kirim Paket Cepat & Hemat"
+    val body = (properties?.get("body") as? JsonPrimitive)?.contentOrNull
+        ?: "Diskon ongkir s.d. 30% untuk pengiriman instan hari ini"
+    val badge = (properties?.get("badge") as? JsonPrimitive)?.contentOrNull
+        ?: "PROMO TEMBUS"
+    val ctaLabel = (properties?.get("cta_label") as? JsonPrimitive)?.contentOrNull
+        ?: "Pesan Sekarang"
+    val deepLink = (properties?.get("deep_link") as? JsonPrimitive)?.contentOrNull
+    val externalUrl = (properties?.get("external_url") as? JsonPrimitive)?.contentOrNull
+    val imageAssetId = (properties?.get("image_asset_id") as? JsonPrimitive)?.contentOrNull
+    val campaignId = (properties?.get("campaign_id") as? JsonPrimitive)?.contentOrNull
+        ?: heroSection?.id ?: "tembus_hero_default"
+
+    val assetPath by produceState<String?>(initialValue = null, imageAssetId, manifestRevision) {
+        value = imageAssetId?.let { resolveAssetPath(it) }
+    }
+    var imageFailed by remember(assetPath) { mutableStateOf(false) }
+
+    val target = remember(deepLink, externalUrl) {
+        if (!deepLink.isNullOrBlank() || !externalUrl.isNullOrBlank()) {
+            RemoteDeepLinkResolver.resolve(deepLink, externalUrl)
+        } else {
+            null
+        }
+    }
+
+    LaunchedEffect(campaignId, manifestRevision) {
+        if (isCms && manifestRevision > 0) {
+            onBannerEvent(
+                ExperienceBannerEvent(
+                    type = ExperienceBannerEventType.IMPRESSION,
+                    component = "hero_banner",
+                    campaignId = campaignId,
+                    sectionId = heroSection?.id ?: "hero",
+                    manifestRevision = manifestRevision,
+                    marketCode = marketCode,
+                    manifestId = manifestId,
+                )
+            )
+        }
+    }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(TembusRadius.Chip),
+                    color = LcGreen.copy(alpha = 0.12f),
+                ) {
+                    Text(
+                        text = badge,
+                        color = LcGreen,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = title,
+                    color = Ink,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Black,
+                    lineHeight = 19.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (!body.isNullOrBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = body,
+                        color = Muted,
+                        fontSize = 12.sp,
+                        lineHeight = 15.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    onClick = {
+                        if (isCms && manifestRevision > 0) {
+                            onBannerEvent(
+                                ExperienceBannerEvent(
+                                    type = ExperienceBannerEventType.CLICK,
+                                    component = "hero_banner",
+                                    campaignId = campaignId,
+                                    sectionId = heroSection?.id ?: "hero",
+                                    manifestRevision = manifestRevision,
+                                    marketCode = marketCode,
+                                    manifestId = manifestId,
+                                )
+                            )
+                        }
+                        if (target != null && target !is RemoteDeepLinkTarget.Invalid) {
+                            onRemoteAction(target)
+                        } else {
+                            onBookingClick("pickup")
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = LcGreen),
+                    shape = RoundedCornerShape(999.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                    modifier = Modifier.height(34.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(ctaLabel, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.Default.ArrowForward, contentDescription = "", tint = Color.White, modifier = Modifier.size(14.dp))
+                    }
+                }
+            }
+
+            if (!imageFailed && !assetPath.isNullOrBlank()) {
+                AsyncImage(
+                    model = assetPath,
+                    contentDescription = title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(14.dp)),
+                    onError = { imageFailed = true }
+                )
+            } else {
+                Surface(
+                    modifier = Modifier.size(80.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = SoftGreen,
+                    border = BorderStroke(1.dp, LcGreen.copy(alpha = 0.2f))
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.LocalShipping,
+                            contentDescription = "",
+                            tint = LcGreen,
+                            modifier = Modifier.size(42.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun UnifiedHeroHeader(
+    customerName: String,
+    notificationUnreadCount: Int,
+    heroSection: ExperienceSection?,
+    manifestRevision: Int,
+    marketCode: String,
+    manifestId: String?,
+    resolveAssetPath: suspend (String) -> String?,
+    onNotificationsClick: () -> Unit,
+    onProfileClick: () -> Unit,
+    onSearchClick: () -> Unit,
+    onBookingClick: (String?) -> Unit,
+    onRemoteAction: (RemoteDeepLinkTarget) -> Unit,
+    onBannerEvent: (ExperienceBannerEvent) -> Unit,
+    modifier: Modifier = Modifier,
+    networkBanner: @Composable () -> Unit = {},
+) {
+    Box(modifier = modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .padding(bottom = 44.dp)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            LcGreen,
+                            Color(0xFF004D36)
+                        )
+                    )
+                )
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(top = 8.dp)
+        ) {
+            TembusHomeTopBar(
+                customerName = customerName,
+                notificationUnreadCount = notificationUnreadCount,
+                onNotificationsClick = onNotificationsClick,
+                onProfileClick = onProfileClick,
+                onSearchClick = onSearchClick,
+            )
+            networkBanner()
+            Spacer(Modifier.height(10.dp))
+            HomeHeroPromoBanner(
+                heroSection = heroSection,
+                manifestRevision = manifestRevision,
+                marketCode = marketCode,
+                manifestId = manifestId,
+                resolveAssetPath = resolveAssetPath,
+                onBookingClick = onBookingClick,
+                onRemoteAction = onRemoteAction,
+                onBannerEvent = onBannerEvent,
+            )
+            Spacer(Modifier.height(14.dp))
+            WalletCard()
         }
     }
 }

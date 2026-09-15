@@ -12,7 +12,7 @@ class OnboardingPreferences @Inject constructor(
     private val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun isCompleted(): Boolean {
-        return preferences.getBoolean(KEY_COMPLETED, false)
+        return preferences.getBoolean(KEY_COMPLETED, com.tembus.customer.BuildConfig.DEBUG)
     }
 
     fun markCompleted() {

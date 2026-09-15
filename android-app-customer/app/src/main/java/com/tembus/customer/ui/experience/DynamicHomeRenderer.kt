@@ -108,6 +108,7 @@ fun DynamicHomeRenderer(
     onHistoryClick: () -> Unit,
     onFavoritesClick: () -> Unit,
     allowRuntimeTheme: Boolean = true,
+    excludeHeroBanner: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val marketCode = snapshot.scope?.marketCode ?: snapshot.manifest.marketCode
@@ -127,6 +128,8 @@ fun DynamicHomeRenderer(
     }
     val renderableSections = collectRenderableSections(snapshot.manifest.sections) { component ->
         ExperienceRenderTelemetry.unknownComponent(component, snapshot.manifest.revision)
+    }.let { sections ->
+        if (excludeHeroBanner) sections.filterNot { it.component == "hero_banner" } else sections
     }
     LaunchedEffect(snapshot.manifest.manifestId, snapshot.manifest.revision) {
         snapshot.manifest.sections

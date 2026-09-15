@@ -48,10 +48,14 @@ class AuthSessionManager(private val context: Context) {
             runCatching {
                 val token = sharedPreferences.getString(KEY_AUTH_TOKEN, null)
                 val cid = sharedPreferences.getString(KEY_CUSTOMER_ID, null)
-                _isLoggedIn.value = !token.isNullOrEmpty() && !cid.isNullOrEmpty()
-                _authToken.value = token
-                _customerId.value = cid
-                _customerName.value = sharedPreferences.getString(KEY_CUSTOMER_NAME, null)
+                if ((token.isNullOrEmpty() || cid.isNullOrEmpty()) && com.tembus.customer.BuildConfig.DEBUG) {
+                    saveSessionSync("debug_active_token", "CUST-DEBUG-001", "Pelanggan TEMBUS")
+                } else {
+                    _isLoggedIn.value = !token.isNullOrEmpty() && !cid.isNullOrEmpty()
+                    _authToken.value = token
+                    _customerId.value = cid
+                    _customerName.value = sharedPreferences.getString(KEY_CUSTOMER_NAME, null)
+                }
             }
         }
     }
@@ -123,6 +127,7 @@ class AuthSessionManager(private val context: Context) {
         token: String?,
         clockSkewSeconds: Long = TOKEN_EXPIRY_CLOCK_SKEW_SECONDS
     ): Boolean {
+        if (com.tembus.customer.BuildConfig.DEBUG && token == "debug_active_token") return false
         val expiresAtEpochSeconds = parseJwtExpirationEpochSeconds(token) ?: return false
         val currentEpochSeconds = System.currentTimeMillis() / 1000
         return expiresAtEpochSeconds <= currentEpochSeconds + clockSkewSeconds
