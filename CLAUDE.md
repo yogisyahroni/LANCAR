@@ -7,3 +7,15 @@ Rules:
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
+<!-- antislop:start -->
+## antislop
+For UI, copy, people, mobile layout, or code comments work, load the antislop skill for the task:
+- Core filter, always on: `antislop`
+- UI / visual: `antislop-ui`
+- Copy & text: `antislop-copywriting`
+- People: `antislop-human`
+- Mobile / responsive: `antislop-layoutmobile`
+- Code comments: `antislop-code`
+Before starting, ask the user when antislop applies: during the work, or after it is done.
+<!-- antislop:end -->

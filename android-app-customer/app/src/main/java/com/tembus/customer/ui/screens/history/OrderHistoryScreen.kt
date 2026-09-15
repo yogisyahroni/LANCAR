@@ -37,6 +37,11 @@ import com.tembus.customer.data.model.Order
 import com.tembus.customer.data.model.ReorderInfo
 import com.tembus.customer.data.model.ReorderItem
 import com.tembus.customer.ui.components.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.ui.draw.clip
+import com.tembus.customer.ui.theme.Accent
+import com.tembus.customer.ui.theme.TembusRadius
 import com.tembus.customer.ui.theme.Background
 import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.OnSurface
@@ -102,21 +107,135 @@ fun OrderHistoryScreen(
                     FullScreenError(message = res.message, onRetry = { viewModel.fetchHistory() })
                 }
                 is HistoryUiState.Success -> {
+                    val activeOrders = remember(res.orders) {
+                        res.orders.filter { order ->
+                            val s = order.status.lowercase()
+                            s !in setOf("delivered", "completed", "arrived", "cancelled", "canceled", "failed", "rejected", "payment_failed") && !s.contains("cancel")
+                        }
+                    }
+                    val completedOrders = remember(res.orders) {
+                        res.orders.filter { order ->
+                            val s = order.status.lowercase()
+                            s in setOf("delivered", "completed", "arrived", "cancelled", "canceled", "failed", "rejected", "payment_failed") || s.contains("cancel")
+                        }
+                    }
+                    var selectedTab by remember(activeOrders.size) {
+                        mutableStateOf(if (activeOrders.isNotEmpty()) 0 else 1)
+                    }
+
                     if (res.orders.isEmpty()) {
                         EmptyHistoryState(modifier = Modifier.align(Alignment.Center))
                     } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            items(res.orders) { order ->
-                                OrderCardItem(
-                                    order = order,
-                                    onClick = { onOrderClick(order.orderId) },
-                                    isFood = order.serviceSubType == "food_delivery",
-                                    onReorder = { viewModel.checkReorder(order.orderId) }
-                                )
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                shape = RoundedCornerShape(TembusRadius.Card),
+                                color = MaterialTheme.colorScheme.surface,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(4.dp)
+                                ) {
+                                    // Tab 0: Sedang Berjalan
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(TembusRadius.Button))
+                                            .background(if (selectedTab == 0) Primary else Color.Transparent)
+                                            .clickable { selectedTab = 0 }
+                                            .padding(vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = "Sedang Berjalan",
+                                                fontSize = 13.sp,
+                                                fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (selectedTab == 0) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            if (activeOrders.isNotEmpty()) {
+                                                Spacer(Modifier.width(6.dp))
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = if (selectedTab == 0) Accent else Primary
+                                                ) {
+                                                    Text(
+                                                        text = "${activeOrders.size}",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    // Tab 1: Riwayat Selesai
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(TembusRadius.Button))
+                                            .background(if (selectedTab == 1) Primary else Color.Transparent)
+                                            .clickable { selectedTab = 1 }
+                                            .padding(vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Riwayat Selesai",
+                                            fontSize = 13.sp,
+                                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (selectedTab == 1) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
+                            val displayedOrders = if (selectedTab == 0) activeOrders else completedOrders
+
+                            if (displayedOrders.isEmpty()) {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+                                        Icon(
+                                            imageVector = if (selectedTab == 0) Icons.Default.LocalShipping else Icons.Default.History,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                            modifier = Modifier.size(56.dp)
+                                        )
+                                        Spacer(Modifier.height(12.dp))
+                                        Text(
+                                            text = if (selectedTab == 0) "Tidak ada pesanan aktif" else "Belum ada riwayat pesanan selesai",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            text = if (selectedTab == 0) "Pesanan yang sedang diproses atau diantar akan muncul di sini." else "Pesanan yang telah selesai atau dibatalkan tersimpan di sini.",
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    items(displayedOrders) { order ->
+                                        OrderCardItem(
+                                            order = order,
+                                            onClick = { onOrderClick(order.orderId) },
+                                            isFood = order.serviceSubType == "food_delivery",
+                                            onReorder = { viewModel.checkReorder(order.orderId) }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

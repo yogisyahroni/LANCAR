@@ -53,6 +53,7 @@ import com.tembus.customer.ui.theme.PrimaryLight
 import com.tembus.customer.ui.theme.Success
 import com.tembus.customer.ui.theme.TembusRadius
 import com.tembus.customer.ui.theme.Warning
+import com.tembus.customer.ui.components.MerchantListSkeleton
 
 // FOOD-BIKE-070: Favorite merchants list
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,9 +101,7 @@ fun FoodFavoritesScreen(
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             when {
                 loading && favorites.isEmpty() -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Primary)
-                    }
+                    MerchantListSkeleton(itemCount = 3)
                 }
                 error != null && favorites.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

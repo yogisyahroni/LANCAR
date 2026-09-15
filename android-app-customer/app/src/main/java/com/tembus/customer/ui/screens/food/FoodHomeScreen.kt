@@ -57,6 +57,7 @@ import com.tembus.customer.ui.designsystem.TembusButtonVariant
 import com.tembus.customer.ui.designsystem.TembusChip
 import com.tembus.customer.ui.designsystem.TembusIconButton
 import com.tembus.customer.ui.designsystem.TembusSearchField
+import com.tembus.customer.ui.components.MerchantListSkeleton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -209,9 +210,7 @@ fun FoodHomeScreen(
 
             when {
                 loading && merchants.isEmpty() -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Primary)
-                    }
+                    MerchantListSkeleton(itemCount = 4)
                 }
                 error != null && merchants.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

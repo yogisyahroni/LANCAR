@@ -127,6 +127,159 @@ fun LoadingListPlaceholder(
 }
 
 @Composable
+fun MerchantCardSkeleton(modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = TembusComponentDefaults.cardShape(),
+        colors = TembusComponentDefaults.cardColors(),
+        border = TembusComponentDefaults.cardBorder()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SkeletonItem(
+                    width = 72.dp,
+                    height = 72.dp,
+                    cornerRadius = TembusRadius.Card
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SkeletonItem(width = 160.dp, height = 18.dp)
+                    SkeletonItem(width = 120.dp, height = 14.dp)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SkeletonItem(width = 50.dp, height = 14.dp)
+                        SkeletonItem(width = 60.dp, height = 14.dp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MerchantListSkeleton(
+    itemCount: Int = 4,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        repeat(itemCount) {
+            MerchantCardSkeleton()
+        }
+    }
+}
+
+@Composable
+fun MenuItemSkeleton(modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = TembusComponentDefaults.cardShape(),
+        colors = TembusComponentDefaults.cardColors(),
+        border = TembusComponentDefaults.cardBorder()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SkeletonItem(width = 140.dp, height = 16.dp)
+                SkeletonItem(width = 200.dp, height = 12.dp)
+                SkeletonItem(width = 80.dp, height = 16.dp)
+            }
+            SkeletonItem(
+                width = 68.dp,
+                height = 68.dp,
+                cornerRadius = TembusRadius.Card
+            )
+        }
+    }
+}
+
+@Composable
+fun PaymentContentSkeleton(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        SkeletonItem(width = 140.dp, height = 24.dp)
+        SkeletonItem(width = 220.dp, height = 16.dp)
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = TembusComponentDefaults.cardShape(),
+            colors = TembusComponentDefaults.cardColors(),
+            border = TembusComponentDefaults.cardBorder()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                SkeletonItem(width = 180.dp, height = 180.dp, cornerRadius = 12.dp)
+                SkeletonItem(width = 160.dp, height = 20.dp)
+                SkeletonItem(width = 120.dp, height = 14.dp)
+            }
+        }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = TembusComponentDefaults.cardShape(),
+            colors = TembusComponentDefaults.cardColors(),
+            border = TembusComponentDefaults.cardBorder()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    SkeletonItem(width = 100.dp, height = 14.dp)
+                    SkeletonItem(width = 80.dp, height = 14.dp)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    SkeletonItem(width = 120.dp, height = 14.dp)
+                    SkeletonItem(width = 70.dp, height = 14.dp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun FullScreenError(
     message: String,
     onRetry: () -> Unit

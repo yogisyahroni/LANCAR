@@ -45,19 +45,21 @@ Gunakan grid 8dp.
 | Screen padding | 24dp | Page container |
 | Section gap | 32dp | Jarak antar section utama |
 | Card gap | 16dp | Jarak konten card |
-| Card radius | 12dp | Card utama dan status panel (current 8dp component rule) |
-| Button radius | 16dp | CTA dan secondary button |
-| Input radius | 14dp | Text field, dropdown |
-| Chip radius | 50dp | Status chip dan filter |
+| Card radius | 8dp | Card utama, status panel, dan preview item (`TembusRadius.Card`) |
+| Button radius | 8dp | CTA dan secondary action button (`TembusRadius.Button`) |
+| Input radius | 8dp | Text field, search bar, dropdown (`TembusRadius.Input`) |
+| Chip radius | 50dp | Status chip dan filter badge (`TembusRadius.Chip`) |
 
 Card tidak boleh terasa padat. Data table boleh lebih rapat, tetapi form, dashboard, dan tracking wajib punya ruang baca yang jelas.
 
 ## 4. Interaction Rules
 
-- CTA utama selalu orange `#FF7A00` dengan teks putih.
+- CTA utama selalu orange Accent `#F97316` dengan teks putih.
 - Secondary action memakai outline hijau atau surface putih.
 - Semua action mutasi harus punya feedback: loading inline, disabled state, toast, atau perubahan status langsung.
-- Loading konten daftar memakai skeleton shape, bukan hanya teks "Loading".
+- Loading konten daftar dan detail wajib menggunakan animated Shimmer Skeleton (`SkeletonItem`, `MerchantListSkeleton`, `MenuItemSkeleton`, `PaymentContentSkeleton`) yang merefleksikan geometri konten asli, bukan `CircularProgressIndicator` mentah.
+- Alur pemesanan makanan (Food Order) dioptimalkan dengan batas maksimal $\le 3$ screen hops (`FoodHome -> MerchantDetail -> FoodCheckout`) dengan menyediakan sticky bottom bar ringkasan keranjang dan tombol direct Checkout di `MerchantDetailScreen`.
+- Touch target interaktif minimum 48x48 dp untuk tombol, chip, dan ikon navigasi (WCAG AA).
 - Bottom navigation memakai ikon jelas, label pendek, dan state aktif hijau.
 - Status flow memakai ikon melingkar, garis progres, dan status teks pendek.
 

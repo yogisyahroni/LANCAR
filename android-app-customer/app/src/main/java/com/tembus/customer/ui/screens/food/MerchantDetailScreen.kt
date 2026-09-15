@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -79,9 +80,18 @@ import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryLight
 import com.tembus.customer.ui.theme.Success
 import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.theme.TembusComponentDefaults
 import com.tembus.customer.ui.theme.Warning
 import com.tembus.customer.ui.designsystem.commerce.TembusCommerceImage
 import com.tembus.customer.ui.designsystem.commerce.TembusMenuItemCard
+import com.tembus.customer.ui.components.MenuItemSkeleton
+import com.tembus.customer.ui.components.SkeletonItem
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import java.util.Locale
 
 // FOOD-BIKE-056: detail merchant + daftar menu, jam buka/tutup, badge ramah sepeda
@@ -90,12 +100,14 @@ fun MerchantDetailScreen(
     merchantId: String,
     onBack: () -> Unit,
     onCartClick: () -> Unit,
+    onCheckoutClick: () -> Unit = {},
     viewModel: FoodViewModel = hiltViewModel()
 ) {
     val merchant by viewModel.merchantDetail.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
     val cartSize by viewModel.cartSize.collectAsState()
+    val cartTotal by viewModel.cartTotal.collectAsState()
     val conflict by viewModel.conflictRequest.collectAsState()
 
     // FB-120: item yang dipilih untuk dilihat detail (bottom sheet).
@@ -147,12 +159,75 @@ fun MerchantDetailScreen(
                     }
                 }
             }
+        },
+        bottomBar = {
+            if (cartSize > 0) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
+                    shadowElevation = 12.dp,
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f).clickable(onClick = onCartClick)) {
+                            Text(
+                                "$cartSize item dalam keranjang",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            val formattedTotal = String.format(Locale.GERMANY, "%,d", cartTotal)
+                            Text(
+                                "Rp $formattedTotal",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Primary
+                            )
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedButton(
+                                onClick = onCartClick,
+                                shape = TembusComponentDefaults.buttonShape(),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Text("Lihat", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Primary)
+                            }
+                            Button(
+                                onClick = onCheckoutClick,
+                                shape = TembusComponentDefaults.buttonShape(),
+                                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                Text("Checkout", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "", modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+            }
         }
     ) { padding ->
         when {
             loading && merchant == null -> {
-                Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Primary)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    SkeletonItem(height = 180.dp, cornerRadius = TembusRadius.Card)
+                    SkeletonItem(width = 180.dp, height = 24.dp)
+                    SkeletonItem(width = 240.dp, height = 16.dp)
+                    Spacer(Modifier.height(8.dp))
+                    repeat(4) { MenuItemSkeleton() }
                 }
             }
             error != null && merchant == null -> {

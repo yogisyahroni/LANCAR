@@ -57,6 +57,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import com.tembus.customer.ui.localization.CustomerText as Text
@@ -125,22 +129,22 @@ import com.tembus.customer.util.CustomerNetworkRecoveryBanner
 import com.tembus.customer.util.rememberNetworkAvailable
 import kotlinx.coroutines.delay
 
-private val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
-private val Muted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
-private val LcGreen @Composable get() = MaterialTheme.colorScheme.primary
-private val LcGreenDark @Composable get() = MaterialTheme.colorScheme.onPrimaryContainer
-private val SoftGreen @Composable get() = MaterialTheme.colorScheme.primaryContainer
-private val SoftBlue @Composable get() = MaterialTheme.colorScheme.secondaryContainer
-private val SoftOrange @Composable get() = MaterialTheme.colorScheme.tertiaryContainer
-private val SurfaceLine @Composable get() = MaterialTheme.colorScheme.outline
+internal val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
+internal val Muted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
+internal val LcGreen @Composable get() = MaterialTheme.colorScheme.primary
+internal val LcGreenDark @Composable get() = MaterialTheme.colorScheme.onPrimaryContainer
+internal val SoftGreen @Composable get() = MaterialTheme.colorScheme.primaryContainer
+internal val SoftBlue @Composable get() = MaterialTheme.colorScheme.secondaryContainer
+internal val SoftOrange @Composable get() = MaterialTheme.colorScheme.tertiaryContainer
+internal val SurfaceLine @Composable get() = MaterialTheme.colorScheme.outline
 
 @Composable
-private fun HomeStatusBarIcons() {
+private fun HomeStatusBarIcons(darkTheme: Boolean = isSystemInDarkTheme()) {
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
 }
@@ -249,17 +253,10 @@ fun DashboardScreen(
                         modifier = Modifier.weight(1f).fillMaxHeight()
                     ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .background(LcGreen)
-                )
-                
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 30.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
                         CustomerNetworkRecoveryBanner(
@@ -277,29 +274,6 @@ fun DashboardScreen(
                             onProfileClick = onProfileClick,
                             onSearchClick = onSearchClick,
                         )
-                    }
-
-                    item {
-                        if (incomingPackages.isNotEmpty()) {
-                            IncomingPackagesSection(
-                                packages = incomingPackages,
-                                hasUnreadMessage = hasUnreadMessages,
-                                onTrackingClick = onTrackingClick,
-                                onChatClick = onChatClick,
-                                onViewAllClick = onIncomingClick,
-                            )
-                        }
-                    }
-
-                    if (activeOrders.isNotEmpty()) {
-                        item {
-                            ActiveOrdersSection(
-                                orders = activeOrders,
-                                hasUnreadMessage = hasUnreadMessages,
-                                onTrackingClick = onTrackingClick,
-                                onChatClick = onChatClick,
-                            )
-                        }
                     }
 
                     item {
@@ -335,6 +309,29 @@ fun DashboardScreen(
                         }
                     }
 
+                    if (activeOrders.isNotEmpty()) {
+                        item {
+                            CompactActiveOrdersSummaryCard(
+                                orders = activeOrders,
+                                hasUnreadMessage = hasUnreadMessages,
+                                onTrackingClick = onTrackingClick,
+                                onViewAllClick = onHistoryClick,
+                            )
+                        }
+                    }
+
+                    item {
+                        if (incomingPackages.isNotEmpty()) {
+                            IncomingPackagesSection(
+                                packages = incomingPackages,
+                                hasUnreadMessage = hasUnreadMessages,
+                                onTrackingClick = onTrackingClick,
+                                onChatClick = onChatClick,
+                                onViewAllClick = onIncomingClick,
+                            )
+                        }
+                    }
+
                 // A4: global banner (pengumuman in-app platform-wide dari super_admin).
                 if (showLegacyGlobalBanner && banners.isNotEmpty()) {
                     item {
@@ -366,51 +363,6 @@ fun DashboardScreen(
         }
     }
 }
-}
-
-@Composable
-private fun ActiveOrdersSection(
-    orders: List<Order>,
-    hasUnreadMessage: Boolean,
-    onTrackingClick: (String) -> Unit,
-    onChatClick: (String) -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Pesanan aktif", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                Text("Lanjutkan pelacakan setelah aplikasi dibuka kembali.", color = Muted, fontSize = 13.sp)
-            }
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = RoundedCornerShape(999.dp),
-                border = BorderStroke(1.dp, LcGreen.copy(alpha = 0.18f)),
-            ) {
-                Text(
-                    text = "${orders.size}",
-                    color = LcGreen,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
-                )
-            }
-        }
-        orders.take(5).forEach { order ->
-            ActiveOrderCard(
-                title = order.dropAddress.ifBlank { order.pickupAddress.ifBlank { "Pesanan ${order.orderNumber.ifBlank { order.orderId }}" } },
-                subtitle = order.orderNumber.ifBlank { order.serviceCategory.orEmpty().ifBlank { "Pesanan TEMBUS" } },
-                status = order.status,
-                hasUnreadMessage = hasUnreadMessage,
-                onClick = { onTrackingClick(order.orderId) },
-                onChatClick = { onChatClick(order.orderId) },
-            )
-        }
-    }
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -467,611 +419,3 @@ private fun SharedTransitionScope.CustomerNavigation(
     }
 }
 
-@Composable
-private fun UnreadDot(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(9.dp)
-            .clip(CircleShape)
-            .background(Accent)
-    )
-}
-
-@Composable
-private fun TembusBrandMark(modifier: Modifier = Modifier) {
-    Image(
-        painter = painterResource(id = R.drawable.tembus_home_logo),
-        contentDescription = "TEMBUS",
-        contentScale = ContentScale.Fit,
-        modifier = modifier,
-    )
-}
-
-private fun compactUnreadCount(count: Int): String = if (count > 9) "9+" else count.toString()
-
-
-private fun humanOrderStatus(statusLower: String): String = when (statusLower) {
-    "pending", "created", "waiting", "waiting_for_driver", "searching_driver" -> "Menunggu kurir"
-    "assigned", "accepted" -> "Kurir ditugaskan"
-    "picking_up" -> "Kurir menuju pickup"
-    "picked_up", "in_transit", "delivering" -> "Dalam perjalanan"
-    "delivered", "completed", "arrived" -> "Selesai"
-    "cancelled", "canceled" -> "Dibatalkan"
-    "failed", "payment_failed", "rejected" -> "Gagal"
-    else -> statusLower.replace("_", " ").replaceFirstChar { it.uppercase() }
-}
-
-@Composable
-private fun DashboardSectionHeader(title: String, subtitle: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
-            Text(subtitle, color = Muted, fontSize = 12.sp)
-        }
-    }
-}
-
-@Composable
-private fun TembusHomeTopBar(
-    customerName: String,
-    notificationUnreadCount: Int,
-    onNotificationsClick: () -> Unit,
-    onProfileClick: () -> Unit,
-    onSearchClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Surface(
-            modifier = Modifier
-                .weight(1f)
-                .height(42.dp)
-                .clickable(role = Role.Button, onClick = onSearchClick)
-                .semantics {
-                    contentDescription = "$customerName. Cari layanan atau pesanan"
-                    role = Role.Button
-                },
-            shape = RoundedCornerShape(21.dp),
-            color = MaterialTheme.colorScheme.surface
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
-                Icon(Icons.Default.Search, contentDescription = CustomerTextCatalog.translate("Search"), tint = Muted, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Cari layanan, makanan...", color = Muted, fontSize = 14.sp)
-            }
-        }
-        Spacer(Modifier.width(12.dp))
-        Box(contentAlignment = Alignment.TopEnd) {
-            IconButton(
-                onClick = onNotificationsClick,
-                modifier = Modifier
-                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f))
-            ) {
-                Icon(Icons.Default.NotificationsActive, contentDescription = CustomerTextCatalog.translate("Notifikasi"), tint = MaterialTheme.colorScheme.onPrimary)
-            }
-            if (notificationUnreadCount > 0) {
-                Box(
-                    modifier = Modifier.size(18.dp).clip(CircleShape).background(Accent),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(compactUnreadCount(notificationUnreadCount), color = MaterialTheme.colorScheme.onTertiary, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                }
-            }
-        }
-        Spacer(Modifier.width(8.dp))
-        IconButton(
-            onClick = onProfileClick,
-            modifier = Modifier
-                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f))
-        ) {
-            Icon(Icons.Default.Person, contentDescription = CustomerTextCatalog.translate("Profil"), tint = MaterialTheme.colorScheme.onPrimary)
-        }
-    }
-}
-
-@Composable
-private fun WalletCard() {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(TembusRadius.Card),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(TembusRadius.Card))
-                    .background(SoftGreen),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.AccountBalanceWallet, contentDescription = "", tint = LcGreen)
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Saldo siap dipakai", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Muted)
-                Text("Rp50.000", fontWeight = FontWeight.Black, fontSize = 18.sp, color = Ink)
-                Text("183 coins reward", color = Muted, fontSize = 12.sp)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                WalletAction(Icons.Default.ArrowUpward, "Bayar")
-                WalletAction(Icons.Default.Add, "Top Up")
-                WalletAction(Icons.Default.MoreHoriz, "Lainnya")
-            }
-        }
-    }
-}
-
-@Composable
-private fun WalletAction(icon: ImageVector, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(TembusRadius.Button)).background(LcGreen),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Ink)
-    }
-}
-
-@Composable
-private fun TembusHomeServiceGrid(
-    onPickupClick: () -> Unit,
-    onFoodClick: () -> Unit,
-    showFood: Boolean = true,
-    onAggregatorClick: () -> Unit,
-    onTambalBanClick: () -> Unit,
-    onTowingClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
-    ) {
-        Text("Mau apa hari ini?", color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
-        Text("Layanan utama TEMBUS, satu tap ke pesanan.", color = Muted, fontSize = 12.sp)
-        Spacer(Modifier.height(12.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TembusHomeServiceTile(TembusServiceIcons.PaketInstan.label, TembusServiceIcons.PaketInstan.icon, TembusHomeServiceTone.Primary, onPickupClick, modifier = Modifier.weight(1f))
-            if (showFood) {
-                TembusHomeServiceTile(TembusServiceIcons.Food.label, TembusServiceIcons.Food.icon, TembusHomeServiceTone.Food, onFoodClick, modifier = Modifier.weight(1f))
-            }
-            TembusHomeServiceTile(TembusServiceIcons.EkspedisiAntarKota.label, TembusServiceIcons.EkspedisiAntarKota.icon, TembusHomeServiceTone.Secondary, onAggregatorClick, modifier = Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(14.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TembusHomeServiceTile(TembusServiceIcons.TambalBan.label, TembusServiceIcons.TambalBan.icon, TembusHomeServiceTone.Emergency, onTambalBanClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
-            TembusHomeServiceTile(TembusServiceIcons.Towing.label, TembusServiceIcons.Towing.icon, TembusHomeServiceTone.Towing, onTowingClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
-            Spacer(modifier = Modifier.weight(1f))
-        }
-    }
-}
-
-private enum class TembusHomeServiceTone { Primary, Food, Secondary, Emergency, Towing }
-
-@Composable
-private fun TembusHomeServiceTile(
-    label: String,
-    icon: ImageVector,
-    tone: TembusHomeServiceTone,
-    onClick: () -> Unit,
-    badge: String? = null,
-    emergency: Boolean = false,
-    modifier: Modifier = Modifier
-) {
-    val (bgColor, iconColor) = when (tone) {
-        TembusHomeServiceTone.Primary -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
-        TembusHomeServiceTone.Food -> MaterialTheme.colorScheme.tertiary to MaterialTheme.colorScheme.onTertiary
-        TembusHomeServiceTone.Secondary -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        TembusHomeServiceTone.Emergency -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
-        TembusHomeServiceTone.Towing -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-    }
-    Column(
-        modifier = modifier
-            .semantics {
-                contentDescription = if (emergency) "$label, layanan darurat" else label
-                role = Role.Button
-            }
-            .clickable(role = Role.Button) { onClick() },
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box {
-            Box(
-                modifier = Modifier
-                    .size(54.dp)
-                    .clip(RoundedCornerShape(TembusRadius.Card))
-                    .background(bgColor),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = label, tint = iconColor, modifier = Modifier.size(28.dp))
-            }
-            if (badge != null) {
-                Box(
-                    modifier = Modifier.align(Alignment.TopEnd).size(22.dp).clip(CircleShape).background(Error),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(badge, color = MaterialTheme.colorScheme.onError, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                }
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun DashboardDataErrorCard(
-    message: String,
-    onRetry: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp),
-        shape = RoundedCornerShape(TembusRadius.Card),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-        border = BorderStroke(1.dp, Accent.copy(alpha = 0.24f))
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.Warning, contentDescription = "", tint = Accent)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Data sedang disinkronkan", color = Ink, fontWeight = FontWeight.Black, fontSize = 15.sp)
-                Text(message, color = PrimaryDark, fontSize = 12.sp, lineHeight = 17.sp)
-            }
-            TextButton(onClick = onRetry) {
-                Text("Coba Lagi", fontWeight = FontWeight.ExtraBold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun NotificationPermissionPromptCard(
-    onEnable: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp),
-        shape = RoundedCornerShape(TembusRadius.Card),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, SurfaceLine),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(17.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(RoundedCornerShape(TembusRadius.Card))
-                    .background(SoftGreen),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.NotificationsActive, contentDescription = "", tint = LcGreen)
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Aktifkan update kurir", color = Ink, fontWeight = FontWeight.Black, fontSize = 16.sp)
-                Text(
-                    "Dapatkan alert saat kurir diterima, 5 menit dari lokasi, dan chat baru masuk.",
-                    color = Muted,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp
-                )
-                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Nanti", color = Muted, fontWeight = FontWeight.ExtraBold)
-                    }
-                    androidx.compose.material3.Button(
-                        onClick = onEnable,
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = LcGreen, contentColor = MaterialTheme.colorScheme.onPrimary),
-                        shape = RoundedCornerShape(TembusRadius.Button)
-                    ) {
-                        Text("Aktifkan notifikasi", fontWeight = FontWeight.ExtraBold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun GlobalBannerCard(banners: List<com.tembus.customer.data.model.GlobalBanner>) {
-    val banner = banners.first()
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp),
-        shape = RoundedCornerShape(TembusRadius.Card),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        border = BorderStroke(1.dp, Primary.copy(alpha = 0.2f))
-    ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(TembusRadius.Card))
-                    .background(LcGreen.copy(alpha = 0.14f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.NotificationsActive, contentDescription = "", tint = LcGreen)
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(banner.title, color = Ink, fontWeight = FontWeight.Black, fontSize = 15.sp)
-                if (banner.message.isNotBlank()) {
-                    Text(banner.message, color = Muted, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActiveOrderCard(
-    title: String,
-    subtitle: String,
-    status: String,
-    hasUnreadMessage: Boolean,
-    onClick: () -> Unit,
-    onChatClick: () -> Unit
-) {
-    val statusLower = status.lowercase()
-    val isCancelled = statusLower in setOf("cancelled", "canceled", "failed", "rejected", "payment_failed") || statusLower.contains("cancel")
-    val isDelivered = statusLower in setOf("delivered", "completed", "arrived")
-    val isPending = statusLower in setOf("pending", "created", "waiting", "waiting_for_driver", "searching_driver")
-    val canOpenChat = !isCancelled && !isDelivered && !isPending && statusLower in setOf(
-        "assigned", "accepted", "picking_up", "picked_up", "in_transit", "delivering"
-    )
-
-    val displayTitle = when {
-        isCancelled -> if (statusLower == "failed" || statusLower == "payment_failed") "Pengiriman Gagal" else "Pengiriman Dibatalkan"
-        isDelivered -> "Pengiriman Selesai"
-        else -> title
-    }
-
-    val statusColor = when {
-        isCancelled -> Error
-        isDelivered -> Success
-        isPending -> Accent
-        else -> LcGreen
-    }
-
-    val iconVector = when {
-        isCancelled -> Icons.Default.Warning
-        isDelivered -> Icons.Default.CheckCircle
-        isPending -> Icons.Default.LocalShipping
-        else -> Icons.Default.Navigation
-    }
-
-    val ctaText = when {
-        isCancelled -> "Detail"
-        isDelivered -> "Detail"
-        isPending -> "Detail"
-        else -> "Lacak"
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(TembusRadius.Card),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(TembusRadius.Card))
-                    .background(statusColor.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(iconVector, contentDescription = "", tint = statusColor)
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(displayTitle, color = Ink, fontWeight = FontWeight.Black, fontSize = 17.sp)
-                Text(
-                    subtitle,
-                    color = Muted,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(humanOrderStatus(statusLower), color = statusColor, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(ctaText, color = statusColor, fontWeight = FontWeight.ExtraBold)
-                if (canOpenChat) {
-                    Spacer(Modifier.height(8.dp))
-                    Surface(
-                        modifier = Modifier.clickable { onChatClick() },
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(999.dp),
-                        border = BorderStroke(1.dp, LcGreen.copy(alpha = 0.24f))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = "", tint = LcGreen, modifier = Modifier.size(15.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Chat", color = LcGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
-                            if (hasUnreadMessage) {
-                                Spacer(Modifier.width(5.dp))
-                                UnreadDot()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun IncomingPackagesSection(
-    packages: List<Order>,
-    hasUnreadMessage: Boolean,
-    onTrackingClick: (String) -> Unit,
-    onChatClick: (String) -> Unit,
-    onViewAllClick: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Paket Masuk", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                Text("Pantau paket yang dikirim ke nomor akun ini.", color = Muted, fontSize = 13.sp)
-            }
-            if (hasUnreadMessage) {
-                UnreadDot(modifier = Modifier.padding(end = 8.dp))
-            }
-            TextButton(onClick = onViewAllClick) {
-                Text("Lihat semua", color = LcGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = RoundedCornerShape(999.dp),
-                border = BorderStroke(1.dp, LcGreen.copy(alpha = 0.18f))
-            ) {
-                Text(
-                    text = "${packages.size}",
-                    color = LcGreen,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
-                )
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            packages.take(3).forEach { order ->
-                IncomingPackageCard(
-                    order = order,
-                    hasUnreadMessage = hasUnreadMessage,
-                    onTrackingClick = { onTrackingClick(order.orderId) },
-                    onChatClick = { onChatClick(order.orderId) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun IncomingPackageCard(
-    order: Order,
-    hasUnreadMessage: Boolean,
-    onTrackingClick: () -> Unit,
-    onChatClick: () -> Unit
-) {
-    val normalizedStatus = order.status.lowercase()
-    val isCancelled = normalizedStatus in setOf("cancelled", "canceled", "failed", "rejected", "payment_failed") || normalizedStatus.contains("cancel")
-    val isDelivered = normalizedStatus in setOf("delivered", "completed", "arrived")
-    val isPending = normalizedStatus in setOf("pending", "created", "waiting", "waiting_for_driver", "searching_driver")
-    val canOpenChat = !isCancelled && !isDelivered && !isPending && normalizedStatus in setOf(
-        "picked_up", "in_transit", "delivering", "delivered", "completed"
-    )
-    val statusColor = when {
-        isCancelled -> Error
-        isDelivered -> Success
-        isPending -> Accent
-        else -> LcGreen
-    }
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onTrackingClick() },
-        shape = RoundedCornerShape(TembusRadius.Card),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, SurfaceLine),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(TembusRadius.Card))
-                    .background(statusColor.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.LocalShipping, contentDescription = "", tint = statusColor)
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    order.dropAddress.ifBlank { order.pickupAddress.ifBlank { order.orderId } },
-                    color = Ink,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    order.status.replace("_", " ").uppercase(),
-                    color = statusColor,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            if (canOpenChat) {
-                Surface(
-                    modifier = Modifier.clickable { onChatClick() },
-                    color = LcGreen,
-                    shape = RoundedCornerShape(999.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.ChatBubbleOutline, contentDescription = "", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Chat", color = MaterialTheme.colorScheme.onPrimary, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
-                    }
-                }
-            }
-        }
-    }
-}

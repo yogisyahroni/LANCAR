@@ -367,7 +367,8 @@ fun RootNavGraph(
                 MerchantDetailScreen(
                     merchantId = merchantId,
                     onBack = { navController.popBackStack() },
-                    onCartClick = { navController.navigate(Screen.FoodCart.route) }
+                    onCartClick = { navController.navigate(Screen.FoodCart.route) },
+                    onCheckoutClick = { navController.navigate(Screen.FoodCheckout.route) }
                 )
             }
 
