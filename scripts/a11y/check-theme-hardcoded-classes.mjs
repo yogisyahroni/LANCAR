@@ -26,6 +26,13 @@ const allowlistedFiles = new Set([
   'frontend/src/lib/generated/tembusTokens.ts',
   'admin-dashboard/src/components/LiveMap.tsx',
   'admin-dashboard/src/components/experience/DesignTokenEditor.tsx',
+  // Device simulation rendering boundaries: ExperiencePreview renders a pixel-accurate
+  // Android phone mockup (WalletCard, floating search bar, danger zone stripe) using
+  // fixed representation colors, not semantic theme tokens.
+  // AppExperienceEditor renders a safe-area overlay guide (red danger zone, green safe zone)
+  // whose meaning is derived from fixed visual convention, not the app theme.
+  'admin-dashboard/src/components/experience/ExperiencePreview.tsx',
+  'admin-dashboard/src/pages/AppExperienceEditor.tsx',
   'admin-dashboard/src/pages/Analytics.tsx',
   'admin-dashboard/src/pages/MapsRuntime.tsx',
   'admin-dashboard/src/pages/ResiTemplates.tsx',
