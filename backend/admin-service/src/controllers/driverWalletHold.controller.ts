@@ -17,16 +17,15 @@ import { db, readDb } from '../db';
 export const listDriverWalletHolds = async (req: Request, res: Response) => {
   const search = String(req.query.search ?? '').trim();
   try {
-    const where: string[] = [];
+    // Static WHERE condition inlined in SQL — must NOT be a bind parameter.
+    // Only actual user-supplied values (search term) go into params[].
     const params: any[] = [];
+    let searchCondition = '';
 
-    // Default: wallet dengan hold aktif atau pernah kena penalty
-    params.push('(cw.hold_balance > 0 OR EXISTS (SELECT 1 FROM driver_penalty_log dpl WHERE dpl.driver_id = cp.id))');
     if (search) {
       params.push(`%${search}%`);
-      where.push(`(u.full_name ILIKE $${params.length} OR u.phone ILIKE $${params.length} OR u.email ILIKE $${params.length})`);
+      searchCondition = ` AND (u.full_name ILIKE $${params.length} OR u.phone ILIKE $${params.length} OR u.email ILIKE $${params.length})`;
     }
-    const whereSql = `WHERE ${params[0]}${where.length ? ' AND ' + where.join(' AND ') : ''}`;
 
     const result = await readDb.query(
       `SELECT
@@ -54,7 +53,7 @@ export const listDriverWalletHolds = async (req: Request, res: Response) => {
        FROM courier_wallets cw
        JOIN users u ON u.id = cw.courier_id
        LEFT JOIN courier_profiles cp ON cp.user_id = u.id
-       ${whereSql}
+       WHERE (cw.hold_balance > 0 OR EXISTS (SELECT 1 FROM driver_penalty_log dpl WHERE dpl.driver_id = cp.id))${searchCondition}
        ORDER BY cw.hold_balance DESC, cw.updated_at DESC
        LIMIT 200`,
       params
