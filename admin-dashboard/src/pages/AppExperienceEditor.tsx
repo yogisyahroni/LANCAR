@@ -304,6 +304,7 @@ export default function AppExperienceEditor({
                 <div className="flex flex-col sm:flex-row items-center gap-3">
                   <input
                     type="file"
+                    aria-label="Pilih berkas gambar banner"
                     accept="image/*"
                     disabled={disabled}
                     className="text-xs text-foreground-muted file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-primary file:text-on-primary hover:file:opacity-90 cursor-pointer"
@@ -342,6 +343,7 @@ export default function AppExperienceEditor({
                   <span className="text-xs text-foreground-muted font-bold">atau masukkan URL langsung:</span>
                 </div>
                 <input
+                  aria-label="URL Gambar Latar Banner"
                   className={inputClass}
                   disabled={disabled}
                   value={String(section.properties.background_image_url ?? '')}
@@ -363,7 +365,7 @@ export default function AppExperienceEditor({
                     }}
                     className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-black text-primary-light hover:bg-primary/20"
                   >
-                    🚗 Gojek GoCar Banner (Dari Screenshot)
+                     Gojek GoCar Banner (Dari Screenshot)
                   </button>
                   <button
                     type="button"
@@ -375,7 +377,7 @@ export default function AppExperienceEditor({
                     }}
                     className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface px-2.5 py-1 text-[11px] font-bold text-foreground-muted hover:border-primary/40"
                   >
-                    🔴 Mode Teks & Warna (Festival Merah)
+                    Mode Teks &amp; Warna (Festival Merah)
                   </button>
                   <button
                     type="button"
@@ -387,7 +389,7 @@ export default function AppExperienceEditor({
                     }}
                     className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface px-2.5 py-1 text-[11px] font-bold text-foreground-muted hover:border-primary/40"
                   >
-                    🟢 Mode Teks & Warna (Hijau Tembus)
+                    Mode Teks &amp; Warna (Hijau Tembus)
                   </button>
                 </div>
               </div>
@@ -396,7 +398,7 @@ export default function AppExperienceEditor({
               {section.properties.background_image_url ? (
                 <div className="md:col-span-2 rounded-xl border border-border bg-surface p-3 space-y-3">
                   <p className="text-xs font-bold text-foreground-muted flex items-center gap-1.5">
-                    <ImageIcon size={14} className="text-primary" />
+                    <ImageIcon aria-hidden="true" size={14} className="text-primary" />
                     Preview Banner + Safe Area Guide:
                   </p>
 
@@ -408,14 +410,14 @@ export default function AppExperienceEditor({
                       className="absolute inset-0 w-full h-full object-cover object-top"
                     />
 
-                    {/* ✅ Safe Zone Badge — Top 80% */}
+                    {/* Safe Zone Badge - Top 80% */}
                     <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none" style={{ bottom: '20%' }}>
                       <span className="inline-flex items-center gap-1 rounded-md bg-green-600/80 backdrop-blur px-2 py-0.5 text-[10px] font-black text-white shadow">
-                        ✅ Safe Visual & Action Area (80% atas)
+                        Safe Visual &amp; Action Area (80% atas)
                       </span>
                     </div>
 
-                    {/* ⚠️ Bottom Danger Zone — 20% bawah */}
+                    {/* Bottom Danger Zone - 20% bawah */}
                     <div
                       className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-center"
                       style={{
@@ -425,14 +427,14 @@ export default function AppExperienceEditor({
                       }}
                     >
                       <span className="inline-flex items-center gap-1 rounded-md bg-red-600/90 px-2 py-0.5 text-[9px] font-black text-white shadow">
-                        ⚠️ Area Tertutup Card Saldo — Jangan Taruh Teks / CTA di Sini
+                        Area Tertutup Card Saldo — Jangan Taruh Teks / CTA di Sini
                       </span>
                     </div>
                   </div>
 
                   {/* Panduan teks ringkas */}
                   <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300 space-y-0.5">
-                    <p className="font-black">📐 Panduan Safe Area Banner</p>
+                    <p className="font-black">Panduan Safe Area Banner</p>
                     <p>• <strong>80% atas</strong> — bebas: artwork, gradien, logo promo boleh sampai sudut kiri-atas (menembus balik search bar &amp; status bar).</p>
                     <p>• <strong>20% bawah (~44 dp)</strong> — <strong className="text-red-600 dark:text-red-400">HINDARI</strong> menaruh teks penting, harga, tombol CTA, atau disclaimer di sini karena akan tertutup oleh <strong>Card Saldo/Wallet</strong>.</p>
                     <p>• Rasio rekomendasi gambar: <strong>2:1</strong> (mis. 1080 × 540 px).</p>
@@ -444,8 +446,8 @@ export default function AppExperienceEditor({
               <div className="space-y-1">
                 <label className="text-xs font-bold text-foreground-muted">Warna Cadangan / Fallback Background</label>
                 <div className="flex items-center gap-2">
-                  <input type="color" className="h-9 w-12 cursor-pointer rounded-lg border border-border bg-transparent p-0.5" disabled={disabled} value={String(section.properties.background_color ?? '#006C47')} onChange={(e) => setProperty(index, 'background_color', e.target.value)} />
-                  <input className={inputClass} disabled={disabled} value={String(section.properties.background_color ?? '#006C47')} onChange={(e) => setProperty(index, 'background_color', e.target.value)} placeholder="#006C47" />
+                  <input type="color" aria-label="Pilih warna latar" className="h-9 w-12 cursor-pointer rounded-lg border border-border bg-transparent p-0.5" disabled={disabled} value={String(section.properties.background_color ?? '#006C47')} onChange={(e) => setProperty(index, 'background_color', e.target.value)} />
+                  <input aria-label="Kode heksadesimal warna latar" className={inputClass} disabled={disabled} value={String(section.properties.background_color ?? '#006C47')} onChange={(e) => setProperty(index, 'background_color', e.target.value)} placeholder="#006C47" />
                 </div>
               </div>
               {renderTextField(index, 'title', 'Headline / Judul (Opsional jika pakai gambar)', 'Kirim Paket Cepat & Hemat')}
