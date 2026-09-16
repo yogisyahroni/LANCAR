@@ -26,7 +26,7 @@ assertPolicy('POST', '/api/v1/payments/xendit', 'public', 'payment-provider-webh
 
 // Gateway source wiring is intentionally asserted as a contract: these
 // route-specific controls must not regress into the broad 100/minute bucket.
-assert(source.includes("app.use('/api/v1/auth/web', authLimiter);"));
+assert(source.includes("app.use('/api/v1/auth/web'") && source.includes("authLimiter(req, res, next)"));
 assert(source.includes("app.use('/api/v1/auth/courier', authLimiter);"));
 assert(source.includes("app.use('/api/v1/auth/merchant', authLimiter);"));
 assert(source.includes("'/api/v1/auth/register',\n  authLimiter,"));

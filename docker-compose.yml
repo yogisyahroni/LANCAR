@@ -807,6 +807,7 @@ services:
       GENERAL_RATE_LIMIT_PER_MINUTE: ${GENERAL_RATE_LIMIT_PER_MINUTE:-100}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3002,https://admin.bawain.my.id,https://bawain.my.id,https://merchant.bawain.my.id}}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
+      INTERNAL_GATEWAY_SECRET: ${INTERNAL_GATEWAY_SECRET:-${JWT_SECRET:-changeme_in_production_min32chars}}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       OTEL_SERVICE_NAME: ${GATEWAY_OTEL_SERVICE_NAME:-api-gateway}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}

@@ -1665,6 +1665,134 @@ app.use(createProxyMiddleware({
   },
 }));
 
+interface CachedAdminAdsSession {
+  user: {
+    id: string;
+    role: string;
+    name?: string;
+  };
+  expiresAt: number;
+}
+const adminAdsSessionCache = new Map<string, CachedAdminAdsSession>();
+
+const ALLOWED_ADMIN_ADS_ROLES = new Set([
+  'super_admin',
+  'admin',
+  'ops_admin',
+  'finance_admin',
+  'ops_security',
+]);
+
+// Resolve admin_session cookie for /api/v1/admin/ads so the Ads service receives
+// a valid HMAC-signed identity context (X-User-ID and X-User-Role).
+app.use(async (req: Request, res: Response, next: NextFunction) => {
+  const path = req.originalUrl?.split('?')[0] || req.path;
+  if (!path.startsWith('/api/v1/admin/ads')) {
+    return next();
+  }
+
+  // Already authenticated via JWT with identity
+  if (req.headers['x-user-id']) {
+    return next();
+  }
+
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) {
+    return res.status(401).json({
+      status: 'error',
+      code: 'ERR_UNAUTHORIZED',
+      message: 'Authentication required for admin ads',
+    });
+  }
+
+  const cookies = Array.isArray(cookieHeader) ? cookieHeader.join(';') : cookieHeader;
+  const match = cookies.match(/(?:^|;\s*)admin_session=([^;]+)/);
+  const sessionToken = match ? match[1].trim() : null;
+
+  if (!sessionToken) {
+    return res.status(401).json({
+      status: 'error',
+      code: 'ERR_UNAUTHORIZED',
+      message: 'Admin session cookie required',
+    });
+  }
+
+  const cached = adminAdsSessionCache.get(sessionToken);
+  if (cached && cached.expiresAt > Date.now()) {
+    req.headers['x-user-id'] = cached.user.id;
+    req.headers['x-user-role'] = cached.user.role;
+    if (cached.user.name) {
+      req.headers['x-user-full-name'] = cached.user.name;
+    }
+    req.headers['x-totp-verified'] = 'true';
+    return next();
+  }
+
+  try {
+    const url = new URL('/auth/web/me', ADMIN_SERVICE_URL);
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        cookie: `admin_session=${sessionToken}`,
+        'x-portal': 'admin',
+      },
+      signal: AbortSignal.timeout(3000),
+    });
+
+    if (!response.ok) {
+      return res.status(401).json({
+        status: 'error',
+        code: 'ERR_UNAUTHORIZED',
+        message: 'Invalid or expired admin session',
+      });
+    }
+
+    const payload: any = await response.json();
+    const user = payload?.user;
+    if (!user || !user.id || !user.role) {
+      return res.status(401).json({
+        status: 'error',
+        code: 'ERR_UNAUTHORIZED',
+        message: 'Unable to resolve admin user',
+      });
+    }
+
+    if (!ALLOWED_ADMIN_ADS_ROLES.has(String(user.role).toLowerCase())) {
+      return res.status(403).json({
+        status: 'error',
+        code: 'ERR_FORBIDDEN',
+        message: 'Insufficient privileges for admin ads',
+      });
+    }
+
+    if (adminAdsSessionCache.size > 1000) {
+      const now = Date.now();
+      for (const [key, val] of adminAdsSessionCache.entries()) {
+        if (val.expiresAt <= now) adminAdsSessionCache.delete(key);
+      }
+    }
+    adminAdsSessionCache.set(sessionToken, {
+      user: { id: user.id, role: user.role, name: user.name },
+      expiresAt: Date.now() + 60_000,
+    });
+
+    req.headers['x-user-id'] = user.id;
+    req.headers['x-user-role'] = user.role;
+    if (user.name) {
+      req.headers['x-user-full-name'] = user.name;
+    }
+    req.headers['x-totp-verified'] = 'true';
+    return next();
+  } catch (err: any) {
+    logger.logger.error({ err, path: req.path }, 'Failed to resolve admin session for ads');
+    return res.status(503).json({
+      status: 'error',
+      code: 'ERR_AUTH_SERVICE_UNAVAILABLE',
+      message: 'Failed to verify admin credentials',
+    });
+  }
+});
+
 // Commerce Ads owns paid campaign lifecycle, delivery, budget and billing.
 // Keep this route ahead of /api/v1/admin and /api/v1/merchant so admin ads
 // and merchant ads are handled directly by ads-service without being swallowed

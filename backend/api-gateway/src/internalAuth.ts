@@ -37,7 +37,7 @@ export const resolveInternalGatewaySecret = (env: EnvLike = process.env): string
     return explicitSecret;
   }
 
-  return env.NODE_ENV === 'production' ? undefined : env.JWT_SECRET;
+  return env.JWT_SECRET;
 };
 
 export const stripInternalIdentityHeaders = (req: Request, _res: Response, next: NextFunction) => {

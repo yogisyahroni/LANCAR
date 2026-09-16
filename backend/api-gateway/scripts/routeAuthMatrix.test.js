@@ -36,9 +36,9 @@ assertPolicy('GET', '/api/v1/customer/orders', 'web-session-or-jwt', 'customer-p
 assertPolicy('POST', '/api/v1/device-tokens', 'web-session-or-jwt', 'device-token-api');
 assertPolicy('DELETE', '/api/v1/device-tokens/unregister', 'web-session-or-jwt', 'device-token-api');
 assertPolicy('GET', '/api/v1/admin/orders', 'admin-session-or-jwt', 'admin-management');
-assertPolicy('GET', '/api/v1/admin/ads/inventory', 'jwt', 'commerce-ads-api');
-assertPolicy('GET', '/api/v1/admin/ads/campaigns', 'jwt', 'commerce-ads-api');
-assertPolicy('GET', '/api/v1/admin/ads/audit', 'jwt', 'commerce-ads-api');
+assertPolicy('GET', '/api/v1/admin/ads/inventory', 'admin-session-or-jwt', 'commerce-ads-admin-api');
+assertPolicy('GET', '/api/v1/admin/ads/campaigns', 'admin-session-or-jwt', 'commerce-ads-admin-api');
+assertPolicy('GET', '/api/v1/admin/ads/audit', 'admin-session-or-jwt', 'commerce-ads-admin-api');
 assertPolicy('GET', '/api/v1/ads/delivery', 'jwt', 'commerce-ads-api');
 assertPolicy('GET', '/api/v1/merchant/ads/campaigns', 'jwt', 'commerce-ads-api');
 assertPolicy('POST', '/api/v1/orders', 'jwt', 'order-domain-api');
@@ -129,6 +129,18 @@ assert.strictEqual(result.response.body.route_policy, 'admin-management');
 result = invokeGuard({
   method: 'GET',
   path: '/api/v1/admin/orders',
+  headers: { cookie: 'admin_session=session-token' },
+});
+assert.strictEqual(result.nextCalled, true);
+
+result = invokeGuard({ method: 'GET', path: '/api/v1/admin/ads/campaigns' });
+assert.strictEqual(result.nextCalled, false);
+assert.strictEqual(result.response.statusCode, 401);
+assert.strictEqual(result.response.body.route_policy, 'commerce-ads-admin-api');
+
+result = invokeGuard({
+  method: 'GET',
+  path: '/api/v1/admin/ads/campaigns',
   headers: { cookie: 'admin_session=session-token' },
 });
 assert.strictEqual(result.nextCalled, true);
