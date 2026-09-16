@@ -130,5 +130,5 @@ export const buildCorsOptions = (env: EnvLike = process.env): CorsOptions => ({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: PUBLIC_ALLOWED_HEADERS,
-  exposedHeaders: ['X-Request-ID', 'X-Correlation-ID', 'X-Trace-ID'],
+  exposedHeaders: ['X-Request-ID', 'X-Correlation-ID', 'X-Trace-ID', 'Retry-After', 'RateLimit-Reset', 'RateLimit-Limit', 'RateLimit-Remaining'],
 });

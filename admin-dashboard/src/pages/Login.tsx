@@ -1,18 +1,46 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '../components/Button'
-import { Lock, Mail, ChevronRight, Package, Zap, Shield, CheckCircle, AlertCircle } from 'lucide-react'
+import { Lock, Mail, ChevronRight, Package, Zap, Shield, CheckCircle, AlertCircle, Clock } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { useAuthStore } from '../store/useAuthStore'
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [lockoutSeconds, setLockoutSeconds] = useState<number | null>(null)
   const { login } = useAuthStore()
   const navigate = useNavigate()
 
+  useEffect(() => {
+    if (lockoutSeconds === null || lockoutSeconds <= 0) return
+
+    const timer = setInterval(() => {
+      setLockoutSeconds((prev) => {
+        if (prev === null || prev <= 1) {
+          setError('')
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [lockoutSeconds])
+
+  const formatLockoutTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    if (mins > 0) {
+      return `${mins} menit ${secs.toString().padStart(2, '0')} detik`
+    }
+    return `${secs} detik`
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (lockoutSeconds && lockoutSeconds > 0) return
+
     setIsLoading(true)
     setError('')
 
@@ -22,22 +50,35 @@ export default function Login() {
 
     try {
       await login({ email, password })
-      // On success: navigate immediately — component unmounts so no need to reset isLoading
       navigate('/dashboard')
     } catch (err: any) {
-      // S3-AD-02 Fix: Only show message if it's a short safe string; avoid leaking internal details
-      const msg = err.response?.data?.message
-      setError(
-        typeof msg === 'string' && msg.length < 200
-          ? msg
-          : 'Kredensial tidak valid. Silakan coba lagi.'
-      )
+      if (err.response?.status === 429) {
+        const rawRetry =
+          err.response?.data?.retry_after_seconds ??
+          err.response?.headers?.['retry-after'] ??
+          err.response?.headers?.['ratelimit-reset']
+
+        const seconds = typeof rawRetry === 'number'
+          ? rawRetry
+          : parseInt(String(rawRetry || '60'), 10) || 60
+
+        setLockoutSeconds(seconds)
+        const refId = err.referenceCode ? ` (${err.referenceCode})` : ''
+        setError(`Terlalu banyak percobaan masuk. Mohon tunggu ${formatLockoutTime(seconds)} sebelum mencoba kembali${refId}.`)
+      } else {
+        const msg = err.response?.data?.message
+        setError(
+          typeof msg === 'string' && msg.length < 200
+            ? msg
+            : 'Kredensial tidak valid. Silakan coba lagi.'
+        )
+      }
     } finally {
-      // S3-AD-02 Fix: Was `setIsLoading(true)` which permanently locked the button on error.
-      // Must always reset to false so the user can retry after a failed login.
       setIsLoading(false)
     }
   }
+
+  const isLockedOut = Boolean(lockoutSeconds && lockoutSeconds > 0)
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-background">
@@ -124,10 +165,21 @@ export default function Login() {
                 aria-live="assertive"
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="mb-6 p-4 rounded-xl bg-error-surface border border-error flex items-center gap-3 text-error text-xs font-bold"
+                className="mb-6 p-4 rounded-xl bg-error-surface border border-error flex items-start gap-3 text-error text-xs font-bold"
               >
-                <AlertCircle aria-hidden="true" size={16} />
-                {error}
+                {isLockedOut ? (
+                  <Clock className="h-4 w-4 mt-0.5 flex-shrink-0 text-error animate-pulse" aria-hidden="true" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-error" aria-hidden="true" />
+                )}
+                <div className="flex-1">
+                  <p>{error}</p>
+                  {isLockedOut && lockoutSeconds && (
+                    <p className="mt-1 text-xs font-extrabold text-error/90">
+                      Coba lagi dalam: {Math.floor(lockoutSeconds / 60)}:{(lockoutSeconds % 60).toString().padStart(2, '0')}
+                    </p>
+                  )}
+                </div>
               </motion.div>
             )}
 
@@ -143,12 +195,13 @@ export default function Login() {
                     type="email" 
                     name="email"
                     required
+                    disabled={isLockedOut}
                     aria-required="true"
                     aria-invalid={error ? 'true' : 'false'}
                     aria-describedby={error ? 'admin-login-error' : undefined}
                     autoComplete="email"
                     placeholder="admin@tembus.id"
-                    className="w-full bg-surface-subtle border border-border rounded-xl py-3 pl-12 pr-4 text-foreground-muted placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
+                    className="w-full bg-surface-subtle border border-border rounded-xl py-3 pl-12 pr-4 text-foreground-muted placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -164,12 +217,13 @@ export default function Login() {
                     type="password" 
                     name="password"
                     required
+                    disabled={isLockedOut}
                     aria-required="true"
                     aria-invalid={error ? 'true' : 'false'}
                     aria-describedby={error ? 'admin-login-error' : undefined}
                     autoComplete="current-password"
                     placeholder="••••••••"
-                    className="w-full bg-surface-subtle border border-border rounded-xl py-3 pl-12 pr-4 text-foreground-muted placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
+                    className="w-full bg-surface-subtle border border-border rounded-xl py-3 pl-12 pr-4 text-foreground-muted placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -187,9 +241,19 @@ export default function Login() {
                 variant="primary" 
                 className="w-full h-14 text-lg"
                 isLoading={isLoading}
+                disabled={isLoading || isLockedOut}
               >
-                Sign In to Console
-                <ChevronRight className="ml-2 h-5 w-5" aria-hidden="true" />
+                {isLockedOut && lockoutSeconds ? (
+                  <span className="flex items-center justify-center gap-2 font-mono">
+                    <Clock className="h-5 w-5" />
+                    Coba lagi dalam {Math.floor(lockoutSeconds / 60)}:{(lockoutSeconds % 60).toString().padStart(2, '0')}
+                  </span>
+                ) : (
+                  <>
+                    Sign In to Console
+                    <ChevronRight className="ml-2 h-5 w-5" aria-hidden="true" />
+                  </>
+                )}
               </Button>
             </form>
 

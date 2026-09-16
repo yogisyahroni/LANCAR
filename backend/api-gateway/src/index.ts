@@ -451,10 +451,18 @@ const authLimiter = rateLimit({
   keyGenerator: rateLimitClientKey,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    status: 'error',
-    code: 'ERR_TOO_MANY_REQUESTS',
-    message: 'Too many authentication attempts, please try again later',
+  handler: (req: Request, res: Response, _next: NextFunction, options: any) => {
+    const rawRetryAfter = res.getHeader('Retry-After');
+    const retryAfterSeconds = typeof rawRetryAfter === 'number'
+      ? rawRetryAfter
+      : parseInt(String(rawRetryAfter || '0'), 10) || 60;
+
+    res.status(options.statusCode || 429).json({
+      status: 'error',
+      code: 'ERR_TOO_MANY_REQUESTS',
+      message: 'Too many authentication attempts, please try again later',
+      retry_after_seconds: retryAfterSeconds,
+    });
   },
   ...rateLimitStoreOptions('auth', 15 * 60 * 1000),
 });

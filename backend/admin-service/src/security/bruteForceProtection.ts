@@ -351,6 +351,7 @@ export const sendAuthProtectionError = (res: ResponseLike, error: AuthProtection
     data: null,
     message: error.message,
     code: error.code,
+    retry_after_seconds: error.retryAfterSeconds > 0 ? error.retryAfterSeconds : undefined,
   });
 };
 
