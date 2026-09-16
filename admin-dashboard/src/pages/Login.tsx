@@ -245,7 +245,7 @@ export default function Login() {
               >
                 {isLockedOut && lockoutSeconds ? (
                   <span className="flex items-center justify-center gap-2 font-mono">
-                    <Clock className="h-5 w-5" />
+                    <Clock className="h-5 w-5" aria-hidden="true" />
                     Coba lagi dalam {Math.floor(lockoutSeconds / 60)}:{(lockoutSeconds % 60).toString().padStart(2, '0')}
                   </span>
                 ) : (
