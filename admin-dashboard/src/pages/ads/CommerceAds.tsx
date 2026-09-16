@@ -43,7 +43,7 @@ export default function CommerceAds() {
   })
 
   return (
-    <main className="min-h-screen bg-background p-6 md:p-10" aria-labelledby="commerce-ads-title">
+    <div className="w-full" aria-labelledby="commerce-ads-title">
       <div className="mx-auto max-w-7xl space-y-8">
         <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div><p className="text-xs font-black uppercase tracking-[0.22em] text-primary">Commerce Ads</p><h1 id="commerce-ads-title" className="mt-2 text-3xl font-black text-foreground">Paid visibility dengan guardrail marketplace</h1><p className="mt-2 max-w-3xl text-sm text-foreground-muted">Promo finansial tetap berada di Promo/Pricing. Ads hanya memilih sponsored content untuk slot yang disediakan Experience; rating, ETA, harga, dan serviceability tetap organik/server-authoritative.</p></div>
@@ -60,7 +60,7 @@ export default function CommerceAds() {
         {tab === 'audit' && <PolicyPanel title="Append-only audit" icon={FileCheck2} data={auditQuery.data || { items: [], privacy: 'campaign-level audit only' }} />}
         <footer className="rounded-2xl border border-border bg-surface p-5 text-sm text-foreground-muted"><strong className="text-foreground">Ad-free contract:</strong> checkout, payment, tracking, support/claim, Tambal/Towing booking-matching-active, and aggregator carrier comparison do not receive Ads. Ads failure returns organic fallback and cannot break order/payment.</footer>
       </div>
-    </main>
+    </div>
   )
 }
 

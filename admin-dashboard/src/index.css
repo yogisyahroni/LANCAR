@@ -314,3 +314,28 @@ select option {
   background-color: var(--token-input-background);
   color: var(--token-foreground);
 }
+
+/* Custom smooth scrollbar for split-pane and sidebar navigation */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--token-border) 60%, transparent) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--token-border) 60%, transparent);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--token-border-strong);
+}
+

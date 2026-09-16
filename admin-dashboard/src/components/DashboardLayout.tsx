@@ -393,7 +393,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex overflow-hidden">
+    <div className="h-screen w-full bg-background text-foreground flex overflow-hidden">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[200] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-3 focus:text-on-primary">
         Skip to main content
       </a>
@@ -488,9 +488,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <motion.aside
         initial={false}
         animate={{ width: isCollapsed ? 80 : 280 }}
-        className="hidden lg:flex flex-col border-r border-border bg-surface relative z-30"
+        className="hidden lg:flex flex-col h-screen max-h-screen border-r border-border bg-surface relative z-30 flex-shrink-0 select-none overflow-hidden"
       >
-        <div className="p-6 h-20 flex items-center justify-between">
+        <div className="p-6 h-20 flex-shrink-0 flex items-center justify-between border-b border-border/40">
           {!isCollapsed ? (
             <motion.div 
               initial={{ opacity: 0 }}
@@ -508,12 +508,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <nav
           aria-label="Navigasi utama Admin"
-          className="flex-1 px-3 space-y-1 mt-4 overflow-y-auto overflow-x-hidden"
+          className="flex-1 min-h-0 px-3 py-3 space-y-1 overflow-y-auto overflow-x-hidden custom-scrollbar overscroll-contain"
         >
           {renderNavGroups(isCollapsed)}
         </nav>
 
-        <div className="p-4 border-t border-border">
+        <div className="p-4 flex-shrink-0 border-t border-border bg-surface">
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)}
             aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -546,9 +546,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               onKeyDown={(event) => {
                 if (event.key === 'Escape') setIsMobileMenuOpen(false)
               }}
-              className="h-full w-full bg-background flex flex-col p-6 overflow-y-auto border-r border-border"
+              className="h-full max-h-screen w-full bg-background flex flex-col p-6 overflow-hidden border-r border-border"
             >
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-6 flex-shrink-0">
                 <div className="flex items-center gap-3">
                   <img src="/tembusweb.svg" alt="Tembus Logo" className="h-10 object-contain drop-shadow-md" />
                 </div>
@@ -556,7 +556,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <X size={24} aria-hidden="true" />
                 </button>
               </div>
-              <nav aria-label="Navigasi mobile Admin" className="space-y-1">
+              <nav aria-label="Navigasi mobile Admin" className="flex-1 min-h-0 space-y-1 overflow-y-auto custom-scrollbar overscroll-contain pr-1">
                 {renderNavGroups(false)}
               </nav>
             </motion.aside>
@@ -565,8 +565,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
       </AnimatePresence>
 
-      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <header className="h-20 border-b border-border bg-surface flex items-center justify-between px-6 sticky top-0 z-[999]">
+      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col min-w-0 h-screen max-h-screen overflow-hidden">
+        <header className="h-20 flex-shrink-0 border-b border-border bg-surface flex items-center justify-between px-6 z-20">
           <div className="flex items-center gap-4 flex-1 min-w-0">
             <button 
               type="button"
@@ -743,7 +743,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 lg:p-8 scroll-smooth">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 lg:p-8 scroll-smooth custom-scrollbar overscroll-contain">
           {children}
         </div>
       </main>
