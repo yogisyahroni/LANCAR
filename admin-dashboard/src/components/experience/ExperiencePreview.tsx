@@ -67,50 +67,89 @@ export default function ExperiencePreview({ surface, sections, resolvedSections,
           const bgAsset = text(properties, 'background_image_asset_id')
 
           if (isHero) {
+            const bgImageUrl = text(properties, 'background_image_url')
+            const resolvedBgImage = bgImageUrl
+              ? bgImageUrl.replace(/^\/uploads\//, 'http://localhost:8080/uploads/')
+              : null
+
             return (
               <article
                 key={section.id}
-                className="overflow-hidden rounded-2xl border border-white/10 shadow-lg text-white"
-                style={{
-                  background: customBg ? `linear-gradient(180deg, ${customBg} 0%, rgba(0,0,0,0.75) 100%)` : '#006C47'
-                }}
+                className="overflow-hidden rounded-2xl border border-white/10 shadow-xl"
+                style={{ position: 'relative', minHeight: 220 }}
                 data-media-composition="hero-theme"
               >
-                {bgAsset ? (
-                  <div className="flex items-center gap-2 border-b border-white/10 bg-black/20 px-4 py-2 text-xs text-white/80">
-                    <ImageIcon size={14} aria-hidden="true" /> Background image asset: <code>{bgAsset}</code>
-                  </div>
-                ) : null}
-                <div className="p-5">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <span className="rounded-md bg-black/25 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white/80">
-                      Campaign Header · {customBg || '#006C47'}
+                {/* === Full-bleed Background === */}
+                <div
+                  className="absolute inset-0"
+                  style={
+                    resolvedBgImage
+                      ? { backgroundImage: `url(${resolvedBgImage})`, backgroundSize: 'cover', backgroundPosition: 'top center' }
+                      : { background: customBg ? `linear-gradient(180deg, ${customBg} 0%, rgba(0,0,0,0.75) 100%)` : '#006C47' }
+                  }
+                />
+
+                {/* === Floating Search Bar (top — bebas, sengaja tidak diberi danger zone) === */}
+                <div className="relative z-10 mx-3 mt-3 flex items-center gap-2 rounded-full bg-white/90 backdrop-blur px-3 py-1.5 shadow-sm">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <span className="text-[11px] text-gray-400 font-medium flex-1">Cari layanan, makanan, paket…</span>
+                  <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 rounded-full px-1.5 py-0.5">LANCAR</span>
+                </div>
+
+                {/* === Hero Content area — safe zone === */}
+                <div className="relative z-10 px-4 pt-2 pb-0" style={{ minHeight: 80 }}>
+                  {text(properties, 'badge') ? (
+                    <span className="inline-block rounded-full bg-white/20 backdrop-blur px-2.5 py-0.5 text-[10px] font-bold text-white border border-white/20 mb-1">
+                      {text(properties, 'badge')}
                     </span>
-                    {text(properties, 'badge') ? (
-                      <span className="rounded-full bg-white/20 backdrop-blur px-2.5 py-0.5 text-xs font-bold text-white border border-white/20">
-                        {text(properties, 'badge')}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="space-y-2 flex-1">
-                      <h3 className="text-lg font-black text-white leading-tight">{title}</h3>
-                      {body ? <p className="text-xs leading-relaxed text-white/90">{body}</p> : null}
-                      {cta ? (
-                        <div className="pt-2">
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#D4F73C] px-3.5 py-1.5 text-xs font-black text-slate-900 shadow">
-                            {cta} →
-                          </span>
-                        </div>
-                      ) : null}
+                  ) : null}
+                  {text(properties, 'title') ? (
+                    <h3 className="text-sm font-black text-white leading-tight drop-shadow">{text(properties, 'title')}</h3>
+                  ) : null}
+                  {text(properties, 'cta_label') ? (
+                    <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-[#D4F73C] px-3 py-1 text-[10px] font-black text-slate-900 shadow">
+                      {text(properties, 'cta_label')} →
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* === ⚠️ Bottom Danger Zone strip (sebelum card) === */}
+                <div
+                  className="relative z-10 mx-0 mt-2"
+                  style={{
+                    height: 18,
+                    background: 'repeating-linear-gradient(135deg, rgba(239,68,68,0.45) 0px, rgba(239,68,68,0.45) 6px, rgba(0,0,0,0.35) 6px, rgba(0,0,0,0.35) 12px)',
+                    borderTop: '1.5px dashed rgba(239,68,68,0.8)',
+                  }}
+                >
+                  <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-white drop-shadow">
+                    ⚠️ Area Tertutup Card Saldo (Bottom Danger Zone)
+                  </span>
+                </div>
+
+                {/* === Floating WalletCard mockup === */}
+                <div className="relative z-20 mx-3 mb-3 rounded-2xl bg-white shadow-xl border border-gray-100 overflow-hidden">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
                     </div>
-                    {image ? (
-                      <div className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-2xl bg-white/15 border border-white/20 text-white text-[10px] text-center p-1">
-                        <ImageIcon size={20} className="mb-1 text-white/90" />
-                        <span className="truncate max-w-[56px] text-white/80">{image}</span>
-                      </div>
-                    ) : null}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-gray-500 font-semibold">Saldo siap dipakai</p>
+                      <p className="text-[15px] font-black text-gray-900 leading-tight">Rp50.000</p>
+                      <p className="text-[9px] text-gray-400">183 coins reward</p>
+                    </div>
+                    <div className="shrink-0 flex flex-col items-end gap-1">
+                      <button className="rounded-full bg-green-600 px-2.5 py-1 text-[9px] font-black text-white">+ Topup</button>
+                      <button className="rounded-full border border-gray-200 px-2 py-0.5 text-[9px] font-bold text-gray-600">Tarik</button>
+                    </div>
                   </div>
+                </div>
+
+                {/* Label pojok */}
+                <div className="absolute top-1 right-1 z-30">
+                  <span className="rounded-md bg-black/50 backdrop-blur px-1.5 py-0.5 text-[8px] font-black text-white/80">
+                    📱 Simulasi Device
+                  </span>
                 </div>
               </article>
             )

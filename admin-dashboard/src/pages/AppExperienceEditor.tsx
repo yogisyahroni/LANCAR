@@ -392,19 +392,50 @@ export default function AppExperienceEditor({
                 </div>
               </div>
 
-              {/* Preview Gambar Banner */}
+              {/* Preview Gambar Banner + Safe Area Guide */}
               {section.properties.background_image_url ? (
-                <div className="md:col-span-2 rounded-xl border border-border bg-surface p-3 space-y-2">
+                <div className="md:col-span-2 rounded-xl border border-border bg-surface p-3 space-y-3">
                   <p className="text-xs font-bold text-foreground-muted flex items-center gap-1.5">
                     <ImageIcon size={14} className="text-primary" />
-                    Preview Gambar Banner Terpasang:
+                    Preview Banner + Safe Area Guide:
                   </p>
-                  <div className="relative overflow-hidden rounded-lg max-h-48 border border-border bg-black/10">
+
+                  {/* Safe Area Overlay Container */}
+                  <div className="relative overflow-hidden rounded-lg border border-border bg-black" style={{ height: '200px' }}>
                     <img
                       src={String(section.properties.background_image_url).replace(/^\/uploads\//, 'http://localhost:8080/uploads/')}
                       alt="Banner preview"
-                      className="w-full h-auto object-cover"
+                      className="absolute inset-0 w-full h-full object-cover object-top"
                     />
+
+                    {/* ✅ Safe Zone Badge — Top 80% */}
+                    <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none" style={{ bottom: '20%' }}>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-green-600/80 backdrop-blur px-2 py-0.5 text-[10px] font-black text-white shadow">
+                        ✅ Safe Visual & Action Area (80% atas)
+                      </span>
+                    </div>
+
+                    {/* ⚠️ Bottom Danger Zone — 20% bawah */}
+                    <div
+                      className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-center"
+                      style={{
+                        height: '20%',
+                        background: 'repeating-linear-gradient(135deg, rgba(239,68,68,0.55) 0px, rgba(239,68,68,0.55) 8px, rgba(0,0,0,0.45) 8px, rgba(0,0,0,0.45) 16px)',
+                        borderTop: '2px dashed rgba(239,68,68,0.85)',
+                      }}
+                    >
+                      <span className="inline-flex items-center gap-1 rounded-md bg-red-600/90 px-2 py-0.5 text-[9px] font-black text-white shadow">
+                        ⚠️ Area Tertutup Card Saldo — Jangan Taruh Teks / CTA di Sini
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Panduan teks ringkas */}
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300 space-y-0.5">
+                    <p className="font-black">📐 Panduan Safe Area Banner</p>
+                    <p>• <strong>80% atas</strong> — bebas: artwork, gradien, logo promo boleh sampai sudut kiri-atas (menembus balik search bar &amp; status bar).</p>
+                    <p>• <strong>20% bawah (~44 dp)</strong> — <strong className="text-red-600 dark:text-red-400">HINDARI</strong> menaruh teks penting, harga, tombol CTA, atau disclaimer di sini karena akan tertutup oleh <strong>Card Saldo/Wallet</strong>.</p>
+                    <p>• Rasio rekomendasi gambar: <strong>2:1</strong> (mis. 1080 × 540 px).</p>
                   </div>
                 </div>
               ) : null}
