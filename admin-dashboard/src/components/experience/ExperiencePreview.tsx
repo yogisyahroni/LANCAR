@@ -1,6 +1,7 @@
 import { CheckCircle2, ExternalLink, Image as ImageIcon, Smartphone, Globe2, Truck, Store, XCircle, Monitor, Moon, Sun, Search, CreditCard, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useTheme } from '../../providers/ThemeProvider'
+import { adminApiRootUrl } from '../../lib/runtimeConfig'
 import type { ExperienceSection, ExperienceSurface } from './types'
 
 type Props = {
@@ -69,7 +70,7 @@ export default function ExperiencePreview({ surface, sections, resolvedSections,
           if (isHero) {
             const bgImageUrl = text(properties, 'background_image_url')
             const resolvedBgImage = bgImageUrl
-              ? bgImageUrl.replace(/^\/uploads\//, 'http://localhost:8080/uploads/')
+              ? (bgImageUrl.startsWith('/') ? `${adminApiRootUrl}${bgImageUrl}` : bgImageUrl)
               : null
 
             return (

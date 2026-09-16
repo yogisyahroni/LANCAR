@@ -267,8 +267,8 @@ const safeResourceUri = z.string().trim().max(2048).refine((value) => {
 }, 'Asset URI must be an HTTP/HTTPS URL or a local /assets/ or /uploads/ path');
 
 const safeDeepLink = z.string().trim().max(512).refine((value) => {
-  if (value.startsWith('lancar://')) return /^lancar:\/\/(home|food|promo|orders|support|profile)(?:[/?#].*)?$/.test(value);
-  return /^\/(home|food|promo|orders|support|profile)(?:[/?#].*)?$/.test(value);
+  if (value.startsWith('lancar://')) return /^lancar:\/\/(home|food|promo|orders|support|profile|ride)(?:[/?#].*)?$/.test(value);
+  return /^\/(home|food|promo|orders|support|profile|ride)(?:[/?#].*)?$/.test(value);
 }, 'Deep link must use an allowlisted LANCAR route');
 
 const safeExternalUrl = z.string().trim().max(2048).refine((value) => {

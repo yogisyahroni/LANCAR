@@ -409,9 +409,9 @@ object ExperienceManifestValidator {
     private fun sanitizeDeepLink(value: JsonElement): JsonPrimitive? {
         val link = (value as? JsonPrimitive)?.contentOrNull?.trim() ?: return null
         val allowed = if (link.startsWith("lancar://")) {
-            Regex("^lancar://(home|food|promo|orders|support|profile)(?:[/?#].*)?$").matches(link)
+            Regex("^lancar://(home|food|promo|orders|support|profile|ride)(?:[/?#].*)?$").matches(link)
         } else {
-            Regex("^/(home|food|promo|orders|support|profile)(?:[/?#].*)?$").matches(link)
+            Regex("^/(home|food|promo|orders|support|profile|ride)(?:[/?#].*)?$").matches(link)
         }
         return link.takeIf { allowed && it.length <= 512 && !it.contains("javascript:", ignoreCase = true) }?.let(::JsonPrimitive)
     }

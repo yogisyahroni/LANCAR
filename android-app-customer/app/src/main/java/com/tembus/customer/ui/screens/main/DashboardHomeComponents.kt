@@ -485,8 +485,8 @@ internal fun UnifiedHeroHeader(
                 AsyncImage(
                     model = bgAssetPath,
                     contentDescription = null,
-                    contentScale = ContentScale.FillWidth,
-                    alignment = Alignment.BottomCenter,
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopCenter,
                     modifier = Modifier.matchParentSize(),
                     onError = { bgImageFailed = true }
                 )

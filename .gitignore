@@ -105,3 +105,5 @@ tmp_auth
 tmp_build
 tmp_bin*
 tmp_order*
+
+backend/admin-service/storage/
