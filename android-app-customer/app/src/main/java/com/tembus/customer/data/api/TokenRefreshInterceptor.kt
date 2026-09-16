@@ -26,7 +26,6 @@ class TokenRefreshInterceptor @Inject constructor(
     }
 
     private fun shouldInvalidateSession(response: Response): Boolean {
-        if (com.tembus.customer.BuildConfig.DEBUG) return false
         val hasBearerToken = response.request.header("Authorization")?.startsWith("Bearer ") == true
         if (!hasBearerToken) return false
 
