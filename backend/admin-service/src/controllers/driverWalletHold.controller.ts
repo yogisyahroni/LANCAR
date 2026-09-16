@@ -24,7 +24,7 @@ export const listDriverWalletHolds = async (req: Request, res: Response) => {
 
     if (search) {
       params.push(`%${search}%`);
-      searchCondition = ` AND (u.full_name ILIKE $${params.length} OR u.phone ILIKE $${params.length} OR u.email ILIKE $${params.length})`;
+      searchCondition = ` AND (u.full_name ILIKE $${params.length} OR u.phone_number ILIKE $${params.length} OR u.email ILIKE $${params.length})`;
     }
 
     const result = await readDb.query(
@@ -36,7 +36,7 @@ export const listDriverWalletHolds = async (req: Request, res: Response) => {
          cw.hold_minimum_required,
          cw.status AS wallet_status,
          u.full_name AS driver_name,
-         u.phone,
+         u.phone_number AS phone,
          u.email,
          cp.vehicle_type,
          COALESCE((

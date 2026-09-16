@@ -77,13 +77,13 @@ export const getMerchantRegistrationStatus = async (req: Request, res: Response)
     const params: any[] = [];
     if (email && phone) {
       params.push(email, phone);
-      sql += `(LOWER(u.email) = $1 OR u.phone = $2)`;
+      sql += `(LOWER(u.email) = $1 OR u.phone_number = $2)`;
     } else if (email) {
       params.push(email);
       sql += `LOWER(u.email) = $1`;
     } else {
       params.push(phone);
-      sql += `u.phone = $1`;
+      sql += `u.phone_number = $1`;
     }
     sql += ` LIMIT 1`;
 

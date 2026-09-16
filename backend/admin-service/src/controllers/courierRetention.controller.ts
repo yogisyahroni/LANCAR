@@ -10,13 +10,14 @@ export const listCourierRetention = async (req: Request, res: Response): Promise
   try {
     const result = await readDb.query(
       `WITH order_stats AS (
-         SELECT o.courier_id,
-                MAX(o.updated_at) AS last_order_at,
-                COUNT(*) FILTER (WHERE o.status = 'completed') AS completed_orders,
-                COUNT(*) FILTER (WHERE o.status IN ('cancelled', 'rejected')) AS cancelled_orders
-         FROM orders o
-         WHERE o.updated_at >= NOW() - ($1::text || ' days')::interval
-         GROUP BY o.courier_id
+         SELECT ol.courier_id,
+                MAX(ol.updated_at) AS last_order_at,
+                COUNT(*) FILTER (WHERE ol.status = 'delivered') AS completed_orders,
+                COUNT(*) FILTER (WHERE ol.status IN ('cancelled', 'failed')) AS cancelled_orders
+         FROM order_legs ol
+         WHERE ol.updated_at >= NOW() - ($1::text || ' days')::interval
+           AND ol.courier_id IS NOT NULL
+         GROUP BY ol.courier_id
        ), latest_training AS (
          SELECT courier_profile_id, COUNT(*)::int AS training_count,
                 MAX(completed_at) AS last_training_at
@@ -28,7 +29,7 @@ export const listCourierRetention = async (req: Request, res: Response): Promise
          FROM courier_retraining_actions
          ORDER BY courier_profile_id, created_at DESC
        )
-       SELECT cp.id AS courier_profile_id, cp.user_id, u.full_name, u.email, u.phone,
+       SELECT cp.id AS courier_profile_id, cp.user_id, u.full_name, u.email, u.phone_number AS phone,
               u.status AS user_status, cp.verification_status, cp.onboarding_status,
               COALESCE(os.completed_orders, 0)::int AS completed_orders,
               COALESCE(os.cancelled_orders, 0)::int AS cancelled_orders,
