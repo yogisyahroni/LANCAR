@@ -447,8 +447,28 @@ if (process.env.NODE_ENV === 'production' && !resolveInternalGatewaySecret()) {
 // Rate Limiting
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // limit each IP to 30 requests per 15 minutes
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX || 60), // limit each IP to 60 requests per 15 minutes
   keyGenerator: rateLimitClientKey,
+  skip: (req: Request) => {
+    // Only rate-limit sensitive authentication/credential submissions against brute-force.
+    // Business data queries, notifications polling, orders, delivery services, and read endpoints
+    // must not be throttled by the brute-force auth rate limiter.
+    if (req.method === 'GET' || req.method === 'OPTIONS') {
+      return true;
+    }
+    const fullPath = (req.originalUrl || req.url || '').split('?')[0];
+    const subPath = (req.path || '').split('?')[0];
+    if (
+      fullPath.includes('/notifications') ||
+      fullPath.includes('/orders') ||
+      fullPath.includes('/delivery-services') ||
+      subPath.includes('/notifications') ||
+      subPath.includes('/orders')
+    ) {
+      return true;
+    }
+    return false;
+  },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req: Request, res: Response, _next: NextFunction, options: any) => {

@@ -195,8 +195,8 @@ export default function Dashboard() {
         </div>
 
         {/* Right Sidebar: Activity & Distribution */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          <div className="glass-card p-6 rounded-3xl flex-1">
+        <div className="lg:col-span-4 flex flex-col gap-6 min-w-0 min-h-0">
+          <div className="glass-card p-6 rounded-3xl flex-1 min-w-0 min-h-0">
             <h2 className="font-bold text-foreground-muted flex items-center gap-2 mb-6">
               <Zap className="h-4 w-4 text-primary-light" aria-hidden="true" />
               Service Performance
@@ -231,8 +231,8 @@ export default function Dashboard() {
       </div>
 
       {/* Bottom Grid: Revenue Trend & Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-8">
-        <div className="lg:col-span-8 glass-card p-8 rounded-3xl">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-8 min-w-0 min-h-0">
+        <div className="lg:col-span-8 glass-card p-8 rounded-3xl min-w-0 min-h-0">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-xl font-bold text-foreground-muted">Revenue Velocity</h2>

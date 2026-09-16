@@ -48,9 +48,9 @@ export const RevenueChart = ({ data: externalData }: { data?: unknown[] }) => {
   }
 
   return (
-    <div className="h-[300px] w-full mt-4" role="img" aria-label="Revenue chart" aria-describedby="revenue-chart-summary">
+    <div className="h-[300px] w-full min-w-0 min-h-[300px] mt-4" style={{ minWidth: 0, minHeight: 300, width: '100%', height: 300 }} role="img" aria-label="Revenue chart" aria-describedby="revenue-chart-summary">
       <p id="revenue-chart-summary" className="sr-only">Revenue by period: {chartData.map((point) => `${point.name}: ${point.value}`).join('; ')}.</p>
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+      <ResponsiveContainer width="100%" height={300} minWidth={0} minHeight={300}>
         <AreaChart data={chartData}>
           <defs>
             <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
@@ -104,9 +104,9 @@ export const OrderDistributionChart = ({ data: externalData }: { data?: unknown[
   }
 
   return (
-    <div className="h-[300px] w-full mt-4" role="img" aria-label="Order distribution chart" aria-describedby="order-distribution-chart-summary">
+    <div className="h-[300px] w-full min-w-0 min-h-[300px] mt-4" style={{ minWidth: 0, minHeight: 300, width: '100%', height: 300 }} role="img" aria-label="Order distribution chart" aria-describedby="order-distribution-chart-summary">
       <p id="order-distribution-chart-summary" className="sr-only">Order distribution: {chartData.map((point) => `${point.name}: ${point.value}`).join('; ')}.</p>
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+      <ResponsiveContainer width="100%" height={300} minWidth={0} minHeight={300}>
         <BarChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" strokeOpacity={0.5} vertical={false} />
           <XAxis

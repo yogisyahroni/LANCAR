@@ -145,20 +145,21 @@ export function RekeningGridSection({ data }: { data: FinanceData }) {
               <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Revenue Share %</p>
            </div>
            <div className="flex flex-col md:flex-row items-center gap-12">
-              <div
-                 className="h-[280px] w-[280px] relative min-w-0 min-h-0"
-                 role="img"
-                 aria-label="Revenue breakdown chart"
-                 aria-describedby="finance-revenue-breakdown-summary"
-              >
-                 <p id="finance-revenue-breakdown-summary" className="sr-only">
-                    Revenue breakdown:{' '}
-                    {revenueBreakdown.length > 0
-                      ? revenueBreakdown.map((item: any) => `${item.name}: ${item.percentage}%`).join('; ')
-                      : 'Belum ada data.'}
-                    .
-                 </p>
-                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+               <div
+                  className="h-[280px] w-[280px] relative min-w-[280px] min-h-[280px]"
+                  style={{ minWidth: 280, minHeight: 280, width: 280, height: 280 }}
+                  role="img"
+                  aria-label="Revenue breakdown chart"
+                  aria-describedby="finance-revenue-breakdown-summary"
+               >
+                  <p id="finance-revenue-breakdown-summary" className="sr-only">
+                     Revenue breakdown:{' '}
+                     {revenueBreakdown.length > 0
+                       ? revenueBreakdown.map((item: any) => `${item.name}: ${item.percentage}%`).join('; ')
+                       : 'Belum ada data.'}
+                     .
+                  </p>
+                  <ResponsiveContainer width={280} height={280} minWidth={280} minHeight={280}>
                     <PieChart>
                        <Pie
                           data={revenueBreakdown}
@@ -211,19 +212,20 @@ export function RekeningGridSection({ data }: { data: FinanceData }) {
               </h3>
               <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Payout History</p>
            </div>
-           <div
-              className="h-[300px] w-full min-w-0 min-h-0"
-              role="img"
-              aria-label="Payout burn analysis chart"
-              aria-describedby="finance-burn-analysis-summary"
-           >
-              <p id="finance-burn-analysis-summary" className="sr-only">
-                 Payout burn analysis by date.{' '}
-                 {burnTimeSeries.length > 0
-                   ? burnTimeSeries.map((point) => `${point.date || 'Periode'}: ${formatCurrency(point.amount ?? 0)}`).join('; ')
-                   : 'Belum ada data payout.'}
-              </p>
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <div
+               className="h-[300px] w-full min-w-0 min-h-[300px]"
+               style={{ minWidth: 0, minHeight: 300, width: '100%', height: 300 }}
+               role="img"
+               aria-label="Payout burn analysis chart"
+               aria-describedby="finance-burn-analysis-summary"
+            >
+               <p id="finance-burn-analysis-summary" className="sr-only">
+                  Payout burn analysis by date.{' '}
+                  {burnTimeSeries.length > 0
+                    ? burnTimeSeries.map((point) => `${point.date || 'Periode'}: ${formatCurrency(point.amount ?? 0)}`).join('; ')
+                    : 'Belum ada data payout.'}
+               </p>
+               <ResponsiveContainer width="100%" height={300} minWidth={0} minHeight={300}>
                  <BarChart data={financialData?.burn_time_series}>
                     <XAxis 
                        dataKey="date" 

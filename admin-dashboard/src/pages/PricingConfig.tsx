@@ -406,7 +406,8 @@ export default function PricingConfig() {
               Pricing Simulation
             </p>
             <div
-              className="h-[240px] w-full min-w-0"
+              className="h-[240px] w-full min-w-0 min-h-[240px]"
+              style={{ minWidth: 0, minHeight: 240, width: '100%', height: 240 }}
               role="img"
               aria-label="Pricing simulation chart"
               aria-describedby="pricing-simulation-summary"
@@ -418,7 +419,7 @@ export default function PricingConfig() {
                   : 'Belum ada data.'}
                 .
               </p>
-              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+              <ResponsiveContainer width="100%" height={240} minWidth={0} minHeight={240}>
                 <AreaChart data={simulationData}>
                   <defs>
                     <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
