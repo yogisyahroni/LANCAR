@@ -115,8 +115,9 @@ object ExperienceManifestValidator {
     private val identifier = Regex("^[a-z0-9][a-z0-9._-]{0,127}$")
     private val semver = Regex("^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$")
     private val sha256 = Regex("^[a-f0-9]{64}$")
+    private val hexColor = Regex("^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
     private val components = mapOf(
-        "hero_banner" to setOf("campaign_id", "campaign_name", "placement", "title", "body", "badge", "alt_label", "image_asset_id", "frequency_cap_hours", "max_impressions", "cta_label", "deep_link", "external_url"),
+        "hero_banner" to setOf("campaign_id", "campaign_name", "placement", "title", "body", "badge", "alt_label", "image_asset_id", "frequency_cap_hours", "max_impressions", "cta_label", "deep_link", "external_url", "background_color", "background_image_asset_id", "background_image_url", "image_url", "banner_image_url", "banner_mode"),
         "campaign_strip" to setOf("campaign_id", "campaign_name", "placement", "title", "body", "badge", "alt_label", "image_asset_id", "frequency_cap_hours", "max_impressions", "cta_label", "deep_link", "external_url"),
         "promo_carousel" to setOf("campaign_name", "placement", "frequency_cap_hours", "max_impressions", "items"),
         "service_grid" to setOf("title", "service_codes", "cards", "display_mode"),
@@ -285,6 +286,9 @@ object ExperienceManifestValidator {
                 normalizedKey == "actions" && component == "quick_actions" -> sanitizeQuickActions(value)
                 normalizedKey == "cards" && component == "service_grid" -> sanitizeServiceCards(value)
                 normalizedKey == "service_codes" -> sanitizeIdentifiers(value)
+                normalizedKey == "background_color" -> (value as? JsonPrimitive)?.contentOrNull?.takeIf { hexColor.matches(it) }?.let(::JsonPrimitive)
+                normalizedKey in setOf("background_image_url", "image_url", "banner_image_url") -> sanitizeImageUrl(value)
+                normalizedKey == "banner_mode" -> (value as? JsonPrimitive)?.contentOrNull?.takeIf { it in setOf("image", "text", "header_background") }?.let(::JsonPrimitive)
                 normalizedKey.endsWith("asset_id") -> sanitizeIdentifier(value)
                 normalizedKey == "deep_link" -> sanitizeDeepLink(value)
                 normalizedKey == "external_url" -> sanitizeExternalUrl(value)
@@ -305,7 +309,8 @@ object ExperienceManifestValidator {
         }
 
         val required = when (component) {
-            "hero_banner", "campaign_strip", "info_card" -> setOf("title")
+            "hero_banner" -> if (result.containsKey("background_image_url") || result.containsKey("image_url") || result.containsKey("banner_image_url") || result.containsKey("background_image_asset_id")) emptySet() else setOf("title")
+            "campaign_strip", "info_card" -> setOf("title")
             "promo_carousel", "quick_actions" -> setOf(if (component == "promo_carousel") "items" else "actions")
             "notice" -> setOf("title")
             "campaign_intro" -> setOf("campaign_id", "title")
@@ -409,6 +414,20 @@ object ExperienceManifestValidator {
             Regex("^/(home|food|promo|orders|support|profile)(?:[/?#].*)?$").matches(link)
         }
         return link.takeIf { allowed && it.length <= 512 && !it.contains("javascript:", ignoreCase = true) }?.let(::JsonPrimitive)
+    }
+
+    private fun sanitizeImageUrl(value: JsonElement): JsonPrimitive? {
+        val raw = (value as? JsonPrimitive)?.contentOrNull?.trim() ?: return null
+        if (raw.startsWith("/uploads/") || raw.startsWith("/assets/")) {
+            return raw.takeIf { !it.contains("..") && !it.contains("//") }?.let(::JsonPrimitive)
+        }
+        val parsed = runCatching { java.net.URI(raw) }.getOrNull() ?: return null
+        val host = parsed.host?.lowercase(Locale.ROOT) ?: return null
+        val safe = (parsed.scheme.equals("https", ignoreCase = true) || (parsed.scheme.equals("http", ignoreCase = true) && host in setOf("10.0.2.2", "localhost", "127.0.0.1")))
+            && parsed.userInfo == null
+            && !parsed.rawPath.orEmpty().contains("..")
+            && !Regex("%2e", RegexOption.IGNORE_CASE).containsMatchIn(parsed.rawPath.orEmpty())
+        return raw.takeIf { safe && it.length <= 2048 }?.let(::JsonPrimitive)
     }
 
     private fun sanitizeExternalUrl(value: JsonElement): JsonPrimitive? {

@@ -38,14 +38,16 @@ class MainViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading = _isLoading.asStateFlow()
 
-    private val _startDestination = MutableStateFlow(Screen.AuthGraph.route)
+    private val _startDestination = MutableStateFlow(
+        if (com.tembus.customer.BuildConfig.DEBUG) Screen.Dashboard.route else Screen.AuthGraph.route
+    )
     val startDestination = _startDestination.asStateFlow()
     val sessionInvalidationReason = sessionManager.sessionInvalidationReason
     private val _incomingCallInvites = MutableSharedFlow<CallSignalEvent>(extraBufferCapacity = 1)
     val incomingCallInvites = _incomingCallInvites.asSharedFlow()
     private val _foregroundNotifications = MutableSharedFlow<NotificationRealtimeEvent>(extraBufferCapacity = 1)
     val foregroundNotifications = _foregroundNotifications.asSharedFlow()
-    private var authenticatedDestination = Screen.AuthGraph.route
+    private var authenticatedDestination = if (com.tembus.customer.BuildConfig.DEBUG) Screen.Dashboard.route else Screen.AuthGraph.route
 
     init {
         checkAuth()
@@ -75,6 +77,9 @@ class MainViewModel @Inject constructor(
     }
 
     private suspend fun resolveAuthenticatedDestination(): String {
+        if (com.tembus.customer.BuildConfig.DEBUG) {
+            return Screen.Dashboard.route
+        }
         val token = sessionManager.getTokenOnce()
         if (!token.isNullOrEmpty() && sessionManager.isCurrentTokenExpired()) {
             sessionManager.clearSession(SessionInvalidationReason.TOKEN_EXPIRED)

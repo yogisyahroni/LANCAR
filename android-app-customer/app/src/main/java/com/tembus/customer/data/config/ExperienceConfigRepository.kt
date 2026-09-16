@@ -48,7 +48,7 @@ class ExperienceConfigRepository @Inject constructor(
                 ?.trim()?.lowercase().takeUnless { it.isNullOrBlank() }
                 ?: ExperienceManifestValidator.DEFAULT_MARKET_CODE,
             locale = locale,
-            appVersion = BuildConfig.VERSION_NAME,
+            appVersion = BuildConfig.VERSION_NAME.removePrefix("v").removePrefix("V"),
             cohort = assignment?.cohort,
             experimentRef = assignment?.experimentRef,
         )

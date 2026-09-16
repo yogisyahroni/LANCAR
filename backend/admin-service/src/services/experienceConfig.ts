@@ -40,7 +40,7 @@ type Queryable = {
 const MARKET_CODE = /^[a-z0-9][a-z0-9_-]{1,31}$/;
 const IDENTIFIER = /^[a-z0-9][a-z0-9._-]{0,127}$/;
 const LOCALE = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
-const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const SEMVER = /^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/i;
 const SHA256 = /^[a-f0-9]{64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -257,14 +257,14 @@ const normalizeScheduleInput = (body: unknown): unknown => {
 };
 
 const safeResourceUri = z.string().trim().max(2048).refine((value) => {
-  if (value.startsWith('/assets/')) return !value.includes('..') && !value.includes('//');
+  if (value.startsWith('/assets/') || value.startsWith('/uploads/')) return !value.includes('..') && !value.includes('//');
   try {
     const parsed = new URL(value);
-    return parsed.protocol === 'https:' && !parsed.username && !parsed.password;
+    return (parsed.protocol === 'https:' || parsed.protocol === 'http:') && !parsed.username && !parsed.password;
   } catch {
     return false;
   }
-}, 'Asset URI must be an HTTPS URL or a local /assets/ path');
+}, 'Asset URI must be an HTTP/HTTPS URL or a local /assets/ or /uploads/ path');
 
 const safeDeepLink = z.string().trim().max(512).refine((value) => {
   if (value.startsWith('lancar://')) return /^lancar:\/\/(home|food|promo|orders|support|profile)(?:[/?#].*)?$/.test(value);
@@ -493,13 +493,19 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
     alt_label: text(160).optional(),
     image_asset_id: identifier.optional(),
     image_decorative: z.boolean().optional(),
+    background_color: z.string().trim().regex(/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, 'Invalid hex color format').optional(),
+    background_image_asset_id: identifier.optional(),
+    background_image_url: safeResourceUri.optional(),
+    image_url: safeResourceUri.optional(),
+    banner_image_url: safeResourceUri.optional(),
+    banner_mode: z.enum(['image', 'text']).optional(),
     frequency_cap_hours: z.coerce.number().int().min(0).max(720).optional(),
     max_impressions: z.coerce.number().int().min(1).max(100).optional(),
     localized_copy: localizedCopyReferenceSchema,
     ...ctaFields,
   }).strict().refine(
-    (value) => Boolean(value.title || value.localized_copy?.title),
-    'Hero banner requires title or localized_copy.title',
+    (value) => Boolean(value.title || value.localized_copy?.title || value.background_image_url || value.background_image_asset_id || value.image_url || value.banner_image_url),
+    'Hero banner requires title, image, or localized_copy.title',
   ).refine(
     (value) => !value.placement || value.placement === 'hero' || value.placement === 'header',
     { path: ['placement'], message: 'Hero banner placement must be hero or header' },
@@ -2518,6 +2524,7 @@ export const resolvePublicExperienceManifest = async (request: {
   if (!LOCALE.test(request.locale)) throw new ExperienceManifestError('INVALID_EXPERIENCE_LOCALE', 400, 'locale is invalid');
   if (!EXPERIENCE_SURFACES.includes(request.surface)) throw new ExperienceManifestError('INVALID_EXPERIENCE_SURFACE', 400, 'surface is invalid');
   if (!SEMVER.test(request.app_version)) throw new ExperienceManifestError('INVALID_EXPERIENCE_APP_VERSION', 400, 'app_version is invalid');
+  const normalizedAppVersion = request.app_version.replace(/^v/i, '');
   const marketResult = await readDb.query<{ default_locale: string; launch_state: string }>(
     'SELECT default_locale, launch_state FROM market_configs WHERE market_code = $1 LIMIT 1',
     [marketCode],
@@ -2544,7 +2551,7 @@ export const resolvePublicExperienceManifest = async (request: {
     market_code: marketCode,
     locale: request.locale,
     default_locale: marketResult.rows[0].default_locale,
-    app_version: request.app_version,
+    app_version: normalizedAppVersion,
     user_id: request.user_id ?? null,
     cohort: request.cohort ?? null,
     experiment_ref: request.experiment_ref ?? null,

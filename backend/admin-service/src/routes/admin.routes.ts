@@ -7,7 +7,7 @@ import {
   promoMutationRateLimiter, promoReadRateLimiter, toggleRateLimiter, publicEndpointRateLimiter,
 } from '../rateLimit';
 import { requireIdempotencyKey } from '../middleware/idempotencyRequirement';
-import { secureUploadSingle } from '../security/uploadSecurity';
+import { secureUploadSingle, saveSecureUploadBuffer } from '../security/uploadSecurity';
 import { EXPERIENCE_PERMISSIONS, requireExperienceAccess } from '../middleware/experienceAuthorization';
 
 // admin routes (extracted from routes.ts)
@@ -156,6 +156,20 @@ adminRoutes.post('/admin/experience/manifests/:manifestId/kill', requireExperien
 adminRoutes.post('/admin/experience/manifests/:manifestId/restore', requireExperienceAccess(EXPERIENCE_PERMISSIONS.killSwitchExecute, { target: 'manifest' }), requireTotp, requireIdempotencyKey('admin.experience_manifest.restore'), (req, res) => controllers.restoreAdminExperienceManifest(req, res));
 adminRoutes.get('/admin/experience/assets', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.listAdminExperienceAssets(req, res));
 adminRoutes.post('/admin/experience/assets', requireExperienceAccess(EXPERIENCE_PERMISSIONS.assetWrite, { target: 'query' }), (req, res) => controllers.validateAdminExperienceAsset(req, res));
+adminRoutes.post('/admin/experience/upload', requireExperienceAccess(EXPERIENCE_PERMISSIONS.draftWrite, { target: 'query' }), ...secureUploadSingle('image', 'newsImage'), (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ success: false, error: 'No image file uploaded' });
+    return;
+  }
+  const saved = saveSecureUploadBuffer(req.file, 'banners');
+  res.status(200).json({
+    success: true,
+    data: {
+      file_url: saved.fileUrl,
+      storage_key: saved.storageKey,
+    },
+  });
+});
 adminRoutes.get('/admin/experience/revisions', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.listAdminExperienceRevisions(req, res));
 adminRoutes.get('/admin/experience/audit', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.listAdminExperienceAudit(req, res));
 adminRoutes.get('/admin/experience/deep-links', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.listAdminExperienceDeepLinks(req, res));

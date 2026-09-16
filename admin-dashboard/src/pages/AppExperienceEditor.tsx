@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, GripVertical, Eye, EyeOff, Plus, Save, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, GripVertical, Eye, EyeOff, Plus, Save, Trash2, UploadCloud, ImageIcon } from 'lucide-react'
 import AssetPicker from '../components/experience/AssetPicker'
 import TargetingEditor from '../components/experience/TargetingEditor'
 import { hasAudienceConstraints, placementForComponent, type ExperienceForm, type ExperienceSection, type ServiceExposureEntry } from '../components/experience/types'
@@ -58,7 +58,7 @@ const newSection = (component: string): ExperienceSection => {
     deep_link: '/food',
   })
   const defaults: Record<string, SectionProperties> = {
-    hero_banner: content(),
+    hero_banner: { ...content(), background_color: '#006C47', background_image_asset_id: '' },
     campaign_strip: content('campaign_strip'),
     promo_carousel: {
       campaign_name: '',
@@ -287,7 +287,140 @@ export default function AppExperienceEditor({
 	            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2 text-foreground-muted" title="Drag to reorder"><GripVertical size={17} aria-hidden="true" /><span className="text-xs font-black uppercase tracking-wide">Position {index + 1}</span></div><label className="flex flex-1 items-center gap-2 text-xs font-bold text-foreground-muted"><span className="sr-only">Enabled</span><input type="checkbox" disabled={disabled || (!enabled && enabledCount <= 1)} checked={enabled} onChange={(event) => setEnabled(index, event.target.checked)} className="h-4 w-4 accent-primary" />{enabled ? <Eye size={14} className="text-success" aria-hidden="true" /> : <EyeOff size={14} className="text-warning" aria-hidden="true" />} Enabled</label><div className="flex items-center gap-1"><button type="button" disabled={disabled || index === 0} onClick={() => moveSection(index, index - 1)} className="rounded-lg p-2 text-foreground-muted hover:bg-surface-subtle hover:text-foreground-muted disabled:opacity-60" aria-label={`Move section ${section.id} up`} title={`Move section ${section.id} up`}><ArrowUp size={15} aria-hidden="true" /></button><button type="button" disabled={disabled || index === value.sections.length - 1} onClick={() => moveSection(index, index + 1)} className="rounded-lg p-2 text-foreground-muted hover:bg-surface-subtle hover:text-foreground-muted disabled:opacity-60" aria-label={`Move section ${section.id} down`} title={`Move section ${section.id} down`}><ArrowDown size={15}  aria-hidden="true"/></button><button type="button" disabled={disabled || value.sections.length <= 1} aria-label={`Remove component ${section.id}`} title={`Remove component ${section.id}`} onClick={() => removeSection(index)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-foreground-muted transition hover:bg-error-surface hover:text-error disabled:opacity-60"><Trash2 size={16} aria-hidden="true" /><span>Remove</span></button></div></div>
             <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_14rem]"><label className="text-xs font-bold text-foreground-muted">Section ID / internal name<input className={inputClass} disabled={disabled} value={section.id} onChange={(event) => updateSection(index, { id: event.target.value })} /></label><label className="text-xs font-bold text-foreground-muted">Component type<select className={inputClass} disabled={disabled} value={section.component} onChange={(event) => { const component = event.target.value; updateSection(index, { component, properties: newSection(component).properties }) }}>{options.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></div>
 	            {['hero_banner', 'campaign_strip', 'promo_carousel'].includes(section.component) ? <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-foreground-muted">{section.component === 'hero_banner' ? <label className="inline-flex items-center gap-2 font-bold text-foreground-muted">Placement<select className="rounded-lg border border-border bg-surface-subtle px-2 py-1 text-xs text-foreground-muted" disabled={disabled} value={String(section.properties.placement ?? 'hero')} onChange={(event) => setProperty(index, 'placement', event.target.value)}><option value="hero">Hero</option><option value="header">Header</option></select></label> : <span>Placement: <strong className="text-foreground-muted">{String(section.properties.placement ?? placementForComponent(section.component).toLowerCase().replaceAll(' ', '_'))}</strong></span>}<span>· promo copy is presentation-only; discount and eligibility remain in Promo/Pricing.</span></div> : null}
-          <div className="mt-4 grid gap-3 md:grid-cols-2">{section.component === 'campaign_intro' ? renderCampaignIntro(index) : section.component === 'spacer' ? <label className="text-xs font-bold text-foreground-muted">Size<select className={inputClass} disabled={disabled} value={String(section.properties.size ?? 'medium')} onChange={(event) => setProperty(index, 'size', event.target.value)}><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label> : section.component === 'service_grid' ? <><label className="text-xs font-bold text-foreground-muted">Title<input className={inputClass} disabled={disabled} value={String(section.properties.title ?? '')} onChange={(event) => setProperty(index, 'title', event.target.value)} /></label><label className="text-xs font-bold text-foreground-muted">Service codes<input className={inputClass} disabled={disabled} value={csv(section.properties.service_codes)} onChange={(event) => setProperty(index, 'service_codes', event.target.value.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean))} placeholder="food_delivery" /></label><label className="text-xs font-bold text-foreground-muted">Display mode<select className={inputClass} disabled={disabled} value={String(section.properties.display_mode ?? 'cards')} onChange={(event) => setProperty(index, 'display_mode', event.target.value)}><option value="cards">Cards</option><option value="compact">Compact</option></select></label>{serviceVisibilityMode ? <div className="md:col-span-2"><ServiceExposureEditor entries={(Array.isArray(section.properties.service_entries) ? section.properties.service_entries : []) as ServiceExposureEntry[]} disabled={disabled} onChange={(entries) => setProperty(index, 'service_entries', entries)} /></div> : null}</> : section.component === 'promo_carousel' ? <><label className="text-xs font-bold text-foreground-muted">Internal campaign name<input className={inputClass} disabled={disabled} value={String(section.properties.campaign_name ?? '')} onChange={(event) => setProperty(index, 'campaign_name', event.target.value)} placeholder="Ramadan food carousel" /></label><label className="text-xs font-bold text-foreground-muted">Frequency cap (hours)<input type="number" min="0" max="720" className={inputClass} disabled={disabled} value={String(section.properties.frequency_cap_hours ?? '')} onChange={(event) => setProperty(index, 'frequency_cap_hours', event.target.value === '' ? undefined : Number(event.target.value))} /></label><label className="text-xs font-bold text-foreground-muted">Maximum impressions<input type="number" min="1" max="100" className={inputClass} disabled={disabled} value={String(section.properties.max_impressions ?? '')} onChange={(event) => setProperty(index, 'max_impressions', event.target.value === '' ? undefined : Number(event.target.value))} /></label>{renderPromoItems(index)}</> : section.component === 'quick_actions' ? renderQuickActions(index) : section.component === 'design_tokens' ? <>{(['accent_preset', 'background_preset', 'corner_preset', 'spacing_preset', 'badge_preset'] as const).map((key) => <label key={key} className="text-xs font-bold capitalize text-foreground-muted">{key.replaceAll('_', ' ')}<select className={inputClass} disabled={disabled} value={String(section.properties[key] ?? '')} onChange={(event) => setProperty(index, key, event.target.value)}><option value="brand">Brand</option><option value="surface">Surface</option><option value="standard">Standard</option><option value="pill">Pill</option><option value="campaign_orange">Campaign orange</option><option value="campaign_blue">Campaign blue</option><option value="brand_soft">Brand soft</option><option value="accent_soft">Accent soft</option><option value="compact">Compact</option><option value="emphasized">Emphasized</option><option value="relaxed">Relaxed</option><option value="hidden">Hidden</option><option value="label">Label</option></select></label>)}</> : <>{(['title', 'body', 'badge', 'cta_label', 'deep_link', 'external_url', 'image_asset_id', 'media_asset_id', 'icon_asset_id', 'campaign_id', 'campaign_name', 'alt_label', 'frequency_cap_hours', 'max_impressions'].filter((key) => section.component === 'info_card' ? ['title', 'body', 'deep_link', 'icon_asset_id'].includes(key) : section.component === 'notice' ? ['title', 'body', 'cta_label', 'deep_link', 'external_url'].includes(key) : ['campaign_id', 'campaign_name', 'title', 'body', 'badge', 'alt_label', 'cta_label', 'deep_link', 'external_url', 'image_asset_id', 'frequency_cap_hours', 'max_impressions'].includes(key)).map((key) => renderTextField(index, key, key === 'deep_link' ? 'Deep link (allowlisted)' : key === 'external_url' ? 'External URL (first-party)' : key.replaceAll('_', ' '), key === 'deep_link' ? '/food' : key === 'external_url' ? 'https://app.bawain.my.id/...' : '')))}</>}</div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">{section.component === 'hero_banner' ? <div className="md:col-span-2 rounded-2xl border border-border bg-surface-subtle p-5 space-y-4">
+            <div className="rounded-xl border border-primary/20 bg-primary/10 p-3.5 text-xs leading-relaxed text-primary-light">
+              <strong className="text-sm">Header / Hero Promo Banner (Gojek-Style Full Graphic).</strong>
+              <p className="mt-1">
+                Seperti pada Gojek, tim marketing dapat mengupload <strong>1 file gambar banner lengkap</strong> yang tampil di header atas aplikasi customer (atau menggunakan tema warna).
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Upload Gambar Banner */}
+              <div className="md:col-span-2 rounded-xl border border-dashed border-primary/40 bg-surface/[0.04] p-4 space-y-3">
+                <label className="text-xs font-black uppercase tracking-wider text-primary-light block">
+                  1. Upload File Gambar Banner (PNG / JPG / WebP)
+                </label>
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={disabled}
+                    className="text-xs text-foreground-muted file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-primary file:text-on-primary hover:file:opacity-90 cursor-pointer"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      try {
+                        const formData = new FormData()
+                        formData.append('image', file)
+                        const res = await fetch('/api/v1/admin/experience/upload', {
+                          method: 'POST',
+                          body: formData,
+                        })
+                        const data = await res.json()
+                        if (data.success && data.data?.file_url) {
+                          setProperty(index, 'background_image_url', data.data.file_url)
+                          setProperty(index, 'banner_mode', 'image')
+                        } else {
+                          const reader = new FileReader()
+                          reader.onload = () => {
+                            setProperty(index, 'background_image_url', reader.result as string)
+                            setProperty(index, 'banner_mode', 'image')
+                          }
+                          reader.readAsDataURL(file)
+                        }
+                      } catch {
+                        const reader = new FileReader()
+                        reader.onload = () => {
+                          setProperty(index, 'background_image_url', reader.result as string)
+                          setProperty(index, 'banner_mode', 'image')
+                        }
+                        reader.readAsDataURL(file)
+                      }
+                    }}
+                  />
+                  <span className="text-xs text-foreground-muted font-bold">atau masukkan URL langsung:</span>
+                </div>
+                <input
+                  className={inputClass}
+                  disabled={disabled}
+                  value={String(section.properties.background_image_url ?? '')}
+                  onChange={(e) => {
+                    setProperty(index, 'background_image_url', e.target.value)
+                    if (e.target.value) setProperty(index, 'banner_mode', 'image')
+                  }}
+                  placeholder="/uploads/banners/gocar_header_banner.png atau https://..."
+                />
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="text-[10px] font-bold text-foreground-muted">Preset Cepat:</span>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => {
+                      setProperty(index, 'background_image_url', '/uploads/banners/gocar_header_banner.png')
+                      setProperty(index, 'banner_mode', 'image')
+                      setProperty(index, 'deep_link', '/promo')
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-black text-primary-light hover:bg-primary/20"
+                  >
+                    🚗 Gojek GoCar Banner (Dari Screenshot)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => {
+                      setProperty(index, 'background_image_url', '')
+                      setProperty(index, 'background_color', '#7B0014')
+                      setProperty(index, 'banner_mode', 'text')
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface px-2.5 py-1 text-[11px] font-bold text-foreground-muted hover:border-primary/40"
+                  >
+                    🔴 Mode Teks & Warna (Festival Merah)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => {
+                      setProperty(index, 'background_image_url', '')
+                      setProperty(index, 'background_color', '#006C47')
+                      setProperty(index, 'banner_mode', 'text')
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface px-2.5 py-1 text-[11px] font-bold text-foreground-muted hover:border-primary/40"
+                  >
+                    🟢 Mode Teks & Warna (Hijau Tembus)
+                  </button>
+                </div>
+              </div>
+
+              {/* Preview Gambar Banner */}
+              {section.properties.background_image_url ? (
+                <div className="md:col-span-2 rounded-xl border border-border bg-surface p-3 space-y-2">
+                  <p className="text-xs font-bold text-foreground-muted flex items-center gap-1.5">
+                    <ImageIcon size={14} className="text-primary" />
+                    Preview Gambar Banner Terpasang:
+                  </p>
+                  <div className="relative overflow-hidden rounded-lg max-h-48 border border-border bg-black/10">
+                    <img
+                      src={String(section.properties.background_image_url).replace(/^\/uploads\//, 'http://localhost:8080/uploads/')}
+                      alt="Banner preview"
+                      className="w-full h-auto object-cover"
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {renderTextField(index, 'deep_link', 'Deep Link Target (Ketika Banner Diklik)', '/food atau /ride')}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-foreground-muted">Warna Cadangan / Fallback Background</label>
+                <div className="flex items-center gap-2">
+                  <input type="color" className="h-9 w-12 cursor-pointer rounded-lg border border-border bg-transparent p-0.5" disabled={disabled} value={String(section.properties.background_color ?? '#006C47')} onChange={(e) => setProperty(index, 'background_color', e.target.value)} />
+                  <input className={inputClass} disabled={disabled} value={String(section.properties.background_color ?? '#006C47')} onChange={(e) => setProperty(index, 'background_color', e.target.value)} placeholder="#006C47" />
+                </div>
+              </div>
+              {renderTextField(index, 'title', 'Headline / Judul (Opsional jika pakai gambar)', 'Kirim Paket Cepat & Hemat')}
+              {renderTextField(index, 'cta_label', 'Label Aksi (Opsional)', 'Pesan Sekarang')}
+            </div>
+          </div> : section.component === 'campaign_intro' ? renderCampaignIntro(index) : section.component === 'spacer' ? <label className="text-xs font-bold text-foreground-muted">Size<select className={inputClass} disabled={disabled} value={String(section.properties.size ?? 'medium')} onChange={(event) => setProperty(index, 'size', event.target.value)}><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label> : section.component === 'service_grid' ? <><label className="text-xs font-bold text-foreground-muted">Title<input className={inputClass} disabled={disabled} value={String(section.properties.title ?? '')} onChange={(event) => setProperty(index, 'title', event.target.value)} /></label><label className="text-xs font-bold text-foreground-muted">Service codes<input className={inputClass} disabled={disabled} value={csv(section.properties.service_codes)} onChange={(event) => setProperty(index, 'service_codes', event.target.value.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean))} placeholder="food_delivery" /></label><label className="text-xs font-bold text-foreground-muted">Display mode<select className={inputClass} disabled={disabled} value={String(section.properties.display_mode ?? 'cards')} onChange={(event) => setProperty(index, 'display_mode', event.target.value)}><option value="cards">Cards</option><option value="compact">Compact</option></select></label>{serviceVisibilityMode ? <div className="md:col-span-2"><ServiceExposureEditor entries={(Array.isArray(section.properties.service_entries) ? section.properties.service_entries : []) as ServiceExposureEntry[]} disabled={disabled} onChange={(entries) => setProperty(index, 'service_entries', entries)} /></div> : null}</> : section.component === 'promo_carousel' ? <><label className="text-xs font-bold text-foreground-muted">Internal campaign name<input className={inputClass} disabled={disabled} value={String(section.properties.campaign_name ?? '')} onChange={(event) => setProperty(index, 'campaign_name', event.target.value)} placeholder="Ramadan food carousel" /></label><label className="text-xs font-bold text-foreground-muted">Frequency cap (hours)<input type="number" min="0" max="720" className={inputClass} disabled={disabled} value={String(section.properties.frequency_cap_hours ?? '')} onChange={(event) => setProperty(index, 'frequency_cap_hours', event.target.value === '' ? undefined : Number(event.target.value))} /></label><label className="text-xs font-bold text-foreground-muted">Maximum impressions<input type="number" min="1" max="100" className={inputClass} disabled={disabled} value={String(section.properties.max_impressions ?? '')} onChange={(event) => setProperty(index, 'max_impressions', event.target.value === '' ? undefined : Number(event.target.value))} /></label>{renderPromoItems(index)}</> : section.component === 'quick_actions' ? renderQuickActions(index) : section.component === 'design_tokens' ? <>{(['accent_preset', 'background_preset', 'corner_preset', 'spacing_preset', 'badge_preset'] as const).map((key) => <label key={key} className="text-xs font-bold capitalize text-foreground-muted">{key.replaceAll('_', ' ')}<select className={inputClass} disabled={disabled} value={String(section.properties[key] ?? '')} onChange={(event) => setProperty(index, key, event.target.value)}><option value="brand">Brand</option><option value="surface">Surface</option><option value="standard">Standard</option><option value="pill">Pill</option><option value="campaign_orange">Campaign orange</option><option value="campaign_blue">Campaign blue</option><option value="brand_soft">Brand soft</option><option value="accent_soft">Accent soft</option><option value="compact">Compact</option><option value="emphasized">Emphasized</option><option value="relaxed">Relaxed</option><option value="hidden">Hidden</option><option value="label">Label</option></select></label>)}</> : <>{(['title', 'body', 'badge', 'cta_label', 'deep_link', 'external_url', 'image_asset_id', 'media_asset_id', 'icon_asset_id', 'campaign_id', 'campaign_name', 'alt_label', 'frequency_cap_hours', 'max_impressions'].filter((key) => section.component === 'info_card' ? ['title', 'body', 'deep_link', 'icon_asset_id'].includes(key) : section.component === 'notice' ? ['title', 'body', 'cta_label', 'deep_link', 'external_url'].includes(key) : ['campaign_id', 'campaign_name', 'title', 'body', 'badge', 'alt_label', 'cta_label', 'deep_link', 'external_url', 'image_asset_id', 'frequency_cap_hours', 'max_impressions'].includes(key)).map((key) => renderTextField(index, key, key === 'deep_link' ? 'Deep link (allowlisted)' : key === 'external_url' ? 'External URL (first-party)' : key.replaceAll('_', ' '), key === 'deep_link' ? '/food' : key === 'external_url' ? 'https://app.bawain.my.id/...' : '')))}</>}</div>
 	            {localizedFieldsFor(section.component).length > 0 ? <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3"><p className="text-xs font-black uppercase tracking-wider text-primary-light">Localized copy references</p><p className="mt-1 text-xs text-foreground-muted">Keys resolve on the server with locale fallback; unresolved keys are omitted and never shown raw.</p><div className="mt-3 grid gap-3 md:grid-cols-2">{localizedFieldsFor(section.component).map((field) => <label key={field} className="text-xs font-bold capitalize text-foreground-muted">{field} pack key<input className={inputClass} disabled={disabled} value={String((section.properties.localized_copy as Record<string, unknown> | undefined)?.[field] ?? '')} onChange={(event) => setLocalizedReference(index, field, event.target.value)} placeholder={`home.${section.component}.${field}`} /></label>)}</div></div> : null}
             {!enabled && enabledCount <= 1 ? <p className="mt-3 text-xs text-warning">At least one enabled section is required by the manifest contract.</p> : null}
           </article>

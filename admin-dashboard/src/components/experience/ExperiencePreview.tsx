@@ -62,10 +62,75 @@ export default function ExperiencePreview({ surface, sections, resolvedSections,
           const body = text(properties, 'body')
           const cta = text(properties, 'cta_label')
           const image = text(properties, 'image_asset_id') || text(properties, 'media_asset_id')
-          return <article key={section.id} className="overflow-hidden rounded-2xl border border-border bg-surface/[0.04]" data-media-composition="separate-content">
-            {image ? <div className="flex items-center gap-2 border-b border-border bg-primary/10 px-4 py-3 text-xs text-primary-light"><ImageIcon size={15} aria-hidden="true" /> Asset slot: {image}</div> : null}
-            <div className="p-4">{section.component === 'campaign_intro' ? <div className="mb-3 rounded-xl border border-info bg-info-surface px-3 py-2 text-xs font-black uppercase tracking-wide text-info">Post-native-splash campaign intro · not the OS launch splash</div> : null}<div className="mb-2 flex items-center justify-between gap-3"><span className="text-xs font-black uppercase tracking-wide text-foreground-muted">{section.component}</span>{text(properties, 'badge') ? <span className="rounded-full bg-primary/15 px-2 py-1 text-xs font-black text-primary-light">{text(properties, 'badge')}</span> : null}</div><h3 className="text-base font-black text-foreground-muted">{title}</h3>{body ? <p className="mt-2 text-sm leading-relaxed text-foreground-muted">{body}</p> : null}{cta ? <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-black text-on-primary">{cta}<ExternalLink size={13} aria-hidden="true" /></div> : null}</div>
-          </article>
+          const isHero = section.component === 'hero_banner'
+          const customBg = text(properties, 'background_color') || (isHero ? '#006C47' : undefined)
+          const bgAsset = text(properties, 'background_image_asset_id')
+
+          if (isHero) {
+            return (
+              <article
+                key={section.id}
+                className="overflow-hidden rounded-2xl border border-white/10 shadow-lg text-white"
+                style={{
+                  background: customBg ? `linear-gradient(180deg, ${customBg} 0%, rgba(0,0,0,0.75) 100%)` : '#006C47'
+                }}
+                data-media-composition="hero-theme"
+              >
+                {bgAsset ? (
+                  <div className="flex items-center gap-2 border-b border-white/10 bg-black/20 px-4 py-2 text-xs text-white/80">
+                    <ImageIcon size={14} aria-hidden="true" /> Background image asset: <code>{bgAsset}</code>
+                  </div>
+                ) : null}
+                <div className="p-5">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <span className="rounded-md bg-black/25 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white/80">
+                      Campaign Header · {customBg || '#006C47'}
+                    </span>
+                    {text(properties, 'badge') ? (
+                      <span className="rounded-full bg-white/20 backdrop-blur px-2.5 py-0.5 text-xs font-bold text-white border border-white/20">
+                        {text(properties, 'badge')}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-2 flex-1">
+                      <h3 className="text-lg font-black text-white leading-tight">{title}</h3>
+                      {body ? <p className="text-xs leading-relaxed text-white/90">{body}</p> : null}
+                      {cta ? (
+                        <div className="pt-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#D4F73C] px-3.5 py-1.5 text-xs font-black text-slate-900 shadow">
+                            {cta} →
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                    {image ? (
+                      <div className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-2xl bg-white/15 border border-white/20 text-white text-[10px] text-center p-1">
+                        <ImageIcon size={20} className="mb-1 text-white/90" />
+                        <span className="truncate max-w-[56px] text-white/80">{image}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </article>
+            )
+          }
+
+          return (
+            <article key={section.id} className="overflow-hidden rounded-2xl border border-border bg-surface/[0.04]" data-media-composition="separate-content">
+              {image ? <div className="flex items-center gap-2 border-b border-border bg-primary/10 px-4 py-3 text-xs text-primary-light"><ImageIcon size={15} aria-hidden="true" /> Asset slot: {image}</div> : null}
+              <div className="p-4">
+                {section.component === 'campaign_intro' ? <div className="mb-3 rounded-xl border border-info bg-info-surface px-3 py-2 text-xs font-black uppercase tracking-wide text-info">Post-native-splash campaign intro · not the OS launch splash</div> : null}
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">{section.component}</span>
+                  {text(properties, 'badge') ? <span className="rounded-full bg-primary/15 px-2 py-1 text-xs font-black text-primary-light">{text(properties, 'badge')}</span> : null}
+                </div>
+                <h3 className="text-base font-black text-foreground-muted">{title}</h3>
+                {body ? <p className="mt-2 text-sm leading-relaxed text-foreground-muted">{body}</p> : null}
+                {cta ? <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-black text-on-primary">{cta}<ExternalLink size={13} aria-hidden="true" /></div> : null}
+              </div>
+            </article>
+          )
         })}
       </div>
       <p className="mt-4 text-xs leading-relaxed text-foreground-muted">Preview uses the server-resolved allowlisted component schema. It never executes remote code or records campaign exposure, and transaction screens remain native-owned.</p>

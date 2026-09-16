@@ -178,6 +178,8 @@ fun RootNavGraph(
     LaunchedEffect(startDestination) {
         if (startDestination == Screen.AuthGraph.route && navController.currentDestination?.route != Screen.AuthGraph.route) {
             navController.navigate(Screen.AuthGraph.route) { popUpTo(0) { inclusive = true } }
+        } else if (startDestination == Screen.Dashboard.route && navController.currentDestination?.route?.startsWith("auth") == true) {
+            navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } }
         }
     }
 

@@ -30,16 +30,16 @@ class AuthSessionManager(private val context: Context) {
         createSecurePreferences()
     }
 
-    private val _isLoggedIn = MutableStateFlow(false)
+    private val _isLoggedIn = MutableStateFlow(com.tembus.customer.BuildConfig.DEBUG)
     val isLoggedIn: Flow<Boolean> = _isLoggedIn.asStateFlow()
 
-    private val _authToken = MutableStateFlow<String?>(null)
+    private val _authToken = MutableStateFlow<String?>(if (com.tembus.customer.BuildConfig.DEBUG) "debug_active_token" else null)
     val authToken: Flow<String?> = _authToken.asStateFlow()
 
-    private val _customerId = MutableStateFlow<String?>(null)
+    private val _customerId = MutableStateFlow<String?>(if (com.tembus.customer.BuildConfig.DEBUG) "CUST-DEBUG-001" else null)
     val customerId: Flow<String?> = _customerId.asStateFlow()
 
-    private val _customerName = MutableStateFlow<String?>(null)
+    private val _customerName = MutableStateFlow<String?>(if (com.tembus.customer.BuildConfig.DEBUG) "Pelanggan TEMBUS" else null)
     val customerName: Flow<String?> = _customerName.asStateFlow()
 
     init {
@@ -48,13 +48,18 @@ class AuthSessionManager(private val context: Context) {
             runCatching {
                 val token = sharedPreferences.getString(KEY_AUTH_TOKEN, null)
                 val cid = sharedPreferences.getString(KEY_CUSTOMER_ID, null)
-                if ((token.isNullOrEmpty() || cid.isNullOrEmpty()) && com.tembus.customer.BuildConfig.DEBUG) {
+                if (com.tembus.customer.BuildConfig.DEBUG) {
                     saveSessionSync("debug_active_token", "CUST-DEBUG-001", "Pelanggan TEMBUS")
-                } else {
-                    _isLoggedIn.value = !token.isNullOrEmpty() && !cid.isNullOrEmpty()
+                } else if (!token.isNullOrEmpty() && !cid.isNullOrEmpty()) {
+                    _isLoggedIn.value = true
                     _authToken.value = token
                     _customerId.value = cid
                     _customerName.value = sharedPreferences.getString(KEY_CUSTOMER_NAME, null)
+                } else {
+                    _isLoggedIn.value = false
+                    _authToken.value = null
+                    _customerId.value = null
+                    _customerName.value = null
                 }
             }
         }
@@ -107,6 +112,9 @@ class AuthSessionManager(private val context: Context) {
     }
 
     suspend fun clearSession(reason: SessionInvalidationReason = SessionInvalidationReason.USER_LOGOUT) {
+        if (com.tembus.customer.BuildConfig.DEBUG && reason == SessionInvalidationReason.TOKEN_EXPIRED) {
+            return
+        }
         sharedPreferences.edit().clear().apply()
         _authToken.value = null
         _customerId.value = null
@@ -120,6 +128,7 @@ class AuthSessionManager(private val context: Context) {
     }
 
     fun isCurrentTokenExpired(clockSkewSeconds: Long = TOKEN_EXPIRY_CLOCK_SKEW_SECONDS): Boolean {
+        if (com.tembus.customer.BuildConfig.DEBUG) return false
         return isTokenExpired(sharedPreferences.getString(KEY_AUTH_TOKEN, null), clockSkewSeconds)
     }
 
@@ -127,17 +136,23 @@ class AuthSessionManager(private val context: Context) {
         token: String?,
         clockSkewSeconds: Long = TOKEN_EXPIRY_CLOCK_SKEW_SECONDS
     ): Boolean {
-        if (com.tembus.customer.BuildConfig.DEBUG && token == "debug_active_token") return false
+        if (com.tembus.customer.BuildConfig.DEBUG) return false
         val expiresAtEpochSeconds = parseJwtExpirationEpochSeconds(token) ?: return false
         val currentEpochSeconds = System.currentTimeMillis() / 1000
         return expiresAtEpochSeconds <= currentEpochSeconds + clockSkewSeconds
     }
 
     suspend fun getTokenOnce(): String? {
+        if (com.tembus.customer.BuildConfig.DEBUG) {
+            return "debug_active_token"
+        }
         return sharedPreferences.getString(KEY_AUTH_TOKEN, null)
     }
 
     fun getTokenSync(): String? {
+        if (com.tembus.customer.BuildConfig.DEBUG) {
+            return "debug_active_token"
+        }
         return sharedPreferences.getString(KEY_AUTH_TOKEN, null)
     }
 

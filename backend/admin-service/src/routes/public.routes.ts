@@ -101,3 +101,4 @@ publicRoutes.get('/api/v1/maps/geocode', (req, res) => controllers.getPublicMaps
 publicRoutes.get('/api/v1/maps/reverse-geocode', (req, res) => controllers.getPublicMapsReverseGeocode(req, res));
 publicRoutes.get('/track/:token', publicEndpointRateLimiter, (req, res) => controllers.getPublicTripShare(req, res));
 publicRoutes.get('/api/v1/public/location-requests/:token', publicEndpointRateLimiter, (req, res) => controllers.customerOrder.getReceiverLocationRequestPublic(req, res));
+publicRoutes.use('/uploads', (req, res) => controllers.servePrivateUpload(req, res));

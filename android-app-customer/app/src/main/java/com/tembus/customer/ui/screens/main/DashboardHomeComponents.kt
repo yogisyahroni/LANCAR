@@ -186,6 +186,7 @@ internal fun TembusHomeTopBar(
 @Composable
 internal fun HomeHeroPromoBanner(
     heroSection: ExperienceSection?,
+    hasBannerImage: Boolean,
     manifestRevision: Int,
     marketCode: String,
     manifestId: String?,
@@ -240,123 +241,168 @@ internal fun HomeHeroPromoBanner(
         }
     }
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Row(
-            modifier = Modifier
+    if (hasBannerImage) {
+        // When marketing uploads a designed banner graphic (like Gojek GoCar/GoFood),
+        // the banner image itself already contains the artwork, marketing typography, and badges.
+        // We provide a dedicated interactive banner area linking directly to the promo target.
+        Box(
+            modifier = modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .height(130.dp)
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .clickable(role = Role.Button) {
+                    if (isCms && manifestRevision > 0) {
+                        onBannerEvent(
+                            ExperienceBannerEvent(
+                                type = ExperienceBannerEventType.CLICK,
+                                component = "hero_banner",
+                                campaignId = campaignId,
+                                sectionId = heroSection?.id ?: "hero",
+                                manifestRevision = manifestRevision,
+                                marketCode = marketCode,
+                                manifestId = manifestId,
+                            )
+                        )
+                    }
+                    if (target != null && target !is RemoteDeepLinkTarget.Invalid) {
+                        onRemoteAction(target)
+                    } else {
+                        onBookingClick("pickup")
+                    }
+                }
+        )
+    } else {
+        // Fallback when NO banner image is uploaded: Show composed text + CTA button
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 12.dp)
+        Column(
+            modifier = Modifier
+                .weight(1.3f)
+                .padding(end = 12.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = Color.White.copy(alpha = 0.22f),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.38f)),
             ) {
-                Surface(
-                    shape = RoundedCornerShape(TembusRadius.Chip),
-                    color = LcGreen.copy(alpha = 0.12f),
-                ) {
-                    Text(
-                        text = badge,
-                        color = LcGreen,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
-                Spacer(Modifier.height(6.dp))
                 Text(
-                    text = title,
-                    color = Ink,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Black,
-                    lineHeight = 19.sp,
+                    text = badge,
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Black,
+                lineHeight = 22.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (!body.isNullOrBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = body,
+                    color = Color.White.copy(alpha = 0.88f),
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (!body.isNullOrBlank()) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = body,
-                        color = Muted,
-                        fontSize = 12.sp,
-                        lineHeight = 15.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
-                Button(
-                    onClick = {
-                        if (isCms && manifestRevision > 0) {
-                            onBannerEvent(
-                                ExperienceBannerEvent(
-                                    type = ExperienceBannerEventType.CLICK,
-                                    component = "hero_banner",
-                                    campaignId = campaignId,
-                                    sectionId = heroSection?.id ?: "hero",
-                                    manifestRevision = manifestRevision,
-                                    marketCode = marketCode,
-                                    manifestId = manifestId,
-                                )
-                            )
-                        }
-                        if (target != null && target !is RemoteDeepLinkTarget.Invalid) {
-                            onRemoteAction(target)
-                        } else {
-                            onBookingClick("pickup")
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = LcGreen),
-                    shape = RoundedCornerShape(999.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                    modifier = Modifier.height(34.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(ctaLabel, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.width(4.dp))
-                        Icon(Icons.Default.ArrowForward, contentDescription = "", tint = Color.White, modifier = Modifier.size(14.dp))
-                    }
-                }
             }
-
-            if (!imageFailed && !assetPath.isNullOrBlank()) {
-                AsyncImage(
-                    model = assetPath,
-                    contentDescription = title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(RoundedCornerShape(14.dp)),
-                    onError = { imageFailed = true }
-                )
-            } else {
-                Surface(
-                    modifier = Modifier.size(80.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = SoftGreen,
-                    border = BorderStroke(1.dp, LcGreen.copy(alpha = 0.2f))
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.LocalShipping,
-                            contentDescription = "",
-                            tint = LcGreen,
-                            modifier = Modifier.size(42.dp)
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = {
+                    if (isCms && manifestRevision > 0) {
+                        onBannerEvent(
+                            ExperienceBannerEvent(
+                                type = ExperienceBannerEventType.CLICK,
+                                component = "hero_banner",
+                                campaignId = campaignId,
+                                sectionId = heroSection?.id ?: "hero",
+                                manifestRevision = manifestRevision,
+                                marketCode = marketCode,
+                                manifestId = manifestId,
+                            )
                         )
                     }
+                    if (target != null && target !is RemoteDeepLinkTarget.Invalid) {
+                        onRemoteAction(target)
+                    } else {
+                        onBookingClick("pickup")
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFD4F73C),
+                    contentColor = Color(0xFF003822)
+                ),
+                shape = RoundedCornerShape(999.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
+                modifier = Modifier.height(34.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        ctaLabel,
+                        color = Color(0xFF003822),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Icon(
+                        Icons.Default.ArrowForward,
+                        contentDescription = "",
+                        tint = Color(0xFF003822),
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "*S&K Berlaku",
+                color = Color.White.copy(alpha = 0.65f),
+                fontSize = 9.sp
+            )
+        }
+
+        if (!imageFailed && !assetPath.isNullOrBlank()) {
+            AsyncImage(
+                model = assetPath,
+                contentDescription = title,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(RoundedCornerShape(16.dp)),
+                onError = { imageFailed = true }
+            )
+        } else {
+            Surface(
+                modifier = Modifier.size(86.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White.copy(alpha = 0.15f),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.LocalShipping,
+                        contentDescription = "",
+                        tint = Color.White,
+                        modifier = Modifier.size(46.dp)
+                    )
                 }
             }
         }
+    }
     }
 }
 
@@ -378,6 +424,49 @@ internal fun UnifiedHeroHeader(
     modifier: Modifier = Modifier,
     networkBanner: @Composable () -> Unit = {},
 ) {
+    val properties = heroSection?.properties
+    val customBgColorHex = (properties?.get("background_color") as? JsonPrimitive)?.contentOrNull
+    val bgImageAssetId = (properties?.get("background_image_asset_id") as? JsonPrimitive)?.contentOrNull
+    val rawBgImageUrl = (properties?.get("background_image_url") as? JsonPrimitive)?.contentOrNull
+        ?: (properties?.get("image_url") as? JsonPrimitive)?.contentOrNull
+        ?: (properties?.get("banner_image_url") as? JsonPrimitive)?.contentOrNull
+
+    val bgImageUrl = remember(rawBgImageUrl) {
+        if (rawBgImageUrl != null && rawBgImageUrl.startsWith("/")) {
+            "http://10.0.2.2:8080$rawBgImageUrl"
+        } else {
+            rawBgImageUrl
+        }
+    }
+
+    val bgAssetPath by produceState<String?>(initialValue = null, bgImageAssetId, bgImageUrl, manifestRevision) {
+        value = bgImageAssetId?.let { resolveAssetPath(it) } ?: bgImageUrl
+    }
+    var bgImageFailed by remember(bgAssetPath) { mutableStateOf(false) }
+    val hasBannerImage = !bgImageFailed && !bgAssetPath.isNullOrBlank()
+
+    val fallbackColor = if (hasBannerImage) Color(0xFF141715) else LcGreen
+    val baseThemeColor = remember(customBgColorHex, hasBannerImage) {
+        if (!customBgColorHex.isNullOrBlank()) {
+            try {
+                Color(android.graphics.Color.parseColor(customBgColorHex))
+            } catch (_: Exception) {
+                fallbackColor
+            }
+        } else {
+            fallbackColor
+        }
+    }
+
+    val darkThemeColor = remember(baseThemeColor) {
+        Color(
+            red = (baseThemeColor.red * 0.65f).coerceIn(0f, 1f),
+            green = (baseThemeColor.green * 0.65f).coerceIn(0f, 1f),
+            blue = (baseThemeColor.blue * 0.65f).coerceIn(0f, 1f),
+            alpha = 1f
+        )
+    }
+
     Box(modifier = modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
@@ -386,12 +475,36 @@ internal fun UnifiedHeroHeader(
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            LcGreen,
-                            Color(0xFF004D36)
+                            baseThemeColor,
+                            darkThemeColor,
                         )
                     )
                 )
-        )
+        ) {
+            if (hasBannerImage) {
+                AsyncImage(
+                    model = bgAssetPath,
+                    contentDescription = null,
+                    contentScale = ContentScale.FillWidth,
+                    alignment = Alignment.BottomCenter,
+                    modifier = Modifier.matchParentSize(),
+                    onError = { bgImageFailed = true }
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.25f),
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.15f),
+                                )
+                            )
+                        )
+                )
+            }
+        }
 
         Column(
             modifier = Modifier
@@ -410,6 +523,7 @@ internal fun UnifiedHeroHeader(
             Spacer(Modifier.height(10.dp))
             HomeHeroPromoBanner(
                 heroSection = heroSection,
+                hasBannerImage = hasBannerImage,
                 manifestRevision = manifestRevision,
                 marketCode = marketCode,
                 manifestId = manifestId,
