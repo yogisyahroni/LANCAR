@@ -507,9 +507,9 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       FORCE_SECURE_COOKIES: ${FORCE_SECURE_COOKIES:-false}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
-      SEED_DB: "true"
+      SEED_DB: ${SEED_DB:-false}
       DEV_ADMIN_LOGIN_PASSWORDS: ${DEV_ADMIN_LOGIN_PASSWORDS:-}
-      DEV_SEEDED_COURIER_PIN: ${DEV_SEEDED_COURIER_PIN:-}
+      DEV_SEEDED_COURIER_PIN: ${DEV_SEEDED_COURIER_PIN:-123456}
       PAYMENT_SERVICE_URL: "http://payment-service:8084"
       ORDER_SERVICE_URL: "http://order-service:8083"
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY must be supplied by the deployment secret manager}
