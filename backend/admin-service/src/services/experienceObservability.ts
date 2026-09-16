@@ -348,7 +348,7 @@ const breakdownQuery = (where: string) => `${scopedEvents(where)}
     (
       SELECT MAX(previous.revision)
         FROM experience_manifest_revisions previous
-       WHERE previous.manifest_id = scoped.manifest_id
+       WHERE previous.manifest_id::text = scoped.manifest_id
          AND previous.revision < scoped.manifest_revision
          AND previous.state IN ('superseded', 'rolled_back')
          AND previous.market_code = scoped.market_code
