@@ -344,7 +344,7 @@ const directProxyPolicies: DirectProxyPolicy[] = [
     bulkhead: new Bulkhead(resolveBulkheadLimit('order-service')), observeResponse: true,
   },
   {
-    matches: (path) => path.startsWith('/api/v1/ads') || path.startsWith('/api/v1/merchant/ads'),
+    matches: (path) => path.startsWith('/api/v1/ads') || path.startsWith('/api/v1/merchant/ads') || path.startsWith('/api/v1/admin/ads'),
     serviceName: 'ads-service', breaker: adsBreaker,
     bulkhead: adsBulkhead, observeResponse: true,
   },
@@ -1628,6 +1628,39 @@ app.use(createProxyMiddleware({
   },
 }));
 
+// Commerce Ads owns paid campaign lifecycle, delivery, budget and billing.
+// Keep this route ahead of /api/v1/admin and /api/v1/merchant so admin ads
+// and merchant ads are handled directly by ads-service without being swallowed
+// by the generic admin-service or merchant-service proxies.
+app.use(createProxyMiddleware({
+  pathFilter: (pathname: string) =>
+    pathname.startsWith('/api/v1/ads') ||
+    pathname.startsWith('/api/v1/merchant/ads') ||
+    pathname.startsWith('/api/v1/admin/ads'),
+  target: ADS_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('ads_service', req, ADS_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+      // This route is protected by the gateway auth matrix.  Set the
+      // marker only after the gateway has authenticated the caller; Ads
+      // treats a missing marker as an organic fallback.
+      proxyReq.setHeader('X-Ads-Context-Resolved', 'true');
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) recordBreakerFailure(adsBreaker);
+    },
+    error: (err: Error, req: any, res: any) => {
+      recordBreakerFailure(adsBreaker);
+      logProxyError('ads_service', ADS_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(502).json({ status: 'error', code: 'ERR_ADS_UNAVAILABLE', message: 'Ads unavailable; use organic discovery' });
+      }
+    },
+  },
+}));
+
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/admin',
   target: ADMIN_SERVICE_URL,
@@ -1798,34 +1831,6 @@ app.use(createProxyMiddleware({
   }
 }));
 
-// Commerce Ads owns paid campaign lifecycle, delivery, budget and billing.
-// Keep this route ahead of the generic merchant proxy so `/merchant/ads` does
-// not fall back to the compatibility facade in merchant-service.
-app.use(createProxyMiddleware({
-  pathFilter: (pathname: string) => pathname.startsWith('/api/v1/ads') || pathname.startsWith('/api/v1/merchant/ads'),
-  target: ADS_SERVICE_URL,
-  changeOrigin: true,
-    on: {
-      proxyReq: (proxyReq: any, req: any) => {
-        logProxyForward('ads_service', req, ADS_SERVICE_URL);
-        prepareProxyRequest(proxyReq, req);
-        // This route is protected by the gateway auth matrix.  Set the
-        // marker only after the gateway has authenticated the caller; Ads
-        // treats a missing marker as an organic fallback.
-        proxyReq.setHeader('X-Ads-Context-Resolved', 'true');
-      },
-    proxyRes: (proxyRes: any) => {
-      if (proxyRes.statusCode >= 500) recordBreakerFailure(adsBreaker);
-    },
-    error: (err: Error, req: any, res: any) => {
-      recordBreakerFailure(adsBreaker);
-      logProxyError('ads_service', ADS_SERVICE_URL, err, req as Request);
-      if (res && typeof res.status === 'function') {
-        res.status(502).json({ status: 'error', code: 'ERR_ADS_UNAVAILABLE', message: 'Ads unavailable; use organic discovery' });
-      }
-    },
-  },
-}));
 
 app.use('/api/v1/merchant', authenticateJWT);
 // NOTE: pakai pathFilter (BUKAN express app.use prefix) supaya full path

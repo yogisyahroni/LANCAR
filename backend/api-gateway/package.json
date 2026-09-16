@@ -13,6 +13,7 @@
     "test:ops-surface": "npm run build && node scripts/opsSurfaceProtection.test.js",
     "test:public-abuse": "npm run build && node scripts/publicEndpointAbuseProtection.test.js",
     "test:edge-security": "npm run build && node scripts/edgeSecurityContract.test.js",
+    "test:ads-routing": "node scripts/adsRouting.test.js",
     "test:reputation-routing": "node scripts/reputationRouting.test.js",
     "test:resilience": "npm run build && node scripts/bulkhead.test.js && node scripts/directProxyResilience.test.js && node scripts/webSocketUpgrade.test.js && node scripts/redisRateLimitStore.test.js",
     "test": "echo \"Error: no test specified\" && exit 1"

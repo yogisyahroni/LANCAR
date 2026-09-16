@@ -36,6 +36,11 @@ assertPolicy('GET', '/api/v1/customer/orders', 'web-session-or-jwt', 'customer-p
 assertPolicy('POST', '/api/v1/device-tokens', 'web-session-or-jwt', 'device-token-api');
 assertPolicy('DELETE', '/api/v1/device-tokens/unregister', 'web-session-or-jwt', 'device-token-api');
 assertPolicy('GET', '/api/v1/admin/orders', 'admin-session-or-jwt', 'admin-management');
+assertPolicy('GET', '/api/v1/admin/ads/inventory', 'jwt', 'commerce-ads-api');
+assertPolicy('GET', '/api/v1/admin/ads/campaigns', 'jwt', 'commerce-ads-api');
+assertPolicy('GET', '/api/v1/admin/ads/audit', 'jwt', 'commerce-ads-api');
+assertPolicy('GET', '/api/v1/ads/delivery', 'jwt', 'commerce-ads-api');
+assertPolicy('GET', '/api/v1/merchant/ads/campaigns', 'jwt', 'commerce-ads-api');
 assertPolicy('POST', '/api/v1/orders', 'jwt', 'order-domain-api');
 assertPolicy('GET', '/api/v1/orders/detail', 'jwt', 'order-domain-api');
 assertPolicy('POST', '/api/v1/orders/status', 'jwt', 'order-domain-api');
