@@ -975,7 +975,16 @@ app.use(createProxyMiddleware({
 }));
 
 // Auth Service - Web/Admin Auth Routes (High Priority)
-app.use('/api/v1/auth/web', authLimiter);
+// authLimiter guards credential submission (login, session exchange, logout).
+// Notification polling is a high-frequency read and must NOT be throttled here;
+// it falls through to admin-service which applies its own concurrency controls.
+app.use('/api/v1/auth/web', (req, res, next) => {
+  const isNotificationRead =
+    req.method === 'GET' &&
+    (req.path === '/api/v1/auth/web/notifications' || req.path.startsWith('/api/v1/auth/web/notifications'));
+  if (isNotificationRead) return next();
+  return authLimiter(req, res, next);
+});
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/auth/web',
   target: ADMIN_SERVICE_URL,
