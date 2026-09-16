@@ -223,38 +223,38 @@ export default function ExperiencePreview({ surface, sections, resolvedSections,
               style={{ width: `${currentDevice.width}px` }}
               className={`mx-auto my-3 border-[10px] border-slate-900 bg-slate-950 shadow-2xl overflow-hidden ring-1 ring-white/20 select-none ${currentDevice.frameRadius}`}
             >
-              {/* Status Bar */}
-              <div className="h-10 px-5 flex items-center justify-between text-white text-[12px] font-semibold bg-slate-950/70 backdrop-blur-md relative z-30">
-                <div className="flex items-center gap-1.5">
-                  <span>11:32</span>
-                  {currentDevice.os === 'android' ? (
-                    <Shield size={12} className="text-emerald-400" aria-hidden="true" />
-                  ) : null}
-                </div>
-
-                {/* Camera / Notch / Dynamic Island */}
-                {currentDevice.os === 'ios' ? (
-                  <div className="w-24 h-5 rounded-full bg-black ring-1 ring-white/10 shrink-0" />
-                ) : (
-                  <div className="w-3.5 h-3.5 rounded-full bg-black ring-2 ring-slate-800 shrink-0" />
-                )}
-
-                <div className="flex items-center gap-2">
-                  <div className="flex items-end gap-[1.5px] h-3" aria-hidden="true">
-                    <div className="w-[2.5px] h-1 bg-white rounded-xs" />
-                    <div className="w-[2.5px] h-1.5 bg-white rounded-xs" />
-                    <div className="w-[2.5px] h-2 bg-white rounded-xs" />
-                    <div className="w-[2.5px] h-3 bg-white rounded-xs" />
-                  </div>
-                  <Wifi size={13} className="text-white" aria-hidden="true" />
-                  <div className="w-5 h-2.5 rounded-[3px] border border-white/80 p-[1px] flex items-center" aria-hidden="true">
-                    <div className="h-full w-full bg-white rounded-xs" />
-                  </div>
-                </div>
-              </div>
-
               {/* Smartphone Screen Viewport */}
               <div className="bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-[660px] flex flex-col justify-between overflow-hidden relative">
+                {/* Floating Edge-to-Edge Status Bar (Persis Android statusBarsPadding: transparan di atas background gambar) */}
+                <div className="absolute top-0 inset-x-0 h-10 px-5 flex items-center justify-between text-white text-[12px] font-semibold bg-gradient-to-b from-black/55 via-black/20 to-transparent z-30 pointer-events-none">
+                  <div className="flex items-center gap-1.5 drop-shadow-sm">
+                    <span>11:32</span>
+                    {currentDevice.os === 'android' ? (
+                      <Shield size={12} className="text-emerald-400" aria-hidden="true" />
+                    ) : null}
+                  </div>
+
+                  {/* Camera / Notch / Dynamic Island */}
+                  {currentDevice.os === 'ios' ? (
+                    <div className="w-24 h-5 rounded-full bg-black ring-1 ring-white/10 shrink-0" />
+                  ) : (
+                    <div className="w-3.5 h-3.5 rounded-full bg-black ring-2 ring-black/70 shrink-0 shadow-inner" />
+                  )}
+
+                  <div className="flex items-center gap-2 drop-shadow-sm">
+                    <div className="flex items-end gap-[1.5px] h-3" aria-hidden="true">
+                      <div className="w-[2.5px] h-1 bg-white rounded-xs" />
+                      <div className="w-[2.5px] h-1.5 bg-white rounded-xs" />
+                      <div className="w-[2.5px] h-2 bg-white rounded-xs" />
+                      <div className="w-[2.5px] h-3 bg-white rounded-xs" />
+                    </div>
+                    <Wifi size={13} className="text-white" aria-hidden="true" />
+                    <div className="w-5 h-2.5 rounded-[3px] border border-white/80 p-[1px] flex items-center" aria-hidden="true">
+                      <div className="h-full w-full bg-white rounded-xs" />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Scrollable Mobile Content */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar pb-4">
                   {/* === TEMBUS HOME HEADER (PERSIS DENGAN KOTLIN DashboardHomeComponents.kt) === */}
@@ -283,8 +283,8 @@ export default function ExperiencePreview({ surface, sections, resolvedSections,
                       ) : null}
                     </div>
 
-                    {/* Column (Foreground Content) */}
-                    <div className="relative z-10 pt-2 flex flex-col">
+                    {/* Column (Foreground Content with statusBarsPadding equivalent) */}
+                    <div className="relative z-10 pt-10 flex flex-col">
                       {/* Top Bar: Search + Notification + Profile */}
                       <div className="px-4 flex items-center gap-2 mb-2">
                         <div className="flex-1 h-10 flex items-center gap-2 bg-white/95 rounded-full px-4 shadow-sm border border-black/5">

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, GripVertical, Eye, EyeOff, Plus, Save, Trash2, UploadCloud, ImageIcon } from 'lucide-react'
+import { ArrowDown, ArrowUp, GripVertical, Eye, EyeOff, Plus, Save, Trash2, UploadCloud, ImageIcon, Sparkles, AlertTriangle, CheckCircle, Info, HelpCircle } from 'lucide-react'
 import AssetPicker from '../components/experience/AssetPicker'
 import TargetingEditor from '../components/experience/TargetingEditor'
 import { hasAudienceConstraints, placementForComponent, type ExperienceForm, type ExperienceSection, type ServiceExposureEntry } from '../components/experience/types'
@@ -110,9 +110,78 @@ export default function AppExperienceEditor({
   serviceVisibilityMode = false,
 }: Props) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [showAndroidGuide, setShowAndroidGuide] = useState<boolean>(false)
+  const [bannerValidation, setBannerValidation] = useState<{
+    width: number
+    height: number
+    ratio: number
+    isValid: boolean
+    message: string
+    severity: 'success' | 'warning' | 'error'
+  } | null>(null)
+
   const update = (patch: Partial<ExperienceForm>) => onChange({ ...value, ...patch })
   const updateSection = (index: number, patch: Partial<ExperienceSection>) => update({ sections: value.sections.map((section, sectionIndex) => sectionIndex === index ? { ...section, ...patch } : section) })
   const setProperty = (index: number, key: string, propertyValue: unknown) => updateSection(index, { properties: { ...value.sections[index].properties, [key]: propertyValue } })
+
+  const validateAndProcessBannerImage = (file: File, sectionIndex: number) => {
+    const objectUrl = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = async () => {
+      const width = img.width
+      const height = img.height
+      const ratio = width / height
+
+      let severity: 'success' | 'warning' | 'error' = 'success'
+      let message = `Ukuran: ${width} × ${height} px (Rasio ${ratio.toFixed(2)}:1). Sesuai dengan spesifikasi layar Android (~5:4)!`
+      let isValid = true
+
+      if (ratio < 1.10) {
+        severity = 'warning'
+        isValid = false
+        message = `Ukuran: ${width} × ${height} px (Rasio ${ratio.toFixed(2)}:1). Gambar terlalu tegak/tinggi. Di Android bagian atas & bawah akan terpotong.`
+      } else if (ratio > 1.45) {
+        severity = 'warning'
+        isValid = false
+        const cropPct = Math.round((1 - 1.25 / ratio) * 100)
+        message = `Ukuran: ${width} × ${height} px (Rasio ${ratio.toFixed(2)}:1). Gambar terlalu lebar (landscape). Di layar Android akan ter-zoom dan terpotong ~${cropPct}% di sisi samping kiri-kanan!`
+      } else if (width < 720) {
+        severity = 'warning'
+        message = `Ukuran: ${width} × ${height} px. Resolusi di bawah rekomendasi HD (min 720px, disarankan 1080×864 px agar jernih).`
+      }
+
+      setBannerValidation({ width, height, ratio, isValid, message, severity })
+
+      try {
+        const formData = new FormData()
+        formData.append('image', file)
+        const res = await fetch('/api/v1/admin/experience/upload', {
+          method: 'POST',
+          body: formData,
+        })
+        const data = await res.json()
+        if (data.success && data.data?.file_url) {
+          setProperty(sectionIndex, 'background_image_url', data.data.file_url)
+          setProperty(sectionIndex, 'banner_mode', 'image')
+        } else {
+          const reader = new FileReader()
+          reader.onload = () => {
+            setProperty(sectionIndex, 'background_image_url', reader.result as string)
+            setProperty(sectionIndex, 'banner_mode', 'image')
+          }
+          reader.readAsDataURL(file)
+        }
+      } catch {
+        const reader = new FileReader()
+        reader.onload = () => {
+          setProperty(sectionIndex, 'background_image_url', reader.result as string)
+          setProperty(sectionIndex, 'banner_mode', 'image')
+        }
+        reader.readAsDataURL(file)
+      }
+    }
+    img.src = objectUrl
+  }
   const updateCampaignIntroAssets = (sectionIndex: number, mediaAssetId: string, fallbackAssetId: string) => {
     const mediaId = mediaAssetId.trim()
     const fallbackId = fallbackAssetId.trim()
@@ -289,17 +358,84 @@ export default function AppExperienceEditor({
 	            {['hero_banner', 'campaign_strip', 'promo_carousel'].includes(section.component) ? <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-foreground-muted">{section.component === 'hero_banner' ? <label className="inline-flex items-center gap-2 font-bold text-foreground-muted">Placement<select className="rounded-lg border border-border bg-surface-subtle px-2 py-1 text-xs text-foreground-muted" disabled={disabled} value={String(section.properties.placement ?? 'hero')} onChange={(event) => setProperty(index, 'placement', event.target.value)}><option value="hero">Hero</option><option value="header">Header</option></select></label> : <span>Placement: <strong className="text-foreground-muted">{String(section.properties.placement ?? placementForComponent(section.component).toLowerCase().replaceAll(' ', '_'))}</strong></span>}<span>· promo copy is presentation-only; discount and eligibility remain in Promo/Pricing.</span></div> : null}
           <div className="mt-4 grid gap-3 md:grid-cols-2">{section.component === 'hero_banner' ? <div className="md:col-span-2 rounded-2xl border border-border bg-surface-subtle p-5 space-y-4">
             <div className="rounded-xl border border-primary/20 bg-primary/10 p-3.5 text-xs leading-relaxed text-primary-light">
-              <strong className="text-sm">Header / Hero Promo Banner (Gojek-Style Full Graphic).</strong>
+              <strong className="text-sm">Header / Hero Promo Banner (Gojek &amp; Tembus Full Graphic).</strong>
               <p className="mt-1">
-                Seperti pada Gojek, tim marketing dapat mengupload <strong>1 file gambar banner lengkap</strong> yang tampil di header atas aplikasi customer (atau menggunakan tema warna).
+                Di Android, gambar banner tampil di header layar utama secara <em>edge-to-edge</em> (menembus status bar hingga ke balik Card Saldo). Pastikan gambar mematuhi kriteria rasio agar tidak ter-crop atau ter-zoom di HP user.
               </p>
+            </div>
+
+            {/* Panduan Kriteria Wajib Ukuran Android */}
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Info size={16} className="text-primary shrink-0" aria-hidden="true" />
+                  <span className="text-xs font-black uppercase tracking-wider text-primary">
+                    Kriteria Standar Banner Android
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAndroidGuide((prev) => !prev)}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+                >
+                  <HelpCircle size={13} aria-hidden="true" />
+                  {showAndroidGuide ? 'Tutup Detail' : 'Lihat Rincian 3 Zona'}
+                </button>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-3 text-[11px]">
+                <div className="rounded-lg border border-border bg-surface p-2.5">
+                  <p className="font-bold text-foreground">Ukuran Rekomendasi</p>
+                  <p className="text-primary font-black text-xs mt-0.5">1080 × 864 px</p>
+                  <p className="text-foreground-muted text-[10px]">Rasio 5:4 (1.25 : 1)</p>
+                </div>
+                <div className="rounded-lg border border-border bg-surface p-2.5">
+                  <p className="font-bold text-foreground">Resolusi Minimum</p>
+                  <p className="text-foreground font-bold text-xs mt-0.5">720 × 576 px</p>
+                  <p className="text-foreground-muted text-[10px]">Untuk ketajaman layar HP</p>
+                </div>
+                <div className="rounded-lg border border-border bg-surface p-2.5">
+                  <p className="font-bold text-foreground">Format &amp; Rasio</p>
+                  <p className="text-foreground font-bold text-xs mt-0.5">WEBP / PNG / JPG</p>
+                  <p className="text-foreground-muted text-[10px]">Toleransi rasio 1.15 - 1.40</p>
+                </div>
+              </div>
+
+              {showAndroidGuide ? (
+                <div className="rounded-lg border border-border bg-surface p-3 text-[11px] space-y-2 leading-relaxed text-foreground-secondary">
+                  <p className="font-black text-foreground">Struktur 3 Zona Vertikal Layar Android:</p>
+                  <div className="space-y-1.5 pl-1">
+                    <div className="flex items-start gap-2">
+                      <span className="shrink-0 w-2 h-2 mt-1.5 rounded-full bg-amber-500" />
+                      <p>
+                        <strong>1. Zona Atas (0% - 25% / ~80px) — Status Bar &amp; Search Bar:</strong><br />
+                        Gambar akan menembus ke belakang jam, wifi, dan kotak search. Letakkan artwork/tekstur latar di sini. <em>Hindari teks judul/logo penting di area ini.</em>
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="shrink-0 w-2 h-2 mt-1.5 rounded-full bg-emerald-500" />
+                      <p>
+                        <strong>2. Zona Tengah (25% - 75% / ~160px) — Safe Content &amp; Promo Action:</strong><br />
+                        Area ini 100% aman terlihat oleh user di semua tipe Android. Tempatkan Headline promo, diskon %, gambar produk, dan visual utama di zona ini.
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="shrink-0 w-2 h-2 mt-1.5 rounded-full bg-red-500" />
+                      <p>
+                        <strong>3. Zona Bawah (75% - 100% / ~80px) — Danger Zone (Card Saldo):</strong><br />
+                        Tertutup oleh <strong>Card Saldo / Gopay</strong> (overlap 44dp). <em>Dilarang keras meletakkan teks promo, harga, atau tombol CTA di sini.</em>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               {/* Upload Gambar Banner */}
               <div className="md:col-span-2 rounded-xl border border-dashed border-primary/40 bg-surface/[0.04] p-4 space-y-3">
                 <label className="text-xs font-black uppercase tracking-wider text-primary-light block">
-                  1. Upload File Gambar Banner (PNG / JPG / WebP)
+                  1. Upload File Gambar Banner (Sesuai Kriteria Android 5:4)
                 </label>
                 <div className="flex flex-col sm:flex-row items-center gap-3">
                   <input
@@ -308,36 +444,10 @@ export default function AppExperienceEditor({
                     accept="image/*"
                     disabled={disabled}
                     className="text-xs text-foreground-muted file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-primary file:text-on-primary hover:file:opacity-90 cursor-pointer"
-                    onChange={async (e) => {
+                    onChange={(e) => {
                       const file = e.target.files?.[0]
                       if (!file) return
-                      try {
-                        const formData = new FormData()
-                        formData.append('image', file)
-                        const res = await fetch('/api/v1/admin/experience/upload', {
-                          method: 'POST',
-                          body: formData,
-                        })
-                        const data = await res.json()
-                        if (data.success && data.data?.file_url) {
-                          setProperty(index, 'background_image_url', data.data.file_url)
-                          setProperty(index, 'banner_mode', 'image')
-                        } else {
-                          const reader = new FileReader()
-                          reader.onload = () => {
-                            setProperty(index, 'background_image_url', reader.result as string)
-                            setProperty(index, 'banner_mode', 'image')
-                          }
-                          reader.readAsDataURL(file)
-                        }
-                      } catch {
-                        const reader = new FileReader()
-                        reader.onload = () => {
-                          setProperty(index, 'background_image_url', reader.result as string)
-                          setProperty(index, 'banner_mode', 'image')
-                        }
-                        reader.readAsDataURL(file)
-                      }
+                      validateAndProcessBannerImage(file, index)
                     }}
                   />
                   <span className="text-xs text-foreground-muted font-bold">atau masukkan URL langsung:</span>
@@ -351,10 +461,56 @@ export default function AppExperienceEditor({
                     setProperty(index, 'background_image_url', e.target.value)
                     if (e.target.value) setProperty(index, 'banner_mode', 'image')
                   }}
-                  placeholder="/uploads/banners/gocar_header_banner.png atau https://..."
+                  placeholder="/uploads/banners/tembus_promo_banner.jpg atau https://..."
                 />
+
+                {/* Status Validasi Upload Banner */}
+                {bannerValidation ? (
+                  <div
+                    role="status"
+                    className={`rounded-xl border p-3 text-xs flex items-start gap-2.5 ${
+                      bannerValidation.severity === 'success'
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
+                        : 'border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-300'
+                    }`}
+                  >
+                    {bannerValidation.severity === 'success' ? (
+                      <CheckCircle size={16} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                    ) : (
+                      <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                    )}
+                    <div className="space-y-0.5">
+                      <p className="font-bold">
+                        {bannerValidation.severity === 'success' ? 'Validasi Ukuran: Sesuai Kriteria Android' : 'Peringatan Kompatibilitas Dimensi Android'}
+                      </p>
+                      <p className="text-[11px] leading-relaxed">{bannerValidation.message}</p>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <span className="text-[10px] font-bold text-foreground-muted">Preset Cepat:</span>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => {
+                      setProperty(index, 'background_image_url', '/uploads/banners/tembus_promo_banner.jpg')
+                      setProperty(index, 'banner_mode', 'image')
+                      setProperty(index, 'deep_link', '/promo')
+                      setBannerValidation({
+                        width: 1080,
+                        height: 864,
+                        ratio: 1.25,
+                        isValid: true,
+                        severity: 'success',
+                        message: 'Ukuran: 1080 × 864 px (Rasio 5:4). Presisi 100% dengan spesifikasi layar Android & Safe Zone!',
+                      })
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-black text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 shadow-xs"
+                  >
+                    <Sparkles size={12} aria-hidden="true" />
+                    TEMBUS Promo Banner (Ideal Android 5:4 - 1080×864 px)
+                  </button>
                   <button
                     type="button"
                     disabled={disabled}
@@ -365,7 +521,7 @@ export default function AppExperienceEditor({
                     }}
                     className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-black text-primary-light hover:bg-primary/20"
                   >
-                     Gojek GoCar Banner (Dari Screenshot)
+                     Gojek GoCar Banner
                   </button>
                   <button
                     type="button"
@@ -374,6 +530,7 @@ export default function AppExperienceEditor({
                       setProperty(index, 'background_image_url', '')
                       setProperty(index, 'background_color', '#7B0014')
                       setProperty(index, 'banner_mode', 'text')
+                      setBannerValidation(null)
                     }}
                     className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface px-2.5 py-1 text-[11px] font-bold text-foreground-muted hover:border-primary/40"
                   >
@@ -386,6 +543,7 @@ export default function AppExperienceEditor({
                       setProperty(index, 'background_image_url', '')
                       setProperty(index, 'background_color', '#006C47')
                       setProperty(index, 'banner_mode', 'text')
+                      setBannerValidation(null)
                     }}
                     className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface px-2.5 py-1 text-[11px] font-bold text-foreground-muted hover:border-primary/40"
                   >
@@ -399,29 +557,46 @@ export default function AppExperienceEditor({
                 <div className="md:col-span-2 rounded-xl border border-border bg-surface p-3 space-y-3">
                   <p className="text-xs font-bold text-foreground-muted flex items-center gap-1.5">
                     <ImageIcon aria-hidden="true" size={14} className="text-primary" />
-                    Preview Banner + Safe Area Guide:
+                    Preview Banner + Safe Area Guide (3 Zona Android):
                   </p>
 
                   {/* Safe Area Overlay Container */}
-                  <div className="relative overflow-hidden rounded-lg border border-border bg-black" style={{ height: '200px' }}>
+                  <div className="relative overflow-hidden rounded-lg border border-border bg-black" style={{ height: '240px' }}>
                     <img
                       src={String(section.properties.background_image_url).replace(/^\/uploads\//, 'http://localhost:8080/uploads/')}
                       alt="Banner preview"
                       className="absolute inset-0 w-full h-full object-cover object-top"
                     />
 
-                    {/* Safe Zone Badge - Top 80% */}
-                    <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none" style={{ bottom: '20%' }}>
-                      <span className="inline-flex items-center gap-1 rounded-md bg-green-600/80 backdrop-blur px-2 py-0.5 text-[10px] font-black text-white shadow">
-                        Safe Visual &amp; Action Area (80% atas)
+                    {/* Zona Atas - 25% Status & Search Bar */}
+                    <div
+                      className="absolute top-0 left-0 right-0 flex items-center justify-between px-3"
+                      style={{
+                        height: '25%',
+                        background: 'linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 100%)',
+                        borderBottom: '1.5px dashed rgba(234,179,8,0.7)',
+                      }}
+                    >
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/80 backdrop-blur px-2 py-0.5 text-[9px] font-black text-white shadow">
+                        Zona Status Bar &amp; Search Bar (25% atas)
                       </span>
                     </div>
 
-                    {/* Bottom Danger Zone - 20% bawah */}
+                    {/* Zona Tengah - 50% Safe Content Area */}
+                    <div
+                      className="absolute left-0 right-0 flex items-center justify-between px-3 pointer-events-none"
+                      style={{ top: '25%', height: '50%' }}
+                    >
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-600/80 backdrop-blur px-2 py-0.5 text-[10px] font-black text-white shadow">
+                        Safe Action &amp; Content Zone (Teks, Produk, Diskon)
+                      </span>
+                    </div>
+
+                    {/* Bottom Danger Zone - 25% bawah */}
                     <div
                       className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-center"
                       style={{
-                        height: '20%',
+                        height: '25%',
                         background: 'repeating-linear-gradient(135deg, rgba(239,68,68,0.55) 0px, rgba(239,68,68,0.55) 8px, rgba(0,0,0,0.45) 8px, rgba(0,0,0,0.45) 16px)',
                         borderTop: '2px dashed rgba(239,68,68,0.85)',
                       }}
@@ -434,10 +609,11 @@ export default function AppExperienceEditor({
 
                   {/* Panduan teks ringkas */}
                   <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300 space-y-0.5">
-                    <p className="font-black">Panduan Safe Area Banner</p>
-                    <p>• <strong>80% atas</strong> — bebas: artwork, gradien, logo promo boleh sampai sudut kiri-atas (menembus balik search bar &amp; status bar).</p>
-                    <p>• <strong>20% bawah (~44 dp)</strong> — <strong className="text-red-600 dark:text-red-400">HINDARI</strong> menaruh teks penting, harga, tombol CTA, atau disclaimer di sini karena akan tertutup oleh <strong>Card Saldo/Wallet</strong>.</p>
-                    <p>• Rasio rekomendasi gambar: <strong>2:1</strong> (mis. 1080 × 540 px).</p>
+                    <p className="font-black">Aturan Safe Area Banner Android</p>
+                    <p>• <strong>Ukuran Ideal</strong>: <strong>1080 × 864 px</strong> (Rasio 5:4) atau 1200 × 960 px.</p>
+                    <p>• <strong>25% atas</strong> — Menembus ke belakang jam &amp; Search Bar (hindari teks penting di sini).</p>
+                    <p>• <strong>50% tengah</strong> — Bebas: Headline, diskon %, foto produk &amp; CTA utama dijamin terlihat jelas.</p>
+                    <p>• <strong>25% bawah (~44 dp)</strong> — <strong className="text-red-600 dark:text-red-400">HINDARI</strong> menaruh teks penting karena tertutup oleh <strong>Card Saldo/Wallet</strong>.</p>
                   </div>
                 </div>
               ) : null}
