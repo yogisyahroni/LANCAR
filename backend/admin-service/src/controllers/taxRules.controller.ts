@@ -118,7 +118,7 @@ export const getTaxDashboard = async (req: Request, res: Response): Promise<void
 
     const efaktursRes = await readDb.query(`
       SELECT * FROM tax_efaktur_exports
-      ORDER BY tax_period DESC, created_at DESC
+      ORDER BY period DESC, created_at DESC
       LIMIT 50
     `);
 

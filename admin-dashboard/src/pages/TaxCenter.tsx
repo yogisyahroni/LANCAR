@@ -222,7 +222,7 @@ export default function TaxCenter() {
             <div className="lg:col-span-2 glass-card p-8 rounded-[36px] border-border space-y-6">
               <h2 className="text-xl font-black text-foreground-muted italic uppercase">Tax Revenue Trend (12 Months)</h2>
               <div
-                className="h-[300px] w-full"
+                className="h-[300px] w-full min-w-0 min-h-0"
                 role="img"
                 aria-label="Tax revenue trend chart"
                 aria-describedby="tax-revenue-trend-summary"
@@ -234,7 +234,7 @@ export default function TaxCenter() {
                     : 'Belum ada data.'}
                   .
                 </p>
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <AreaChart data={chartData}>
                     <defs>
                       <linearGradient id="colorPpn" x1="0" y1="0" x2="0" y2="1">
