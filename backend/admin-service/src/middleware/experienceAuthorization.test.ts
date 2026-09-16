@@ -35,6 +35,9 @@ const buildApp = (middleware: ReturnType<typeof requireExperienceAccess>) => {
   });
   app.get('/experience', middleware, (_req, res) => res.status(200).json({ ok: true }));
   app.get('/experience/global', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'global' }), (_req, res) => res.status(200).json({ ok: true }));
+  app.get('/experience/service-controls', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'service-control-query' }), (_req, res) => res.status(200).json({ ok: true }));
+  app.post('/experience/service-controls', requireExperienceAccess(EXPERIENCE_PERMISSIONS.killSwitchExecute, { target: 'service-control-body' }), (_req, res) => res.status(200).json({ ok: true }));
+  app.get('/experience/catalog', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'catalog' }), (_req, res) => res.status(200).json({ ok: true }));
   app.patch('/experience/manifests/:manifestId/draft', requireExperienceAccess(EXPERIENCE_PERMISSIONS.draftWrite, { target: 'manifest-body' }), (_req, res) => res.status(200).json({ ok: true }));
   return app;
 };
@@ -46,6 +49,12 @@ describe('Experience authorization middleware', () => {
     globalScopeAllowed = false;
     (db.query as jest.Mock).mockImplementation((sql: string, values: unknown[] = []) => {
       if (sql.includes('FROM permissions')) return Promise.resolve({ rows: [{ allowed: permissionAllowed }] });
+      if (sql.includes('SELECT market_code, surface')) {
+        if (globalScopeAllowed) {
+          return Promise.resolve({ rows: [{ market_code: '*', surface: '*' }] });
+        }
+        return Promise.resolve({ rows: Array.from(allowedMarkets).map((m) => ({ market_code: m, surface: '*' })) });
+      }
       if (sql.includes('experience_admin_scope_grants')) {
         const market = values[2];
         return Promise.resolve({ rows: [{ allowed: market === '*' ? globalScopeAllowed : allowedMarkets.has(String(market)) }] });
@@ -106,5 +115,58 @@ describe('Experience authorization middleware', () => {
     expect(res.status).toBe(403);
     expect(res.body.reason_code).toBe('EXPERIENCE_SCOPE_DENIED');
     expect(res.body.market_code).toBe('sg-sg');
+  });
+
+  it('allows service-controls query without market parameter if operator has assigned scope', async () => {
+    const app = buildApp(requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'service-control-query' }));
+    const res = await request(app).get('/experience/service-controls');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+  });
+
+  it('denies service-controls query targeting unassigned market', async () => {
+    const app = buildApp(requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'service-control-query' }));
+    const res = await request(app).get('/experience/service-controls').query({ market_code: 'sg-sg' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.reason_code).toBe('EXPERIENCE_SCOPE_DENIED');
+  });
+
+  it('denies service-controls query when operator has no scope grants', async () => {
+    allowedMarkets = new Set([]);
+    const app = buildApp(requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'service-control-query' }));
+    const res = await request(app).get('/experience/service-controls');
+
+    expect(res.status).toBe(403);
+    expect(res.body.reason_code).toBe('EXPERIENCE_SCOPE_REQUIRED');
+  });
+
+  it('allows catalog query for operators with valid scope grant', async () => {
+    const app = buildApp(requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'catalog' }));
+    const res = await request(app).get('/experience/catalog');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+  });
+
+  it('requires global scope when service-control body defines empty market_codes', async () => {
+    const app = buildApp(requireExperienceAccess(EXPERIENCE_PERMISSIONS.killSwitchExecute, { target: 'service-control-body' }));
+    const res = await request(app)
+      .post('/experience/service-controls')
+      .send({ market_codes: [] });
+
+    expect(res.status).toBe(403);
+    expect(res.body.reason_code).toBe('EXPERIENCE_GLOBAL_SCOPE_REQUIRED');
+  });
+
+  it('allows service-control body targeting assigned market', async () => {
+    const app = buildApp(requireExperienceAccess(EXPERIENCE_PERMISSIONS.killSwitchExecute, { target: 'service-control-body' }));
+    const res = await request(app)
+      .post('/experience/service-controls')
+      .send({ market_codes: ['id-jk'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
   });
 });

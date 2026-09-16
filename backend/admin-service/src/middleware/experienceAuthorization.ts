@@ -20,7 +20,16 @@ export const EXPERIENCE_PERMISSIONS = {
 
 export type ExperiencePermission = (typeof EXPERIENCE_PERMISSIONS)[keyof typeof EXPERIENCE_PERMISSIONS];
 type ExperienceSurface = '*' | 'customer_android' | 'customer_web' | 'merchant_android' | 'courier_android';
-type TargetKind = 'query' | 'body' | 'manifest' | 'manifest-body' | 'global' | 'mobile-policy';
+type TargetKind =
+  | 'query'
+  | 'body'
+  | 'manifest'
+  | 'manifest-body'
+  | 'global'
+  | 'mobile-policy'
+  | 'service-control-query'
+  | 'service-control-body'
+  | 'catalog';
 
 type Target = {
   marketCode: string;
@@ -74,11 +83,36 @@ const manifestTarget = async (manifestId: string): Promise<Target | null> => {
   return row ? targetFromValues(row.market_code, row.surface, manifestId) : null;
 };
 
+const resolveGrantedScopes = async (req: Request): Promise<Target[]> => {
+  if (!req.user?.role) return [];
+  const result = await db.query<{ market_code: string; surface: ExperienceSurface }>(
+    `SELECT market_code, surface
+       FROM experience_admin_scope_grants
+      WHERE ((principal_type = 'user' AND principal_value = $1)
+         OR (principal_type = 'role' AND principal_value = $2))`,
+    [req.user.id, req.user.role],
+  );
+  if (result.rows.length === 0) return [];
+  if (result.rows.some((row) => row.market_code === '*' && row.surface === '*')) {
+    return [{ marketCode: '*', surface: '*' }];
+  }
+  return result.rows.map((row) => ({
+    marketCode: row.market_code,
+    surface: row.surface,
+  }));
+};
+
 const resolveTarget = async (req: Request, kind: TargetKind): Promise<Target | null> => {
   if (kind === 'global') return { marketCode: '*', surface: '*' };
 
   if (kind === 'manifest') {
-    const manifestId = stringValue(req.params?.manifestId);
+    const manifestId = stringValue(
+      req.params?.manifestId
+      || req.body?.manifest_id
+      || req.body?.manifestId
+      || req.query?.manifest_id
+      || req.query?.manifestId,
+    );
     return manifestId ? manifestTarget(manifestId) : null;
   }
 
@@ -97,12 +131,44 @@ const resolveTarget = async (req: Request, kind: TargetKind): Promise<Target | n
 };
 
 const resolveTargets = async (req: Request, kind: TargetKind): Promise<Target[]> => {
+  if (kind === 'service-control-query' || kind === 'catalog') {
+    const market = stringValue(req.query?.market_code || req.query?.marketCode);
+    const surface = (stringValue(req.query?.surface) || '*') as ExperienceSurface;
+    if (market) {
+      const target = targetFromValues(market, surface);
+      return target ? [target] : [];
+    }
+    return resolveGrantedScopes(req);
+  }
+
+  if (kind === 'service-control-body') {
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+      ? req.body as Record<string, unknown>
+      : {};
+    const surface = (stringValue(body.surface) || '*') as ExperienceSurface;
+    const marketCodes = Array.isArray(body.market_codes)
+      ? body.market_codes.map(stringValue).filter((v): v is string => Boolean(v))
+      : [];
+    if (marketCodes.length === 0) {
+      const singleMarket = stringValue(body.market_code || body.marketCode);
+      if (singleMarket) {
+        const target = targetFromValues(singleMarket, surface);
+        return target ? [target] : [];
+      }
+      return [{ marketCode: '*', surface }];
+    }
+    const targets = marketCodes
+      .map((market) => targetFromValues(market, surface))
+      .filter((target): target is Target => Boolean(target));
+    return targets.length === marketCodes.length ? targets : [];
+  }
+
   if (kind !== 'manifest-body') {
     const target = await resolveTarget(req, kind);
     return target ? [target] : [];
   }
 
-  const manifestId = stringValue(req.params?.manifestId);
+  const manifestId = stringValue(req.params?.manifestId || req.body?.manifest_id || req.body?.manifestId);
   const current = manifestId ? await manifestTarget(manifestId) : null;
   const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
     ? req.body as Record<string, unknown>

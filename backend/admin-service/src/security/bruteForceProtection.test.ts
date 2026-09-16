@@ -168,6 +168,7 @@ describe('bruteForceProtection', () => {
       data: null,
       message: 'locked',
       code: 'ERR_LOCKED',
+      retry_after_seconds: 30,
     });
 
     sendAuthProtectionError(response, new AuthProtectionError('rate limited', 'ERR_RATE', 429, 0));
