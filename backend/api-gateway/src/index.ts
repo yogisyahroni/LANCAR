@@ -309,6 +309,14 @@ const directProxyPolicies: DirectProxyPolicy[] = [
     bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: true,
   },
   {
+    // Admin agreement management is owned by auth-service, not admin-service.
+    // Must come before the broad /api/v1/admin catch-all below.
+    matches: (path) =>
+      path === '/api/v1/admin/agreements' || path.startsWith('/api/v1/admin/agreements/'),
+    serviceName: 'auth-service', breaker: authBreaker,
+    bulkhead: authBulkhead, observeResponse: true,
+  },
+  {
     matches: (path) => path.startsWith('/api/v1/admin') && !isOrderAdminProxyPath(path),
     serviceName: 'admin-service', breaker: adminBreaker,
     bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: true,
@@ -1676,6 +1684,39 @@ app.use(createProxyMiddleware({
       logProxyError('ads_service', ADS_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(502).json({ status: 'error', code: 'ERR_ADS_UNAVAILABLE', message: 'Ads unavailable; use organic discovery' });
+      }
+    },
+  },
+}));
+
+// Admin Agreement Routes — owned by auth-service, NOT admin-service.
+// auth-service handles: GET /api/v1/admin/agreements, GET /api/v1/admin/agreements/{id},
+// GET /api/v1/admin/agreements/{id}/pdf.
+// Must be registered BEFORE the broad /api/v1/admin → admin-service proxy below,
+// otherwise the path rewrite (/api/v1/admin → /admin) would silently mis-route to admin-service.
+app.use(createProxyMiddleware({
+  pathFilter: (pathname: string) =>
+    pathname === '/api/v1/admin/agreements' ||
+    pathname.startsWith('/api/v1/admin/agreements/'),
+  target: AUTH_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('auth_admin_agreements', req, AUTH_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) recordBreakerFailure(authBreaker);
+    },
+    error: (err: Error, req: any, res: any) => {
+      recordBreakerFailure(authBreaker);
+      logProxyError('auth_admin_agreements', AUTH_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(502).json({
+          status: 'error',
+          code: 'ERR_BAD_GATEWAY',
+          message: 'Agreement service is currently unavailable',
+        });
       }
     },
   },
