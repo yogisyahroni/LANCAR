@@ -212,7 +212,12 @@ class MainActivity : FragmentActivity() {
                 val token = resp.data?.token ?: resp.accessToken
                 val cid = resp.data?.customerId ?: resp.user?.id
                 if (!token.isNullOrBlank() && !cid.isNullOrBlank()) {
-                    authSessionManager.get().saveSessionSync(token, cid, resp.data?.name ?: resp.user?.name)
+                    authSessionManager.get().saveSessionSync(
+                        token,
+                        cid,
+                        resp.data?.name ?: resp.user?.name,
+                        resp.refreshToken,
+                    )
                     if (orderId == "home") {
                         // Debug-only: route straight to Dashboard after auto-login (skip chat).
                         pendingDeepLinkUri = null

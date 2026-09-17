@@ -340,7 +340,10 @@ class AuthViewModel @Inject constructor(
             sessionManager.saveSession(
                 token = token,
                 id = customerId,
-                name = customerName
+                name = customerName,
+                // Silent-refresh: simpan refresh token supaya sesi tidak mati
+                // saat access token kedaluwarsa (~15 menit).
+                refreshToken = response.refreshToken,
             )
             val needsProfile = response.isNewUser ||
                 customerName.isNullOrBlank() ||

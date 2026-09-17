@@ -48,13 +48,16 @@ class AuthSessionManager(private val context: Context) {
             runCatching {
                 val token = sharedPreferences.getString(KEY_AUTH_TOKEN, null)
                 val cid = sharedPreferences.getString(KEY_CUSTOMER_ID, null)
-                if (com.tembus.customer.BuildConfig.DEBUG) {
-                    saveSessionSync("debug_active_token", "CUST-DEBUG-001", "Pelanggan TEMBUS")
-                } else if (!token.isNullOrEmpty() && !cid.isNullOrEmpty()) {
+                // UAT FIX: sesi real yang tersimpan tidak boleh ditimpa token debug.
+                // Token debug hanya dipakai sebagai fallback saat belum ada sesi sama sekali,
+                // supaya login asli di build DEBUG tetap bertahan setelah cold start.
+                if (!token.isNullOrEmpty() && !cid.isNullOrEmpty() && token != DEBUG_FALLBACK_TOKEN) {
                     _isLoggedIn.value = true
                     _authToken.value = token
                     _customerId.value = cid
                     _customerName.value = sharedPreferences.getString(KEY_CUSTOMER_NAME, null)
+                } else if (com.tembus.customer.BuildConfig.DEBUG) {
+                    saveSessionSync(DEBUG_FALLBACK_TOKEN, DEBUG_FALLBACK_CUSTOMER_ID, "Pelanggan TEMBUS")
                 } else {
                     _isLoggedIn.value = false
                     _authToken.value = null
@@ -93,11 +96,21 @@ class AuthSessionManager(private val context: Context) {
         _customerName.value = name
     }
 
-    fun saveSessionSync(token: String, id: String, name: String? = "") {
+    fun saveSessionSync(
+        token: String,
+        id: String,
+        name: String? = "",
+        refreshToken: String? = null,
+        deviceId: String? = null,
+    ) {
         sharedPreferences.edit().apply {
             putString(KEY_AUTH_TOKEN, token)
             putString(KEY_CUSTOMER_ID, id)
             putString(KEY_CUSTOMER_NAME, name ?: "")
+            // Refresh token & device id hanya ditimpa bila ada nilai baru,
+            // supaya silent-refresh parsial tidak menghapus kredensial refresh.
+            if (!refreshToken.isNullOrBlank()) putString(KEY_REFRESH_TOKEN, refreshToken)
+            if (!deviceId.isNullOrBlank()) putString(KEY_DEVICE_ID, deviceId)
             apply()
         }
         _authToken.value = token
@@ -107,8 +120,24 @@ class AuthSessionManager(private val context: Context) {
         _isLoggedIn.value = true
     }
 
-    suspend fun saveSession(token: String, id: String, name: String? = "") {
-        saveSessionSync(token, id, name)
+    suspend fun saveSession(
+        token: String,
+        id: String,
+        name: String? = "",
+        refreshToken: String? = null,
+        deviceId: String? = null,
+    ) {
+        saveSessionSync(token, id, name, refreshToken, deviceId)
+    }
+
+    /** Refresh token tersimpan (null bila belum pernah login dengan refresh). */
+    fun getRefreshTokenSync(): String? {
+        return sharedPreferences.getString(KEY_REFRESH_TOKEN, null)
+    }
+
+    /** Device id yang dipakai saat login (untuk /auth/refresh). */
+    fun getDeviceIdSync(): String? {
+        return sharedPreferences.getString(KEY_DEVICE_ID, null)
     }
 
     suspend fun clearSession(reason: SessionInvalidationReason = SessionInvalidationReason.USER_LOGOUT) {
@@ -132,6 +161,21 @@ class AuthSessionManager(private val context: Context) {
         return isTokenExpired(sharedPreferences.getString(KEY_AUTH_TOKEN, null), clockSkewSeconds)
     }
 
+    /**
+     * UAT FIX: cek kedaluwarsa JWT tersimpan TANPA bypass DEBUG.
+     * Dipakai routing cold-start supaya token real yang sudah kedaluwarsa
+     * tidak dianggap valid (yang menyebabkan banner 401 abadi di build DEBUG).
+     * Token debug/placeholder, token kosong, dan token yang tidak bisa di-parse
+     * dianggap TIDAK kedaluwarsa (perilaku lama dipertahankan).
+     */
+    fun isStoredRealTokenExpired(clockSkewSeconds: Long = TOKEN_EXPIRY_CLOCK_SKEW_SECONDS): Boolean {
+        val stored = sharedPreferences.getString(KEY_AUTH_TOKEN, null)
+        if (stored.isNullOrBlank() || stored == DEBUG_FALLBACK_TOKEN) return false
+        val expiresAtEpochSeconds = parseJwtExpirationEpochSeconds(stored) ?: return false
+        val currentEpochSeconds = System.currentTimeMillis() / 1000
+        return expiresAtEpochSeconds <= currentEpochSeconds + clockSkewSeconds
+    }
+
     fun isTokenExpired(
         token: String?,
         clockSkewSeconds: Long = TOKEN_EXPIRY_CLOCK_SKEW_SECONDS
@@ -143,21 +187,32 @@ class AuthSessionManager(private val context: Context) {
     }
 
     suspend fun getTokenOnce(): String? {
+        // UAT FIX: kembalikan token real bila ada; token debug hanya fallback.
+        val stored = sharedPreferences.getString(KEY_AUTH_TOKEN, null)
+        if (!stored.isNullOrBlank() && stored != DEBUG_FALLBACK_TOKEN) return stored
         if (com.tembus.customer.BuildConfig.DEBUG) {
-            return "debug_active_token"
+            return stored ?: DEBUG_FALLBACK_TOKEN
         }
-        return sharedPreferences.getString(KEY_AUTH_TOKEN, null)
+        return stored
     }
 
     fun getTokenSync(): String? {
+        // UAT FIX: kembalikan token real bila ada; token debug hanya fallback.
+        val stored = sharedPreferences.getString(KEY_AUTH_TOKEN, null)
+        if (!stored.isNullOrBlank() && stored != DEBUG_FALLBACK_TOKEN) return stored
         if (com.tembus.customer.BuildConfig.DEBUG) {
-            return "debug_active_token"
+            return stored ?: DEBUG_FALLBACK_TOKEN
         }
-        return sharedPreferences.getString(KEY_AUTH_TOKEN, null)
+        return stored
     }
 
     fun getUserIdSync(): String? {
         return sharedPreferences.getString(KEY_CUSTOMER_ID, null)
+    }
+
+    /** Nama tersimpan (untuk dipertahankan saat refresh token). */
+    fun getCustomerNameSync(): String? {
+        return sharedPreferences.getString(KEY_CUSTOMER_NAME, null)
     }
 
     companion object {
@@ -166,6 +221,11 @@ class AuthSessionManager(private val context: Context) {
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_CUSTOMER_ID = "customer_id"
         private const val KEY_CUSTOMER_NAME = "customer_name"
+        private const val KEY_REFRESH_TOKEN = "refresh_token"
+        private const val KEY_DEVICE_ID = "device_id"
+        // Token debug hanya fallback UAT offline; sesi real selalu diutamakan.
+        private const val DEBUG_FALLBACK_TOKEN = "debug_active_token"
+        private const val DEBUG_FALLBACK_CUSTOMER_ID = "CUST-DEBUG-001"
         private const val TOKEN_EXPIRY_CLOCK_SKEW_SECONDS = 60L
 
         private fun parseJwtExpirationEpochSeconds(token: String?): Long? {

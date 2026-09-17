@@ -201,7 +201,8 @@ class GoogleAuthViewModel @Inject constructor(
                     authSessionManager.saveSession(
                         token = token,
                         id = data.user?.id ?: "",
-                        name = data.user?.fullName ?: ""
+                        name = data.user?.fullName ?: "",
+                        refreshToken = data.refreshToken,
                     )
                 }
                 pendingNonce = null
@@ -307,7 +308,8 @@ class GoogleAuthViewModel @Inject constructor(
                         authSessionManager.saveSession(
                             token = data.accessToken,
                             id = data.user?.id ?: "",
-                            name = data.user?.fullName ?: ""
+                            name = data.user?.fullName ?: "",
+                            refreshToken = data.refreshToken,
                         )
                     }
                 }
