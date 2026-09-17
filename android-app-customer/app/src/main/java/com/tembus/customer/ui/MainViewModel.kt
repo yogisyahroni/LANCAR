@@ -17,6 +17,7 @@ import com.tembus.customer.webrtc.CallInviteStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import com.tembus.customer.data.repository.AuthRepository
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Dispatchers
@@ -33,21 +34,20 @@ class MainViewModel @Inject constructor(
     private val callInviteStore: CallInviteStore,
     private val notificationEventVersionStore: NotificationEventVersionStore,
     private val experienceConfigManager: ExperienceConfigManager,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading = _isLoading.asStateFlow()
 
-    private val _startDestination = MutableStateFlow(
-        if (com.tembus.customer.BuildConfig.DEBUG) Screen.Dashboard.route else Screen.AuthGraph.route
-    )
+    private val _startDestination = MutableStateFlow(Screen.AuthGraph.route)
     val startDestination = _startDestination.asStateFlow()
     val sessionInvalidationReason = sessionManager.sessionInvalidationReason
     private val _incomingCallInvites = MutableSharedFlow<CallSignalEvent>(extraBufferCapacity = 1)
     val incomingCallInvites = _incomingCallInvites.asSharedFlow()
     private val _foregroundNotifications = MutableSharedFlow<NotificationRealtimeEvent>(extraBufferCapacity = 1)
     val foregroundNotifications = _foregroundNotifications.asSharedFlow()
-    private var authenticatedDestination = if (com.tembus.customer.BuildConfig.DEBUG) Screen.Dashboard.route else Screen.AuthGraph.route
+    private var authenticatedDestination = Screen.AuthGraph.route
 
     init {
         checkAuth()
@@ -69,6 +69,7 @@ class MainViewModel @Inject constructor(
             }
             _startDestination.value = destination
             _isLoading.value = false
+
             // FCM token sync is useful but not part of the first usable shell.
             if (destination == Screen.Dashboard.route) {
                 syncFcmToken()
@@ -77,20 +78,31 @@ class MainViewModel @Inject constructor(
     }
 
     private suspend fun resolveAuthenticatedDestination(): String {
-        if (com.tembus.customer.BuildConfig.DEBUG) {
+        val token = sessionManager.getTokenOnce()
+        if (!token.isNullOrEmpty() && !sessionManager.isCurrentTokenExpired()) {
             return Screen.Dashboard.route
         }
-        val token = sessionManager.getTokenOnce()
-        if (!token.isNullOrEmpty() && sessionManager.isCurrentTokenExpired()) {
-            sessionManager.clearSession(SessionInvalidationReason.TOKEN_EXPIRED)
-            return Screen.AuthGraph.route
+
+        if (com.tembus.customer.BuildConfig.DEBUG) {
+            val autoLoginResult = authRepository.startPasswordLogin("customer.mobile@tembus.id", "Customer123!")
+            if (autoLoginResult.isSuccess) {
+                val response = autoLoginResult.getOrNull()
+                val liveToken = response?.data?.token ?: response?.accessToken
+                val customerId = response?.data?.customerId ?: response?.user?.id
+                val customerName = response?.data?.name ?: response?.user?.fullName ?: response?.user?.name
+                if (!liveToken.isNullOrBlank() && !customerId.isNullOrBlank()) {
+                    sessionManager.saveSession(
+                        token = liveToken,
+                        id = customerId,
+                        name = customerName
+                    )
+                    return Screen.Dashboard.route
+                }
+            }
         }
 
-        return if (!token.isNullOrEmpty()) {
-            Screen.Dashboard.route
-        } else {
-            Screen.AuthGraph.route
-        }
+        sessionManager.clearSession(SessionInvalidationReason.TOKEN_EXPIRED)
+        return Screen.AuthGraph.route
     }
 
     private fun syncFcmToken() {

@@ -224,160 +224,155 @@ export default function ExperiencePreview({ surface, sections, resolvedSections,
               className={`mx-auto my-3 border-[10px] border-slate-900 bg-slate-950 shadow-2xl overflow-hidden ring-1 ring-white/20 select-none ${currentDevice.frameRadius}`}
             >
               {/* Smartphone Screen Viewport */}
-              <div className="bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-[660px] flex flex-col justify-between overflow-hidden relative">
-                {/* Floating Edge-to-Edge Status Bar (Persis Android statusBarsPadding: transparan di atas background gambar) */}
-                <div className="absolute top-0 inset-x-0 h-10 px-5 flex items-center justify-between text-white text-[12px] font-semibold bg-gradient-to-b from-black/55 via-black/20 to-transparent z-30 pointer-events-none">
-                  <div className="flex items-center gap-1.5 drop-shadow-sm">
-                    <span>11:32</span>
-                    {currentDevice.os === 'android' ? (
-                      <Shield size={12} className="text-emerald-400" aria-hidden="true" />
-                    ) : null}
-                  </div>
-
-                  {/* Camera / Notch / Dynamic Island */}
-                  {currentDevice.os === 'ios' ? (
-                    <div className="w-24 h-5 rounded-full bg-black ring-1 ring-white/10 shrink-0" />
-                  ) : (
-                    <div className="w-3.5 h-3.5 rounded-full bg-black ring-2 ring-black/70 shrink-0 shadow-inner" />
-                  )}
-
-                  <div className="flex items-center gap-2 drop-shadow-sm">
-                    <div className="flex items-end gap-[1.5px] h-3" aria-hidden="true">
-                      <div className="w-[2.5px] h-1 bg-white rounded-xs" />
-                      <div className="w-[2.5px] h-1.5 bg-white rounded-xs" />
-                      <div className="w-[2.5px] h-2 bg-white rounded-xs" />
-                      <div className="w-[2.5px] h-3 bg-white rounded-xs" />
-                    </div>
-                    <Wifi size={13} className="text-white" aria-hidden="true" />
-                    <div className="w-5 h-2.5 rounded-[3px] border border-white/80 p-[1px] flex items-center" aria-hidden="true">
-                      <div className="h-full w-full bg-white rounded-xs" />
-                    </div>
-                  </div>
-                </div>
+              <div className="bg-[#111111] dark:bg-[#111111] text-slate-900 min-h-[660px] flex flex-col justify-between overflow-hidden relative">
+                {/* ===================================================================
+                    ANDROID HOME SCREEN — PIXEL-PERFECT MATCH DENGAN SCREENSHOT ASLI
+                    Referensi: media_1789546618123 (screenshot device 2:52)
+                    Bg layar adalah hitam (#111111) bukan abu, persis Android OLED/dark header
+                    =================================================================== */}
 
                 {/* Scrollable Mobile Content */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar pb-4">
-                  {/* === TEMBUS HOME HEADER (PERSIS DENGAN KOTLIN DashboardHomeComponents.kt) === */}
-                  <div className="relative w-full overflow-hidden">
-                    {/* Background Layer: matchParentSize with padding(bottom = 44.dp) */}
-                    <div
-                      className="absolute inset-x-0 top-0 bottom-[44px] overflow-hidden"
-                      style={{
-                        background: resolvedHeroBgImage
-                          ? undefined
-                          : `linear-gradient(180deg, ${heroCustomBg} 0%, #00462e 100%)`,
-                      }}
-                    >
-                      {resolvedHeroBgImage ? (
+                <div className="flex-1 overflow-y-auto custom-scrollbar pb-4 bg-[#f5f5f5]">
+
+                  {/* ---- 1. DARK HEADER AREA: Status bar + Search bar ---- */}
+                  {/* Di Android: background hitam/dark, status bar di atas, search bar di bawahnya */}
+                  <div style={{ background: '#1a1a1a' }}>
+                    {/* Status bar row */}
+                    <div className="px-5 pt-2 pb-1 h-9 flex items-center justify-between text-white text-[12px] font-semibold">
+                      <div className="flex items-center gap-1.5">
+                        <span>11:32</span>
+                        {currentDevice.os === 'android' ? (
+                          <Shield size={11} className="text-emerald-400" aria-hidden="true" />
+                        ) : null}
+                      </div>
+                      {/* Camera punch-hole / notch */}
+                      {currentDevice.os === 'ios' ? (
+                        <div className="w-20 h-4 rounded-full bg-black ring-1 ring-white/10 shrink-0" />
+                      ) : (
+                        <div className="w-3 h-3 rounded-full bg-black ring-2 ring-gray-700 shrink-0" />
+                      )}
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-end gap-[1.5px] h-3" aria-hidden="true">
+                          <div className="w-[2px] h-1 bg-white/80 rounded-xs" />
+                          <div className="w-[2px] h-1.5 bg-white/80 rounded-xs" />
+                          <div className="w-[2px] h-2 bg-white/80 rounded-xs" />
+                          <div className="w-[2px] h-3 bg-white/80 rounded-xs" />
+                        </div>
+                        <Wifi size={12} className="text-white" aria-hidden="true" />
+                        <div className="w-5 h-2.5 rounded-[3px] border border-white/70 p-[1px] flex items-center" aria-hidden="true">
+                          <div className="h-full w-full bg-white rounded-xs" />
+                        </div>
+                      </div>
+                    </div>
+                    {/* Search bar row */}
+                    <div className="px-3 pb-3 flex items-center gap-2.5">
+                      <div className="flex-1 h-11 flex items-center gap-2.5 bg-white rounded-full px-4 shadow-sm">
+                        <Search size={15} className="text-[#006C47] shrink-0" aria-hidden="true" />
+                        <span className="text-[13px] text-gray-400 font-normal truncate">Cari layanan, makanan...</span>
+                      </div>
+                      <div
+                        aria-label="Notifikasi"
+                        title="Notifikasi"
+                        className="w-11 h-11 rounded-full bg-white/12 border border-white/15 flex items-center justify-center text-white/90 shrink-0"
+                      >
+                        <Bell size={19} aria-hidden="true" />
+                      </div>
+                      <div
+                        aria-label="Profil"
+                        title="Profil"
+                        className="w-11 h-11 rounded-full bg-white/12 border border-white/15 flex items-center justify-center text-white/90 shrink-0"
+                      >
+                        <User size={19} aria-hidden="true" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ---- 2. HERO BANNER IMAGE — full width langsung di bawah header ---- */}
+                  {/* Di Android: AsyncImage full width, height ≈ 160dp, NO horizontal padding */}
+                  <div className="relative w-full overflow-hidden" style={{ height: '160px' }}>
+                    {resolvedHeroBgImage ? (
+                      <>
                         <div
-                          className="absolute inset-0 bg-cover bg-top"
+                          className="absolute inset-0"
                           style={{
                             backgroundImage: `url(${resolvedHeroBgImage})`,
                             backgroundSize: 'cover',
                             backgroundPosition: 'top center',
                           }}
-                        >
-                          {/* Android Brush.verticalGradient overlay: Black 25% -> Transparent -> Black 15% */}
-                          <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/20" />
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {/* Column (Foreground Content with statusBarsPadding equivalent) */}
-                    <div className="relative z-10 pt-10 flex flex-col">
-                      {/* Top Bar: Search + Notification + Profile */}
-                      <div className="px-4 flex items-center gap-2 mb-2">
-                        <div className="flex-1 h-10 flex items-center gap-2 bg-white/95 rounded-full px-4 shadow-sm border border-black/5">
-                          <Search size={16} className="text-[#006C47] shrink-0" aria-hidden="true" />
-                          <span className="text-[13px] text-gray-500 font-medium truncate">Cari layanan, makanan...</span>
-                        </div>
-                        <div
-                          aria-label="Notifikasi"
-                          title="Notifikasi"
-                          className="w-10 h-10 rounded-full bg-white/20 backdrop-blur border border-white/35 flex items-center justify-center text-white shrink-0 shadow-sm"
-                        >
-                          <Bell size={18} aria-hidden="true" />
-                        </div>
-                        <div
-                          aria-label="Profil"
-                          title="Profil"
-                          className="w-10 h-10 rounded-full bg-white/20 backdrop-blur border border-white/35 flex items-center justify-center text-white shrink-0 shadow-sm"
-                        >
-                          <User size={18} aria-hidden="true" />
-                        </div>
-                      </div>
-
-                      {/* Middle Area: HomeHeroPromoBanner (height 130.dp in Kotlin) */}
-                      <div className="w-full px-4 my-2 flex flex-col justify-end" style={{ minHeight: '130px' }}>
-                        {!resolvedHeroBgImage ? (
-                          <div className="w-full py-2">
-                            <span className="inline-block rounded-full bg-white/20 backdrop-blur px-2.5 py-0.5 text-[10px] font-bold text-white border border-white/30 mb-1.5 shadow-xs">
-                              {heroBadge}
-                            </span>
-                            <h3 className="text-base font-black text-white leading-snug drop-shadow">
-                              {heroTitle}
-                            </h3>
-                            {heroBody ? (
-                              <p className="mt-1 text-[11px] text-white/90 leading-tight">
-                                {heroBody}
-                              </p>
-                            ) : null}
-                            {heroCta ? (
-                              <span className="mt-2.5 inline-flex items-center gap-1 rounded-full bg-[#D4F73C] px-3 py-1 text-[11px] font-black text-slate-900 shadow">
-                                {heroCta} →
-                              </span>
-                            ) : null}
-                          </div>
+                        />
+                        {/* Gradient fade ke bawah */}
+                        <div className="absolute bottom-0 inset-x-0 h-10 bg-gradient-to-t from-black/30 to-transparent" />
+                      </>
+                    ) : (
+                      /* Mode teks (tidak ada gambar): gradient hijau + teks promo */
+                      <div
+                        className="absolute inset-0 flex flex-col justify-end p-4 pb-14"
+                        style={{ background: `linear-gradient(160deg, ${heroCustomBg} 0%, #003d28 100%)` }}
+                      >
+                        {heroBadge ? (
+                          <span className="inline-block rounded-full bg-white/20 backdrop-blur px-2.5 py-0.5 text-[10px] font-bold text-white border border-white/30 mb-2 self-start">
+                            {heroBadge}
+                          </span>
                         ) : null}
-
-                        {/* Guide Danger Zone Overlay jika aktif */}
-                        {showDangerZone && resolvedHeroBgImage ? (
-                          <div
-                            className="w-full h-7 rounded-lg flex items-center justify-center text-[8px] font-black text-white"
-                            style={{
-                              background: 'repeating-linear-gradient(135deg, rgba(239,68,68,0.7) 0px, rgba(239,68,68,0.7) 6px, rgba(0,0,0,0.55) 6px, rgba(0,0,0,0.55) 12px)',
-                              borderTop: '1.5px dashed rgba(239,68,68,0.95)',
-                            }}
-                          >
-                            Area Tertutup Card Saldo (Bottom Danger Zone)
-                          </div>
+                        <h3 className="text-[15px] font-black text-white leading-snug drop-shadow">
+                          {heroTitle}
+                        </h3>
+                        {heroBody ? (
+                          <p className="mt-1 text-[11px] text-white/90 leading-snug">{heroBody}</p>
+                        ) : null}
+                        {heroCta ? (
+                          <span className="mt-2.5 self-start inline-flex items-center gap-1 rounded-full bg-[#D4F73C] px-3.5 py-1 text-[11px] font-black text-slate-900 shadow">
+                            {heroCta} →
+                          </span>
                         ) : null}
                       </div>
+                    )}
+                    {/* Danger Zone Guide (44dp dari bawah banner) */}
+                    {showDangerZone && resolvedHeroBgImage ? (
+                      <div
+                        className="absolute bottom-0 inset-x-0 flex items-center justify-center z-10"
+                        style={{
+                          height: '44px',
+                          background: 'repeating-linear-gradient(135deg, rgba(239,68,68,0.6) 0px, rgba(239,68,68,0.6) 6px, rgba(0,0,0,0.45) 6px, rgba(0,0,0,0.45) 12px)',
+                          borderTop: '1.5px dashed rgba(239,68,68,0.95)',
+                        }}
+                      >
+                        <span className="text-[8px] font-black text-white drop-shadow">▼ Area Tertutup Card Saldo ▼</span>
+                      </div>
+                    ) : null}
+                  </div>
 
-                      {/* Spacer 14dp */}
-                      <div className="h-3.5" />
-
-                      {/* WalletCard — menimpa 44px bagian bawah layer background */}
-                      <div className="mx-4 rounded-2xl bg-white shadow-xl border border-gray-100 p-3.5 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-[#E8F5E9] flex items-center justify-center text-[#006C47] shrink-0">
-                            <CreditCard size={20} aria-hidden="true" />
-                          </div>
-                          <div>
-                            <p className="text-[11px] text-gray-500 font-semibold leading-tight">Saldo siap dipakai</p>
-                            <p className="text-[17px] font-black text-gray-900 leading-tight">Rp50.000</p>
-                            <p className="text-[10px] text-gray-400">183 coins reward</p>
-                          </div>
+                  {/* ---- 3. WALLET CARD — overlap -44px dari bawah banner ---- */}
+                  <div className="mx-3 -mt-11 relative z-10">
+                    <div className="rounded-2xl bg-white shadow-xl border border-gray-100 px-4 py-3.5 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#006C47] shrink-0">
+                          <CreditCard size={20} aria-hidden="true" />
                         </div>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <div className="flex flex-col items-center">
-                            <div className="w-8 h-8 rounded-lg bg-[#006C47] text-white flex items-center justify-center shadow-sm">
-                              <ArrowUp size={16} aria-hidden="true" />
-                            </div>
-                            <span className="text-[10px] font-bold text-gray-800 mt-1">Bayar</span>
+                        <div>
+                          <p className="text-[11px] text-gray-500 font-medium leading-tight">Saldo siap dipakai</p>
+                          <p className="text-[17px] font-black text-gray-900 leading-tight">Rp50.000</p>
+                          <p className="text-[10px] text-gray-400 leading-tight">183 coins reward</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="w-10 h-10 rounded-xl bg-[#006C47] text-white flex items-center justify-center shadow-sm">
+                            <ArrowUp size={17} aria-hidden="true" />
                           </div>
-                          <div className="flex flex-col items-center">
-                            <div className="w-8 h-8 rounded-lg bg-[#006C47] text-white flex items-center justify-center shadow-sm">
-                              <Plus size={16} aria-hidden="true" />
-                            </div>
-                            <span className="text-[10px] font-bold text-gray-800 mt-1">Top Up</span>
+                          <span className="text-[9px] font-semibold text-gray-700">Bayar</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="w-10 h-10 rounded-xl bg-[#006C47] text-white flex items-center justify-center shadow-sm">
+                            <Plus size={17} aria-hidden="true" />
                           </div>
-                          <div className="flex flex-col items-center">
-                            <div className="w-8 h-8 rounded-lg bg-[#006C47] text-white flex items-center justify-center shadow-sm">
-                              <MoreHorizontal size={16} aria-hidden="true" />
-                            </div>
-                            <span className="text-[10px] font-bold text-gray-800 mt-1">Lainnya</span>
+                          <span className="text-[9px] font-semibold text-gray-700">Top Up</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="w-10 h-10 rounded-xl bg-[#006C47] text-white flex items-center justify-center shadow-sm">
+                            <MoreHorizontal size={17} aria-hidden="true" />
                           </div>
+                          <span className="text-[9px] font-semibold text-gray-700">Lainnya</span>
                         </div>
                       </div>
                     </div>

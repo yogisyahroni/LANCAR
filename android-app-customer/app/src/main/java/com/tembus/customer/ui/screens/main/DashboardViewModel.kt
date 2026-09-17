@@ -53,8 +53,20 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    suspend fun resolveExperienceAsset(snapshot: ExperienceConfigSnapshot, assetId: String): String? =
-        experienceConfigManager.resolveAssetPath(snapshot, assetId)
+    suspend fun resolveExperienceAsset(snapshot: ExperienceConfigSnapshot, assetId: String): String? {
+        val path = experienceConfigManager.resolveAssetPath(snapshot, assetId)
+        if (!path.isNullOrBlank()) return path
+
+        if (assetId.startsWith("http://") || assetId.startsWith("https://")) return assetId
+        if (assetId.startsWith("/")) return "http://10.0.2.2:8080$assetId"
+
+        val ref = snapshot.manifest.assetReferences.firstOrNull { it.assetId == assetId }
+        if (ref != null && ref.uri.isNotBlank()) {
+            return if (ref.uri.startsWith("/")) "http://10.0.2.2:8080${ref.uri}" else ref.uri
+        }
+
+        return "http://10.0.2.2:8080/uploads/banners/$assetId.jpg"
+    }
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
@@ -116,7 +128,7 @@ class DashboardViewModel @Inject constructor(
             orderRepository.getCustomerDeliveryServices().collectLatest { result ->
                 result.onSuccess { services ->
                     _services.value = services
-                        .filter { it.serviceCategory in setOf("on_demand", "regular", "food_delivery") && it.isEnabled } // FIX 2026-08-11: food_delivery category ikut muncul di grid
+                        .filter { it.serviceCategory in setOf("on_demand", "regular", "food_delivery", "tambal_ban", "towing") && it.isEnabled } // FIX 2026-08-11: food_delivery, tambal_ban, towing category ikut muncul di grid
                         .sortedBy { it.displayOrder }
                 }.onFailure { error ->
                     _services.value = emptyList()

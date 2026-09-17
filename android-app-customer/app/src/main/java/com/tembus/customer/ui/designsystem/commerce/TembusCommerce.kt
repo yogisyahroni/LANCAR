@@ -78,7 +78,7 @@ fun FoodMerchant.toTembusMerchantCardModel(isFavorite: Boolean = false): TembusM
     TembusMerchantCardModel(
         id = id,
         name = name,
-        imageUrl = imageUrl ?: menuItems.firstOrNull()?.foto,
+        imageUrl = imageUrl ?: menuItems.firstOrNull { !it.foto.isNullOrBlank() }?.foto ?: "https://api.bawain.my.id/uploads/banners/promo_food_dish.jpg",
         imageDescription = "Foto $name",
         address = address.takeIf { it.isNotBlank() },
         rating = avgRating,

@@ -292,7 +292,10 @@ fun DashboardScreen(
                     }
 
                     item {
-                        if (experienceSnapshot.manifest.sections.isEmpty()) {
+                        val hasCustomServiceGrid = experienceSnapshot.manifest.sections
+                            .any { it.enabled && it.component == "service_grid" }
+
+                        if (!hasCustomServiceGrid) {
                             TembusHomeServiceGrid(
                                 onPickupClick = { onBookingClick("pickup") }, // Gabung ambil/kirim
                                 onFoodClick = onFoodClick,
@@ -301,7 +304,9 @@ fun DashboardScreen(
                                 onTambalBanClick = { onBookingClick("tambal_ban") },
                                 onTowingClick = { onBookingClick("towing") }
                             )
-                        } else {
+                        }
+
+                        if (experienceSnapshot.manifest.sections.isNotEmpty()) {
                             DynamicHomeRenderer(
                                 snapshot = experienceSnapshot,
                                 services = visibleServices,
