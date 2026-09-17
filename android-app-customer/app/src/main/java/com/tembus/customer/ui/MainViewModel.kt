@@ -79,7 +79,10 @@ class MainViewModel @Inject constructor(
 
     private suspend fun resolveAuthenticatedDestination(): String {
         val token = sessionManager.getTokenOnce()
-        if (!token.isNullOrEmpty() && !sessionManager.isCurrentTokenExpired()) {
+        // UAT FIX: token real yang kedaluwarsa jangan dianggap valid — kalau tidak,
+        // cold-start build DEBUG macet di Dashboard dengan token mati (banner 401 abadi).
+        // isStoredRealTokenExpired() identik dengan isCurrentTokenExpired() untuk release.
+        if (!token.isNullOrEmpty() && !sessionManager.isStoredRealTokenExpired()) {
             return Screen.Dashboard.route
         }
 
@@ -94,7 +97,8 @@ class MainViewModel @Inject constructor(
                     sessionManager.saveSession(
                         token = liveToken,
                         id = customerId,
-                        name = customerName
+                        name = customerName,
+                        refreshToken = response?.refreshToken,
                     )
                     return Screen.Dashboard.route
                 }
