@@ -294,7 +294,7 @@ private fun ServiceCard(
                     fontWeight = FontWeight.Medium
                 )
             }
-            Text("Pesan", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            Text("Buat Pesanan", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
         }
     }
 }

@@ -433,7 +433,7 @@ private fun FormBody(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
                     isError = accountHolder.isNotEmpty() && !WithdrawLimits.isValidAccountHolder(accountHolder.trim()),
                     supportingText = {
-                        Text("Huruf dan spasi saja — sesuai nama di bank", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                        Text("Huruf dan spasi saja, sesuai nama di bank", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                     },
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Primary, focusedLabelColor = Primary)
                 )

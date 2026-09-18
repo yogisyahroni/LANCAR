@@ -41,9 +41,9 @@ di `android-app-customer/.../src/main`):
 
 Acceptance:
 
-- [ ] Nol karakter U+2014 di string user-facing customer app (test: grep di CI atau unit test kontrak).
-- [ ] Tidak ada emoji mentah di string UI (⚠️ dll diganti ikon + teks).
-- [ ] `testDebugUnitTest` customer tetap hijau.
+- [x] Nol karakter U+2014 di string user-facing customer app (test: grep di CI atau unit test kontrak).
+- [x] Tidak ada emoji mentah di string UI (⚠️ dll diganti ikon + teks).
+- [x] `testDebugUnitTest` customer tetap hijau.
 
 ### UIUX-2026-002 — Sinkronkan highlight bottom-nav dengan destinasi (C-4/R-26) [HIGH]
 
@@ -53,9 +53,9 @@ padahal konten = Beranda. Kemungkinan state tab tersimpan tidak sinkron dengan
 
 Acceptance:
 
-- [ ] Cold start selalu highlight tab sesuai layar yang tampil (Beranda ↔ Beranda).
-- [ ] Pindah tab manual + rotasi/proses mati tidak merusak sinkronisasi.
-- [ ] Bukti emulator: screenshot Beranda + Riwayat + Profil seusai fix.
+- [x] Cold start selalu highlight tab sesuai layar yang tampil (Beranda ↔ Beranda).
+- [x] Pindah tab manual + rotasi/proses mati tidak merusak sinkronisasi.
+- [x] Bukti emulator: screenshot Beranda + Riwayat + Profil seusai fix.
 
 ### UIUX-2026-003 — Perbaiki render nama kurir `Andri+Pratama` (R-38) [HIGH]
 
@@ -66,9 +66,9 @@ satu tempat (jangan patch dua sisi).
 
 Acceptance:
 
-- [ ] Nama "Andri Pratama" tampil berspasi di semua layar (home tambal, detail teknisi, booking).
-- [ ] Tidak ada transformasi nama baru yang merusak nama sah bertanda `+`.
-- [ ] Bukti emulator: screenshot kedua layar.
+- [x] Nama "Andri Pratama" tampil berspasi di semua layar (home tambal, detail teknisi, booking).
+- [x] Tidak ada transformasi nama baru yang merusak nama sah bertanda `+`.
+- [x] Bukti emulator: screenshot kedua layar.
 
 ### UIUX-2026-004 — Konsistensi locale satu sesi (R-20) [MEDIUM]
 
@@ -78,9 +78,9 @@ Standar global: satu locale penuh per sesi, ikut bahasa device/akun.
 
 Acceptance:
 
-- [ ] Kunci string yang belum diterjemahkan dilengkapi ID + EN.
-- [ ] Cold start EN dan ID masing-masing murni satu bahasa di Beranda + Tambal Ban + Food.
-- [ ] Bukti emulator: dua screenshot (EN penuh, ID penuh).
+- [x] Kunci string yang belum diterjemahkan dilengkapi ID + EN.
+- [x] Cold start EN dan ID masing-masing murni satu bahasa di Beranda + Tambal Ban + Food.
+- [x] Bukti emulator: dua screenshot (EN penuh, ID penuh).
 
 ### UIUX-2026-005 — Rapikan error katalog material di booking (R-27) [MEDIUM]
 
@@ -91,9 +91,9 @@ bila kosong).
 
 Acceptance:
 
-- [ ] Tidak ada teks error merah saat flow bisa lanjut; bila gagal beneran,
+- [x] Tidak ada teks error merah saat flow bisa lanjut; bila gagal beneran,
       ada aksi retry yang jelas.
-- [ ] Bukti emulator: booking tanpa error merah + (bila endpoint diperbaiki)
+- [x] Bukti emulator: booking tanpa error merah + (bila endpoint diperbaiki)
       section material tampil.
 
 ### UIUX-2026-006 — Tracking berkonteks: kartu status + ETA + aksi (C-3/C-4) [MEDIUM]
@@ -105,11 +105,11 @@ terikat data `tracking-detail` yang sudah terbukti 200.
 
 Acceptance:
 
-- [ ] Tracking order aktif selalu tampil kartu status + ETA + minimal 1 aksi
+- [x] Tracking order aktif selalu tampil kartu status + ETA + minimal 1 aksi
       (chat/telepon/SOS) tanpa perlu gesture tersembunyi.
-- [ ] Marker kurir/pickup tampil bila lokasi tersedia; bila tidak, tertulis
+- [x] Marker kurir/pickup tampil bila lokasi tersedia; bila tidak, tertulis
       jujur (bukan peta kosong).
-- [ ] Bukti emulator: screenshot tracking order aktif (pakai order UAT
+- [x] Bukti emulator: screenshot tracking order aktif (pakai order UAT
       `TMB-805738-000408` atau order baru).
 
 ### UIUX-2026-007 — Scrim status-bar di atas peta terang (R-25) [LOW]
@@ -119,8 +119,8 @@ overlay sadar status-bar di layar peta (tracking + booking map bila ada).
 
 Acceptance:
 
-- [ ] Jam + ikon status terbaca di atas tile terang maupun gelap.
-- [ ] Bukti emulator: screenshot peta terang.
+- [x] Jam + ikon status terbaca di atas tile terang maupun gelap.
+- [x] Bukti emulator: screenshot peta terang.
 
 ## Yang eksplisit BUKAN temuan (jangan "diperbaiki")
 
@@ -130,11 +130,11 @@ Acceptance:
 
 ## Verification record (isi saat eksekusi)
 
-- [ ] `android-app-customer`: `.\gradlew.bat :app:testDebugUnitTest`.
-- [ ] `android-app-customer`: `.\gradlew.bat :app:assembleDebug`.
-- [ ] Emulator Pixel_6_Pro_customer: screenshot tiap TASK-ID seusai fix.
-- [ ] `rg '\u2014' android-app-customer/app/src/main` → nol hasil user-facing.
-- [ ] Evidence per TASK-ID: `docs/task-evidence/UIUX-2026-00X.md`.
+- [x] `android-app-customer`: `.\gradlew.bat :app:testDebugUnitTest`.
+- [x] `android-app-customer`: `.\gradlew.bat :app:assembleDebug`.
+- [x] Emulator Pixel_6_Pro_customer: screenshot tiap TASK-ID seusai fix.
+- [x] `rg '\u2014' android-app-customer/app/src/main` → nol hasil user-facing.
+- [x] Evidence per TASK-ID: `docs/task-evidence/UIUX-2026-00X.md`.
 
 ## Non-Goal
 

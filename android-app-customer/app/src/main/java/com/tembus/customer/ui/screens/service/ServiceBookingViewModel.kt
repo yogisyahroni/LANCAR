@@ -398,7 +398,7 @@ class ServiceBookingViewModel @Inject constructor(
             val dropoffAddress = if (isTowing) state.dropoffAddress else state.customerAddress
             val dropoffLat = if (isTowing) state.dropoffLat else state.customerLat
             val dropoffLng = if (isTowing) state.dropoffLng else state.customerLng
-            val itemDesc = "Towing ${vehicleType.trim()} ${vehicleMake.trim()} ${vehicleModel.trim()} — ${vehicleCondition.trim()}"
+            val itemDesc = "Towing ${vehicleType.trim()} ${vehicleMake.trim()} ${vehicleModel.trim()}, ${vehicleCondition.trim()}"
 
             val req = CustomerOrderCreateRequest(
                 pickupAddress = state.customerAddress,

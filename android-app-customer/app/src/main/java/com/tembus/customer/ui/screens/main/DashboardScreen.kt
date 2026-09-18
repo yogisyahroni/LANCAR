@@ -216,6 +216,14 @@ fun DashboardScreen(
 
     var selectedDestination by rememberSaveable { mutableStateOf("home") }
 
+    // UIUX-2026-002: pill navigasi harus selalu sinkron dengan layar tampil.
+    // rememberSaveable mempertahankan pilihan lama saat kembali dari History/
+    // Profil/Bisnis (mis. pill Riwayat menyala di atas konten Beranda).
+    // Dashboard yang tampil = home, jadi reset setiap komposisi baru.
+    LaunchedEffect(Unit) {
+        selectedDestination = "home"
+    }
+
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val useNavigationRail = maxWidth >= 600.dp
         SharedTransitionLayout(Modifier.fillMaxSize()) {
@@ -394,11 +402,12 @@ private fun SharedTransitionScope.CustomerNavigation(
     onProfileClick: () -> Unit
 ) {
     data class NavItem(val key: String, val label: String, val icon: ImageVector, val onClick: () -> Unit)
+    // UIUX-2026-004: label nav lewat katalog agar ikut locale (EN: Home/History/Business/Profile).
     val items = listOf(
-        NavItem("home", "Beranda", Icons.Default.LocalShipping, onHomeClick),
-        NavItem("history", "Riwayat", Icons.Default.History, onHistoryClick),
-        NavItem("business", "Bisnis", Icons.Default.Store, onBusinessClick),
-        NavItem("profile", "Profil", Icons.Default.Person, onProfileClick)
+        NavItem("home", CustomerTextCatalog.translate("Beranda"), Icons.Default.LocalShipping, onHomeClick),
+        NavItem("history", CustomerTextCatalog.translate("Riwayat"), Icons.Default.History, onHistoryClick),
+        NavItem("business", CustomerTextCatalog.translate("Bisnis"), Icons.Default.Store, onBusinessClick),
+        NavItem("profile", CustomerTextCatalog.translate("Profil"), Icons.Default.Person, onProfileClick)
     )
     AnimatedContent(targetState = selectedDestination, label = "customer-navigation-selection") { selected ->
         if (useNavigationRail) {

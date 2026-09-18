@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -204,6 +205,24 @@ fun TrackingScreen(
             modifier = Modifier.fillMaxSize()
         )
 
+        // LAYER 1.5: TOP SCRIM (UIUX-2026-007)
+        // Ikon status-bar putih tak terbaca di atas tile peta yang terang (R-25).
+        // Scrim gradien hitam→transparan setinggi area status + tombol kembali.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(140.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.35f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+
         // LAYER 2: TOP NAVIGATION OVERLAY
         SafeAreaWrapper {
             IconButton(
@@ -316,7 +335,7 @@ fun TrackingScreen(
             AlertDialog(
                 onDismissRequest = { sosConfirmationOpen = false },
                 title = { Text("Konfirmasi SOS") },
-                text = { Text("SOS akan membuat insiden CRITICAL dan mengirimkannya ke jalur eskalasi market. Jika vendor belum tersedia, aplikasi hanya mencatat insiden dan menampilkan instruksi darurat yang disetujui—tidak ada respons yang dijanjikan.") },
+                text = { Text("SOS akan membuat insiden CRITICAL dan mengirimkannya ke jalur eskalasi market. Jika vendor belum tersedia, aplikasi hanya mencatat insiden dan menampilkan instruksi darurat yang disetujui (tidak ada respons yang dijanjikan).") },
                 confirmButton = {
                     Button(
                         onClick = { sosConfirmationOpen = false; viewModel.triggerSafetySos(orderId) },
@@ -331,8 +350,11 @@ fun TrackingScreen(
         }
 
         // LAYER 4: LIVE STATUS PANEL
+        // UIUX-2026-006: kartu status wajib ada meski lokasi live kurir belum
+        // tersedia (mis. GPS kurir basi) — status order, stage, ETA snapshot,
+        // dan alasan basi tetap memberi konteks. Tanpa ini hanya ada peta kosong.
         AnimatedVisibility(
-            visible = uiState.courierLocation != null,
+            visible = uiState.courierLocation != null || uiState.detail?.order != null,
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {

@@ -172,7 +172,7 @@ fun CourierDetailScreen(
                     Spacer(Modifier.height(16.dp))
 
                     Text(
-                        "💡 Harga jasa ditentukan oleh petugas. Biaya per-km dan tol ditentukan oleh sistem.",
+                        "Harga jasa ditentukan oleh petugas. Biaya per-km dan tol ditentukan oleh sistem.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -72,7 +72,7 @@ object LocaleFormatters {
 
     fun phone(number: String?, countryCode: String = "ID"): String {
         val raw = number?.trim().orEmpty()
-        if (raw.isBlank()) return "—"
+        if (raw.isBlank()) return "-"
         val digits = raw.filter { it.isDigit() }
         val dialCode = when (countryCode.uppercase(Locale.ROOT)) {
             "US", "CA" -> "1"

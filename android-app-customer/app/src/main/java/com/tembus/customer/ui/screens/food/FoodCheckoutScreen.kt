@@ -327,7 +327,7 @@ fun FoodCheckoutScreen(
                                 if (picked < freshMin) {
                                     // AUDIT-FIX: feedback eksplisit, bukan clamp siluman
                                     // (user pilih 13:00 tapi dikirim 13:45 diam-diam).
-                                    scheduleError = "Pilih minimal 30 menit dari sekarang — jam dipilih terlalu dekat"
+                                    scheduleError = "Pilih minimal 30 menit dari sekarang. Jam yang dipilih terlalu dekat."
                                     scheduledAtMs = null
                                 } else {
                                     scheduleError = null
@@ -550,7 +550,7 @@ fun FoodCheckoutScreen(
                 else Text("Gunakan lokasi perangkat sebagai titik antar", fontSize = 13.sp)
             }
             Text(
-                if (checkoutLat != null && checkoutLng != null) "Pin pengantaran terpilih — harga akan dihitung dari titik ini."
+                if (checkoutLat != null && checkoutLng != null) "Pin pengantaran terpilih. Harga akan dihitung dari titik ini."
                 else "Pilih alamat tersimpan atau tetapkan pin perangkat sebelum checkout.",
                 color = if (checkoutLat != null && checkoutLng != null) Success else Error,
                 fontSize = 12.sp,
@@ -778,7 +778,7 @@ fun FoodCheckoutScreen(
 
             Spacer(Modifier.height(8.dp))
             Text(
-                "Harga dihitung ulang oleh server — biaya antar dihitung otomatis.",
+                "Harga dihitung ulang oleh server. Biaya antar dihitung otomatis.",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally)

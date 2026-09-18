@@ -487,7 +487,11 @@ fun RootNavGraph(
                 val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: "tambal_ban_motor"
                 val courierId = backStackEntry.arguments?.getString("courierId")
                 val courierPrice = backStackEntry.arguments?.getString("courierPrice")?.toLongOrNull()
-                val courierName = backStackEntry.arguments?.getString("courierName")
+                // UIUX-2026-003: courierName dikirim ter-encode (URLEncoder, spasi jadi '+').
+                // Decode seperti rute Chat agar nama tampil benar ("Andri Pratama").
+                val courierName = backStackEntry.arguments?.getString("courierName")?.let { raw ->
+                    runCatching { java.net.URLDecoder.decode(raw, "UTF-8") }.getOrDefault(raw)
+                }
                 val courierRating = backStackEntry.arguments?.getString("courierRating")?.toDoubleOrNull()
                 ServiceBookingScreen(
                     serviceSubType = serviceSubType,

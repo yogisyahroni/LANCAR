@@ -1355,7 +1355,10 @@ app.use(createProxyMiddleware({
 app.use(createProxyMiddleware({
   pathFilter: (pathname: string) =>
     pathname.startsWith('/api/v1/customer/nearby-couriers') ||
-    pathname.startsWith('/api/v1/customer/tambal-ban') ||
+    // UIUX-2026-005: /tambal-ban/materials dimiliki admin-service; jangan
+    // telan ke order-service (dulu 404) agar jatuh ke proxy /api/v1/customer.
+    (pathname.startsWith('/api/v1/customer/tambal-ban') &&
+      !pathname.startsWith('/api/v1/customer/tambal-ban/materials')) ||
     pathname.startsWith('/api/v1/customer/rating-reminders') ||
     pathname.startsWith('/api/v1/courier/service-report') ||
     (pathname.startsWith('/api/v1/customer/couriers/')),

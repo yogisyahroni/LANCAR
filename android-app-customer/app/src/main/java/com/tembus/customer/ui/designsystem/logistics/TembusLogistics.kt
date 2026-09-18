@@ -31,6 +31,7 @@ import com.tembus.customer.ui.designsystem.TembusButton
 import com.tembus.customer.ui.designsystem.TembusButtonVariant
 import com.tembus.customer.ui.designsystem.TembusCard
 import com.tembus.customer.ui.designsystem.TembusControlState
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 
 data class TembusAddressData(
     val label: String,
@@ -216,7 +217,8 @@ fun TembusCarrierRateCard(data: TembusCarrierRateData, onSelect: () -> Unit, mod
             data.distanceLabel?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             data.ratingLabel?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             // Provider truth is displayed directly; this component has no ad or campaign input.
-            TembusButton(text = if (data.selected) "Dipilih" else "Pilih", onClick = onSelect, state = if (selectable) TembusControlState.Default else TembusControlState.Disabled, variant = if (data.selected) TembusButtonVariant.Tonal else TembusButtonVariant.Primary, modifier = Modifier.fillMaxWidth())
+            // UIUX-2026-004: label ikut locale katalog ("Dipilih"->Selected, "Pilih"->Choose).
+            TembusButton(text = if (data.selected) CustomerTextCatalog.translate("Dipilih") else CustomerTextCatalog.translate("Pilih"), onClick = onSelect, state = if (selectable) TembusControlState.Default else TembusControlState.Disabled, variant = if (data.selected) TembusButtonVariant.Tonal else TembusButtonVariant.Primary, modifier = Modifier.fillMaxWidth())
         }
     }
 }

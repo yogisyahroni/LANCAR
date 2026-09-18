@@ -401,7 +401,7 @@ private fun refundHintForStatus(status: String, isFood: Boolean): String {
         return if (s in setOf("accepted", "picking_up")) {
             "Pembatalan dikenakan biaya 20% dari total pesanan."
         } else {
-            "Pembatalan gratis — dana dikembalikan penuh."
+            "Pembatalan gratis, dana dikembalikan penuh."
         }
     }
     return when (s) {
@@ -410,7 +410,7 @@ private fun refundHintForStatus(status: String, isFood: Boolean): String {
         "searching" ->
             "Gratis jika kurir belum ditugaskan. Jika kurir sudah menerima pesanan, biaya layanan ditahan."
         else ->
-            "Pembatalan gratis — dana dikembalikan penuh."
+            "Pembatalan gratis, dana dikembalikan penuh."
     }
 }
 

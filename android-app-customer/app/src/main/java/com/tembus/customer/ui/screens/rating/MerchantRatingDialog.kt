@@ -205,7 +205,7 @@ fun MerchantRatingDialog(
                         value = comment,
                         onValueChange = { comment = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Komentar (opsional) — rasa, porsi, kemasan...", fontSize = 13.sp) },
+                        placeholder = { Text("Komentar (opsional): rasa, porsi, kemasan...", fontSize = 13.sp) },
                         minLines = 2,
                         maxLines = 3,
                         shape = RoundedCornerShape(14.dp)
