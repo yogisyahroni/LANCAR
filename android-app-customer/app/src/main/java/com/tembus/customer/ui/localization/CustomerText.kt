@@ -24,6 +24,9 @@ import java.util.Locale
 object CustomerTextCatalog {
     private val englishTranslations = mapOf(
         "Beranda" to "Home",
+        "Aktivitas" to "Activity",
+        "Akun" to "Account",
+        "Pesan" to "Messages",
         "Pesanan" to "Orders",
         "Riwayat" to "History",
         "Riwayat Pesanan" to "Order History",
@@ -246,6 +249,24 @@ object CustomerTextCatalog {
         "Cek Harga" to "Check Price",
         "Pesan Sekarang" to "Order Now",
         "Lokasi masalah, kapabilitas teknisi, dan ETA untuk jalur bantuan terpendek." to "Issue location, technician capability, and ETA for the shortest help route.",
+        // DESIGN.md §12 (redesign home): greeting, grid, kartu order, rekomendasi.
+        "Halo" to "Hello",
+        "Kirim Paket" to "Send Package",
+        "Ambil Paket" to "Pick Up Package",
+        "Menunggu kurir" to "Finding courier",
+        "Kurir ditugaskan" to "Courier assigned",
+        "Kurir menuju pickup" to "Courier heading to pickup",
+        "Dalam perjalanan" to "On the way",
+        "Dibatalkan" to "Cancelled",
+        "Gagal" to "Failed",
+        "Rekomendasi kuliner dekatmu" to "Nearby food picks",
+        "Lihat Semua" to "See all",
+        "ID Pesanan" to "Order ID",
+        "Tidak ada rekomendasi saat ini" to "No recommendations right now",
+        "Selamat pagi" to "Good morning",
+        "Selamat siang" to "Good afternoon",
+        "Selamat sore" to "Good evening",
+        "Selamat malam" to "Good night",
     )
 
     fun translate(text: String): String {

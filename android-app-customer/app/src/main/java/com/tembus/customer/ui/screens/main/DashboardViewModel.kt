@@ -2,6 +2,8 @@ package com.tembus.customer.ui.screens.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tembus.customer.data.api.TEMBUSApiService
+import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.data.model.GlobalBanner
 import com.tembus.customer.data.model.Order
 import com.tembus.customer.data.model.DeliveryServiceProduct
@@ -29,6 +31,7 @@ class DashboardViewModel @Inject constructor(
     private val sessionManager: AuthSessionManager,
     private val experienceConfigManager: ExperienceConfigManager,
     private val experienceBannerAnalytics: ExperienceBannerAnalytics,
+    private val apiService: TEMBUSApiService,
 ) : ViewModel() {
     private val technicalErrorMarkers = listOf("HTTP ", "Exception", "java.", "kotlin.", "retrofit", "okhttp", "timeout")
 
@@ -83,6 +86,11 @@ class DashboardViewModel @Inject constructor(
 
     private val _notificationUnreadByCategory = MutableStateFlow<Map<String, Int>>(emptyMap())
     val notificationUnreadByCategory = _notificationUnreadByCategory.asStateFlow()
+
+    // DESIGN.md §12: rekomendasi kuliner dekatmu (maks 6, hanya yang buka).
+    // Dimuat sekali per lokasi GPS; gagal diam-diam agar Home tidak diblokir.
+    private val _recommendedMerchants = MutableStateFlow<List<FoodMerchant>>(emptyList())
+    val recommendedMerchants = _recommendedMerchants.asStateFlow()
 
     init {
         refreshData()
@@ -168,6 +176,25 @@ class DashboardViewModel @Inject constructor(
                         .mapKeys { it.key.lowercase() }
                         .mapValues { it.value.coerceAtLeast(0) }
                 }
+        }
+    }
+
+    /**
+     * DESIGN.md §12: rekomendasi kuliner. Dipanggil sekali per lokasi GPS
+     * dari layar (bukan init) supaya tidak menembak API tanpa posisi.
+     */
+    fun loadFoodRecommendations(lat: Double, lng: Double) {
+        if (_recommendedMerchants.value.isNotEmpty()) return
+        viewModelScope.launch {
+            runCatching {
+                apiService.listFoodMerchants(lat, lng, null, null, null, null, 6, 0)
+            }.onSuccess { res ->
+                if (res.isSuccessful) {
+                    _recommendedMerchants.value = (res.body()?.merchants ?: emptyList())
+                        .filter { it.isOpen }
+                        .take(6)
+                }
+            }
         }
     }
 }

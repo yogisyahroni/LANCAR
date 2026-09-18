@@ -15,10 +15,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 object TembusRadius {
-    val Card = 8.dp
-    val Sheet = 8.dp
-    val Button = 8.dp
-    val Input = 8.dp
+    // DESIGN.md §7: card 16, sheet 24 top, button 10-12, input 12-14, chip full.
+    val Card = 16.dp
+    val Sheet = 24.dp
+    val Button = 12.dp
+    val Input = 14.dp
     val Chip = 50.dp
 }
 
@@ -58,7 +59,8 @@ object TembusComponentDefaults {
     val CardBorderWidth = 1.dp
 
     fun cardShape() = RoundedCornerShape(TembusRadius.Card)
-    fun sheetShape() = RoundedCornerShape(TembusRadius.Sheet)
+    fun sheetShape() =
+        RoundedCornerShape(topStart = TembusRadius.Sheet, topEnd = TembusRadius.Sheet)
     fun buttonShape() = RoundedCornerShape(TembusRadius.Button)
     fun inputShape() = RoundedCornerShape(TembusRadius.Input)
     fun chipShape() = RoundedCornerShape(TembusRadius.Chip)

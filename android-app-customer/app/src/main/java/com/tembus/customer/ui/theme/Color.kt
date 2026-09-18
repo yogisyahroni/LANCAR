@@ -20,6 +20,15 @@ val AccentLight = Color(0xFFEA580C)      // color.accent-light
 val AccentSoft = Color(0xFFFFF1E6)       // pill orange bg
 val AccentPale = Color(0xFFFFF8F2)       // bg pucat orange
 
+// ─── DESIGN.md §3 PRIMARY CTA (contrast-audited 2026-09-18) ───────────────
+// Orange #FF6A00 fill + dark #111713 text = 6.33:1 PASS (normal text).
+// White on #FF6A00 = 2.87:1 FAIL — never use white text on orange.
+val OrangeCta = Color(0xFFFF6A00)        // primary CTA fill (light & dark)
+val OrangeCtaDeep = Color(0xFFE95700)    // pressed / emphasis variant
+val OnOrangeCta = Color(0xFF111713)      // CTA text (dark)
+val BrandHeader = Color(0xFF003A20)      // dark forest green header/sidebar
+val OnBrandHeader = Color(0xFFF5F7F4)    // text on brand header
+
 // Neutral light
 val Background = Color(0xFFF7F8F7)
 val Surface = Color(0xFFFFFFFF)

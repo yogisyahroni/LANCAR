@@ -2,6 +2,7 @@ package com.tembus.customer.ui.screens.main
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,7 +17,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -26,6 +32,10 @@ import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.MoveToInbox
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
@@ -74,10 +84,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tembus.customer.R
 import com.tembus.customer.data.model.GlobalBanner
+import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 import com.tembus.customer.ui.theme.Accent
+import com.tembus.customer.ui.theme.BrandHeader
+import com.tembus.customer.ui.theme.OnOrangeCta
+import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.Primary
+import com.tembus.customer.ui.theme.TembusCopy
 import com.tembus.customer.ui.theme.PrimaryDark
 import com.tembus.customer.ui.components.TembusServiceIcons
 import com.tembus.customer.ui.theme.TembusRadius
@@ -85,8 +100,70 @@ import com.tembus.customer.ui.theme.TembusRadius
 internal fun compactUnreadCount(count: Int): String = if (count > 9) "9+" else count.toString()
 
 @Composable
-internal fun TembusBrandMark(modifier: Modifier = Modifier) {
-    Image(
+internal fun TembusBrandHeaderRow(
+    customerName: String,
+    locationLabel: String?,
+    modifier: Modifier = Modifier,
+) {
+    // DESIGN.md §12: dark green brand header — wordmark + sapaan + lokasi.
+    // Alasan: Home menjawab "saya di mana & bisa apa" sebelum konten lain.
+    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    val greetingId = when (hour) {
+        in 4..10 -> "Selamat pagi"
+        in 11..14 -> "Selamat siang"
+        in 15..18 -> "Selamat sore"
+        else -> "Selamat malam"
+    }
+    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+        Text(
+            text = TembusCopy.BrandName,
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 1.5.sp,
+        )
+        Spacer(Modifier.height(2.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = greetingId,
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 13.sp,
+            )
+            Text(
+                text = ", $customerName",
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+        }
+        if (!locationLabel.isNullOrBlank()) {
+            Spacer(Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = locationLabel,
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+internal fun TembusBrandMark(modifier: Modifier = Modifier) {    Image(
         painter = painterResource(id = R.drawable.tembus_home_logo),
         contentDescription = "TEMBUS",
         contentScale = ContentScale.Fit,
@@ -423,6 +500,8 @@ internal fun UnifiedHeroHeader(
     onBannerEvent: (ExperienceBannerEvent) -> Unit,
     modifier: Modifier = Modifier,
     networkBanner: @Composable () -> Unit = {},
+    // DESIGN.md §12: label lokasi terbalik-geocode (null = sembunyikan baris).
+    locationLabel: String? = null,
 ) {
     val properties = heroSection?.properties
     val customBgColorHex = (properties?.get("background_color") as? JsonPrimitive)?.contentOrNull
@@ -445,7 +524,7 @@ internal fun UnifiedHeroHeader(
     var bgImageFailed by remember(bgAssetPath) { mutableStateOf(false) }
     val hasBannerImage = !bgImageFailed && !bgAssetPath.isNullOrBlank()
 
-    val fallbackColor = if (hasBannerImage) Color(0xFF141715) else LcGreen
+    val fallbackColor = if (hasBannerImage) Color(0xFF141715) else BrandHeader
     val baseThemeColor = remember(customBgColorHex, hasBannerImage) {
         if (!customBgColorHex.isNullOrBlank()) {
             try {
@@ -512,6 +591,11 @@ internal fun UnifiedHeroHeader(
                 .statusBarsPadding()
                 .padding(top = 8.dp)
         ) {
+            // DESIGN.md §12: brand header — wordmark + sapaan + lokasi.
+            TembusBrandHeaderRow(
+                customerName = customerName,
+                locationLabel = locationLabel,
+            )
             TembusHomeTopBar(
                 customerName = customerName,
                 notificationUnreadCount = notificationUnreadCount,
@@ -593,31 +677,38 @@ internal fun WalletAction(icon: ImageVector, label: String) {
 
 @Composable
 internal fun TembusHomeServiceGrid(
-    onPickupClick: () -> Unit,
+    onKirimClick: () -> Unit,
+    onAmbilClick: () -> Unit,
     onFoodClick: () -> Unit,
     showFood: Boolean = true,
     onAggregatorClick: () -> Unit,
     onTambalBanClick: () -> Unit,
-    onTowingClick: () -> Unit
+    onTowingClick: () -> Unit,
+    // LEGACY: single pickup entry (kirim+ambil gabung). Dipertahankan untuk
+    // kompatibilitas, tetapi grid baru memakai onKirimClick/onAmbilClick.
+    onPickupClick: (() -> Unit)? = null,
 ) {
+    val goKirim = onPickupClick ?: onKirimClick
+    val goAmbil = onPickupClick ?: onAmbilClick
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
     ) {
         Text("Mau apa hari ini?", color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
         Text("Layanan utama TEMBUS, satu tap ke pesanan.", color = Muted, fontSize = 12.sp)
         Spacer(Modifier.height(12.dp))
+        // DESIGN.md §12: grid 2x3 — Kirim | Ambil | Food / Tambal | Towing | Lainnya.
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TembusHomeServiceTile(TembusServiceIcons.PaketInstan.label, TembusServiceIcons.PaketInstan.icon, TembusHomeServiceTone.Primary, onPickupClick, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile("Kirim Paket", Icons.Default.Send, TembusHomeServiceTone.Primary, goKirim, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile("Ambil Paket", Icons.Default.MoveToInbox, TembusHomeServiceTone.Primary, goAmbil, modifier = Modifier.weight(1f))
             if (showFood) {
                 TembusHomeServiceTile(TembusServiceIcons.Food.label, TembusServiceIcons.Food.icon, TembusHomeServiceTone.Food, onFoodClick, modifier = Modifier.weight(1f))
             }
-            TembusHomeServiceTile(TembusServiceIcons.EkspedisiAntarKota.label, TembusServiceIcons.EkspedisiAntarKota.icon, TembusHomeServiceTone.Secondary, onAggregatorClick, modifier = Modifier.weight(1f))
         }
         Spacer(Modifier.height(14.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             TembusHomeServiceTile(TembusServiceIcons.TambalBan.label, TembusServiceIcons.TambalBan.icon, TembusHomeServiceTone.Emergency, onTambalBanClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
             TembusHomeServiceTile(TembusServiceIcons.Towing.label, TembusServiceIcons.Towing.icon, TembusHomeServiceTone.Towing, onTowingClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
-            Spacer(modifier = Modifier.weight(1f))
+            TembusHomeServiceTile("Lainnya", Icons.Default.GridView, TembusHomeServiceTone.Secondary, onAggregatorClick, modifier = Modifier.weight(1f))
         }
     }
 }
@@ -795,3 +886,182 @@ internal fun GlobalBannerCard(banners: List<GlobalBanner>) {
         }
     }
 }
+
+// ─── DESIGN.md §11.4/§12: hero carousel (dots + 1 CTA, radius 20) ─────────
+
+/**
+ * Carousel promo dari daftar banner CMS: 1 CTA per slide, dots pagination,
+ * swipe manual. Tidak memblokir Home bila daftar kosong (tampilkan nothing).
+ * Alasan (§11.4): memberi ruang ≥1 promo tanpa menumpuk banner statis.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun TembusHeroCarousel(
+    banners: List<GlobalBanner>,
+    onActionClick: (GlobalBanner) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (banners.isEmpty()) return
+    val pagerState = rememberPagerState(pageCount = { banners.size })
+    Column(modifier = modifier.fillMaxWidth()) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 18.dp),
+            pageSpacing = 12.dp,
+        ) { page ->
+            val banner = banners[page]
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                border = BorderStroke(1.dp, Primary.copy(alpha = 0.2f)),
+                onClick = { onActionClick(banner) },
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (!banner.imageUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = banner.imageUrl,
+                            contentDescription = banner.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                        )
+                        Spacer(Modifier.width(12.dp))
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(banner.title, color = Ink, fontWeight = FontWeight.Black, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (banner.message.isNotBlank()) {
+                            Spacer(Modifier.height(2.dp))
+                            Text(banner.message, color = Muted, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                        if (!banner.actionLabel.isNullOrBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            TembusMiniCta(label = banner.actionLabel)
+                        }
+                    }
+                }
+            }
+        }
+        if (banners.size > 1) {
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                repeat(banners.size) { index ->
+                    val selected = pagerState.currentPage == index
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 3.dp)
+                            .size(width = if (selected) 18.dp else 6.dp, height = 6.dp)
+                            .clip(CircleShape)
+                            .background(if (selected) OrangeCta else Muted.copy(alpha = 0.35f))
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TembusMiniCta(label: String) {
+    // CTA tunggal per slide (§11.4): orange chart, teks gelap (kontras 6.33:1).
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = OrangeCta,
+        contentColor = OnOrangeCta,
+    ) {
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+        )
+    }
+}
+
+// ─── DESIGN.md §12: rekomendasi kuliner (strip horizontal) ─────────────────
+
+/**
+ * Strip merchant terdekat: foto + nama + rating. Tap membuka detail merchant.
+ * Disembunyikan total bila daftar kosong (tidak ada placeholder palsu, R-38).
+ */
+@Composable
+internal fun TembusFoodRecommendationStrip(
+    merchants: List<FoodMerchant>,
+    onMerchantClick: (String) -> Unit,
+    onSeeAllClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (merchants.isEmpty()) return
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Rekomendasi kuliner dekatmu", color = Ink, fontWeight = FontWeight.Black, fontSize = 16.sp)
+            Text(
+                "Lihat Semua",
+                color = Primary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable(role = Role.Button) { onSeeAllClick() }
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp)
+        ) {
+            items(merchants, key = { it.id }) { merchant ->
+                Card(
+                    modifier = Modifier.width(148.dp),
+                    shape = RoundedCornerShape(TembusRadius.Card),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    onClick = { onMerchantClick(merchant.id) }
+                ) {
+                    Column {
+                        if (!merchant.imageUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = merchant.imageUrl,
+                                contentDescription = merchant.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(88.dp)
+                            )
+                        }
+                        Column(Modifier.padding(10.dp)) {
+                            Text(
+                                merchant.name,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "★ ${formatOneDecimal(merchant.avgRating ?: 0.0)}",
+                                fontSize = 11.sp,
+                                color = Muted,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatOneDecimal(value: Double): String = "%.1f".format(java.util.Locale.US, value)

@@ -2,6 +2,7 @@ package com.tembus.customer.ui.screens.main
 
 import android.Manifest
 import android.app.Activity
+import android.location.Geocoder
 import android.os.Build
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -42,8 +43,9 @@ import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.CheckCircle
@@ -87,6 +89,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -97,17 +100,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import com.google.android.gms.location.LocationServices
 import com.tembus.customer.R
 import com.tembus.customer.data.model.Order
 import com.tembus.customer.data.config.ExperienceBannerEvent
 import com.tembus.customer.featureflag.FeatureFlagManager
 import com.tembus.customer.ui.experience.DynamicHomeRenderer
 import com.tembus.customer.domain.config.shouldRenderLegacyGlobalBanner
+import com.tembus.customer.ui.navigation.RemoteDeepLinkResolver
 import com.tembus.customer.ui.navigation.RemoteDeepLinkTarget
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentLight
@@ -164,10 +170,12 @@ fun DashboardScreen(
     onFoodClick: () -> Unit = {},
     onIncomingClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
+    onMerchantClick: (String) -> Unit = {},
     onRemoteAction: (RemoteDeepLinkTarget) -> Unit = {},
 ) {
     HomeStatusBarIcons()
 
+    val context = LocalContext.current
     val customerName by viewModel.customerName.collectAsState()
     val activeOrders by viewModel.activeOrders.collectAsState()
     val incomingPackages by viewModel.incomingPackages.collectAsState()
@@ -179,6 +187,7 @@ fun DashboardScreen(
     val experienceSnapshot by viewModel.experienceSnapshot.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isOnline by rememberNetworkAvailable()
+    val recommendedMerchants by viewModel.recommendedMerchants.collectAsState()
     val featureFlags by FeatureFlagManager.snapshot.collectAsState()
     val foodEntryEnabled = featureFlags["customer_food_entry"]?.enabled ?: true
     val visibleServices = if (foodEntryEnabled) services else services.filterNot {
@@ -198,6 +207,29 @@ fun DashboardScreen(
 
     var isRefreshing by remember { mutableStateOf(false) }
     var slowNetwork by remember { mutableStateOf(false) }
+
+    // DESIGN.md §12: lokasi untuk header brand (reverse-geocode, sekali per lokasi).
+    var locationLabel by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!fine && !coarse) return@LaunchedEffect
+        runCatching {
+            val client = LocationServices.getFusedLocationProviderClient(context)
+            client.lastLocation.addOnSuccessListener { loc ->
+                if (loc == null) return@addOnSuccessListener
+                viewModel.loadFoodRecommendations(loc.latitude, loc.longitude)
+                runCatching {
+                    val geo = Geocoder(context, java.util.Locale("id", "ID"))
+                    @Suppress("DEPRECATION")
+                    val addr = geo.getFromLocation(loc.latitude, loc.longitude, 1)?.firstOrNull()
+                    val parts = listOfNotNull(addr?.subLocality, addr?.locality, addr?.adminArea).filter { it.isNotBlank() }
+                    if (parts.isNotEmpty()) locationLabel = parts.take(2).joinToString(", ")
+                    else locationLabel = "Jakarta"
+                }
+            }
+        }
+    }
 
     LaunchedEffect(isLoading) {
         slowNetwork = false
@@ -238,7 +270,8 @@ fun DashboardScreen(
                             onHomeClick = onHomeClick,
                             onHistoryClick = onHistoryClick,
                             onBusinessClick = onBusinessClick,
-                            onProfileClick = onProfileClick
+                            onProfileClick = onProfileClick,
+                            onNotificationsClick = onNotificationsClick
                         )
                     }
                 }
@@ -256,7 +289,8 @@ fun DashboardScreen(
                             onHomeClick = onHomeClick,
                             onHistoryClick = onHistoryClick,
                             onBusinessClick = onBusinessClick,
-                            onProfileClick = onProfileClick
+                            onProfileClick = onProfileClick,
+                            onNotificationsClick = onNotificationsClick
                         )
                     }
                     PullToRefreshBox(
@@ -288,6 +322,7 @@ fun DashboardScreen(
                             onBookingClick = onBookingClick,
                             onRemoteAction = onRemoteAction,
                             onBannerEvent = viewModel::recordExperienceBannerEvent,
+                            locationLabel = locationLabel,
                             networkBanner = {
                                 CustomerNetworkRecoveryBanner(
                                     isOnline = isOnline,
@@ -305,12 +340,25 @@ fun DashboardScreen(
 
                         if (!hasCustomServiceGrid) {
                             TembusHomeServiceGrid(
-                                onPickupClick = { onBookingClick("pickup") }, // Gabung ambil/kirim
+                                onKirimClick = { onBookingClick("kirim") },
+                                onAmbilClick = { onBookingClick("pickup") },
                                 onFoodClick = onFoodClick,
                                 showFood = foodEntryEnabled,
                                 onAggregatorClick = { onBookingClick("aggregator") },
                                 onTambalBanClick = { onBookingClick("tambal_ban") },
                                 onTowingClick = { onBookingClick("towing") }
+                            )
+                        }
+
+                        // DESIGN.md §12: hero carousel CMS tepat seusai grid layanan.
+                        if (banners.isNotEmpty()) {
+                            TembusHeroCarousel(
+                                banners = banners,
+                                onActionClick = { banner ->
+                                    val target = banner.actionUrl?.let { RemoteDeepLinkResolver.resolve(it, null) }
+                                    if (target != null && target !is RemoteDeepLinkTarget.Invalid) onRemoteAction(target)
+                                    else if (!banner.actionUrl.isNullOrBlank()) onBookingClick(banner.actionUrl)
+                                }
                             )
                         }
 
@@ -343,6 +391,14 @@ fun DashboardScreen(
                                 onViewAllClick = onHistoryClick,
                             )
                         }
+                    }
+
+                    item {
+                        TembusFoodRecommendationStrip(
+                            merchants = recommendedMerchants,
+                            onMerchantClick = onMerchantClick,
+                            onSeeAllClick = onFoodClick,
+                        )
                     }
 
                     item {
@@ -399,14 +455,18 @@ private fun SharedTransitionScope.CustomerNavigation(
     onHomeClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onBusinessClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
 ) {
     data class NavItem(val key: String, val label: String, val icon: ImageVector, val onClick: () -> Unit)
-    // UIUX-2026-004: label nav lewat katalog agar ikut locale (EN: Home/History/Business/Profile).
+    // DESIGN.md §11.10 + §12: Beranda, Aktivitas, Pesan, Notifikasi, Akun.
+    // Pesan → Business (pesan/inbox) sebagai placeholder; Notifikasi → Notifications.
+    // Alasan: 5-destinasi app shell super-app 2026; orange hanya untuk indicator kecil.
     val items = listOf(
         NavItem("home", CustomerTextCatalog.translate("Beranda"), Icons.Default.LocalShipping, onHomeClick),
-        NavItem("history", CustomerTextCatalog.translate("Riwayat"), Icons.Default.History, onHistoryClick),
-        NavItem("business", CustomerTextCatalog.translate("Bisnis"), Icons.Default.Store, onBusinessClick),
+        NavItem("history", CustomerTextCatalog.translate("Aktivitas"), Icons.Default.History, onHistoryClick),
+        NavItem("business", CustomerTextCatalog.translate("Pesan"), Icons.Default.ChatBubble, onBusinessClick),
+        NavItem("notifications", CustomerTextCatalog.translate("Notifikasi"), Icons.Default.NotificationsActive, onNotificationsClick),
         NavItem("profile", CustomerTextCatalog.translate("Profil"), Icons.Default.Person, onProfileClick)
     )
     AnimatedContent(targetState = selectedDestination, label = "customer-navigation-selection") { selected ->

@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tembus.customer.ui.theme.TembusComponentDefaults
 import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.theme.OnOrangeCta
+import com.tembus.customer.ui.theme.OrangeCta
 
 enum class TembusButtonVariant {
     Primary,
@@ -78,7 +80,13 @@ private fun TembusControlSize.horizontalPadding(): Dp = when (this) {
 
 @Composable
 private fun buttonColors(variant: TembusButtonVariant): ButtonColors = when (variant) {
-    TembusButtonVariant.Primary -> TembusComponentDefaults.primaryButtonColors()
+    // DESIGN.md §11.2: Primary = orange fill + dark text (kontras 6.33:1 PASS).
+    TembusButtonVariant.Primary -> ButtonDefaults.buttonColors(
+        containerColor = OrangeCta,
+        contentColor = OnOrangeCta,
+        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
     TembusButtonVariant.Secondary,
     TembusButtonVariant.Tonal -> ButtonDefaults.filledTonalButtonColors(
         containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -110,7 +118,8 @@ fun TembusButton(
 ) {
     val isEnabled = state != TembusControlState.Disabled && state != TembusControlState.Loading
     val contentColor = when (variant) {
-        TembusButtonVariant.Primary -> MaterialTheme.colorScheme.onPrimary
+        // DESIGN.md §11.2: teks gelap di atas orange (6.33:1 PASS).
+        TembusButtonVariant.Primary -> OnOrangeCta
         TembusButtonVariant.Secondary,
         TembusButtonVariant.Tonal -> MaterialTheme.colorScheme.onSecondaryContainer
         TembusButtonVariant.Outline,

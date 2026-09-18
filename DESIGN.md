@@ -1,862 +1,1241 @@
-# DESIGN SYSTEM & ARCHITECTURE SPECIFICATION: MOBILE COURIER APPLICATION
-## TEMBUS Hyperlocal Relay Platform (v1.1)
+# TEMBUS — UI/UX Design System & Stitch Direction
+
+> **Purpose:** master design brief untuk membuat ulang UI/UX TEMBUS di Google Stitch lalu dipindahkan/dirapikan ke Figma dan implementasi.
+>
+> **Brand:** **TEMBUS** — jangan gunakan nama “Tembus Logistic” sebagai product name.  
+> **Tagline:** **Lebih Dekat, Lebih Cepat**  
+> **Reference mood:** premium logistics, dark forest green, white surfaces, orange action accent, strong map/tracking experience, rounded cards, dense-but-clean operational information.
 
 ---
 
-> **ACTIVE MOBILE UI NOTE:** Token visual customer dan kurir terbaru ada di `docs/TEMBUS_MOBILE_DESIGN_GUIDELINES_2026.md`. File ini tetap menjadi spesifikasi arsitektur mobile, tetapi palette hijau-orange, radius, typography, dan aturan copy enterprise mengikuti guideline 2026 tersebut.
+# 1. Design Vision
 
-> **CLASSIFICATION:** TOP SECRET / HIGH-FIDELITY ARCHITECTURE
-> **OPERATIONAL SCHEMA:** OFFLINE-FIRST / SECURITY GRADE S++
-> **TARGET COMPATIBILITY:** Native Android (Kotlin / SDK 26+ / Android 8.0+) - Jetpack Compose Priority
+TEMBUS harus terasa seperti platform logistics & local-service Indonesia kelas 2026: **cepat, tepercaya, matang, modern, dan operasional**, bukan sekadar clone aplikasi delivery.
 
----
+Visual yang dituju dari reference:
 
-## 1. STRATEGIC CONTEXT & MOBILE CHECKPOINT
+- Dark forest green sebagai brand foundation.
+- Bright orange hanya untuk high-priority action/status emphasis.
+- White/off-white cards untuk readability.
+- Map menjadi bagian penting dari transaction experience.
+- Large rounded cards dan bottom sheet untuk contextual information.
+- Status timeline dibuat sangat terbaca.
+- Typography tegas dan modern.
+- Photography/illustration boleh premium, tetapi functional UI harus tetap dominan.
 
-### 1.1 Intent Decoding & Core Objectives
-The **TEMBUS Mobile Courier Application** is a specialized native Android mobile interface designed for hyperlocal relay courier partners. Since couriers operate in demanding environments—often while driving, under bright sunlight, with weak network signals, and using a single hand—the design and execution must prioritize **extreme readability, tactile feedback, low friction, and ironclad resilience**.
-
-This system maps directly to the active **TEMBUS API Gateway** microservices (`auth-service`, `order-service`, `routing-service`, `pricing-engine`, `tracking-service`, `payment-service`, `media-service`).
-
-### 1.2 Mobile Feasibility & Risk Index (MFRI)
-Evaluating the feasibility of implementing the Mobile Courier App features on Android Native:
-
-| Dimension | Risk Rating (1-5) | Rationale & Mitigations |
-|---|---|---|
-| **Platform Clarity** | 5 (Very Clear) | Explicitly targeted at Native Android (Kotlin + Jetpack Compose) for maximum performance and deep OS integration. |
-| **Interaction Complexity** | 3 (Moderate) | Involves complex flows such as AR Volumetric camera measurements, live GPS relay synchronizations, and dual QR/Video handovers. |
-| **Performance Risk** | 1 (Very Low) | Managed via Jetpack Compose lazy layouts (`LazyColumn`), sub-millisecond drawing passes, and native thread scheduling via Kotlin Coroutines. |
-| **Offline Dependence** | 4 (High Risk) | Couriers constantly drift into dead-zones. Addressed using **Room Database with SQLCipher** for offline-first replication and WorkManager for background task sync. |
-| **Accessibility Risk** | 2 (Low Risk) | Solved by strictly enforcing Material 3 touch targets (≥ 48dp), high-contrast AA typography, and single-hand optimized Compose layouts. |
-
-$$MFRI = (\text{Platform Clarity} + \text{Accessibility Readiness}) - (\text{Interaction Complexity} + \text{Performance Risk} + \text{Offline Dependence})$$
-$$MFRI = (5 + 5) - (3 + 1 + 4) = 10 - 8 = +2 \implies \text{Highly Optimized Native Architecture & Room Sync Strategy Mandatory}$$
-
-### 1.3 Mobile Checkpoint Integration
-```
-🧠 MOBILE CHECKPOINT
-
-Platform:     Native Android 8.0+ (API 26+)
-Framework:    Kotlin, Jetpack Compose, Room DB, Retrofit & Coroutines
-Files Read:   PRD_FINAL_v1.1.md, globals.css (Frontend Next.js App)
-
-3 Principles Applied:
-1. Touch-First Layouts: Key CTA buttons must sit within the lower thumb-zone (min 48dp).
-2. Battery- & Network-Conscious Polling: Throttle location streams using FusedLocationProviderClient + Kalman filters and buffer offline events.
-3. Perfect Visual Continuity: Carry over Tembus Emerald, glassmorphism, and smooth transitions from the web portal.
-
-Anti-Patterns Avoided:
-1. Infinite Lists Memory Leaks: Banned Column with verticalScroll for large dynamic arrays. Use LazyColumn.
-2. Hardcoded Secrets & Local Storage Vulnerabilities: Avoid standard SharedPreferences. Force Android Keystore encrypted enclaves.
-```
+TEMBUS harus punya satu design DNA untuk Customer, Courier, Merchant, dan Admin, tetapi density dan interaction model menyesuaikan role.
 
 ---
 
-## 2. BRAND IDENTITY & DESIGN SYSTEM (WEB-ALIGNED)
+# 2. Brand Rules
 
-The mobile application carries over the core aesthetic tokens of the **TEMBUS Web Portal** to establish absolute visual consistency. It uses a sleek dark mode by default for battery savings (OLED) and reduced glare under high sunlight.
+## 2.1 Naming
 
-### 2.1 Color Palette & Token Sync
+Use:
 
-```
-  Primary Tembus Emerald          Primary Light (Accent)        Primary Dark
-  [    #006437    ]             [    #22C55E    ]             [    #004D2A    ]
+- **TEMBUS**
+- **Lebih Dekat, Lebih Cepat**
 
-  Dark Background               Light Background              Glass Border
-  [    #09090b    ]             [    #fafafa    ]             [  white/10 (Dark) ]
-```
+Avoid:
 
-| Token | Hex Value | Semantic Purpose |
-|---|---|---|
-| `--color-primary` | `#006437` | Core branding, primary actions, and headers. |
-| `--color-primary-light` | `#22C55E` | Accent colors, successes, online status indicators, and active legs. |
-| `--color-primary-dark` | `#004D2A` | Pressed button states and focused containers. |
-| `--color-background-dark` | `#09090B` | Default dark theme background (zinc-950) for battery longevity. |
-| `--color-background-light`| `#FAFAFA` | Light theme fallback (zinc-50) for indoor usage. |
-| `--color-foreground-dark` | `#F4F4F5` | Primary body text in dark mode (zinc-100). |
-| `--color-foreground-light`| `#18181B` | Primary body text in light mode (zinc-900). |
-| `--color-border-translucent`| `rgba(255,255,255,0.1)` | Subtle glassmorphism borders for cards and containers. |
+- TEMBUS Logistic
+- TEMBUS Logistics
+- nama brand lain di reference
 
-### 2.2 Typography Hierarchy (Inter Font Stack)
-We implement the `Inter` font stack with tight tracking and explicit visual hierarchy in Jetpack Compose `Typography`:
+Service labels boleh memakai descriptor seperti `TEMBUS Food`, `TEMBUS Paket`, `TEMBUS Towing` hanya bila benar-benar dibutuhkan sebagai navigation label. Logo utama tetap **TEMBUS**.
 
-- **Screen Titles:** `Inter-Bold`, size `24.sp`, tracking `-0.025.em` (for clear screen identifier).
-- **Subheaders / Card Titles:** `Inter-SemiBold`, size `16.sp`, tracking `-0.015.em`.
-- **Primary Body Text:** `Inter-Medium`, size `14.sp`, tracking `0.0.em`.
-- **Secondary / Metadata:** `Inter-Regular`, size `12.sp`, color `Zinc-400` / `Muted`.
+---
 
-### 2.3 Glassmorphic Depth & Jetpack Compose Implementation
-To match the web's `.glass-card` and `.glass-button` stylings, the Android app utilizes standard Compose shape styling with alpha blending and translucent borders:
+# 3. Color System
 
-```kotlin
-// Concrete Jetpack Compose Glassmorphism Card Blueprint
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
+## 3.1 Core Brand Tokens
 
-@Composable
-fun TembusGlassCard(
-    modifier: Modifier = Modifier,
-    borderRadius: Dp = 16.dp,
-    padding: PaddingValues = PaddingValues(16.dp),
-    content: @Composable BoxScope.() -> Unit
-) {
-    val isDark = isSystemInDarkTheme()
-    Box(
-        modifier = modifier
-            .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(borderRadius),
-                clip = false,
-                ambientColor = Color.Black.copy(alpha = 0.05f),
-                spotColor = Color.Black.copy(alpha = 0.1f)
-            )
-            .clip(RoundedCornerShape(borderRadius))
-            .background(
-                color = if (isDark) Color(0x0DFFFFFF) else Color(0x99FFFFFF)
-            )
-            .border(
-                width = 1.dp,
-                color = if (isDark) Color(0x1AFFFFFF) else Color(0x1A000000),
-                shape = RoundedCornerShape(borderRadius)
-            )
-            .padding(padding),
-        content = content
-    )
-}
+```css
+--tembus-green-950: #001F12;
+--tembus-green-900: #002B18;
+--tembus-green-800: #003A20; /* Primary brand */
+--tembus-green-700: #07522F;
+--tembus-green-600: #0B6A3B;
+--tembus-green-500: #17814B;
+
+--tembus-orange-600: #E95700;
+--tembus-orange-500: #FF6A00; /* Primary accent */
+--tembus-orange-400: #FF7F26;
+--tembus-orange-100: #FFF0E6;
+
+--neutral-0: #FFFFFF;
+--neutral-25: #FCFCFA;
+--neutral-50: #F7F8F6;
+--neutral-100: #EEF1EE;
+--neutral-200: #DDE3DE;
+--neutral-300: #C7CEC8;
+--neutral-500: #69736C;
+--neutral-700: #354039;
+--neutral-900: #111713;
+
+--success: #16834A;
+--warning: #C97A00;
+--danger: #C9362B;
+--info: #2166C2;
 ```
 
-### 2.4 Micro-Interactions & Tactile Feedback Loops
-A static UI is considered a bug. Every interactive element must invoke immediate tactile feedback:
+## 3.2 Usage Ratio
 
-1. **Active Press Scaling:** Interactive buttons scale down smoothly to `0.95f` on contact and bounce back.
-2. **Haptic Responses:**
-   - Light Tap (`HapticFeedbackType.TextHandleMove`) on normal button presses.
-   - Heavy Tap (`HapticFeedbackType.LongPress`) on critical actions (e.g., confirming delivery or starting handover).
-3. **Motion Curves:** Use `FastOutSlowInEasing` for screen transitions and drawer movements to feel organic and fluid.
+Suggested visual balance:
 
-```kotlin
-// Concrete Jetpack Compose Tactile Press-Scaling Button Blueprint
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.ripple.rememberRipple
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.unit.dp
+- 55–65% white / neutral surface
+- 20–30% dark green
+- 5–10% mid green
+- ≤ 8% orange on a typical functional screen
 
-@Composable
-fun TembusTactileButton(
-    onPressed: () -> Unit,
-    modifier: Modifier = Modifier,
-    backgroundColor: Color = Color(0xFF006437), // Primary Tembus Emerald
-    content: @Composable RowScope.() -> Unit
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val haptic = LocalHapticFeedback.current
+Orange is an **action color**, not a wallpaper.
 
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1.0f,
-        animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
-        label = "ButtonScaleAnimation"
-    )
+---
 
-    LaunchedEffect(isPressed) {
-        if (isPressed) {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        }
-    }
+# 4. Light & Dark Theme
 
-    Box(
-        modifier = modifier
-            .scale(scale)
-            .clip(RoundedCornerShape(12.dp))
-            .background(backgroundColor)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = rememberRipple(bounded = true, color = Color.White),
-                onClick = onPressed
-            )
-            .padding(vertical = 16.dp, horizontal = 24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            content = content
-        )
-    }
-}
+## 4.1 Light Theme
+
+- App background: `#F7F8F6`
+- Card: `#FFFFFF`
+- Main text: `#111713`
+- Secondary text: `#69736C`
+- Brand header: `#003A20`
+- Primary CTA: `#FF6A00`
+
+## 4.2 Dark Theme
+
+- App background: `#08110C`
+- Elevated surface: `#0E1C14`
+- Card: `#122219`
+- Border: `#203329`
+- Main text: `#F5F7F4`
+- Secondary text: `#AAB6AE`
+- Brand green should still be visually distinguishable from background.
+
+Dark mode must not simply invert colors. Orange CTA remains controlled and readable.
+
+---
+
+# 5. Typography
+
+Recommended feel: geometric humanist sans, high legibility on small screens.
+
+Preferred hierarchy:
+
+```text
+Display XL   40 / 46, Semibold
+Display L    32 / 38, Semibold
+H1           28 / 34, Semibold
+H2           24 / 30, Semibold
+H3           20 / 26, Semibold
+Title        18 / 24, Semibold
+Body L       16 / 24, Regular
+Body M       14 / 21, Regular
+Body S       12 / 18, Regular
+Label        12 / 16, Medium
+Micro        10 / 14, Medium
 ```
 
-### 2.5 Loading Psychology (Shimmer Skeletons)
-Generic spinning loader widgets irritate users and increase perceived latency. The Tembus Courier app utilizes **Shimmer Skeletons** mimicking the exact layout of incoming cards.
+Rules:
 
-```kotlin
-// Concrete Shimmer Loader Component using Jetpack Compose Brush Shimmer
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.foundation.layout.size
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
+- Do not use ultra-light fonts for transactional information.
+- Order ID may use semibold/bold.
+- Currency/price must have strong visual hierarchy.
+- Avoid ALL CAPS except micro labels and tags.
 
-@Composable
-fun TembusShimmerSkeleton(
-    width: Dp,
-    height: Dp,
-    borderRadius: Dp = 8.dp,
-    modifier: Modifier = Modifier
-) {
-    val isDark = isSystemInDarkTheme()
-    val baseColor = if (isDark) Color(0xFF1E1E1E) else Color(0xFFE0E0E0)
-    val highlightColor = if (isDark) Color(0xFF2D2D2D) else Color(0xFFF5F5F5)
+---
 
-    val transition = rememberInfiniteTransition(label = "ShimmerTransition")
-    val translateAnim by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1500, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "ShimmerTranslation"
-    )
+# 6. Spacing & Grid
 
-    val shimmerBrush = Brush.linearGradient(
-        colors = listOf(baseColor, highlightColor, baseColor),
-        start = Offset.Zero,
-        end = Offset(x = translateAnim, y = translateAnim)
-    )
+Use 4pt base system.
 
-    Box(
-        modifier = modifier
-            .size(width = width, height = height)
-            .clip(RoundedCornerShape(borderRadius))
-            .background(shimmerBrush)
-    )
-}
+```text
+4  = micro
+8  = xs
+12 = sm
+16 = md
+20 = lg
+24 = xl
+32 = 2xl
+40 = 3xl
+48 = 4xl
+```
+
+Mobile horizontal page padding: **16–20 px**.  
+Tablet/web uses 24–32 px minimum.
+
+Never pack primary CTAs within <12 px vertical separation.
+
+---
+
+# 7. Shape Language
+
+Reference-inspired but cleaner:
+
+- Small control radius: 10–12 px
+- Input: 12–14 px
+- Standard card: 16 px
+- Large card: 20 px
+- Bottom sheet: 24 px top radius
+- Modal: 20–24 px
+- Pills/status chips: full radius
+
+Avoid making every element pill-shaped.
+
+---
+
+# 8. Elevation
+
+Use subtle shadow, not floating toy cards.
+
+### Level 0
+Flat section/background.
+
+### Level 1
+Standard card, subtle border/shadow.
+
+### Level 2
+Sticky bar, active bottom sheet.
+
+### Level 3
+Modal/navigation overlay.
+
+For dark theme, use surface tonal elevation rather than heavy black shadow.
+
+---
+
+# 9. Iconography
+
+Style:
+
+- Rounded linear icons
+- 1.8–2.0 px optical stroke
+- Filled variant only for active nav/status emphasis
+- Consistent corner radius
+
+Service icons should be recognizable without label:
+
+- Paket: parcel/box
+- Pickup: box + upward/collection arrow
+- Food: fork/spoon or food bag
+- Tambal Ban: wheel/tire + repair cue
+- Towing: tow truck
+- Aggregator/More: grid or compare icon
+
+No unnecessary brand logo inside every icon.
+
+---
+
+# 10. Illustration & Photography
+
+Use for:
+
+- Landing/onboarding
+- Empty states
+- Hero promo
+- Campaign
+
+Avoid large decorative imagery on:
+
+- Checkout
+- Active tracking
+- Payment failure
+- Emergency Tambal Ban/Towing
+- Courier active job
+- Admin Control Tower
+
+These are task screens; clarity wins.
+
+---
+
+# 11. Core Components
+
+## 11.1 App Bar
+
+Variants:
+
+- Brand app bar
+- Back + title
+- Search-focused
+- Map overlay
+- Transparent hero overlay
+- Admin desktop header
+
+---
+
+## 11.2 Buttons
+
+### Primary
+Orange fill, dark/white text depending contrast audit.
+
+### Secondary
+White/neutral fill + green border/text.
+
+### Tertiary
+Text-only.
+
+### Destructive
+Danger color, never orange.
+
+States:
+
+- default
+- pressed
+- loading
+- disabled
+- success transition where needed
+
+---
+
+## 11.3 Service Tile
+
+Contains:
+
+- Icon/3D-lite illustration
+- Service name
+- Optional small badge
+
+Primary home services should be 2×3 or 3×2 responsive grid, not 10 tiny icons.
+
+---
+
+## 11.4 Promo Hero / Banner Carousel
+
+Inspired by reference but adapted to TEMBUS:
+
+- 16–20 px radius
+- Landscape image/illustration
+- Dark-to-transparent gradient overlay when text sits on image
+- Small category eyebrow
+- 1 short headline
+- 1 CTA max
+- Pagination dots
+- Manual swipe
+- Admin-configurable deep link
+
+Do not block Home loading if banner content fails.
+
+---
+
+## 11.5 Order Card
+
+Shared skeleton across verticals:
+
+```text
+[Service Icon]  ORDER ID                 [Status Chip]
+Title / merchant / route context
+-----------------------------------------------
+Pickup/origin        →       Destination
+Date/ETA/status context
+-----------------------------------------------
+Timeline or compact progress
+[Primary CTA] [Secondary CTA optional]
+```
+
+Variants:
+
+- Compact active
+- History
+- Food
+- Emergency service
+- Courier offer
+- Merchant processing
+
+---
+
+## 11.6 Status Chip
+
+Examples:
+
+- Menunggu Pembayaran
+- Mencari Kurir
+- Diproses Merchant
+- Menuju Pickup
+- Dalam Perjalanan
+- Selesai
+- Dibatalkan
+- Refund Diproses
+
+Do not use orange for every status.
+
+---
+
+## 11.7 Transaction Timeline
+
+Reference uses horizontal stepper. TEMBUS needs two variants:
+
+### Compact horizontal
+For cards with 3–4 high-level stages.
+
+### Detailed vertical
+For order detail with timestamp and proof.
+
+Rules:
+
+- Completed = green
+- Current = strong green ring/fill
+- Future = neutral
+- Failed/blocked = danger/warning
+- Never rely on color only; use icon + label.
+
+---
+
+## 11.8 Map Tracking
+
+Reference should influence this strongly.
+
+Required:
+
+- High contrast route polyline
+- Pickup/drop-off marker
+- Courier vehicle marker
+- Recenter control
+- Map attribution safe area
+- Bottom sheet
+- ETA card
+- Stale GPS state
+
+Bottom sheet layers:
+
+1. Collapsed: status + ETA + driver
+2. Mid: route summary + action
+3. Expanded: complete order context
+
+---
+
+## 11.9 Price Summary
+
+```text
+Biaya dasar
+Jarak
+Biaya layanan
+Tambahan
+Promo
+----------------
+Total
+```
+
+`Total` is visually dominant. Any estimate must be labeled `Estimasi`.
+
+---
+
+## 11.10 Bottom Navigation
+
+- White/neutral surface
+- 4–5 destinations max
+- Active icon green
+- Small orange indicator allowed, not orange-filled entire item
+- Label always visible on active state
+
+Customer bottom nav:
+
+`Beranda · Aktivitas · Pesan · Notifikasi · Akun`
+
+Courier:
+
+`Kerja · Order · Earnings · Inbox · Akun`
+
+Merchant:
+
+`Beranda · Pesanan · Menu · Keuangan · Akun`
+
+---
+
+# 12. Customer Home — Target Composition
+
+```text
+┌────────────────────────────────────────┐
+│ Dark green brand header                │
+│ Location + greeting + notification     │
+│ Search bar                             │
+│ Wallet / promo shortcut                │
+└────────────────────────────────────────┘
+
+[Service grid]
+Kirim Paket | Ambil Paket | Food
+Tambal Ban  | Towing      | Lainnya
+
+[Hero carousel]
+
+[Active order card — if exists]
+
+[Quick repeat / recent]
+
+[Recommended merchants/content]
+
+[Bottom navigation]
+```
+
+Home should immediately answer:
+
+1. Saya sedang di mana?
+2. Saya bisa melakukan apa?
+3. Apakah saya punya order aktif?
+4. Apa yang membutuhkan perhatian saya?
+
+---
+
+# 13. Customer Paket Flow — Screen Design
+
+## 13.1 Service Entry
+
+- Header `Kirim Paket`
+- Pickup card
+- Destination card
+- Recent addresses
+- CTA `Lanjut`
+
+## 13.2 Package Detail
+
+- Category chips
+- Weight/dimension
+- Fragile
+- Photo
+- Notes
+
+## 13.3 Service Selection
+
+Card comparison:
+
+- Vehicle/service
+- ETA
+- Capacity
+- Price
+- SLA note
+
+Selected card uses green border + subtle green background.
+
+## 13.4 Quote & Checkout
+
+- Route mini-map
+- Address summary
+- Package summary
+- Price breakdown
+- Promo
+- Payment method
+- Sticky CTA `Pesan Sekarang`
+
+## 13.5 Matching
+
+- Animated restrained search state
+- Price locked
+- Cancel policy
+- No fake countdown
+
+## 13.6 Active Tracking
+
+Use map-first layout similar reference image but TEMBUS-branded:
+
+- Map top ~55–62%
+- Bottom sheet with ETA, progress, driver, order ID
+- Compact actions chat/call/help
+- Expandable detail
+
+---
+
+# 14. Food Flow — Screen Design
+
+## Explore
+
+- Search
+- Category carousel
+- Promo carousel
+- Nearby/open now
+- Merchant cards
+
+## Merchant
+
+- Merchant hero small
+- Rating/ETA/delivery fee
+- Category sticky tab
+- Product cards
+- Floating cart bar when cart >0
+
+## Cart / Checkout
+
+- Items
+- Modifiers
+- Notes
+- Address
+- Promo
+- Price
+- Payment
+
+## Tracking
+
+Do not reuse parcel wording. Use contextual steps:
+
+`Dikonfirmasi → Disiapkan → Kurir Mengambil → Diantar → Selesai`
+
+---
+
+# 15. Tambal Ban — Emergency UX
+
+Emergency visual rules:
+
+- No marketing banner.
+- No unnecessary discovery section.
+- Primary CTA visible above fold.
+- Large location confirmation.
+- Vehicle selector motor/mobil.
+- Problem selection simple.
+- Clear estimated arrival.
+
+Suggested screen:
+
+```text
+Back                       Bantuan
+
+Tambal Ban
+Kami bantu cari teknisi terdekat.
+
+[Map/location]
+Lokasi Anda
+Jl. ...
+
+Kendaraan
+[Motor] [Mobil]
+
+Masalah
+[Bocor] [Ban Kempis] [Pentil] [Lainnya]
+
+[CTA Cari Bantuan]
+```
+
+Active service uses tracking shell + technician/courier profile + service proof.
+
+---
+
+# 16. Towing — Emergency UX
+
+Use same emergency design family as Tambal Ban but different data:
+
+- Vehicle
+- Pickup
+- Destination/workshop
+- Drivable/not drivable
+- Photo
+- Access notes
+- Quote
+
+Active towing screen:
+
+- Map
+- Tow truck ETA
+- Driver/company identity
+- Vehicle pickup proof
+- Route to destination
+- Completion proof
+
+---
+
+# 17. Activity / My Orders
+
+Reference rightmost screen is a strong starting point.
+
+TEMBUS version:
+
+- Title `Aktivitas`
+- Filter chips:
+  - Semua
+  - Berlangsung
+  - Selesai
+  - Dibatalkan
+- Optional service filter
+- Cards contain:
+  - service icon/name
+  - order ID
+  - origin/destination or merchant
+  - created date
+  - main status
+  - compact timeline
+  - CTA
+
+Avoid oversized cards for fully completed historical items. Completed history can be more compact.
+
+---
+
+# 18. Notifications Screen
+
+Group by:
+
+- Hari ini
+- Kemarin
+- Sebelumnya
+
+Notification item:
+
+- Icon
+- Title
+- 1–2 line body
+- Timestamp
+- unread marker
+- contextual deep link
+
+---
+
+# 19. Chat UI
+
+- Context header with order ID/service
+- Quick replies
+- Text
+- Photo when enabled
+- Safety/report action
+- System event messages visually different
+
+No social-media gimmicks.
+
+---
+
+# 20. Courier Design Direction
+
+Courier app should look like TEMBUS, but more operational than customer app.
+
+## Work Home
+
+- Strong online/offline toggle
+- Map/area
+- Demand badge
+- Active job card
+- Today earning
+- Incentive progress
+
+## Offer Screen
+
+Primary visual priority:
+
+1. Earnings
+2. Pickup distance/time
+3. Trip/service distance
+4. Service requirement
+5. Accept/decline timer
+
+Accept = green or brand-primary interaction; orange may be reserved for urgency/primary highlight, but do not cause safety confusion.
+
+## Active Job
+
+Large step CTA:
+
+- `Menuju Pickup`
+- `Saya Sudah Tiba`
+- `Ambil / Mulai Layanan`
+- `Dalam Perjalanan`
+- `Selesaikan`
+
+All state transitions must wait for server confirmation or show explicit pending state.
+
+---
+
+# 21. Merchant Design Direction
+
+Merchant UI is dense but should remain mobile-native.
+
+## Home
+
+- Store status
+- Orders requiring action
+- Sales today
+- Settlement status
+- Stock/menu warnings
+
+## Order Queue
+
+Use strong status segmentation and time elapsed.
+
+New orders must visually stand out without using red as normal urgency.
+
+## Finance
+
+White cards, large amounts, clear labels:
+
+- Gross
+- Fees
+- Promo contribution
+- Adjustment
+- Net settlement
+- Payout status
+
+---
+
+# 22. Admin / Control Tower Web Design
+
+Use same brand palette, but professional operations-dashboard density.
+
+## Shell
+
+- Dark green left sidebar
+- Neutral content canvas
+- 12-column grid
+- Sticky top utilities
+- Global search
+- Time range and city/zone filters
+
+## Control Tower
+
+Priority areas:
+
+- KPI strip
+- Live map
+- Incident/late-order queue
+- Supply/demand panel
+- Payment/payout warning panel
+- Order table
+
+Do not fill every dashboard cell with charts. Prefer actionable queues.
+
+---
+
+# 23. Responsive Rules
+
+## Mobile
+
+- Bottom nav
+- Bottom sheet
+- Single-column forms
+- Sticky bottom CTA
+
+## Tablet
+
+- Navigation rail possible
+- Two-pane order detail + map
+
+## Desktop Web
+
+- Sidebar
+- Multi-column
+- Table + detail drawer
+
+Customer web should not simply stretch a phone UI to desktop width.
+
+---
+
+# 24. Accessibility Rules
+
+- Touch target 48 dp preferred
+- Text contrast minimum WCAG AA target
+- Orange text on white must pass contrast; otherwise use darker orange or green text
+- Focus state visible on web
+- Screen reader labels
+- Error message with text, not only red border
+- Status icon + label
+- Motion reduction
+
+---
+
+# 25. Microinteraction
+
+Allowed:
+
+- Button press feedback
+- Map marker pulse on active arrival
+- Subtle status transition
+- Success check animation
+- Bottom sheet snap
+- Skeleton shimmer restrained
+
+Avoid:
+
+- Constant floating/bouncing icons
+- Large parallax in transactional screens
+- Excess haptics
+- Celebration confetti for routine delivery
+
+---
+
+# 26. Empty, Loading, Error & Offline States
+
+Every major screen must have:
+
+- Loading
+- Empty
+- Error
+- Offline/stale
+- Partial data
+
+Examples:
+
+### Orders empty
+`Belum ada aktivitas` + contextual CTA.
+
+### Map stale
+`Lokasi kurir belum diperbarui selama 2 menit.`
+
+### Payment pending
+`Pembayaran sedang dikonfirmasi. Jangan bayar ulang.`
+
+### POD offline
+`Bukti tersimpan di perangkat dan akan dikirim saat koneksi kembali.`
+
+---
+
+# 27. Content & Copy Style
+
+Bahasa Indonesia first.
+
+Tone:
+
+- Ringkas
+- Jelas
+- Tidak terlalu formal
+- Tidak kekanak-kanakan
+- Action-oriented
+
+Use:
+
+- `Cari kurir`
+- `Lacak pesanan`
+- `Bayar sekarang`
+- `Konfirmasi lokasi`
+
+Avoid:
+
+- jargon internal
+- `fulfillment failed`
+- `dispatch pending`
+
+Translate internal state into user meaning.
+
+---
+
+# 28. Stitch Global Prompt
+
+Copy this section into Stitch as the primary product prompt.
+
+```text
+Design a complete 2026 mobile-first UI/UX system for an Indonesian on-demand logistics and local services super-app named TEMBUS.
+
+Brand name must be TEMBUS only. Do not use “TEMBUS Logistic” or any other company name. Tagline: “Lebih Dekat, Lebih Cepat”.
+
+Visual direction:
+- premium, modern, trustworthy, technical, operational
+- primary brand dark forest green #003A20
+- primary accent orange #FF6A00 used sparingly for high-priority calls to action and emphasis
+- white and warm neutral content surfaces
+- clean rounded cards, approximately 16–20 px radius
+- modern geometric sans typography with strong legibility
+- map-first tracking experience with a contextual bottom sheet
+- status chips and clear delivery timelines
+- avoid excessive gradients, glassmorphism, neon colors, or generic fintech appearance
+- use subtle elevation and generous spacing
+- support both light and dark themes
+- accessibility-conscious contrast and touch targets
+
+The ecosystem has four connected products:
+1. Customer Android/Web
+2. Courier Android
+3. Merchant Android/Web
+4. Admin/Control Tower Web
+
+Current customer services:
+- Kirim Paket on-demand
+- Ambil Paket / pickup
+- Food Delivery
+- Aggregator / service comparison
+- Tambal Ban for motorcycle and car
+- Towing for motorcycle and car
+
+Customer app core navigation:
+Beranda, Aktivitas, Pesan, Notifikasi, Akun.
+
+Customer Home must contain:
+- dark green top brand/header region
+- current location and greeting
+- search
+- wallet/payment/promo shortcut area if relevant
+- service grid for Paket, Pickup, Food, Tambal Ban, Towing, and Lainnya/Aggregator
+- CMS-driven hero promotional carousel
+- active order card when an order exists
+- recent/repeat actions
+- bottom navigation
+
+For parcel delivery, design:
+- address/location selection
+- package details
+- service/vehicle selection
+- quote and transparent price breakdown
+- promo and payment method
+- matching
+- live map tracking
+- delivery timeline
+- courier card
+- chat/call/help
+- proof of delivery
+- cancellation/refund
+- rating/tip/report
+
+For Food, design:
+- explore and search
+- merchant list
+- merchant detail and menu
+- item modifiers
+- cart
+- checkout
+- merchant preparation status
+- courier tracking
+- merchant and courier rating
+
+For Tambal Ban and Towing, create emergency-first flows with minimal steps, large primary actions, location confirmation, motor/car selection, problem/vehicle condition, quote, provider matching, realtime tracking, service proof, and support. Do not show ads or promotional carousels inside emergency flows.
+
+Courier app core navigation:
+Kerja, Order, Earnings, Inbox, Akun.
+Include online/offline mode, courier offer, earnings, pickup navigation, proof capture, active job steps, payout, leaderboard/rewards, reputation, violations/appeal, worker documents, and support.
+
+Merchant app core navigation:
+Beranda, Pesanan, Menu, Keuangan, Akun.
+Include store open/close, order queue, order detail, menu/catalog, stock, promo, operating hours, reviews, insights, settlement, payout, staff RBAC, chat/support, receipts/printing, and outlet settings.
+
+Admin/Control Tower web must use a dark green sidebar and neutral content canvas. Include Overview, Live Operations, Orders, Customers, Couriers, Merchants, Services, Maps/Zones, Pricing, Promotions, CMS banners, Payments, Settlement, Payout, Refund/Reversal, Reconciliation, Risk/Fraud, Support/Disputes, Ratings/Reputation, Notifications, Feature Flags, RBAC, Audit Logs, Reports, and System Health.
+
+Use one consistent transaction design language across all services. A transaction screen should have a status header, map when relevant, ETA, timeline, counterparty card, communication, payment summary, help/safety actions, and proof after completion.
+
+Create reusable components and realistic Indonesian content. Do not use US addresses, dollars, miles, feet, or foreign logistics brand names. Use Indonesian addresses, Rupiah, kilometers, minutes, Indonesian names, and realistic Indonesian service wording.
 ```
 
 ---
 
-## 3. CORE ARCHITECTURAL & OFFLINE-FIRST DESIGNS
+# 29. Stitch Screen Prompt — Customer Home
 
-### 3.1 Offline-First Sync Architecture (Room + WorkManager)
-Couriers lose signal under tunnels, inside elevators, or in rural areas. High-performance offline architecture is enforced:
+```text
+Create a high-fidelity Android customer home screen for TEMBUS, an Indonesian on-demand logistics and local services super-app.
 
-```
-                  ┌─────────────────────────────────────┐
-                  │         TEMBUS Android App          │
-                  │   ┌───────────────┐                 │
-                  │   │  Compose VM   │                 │
-                  │   └───────▲───────┘                 │
-                  │           │                         │
-                  │   ┌───────▼───────┐  Sync Queue     │
-                  │   │ Room SQLite DB│ ─────────────┐  │
-                  │   └───────────────┘              │  │
-                  └──────────────────────────────────┼──┘
-                                                     │
-                                            [Network Available?]
-                                                     │
-                                            ┌────────┴────────┐
-                                            │                 │
-                                           [YES]             [NO]
-                                             │                 │
-                                     ┌───────▼───────┐ ┌───────▼───────┐
-                                     │ API Gateway   │ │ Room Local    │
-                                     │ (Postgres)    │ │ WorkManager   │
-                                     └───────────────┘ └───────────────┘
-```
+Use dark forest green #003A20 as the main brand color and orange #FF6A00 as a controlled accent. White and warm gray cards. Premium 2026 design, clean and operational, not playful.
 
-1. **Local Storage:** Use **Room Database with SQLCipher Encryption** (Robust SQLite wrapper with database-level encryption). All assigned orders, profile data, and pricing structures are replicated locally.
-2. **Pending Transactions Queue:** Any mutate request (GPS coordinates, Scan confirmations, Handover states) is written into a Room `PendingSync` entity table first.
-3. **Connectivity Watchdog (WorkManager):** An Android `CoroutineWorker` monitors system connectivity constraints. Once the connection is re-established, the pending queue is processed sequentially using an idempotent retry strategy via WorkManager constraints.
+Top area:
+- TEMBUS wordmark
+- greeting and current Jakarta-area location
+- notification icon
+- full-width search bar
 
----
+Below:
+- six service tiles: Kirim Paket, Ambil Paket, Food, Tambal Ban, Towing, Lainnya
+- a premium promotional carousel with one strong CTA and pagination dots
+- an active order card if there is an order, including order ID, service, ETA, status, mini progress line, and “Lacak” button
+- recent/repeat actions
+- nearby food recommendations can appear below active transaction content
 
-## 4. DETAILED FEATURE FLOW & GRAPHICS
+Bottom navigation: Beranda, Aktivitas, Pesan, Notifikasi, Akun.
 
-### 4.1 Onboarding & Identity Verification
-To register and start accepting high-value hyperlocal deliveries, the courier must complete a multi-step verification process:
-
-```
-  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-  │ OTP WhatsApp │ ───> │ Identity Doc │ ───> │   Liveness   │ ───> │ Onboarding   │
-  │ / SMS Login  │      │ Photo (KTP)  │      │ Selfie Scan  │      │ Training     │
-  └──────────────┘      └──────────────┘      └──────────────┘      └──────────────┘
-```
-
-1. **OTP Login:** Input Phone Number $\implies$ receive 6-digit OTP via WhatsApp (primary) or SMS. Verify JWT.
-2. **Identity Verification:** Captured via Android CameraX library, compressing the image locally before transmission. Required documents:
-   - Photo of KTP (Indonesian National Identity Card).
-   - Photo of driver's license (SIM C).
-   - Photo of motorcycle registration document (STNK) matching vehicle plate.
-3. **Liveness Check:** Front camera scan using native FaceDetector APIs, requiring active gestures (blink, smile) to prevent spoofing using static photographs.
-4. **Onboarding Training:** Interactive swiper presenting delivery guidelines, QR scanning rules, and SLA structures, followed by a mandatory 3-question quiz (must achieve 100% score).
-
----
-
-### 4.2 Online/Offline Dispatch Dashboard
-A clean, centralized interface displaying the courier's active state:
-
-```
-┌────────────────────────────────────────────────────────┐
-│  [🟢 ONLINE]                                  SOS [🚨] │
-│                                                        │
-│  ZONA AKTIF: Jakarta Selatan (Sudirman-Blok M)         │
-│  ACCEPTANCE RATE: 89%   │   RELAY SCORE: 4.8 / 5.0     │
-│                                                        │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │                 TERIMA ORDER BARU                │  │
-│  │  ==============================================  │  │
-│  │  📦 MODEL: 2-Kaki (Relay Hub Sudirman)           │  │
-│  │  🛣️ ESTIMASI FEED: Rp 22.500                     │  │
-│  │  ⏱️ TERIMA DALAM: 24 Detik                        │  │
-│  │                                                  │  │
-│  │  [   DECLINE   ]          [    ACCEPT (TAP)   ]  │  │
-│  │  └──────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────┘
-```
-
-- **Online Switcher:** Background location begins tracking every 10 seconds via FusedLocationProviderClient.
-- **Order Feed Screen:** Incoming matches show up as a fullscreen card with a high-contrast countdown timer of **30 seconds** (auto-declines if missed).
-- **Reject Count Protection:** Couriers are capped at **3 declines per hour** to prevent strategic gamification. Exceeding triggers a 15-minute cool-down warning.
-
----
-
-### 4.3 AR Volumetric Scanning & Fallback
-If the package dimensions are not pre-measured by the customer, the courier is prompted to calculate the volumetric weight upon pickup:
-
-$$\text{Berat Volumeterik (kg)} = \frac{\text{Panjang (cm)} \times \text{Lebar (cm)} \times \text{Tinggi (cm)}}{5000}$$
-
-```kotlin
-// Volumetric Scanner Compose Component
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.Text
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
-
-@Composable
-fun TembusVolumetricScannerView(
-    onManualInputClick: () -> Unit,
-    onCaptureClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        // Simulated Camera Preview via AndroidView (CameraX PreviewView)
-        // Draw custom guiding grid overlay on top
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val gridSpacing = 40.dp.toPx()
-            val gridColor = Color.White.copy(alpha = 0.15f)
-
-            for (x in 0..size.width.toInt() step gridSpacing.toInt()) {
-                drawLine(
-                    color = gridColor,
-                    start = Offset(x.toFloat(), 0f),
-                    end = Offset(x.toFloat(), size.height),
-                    strokeWidth = 1f
-                )
-            }
-            for (y in 0..size.height.toInt() step gridSpacing.toInt()) {
-                drawLine(
-                    color = gridColor,
-                    start = Offset(0f, y.toFloat()),
-                    end = Offset(size.width, y.toFloat()),
-                    strokeWidth = 1f
-                )
-            }
-        }
-
-        // Centered Measurement Target box
-        Box(
-            modifier = Modifier
-                .size(250.dp)
-                .align(Alignment.Center)
-                .border(2.dp, Color(0xFF22C55E), RoundedCornerShape(16.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Arahkan Kamera ke Paket",
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        // Back & Manual Input Trigger Button Fallback
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 40.dp, start = 20.dp, end = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            TembusTactileButton(
-                onPressed = onManualInputClick,
-                modifier = Modifier.weight(1f),
-                backgroundColor = Color(0xFF2D2D2D)
-            ) {
-                Text(text = "Input Manual", color = Color.White)
-            }
-            TembusTactileButton(
-                onPressed = onCaptureClick,
-                modifier = Modifier.weight(1f),
-                backgroundColor = Color(0xFF006437)
-            ) {
-                Text(text = "Ambil Gambar", color = Color.White)
-            }
-        }
-    }
-}
-```
-
-- **A/B Dual-Mode Lens:** The app checks device capabilities.
-  - **High-End (LiDAR / ARCore):** Uses native ARCore depth API $\implies$ precision of $\pm 1$cm.
-  - **Low-End Fallback:** Captures a single image with a reference standard (e.g., standard KTP card laid beside the box) and processes it on the Python `scanning-service`.
-
----
-
-### 4.4 Handover Relay Flow (2-Kaki & 3-Kaki Relay)
-The physical transfer of custody is highly documented to eliminate package leakage, theft, and disputes:
-
-```
-  ┌─────────────────────────────────────────────────────────────┐
-  │                   RELAY HANDOVER SEQUENCE                   │
-  │                                                             │
-  │  1. GPS Sync: Both Courier A and B directed to Meeting Point│
-  │  2. QR Exchange: Courier B scans Courier A's Package QR     │
-  │  3. Video Evidence: Capture 3-5 seconds video of the box    │
-  │  4. Condition Check: Confirm condition (OK or Damaged)      │
-  │  5. Signature: Direct digital signature on screen           │
-  └─────────────────────────────────────────────────────────────┘
-```
-
-- **Titik Temu Matching:** Algorithm routes both couriers to the designated meeting point. A live ETA is calculated using Google Maps Android SDK.
-- **Double-Lock QR Handover:** Courier A shows the unique dynamic QR code displayed on their screen. Courier B scans it using their camera (ML Kit Barcode Scanning).
-- **Video Evidence Capture:** Courier A must hold their camera up and record a **3-5 second clip** of the box being passed to Courier B. The clip is parsed locally, compressed, and synchronized to S3 storage via the `media-service`.
-
----
-
-## 5. SECURITY GRADE S++ HARDENING
-
-To operate within an enterprise-grade ecosystem, the Mobile Courier app implements maximum security patterns (Zero Trust Architecture):
-
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                   TEMBUS MOBILE HARDENING ARTIFACTS                      │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  [🛡️ RASP ENGINE] ──> RootBeer check ──> Terminate Active Session         │
-│                                                                          │
-│  [🗺️ LOCATION]    ──> Kalman Speed Filters ──> Catch GPS Spoofers         │
-│                                                                          │
-│  [🔒 STORAGE]     ──> EncryptedSharedPreferences ──> Shield Auth JWTs    │
-│                                                                          │
-│  [🌐 NETWORK]     ──> CertificatePinner Pinning ──> Stop MITM Attacks    │
-│                                                                          │
-│  [🖼️ INTERFACE]   ──> FLAG_SECURE Enabled     ──> Stop Screen Snipping   │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
-```
-
-### 5.1 Root Defense (RASP Engine)
-- Employs **RootBeer** library to check for administrative binaries (e.g., `su` binary, test-keys, busybox-app, supersu paths, magisk environment).
-- **Graceful Security Degradation:** If root is detected, the app automatically deletes the local encrypted Room database, wipes the auth JWT token from Keystore, and flags the courier's profile status as `suspended` in the backend.
-
-### 5.2 GPS Anti-Spoofing & Spoof Detection
-- Couriers often use virtual GPS apps (mock locations) to receive orders from lucrative zones while resting.
-- **Mock Location Filtering:** Checks `location.isFromMockProvider` on modern SDKs, blocking execution if true.
-- **Kalman Filtering:** All incoming coordinates pass through a local velocity filter:
-
-$$\text{Velocity} = \frac{\Delta \text{Distance}}{\Delta \text{Time}}$$
-
-- If the computed speed exceeds $120$ km/h between two intervals within an urban area, a GPS spoofing alert is logged, and the order flow is frozen.
-
-### 5.3 Biometric Keystore & Token Encryption
-- Sensitive tokens are **never** stored in plain text or standard SharedPreferences.
-- Every API request is verified with short-lived JWTs (15 min expiration) stored within the native **Android Keystore** encrypted enclave (via `EncryptedSharedPreferences`), accessible only after successful biometric (Fingerprint / Face ID via `BiometricPrompt`) verification.
-
-### 5.4 Secure SSL Pinning
-- Rejects any server communication that does not present the exact SHA-256 fingerprint matching the TEMBUS API Gateway certificate. Implemented directly in the OkHttpClient configuration:
-
-```kotlin
-val certificatePinner = CertificatePinner.Builder()
-    .add("api.tembus.id", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
-    .build()
-
-val okHttpClient = OkHttpClient.Builder()
-    .certificatePinner(certificatePinner)
-    .build()
-```
-
-This completely blocks Man-In-The-Middle (MITM) attacks on public Wi-Fi stations.
-
-### 5.5 Interface Screenshot Shielding
-- For sensitive screens (such as OTP inputs, QRIS payment pages, and payout history), the app activates native secure flags in the corresponding Activity `onCreate`:
-
-```kotlin
-activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-```
-
-This blocks screenshot capture, native screen recording, and blacks out the app thumbnail in the Recents overview.
-
----
-
-## 6. ENDPOINT MAPPING & API SERVICE ARCHITECTURE
-
-The application interfaces with the **TEMBUS API Gateway** routing to backend microservices.
-
-### 6.1 Authentication API (`auth-service` via Port 8080)
-- **Send OTP Code:**
-  - `POST /api/v1/auth/otp/send`
-  - Body: `{"phone_number": "08123456789", "channel": "whatsapp"}`
-- **Verify OTP Code:**
-  - `POST /api/v1/auth/otp/verify`
-  - Body: `{"phone_number": "08123456789", "code": "123456"}`
-  - Response: `{"status": "success", "token": "JWT_BEARER_TOKEN", "refresh_token": "JWT_REFRESH_TOKEN"}`
-- **Register Account:**
-  - `POST /api/v1/auth/register`
-  - Body: `{"phone_number": "08123456789", "full_name": "Yogi", "vehicle_plate": "B 1234 CDG"}`
-
-### 6.2 Order Lifecycle API (`order-service` via Port 8080)
-- **Get Active Relay Feed:**
-  - `GET /api/v1/couriers/feed?zone_id=12`
-  - Headers: `Authorization: Bearer JWT_TOKEN`
-- **Accept Order:**
-  - `POST /api/v1/couriers/orders/{order_id}/accept`
-- **Confirm Arrival at Pickup:**
-  - `POST /api/v1/couriers/orders/{order_id}/arrive`
-  - Body: `{"latitude": -6.214, "longitude": 106.845, "photo_url": "https://s3.tembus.id/pickups/img.jpg"}`
-
-### 6.3 Routing & Tracking API (`routing-service` & `tracking-service` via Port 8080)
-- **Send GPS Coordinates (10-second interval):**
-  - `POST /api/v1/routing/track`
-  - Body: `{"order_id": "abc-123", "courier_id": "cour-999", "latitude": -6.214, "longitude": 106.845, "timestamp": "2026-05-06T19:00:00Z"}`
-- **Match Handover Meeting Point:**
-  - `GET /api/v1/routing/meeting-point?order_id=abc-123`
-  - Response: `{"latitude": -6.222, "longitude": 106.832, "name": "Hub Sudirman", "buffer_radius": 150.0}`
-
-### 6.4 Wallet & Financial API (`payment-service` via Port 8080)
-- **Fetch Earnings Dashboard:**
-  - `GET /api/v1/wallet/balance`
-  - Response: `{"current_balance": 450000.0, "today_earnings": 125000.0, "relay_score": 4.8}`
-- **Trigger Payout:**
-  - `POST /api/v1/wallet/payout`
-  - Body: `{"amount": 400000.0, "bank_code": "bca", "account_number": "123456789"}`
-
----
-
-## 7. JETPACK COMPOSE COMPONENT BLUEPRINTS
-
-To demonstrate the full execution capabilities and UI layouts, we define high-performance, beautiful Compose UI components utilizing the designated Tembus brand tokens.
-
-### 7.1 Courier Dashboard Screen Core Composable
-```kotlin
-import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.Scaffold
-import androidx.compose.material.Switch
-import androidx.compose.material.SwitchDefaults
-import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DirectionsBike
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-
-@Composable
-fun TembusCourierDashboard(
-    modifier: Modifier = Modifier
-) {
-    var isOnline by remember { mutableStateOf(false) }
-
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        backgroundColor = Color(0xFF09090B), // Zinc-950 Dark Mode Background
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "TEMBUS Mitra",
-                        fontFamily = FontFamily.SansSerif,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                        color = Color.White
-                    )
-                },
-                backgroundColor = Color.Transparent,
-                elevation = 0.dp,
-                actions = {
-                    IconButton(onClick = { /* Trigger instant emergency SOS alert */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = "PanicSOS",
-                            tint = Color(0xFFEF4444)
-                        )
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            // Status Toggle Glass Card
-            item {
-                TembusGlassCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = if (isOnline) "Online & Siap Terima Order" else "Status Anda Offline",
-                                color = Color.White,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = if (isOnline) "Mencari pengiriman terbaik..." else "Aktifkan untuk mulai bekerja",
-                                color = Color.Gray,
-                                fontSize = 12.sp
-                            )
-                        }
-                        Switch(
-                            checked = isOnline,
-                            onCheckedChange = { isOnline = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color(0xFF22C55E),
-                                checkedTrackColor = Color(0xFF22C55E).copy(alpha = 0.5f)
-                            )
-                        )
-                    }
-                }
-            }
-
-            // Performance Metrics Cards Row
-            item {
-                Column {
-                    Text(
-                        text = "Performa Hari Ini",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        TembusGlassCard(modifier = Modifier.weight(1f)) {
-                            Column(horizontalAlignment = Alignment.Start) {
-                                Text(text = "Pendapatan", color = Color.Gray, fontSize = 12.sp)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Rp 125.000",
-                                    color = Color.White,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                        TembusGlassCard(modifier = Modifier.weight(1f)) {
-                            Column(horizontalAlignment = Alignment.Start) {
-                                Text(text = "Relay Score", color = Color.Gray, fontSize = 12.sp)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "4.8 / 5.0",
-                                    color = Color(0xFF22C55E),
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Dynamic Order Example (Simulating Live Feed)
-            item {
-                if (isOnline) {
-                    Column {
-                        Text(
-                            text = "Order Menunggu Respon",
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        TembusGlassCard {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .background(
-                                                color = Color(0xFF006437).copy(alpha = 0.2f),
-                                                shape = RoundedCornerShape(4.dp)
-                                            )
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    ) {
-                                        Text(
-                                            text = "2-Kaki Relay",
-                                            color = Color(0xFF22C55E),
-                                            fontSize = 12.sp
-                                        )
-                                    }
-                                    Text(
-                                        text = "⏱️ 24s",
-                                        color = Color(0xFFFBBF24),
-                                        fontSize = 12.sp
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "Pickup: Hub Sudirman",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Tujuan: Hub Blok M",
-                                    color = Color.Gray,
-                                    fontSize = 14.sp
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                TembusTactileButton(
-                                    onPressed = { /* Handle accept order logic */ },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    backgroundColor = Color(0xFF006437)
-                                ) {
-                                    Text(
-                                        text = "Terima Order - Rp 22.500",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 40.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = Icons.Default.DirectionsBike,
-                                contentDescription = "Bike Icon",
-                                modifier = Modifier.size(64.dp),
-                                tint = Color(0xFF3F3F46)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "Aktifkan status untuk melihat order",
-                                color = Color(0xFF71717A),
-                                fontSize = 14.sp
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+Use Indonesian addresses, Rupiah, kilometers, and minutes. Do not use dollars, miles, US addresses, “Tembus Logistic”, or foreign brand logos.
 ```
 
 ---
 
-## 8. RELEASE READINESS AUDIT CHECKLIST
+# 30. Stitch Screen Prompt — Active Tracking
 
-Before deploying the built native Android client artifact onto the production channel, verify all security and design markers are satisfied:
+```text
+Design a map-first active delivery tracking screen for TEMBUS.
 
-- [ ] Touch target dimensions strictly exceed `48dp` on all custom Compose widgets.
-- [ ] Local storage operations run exclusively on the encrypted **Room + SQLCipher** database.
-- [ ] Root check (`RootBeer` library verification) successfully terminates untrusted sessions.
-- [ ] GPS spoofing streams undergo Kalman velocity consistency checks.
-- [ ] SSL Pinning is integrated via `OkHttpClient` CertificatePinner pointing to Gateway SHA-256 hash.
-- [ ] Screen recording shielding (`FLAG_SECURE`) is active on sensitive pages.
-- [ ] Loading animations utilize high-fidelity Compose Shimmer Skeleton Brush rather than spinner loops.
-- [ ] Full visual compliance with Tembus Emerald (`#006437`) and glassmorphic designs is achieved.
+Visual composition inspired by premium logistics tracking apps:
+- map occupies approximately 58% of the screen
+- dark green route polyline
+- courier vehicle marker with a subtle pulse
+- pickup and destination markers
+- top back button and compact ETA/status control
+- large rounded white bottom sheet
+
+Bottom sheet content:
+- ETA in minutes
+- distance in kilometers
+- expected arrival time
+- compact three-to-four-step delivery progress
+- message stating the courier is heading to the next point
+- courier profile card with rating, vehicle, plate number, chat and call
+- order ID and route summary
+- help/safety entry
+
+TEMBUS colors: #003A20 green, #FF6A00 accent, white/neutral surfaces.
+Use Indonesian copy, locations, kilometers, minutes and Rupiah.
+```
 
 ---
-**END OF SPECIFICATION DOCUMENT**
+
+# 31. Stitch Screen Prompt — Activity
+
+```text
+Create the TEMBUS “Aktivitas” mobile screen.
+
+Header:
+- back or contextual top bar
+- title Aktivitas
+- subtitle “Lacak dan kelola pesananmu”
+
+Filter chips:
+Semua, Berlangsung, Selesai, Dibatalkan.
+
+Use large but efficient rounded cards for active orders and compact cards for completed history.
+Each active card includes:
+- service icon and label
+- order ID
+- status chip
+- pickup/origin
+- destination or merchant
+- order date
+- ETA if active
+- compact delivery timeline
+- CTA Lacak or Lihat Detail
+
+Use green for completed/current progress, neutral for future state, orange only for primary action/emphasis.
+Indonesian content only.
+```
+
+---
+
+# 32. Stitch Screen Prompt — Courier
+
+```text
+Design the TEMBUS courier Android app home and active-job experience.
+
+Courier Home:
+- strong online/offline control
+- current working zone
+- demand indicator
+- today earnings
+- active order card
+- incentive/leaderboard progress
+- support/safety shortcut
+- bottom navigation: Kerja, Order, Earnings, Inbox, Akun
+
+Courier Offer:
+- estimated earning is highly visible
+- pickup distance/time
+- estimated service/trip distance
+- pickup and destination context
+- service type
+- important requirements
+- countdown
+- clear Accept and Decline actions
+
+Active Job:
+- map and navigation
+- step status
+- customer/merchant contact
+- proof requirement
+- large next-action button
+- server confirmation/pending state after each critical action
+
+Visual identity remains TEMBUS: forest green #003A20, restrained orange #FF6A00, white/neutral cards, premium operational UI.
+```
+
+---
+
+# 33. Stitch Screen Prompt — Merchant
+
+```text
+Design the TEMBUS Merchant mobile app for a restaurant or local merchant.
+
+Home:
+- outlet name and open/closed toggle
+- new orders needing action
+- today revenue
+- settlement summary
+- stock/menu alerts
+- rating/review alert
+
+Orders:
+- tabs/status for Baru, Diproses, Siap, Kurir, Selesai
+- elapsed timer
+- order amount
+- customer notes
+- accept/reject where eligible
+
+Menu:
+- categories
+- product cards
+- stock toggle
+- price
+- edit action
+
+Finance:
+- gross sales
+- platform fees
+- promo contribution
+- adjustment
+- net settlement
+- payout status
+
+Bottom navigation: Beranda, Pesanan, Menu, Keuangan, Akun.
+Use the same TEMBUS design system but with slightly higher information density than the customer app.
+```
+
+---
+
+# 34. Stitch Screen Prompt — Admin Control Tower
+
+```text
+Design a responsive web Control Tower for TEMBUS.
+
+Use a dark forest green #003A20 left sidebar, warm neutral workspace, white cards, and orange #FF6A00 only for priority actions/attention.
+
+Main page should include:
+- KPI strip: active orders, completed, delayed, cancellation, payment success, supply health
+- large live map with order/courier markers
+- delayed order/incident queue
+- matching/no-courier issue queue
+- merchant preparation delay panel
+- emergency Tambal Ban/Towing cases
+- payment/payout warning panel
+- operational order table with service, order ID, customer, courier/merchant, state, SLA, location, last update, actions
+
+Left navigation:
+Overview, Control Tower, Orders, Customers, Couriers, Merchants, Services, Maps/Zones, Pricing, Promotions, CMS, Payments, Settlement, Payout, Refunds, Risk/Fraud, Support, Reputation, Notifications, Feature Flags, RBAC, Audit Logs, Reports, and System Health.
+
+Prioritize actionable queues over decorative charts.
+```
+
+---
+
+# 35. Design QA Checklist
+
+Before a Stitch-generated screen is accepted:
+
+- [ ] Brand says TEMBUS only.
+- [ ] Uses #003A20 as primary green.
+- [ ] Orange is not overused.
+- [ ] Indonesian currency/location/unit conventions.
+- [ ] Main CTA is obvious within 2 seconds.
+- [ ] Transaction state is understandable without reading long text.
+- [ ] Payment state is not confused with order state.
+- [ ] Touch targets are large enough.
+- [ ] Screen works in light and dark mode conceptually.
+- [ ] Empty/loading/error/offline state is defined.
+- [ ] No ads in emergency/critical transaction flow.
+- [ ] No fake live data or countdown dark pattern.
+- [ ] Component is reusable across verticals where appropriate.
+- [ ] Copy is short and natural Indonesian.
+- [ ] No US address, dollar, mile, or feet units.
+- [ ] Map and bottom sheet do not cover required navigation controls.
+- [ ] Status color is never the only information carrier.
+
+---
+
+# 36. Recommended Generation Order in Stitch
+
+Generate screens in this order so the design system stabilizes early:
+
+1. Customer Home
+2. Customer Activity
+3. Paket booking
+4. Paket checkout
+5. Paket active tracking
+6. Food explore
+7. Food merchant/menu
+8. Food checkout/tracking
+9. Tambal Ban emergency
+10. Towing emergency
+11. Customer account/support
+12. Courier home/offer/active job
+13. Courier earnings/payout
+14. Merchant home/orders/menu
+15. Merchant finance
+16. Admin Control Tower
+17. Admin order detail
+18. Admin finance/risk/support
+
+Do not generate 50 unrelated screens first. Lock foundations and core transaction shell, then scale variants.
+
+---
+
+# 37. Final Design Rule
+
+The UI should make TEMBUS feel like **one intelligent platform with multiple services**, not six mini-apps living inside one APK. Keep the same navigation principles, transaction shell, payment language, tracking model, support access, and status logic across Paket, Food, Tambal Ban, Towing, and future services.

@@ -28,9 +28,11 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -42,13 +44,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tembus.customer.data.model.Order
+import com.tembus.customer.ui.designsystem.TembusBadge
+import com.tembus.customer.ui.designsystem.TembusBadgeTone
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.Success
 import com.tembus.customer.ui.theme.TembusRadius
 
-internal fun humanOrderStatus(statusLower: String): String = when (statusLower) {
-    "pending", "created", "waiting", "waiting_for_driver", "searching_driver" -> "Menunggu kurir"
+internal fun humanOrderStatus(statusLower: String): String = when (statusLower) {    "pending", "created", "waiting", "waiting_for_driver", "searching_driver" -> "Menunggu kurir"
     "assigned", "accepted" -> "Kurir ditugaskan"
     "picking_up" -> "Kurir menuju pickup"
     "picked_up", "in_transit", "delivering" -> "Dalam perjalanan"
@@ -56,6 +59,23 @@ internal fun humanOrderStatus(statusLower: String): String = when (statusLower) 
     "cancelled", "canceled" -> "Dibatalkan"
     "failed", "payment_failed", "rejected" -> "Gagal"
     else -> statusLower.replace("_", " ").replaceFirstChar { it.uppercase() }
+}
+
+// DESIGN.md §11.5/§12: progres mini + tone chip status kartu order aktif.
+internal fun activeOrderProgress(statusLower: String): Float = when (statusLower) {
+    "pending", "created", "waiting", "waiting_for_driver", "searching_driver", "searching" -> 0.15f
+    "assigned", "accepted" -> 0.35f
+    "picking_up" -> 0.55f
+    "picked_up", "in_transit", "delivering" -> 0.8f
+    "delivered", "completed", "arrived" -> 1f
+    else -> 0.15f
+}
+
+internal fun activeOrderBadgeTone(statusLower: String): TembusBadgeTone = when (statusLower) {
+    "delivered", "completed", "arrived" -> TembusBadgeTone.Success
+    "cancelled", "canceled", "failed", "payment_failed", "rejected" -> TembusBadgeTone.Error
+    "pending", "created", "waiting", "waiting_for_driver", "searching_driver", "searching" -> TembusBadgeTone.Warning
+    else -> TembusBadgeTone.Info
 }
 
 @Composable
@@ -141,6 +161,31 @@ internal fun CompactActiveOrdersSummaryCard(
                     color = Muted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
+                )
+                // DESIGN.md §11.5/§12: order ID + chip status + progres mini.
+                // Alasan: kartu menjawab status & progres tanpa membuka detail.
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "ID ${primaryOrder.orderNumber.ifBlank { primaryOrder.orderId.take(8) }}",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Muted,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    TembusBadge(label = CustomerTextCatalog.translate(statusHuman), tone = activeOrderBadgeTone(primaryOrder.status.lowercase()))
+                }
+                Spacer(Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { activeOrderProgress(primaryOrder.status.lowercase()) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(5.dp)
+                        .clip(CircleShape),
+                    color = LcGreen,
+                    trackColor = LcGreen.copy(alpha = 0.18f),
                 )
             }
             Spacer(Modifier.width(8.dp))
