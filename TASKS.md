@@ -2,6 +2,8 @@
 
 ## Active
 
+- [ ] **Customer App UI/UX Antislop Audit 2026** - tindak lanjut audit antislop (Mode 2) customer Android vs standar 2026 + benchmark global (Gojek/Grab/Uber/DoorDash): 7 TASK-ID UIUX-2026-001..007 (em dash R-02, sinkron bottom-nav, nama kurir `+`, konsistensi locale, error katalog material, tracking berkonteks, scrim status-bar). Detail: [task-customer-uiux-antislop-2026.md](task-customer-uiux-antislop-2026.md).
+
 - [ ] **Marketplace parity PART W–AG — payment, safety, mobile, security, reputation/CRM and reality gates**
   - Status 2026-09-15: staging remains on this device with the canonical boundaries `api.bawain.my.id` (API), `app.bawain.my.id` (customer), `admin.bawain.my.id` (admin dashboard), and `bawain.my.id` (landing). Admin is served from `admin.bawain.my.id` and uses `api.bawain.my.id` only for API/WebSocket origins; it is not routed through the API host. The deterministic staging axe scan and full tagged Customer accessibility suite pass; Testing Ops `34911657714`, Task Evidence `34911652144`, Security `34911652202` and CI/CD Staging `34911652342` are green for commit `34b0c5a2`. The remaining W–AG checklist items are still open and must not be treated as complete.
   - External follow-up: payment/OTP/emergency vendors are intentionally not configured; no provider success is claimed. Socket/network reconnect and controlled kill-switch outage proof, Android low/high matrix, full safety/reputation/CRM E2E, security exercises, load/capacity drills and production-readiness sign-off remain required.
