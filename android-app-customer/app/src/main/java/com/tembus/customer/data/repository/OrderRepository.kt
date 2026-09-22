@@ -15,6 +15,8 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
 
 @Singleton
 class OrderRepository @Inject constructor(
@@ -82,6 +84,86 @@ class OrderRepository @Inject constructor(
             }
         } catch (e: Exception) {
             emit(Result.failure(e))
+        }
+    }
+
+    suspend fun getCustomerLogisticsProviders(): Result<List<LogisticsProviderOption>> {
+        return try {
+            val response = apiService.getCustomerLogisticsProviders()
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                Result.success(body.providers)
+            } else {
+                Result.failure(Exception(body?.error ?: response.readErrorMessage("Provider ekspedisi belum tersedia")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getCustomerAggregatorPackageCategories(): Result<List<AggregatorPackageCategory>> {
+        return try {
+            val response = apiService.getPublicRuntimeConfigs()
+            val raw = response.body()?.data?.get("aggregator_package_categories")
+            if (!response.isSuccessful || raw == null) {
+                Result.failure(Exception(response.readErrorMessage("Kategori paket belum tersedia")))
+            } else {
+                val categories = Json { ignoreUnknownKeys = true }
+                    .decodeFromJsonElement<List<AggregatorPackageCategory>>(raw)
+                    .filter { it.code.isNotBlank() && it.label.isNotBlank() }
+                Result.success(categories)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getCustomerLogisticsLocations(provider: String): Result<List<LogisticsLocationOption>> {
+        return try {
+            val response = apiService.getCustomerLogisticsLocations(provider)
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                Result.success(body.data)
+            } else {
+                Result.failure(Exception(body?.error ?: response.readErrorMessage("Area ekspedisi belum tersedia")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun checkCustomerLogisticsTariff(
+        provider: String,
+        originCode: String,
+        destinationCode: String,
+        weightKg: Double,
+        dimensions: DimensionsPayload,
+        itemValueIdr: Long,
+        category: String,
+        insurance: Boolean
+    ): Result<AggregatorTariffData> {
+        return try {
+            val response = apiService.checkCustomerLogisticsTariff(
+                provider = provider,
+                originCode = originCode,
+                destinationCode = destinationCode,
+                weightKg = weightKg,
+                lengthCm = dimensions.length,
+                widthCm = dimensions.width,
+                heightCm = dimensions.height,
+                itemValueIdr = itemValueIdr,
+                category = category,
+                insurance = insurance
+            )
+            val body = response.body()
+            val data = body?.data
+            if (response.isSuccessful && body?.success == true && data != null) {
+                Result.success(data)
+            } else {
+                Result.failure(Exception(body?.error ?: response.readErrorMessage("Tarif ekspedisi belum tersedia")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

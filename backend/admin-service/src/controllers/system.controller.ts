@@ -73,6 +73,7 @@ export const getPublicRuntimeConfigs = async (req: Request, res: Response): Prom
       'withdraw_min_amount',
       'withdraw_fee',
       'courier_sync_interval_ms',
+      'aggregator_package_categories',
     ];
     
     const result = await readDb.query(

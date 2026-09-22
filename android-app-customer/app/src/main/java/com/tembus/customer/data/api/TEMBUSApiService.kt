@@ -71,6 +71,9 @@ interface TEMBUSApiService {
         @Query("scope") scope: String = "customer_mobile"
     ): Response<MapsProviderConfig>
 
+    @GET("api/v1/config/runtime")
+    suspend fun getPublicRuntimeConfigs(): Response<PublicRuntimeConfigsResponse>
+
     @GET("api/v1/maps/geocode")
     suspend fun geocodeAddress(
         @Query("query") query: String,
@@ -196,6 +199,28 @@ interface TEMBUSApiService {
 
     @GET("api/v1/customer/delivery-services")
     suspend fun getCustomerDeliveryServices(): Response<DeliveryServicesResponse>
+
+    @GET("api/v1/logistics/providers")
+    suspend fun getCustomerLogisticsProviders(): Response<LogisticsProvidersResponse>
+
+    @GET("api/v1/logistics/locations")
+    suspend fun getCustomerLogisticsLocations(
+        @Query("provider") provider: String
+    ): Response<LogisticsLocationsResponse>
+
+    @GET("api/v1/logistics/check-tariff")
+    suspend fun checkCustomerLogisticsTariff(
+        @Query("provider") provider: String,
+        @Query("origin_code") originCode: String,
+        @Query("destination_code") destinationCode: String,
+        @Query("weight_kg") weightKg: Double,
+        @Query("length_cm") lengthCm: Int,
+        @Query("width_cm") widthCm: Int,
+        @Query("height_cm") heightCm: Int,
+        @Query("item_value_idr") itemValueIdr: Long,
+        @Query("category") category: String,
+        @Query("insurance") insurance: Boolean
+    ): Response<AggregatorTariffResponse>
 
     @POST("api/v1/customer/orders/calculate")
     suspend fun calculateCustomerOrderPrice(

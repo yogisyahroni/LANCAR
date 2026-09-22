@@ -17,6 +17,9 @@ sealed class Screen(val route: String) {
             return if (query.isEmpty()) "booking" else "booking?${query.joinToString("&")}"
         }
     }
+    object Aggregator : Screen("aggregator?mode={mode}") {
+        fun createRoute(): String = "aggregator?mode=aggregator"
+    }
     object History : Screen("history")
     object Business : Screen("business")
     object Messages : Screen("messages")

@@ -217,7 +217,9 @@ internal fun PriceBreakdown.hasRoadRouteSnapshot(): Boolean {
 }
 
 internal fun BookingState.selectedPrice(): PriceBreakdown? {
-    return priceBreakdowns[selectedServiceCode]?.takeIf { it.hasRoadRouteSnapshot() }
+    val candidate = aggregatorSelectedQuoteId?.let { priceBreakdowns[it] }
+        ?: priceBreakdowns[selectedServiceCode]
+    return candidate?.takeIf { it.hasRoadRouteSnapshot() || aggregatorSelectedQuoteId != null }
 }
 
 internal fun BookingState.isRecipientReady(): Boolean {

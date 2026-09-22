@@ -10,6 +10,10 @@ import com.tembus.customer.data.model.CustomerAddressRequest
 import com.tembus.customer.data.model.CustomerPriceEstimateRequest
 import com.tembus.customer.data.model.DeliveryServiceProduct
 import com.tembus.customer.data.model.DimensionsPayload
+import com.tembus.customer.data.model.AggregatorTariffService
+import com.tembus.customer.data.model.AggregatorPackageCategory
+import com.tembus.customer.data.model.LogisticsLocationOption
+import com.tembus.customer.data.model.LogisticsProviderOption
 import com.tembus.customer.data.model.LocationPayload
 import com.tembus.customer.data.model.MapsGeocodeResult
 import com.tembus.customer.data.model.MapsProviderConfig
@@ -91,7 +95,18 @@ data class BookingState(
     val voucherName: String = "",
     val voucherApplied: Boolean = false,
     val voucherLoading: Boolean = false,
-    val voucherError: String? = null
+    val voucherError: String? = null,
+    val aggregatorProviders: List<LogisticsProviderOption> = emptyList(),
+    val aggregatorLocations: List<LogisticsLocationOption> = emptyList(),
+    val aggregatorProvider: String = "",
+    val aggregatorOriginCode: String = "",
+    val aggregatorDestinationCode: String = "",
+    val aggregatorQuotes: List<AggregatorTariffService> = emptyList(),
+    val aggregatorSelectedQuoteId: String? = null,
+    val aggregatorQuoteLoading: Boolean = false,
+    val aggregatorError: String? = null,
+    val aggregatorPackageCategories: List<AggregatorPackageCategory> = emptyList(),
+    val aggregatorPackageCategoriesError: String? = null
 )
 
 @Serializable
@@ -206,6 +221,8 @@ class BookingViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
+    val isAggregatorMode: Boolean = savedStateHandle.get<String>("mode") == "aggregator"
+
     private val _bookingState = MutableStateFlow(
         savedStateHandle.get<String>(BOOKING_DRAFT_KEY)
             ?.let { encoded -> runCatching { bookingDraftJson.decodeFromString<BookingDraft>(encoded).toBookingState() }.getOrNull() }
@@ -243,6 +260,10 @@ class BookingViewModel @Inject constructor(
         loadServices()
         loadAddressBook()
         loadMapsProviderConfig()
+        if (isAggregatorMode) {
+            loadAggregatorProviders()
+            loadAggregatorPackageCategories()
+        }
     }
 
     fun loadMapsProviderConfig() {
@@ -274,15 +295,16 @@ class BookingViewModel @Inject constructor(
             _bookingState.value = _bookingState.value.copy(isLoading = true, error = null)
             orderRepository.getCustomerDeliveryServices().collectLatest { result ->
                 result.onSuccess { services ->
-                    val onDemandServices = services
-                        .filter { it.serviceCategory == "on_demand" && it.isEnabled }
+                    val category = if (isAggregatorMode) "aggregator" else "on_demand"
+                    val availableServices = services
+                        .filter { it.serviceCategory == category && it.isEnabled }
                         .filter { !it.requiresDimensionScan || it.allowsManualDimension }
                         .sortedBy { it.displayOrder }
                     _bookingState.value = _bookingState.value.copy(
                         isLoading = false,
-                        services = onDemandServices,
+                        services = availableServices,
                         selectedServiceCode = _bookingState.value.selectedServiceCode
-                            .takeIf { selectedCode -> onDemandServices.any { it.code == selectedCode } }
+                            .takeIf { selectedCode -> availableServices.any { it.code == selectedCode } }
                             .orEmpty()
                     )
                     calculateRoute()
@@ -514,12 +536,149 @@ class BookingViewModel @Inject constructor(
         calculateRoute()
     }
 
+    fun setCustomPackage(weight: String, length: String, width: String, height: String) {
+        val normalizedWeight = weight.replace(',', '.').toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+        val normalizedLength = length.toIntOrNull()?.coerceAtLeast(0) ?: 0
+        val normalizedWidth = width.toIntOrNull()?.coerceAtLeast(0) ?: 0
+        val normalizedHeight = height.toIntOrNull()?.coerceAtLeast(0) ?: 0
+        _bookingState.value = _bookingState.value.copy(
+            packageWeight = normalizedWeight,
+            packageLength = normalizedLength,
+            packageWidth = normalizedWidth,
+            packageHeight = normalizedHeight,
+            sizeTier = "custom",
+            isPackageSizeSelected = normalizedWeight > 0.0 && normalizedLength > 0 && normalizedWidth > 0 && normalizedHeight > 0,
+            dimensionsScanned = false,
+            selectedServiceCode = "",
+            aggregatorSelectedQuoteId = null,
+            estimatedPrice = 0,
+            priceBreakdowns = emptyMap(),
+            aggregatorQuotes = emptyList()
+        )
+        calculateRoute()
+    }
+
     fun selectService(code: String) {
         val price = _bookingState.value.priceBreakdowns[code]?.totalPriceIdr ?: 0
         _bookingState.value = _bookingState.value.copy(
             selectedServiceCode = code,
             estimatedPrice = price
         )
+    }
+
+    fun selectAggregatorQuote(quoteId: String) {
+        val state = _bookingState.value
+        val quote = state.aggregatorQuotes.firstOrNull { it.quoteId == quoteId } ?: return
+        val aggregatorService = state.services.firstOrNull() ?: return
+        val price = state.priceBreakdowns[quoteId]?.totalPriceIdr ?: quote.customerTariffIdr
+        _bookingState.value = state.copy(
+            selectedServiceCode = aggregatorService.code,
+            aggregatorSelectedQuoteId = quote.quoteId,
+            estimatedPrice = price
+        )
+    }
+
+    fun loadAggregatorProviders() {
+        viewModelScope.launch {
+            _bookingState.value = _bookingState.value.copy(aggregatorQuoteLoading = true, aggregatorError = null)
+            orderRepository.getCustomerLogisticsProviders().fold(
+                onSuccess = { providers ->
+                    val selected = providers.firstOrNull { it.available }?.code.orEmpty()
+                    val currentProvider = _bookingState.value.aggregatorProvider
+                        .takeIf { current -> providers.any { it.code == current } }
+                        ?: selected
+                    _bookingState.value = _bookingState.value.copy(
+                        aggregatorProviders = providers,
+                        aggregatorProvider = currentProvider,
+                        aggregatorQuoteLoading = false,
+                        aggregatorError = null
+                    )
+                    if (currentProvider.isNotBlank()) {
+                        loadAggregatorLocations(currentProvider)
+                    }
+                },
+                onFailure = { error ->
+                    _bookingState.value = _bookingState.value.copy(
+                        aggregatorQuoteLoading = false,
+                        aggregatorError = error.localizedMessage ?: "Provider ekspedisi belum tersedia."
+                    )
+                }
+            )
+        }
+    }
+
+    fun loadAggregatorPackageCategories() {
+        viewModelScope.launch {
+            orderRepository.getCustomerAggregatorPackageCategories()
+                .onSuccess { categories ->
+                    _bookingState.value = _bookingState.value.copy(
+                        aggregatorPackageCategories = categories,
+                        aggregatorPackageCategoriesError = null
+                    )
+                }
+                .onFailure { error ->
+                    _bookingState.value = _bookingState.value.copy(
+                        aggregatorPackageCategoriesError = error.localizedMessage
+                            ?: "Kategori paket belum tersedia dari server."
+                    )
+                }
+        }
+    }
+
+    fun selectAggregatorProvider(provider: String) {
+        val normalized = provider.trim().lowercase()
+        if (normalized.isBlank()) return
+        _bookingState.value = _bookingState.value.copy(
+            aggregatorProvider = normalized,
+            aggregatorLocations = emptyList(),
+            aggregatorOriginCode = "",
+            aggregatorDestinationCode = "",
+            aggregatorQuotes = emptyList(),
+            aggregatorSelectedQuoteId = null,
+            selectedServiceCode = "",
+            priceBreakdowns = emptyMap(),
+            estimatedPrice = 0,
+            aggregatorError = null
+        )
+        loadAggregatorLocations(normalized)
+    }
+
+    private fun loadAggregatorLocations(provider: String) {
+        viewModelScope.launch {
+            _bookingState.value = _bookingState.value.copy(aggregatorQuoteLoading = true, aggregatorError = null)
+            orderRepository.getCustomerLogisticsLocations(provider).fold(
+                onSuccess = { locations ->
+                    _bookingState.value = _bookingState.value.copy(
+                        aggregatorLocations = locations,
+                        aggregatorQuoteLoading = false,
+                        aggregatorError = null
+                    )
+                },
+                onFailure = { error ->
+                    _bookingState.value = _bookingState.value.copy(
+                        aggregatorQuoteLoading = false,
+                        aggregatorError = error.localizedMessage ?: "Area ekspedisi belum tersedia."
+                    )
+                }
+            )
+        }
+    }
+
+    fun selectAggregatorLocation(code: String, origin: Boolean) {
+        val next = if (origin) {
+            _bookingState.value.copy(aggregatorOriginCode = code)
+        } else {
+            _bookingState.value.copy(aggregatorDestinationCode = code)
+        }
+        _bookingState.value = next.copy(
+            aggregatorQuotes = emptyList(),
+            aggregatorSelectedQuoteId = null,
+            selectedServiceCode = "",
+            priceBreakdowns = emptyMap(),
+            estimatedPrice = 0,
+            aggregatorError = null
+        )
+        calculateRoute()
     }
 
     fun setSizeTier(code: String, weightKg: Double, dimensions: DimensionsPayload) {
@@ -692,6 +851,10 @@ class BookingViewModel @Inject constructor(
 
     private fun calculateRoute() {
         val state = _bookingState.value
+        if (isAggregatorMode) {
+            calculateAggregatorQuotes(state)
+            return
+        }
         if (
             state.pickupLocation != null &&
             state.destinationLocation != null &&
@@ -777,6 +940,132 @@ class BookingViewModel @Inject constructor(
             )
         }
     }
+
+    private fun calculateAggregatorQuotes(state: BookingState) {
+        if (
+            state.pickupLocation == null ||
+            state.destinationLocation == null ||
+            state.services.isEmpty() ||
+            !state.isPackageReady() ||
+            state.aggregatorProvider.isBlank() ||
+            state.aggregatorOriginCode.isBlank() ||
+            state.aggregatorDestinationCode.isBlank()
+        ) {
+            routeCalculationVersion++
+            _bookingState.value = state.copy(
+                isCalculatingRoute = false,
+                aggregatorQuoteLoading = false,
+                aggregatorQuotes = emptyList(),
+                aggregatorSelectedQuoteId = null,
+                selectedServiceCode = "",
+                estimatedPrice = 0,
+                priceBreakdowns = emptyMap()
+            )
+            return
+        }
+
+        val calculationVersion = ++routeCalculationVersion
+        _bookingState.value = state.copy(
+            isCalculatingRoute = true,
+            aggregatorQuoteLoading = true,
+            aggregatorError = null,
+            selectedServiceCode = "",
+            estimatedPrice = 0,
+            priceBreakdowns = emptyMap(),
+            aggregatorQuotes = emptyList(),
+            aggregatorSelectedQuoteId = null
+        )
+        viewModelScope.launch {
+            val dimensions = DimensionsPayload(state.packageLength, state.packageWidth, state.packageHeight)
+            val routeResult = orderRepository.calculateCustomerOrderPrices(
+                CustomerPriceEstimateRequest(
+                    pickup = LocationPayload(state.pickupLocation.latitude, state.pickupLocation.longitude),
+                    dropoff = LocationPayload(state.destinationLocation.latitude, state.destinationLocation.longitude),
+                    dimensions = dimensions,
+                    weightKg = state.packageWeight,
+                    hasInsurance = state.insuranceEnabled,
+                    itemValue = state.itemValue,
+                    dimensionScanVerified = state.dimensionsScanned,
+                    serviceCode = "AGGREGATOR",
+                    sizeTier = state.sizeTier,
+                    packageDetails = PackageDetailsPayload(
+                        sizeTier = state.sizeTier,
+                        weightKg = state.packageWeight,
+                        dimensions = dimensions,
+                        dimensionsScanned = state.dimensionsScanned,
+                        requiresDeliveryCode = state.deliveryCodeEnabled,
+                        itemDescription = state.itemDescription,
+                        category = state.packageCategory,
+                        quantity = state.packageQuantity,
+                        itemValueIdr = state.itemValue,
+                        isFragile = state.packageIsFragile,
+                        isProhibited = state.packageIsProhibited
+                    ),
+                    recipientName = state.recipientName,
+                    recipientPhone = state.recipientPhone
+                )
+            )
+            val routeBreakdown = routeResult.getOrNull()
+                ?.firstOrNull { it.serviceCode == state.services.firstOrNull()?.code && it.hasRoadRoute() }
+                ?: routeResult.getOrNull()?.firstOrNull { it.hasRoadRoute() }
+            val tariffResult = orderRepository.checkCustomerLogisticsTariff(
+                provider = state.aggregatorProvider,
+                originCode = state.aggregatorOriginCode,
+                destinationCode = state.aggregatorDestinationCode,
+                weightKg = state.packageWeight,
+                dimensions = dimensions,
+                itemValueIdr = state.itemValue,
+                category = state.packageCategory,
+                insurance = state.insuranceEnabled
+            )
+            if (calculationVersion != routeCalculationVersion) return@launch
+            tariffResult.fold(
+                onSuccess = { tariff ->
+                    val mapped = tariff.services.filter { it.quoteId.isNotBlank() && it.customerTariffIdr > 0 }
+                    val breakdowns = mapped.associate { quote ->
+                        quote.quoteId to PriceBreakdown(
+                            quoteId = quote.quoteId,
+                            expiresAt = tariff.expiresAt,
+                            serviceCode = state.services.first().code,
+                            serviceName = quote.serviceName,
+                            distanceKm = routeBreakdown?.distanceKm ?: 0.0,
+                            routeSnapshot = routeBreakdown?.routeSnapshot,
+                            actualWeightKg = state.packageWeight,
+                            chargeableWeightKg = tariff.chargeableWeightKg,
+                            etaMinutes = routeBreakdown?.etaMinutes ?: 0,
+                            totalPriceIdr = quote.customerTariffIdr,
+                            basePriceIdr = quote.customerTariffIdr,
+                            packageFacts = routeBreakdown?.packageFacts
+                        )
+                    }
+                    val selectedQuote = mapped.firstOrNull()
+                    _bookingState.value = _bookingState.value.copy(
+                        isCalculatingRoute = false,
+                        aggregatorQuoteLoading = false,
+                        aggregatorQuotes = mapped,
+                        aggregatorSelectedQuoteId = selectedQuote?.quoteId,
+                        selectedServiceCode = state.services.first().code,
+                        priceBreakdowns = breakdowns,
+                        estimatedPrice = selectedQuote?.customerTariffIdr ?: 0,
+                        aggregatorError = if (mapped.isEmpty()) "Ekspedisi belum mengembalikan layanan untuk rute ini." else null,
+                        error = if (routeBreakdown == null) "Rute jalan belum tersedia untuk alamat ini." else null
+                    )
+                },
+                onFailure = { error ->
+                    _bookingState.value = _bookingState.value.copy(
+                        isCalculatingRoute = false,
+                        aggregatorQuoteLoading = false,
+                        aggregatorQuotes = emptyList(),
+                        aggregatorSelectedQuoteId = null,
+                        selectedServiceCode = "",
+                        priceBreakdowns = emptyMap(),
+                        estimatedPrice = 0,
+                        aggregatorError = error.localizedMessage ?: "Tarif ekspedisi belum tersedia."
+                    )
+                }
+            )
+        }
+    }
     fun confirmBooking() {
         val state = _bookingState.value
         if (!PackageOrderFlowPolicy.shouldSubmitCreate(state.isLoading)) return
@@ -796,6 +1085,7 @@ class BookingViewModel @Inject constructor(
             return
         }
         val priceBreakdown = state.priceBreakdowns[state.selectedServiceCode]
+            ?: state.aggregatorSelectedQuoteId?.let { state.priceBreakdowns[it] }
         if (priceBreakdown == null) {
             _bookingState.value = state.copy(error = "Pilih layanan dan hitung harga terlebih dahulu.")
             return
@@ -823,6 +1113,14 @@ class BookingViewModel @Inject constructor(
         }
         if (state.packageIsProhibited) {
             _bookingState.value = state.copy(error = "Barang terlarang tidak dapat dikirim melalui TEMBUS.")
+            return
+        }
+        val aggregatorQuote = if (isAggregatorMode) {
+            state.aggregatorQuotes.firstOrNull { it.quoteId == state.aggregatorSelectedQuoteId }
+                ?: state.aggregatorQuotes.firstOrNull()
+        } else null
+        if (isAggregatorMode && aggregatorQuote == null) {
+            _bookingState.value = state.copy(error = "Pilih layanan ekspedisi sebelum melanjutkan.")
             return
         }
 
@@ -856,6 +1154,11 @@ class BookingViewModel @Inject constructor(
                 customerNotes = state.itemDescription,
                 priceBreakdown = priceBreakdown,
                 serviceCode = state.selectedServiceCode,
+                logisticsProvider = if (isAggregatorMode) state.aggregatorProvider else null,
+                logisticsServiceType = aggregatorQuote?.serviceCode,
+                aggregatorQuoteId = aggregatorQuote?.quoteId,
+                originCode = if (isAggregatorMode) state.aggregatorOriginCode else null,
+                destinationCode = if (isAggregatorMode) state.aggregatorDestinationCode else null,
                 promoCode = state.promoCode.ifBlank { null },
                 voucherCode = if (state.voucherApplied) state.voucherCode else null, // FB-078
                 quoteId = priceBreakdown.quoteId,

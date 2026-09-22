@@ -74,6 +74,7 @@ import com.tembus.customer.ui.localization.LanguageScreen
 import com.tembus.customer.ui.screens.profile.LoyaltyScreen
 import com.tembus.customer.ui.screens.profile.ReferralScreen
 import com.tembus.customer.ui.screens.booking.BookingScreen
+import com.tembus.customer.ui.screens.booking.AggregatorScreen
 import com.tembus.customer.ui.screens.booking.BookingViewModel
 import com.tembus.customer.ui.screens.business.BusinessScreen
 import com.tembus.customer.ui.screens.call.InAppCallScreen
@@ -177,6 +178,7 @@ fun RootNavGraph(
     val secureScreenRequired = currentRoute in setOf(
         Screen.AuthGraph.route,
         Screen.Booking.route,
+        Screen.Aggregator.route,
         Screen.Profile.route,
         Screen.Support.route,
         Screen.AddressBook.route,
@@ -303,7 +305,7 @@ fun RootNavGraph(
                             DashboardServiceDestination.Towing -> navController.navigate(Screen.ServiceCategory.route)
                             DashboardServiceDestination.FoodHome -> navController.navigate(Screen.FoodHome.route)
                             DashboardServiceDestination.FoodFavorites -> navController.navigate(Screen.FoodFavorites.route)
-                            DashboardServiceDestination.Aggregator -> navController.navigate(Screen.Booking.createRoute("aggregator"))
+                            DashboardServiceDestination.Aggregator -> navController.navigate(Screen.Aggregator.createRoute())
                             is DashboardServiceDestination.GenericBooking ->
                                 navController.navigate(Screen.Booking.createRoute(destination.serviceCode))
                         }
@@ -359,7 +361,7 @@ fun RootNavGraph(
                             DashboardServiceDestination.Towing -> navController.navigate(Screen.ServiceCategory.route)
                             DashboardServiceDestination.FoodHome -> navController.navigate(Screen.FoodHome.route)
                             DashboardServiceDestination.FoodFavorites -> navController.navigate(Screen.FoodFavorites.route)
-                            DashboardServiceDestination.Aggregator -> navController.navigate(Screen.Booking.createRoute("aggregator"))
+                            DashboardServiceDestination.Aggregator -> navController.navigate(Screen.Aggregator.createRoute())
                             is DashboardServiceDestination.GenericBooking -> navController.navigate(Screen.Booking.createRoute(destination.serviceCode))
                         }
                     },
@@ -566,6 +568,24 @@ fun RootNavGraph(
                     viewModel = bookingViewModel,
                     initialOpen = initialOpen,
                     initialPromoCode = initialPromoCode,
+                    onBackClick = { navController.popBackStack() },
+                    onBookingSuccess = { orderId ->
+                        navController.navigate(Screen.Payment.createRoute(orderId)) {
+                            popUpTo(Screen.Dashboard.route)
+                        }
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.Aggregator.route,
+                arguments = listOf(
+                    navArgument("mode") { type = NavType.StringType; defaultValue = "aggregator" }
+                )
+            ) {
+                val aggregatorViewModel: BookingViewModel = hiltViewModel()
+                AggregatorScreen(
+                    viewModel = aggregatorViewModel,
                     onBackClick = { navController.popBackStack() },
                     onBookingSuccess = { orderId ->
                         navController.navigate(Screen.Payment.createRoute(orderId)) {

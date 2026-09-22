@@ -44,7 +44,90 @@ data class DeliveryServiceProduct(
     @SerialName("included_distance_km") val includedDistanceKm: Double = 1.0,
     @SerialName("per_km_idr") val perKmIdr: Long = 0,
     @SerialName("service_multiplier") val serviceMultiplier: Double = 1.0,
+    @SerialName("price_mode") val priceMode: String = "final",
     @SerialName("size_tiers") val sizeTiers: List<ServiceSizeTier> = emptyList()
+)
+
+@Serializable
+data class LogisticsProviderOption(
+    @SerialName("code") val code: String = "",
+    @SerialName("name") val name: String = "",
+    @SerialName("available") val available: Boolean = true,
+    @SerialName("capabilities") val capabilities: List<String> = emptyList(),
+    @SerialName("services") val services: List<LogisticsProviderService> = emptyList(),
+    @SerialName("tracking_mode") val trackingMode: String = "",
+    @SerialName("tracking_degraded") val trackingDegraded: Boolean = false,
+    @SerialName("availability_reason") val availabilityReason: String? = null
+)
+
+@Serializable
+data class LogisticsProviderService(
+    @SerialName("code") val code: String = "",
+    @SerialName("name") val name: String = ""
+)
+
+@Serializable
+data class AggregatorPackageCategory(
+    @SerialName("code") val code: String = "",
+    @SerialName("label") val label: String = ""
+)
+
+@Serializable
+data class PublicRuntimeConfigsResponse(
+    @SerialName("data") val data: Map<String, JsonElement> = emptyMap()
+)
+
+@Serializable
+data class LogisticsProvidersResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("providers") val providers: List<LogisticsProviderOption> = emptyList(),
+    @SerialName("error") val error: String? = null
+)
+
+@Serializable
+data class LogisticsLocationOption(
+    @SerialName("code") val code: String = "",
+    @SerialName("name") val name: String = "",
+    @SerialName("type") val type: String = "both"
+)
+
+@Serializable
+data class LogisticsLocationsResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("provider") val provider: String = "",
+    @SerialName("data") val data: List<LogisticsLocationOption> = emptyList(),
+    @SerialName("error") val error: String? = null
+)
+
+@Serializable
+data class AggregatorTariffService(
+    @SerialName("service_code") val serviceCode: String = "",
+    @SerialName("service_name") val serviceName: String = "",
+    @SerialName("tariff_gross") val tariffGross: Long = 0,
+    @SerialName("tariff_net") val tariffNet: Long = 0,
+    @SerialName("customer_tariff_idr") val customerTariffIdr: Long = 0,
+    @SerialName("etd") val etd: String = "",
+    @SerialName("etd_source") val etdSource: String? = null,
+    @SerialName("quote_id") val quoteId: String = ""
+)
+
+@Serializable
+data class AggregatorTariffData(
+    @SerialName("provider") val provider: String = "",
+    @SerialName("origin") val origin: String = "",
+    @SerialName("destination") val destination: String = "",
+    @SerialName("weight") val weight: Double = 0.0,
+    @SerialName("chargeable_weight_kg") val chargeableWeightKg: Double = 0.0,
+    @SerialName("rule_version") val ruleVersion: String = "",
+    @SerialName("expires_at") val expiresAt: String? = null,
+    @SerialName("services") val services: List<AggregatorTariffService> = emptyList()
+)
+
+@Serializable
+data class AggregatorTariffResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("data") val data: AggregatorTariffData? = null,
+    @SerialName("error") val error: String? = null
 )
 
 @Serializable
@@ -227,6 +310,11 @@ data class CustomerOrderCreateRequest(
     @SerialName("promo_code") val promoCode: String? = null,
     @SerialName("voucher_code") val voucherCode: String? = null, // FB-078
     @SerialName("preferred_courier_id") val preferredCourierId: String? = null,
+    @SerialName("logistics_provider") val logisticsProvider: String? = null,
+    @SerialName("logistics_service_type") val logisticsServiceType: String? = null,
+    @SerialName("aggregator_quote_id") val aggregatorQuoteId: String? = null,
+    @SerialName("origin_code") val originCode: String? = null,
+    @SerialName("destination_code") val destinationCode: String? = null,
     @SerialName("material_codes") val materialCodes: List<String> = emptyList(),
     @SerialName("quote_total_price_idr") val quoteTotalPriceIdr: Long? = null,
     @SerialName("quote_total_price_minor") val quoteTotalPriceMinor: Long? = null,
