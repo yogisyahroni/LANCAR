@@ -166,11 +166,24 @@ func (r *availabilityRepo) FindCouriersByCapability(
 		SELECT 
 		    cp.id as courier_id,
 		    u.full_name as courier_name,
+		    u.photo_url,
 		    COALESCE(cp.avg_rating, 0) as avg_rating,
+		    COALESCE(cp.rating_count, 0) as rating_count,
 		    cp.vehicle_type,
 		    cp.vehicle_type_car,
+		    NULLIF(cp.vehicle_brand, '') as vehicle_brand,
+		    NULLIF(cp.vehicle_model, '') as vehicle_model,
+		    NULLIF(cp.vehicle_plate, '') as vehicle_plate,
 		    COALESCE(csp.price_amount, 0) as courier_service_price,
 		    COALESCE(cp.radius_max_km, 1) as radius_max_km,
+		    COALESCE(cp.acceptance_rate_pct, 0) as acceptance_rate_pct,
+		    COALESCE(cp.completion_rate_pct, 0) as completion_rate_pct,
+		    COALESCE(cp.ontime_rate_pct, 0) as ontime_rate_pct,
+		    COALESCE(cp.total_deliveries, 0) as total_deliveries,
+		    COALESCE(cp.tier, 'regular') as tier,
+		    COALESCE(cp.is_verified, FALSE) as is_verified,
+		    (SELECT COUNT(*) FROM courier_training_completions ctc WHERE ctc.courier_profile_id = cp.id) as training_count,
+		    (SELECT COUNT(*) FROM courier_documents cd WHERE cd.courier_id = cp.id AND cd.is_verified = TRUE AND cd.deleted_at IS NULL) as verified_document_count,
 		    (
 		        6371 * acos(
 		            cos(radians($1)) * cos(radians(cp.current_lat)) *
@@ -229,9 +242,11 @@ func (r *availabilityRepo) FindCouriersByCapability(
 	for rows.Next() {
 		c := &domain.NearbyCourier{}
 		err := rows.Scan(
-			&c.CourierID, &c.CourierName, &c.Rating,
-			&c.VehicleType, &c.VehicleTypeCar, &c.CourierServicePrice,
-			&c.RadiusMaxKM, &c.DistanceKM,
+			&c.CourierID, &c.CourierName, &c.PhotoURL, &c.Rating, &c.RatingCount,
+			&c.VehicleType, &c.VehicleTypeCar, &c.VehicleBrand, &c.VehicleModel, &c.VehiclePlate,
+			&c.CourierServicePrice, &c.RadiusMaxKM,
+			&c.AcceptanceRatePct, &c.CompletionRatePct, &c.OntimeRatePct, &c.TotalDeliveries,
+			&c.Tier, &c.IsVerified, &c.TrainingCount, &c.VerifiedDocumentCount, &c.DistanceKM,
 		)
 		if err != nil {
 			return nil, err
@@ -255,11 +270,24 @@ func (r *availabilityRepo) GetCourierByID(ctx context.Context, courierID, servic
 		SELECT
 		    cp.id as courier_id,
 		    u.full_name as courier_name,
+		    u.photo_url,
 		    COALESCE(cp.avg_rating, 0) as avg_rating,
+		    COALESCE(cp.rating_count, 0) as rating_count,
 		    cp.vehicle_type,
 		    cp.vehicle_type_car,
+		    NULLIF(cp.vehicle_brand, '') as vehicle_brand,
+		    NULLIF(cp.vehicle_model, '') as vehicle_model,
+		    NULLIF(cp.vehicle_plate, '') as vehicle_plate,
 		    COALESCE(csp.price_amount, 0) as courier_service_price,
 		    COALESCE(cp.radius_max_km, 1) as radius_max_km,
+		    COALESCE(cp.acceptance_rate_pct, 0) as acceptance_rate_pct,
+		    COALESCE(cp.completion_rate_pct, 0) as completion_rate_pct,
+		    COALESCE(cp.ontime_rate_pct, 0) as ontime_rate_pct,
+		    COALESCE(cp.total_deliveries, 0) as total_deliveries,
+		    COALESCE(cp.tier, 'regular') as tier,
+		    COALESCE(cp.is_verified, FALSE) as is_verified,
+		    (SELECT COUNT(*) FROM courier_training_completions ctc WHERE ctc.courier_profile_id = cp.id) as training_count,
+		    (SELECT COUNT(*) FROM courier_documents cd WHERE cd.courier_id = cp.id AND cd.is_verified = TRUE AND cd.deleted_at IS NULL) as verified_document_count,
 		    (
 		        6371 * acos(
 		            cos(radians($2)) * cos(radians(cp.current_lat)) *
@@ -281,9 +309,11 @@ func (r *availabilityRepo) GetCourierByID(ctx context.Context, courierID, servic
 
 	c := &domain.NearbyCourier{}
 	err := r.db.QueryRowContext(ctx, query, courierID, lat, lng, serviceSubType).Scan(
-		&c.CourierID, &c.CourierName, &c.Rating,
-		&c.VehicleType, &c.VehicleTypeCar, &c.CourierServicePrice,
-		&c.RadiusMaxKM, &c.DistanceKM,
+		&c.CourierID, &c.CourierName, &c.PhotoURL, &c.Rating, &c.RatingCount,
+		&c.VehicleType, &c.VehicleTypeCar, &c.VehicleBrand, &c.VehicleModel, &c.VehiclePlate,
+		&c.CourierServicePrice, &c.RadiusMaxKM,
+		&c.AcceptanceRatePct, &c.CompletionRatePct, &c.OntimeRatePct, &c.TotalDeliveries,
+		&c.Tier, &c.IsVerified, &c.TrainingCount, &c.VerifiedDocumentCount, &c.DistanceKM,
 	)
 	if err != nil {
 		return nil, err

@@ -5,9 +5,10 @@ import androidx.compose.material3.MaterialTheme
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
+import android.Manifest
+import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -40,7 +41,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
+import com.tembus.customer.ui.components.createCameraCaptureUri
 import com.tembus.customer.ui.theme.Primary
 
 private val BusinessCanvas = Color(0xFFF2FCF3) // Figma: TEMBUS - Profil Bisnis & E-Faktur
@@ -59,11 +62,50 @@ fun BusinessScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri: Uri? ->
-        if (uri != null) {
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var cameraError by remember { mutableStateOf<String?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { captured ->
+        val uri = pendingCameraUri
+        pendingCameraUri = null
+        if (captured && uri != null) {
             viewModel.updateForm { it.copy(imageUri = uri) }
+            cameraError = null
+        } else if (uri != null) {
+            context.contentResolver.delete(uri, null, null)
+            cameraError = "Foto belum tersimpan. Coba ambil ulang dari kamera."
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val uri = createCameraCaptureUri(context, "tembus-package")
+            if (uri == null) {
+                cameraError = "Kamera belum dapat disiapkan. Coba lagi."
+            } else {
+                pendingCameraUri = uri
+                cameraLauncher.launch(uri)
+            }
+        } else {
+            cameraError = "Izin kamera diperlukan untuk mengambil foto barang."
+        }
+    }
+
+    fun launchCamera() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            val uri = createCameraCaptureUri(context, "tembus-package")
+            if (uri == null) {
+                cameraError = "Kamera belum dapat disiapkan. Coba lagi."
+            } else {
+                pendingCameraUri = uri
+                cameraLauncher.launch(uri)
+            }
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
@@ -172,11 +214,7 @@ fun BusinessScreen(
                             .clip(RoundedCornerShape(16.dp))
                             .background(Color.Black.copy(alpha = 0.05f))
                             .border(1.dp, Color.Black.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-                            .clickable {
-                                imagePickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            },
+                            .clickable { launchCamera() },
                         contentAlignment = Alignment.Center
                     ) {
                         if (form.imageUri != null) {
@@ -190,10 +228,11 @@ fun BusinessScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(Icons.Default.Image, contentDescription = "", tint = Color.Gray)
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("Ketuk untuk unggah foto", color = Color.Gray, fontSize = 14.sp)
+                                Text("Ketuk untuk mengambil foto", color = Color.Gray, fontSize = 14.sp)
                             }
                         }
                     }
+                    cameraError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
                 }
 
                 // Item Details

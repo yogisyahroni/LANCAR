@@ -1,5 +1,6 @@
 package com.tembus.customer.ui.screens.service
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,11 +10,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -23,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import com.tembus.customer.ui.localization.CustomerText as Text
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -40,7 +46,11 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.ui.components.CourierPriceCard
 import androidx.compose.ui.graphics.Color
+import com.tembus.customer.ui.theme.CustomerHomeCanvas
 import com.tembus.customer.ui.theme.OrangeCta
+import com.tembus.customer.ui.theme.OnBrandHeader
+import com.tembus.customer.ui.theme.PrimarySoft
+import com.tembus.customer.ui.theme.BrandHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,14 +71,14 @@ fun NearbyCouriersScreen(
     
     val isTowing = serviceSubType.startsWith("towing")
     Scaffold(
-        containerColor = Color(0xFFF2FCF3),
+        containerColor = CustomerHomeCanvas,
         topBar = {
             TopAppBar(
                 colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFF2FCF3),
+                    containerColor = CustomerHomeCanvas,
                 ),
                 title = {
-                    Text(if (isTowing) "Pilih petugas towing" else "Pilih penawaran montir", fontWeight = FontWeight.Bold)
+                    Text("Pilih penawaran", fontWeight = FontWeight.Bold)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
@@ -83,45 +93,133 @@ fun NearbyCouriersScreen(
             onRefresh = { viewModel.loadNearbyCouriers(serviceSubType, customerLat, customerLng) },
             modifier = Modifier.fillMaxSize()
         ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-        ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp),
             ) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(if (isTowing) "Penawaran towing terdekat" else "Penawaran montir terdekat", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            Text(formatServiceName(serviceSubType), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
+                ) {
+                    item {
+                        OfferHero(
+                            isTowing = isTowing,
+                            serviceSubType = serviceSubType,
+                            optionCount = uiState.couriers.size,
+                            customerLat = customerLat,
+                            customerLng = customerLng,
+                        )
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column {
+                                Text("Penawaran terdekat", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                Text("Pilih petugas yang paling sesuai untukmu", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
+                                Text("${uiState.couriers.size} opsi", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BrandHeader, modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp))
+                            }
                         }
-                        Text("${uiState.couriers.size} opsi", fontSize = 11.sp, color = OrangeCta, fontWeight = FontWeight.Bold)
                     }
-                    uiState.priceRange?.let { range ->
-                        Text("Rentang dari server: Rp ${formatRupiah(range.min)} - Rp ${formatRupiah(range.max)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    uiState.priceRange?.takeIf { it.min > 0 || it.max > 0 }?.let { range ->
+                        item {
+                            Surface(color = PrimarySoft, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+                                Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = BrandHeader, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Rentang harga dari server: Rp ${formatRupiah(range.min)} – Rp ${formatRupiah(range.max)}", fontSize = 12.sp, color = BrandHeader)
+                                }
+                            }
+                        }
+                    }
+                    when {
+                        uiState.isLoading -> item {
+                            Box(modifier = Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = BrandHeader) }
+                        }
+                        uiState.error != null -> item {
+                            StateCard(message = uiState.error ?: "Terjadi kesalahan saat memuat penawaran", isError = true)
+                        }
+                        uiState.couriers.isEmpty() -> item {
+                            StateCard(message = "Belum ada petugas tersedia di sekitar lokasi layanan ini. Coba tarik untuk memuat ulang.")
+                        }
+                        else -> items(uiState.couriers, key = { it.courierId }) { courier ->
+                            CourierPriceCard(
+                                courier = courier,
+                                isSelected = courier.courierId == selectedCourierId,
+                                onSelect = {
+                                    selectedCourierId = courier.courierId
+                                    onCourierSelected(courier.courierId, courier.courierServicePrice, courier.courierName, courier.rating)
+                                },
+                            )
+                        }
+                    }
+                    item {
+                        Surface(color = Color.White, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Text("Harga tetap transparan", fontWeight = FontWeight.Bold, color = BrandHeader)
+                                Text("Harga jasa berasal dari petugas yang tersedia. Biaya perjalanan dan tol mengikuti perhitungan server pada saat pemesanan.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     }
                 }
             }
-            Spacer(Modifier.height(16.dp))
-            when {
-                uiState.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                uiState.error != null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(uiState.error ?: "Terjadi kesalahan", color = MaterialTheme.colorScheme.error) }
-                uiState.couriers.isEmpty() -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Tidak ada petugas tersedia di sekitar Anda", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(uiState.couriers) { courier ->
-                        CourierPriceCard(courier = courier, isSelected = courier.courierId == selectedCourierId, onSelect = { selectedCourierId = courier.courierId; onCourierSelected(courier.courierId, courier.courierServicePrice, courier.courierName, courier.rating) })
+        }
+    }
+}
+
+@Composable
+private fun OfferHero(
+    isTowing: Boolean,
+    serviceSubType: String,
+    optionCount: Int,
+    customerLat: Double,
+    customerLng: Double,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = BrandHeader),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(color = Color(0xFF1B6548), shape = RoundedCornerShape(20.dp)) {
+                    Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(7.dp).background(Color(0xFF8DF0A7), RoundedCornerShape(50)))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Radar siaga aktif", color = Color(0xFFDBF6DF), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+                Text("${optionCount} petugas", color = OnBrandHeader.copy(alpha = .78f), fontSize = 11.sp)
             }
-            Spacer(Modifier.height(16.dp))
-            Text("Harga jasa ditentukan oleh petugas. Biaya per-km dan tol dihitung oleh server.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (isTowing) "Pilih petugas derek" else "Pilih petugas montir", color = OnBrandHeader, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 27.sp)
+            Text("${formatServiceName(serviceSubType)} di sekitar titik layananmu", color = OnBrandHeader.copy(alpha = .78f), fontSize = 13.sp)
+            Surface(color = Color(0xFF0A4B31), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFFFFC08A), modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Lokasi layanan", color = OnBrandHeader.copy(alpha = .68f), fontSize = 10.sp)
+                        Text("Koordinat dari lokasi yang dipilih", color = OnBrandHeader, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text("${formatCoordinate(customerLat)}, ${formatCoordinate(customerLng)}", color = Color(0xFFBDE9C8), fontSize = 10.sp)
+                }
+            }
         }
-        }
+    }
+}
+
+@Composable
+private fun StateCard(message: String, isError: Boolean = false) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Text(message, modifier = Modifier.padding(18.dp), color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
     }
 }
 
@@ -138,3 +236,5 @@ private fun formatServiceName(serviceSubType: String): String {
 private fun formatRupiah(amount: Long): String {
     return amount.toString().reversed().chunked(3).joinToString(".").reversed()
 }
+
+private fun formatCoordinate(value: Double): String = "%.5f".format(java.util.Locale.US, value)

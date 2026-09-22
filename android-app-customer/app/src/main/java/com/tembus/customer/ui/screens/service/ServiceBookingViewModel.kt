@@ -20,8 +20,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
+data class ServicePhotoUploadPayload(
+    val photoRole: String,
+    val bytes: ByteArray,
+    val mimeType: String,
+    val fileName: String,
+)
 
 data class ServiceBookingUiState(
     val isLoading: Boolean = false,
@@ -44,7 +53,10 @@ data class ServiceBookingUiState(
     val preferredCourierAvailable: Boolean? = null,
     val requiresPriceConsent: Boolean = false,
     val priceDeltaIdr: Long = 0,
-    val priceConsent: Boolean = false
+    val priceConsent: Boolean = false,
+    val photoUploadError: String? = null,
+    val pendingPhotoCount: Int = 0,
+    val uploadedPhotoCount: Int = 0,
 )
 
 data class ServicePriceEstimate(
@@ -81,6 +93,8 @@ class ServiceBookingViewModel @Inject constructor(
 
     private var activeServiceSubType: String? = null
     private var activePreferredCourierId: String? = null
+    private var pendingPhotoOrderId: String? = null
+    private var pendingPhotoUploads: List<ServicePhotoUploadPayload> = emptyList()
 
     fun setLocation(lat: Double, lng: Double) {
         // Reject invalid/zero coords: never allow 0,0 as a transactional fallback.
@@ -343,7 +357,8 @@ class ServiceBookingViewModel @Inject constructor(
         notes: String,
         destinationContactName: String,
         destinationContactPhone: String,
-        preferredCourierId: String?
+        preferredCourierId: String?,
+        photoUploads: List<ServicePhotoUploadPayload> = emptyList(),
     ) {
         val breakdown = _uiState.value.rawPriceBreakdown
         val state = _uiState.value
@@ -398,7 +413,11 @@ class ServiceBookingViewModel @Inject constructor(
             val dropoffAddress = if (isTowing) state.dropoffAddress else state.customerAddress
             val dropoffLat = if (isTowing) state.dropoffLat else state.customerLat
             val dropoffLng = if (isTowing) state.dropoffLng else state.customerLng
-            val itemDesc = "Towing ${vehicleType.trim()} ${vehicleMake.trim()} ${vehicleModel.trim()}, ${vehicleCondition.trim()}"
+            val itemDesc = if (serviceSubType.startsWith("towing")) {
+                "Towing ${vehicleType.trim()} ${vehicleMake.trim()} ${vehicleModel.trim()}, ${vehicleCondition.trim()}"
+            } else {
+                "Tambal ban ${vehicleType.trim()} ${vehicleMake.trim()} ${vehicleModel.trim()}, ${vehicleCondition.trim()}"
+            }
 
             val req = CustomerOrderCreateRequest(
                 pickupAddress = state.customerAddress,
@@ -434,11 +453,12 @@ class ServiceBookingViewModel @Inject constructor(
 
             orderRepository.createCustomerOnDemandOrder(req).collectLatest { result ->
                 result.onSuccess { order ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            orderId = order.id
-                        )
+                    if (photoUploads.isEmpty()) {
+                        _uiState.update { it.copy(isLoading = false, orderId = order.id, photoUploadError = null) }
+                    } else {
+                        pendingPhotoOrderId = order.id
+                        pendingPhotoUploads = photoUploads
+                        uploadPendingPhotos()
                     }
                 }
                 result.onFailure { e ->
@@ -468,6 +488,46 @@ class ServiceBookingViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun retryPhotoUploads() {
+        if (pendingPhotoOrderId.isNullOrBlank() || pendingPhotoUploads.isEmpty() || _uiState.value.isLoading) return
+        viewModelScope.launch { uploadPendingPhotos() }
+    }
+
+    private suspend fun uploadPendingPhotos() {
+        val orderId = pendingPhotoOrderId ?: return
+        val uploads = pendingPhotoUploads
+        _uiState.update {
+            it.copy(
+                isLoading = true,
+                photoUploadError = null,
+                pendingPhotoCount = uploads.size,
+                uploadedPhotoCount = 0,
+            )
+        }
+
+        uploads.forEachIndexed { index, upload ->
+            val requestBody = upload.bytes.toRequestBody(upload.mimeType.toMediaTypeOrNull())
+            val part = MultipartBody.Part.createFormData("file", upload.fileName, requestBody)
+            val result = orderRepository.uploadRoadsidePhoto(orderId, upload.photoRole, part)
+            if (result.isFailure) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        photoUploadError = result.exceptionOrNull()?.message
+                            ?: "Foto ke-${index + 1} belum tersimpan. Coba lagi.",
+                        uploadedPhotoCount = index,
+                    )
+                }
+                return
+            }
+            _uiState.update { it.copy(uploadedPhotoCount = index + 1) }
+        }
+
+        pendingPhotoOrderId = null
+        pendingPhotoUploads = emptyList()
+        _uiState.update { it.copy(isLoading = false, orderId = orderId, photoUploadError = null) }
     }
 
     fun setPriceConsent(accepted: Boolean) {

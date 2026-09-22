@@ -1,8 +1,9 @@
 package com.tembus.customer.ui.screens.detail
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -24,8 +25,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import coil.compose.rememberAsyncImagePainter
 import com.tembus.customer.ui.a11y.criticalAction
+import com.tembus.customer.ui.components.createCameraCaptureUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,13 +45,48 @@ fun DisputeDialog(
     var imageBytes by remember { mutableStateOf<ByteArray?>(null) }
     var mimeType by remember { mutableStateOf<String?>(null) }
     var agreed by remember { mutableStateOf(false) }
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var cameraError by remember { mutableStateOf<String?>(null) }
 
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
-        uri?.let {
-            imageUri = it
-            mimeType = context.contentResolver.getType(it) ?: "image/jpeg"
-            val inputStream = context.contentResolver.openInputStream(it)
-            imageBytes = inputStream?.readBytes()
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+        val uri = pendingCameraUri
+        pendingCameraUri = null
+        if (captured && uri != null) {
+            imageUri = uri
+            mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+            imageBytes = context.contentResolver.openInputStream(uri)?.use { inputStream -> inputStream.readBytes() }
+            cameraError = null
+        } else if (uri != null) {
+            context.contentResolver.delete(uri, null, null)
+            cameraError = "Foto belum tersimpan. Coba ambil ulang dari kamera."
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            val uri = createCameraCaptureUri(context, "tembus-dispute")
+            if (uri == null) {
+                cameraError = "Kamera belum dapat disiapkan. Coba lagi."
+            } else {
+                pendingCameraUri = uri
+                cameraLauncher.launch(uri)
+            }
+        } else {
+            cameraError = "Izin kamera diperlukan untuk mengambil bukti foto."
+        }
+    }
+
+    fun launchCamera() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            val uri = createCameraCaptureUri(context, "tembus-dispute")
+            if (uri == null) {
+                cameraError = "Kamera belum dapat disiapkan. Coba lagi."
+            } else {
+                pendingCameraUri = uri
+                cameraLauncher.launch(uri)
+            }
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
@@ -97,10 +135,8 @@ fun DisputeDialog(
                     Text("Upload Bukti Foto", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
 
-                Button(onClick = {
-                    imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                }, modifier = Modifier.criticalAction("Pilih bukti foto")) {
-                    Text(if (imageUri != null) "Ganti Foto" else "Pilih Foto")
+                Button(onClick = { launchCamera() }, modifier = Modifier.criticalAction("Ambil bukti foto dengan kamera")) {
+                    Text(if (imageUri != null) "Ambil Ulang Foto" else "Ambil Foto")
                 }
 
                 imageUri?.let {
@@ -111,6 +147,8 @@ fun DisputeDialog(
                         contentScale = ContentScale.Crop
                     )
                 }
+
+                cameraError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
 
                 if (type == "lost_item") {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().background(Color(0xFFFFF3E0), RoundedCornerShape(8.dp)).padding(8.dp)) {

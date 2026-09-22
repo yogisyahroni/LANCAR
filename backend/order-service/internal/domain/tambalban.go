@@ -138,18 +138,31 @@ type CourierServicePrice struct {
 // ============================================================
 
 type NearbyCourier struct {
-	CourierID           string  `json:"courier_id"`
-	CourierName         string  `json:"courier_name"`
-	Rating              float64 `json:"rating"`
-	DistanceKM          float64 `json:"distance_km"`
-	CourierServicePrice int64   `json:"courier_service_price"`
-	ETAMinutes          int     `json:"eta_minutes"`
-	VehicleType         string  `json:"vehicle_type"`
-	VehicleTypeCar      *string `json:"vehicle_type_car,omitempty"`
-	ServiceSubType      string  `json:"service_sub_type"`
-	Status              string  `json:"status"`      // available, conditional
-	StatusText          string  `json:"status_text"` // "Siap melayani", "Dalam perjalanan (~8 menit)"
-	RadiusMaxKM         int     `json:"radius_max_km" db:"radius_max_km"`
+	CourierID             string  `json:"courier_id"`
+	CourierName           string  `json:"courier_name"`
+	PhotoURL              *string `json:"photo_url,omitempty"`
+	Rating                float64 `json:"rating"`
+	RatingCount           int     `json:"rating_count"`
+	DistanceKM            float64 `json:"distance_km"`
+	CourierServicePrice   int64   `json:"courier_service_price"`
+	ETAMinutes            int     `json:"eta_minutes"`
+	VehicleType           string  `json:"vehicle_type"`
+	VehicleTypeCar        *string `json:"vehicle_type_car,omitempty"`
+	VehicleBrand          *string `json:"vehicle_brand,omitempty"`
+	VehicleModel          *string `json:"vehicle_model,omitempty"`
+	VehiclePlate          *string `json:"vehicle_plate,omitempty"`
+	ServiceSubType        string  `json:"service_sub_type"`
+	Status                string  `json:"status"`      // available, conditional
+	StatusText            string  `json:"status_text"` // "Siap melayani", "Dalam perjalanan (~8 menit)"
+	RadiusMaxKM           int     `json:"radius_max_km" db:"radius_max_km"`
+	AcceptanceRatePct     int     `json:"acceptance_rate_pct"`
+	CompletionRatePct     int     `json:"completion_rate_pct"`
+	OntimeRatePct         int     `json:"ontime_rate_pct"`
+	TotalDeliveries       int     `json:"total_deliveries"`
+	Tier                  string  `json:"tier"`
+	IsVerified            bool    `json:"is_verified"`
+	TrainingCount         int     `json:"training_count"`
+	VerifiedDocumentCount int     `json:"verified_document_count"`
 }
 
 type NearbyCouriersResponse struct {
@@ -279,22 +292,34 @@ type TambalBanHomeResponse struct {
 }
 
 type CourierDetail struct {
-	CourierID           string  `json:"courier_id"`
-	CourierName         string  `json:"courier_name"`
-	Rating              float64 `json:"rating"`
-	RatingCount         int     `json:"rating_count"`
-	VehicleType         string  `json:"vehicle_type"`
-	VehicleTypeCar      *string `json:"vehicle_type_car,omitempty"`
-	DistanceKM          float64 `json:"distance_km"`
-	ETAMinutes          int     `json:"eta_minutes"`
-	CourierServicePrice int64   `json:"courier_service_price"`
-	MinPrice            int64   `json:"min_price"`
-	MaxPrice            int64   `json:"max_price"`
-	RadiusMaxKM         int     `json:"radius_max_km"`
-	ServiceSubType      string  `json:"service_sub_type"`
-	Status              string  `json:"status"`
-	StatusText          string  `json:"status_text"`
-	IsOnline            bool    `json:"is_online"`
+	CourierID             string  `json:"courier_id"`
+	CourierName           string  `json:"courier_name"`
+	PhotoURL              *string `json:"photo_url,omitempty"`
+	Rating                float64 `json:"rating"`
+	RatingCount           int     `json:"rating_count"`
+	VehicleType           string  `json:"vehicle_type"`
+	VehicleTypeCar        *string `json:"vehicle_type_car,omitempty"`
+	VehicleBrand          *string `json:"vehicle_brand,omitempty"`
+	VehicleModel          *string `json:"vehicle_model,omitempty"`
+	VehiclePlate          *string `json:"vehicle_plate,omitempty"`
+	DistanceKM            float64 `json:"distance_km"`
+	ETAMinutes            int     `json:"eta_minutes"`
+	CourierServicePrice   int64   `json:"courier_service_price"`
+	MinPrice              int64   `json:"min_price"`
+	MaxPrice              int64   `json:"max_price"`
+	RadiusMaxKM           int     `json:"radius_max_km"`
+	ServiceSubType        string  `json:"service_sub_type"`
+	Status                string  `json:"status"`
+	StatusText            string  `json:"status_text"`
+	IsOnline              bool    `json:"is_online"`
+	AcceptanceRatePct     int     `json:"acceptance_rate_pct"`
+	CompletionRatePct     int     `json:"completion_rate_pct"`
+	OntimeRatePct         int     `json:"ontime_rate_pct"`
+	TotalDeliveries       int     `json:"total_deliveries"`
+	Tier                  string  `json:"tier"`
+	IsVerified            bool    `json:"is_verified"`
+	TrainingCount         int     `json:"training_count"`
+	VerifiedDocumentCount int     `json:"verified_document_count"`
 }
 
 // ============================================================

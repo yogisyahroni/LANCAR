@@ -87,7 +87,7 @@ import com.tembus.customer.ui.theme.Warning
 @Composable
 fun TambalBanHomeScreen(
     onBackClick: () -> Unit,
-    onServiceSelected: (String) -> Unit,
+    onServiceSelected: (String, List<LocalServicePhoto>) -> Unit,
     onCourierSelected: (NearbyCourier) -> Unit,
     onSearchClick: (Double, Double) -> Unit,
     viewModel: TambalBanHomeViewModel = hiltViewModel()
@@ -100,6 +100,7 @@ fun TambalBanHomeScreen(
     var locationError by remember { mutableStateOf<String?>(null) }
     var selectedVehicle by remember { mutableStateOf<String?>(null) }
     var selectedIssues by remember { mutableStateOf(setOf<String>()) }
+    var servicePhotos by remember { mutableStateOf<List<LocalServicePhoto>>(emptyList()) }
     var consentChecked by remember { mutableStateOf(false) }
 
     fun loadFromCurrentLocation() {
@@ -179,8 +180,8 @@ fun TambalBanHomeScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Button(
-                        onClick = { selectedService?.let { onServiceSelected(it.code) } },
+                        Button(
+                        onClick = { selectedService?.let { onServiceSelected(it.code, servicePhotos) } },
                         enabled = selectedService != null && consentChecked && !uiState.isLoading,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
@@ -232,7 +233,7 @@ fun TambalBanHomeScreen(
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ServiceModeChip("Tambal Ban", selected = true, onClick = {}, modifier = Modifier.weight(1f))
-                    ServiceModeChip("Derek Towing", selected = false, onClick = { onServiceSelected("towing_motor") }, modifier = Modifier.weight(1f))
+                    ServiceModeChip("Derek Towing", selected = false, onClick = { onServiceSelected("towing_motor", servicePhotos) }, modifier = Modifier.weight(1f))
                 }
             }
 
@@ -270,22 +271,11 @@ fun TambalBanHomeScreen(
             }
 
             item {
-                TembusCard {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("Foto Kondisi & Patokan", fontWeight = FontWeight.Bold)
-                                Text("Foto membantu teknisi menemukan kendaraan lebih cepat.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = OrangeCta)
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            PhotoPlaceholder("Tambah Foto", Modifier.weight(1f))
-                            PhotoPlaceholder("Lokasi Kendaraan", Modifier.weight(1f))
-                        }
-                        Text("Foto bersifat opsional dan bisa dilengkapi pada detail pesanan.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
+                ServicePhotoEvidencePicker(
+                    isTowing = false,
+                    photos = servicePhotos,
+                    onPhotosChanged = { servicePhotos = it },
+                )
             }
 
             if (uiState.isLoading) {
@@ -423,16 +413,6 @@ private fun VehicleOptionCard(title: String, subtitle: String, icon: androidx.co
             Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(subtitle, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(if (available) "Tersedia" else "Belum tersedia", fontSize = 10.sp, color = if (available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
-        }
-    }
-}
-
-@Composable
-private fun PhotoPlaceholder(label: String, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.height(72.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = OrangeCta, modifier = Modifier.size(21.dp))
-            Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

@@ -113,6 +113,9 @@ import com.tembus.customer.ui.screens.service.TambalBanSearchScreen
 import com.tembus.customer.ui.screens.service.ServiceReportScreen
 import com.tembus.customer.ui.screens.service.ServiceTrackingScreen
 import com.tembus.customer.ui.screens.service.SubTypeSelectorScreen
+import com.tembus.customer.ui.screens.service.LocalServicePhoto
+import com.tembus.customer.ui.screens.service.restoreServicePhotos
+import com.tembus.customer.ui.screens.service.stageServicePhotos
 import com.tembus.customer.ui.security.SecureScreenEffect
 import com.tembus.customer.ui.screens.rating.CourierRatingViewModel
 import com.tembus.customer.ui.screens.rating.MerchantRatingViewModel
@@ -594,15 +597,19 @@ fun RootNavGraph(
             }
 
             composable(Screen.ServiceCategory.route) {
+                val initialPhotos = restoreServicePhotos(navController.previousBackStackEntry?.savedStateHandle)
                 ServiceCategoryScreen(
                     onBackClick = { navController.popBackStack() },
-                    onCategorySelected = { category ->
+                    initialPhotos = initialPhotos,
+                    onCategorySelected = { category, photos ->
                         // Towing landing already captures the vehicle choice. Do not ask for
                         // the same choice a second time; keep the canonical subtype for the
                         // quote/courier flow. Tambal ban keeps the existing selector route.
                         if (category == "towing_motor" || category == "towing_mobil") {
+                            stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, photos)
                             navController.navigate(Screen.ServiceBooking.createRoute(category))
                         } else {
+                            stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, photos)
                             navController.navigate(Screen.SubTypeSelector.createRoute(category))
                         }
                     }
@@ -640,12 +647,14 @@ fun RootNavGraph(
                     runCatching { java.net.URLDecoder.decode(raw, "UTF-8") }.getOrDefault(raw)
                 }
                 val courierRating = backStackEntry.arguments?.getString("courierRating")?.toDoubleOrNull()
+                val initialPhotos = restoreServicePhotos(navController.previousBackStackEntry?.savedStateHandle)
                 ServiceBookingScreen(
                     serviceSubType = serviceSubType,
                     courierId = courierId,
                     courierPrice = courierPrice,
                     courierName = courierName ?: "",
                     courierRating = courierRating ?: 0.0,
+                    initialPhotos = initialPhotos,
                     onBackClick = { navController.popBackStack() },
                     onSelectCourierClick = { lat, lng -> navController.navigate(Screen.NearbyCouriers.createRoute(serviceSubType, lat, lng)) },
                     onBookingSuccess = { orderId ->
@@ -674,8 +683,10 @@ fun RootNavGraph(
                     customerLat = lat,
                     customerLng = lng,
                     onBackClick = { navController.popBackStack() },
-                    onCourierSelected = { courierId, price, name, rating ->
-                        navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType, courierId, price, name, rating))
+                    onCourierSelected = { courierId, _, _, _ ->
+                        // Figma roadside flow: pilih penawaran -> profil mitra -> kunci tarif/booking.
+                        // Detail mengambil harga, foto, kendaraan, sertifikasi, dan performa dari API berdasarkan courierId.
+                        navController.navigate(Screen.CourierDetail.createRoute(serviceSubType = serviceSubType, courierId = courierId, lat = lat, lng = lng))
                     }
                 )
             }
@@ -719,12 +730,14 @@ fun RootNavGraph(
             composable(Screen.TambalBanHome.route) {
                 TambalBanHomeScreen(
                     onBackClick = { navController.popBackStack() },
-                    onServiceSelected = { serviceSubType ->
+                    onServiceSelected = { serviceSubType, photos ->
                         if (serviceSubType.startsWith("towing")) {
                             // The Figma emergency flow is the canonical towing entry point.
                             // Keep the legacy booking route for tire-repair subtypes only.
+                            stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, photos)
                             navController.navigate(Screen.ServiceCategory.route)
                         } else {
+                            stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, photos)
                             navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType))
                         }
                     },

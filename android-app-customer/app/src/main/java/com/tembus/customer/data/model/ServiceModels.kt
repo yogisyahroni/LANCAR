@@ -30,15 +30,29 @@ enum class ServiceSubType {
 data class NearbyCourier(
     @SerialName("courier_id") val courierId: String,
     @SerialName("courier_name") val courierName: String,
+    @SerialName("photo_url") val photoUrl: String? = null,
     @SerialName("rating") val rating: Double = 0.0,
+    @SerialName("rating_count") val ratingCount: Int = 0,
     @SerialName("distance_km") val distanceKm: Double = 0.0,
     @SerialName("courier_service_price") val courierServicePrice: Long = 0,
     @SerialName("eta_minutes") val etaMinutes: Int = 0,
     @SerialName("vehicle_type") val vehicleType: String = "",
     @SerialName("vehicle_type_car") val vehicleTypeCar: String? = null,
+    @SerialName("vehicle_brand") val vehicleBrand: String? = null,
+    @SerialName("vehicle_model") val vehicleModel: String? = null,
+    @SerialName("vehicle_plate") val vehiclePlate: String? = null,
     @SerialName("service_sub_type") val serviceSubType: String = "",
     @SerialName("status") val status: String = "", // available, conditional
-    @SerialName("status_text") val statusText: String = "" // "Siap melayani", "Dalam perjalanan (~8 menit)"
+    @SerialName("status_text") val statusText: String = "", // "Siap melayani", "Dalam perjalanan (~8 menit)"
+    @SerialName("radius_max_km") val radiusMaxKm: Int = 0,
+    @SerialName("acceptance_rate_pct") val acceptanceRatePct: Int = 0,
+    @SerialName("completion_rate_pct") val completionRatePct: Int = 0,
+    @SerialName("ontime_rate_pct") val ontimeRatePct: Int = 0,
+    @SerialName("total_deliveries") val totalDeliveries: Int = 0,
+    @SerialName("tier") val tier: String = "",
+    @SerialName("is_verified") val isVerified: Boolean = false,
+    @SerialName("training_count") val trainingCount: Int = 0,
+    @SerialName("verified_document_count") val verifiedDocumentCount: Int = 0,
 )
 
 @Serializable
@@ -103,10 +117,14 @@ data class TambalBanMaterialsResponse(
 data class CourierDetail(
     @SerialName("courier_id") val courierId: String = "",
     @SerialName("courier_name") val courierName: String = "",
+    @SerialName("photo_url") val photoUrl: String? = null,
     @SerialName("rating") val rating: Double = 0.0,
     @SerialName("rating_count") val ratingCount: Int = 0,
     @SerialName("vehicle_type") val vehicleType: String = "",
     @SerialName("vehicle_type_car") val vehicleTypeCar: String? = null,
+    @SerialName("vehicle_brand") val vehicleBrand: String? = null,
+    @SerialName("vehicle_model") val vehicleModel: String? = null,
+    @SerialName("vehicle_plate") val vehiclePlate: String? = null,
     @SerialName("distance_km") val distanceKm: Double = 0.0,
     @SerialName("eta_minutes") val etaMinutes: Int = 0,
     @SerialName("courier_service_price") val courierServicePrice: Long = 0,
@@ -116,7 +134,15 @@ data class CourierDetail(
     @SerialName("service_sub_type") val serviceSubType: String = "",
     @SerialName("status") val status: String = "",
     @SerialName("status_text") val statusText: String = "",
-    @SerialName("is_online") val isOnline: Boolean = true
+    @SerialName("is_online") val isOnline: Boolean = true,
+    @SerialName("acceptance_rate_pct") val acceptanceRatePct: Int = 0,
+    @SerialName("completion_rate_pct") val completionRatePct: Int = 0,
+    @SerialName("ontime_rate_pct") val ontimeRatePct: Int = 0,
+    @SerialName("total_deliveries") val totalDeliveries: Int = 0,
+    @SerialName("tier") val tier: String = "",
+    @SerialName("is_verified") val isVerified: Boolean = false,
+    @SerialName("training_count") val trainingCount: Int = 0,
+    @SerialName("verified_document_count") val verifiedDocumentCount: Int = 0,
 )
 
 // ============================================================

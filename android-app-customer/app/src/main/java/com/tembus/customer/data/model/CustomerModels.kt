@@ -263,7 +263,8 @@ data class VehicleDetailsPayload(
     @SerialName("condition") val condition: String,
     @SerialName("damage") val damage: String,
     @SerialName("access_constraints") val accessConstraints: String,
-    @SerialName("notes") val notes: String
+    @SerialName("notes") val notes: String,
+    @SerialName("photo_urls") val photoUrls: List<String> = emptyList()
 )
 
 @Serializable

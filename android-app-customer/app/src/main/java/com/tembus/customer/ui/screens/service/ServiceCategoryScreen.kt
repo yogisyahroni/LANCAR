@@ -74,10 +74,12 @@ import com.tembus.customer.ui.theme.PrimarySoft
 @Composable
 fun ServiceCategoryScreen(
     onBackClick: () -> Unit,
-    onCategorySelected: (String) -> Unit
+    initialPhotos: List<LocalServicePhoto> = emptyList(),
+    onCategorySelected: (String, List<LocalServicePhoto>) -> Unit
 ) {
     var selectedVehicle by remember { mutableStateOf<String?>(null) }
     var selectedConditions by remember { mutableStateOf(setOf<String>()) }
+    var servicePhotos by remember { mutableStateOf(initialPhotos) }
     var consentChecked by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -110,7 +112,10 @@ fun ServiceCategoryScreen(
                         onClick = {
                             // Carry the selected vehicle into the authoritative booking flow.
                             // The next screen owns location, quote and payment state.
-                            onCategorySelected(if (selectedVehicle == "motor") "towing_motor" else "towing_mobil")
+                            onCategorySelected(
+                                if (selectedVehicle == "motor") "towing_motor" else "towing_mobil",
+                                servicePhotos,
+                            )
                         },
                         variant = TembusButtonVariant.Primary,
                         state = if (selectedVehicle != null && consentChecked) {
@@ -189,7 +194,11 @@ fun ServiceCategoryScreen(
             }
 
             item {
-                TowingVehiclePhotoCard()
+                ServicePhotoEvidencePicker(
+                    isTowing = true,
+                    photos = servicePhotos,
+                    onPhotosChanged = { servicePhotos = it },
+                )
             }
 
             item {
@@ -309,36 +318,5 @@ private fun TowingSectionTitle(title: String, action: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(title, fontSize = 17.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
         Text(action, fontSize = 9.sp, color = OrangeCta, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-private fun TowingVehiclePhotoCard() {
-    TembusCard {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Kendaraan & Foto Lokasi", fontWeight = FontWeight.Bold)
-                    Text("Tambahkan foto agar petugas mengenali kendaraan dan akses lokasi.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = OrangeCta)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PhotoPlaceholder("Foto depan", Modifier.weight(1f))
-                PhotoPlaceholder("Foto belakang", Modifier.weight(1f))
-                PhotoPlaceholder("Tambah foto", Modifier.weight(1f))
-            }
-            Text("Foto bersifat opsional dan dapat dilengkapi pada detail order.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun PhotoPlaceholder(label: String, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.height(72.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = OrangeCta, modifier = Modifier.size(20.dp))
-            Text(label, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-        }
     }
 }

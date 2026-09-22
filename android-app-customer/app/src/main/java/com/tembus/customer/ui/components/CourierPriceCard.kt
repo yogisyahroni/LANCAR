@@ -31,7 +31,11 @@ fun NearbyCourier.toTembusCarrierRateData(selected: Boolean = false): TembusCarr
         "conditional" -> TembusCarrierAvailability.Conditional
         else -> TembusCarrierAvailability.Unavailable
     }
-    val vehicle = vehicleTypeCar?.takeIf { it.isNotBlank() } ?: vehicleType
+    val vehicle = listOfNotNull(
+        vehicleBrand?.takeIf { it.isNotBlank() },
+        vehicleModel?.takeIf { it.isNotBlank() },
+        vehicleTypeCar?.takeIf { it.isNotBlank() } ?: vehicleType.takeIf { it.isNotBlank() },
+    ).joinToString(" ").ifBlank { "Kendaraan belum diisi" }
     val capability = when {
         vehicle.isNotBlank() -> "Kapabilitas: $vehicle"
         serviceSubType.isNotBlank() -> "Kapabilitas: ${serviceSubType.replace('_', ' ')}"
@@ -45,7 +49,11 @@ fun NearbyCourier.toTembusCarrierRateData(selected: Boolean = false): TembusCarr
         etaLabel = "ETA ${etaMinutes.coerceAtLeast(0)} menit",
         capabilityLabel = capability,
         distanceLabel = "Jarak ${formatOneDecimal(distanceKm)} km",
-        ratingLabel = "Rating ${formatOneDecimal(rating)}",
+        ratingLabel = if (ratingCount > 0 && rating > 0) {
+            "Rating ${formatOneDecimal(rating)} • $ratingCount ulasan"
+        } else {
+            "Belum ada ulasan"
+        },
         statusLabel = statusText.ifBlank { availability.defaultLabel() },
         availability = availability,
         selected = selected,

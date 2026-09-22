@@ -15,6 +15,17 @@ data class ServiceTrackingUiState(
     val isLoading: Boolean = false,
     val currentStepIndex: Int = 0,
     val courierName: String? = null,
+    val courierPhotoUrl: String? = null,
+    val courierVehicle: String? = null,
+    val courierPlate: String? = null,
+    val orderNumber: String? = null,
+    val pickupAddress: String? = null,
+    val dropoffAddress: String? = null,
+    val totalPriceIdr: Long? = null,
+    val paymentStatus: String? = null,
+    val paymentMethod: String? = null,
+    val routeDistanceMeters: Int? = null,
+    val routeDurationSeconds: Int? = null,
     val statusText: String? = null,
     val etaMinutes: Int? = null,
     val error: String? = null,
@@ -40,6 +51,7 @@ class ServiceTrackingViewModel @Inject constructor(
             orderRepository.getOrderTrackingDetail(orderId)
                 .onSuccess { detail ->
                     val order = detail.order
+                    val tracking = detail.tracking
                     val terminal = isRoadsideTerminalStatus(order.status)
                     _uiState.update {
                         it.copy(
@@ -51,6 +63,21 @@ class ServiceTrackingViewModel @Inject constructor(
                                 towingStepIndex(order.status)
                             },
                             courierName = order.courierName,
+                            courierPhotoUrl = order.courierPhotoUrl,
+                            courierVehicle = order.courierVehicle,
+                            courierPlate = order.courierPlate,
+                            orderNumber = order.orderNumber ?: order.id,
+                            pickupAddress = order.pickupAddress,
+                            dropoffAddress = order.dropoffAddress,
+                            totalPriceIdr = order.invoice?.amountIdr?.takeIf { amount -> amount > 0 } ?: order.totalPriceIdr,
+                            paymentStatus = order.invoice?.paymentStatus,
+                            paymentMethod = order.invoice?.paymentMethod,
+                            routeDistanceMeters = tracking?.orderRouteDistanceMeters
+                                ?: order.routeDistanceMeters
+                                ?: order.routeSnapshot?.distanceMeters,
+                            routeDurationSeconds = tracking?.orderRouteDurationSeconds
+                                ?: order.routeDurationSeconds
+                                ?: order.routeSnapshot?.durationSeconds?.toInt(),
                             statusText = if (serviceSubType.startsWith("tambal_ban")) {
                                 tambalBanStatusText(order.status)
                             } else {

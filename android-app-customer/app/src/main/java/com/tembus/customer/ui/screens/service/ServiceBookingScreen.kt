@@ -91,6 +91,7 @@ fun ServiceBookingScreen(
     courierPrice: Long? = null,
     courierName: String = "",
     courierRating: Double = 0.0,
+    initialPhotos: List<LocalServicePhoto> = emptyList(),
     viewModel: ServiceBookingViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -106,6 +107,8 @@ fun ServiceBookingScreen(
     var notes by remember { mutableStateOf("") }
     var destinationContactName by remember { mutableStateOf("") }
     var destinationContactPhone by remember { mutableStateOf("") }
+    var servicePhotos by remember(serviceSubType, initialPhotos) { mutableStateOf(initialPhotos) }
+    var photoReadError by remember(serviceSubType) { mutableStateOf<String?>(null) }
     var hasLocationPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -152,6 +155,33 @@ fun ServiceBookingScreen(
         viewModel.loadMaterials(serviceSubType)
     }
 
+    fun submitSelectedServiceOrder() {
+        val preparedPhotos = prepareServicePhotoUploads(
+            context = context,
+            photos = servicePhotos,
+            photoRole = if (isTowing) "vehicle_condition" else "tire_condition",
+        )
+        if (preparedPhotos.isFailure) {
+            photoReadError = preparedPhotos.exceptionOrNull()?.message ?: "Foto belum dapat dibaca"
+            return
+        }
+        photoReadError = null
+        viewModel.createOrder(
+            serviceSubType = serviceSubType,
+            vehicleType = vehicleType,
+            damageType = damageType,
+            vehicleMake = vehicleMake,
+            vehicleModel = vehicleModel,
+            vehicleCondition = vehicleCondition,
+            accessConstraints = accessConstraints,
+            notes = notes,
+            destinationContactName = destinationContactName,
+            destinationContactPhone = destinationContactPhone,
+            preferredCourierId = courierId,
+            photoUploads = preparedPhotos.getOrThrow(),
+        )
+    }
+
     val submitTowingAction = {
         if (uiState.priceEstimate == null) {
             if (uiState.customerLat != 0.0 && uiState.customerLng != 0.0 && uiState.dropoffAddress.isNotBlank()) {
@@ -163,19 +193,7 @@ fun ServiceBookingScreen(
                 )
             }
         } else {
-            viewModel.createOrder(
-                serviceSubType = serviceSubType,
-                vehicleType = vehicleType,
-                damageType = damageType,
-                vehicleMake = vehicleMake,
-                vehicleModel = vehicleModel,
-                vehicleCondition = vehicleCondition,
-                accessConstraints = accessConstraints,
-                notes = notes,
-                destinationContactName = destinationContactName,
-                destinationContactPhone = destinationContactPhone,
-                preferredCourierId = courierId,
-            )
+            submitSelectedServiceOrder()
         }
     }
 
@@ -210,6 +228,7 @@ fun ServiceBookingScreen(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !uiState.isLoading && uiState.customerLat != 0.0 &&
                                 uiState.dropoffAddress.isNotBlank() && courierId != null &&
+                                uiState.photoUploadError == null &&
                                 (uiState.priceEstimate == null || !uiState.requiresPriceConsent || uiState.priceConsent),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = OrangeCta,
@@ -273,6 +292,48 @@ fun ServiceBookingScreen(
                 notes = notes,
                 onNotesChange = { notes = it }
             )
+
+            Spacer(Modifier.height(12.dp))
+            ServicePhotoEvidencePicker(
+                isTowing = isTowing,
+                photos = servicePhotos,
+                onPhotosChanged = {
+                    servicePhotos = it
+                    photoReadError = null
+                },
+            )
+            photoReadError?.let { message ->
+                Spacer(Modifier.height(6.dp))
+                Text(message, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+            }
+            uiState.photoUploadError?.let { message ->
+                Spacer(Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                ) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                        Text(message, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 12.sp)
+                        Text(
+                            "Order sudah dibuat, tetapi foto belum seluruhnya tersimpan di server. Ulangi upload sebelum melanjutkan.",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 12.sp,
+                        )
+                        OutlinedButton(
+                            onClick = viewModel::retryPhotoUploads,
+                            enabled = !uiState.isLoading,
+                        ) { Text("Coba simpan foto lagi") }
+                    }
+                }
+            }
+            if (uiState.isLoading && uiState.pendingPhotoCount > 0) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Menyimpan foto ${uiState.uploadedPhotoCount}/${uiState.pendingPhotoCount}...",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             if (!isTowing && uiState.materials.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
@@ -558,22 +619,11 @@ fun ServiceBookingScreen(
                     // Submit button for Tambal Ban remains in the scroll flow.
                     Button(
                         onClick = {
-                            viewModel.createOrder(
-                                serviceSubType = serviceSubType,
-                                vehicleType = vehicleType,
-                                damageType = damageType,
-                                vehicleMake = vehicleMake,
-                                vehicleModel = vehicleModel,
-                                vehicleCondition = vehicleCondition,
-                                accessConstraints = accessConstraints,
-                                notes = notes,
-                                destinationContactName = destinationContactName,
-                                destinationContactPhone = destinationContactPhone,
-                                preferredCourierId = courierId
-                            )
+                            submitSelectedServiceOrder()
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = courierId != null && !uiState.isLoading && (!uiState.requiresPriceConsent || uiState.priceConsent),
+                        enabled = courierId != null && !uiState.isLoading && uiState.photoUploadError == null &&
+                            (!uiState.requiresPriceConsent || uiState.priceConsent),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = OrangeCta,
                             contentColor = OnOrangeCta,

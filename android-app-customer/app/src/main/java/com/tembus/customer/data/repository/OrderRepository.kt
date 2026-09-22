@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.flow
 import java.util.UUID
 import org.json.JSONObject
 import retrofit2.Response
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -452,6 +454,25 @@ class OrderRepository @Inject constructor(
                 Result.success(body.url)
             } else {
                 Result.failure(Exception(response.readErrorMessage(body?.error ?: "Gagal mengunggah bukti masalah")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun uploadRoadsidePhoto(
+        orderId: String,
+        photoRole: String,
+        file: okhttp3.MultipartBody.Part,
+    ): Result<String> {
+        return try {
+            val roleBody = photoRole.toRequestBody("text/plain".toMediaTypeOrNull())
+            val response = apiService.uploadRoadsidePhoto(orderId, roleBody, file)
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.url != null) {
+                Result.success(body.url)
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.error ?: "Gagal menyimpan foto layanan")))
             }
         } catch (e: Exception) {
             Result.failure(e)
