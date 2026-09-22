@@ -20,6 +20,8 @@ data class OrderTrackingDetail(
     val order: TrackingOrder,
     @SerialName("events")
     val events: List<TrackingEvent> = emptyList(),
+    @SerialName("carrier_events")
+    val carrierEvents: List<CarrierTrackingEvent> = emptyList(),
     @SerialName("packages")
     val packages: List<TrackingPackage> = emptyList(),
     @SerialName("proofs")
@@ -29,11 +31,43 @@ data class OrderTrackingDetail(
 )
 
 @Serializable
+data class CarrierTrackingEvent(
+    @SerialName("id")
+    val id: String? = null,
+    @SerialName("provider")
+    val provider: String? = null,
+    @SerialName("awb_number")
+    val awbNumber: String? = null,
+    @SerialName("canonical_status")
+    val canonicalStatus: String? = null,
+    @SerialName("provider_status")
+    val providerStatus: String? = null,
+    @SerialName("provider_status_code")
+    val providerStatusCode: String? = null,
+    @SerialName("provider_status_description")
+    val providerStatusDescription: String? = null,
+    @SerialName("provider_location")
+    val providerLocation: String? = null,
+    @SerialName("provider_timestamp")
+    val providerTimestamp: String? = null,
+    @SerialName("occurred_at")
+    val occurredAt: String? = null,
+    @SerialName("received_at")
+    val receivedAt: String? = null
+)
+
+@Serializable
 data class TrackingOrder(
     @SerialName("id")
     val id: String,
     @SerialName("order_number")
     val orderNumber: String? = null,
+    @SerialName("awb_number")
+    val awbNumber: String? = null,
+    @SerialName("tracking_url")
+    val trackingUrl: String? = null,
+    @SerialName("carrier_name")
+    val carrierName: String? = null,
     @SerialName("pickup_address")
     val pickupAddress: String? = null,
     @SerialName("dropoff_address")

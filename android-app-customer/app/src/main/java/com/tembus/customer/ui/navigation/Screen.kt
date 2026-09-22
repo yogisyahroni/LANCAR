@@ -20,6 +20,9 @@ sealed class Screen(val route: String) {
     object Aggregator : Screen("aggregator?mode={mode}") {
         fun createRoute(): String = "aggregator?mode=aggregator"
     }
+    object AggregatorEResi : Screen("aggregator/e-resi/{orderId}") {
+        fun createRoute(orderId: String) = "aggregator/e-resi/$orderId"
+    }
     object History : Screen("history")
     object Business : Screen("business")
     object Messages : Screen("messages")

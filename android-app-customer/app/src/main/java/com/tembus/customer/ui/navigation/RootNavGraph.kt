@@ -179,6 +179,7 @@ fun RootNavGraph(
         Screen.AuthGraph.route,
         Screen.Booking.route,
         Screen.Aggregator.route,
+        Screen.AggregatorEResi.route,
         Screen.Profile.route,
         Screen.Support.route,
         Screen.AddressBook.route,
@@ -588,9 +589,28 @@ fun RootNavGraph(
                     viewModel = aggregatorViewModel,
                     onBackClick = { navController.popBackStack() },
                     onBookingSuccess = { orderId ->
-                        navController.navigate(Screen.Payment.createRoute(orderId)) {
+                        navController.navigate(Screen.AggregatorEResi.createRoute(orderId)) {
                             popUpTo(Screen.Dashboard.route)
                         }
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.AggregatorEResi.route,
+                arguments = listOf(
+                    navArgument("orderId") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId").orEmpty()
+                val eResiViewModel: com.tembus.customer.ui.screens.booking.AggregatorEResiViewModel = hiltViewModel()
+                com.tembus.customer.ui.screens.booking.AggregatorEResiScreen(
+                    orderId = orderId,
+                    viewModel = eResiViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateHome = {
+                        navController.popBackStack(Screen.Dashboard.route, inclusive = false)
+                            ?: navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
                     }
                 )
             }
@@ -864,7 +884,16 @@ fun RootNavGraph(
                     orderId = orderId,
                     viewModel = detailViewModel,
                     onBackClick = { navController.popBackStack() },
-                    onTrackClick = { navController.navigate(Screen.Tracking.createRoute(it)) },
+                    onTrackClick = { trackedId ->
+                        val currentOrder = (detailViewModel.uiState.value as? com.tembus.customer.ui.screens.detail.OrderDetailUiState.Success)?.order
+                        val isAgg = currentOrder?.serviceCategory == "aggregator" ||
+                                currentOrder?.serviceSubType == "aggregator"
+                        if (isAgg) {
+                            navController.navigate(Screen.AggregatorEResi.createRoute(trackedId))
+                        } else {
+                            navController.navigate(Screen.Tracking.createRoute(trackedId))
+                        }
+                    },
                     onPaymentClick = { id, subtype ->
                         navController.navigate(Screen.Payment.createRoute(id, subtype))
                     },
@@ -886,8 +915,14 @@ fun RootNavGraph(
                     onClose = { navController.popBackStack() },
                     onPaymentSuccess = {
                         if (serviceSubType.isNotBlank()) {
-                            navController.navigate(Screen.ServiceTracking.createRoute(orderId, serviceSubType)) {
-                                popUpTo(Screen.Payment.route) { inclusive = true }
+                            if (serviceSubType == "aggregator") {
+                                navController.navigate(Screen.AggregatorEResi.createRoute(orderId)) {
+                                    popUpTo(Screen.Payment.route) { inclusive = true }
+                                }
+                            } else {
+                                navController.navigate(Screen.ServiceTracking.createRoute(orderId, serviceSubType)) {
+                                    popUpTo(Screen.Payment.route) { inclusive = true }
+                                }
                             }
                         } else {
                             navController.navigate(Screen.Tracking.createRoute(orderId)) {

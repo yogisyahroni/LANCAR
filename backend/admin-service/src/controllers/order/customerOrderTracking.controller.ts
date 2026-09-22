@@ -372,8 +372,11 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
              o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
              COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0)::int AS route_distance_meters,
              COALESCE(o.route_duration_seconds, NULLIF(o.route_snapshot->>'duration_seconds', '')::int, 0)::int AS route_duration_seconds,
-             COALESCE(NULLIF(o.route_snapshot->>'eta_minutes', '')::int, 0)::int AS eta_minutes,
-             o.package_details, o.customer_notes, o.created_at, o.updated_at,
+              COALESCE(NULLIF(o.route_snapshot->>'eta_minutes', '')::int, 0)::int AS eta_minutes,
+              COALESCE(o.awb_number, (SELECT awb_number FROM aggregator_awb_attempts WHERE order_id = o.id LIMIT 1), '') AS awb_number,
+              COALESCE(o.tracking_url, (SELECT tracking_url FROM aggregator_awb_attempts WHERE order_id = o.id LIMIT 1), '') AS tracking_url,
+              COALESCE(NULLIF(o.carrier, ''), (SELECT provider FROM aggregator_awb_attempts WHERE order_id = o.id LIMIT 1), NULLIF(o.service_code, ''), '') AS carrier_name,
+              o.package_details, o.customer_notes, o.created_at, o.updated_at,
              p.status AS payment_status,
              p.provider AS payment_provider,
              p.method AS payment_method,
@@ -426,7 +429,10 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
              cei.occurred_at,
              cei.received_at
       FROM carrier_event_inbox cei
-      JOIN orders carrier_order ON carrier_order.awb_number = cei.awb_number
+      JOIN orders carrier_order ON (
+        carrier_order.awb_number = cei.awb_number OR
+        carrier_order.id IN (SELECT order_id FROM aggregator_awb_attempts WHERE awb_number = cei.awb_number)
+      )
       WHERE carrier_order.id = $1 AND carrier_order.customer_id = $2
       ORDER BY COALESCE(cei.occurred_at, cei.received_at) ASC, cei.received_at ASC
     `, [id, customer_id]);
