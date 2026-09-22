@@ -55,8 +55,15 @@ fun getVersionName(): String {
     return try {
         val proc = ProcessBuilder("git", "describe", "--tags", "--always").start()
         val rawName = proc.inputStream.bufferedReader().readText().trim()
-        val name = rawName.split("-").firstOrNull() ?: rawName
-        name.ifBlank { "1.0.0" }
+        val name = rawName.split("-").firstOrNull()?.removePrefix("v")
+        if (name != null && Regex("^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$").matches(name)) {
+            name
+        } else {
+            // Untagged checkouts often resolve to a short commit hash. Keep
+            // BuildConfig.VERSION_NAME compatible with the server telemetry
+            // contract instead of emitting an invalid release dimension.
+            "0.0.0-dev"
+        }
     } catch (e: Exception) { "1.0.0" }
 }
 

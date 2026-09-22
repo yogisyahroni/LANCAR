@@ -43,6 +43,7 @@ fun OrderDetailScreen(
     viewModel: OrderDetailViewModel = hiltViewModel(),
     onBackClick: () -> Unit,
     onTrackClick: (String) -> Unit,
+    onPaymentClick: (String, String?) -> Unit,
     onChatClick: (String, String?) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -197,7 +198,7 @@ fun OrderDetailScreen(
                 }
                 is OrderDetailUiState.Success -> {
                     val order = res.order
-                    val serviceIconSpec = getTembusServiceIconSpec(order.serviceSubType)
+                    val serviceIconSpec = getTembusServiceIconSpec(order.serviceSubType ?: order.serviceCategory)
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -249,6 +250,32 @@ fun OrderDetailScreen(
 
                         OrderServiceSpecificSections(order)
 
+                        if (order.status.equals("scheduled", ignoreCase = true) && order.pickupTime.isNotBlank()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(TembusRadius.Card),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF7EF)),
+                                border = BorderStroke(1.dp, Primary.copy(alpha = 0.25f))
+                            ) {
+                                Column(Modifier.padding(16.dp)) {
+                                    Text("Pickup terjadwal", fontWeight = FontWeight.Bold, color = Primary)
+                                    Text(
+                                        order.pickupTime.replace('T', ' ').removeSuffix("Z"),
+                                        color = OnSurface,
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                    Text(
+                                        "Kurir baru akan dicari saat jadwal pickup dimulai.",
+                                        color = OnSurfaceVariant,
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(16.dp))
+                        }
+
                         ServiceAdjustmentSection(
                             adjustments = serviceAdjustments,
                             isSubmitting = adjustmentDecisionState is ServiceAdjustmentDecisionState.Loading,
@@ -280,18 +307,37 @@ fun OrderDetailScreen(
                         
                         Spacer(Modifier.height(24.dp))
 
-                        if (OrderActionPolicy.canTrack(order.status) || OrderActionPolicy.canChat(order.status) || OrderActionPolicy.canCancel(order.status, order.serviceSubType)) {
+                        if (OrderActionPolicy.canOpenTracking(order.status) || OrderActionPolicy.canResumePayment(order.status) || OrderActionPolicy.canChat(order.status) || OrderActionPolicy.canCancel(order.status, order.serviceSubType)) {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                if (OrderActionPolicy.canTrack(order.status)) {
+                                if (OrderActionPolicy.canResumePayment(order.status)) {
                                     Button(
-                                        onClick = { onTrackClick(order.orderId) },
-                                        modifier = Modifier.fillMaxWidth().height(52.dp).criticalAction("Lacak posisi kurir"),
+                                        onClick = { onPaymentClick(order.orderId, order.serviceSubType) },
+                                        modifier = Modifier.fillMaxWidth().height(52.dp).criticalAction("Lanjutkan pembayaran"),
                                         shape = RoundedCornerShape(TembusRadius.Button),
                                         colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White)
                                     ) {
-                                        Icon(Icons.Default.MyLocation, contentDescription = "")
+                                        Icon(Icons.Default.Payment, contentDescription = "")
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Lacak Posisi Kurir", fontWeight = FontWeight.Bold)
+                                        Text("Lanjutkan Pembayaran", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                if (OrderActionPolicy.canOpenTracking(order.status)) {
+                                    Button(
+                                        onClick = { onTrackClick(order.orderId) },
+                                        modifier = Modifier.fillMaxWidth().height(52.dp).criticalAction("Buka status dan bukti order"),
+                                        shape = RoundedCornerShape(TembusRadius.Button),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White)
+                                    ) {
+                                        Icon(
+                                            if (OrderActionPolicy.canTrack(order.status)) Icons.Default.MyLocation else Icons.Default.FactCheck,
+                                            contentDescription = ""
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            if (OrderActionPolicy.canTrack(order.status)) "Lacak Posisi Kurir" else "Lihat Status & Bukti",
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
 
@@ -347,7 +393,10 @@ fun OrderDetailScreen(
 
                         Spacer(Modifier.height(16.dp))
 
-                        if (order.serviceSubType?.startsWith("tambal_ban_") == true) {
+                        if (order.serviceSubType in setOf(
+                                "tambal_ban_motor", "tambal_ban_mobil",
+                                "towing_motor", "towing_mobil"
+                            )) {
                             RoadsideAftercareSection(
                                 orderId = order.orderId,
                                 status = order.status,

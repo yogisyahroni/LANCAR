@@ -19,6 +19,7 @@ import { startCourierDocumentComplianceWorker } from './workers/courier-document
 import { startCourierAvailabilityPolicyWorker } from './workers/courier-availability-policy-worker';
 import { startCrmCampaignSchedulerWorker } from './workers/crm-campaign-scheduler-worker';
 import { startCostObservabilityWorker } from './workers/cost-observability-worker';
+import { startCustomerScheduledOrderWorker } from './workers/customer-scheduled-order-worker';
 import { initFirebase } from './notifications';
 import { requestContext } from './middleware/requestContext';
 import { genericErrorHandler, sanitizeErrorResponses } from './middleware/errorMapper';
@@ -133,6 +134,7 @@ server.listen(port, async () => {
     startCourierAvailabilityPolicyWorker();
     startCrmCampaignSchedulerWorker();
     startCostObservabilityWorker();
+    startCustomerScheduledOrderWorker();
   } catch (error) {
     console.error(JSON.stringify({
       level: 'fatal',

@@ -95,6 +95,7 @@ type FoodQuoteResponse struct {
 	CurrencyMinorUnit    int             `json:"currency_minor_unit"`
 	Items                []FoodQuoteItem `json:"items"`
 	SubtotalIDR          int64           `json:"subtotal_idr"`
+	MinOrderIDR          int64           `json:"min_order_idr,omitempty"`
 	DeliveryFeeIDR       int64           `json:"delivery_fee_idr"`
 	PlatformFeeIDR       int64           `json:"platform_fee_idr"`
 	TaxIDR               int64           `json:"tax_idr"`
@@ -219,9 +220,10 @@ type FoodMenuItemInfo struct {
 	SalesResetAt      *time.Time `json:"sales_limit_reset_at,omitempty"`
 	EnforcementActive bool       `json:"enforcement_active"`
 	// FOOD-BIKE-055/056: field UI tambahan
-	Kategori *string  `json:"kategori,omitempty"`
-	Foto     *string  `json:"foto,omitempty"`
-	Images   []string `json:"images,omitempty"`
+	Kategori  *string  `json:"kategori,omitempty"`
+	Foto      *string  `json:"foto,omitempty"`
+	Deskripsi *string  `json:"deskripsi,omitempty"`
+	Images    []string `json:"images,omitempty"`
 	// FB-108: grup varian menu (Ukuran, Level Pedas, Tambahan, ...).
 	// Kosong [] = item single-variant (perilaku lama).
 	Variants []MenuItemVariant `json:"variants,omitempty"`
@@ -429,6 +431,15 @@ func IsFoodDiscoverySort(value string) bool {
 // contract while the legacy FoodRepository method remains available.
 type FoodDiscoveryRepository interface {
 	ListFoodMerchantsWithOptions(ctx context.Context, lat, lng float64, options FoodDiscoveryOptions) ([]FoodMerchantInfo, error)
+}
+
+// FoodMerchantPreviewRepository enriches discovery rows with the small,
+// server-owned menu preview needed by compact customer surfaces. It is
+// additive so older test doubles and non-Postgres implementations remain
+// valid while production can read the canonical merchant catalog in one
+// batch query.
+type FoodMerchantPreviewRepository interface {
+	AttachFoodMerchantMenuPreview(ctx context.Context, merchants []FoodMerchantInfo) error
 }
 
 // FoodDiscoveryService is an additive browse contract. Keeping it separate

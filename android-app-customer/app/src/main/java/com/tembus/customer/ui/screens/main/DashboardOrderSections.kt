@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -48,6 +49,8 @@ import com.tembus.customer.ui.designsystem.TembusBadge
 import com.tembus.customer.ui.designsystem.TembusBadgeTone
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.Error
+import com.tembus.customer.ui.theme.OnOrangeCta
+import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.ui.theme.Success
 import com.tembus.customer.ui.theme.TembusRadius
 
@@ -98,10 +101,24 @@ internal fun CompactActiveOrdersSummaryCard(
     if (orders.isEmpty()) return
     val primaryOrder = orders.first()
     val orderCount = orders.size
-    val title = primaryOrder.dropAddress.ifBlank {
+    val destination = primaryOrder.dropAddress.ifBlank {
         primaryOrder.pickupAddress.ifBlank { "Pesanan ${primaryOrder.orderNumber.ifBlank { primaryOrder.orderId }}" }
     }
     val statusHuman = humanOrderStatus(primaryOrder.status.lowercase())
+    val statusPill = when (primaryOrder.status.lowercase()) {
+        "assigned", "accepted", "picking_up", "searching_driver" -> "Kurir Menuju Lokasi"
+        else -> statusHuman
+    }
+    val serviceLabel = when {
+        primaryOrder.serviceCategory.orEmpty().contains("food", ignoreCase = true) -> "Food Delivery"
+        primaryOrder.serviceCategory.orEmpty().contains("towing", ignoreCase = true) -> "Towing"
+        else -> "Kirim Instant"
+    }
+    val orderRef = primaryOrder.orderNumber.ifBlank { primaryOrder.orderId.take(8) }
+    val courier = primaryOrder.courierName?.takeIf { it.isNotBlank() } ?: "Kurir TEMBUS"
+    val vehicle = primaryOrder.courierVehicle?.takeIf { it.isNotBlank() }
+    val distance = primaryOrder.distance.takeIf { it.isNotBlank() }
+    val eta = primaryOrder.etaMinutes?.takeIf { it > 0 }
 
     Card(
         modifier = Modifier
@@ -115,103 +132,212 @@ internal fun CompactActiveOrdersSummaryCard(
         border = BorderStroke(1.dp, LcGreen.copy(alpha = 0.25f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
+        Column(Modifier.padding(horizontal = 13.dp, vertical = 9.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("$serviceLabel  •  #$orderRef", fontSize = 9.sp, color = Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Surface(color = Color(0xFFFFF0E7), shape = RoundedCornerShape(999.dp)) {
+                    Text(statusPill, color = OrangeCta, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                }
+            }
+            Spacer(Modifier.height(3.dp))
+            Text(
+                destination.substringBefore(",").trim().ifBlank { destination },
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Black,
+                color = Ink,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(7.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(27.dp).clip(CircleShape).background(SoftGreen), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.LocalShipping, contentDescription = null, tint = LcGreen, modifier = Modifier.size(14.dp))
+                }
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    buildString {
+                        append(courier)
+                        if (vehicle != null) append(" ($vehicle)")
+                    },
+                    color = Ink,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (eta != null) {
+                    Text("$eta Menit", color = OrangeCta, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                }
+                if (distance != null) {
+                    Text(" (${distance})", color = OrangeCta, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
+            }
+            Spacer(Modifier.height(5.dp))
+            LinearProgressIndicator(
+                progress = { activeOrderProgress(primaryOrder.status.lowercase()) },
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
+                color = OrangeCta,
+                trackColor = Color(0xFFE4EEE9),
+            )
+            Spacer(Modifier.height(7.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (eta != null) "Tiba estimasi dalam $eta menit" else "Status diperbarui dari server",
+                    color = Muted,
+                    fontSize = 9.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                Button(
+                    onClick = { if (orderCount == 1) onTrackingClick(primaryOrder.orderId) else onViewAllClick() },
+                    shape = RoundedCornerShape(999.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = OrangeCta, contentColor = OnOrangeCta),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp),
+                    modifier = Modifier.height(28.dp),
+                ) {
+                    Text(if (orderCount > 1) "Semua ($orderCount)" else "Lacak Live", fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.width(3.dp))
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(11.dp))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Preserve the Home Figma order-context slot when the server has no active
+ * order. This is intentionally an empty state: no order id, courier, ETA, or
+ * dispatch status is synthesized just to fill the design frame.
+ */
+@Composable
+internal fun EmptyActiveOrderCard(
+    onBookingClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, LcGreen.copy(alpha = 0.25f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(horizontal = 13.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
                     .background(SoftGreen),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    Icons.Default.LocalShipping,
-                    contentDescription = null,
-                    tint = LcGreen,
-                    modifier = Modifier.size(22.dp)
-                )
+                Icon(Icons.Default.LocalShipping, contentDescription = null, tint = LcGreen, modifier = Modifier.size(18.dp))
             }
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = if (orderCount > 1) "Pesanan Aktif ($orderCount)" else "Pesanan Sedang Berjalan",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = LcGreen
-                    )
-                    if (hasUnreadMessage) {
-                        Spacer(Modifier.width(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(Accent)
-                        )
-                    }
-                }
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "$title • $statusHuman",
-                    fontSize = 12.sp,
-                    color = Muted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                // DESIGN.md §11.5/§12: order ID + chip status + progres mini.
-                // Alasan: kartu menjawab status & progres tanpa membuka detail.
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "ID ${primaryOrder.orderNumber.ifBlank { primaryOrder.orderId.take(8) }}",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Muted,
-                        modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    TembusBadge(label = CustomerTextCatalog.translate(statusHuman), tone = activeOrderBadgeTone(primaryOrder.status.lowercase()))
-                }
-                Spacer(Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { activeOrderProgress(primaryOrder.status.lowercase()) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(5.dp)
-                        .clip(CircleShape),
-                    color = LcGreen,
-                    trackColor = LcGreen.copy(alpha = 0.18f),
-                )
+            Spacer(Modifier.width(9.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Belum ada pesanan aktif", fontSize = 13.sp, fontWeight = FontWeight.Black, color = Ink)
+                Text("Pesanan yang sedang berjalan akan muncul di sini.", fontSize = 9.sp, color = Muted, maxLines = 2)
             }
-            Spacer(Modifier.width(8.dp))
             Button(
-                onClick = {
-                    if (orderCount == 1) onTrackingClick(primaryOrder.orderId) else onViewAllClick()
-                },
-                shape = RoundedCornerShape(TembusRadius.Button),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (orderCount > 1) Accent else LcGreen,
-                    contentColor = Color.White
-                ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                modifier = Modifier.height(34.dp)
+                onClick = onBookingClick,
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = OrangeCta, contentColor = OnOrangeCta),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp),
+                modifier = Modifier.height(30.dp),
             ) {
-                Text(
-                    text = if (orderCount > 1) "Semua ($orderCount)" else "Lacak",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.width(4.dp))
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp)
-                )
+                Text("Pesan", fontSize = 9.sp, fontWeight = FontWeight.Black)
+            }
+        }
+    }
+}
+
+/**
+ * Figma Customer Home's "Pesan Lagi Cepat" block. It is rendered only from a
+ * terminal order returned by the server; it never invents a destination or
+ * silently recreates an order. The action opens Activity so the customer can
+ * review the authoritative order before starting another booking.
+ */
+@Composable
+internal fun QuickRepeatOrderCard(
+    order: Order,
+    onOpenHistory: () -> Unit,
+) {
+    val title = when {
+        order.merchantName?.isNotBlank() == true -> order.merchantName.orEmpty()
+        order.dropAddress.isNotBlank() -> order.dropAddress.substringBefore(",").trim()
+        else -> "Pesanan TEMBUS"
+    }
+    val detail = listOf(order.pickupAddress, order.dropAddress)
+        .filter { it.isNotBlank() }
+        .joinToString(" → ")
+        .ifBlank { "Detail tersedia di Aktivitas" }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clickable(onClick = onOpenHistory),
+        shape = RoundedCornerShape(TembusRadius.Card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, LcGreen.copy(alpha = 0.18f)),
+    ) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Pesan Lagi Cepat", fontSize = 15.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                Text("Lihat Riwayat", color = OrangeCta, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(34.dp).clip(CircleShape).background(SoftGreen), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, tint = LcGreen, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(9.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(detail, fontSize = 10.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Buka Aktivitas", tint = OrangeCta, modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
+/**
+ * Preserve the Home Figma hierarchy when the server has no terminal order for
+ * this customer. The card is intentionally informational; it never invents
+ * an order that could be mistaken for a repeatable business action.
+ */
+@Composable
+internal fun QuickRepeatEmptyState(
+    onOpenHistory: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clickable(onClick = onOpenHistory),
+        shape = RoundedCornerShape(TembusRadius.Card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, Accent.copy(alpha = 0.18f)),
+    ) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Pesan Lagi Cepat", fontSize = 15.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                Text("Lihat Riwayat", color = OrangeCta, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(34.dp).clip(CircleShape).background(Color(0xFFEAF6F0)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, tint = OrangeCta, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(9.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Belum ada pesanan untuk diulang", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Pesanan selesai akan muncul di sini.", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Buka Aktivitas", tint = OrangeCta, modifier = Modifier.size(18.dp))
             }
         }
     }

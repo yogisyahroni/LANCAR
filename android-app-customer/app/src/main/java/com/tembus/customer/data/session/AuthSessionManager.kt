@@ -30,16 +30,16 @@ class AuthSessionManager(private val context: Context) {
         createSecurePreferences()
     }
 
-    private val _isLoggedIn = MutableStateFlow(com.tembus.customer.BuildConfig.DEBUG)
+    private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: Flow<Boolean> = _isLoggedIn.asStateFlow()
 
-    private val _authToken = MutableStateFlow<String?>(if (com.tembus.customer.BuildConfig.DEBUG) "debug_active_token" else null)
+    private val _authToken = MutableStateFlow<String?>(null)
     val authToken: Flow<String?> = _authToken.asStateFlow()
 
-    private val _customerId = MutableStateFlow<String?>(if (com.tembus.customer.BuildConfig.DEBUG) "CUST-DEBUG-001" else null)
+    private val _customerId = MutableStateFlow<String?>(null)
     val customerId: Flow<String?> = _customerId.asStateFlow()
 
-    private val _customerName = MutableStateFlow<String?>(if (com.tembus.customer.BuildConfig.DEBUG) "Pelanggan TEMBUS" else null)
+    private val _customerName = MutableStateFlow<String?>(null)
     val customerName: Flow<String?> = _customerName.asStateFlow()
 
     init {
@@ -56,8 +56,6 @@ class AuthSessionManager(private val context: Context) {
                     _authToken.value = token
                     _customerId.value = cid
                     _customerName.value = sharedPreferences.getString(KEY_CUSTOMER_NAME, null)
-                } else if (com.tembus.customer.BuildConfig.DEBUG) {
-                    saveSessionSync(DEBUG_FALLBACK_TOKEN, DEBUG_FALLBACK_CUSTOMER_ID, "Pelanggan TEMBUS")
                 } else {
                     _isLoggedIn.value = false
                     _authToken.value = null
@@ -141,9 +139,6 @@ class AuthSessionManager(private val context: Context) {
     }
 
     suspend fun clearSession(reason: SessionInvalidationReason = SessionInvalidationReason.USER_LOGOUT) {
-        if (com.tembus.customer.BuildConfig.DEBUG && reason == SessionInvalidationReason.TOKEN_EXPIRED) {
-            return
-        }
         sharedPreferences.edit().clear().apply()
         _authToken.value = null
         _customerId.value = null
@@ -187,23 +182,11 @@ class AuthSessionManager(private val context: Context) {
     }
 
     suspend fun getTokenOnce(): String? {
-        // UAT FIX: kembalikan token real bila ada; token debug hanya fallback.
-        val stored = sharedPreferences.getString(KEY_AUTH_TOKEN, null)
-        if (!stored.isNullOrBlank() && stored != DEBUG_FALLBACK_TOKEN) return stored
-        if (com.tembus.customer.BuildConfig.DEBUG) {
-            return stored ?: DEBUG_FALLBACK_TOKEN
-        }
-        return stored
+        return sharedPreferences.getString(KEY_AUTH_TOKEN, null)
     }
 
     fun getTokenSync(): String? {
-        // UAT FIX: kembalikan token real bila ada; token debug hanya fallback.
-        val stored = sharedPreferences.getString(KEY_AUTH_TOKEN, null)
-        if (!stored.isNullOrBlank() && stored != DEBUG_FALLBACK_TOKEN) return stored
-        if (com.tembus.customer.BuildConfig.DEBUG) {
-            return stored ?: DEBUG_FALLBACK_TOKEN
-        }
-        return stored
+        return sharedPreferences.getString(KEY_AUTH_TOKEN, null)
     }
 
     fun getUserIdSync(): String? {
@@ -225,7 +208,6 @@ class AuthSessionManager(private val context: Context) {
         private const val KEY_DEVICE_ID = "device_id"
         // Token debug hanya fallback UAT offline; sesi real selalu diutamakan.
         private const val DEBUG_FALLBACK_TOKEN = "debug_active_token"
-        private const val DEBUG_FALLBACK_CUSTOMER_ID = "CUST-DEBUG-001"
         private const val TOKEN_EXPIRY_CLOCK_SKEW_SECONDS = 60L
 
         private fun parseJwtExpirationEpochSeconds(token: String?): Long? {

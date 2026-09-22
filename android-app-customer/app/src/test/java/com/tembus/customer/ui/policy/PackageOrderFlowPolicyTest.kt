@@ -42,6 +42,14 @@ class PackageOrderFlowPolicyTest {
     }
 
     @Test
+    fun scheduledPickupRequiresThirtyMinuteLead() {
+        val nowMillis = 1_000_000L
+        assertTrue(PackageOrderFlowPolicy.scheduledAtValid(nowMillis + PackageOrderFlowPolicy.MIN_SCHEDULE_LEAD_MILLIS, nowMillis))
+        assertFalse(PackageOrderFlowPolicy.scheduledAtValid(nowMillis + PackageOrderFlowPolicy.MIN_SCHEDULE_LEAD_MILLIS - 1, nowMillis))
+        assertFalse(PackageOrderFlowPolicy.scheduledAtValid(null, nowMillis))
+    }
+
+    @Test
     fun paymentFailureAndLateCallbackNeverLookLikeSuccess() {
         assertEquals(PackageOrderFlowPolicy.PaymentOutcome.PAID, PackageOrderFlowPolicy.paymentOutcome("paid", "searching"))
         assertEquals(PackageOrderFlowPolicy.PaymentOutcome.FAILED, PackageOrderFlowPolicy.paymentOutcome("failed", "pending_payment"))

@@ -136,10 +136,22 @@ fun CourierStatusCard(
             modifier = Modifier.padding(20.dp)
         ) {
             val order = detail?.order
-            val stageText = remember(order?.status, order?.serviceSubType, order?.statusLabel, detail?.tracking?.stageLabel) {
+            val stageText = remember(
+                order?.status,
+                order?.serviceSubType,
+                order?.serviceCategory,
+                order?.model,
+                order?.statusLabel,
+                detail?.tracking?.stageLabel,
+            ) {
                 order?.statusLabel?.takeIf { it.isNotBlank() }
                     ?: detail?.tracking?.stageLabel?.takeIf { it.isNotBlank() }
-                    ?: trackingStageText(order?.status, order?.serviceSubType)
+                    ?: trackingStageText(
+                        status = order?.status,
+                        serviceSubType = order?.serviceSubType,
+                        serviceCategory = order?.serviceCategory,
+                        model = order?.model,
+                    )
             }
             // ETA Banner
             Row(
@@ -327,7 +339,16 @@ fun CourierStatusCard(
 
 @Composable
 private fun PackageSection(detail: OrderTrackingDetail) {
-    if (detail.packages.isEmpty()) return
+    val copy = trackingCopy(
+        serviceSubType = detail.order.serviceSubType,
+        model = detail.order.model,
+        merchantId = detail.order.merchantId,
+        serviceCategory = detail.order.serviceCategory,
+    )
+    // The backend may retain a generic package projection for legacy roadside
+    // orders. It is not customer-facing truth for Tambal Ban/Towing and must
+    // not reintroduce parcel-only labels such as POD or Rincian paket.
+    if (copy.kind != TrackingServiceKind.PACKAGE || detail.packages.isEmpty()) return
 
     Spacer(modifier = Modifier.height(14.dp))
     Column(
@@ -399,13 +420,18 @@ private fun PackageSection(detail: OrderTrackingDetail) {
 private fun TrackingTimeline(detail: OrderTrackingDetail) {
     val completedTypes = remember(detail.events) { detail.events.map { it.eventType.lowercase() }.toSet() }
     val status = detail.order.status.lowercase()
-    val copy = trackingCopy(detail.order.serviceSubType, detail.order.model, detail.order.merchantId)
+    val copy = trackingCopy(
+        serviceSubType = detail.order.serviceSubType,
+        model = detail.order.model,
+        merchantId = detail.order.merchantId,
+        serviceCategory = detail.order.serviceCategory,
+    )
     val isFood = copy.kind == TrackingServiceKind.FOOD
     val isCancelled = status in setOf("cancelled", "failed") || completedTypes.contains("pickup_cancelled_by_courier")
     val isTowing = copy.kind == TrackingServiceKind.TOWING
     val steps = if (isCancelled) {
         listOf(
-            TimelineStep("merchant_order", "Order diterima", true),
+            TimelineStep("accepted", copy.acceptedLabel, true),
             TimelineStep("cancelled", copy.cancelledLabel, true)
         )
     } else if (isTowing) {
@@ -479,7 +505,12 @@ private fun TrackingTimeline(detail: OrderTrackingDetail) {
 
 @Composable
 private fun ProofSection(detail: OrderTrackingDetail) {
-    val copy = trackingCopy(detail.order.serviceSubType, detail.order.model, detail.order.merchantId)
+    val copy = trackingCopy(
+        serviceSubType = detail.order.serviceSubType,
+        model = detail.order.model,
+        merchantId = detail.order.merchantId,
+        serviceCategory = detail.order.serviceCategory,
+    )
     val pickupProof = detail.proofs.lastOrNull {
         it.scanType?.lowercase() in setOf("pickup", "pickup_photo") && !it.photoUrl.isNullOrBlank()
     }

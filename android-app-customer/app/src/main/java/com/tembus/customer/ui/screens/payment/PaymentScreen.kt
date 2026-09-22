@@ -108,6 +108,9 @@ fun PaymentScreen(
     }
 
     Scaffold(
+        // Figma `TEMBUS - Metode Pembayaran & Dompet` uses the neutral
+        // payment canvas (#F7F8F6), distinct from the green Home/parcel shell.
+        containerColor = Color(0xFFF7F8F6),
         topBar = {
             TopAppBar(
                 title = { Text("Pembayaran", fontWeight = FontWeight.Bold) },
@@ -123,7 +126,7 @@ fun PaymentScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(MaterialTheme.colorScheme.background)
+                .background(Color(0xFFF7F8F6))
         ) {
             if (!isOnline) {
                 CustomerNetworkRecoveryBanner(
@@ -166,13 +169,13 @@ fun PaymentScreen(
                     title = "Sesi kedaluwarsa",
                     message = result.message,
                     actionLabel = "Pilih metode lagi",
-                    onAction = { viewModel.selectMethod(result.selectedMethod) }
+                    onAction = { viewModel.loadPaymentStatus(orderId) }
                 )
                 is PaymentUiState.Error -> PaymentMessageState(
                     title = "Pembayaran belum bisa diproses",
                     message = result.message,
                     actionLabel = "Coba lagi",
-                    onAction = { viewModel.selectMethod(result.selectedMethod) }
+                    onAction = { viewModel.loadPaymentStatus(orderId) }
                 )
                 is PaymentUiState.Ready -> PaymentWebView(
                     url = result.url,

@@ -210,6 +210,7 @@ export const listCustomerEligiblePromos = async (req: Request, res: Response): P
       service_codes: campaign.service_codes,
       starts_at: campaign.starts_at,
       ends_at: campaign.ends_at,
+      notification_copy: campaign.notification_copy || {},
     }));
     res.json({ success: true, data: publicCampaigns });
   } catch (error) {

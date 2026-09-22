@@ -2,6 +2,8 @@
 
 ## Active
 
+- [ ] **Customer App Figma ↔ Code Parity & Flow Execution 2026** — blueprint eksekusi baru untuk menyatukan file Figma `ALL TEMBUS CUSTOMER` dengan route/screen Android customer yang sudah ada. Flow dipecah menjadi foundation/global shell, home, aktivitas/order, parcel, food, payment/wallet, tambal ban, towing, komunikasi/support, dan akun/privacy/security. Detail mapping, gap, dependency, dan gate implementasi: [task-customer-figma-code-parity-2026.md](task-customer-figma-code-parity-2026.md).
+
 - [ ] **Customer App UI/UX Antislop Audit 2026** - tindak lanjut audit antislop (Mode 2) customer Android vs standar 2026 + benchmark global (Gojek/Grab/Uber/DoorDash): 7 TASK-ID UIUX-2026-001..007 (em dash R-02, sinkron bottom-nav, nama kurir `+`, konsistensi locale, error katalog material, tracking berkonteks, scrim status-bar). Detail: [task-customer-uiux-antislop-2026.md](task-customer-uiux-antislop-2026.md).
 
 - [ ] **Marketplace parity PART W–AG — payment, safety, mobile, security, reputation/CRM and reality gates**

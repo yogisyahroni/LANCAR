@@ -30,7 +30,7 @@ class ServiceReportViewModel @Inject constructor(
 
     fun loadReport(orderId: String, serviceSubType: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, error = null, tambalBanReport = null, towingReport = null) }
             
             val isTambalBan = serviceSubType.startsWith("tambal_ban")
             

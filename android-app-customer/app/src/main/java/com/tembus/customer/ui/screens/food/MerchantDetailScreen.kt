@@ -75,6 +75,7 @@ import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.data.model.FoodOrderItemVariantRequest
 import com.tembus.customer.data.model.MenuItemVariant
 import com.tembus.customer.ui.theme.Accent
+import com.tembus.customer.ui.theme.CustomerCanvas
 import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryLight
@@ -118,48 +119,7 @@ fun MerchantDetailScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"), tint = Primary)
-                }
-                Text(
-                    merchant?.name ?: "Detail Merchant",
-                    modifier = Modifier.weight(1f),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Box {
-                    IconButton(onClick = onCartClick) {
-                        Icon(Icons.Default.ShoppingCart, contentDescription = CustomerTextCatalog.translate("Keranjang"), tint = Primary)
-                    }
-                    if (cartSize > 0) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(top = 6.dp, end = 6.dp)
-                                .size(18.dp)
-                                .clip(CircleShape)
-                                .background(Accent),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(cartSize.toString(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-                    }
-                }
-            }
-        },
+        containerColor = CustomerCanvas,
         bottomBar = {
             if (cartSize > 0) {
                 Surface(
@@ -237,9 +197,10 @@ fun MerchantDetailScreen(
             }
             merchant != null -> {
                 val m = merchant!!
+                val merchantAcceptsOrders = m.acceptsNewOrders
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Header merchant — FOOD-IMG (2026-08-27): full-width hero image.
@@ -263,6 +224,54 @@ fun MerchantDetailScreen(
                                     placeholderLabel = "Foto merchant belum tersedia",
                                     modifier = Modifier.fillMaxSize(),
                                 )
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .statusBarsPadding()
+                                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color.Black.copy(alpha = 0.45f),
+                                    ) {
+                                        IconButton(onClick = onBack) {
+                                            Icon(
+                                                Icons.AutoMirrored.Filled.ArrowBack,
+                                                contentDescription = CustomerTextCatalog.translate("Kembali"),
+                                                tint = Color.White,
+                                            )
+                                        }
+                                    }
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color.Black.copy(alpha = 0.45f),
+                                    ) {
+                                        Box {
+                                            IconButton(onClick = onCartClick) {
+                                                Icon(
+                                                    Icons.Default.ShoppingCart,
+                                                    contentDescription = CustomerTextCatalog.translate("Keranjang"),
+                                                    tint = Color.White,
+                                                )
+                                            }
+                                            if (cartSize > 0) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .align(Alignment.TopEnd)
+                                                        .padding(top = 4.dp, end = 4.dp)
+                                                        .size(18.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Accent),
+                                                    contentAlignment = Alignment.Center,
+                                                ) {
+                                                    Text(cartSize.toString(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                                 Text(m.name, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
@@ -283,15 +292,33 @@ fun MerchantDetailScreen(
                                 }
                                 Text("•", color = MaterialTheme.colorScheme.outlineVariant)
                                 Text(
-                                    if (m.isOpen) "Buka sekarang" else "Tutup",
+                                    if (merchantAcceptsOrders) "Buka sekarang" else "Tidak menerima pesanan",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (m.isOpen) Success else Error
+                                    color = if (merchantAcceptsOrders) Success else Error
                                 )
                                 if (m.jamBuka != null && m.jamTutup != null) {
                                     Text("•", color = MaterialTheme.colorScheme.outlineVariant)
                                     Text("${m.jamBuka} - ${m.jamTutup}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
+                            }
+                            if (!merchantAcceptsOrders) {
+                                Text(
+                                    m.operatingStateReason?.takeIf { it.isNotBlank() }
+                                        ?: "Merchant sedang tutup atau tidak menerima pesanan baru.",
+                                    color = Error,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
+                            if (m.minOrderIdr > 0) {
+                                Text(
+                                    "Minimum order Rp ${formatRupiah(m.minOrderIdr)}",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
                             }
                             // ADR 003: badge halal / non-halal
                             if (m.halalStatus == "halal_certified" || m.halalStatus == "non_halal") {
@@ -329,7 +356,7 @@ fun MerchantDetailScreen(
                                 modifier = Modifier
                                     .padding(top = 12.dp)
                                     .clip(RoundedCornerShape(999.dp))
-                                    .background(PrimaryLight)
+                                    .background(PrimaryLight.copy(alpha = 0.12f))
                                     .padding(horizontal = 12.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -374,6 +401,7 @@ fun MerchantDetailScreen(
                             items(items, key = { it.id }) { item ->
                                 MenuItemRow(
                                     item = item,
+                                    merchantAcceptsOrders = merchantAcceptsOrders,
                                     // FB-108: item ber-varian wajib lewat detail sheet
                                     // (pilih opsi dulu), yang polos langsung add.
                                     onAdd = {
@@ -420,6 +448,7 @@ fun MerchantDetailScreen(
     detailItem?.let { item ->
         ItemDetailSheet(
             item = item,
+            merchantAcceptsOrders = merchant?.acceptsNewOrders == true,
             onDismiss = { detailItem = null },
             onAdd = { qty, selections, labels ->
                 repeat(qty) {
@@ -443,6 +472,7 @@ fun MerchantDetailScreen(
 @Composable
 private fun ItemDetailSheet(
     item: FoodMenuItem,
+    merchantAcceptsOrders: Boolean,
     onDismiss: () -> Unit,
     onAdd: (Int, List<FoodOrderItemVariantRequest>, List<String>) -> Unit
 ) {
@@ -589,14 +619,19 @@ private fun ItemDetailSheet(
                     }
                     onAdd(quantity, selections, selectionLabels)
                 },
-                enabled = !requiredMissing,
+                enabled = !requiredMissing && item.canBeAddedToCart && merchantAcceptsOrders,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
                 shape = RoundedCornerShape(TembusRadius.Button)
             ) {
                 Text(
-                    if (requiredMissing) "Pilih varian wajib dulu" else "Tambah $quantity ke Keranjang",
+                    when {
+                        requiredMissing -> "Pilih varian wajib dulu"
+                        !merchantAcceptsOrders -> "Merchant sedang tutup"
+                        !item.canBeAddedToCart -> "Menu sedang tidak tersedia"
+                        else -> "Tambah $quantity ke Keranjang"
+                    },
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
                 )
@@ -700,15 +735,20 @@ private fun VariantGroupPicker(
 }
 
 @Composable
-private fun MenuItemRow(item: FoodMenuItem, onAdd: () -> Unit, onClick: () -> Unit) {
+private fun MenuItemRow(
+    item: FoodMenuItem,
+    merchantAcceptsOrders: Boolean,
+    onAdd: () -> Unit,
+    onClick: () -> Unit,
+) {
     TembusMenuItemCard(
         name = item.name,
         priceLabel = "Rp ${item.price.toInt().toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
         description = "±${item.prepTimeMinutes} mnt",
         imageUrl = item.foto,
         imageDescription = "Foto ${item.name}",
-        available = item.isAvailable,
-        onAdd = onAdd,
+        available = item.canBeAddedToCart && merchantAcceptsOrders,
+        onAdd = if (merchantAcceptsOrders) onAdd else ({}),
         onClick = onClick,
     )
 }
@@ -727,3 +767,6 @@ private fun CategoryHeader(title: String) {
             .padding(vertical = 6.dp)
     )
 }
+
+private fun formatRupiah(value: Long): String =
+    value.toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")

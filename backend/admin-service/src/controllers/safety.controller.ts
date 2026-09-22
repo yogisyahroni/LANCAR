@@ -243,11 +243,21 @@ export const createCustomerSafetyShare = async (req: Request, res: Response) => 
     if (!order) return res.status(404).json({ success: false, code: 'ERR_ORDER_NOT_FOUND' });
     const token = crypto.randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + 6 * 60 * 60 * 1000);
-    await db.query(
-      `INSERT INTO safety_share_tokens (order_id, issuer_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)`,
+    const inserted = await db.query(
+      `INSERT INTO safety_share_tokens (order_id, issuer_id, token_hash, expires_at)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id`,
       [orderId, userId, crypto.createHash('sha256').update(token).digest('hex'), expiresAt],
     );
-    return res.status(201).json({ success: true, data: { url: `${publicBaseUrl()}/safety/share/${token}`, expires_at: expiresAt.toISOString(), can_mutate: false } });
+    return res.status(201).json({
+      success: true,
+      data: {
+        token_id: inserted.rows[0]?.id,
+        url: `${publicBaseUrl()}/safety/share/${token}`,
+        expires_at: expiresAt.toISOString(),
+        can_mutate: false,
+      },
+    });
   } catch (error) {
     securityLog.error('CREATE_CUSTOMER_SAFETY_SHARE_FAILED', { error, order_id: orderId });
     return res.status(500).json({ success: false, code: 'ERR_SAFETY_SHARE_UNAVAILABLE' });

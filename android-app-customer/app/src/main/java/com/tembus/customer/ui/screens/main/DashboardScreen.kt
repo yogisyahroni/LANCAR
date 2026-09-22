@@ -66,7 +66,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import com.tembus.customer.ui.localization.CustomerText as Text
-import com.tembus.customer.ui.localization.CustomerTextCatalog
 import com.tembus.customer.ui.components.TembusServiceIcons
 import com.tembus.customer.ui.designsystem.TembusBottomNavigation
 import com.tembus.customer.ui.designsystem.TembusNavigationItem
@@ -118,12 +117,14 @@ import com.tembus.customer.ui.navigation.RemoteDeepLinkTarget
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentLight
 import com.tembus.customer.ui.theme.Background
+import com.tembus.customer.ui.theme.CustomerHomeCanvas
 import com.tembus.customer.ui.theme.CustomerHeroEnd
 import com.tembus.customer.ui.theme.CustomerHeroStart
 import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.OnSurface
 import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
+import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryDark
 import com.tembus.customer.ui.theme.PrimaryLight
@@ -150,7 +151,9 @@ private fun HomeStatusBarIcons() {
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+            // Home uses the light Figma shell; keep status-bar glyphs readable
+            // instead of inheriting the old dark hero treatment.
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
         }
     }
 }
@@ -172,16 +175,21 @@ fun DashboardScreen(
     onSearchClick: () -> Unit = {},
     onMerchantClick: (String) -> Unit = {},
     onRemoteAction: (RemoteDeepLinkTarget) -> Unit = {},
+    onWalletTopUpClick: () -> Unit = {},
+    onVoucherClick: () -> Unit = {},
 ) {
     HomeStatusBarIcons()
 
     val context = LocalContext.current
     val customerName by viewModel.customerName.collectAsState()
     val activeOrders by viewModel.activeOrders.collectAsState()
+    val recentCompletedOrder by viewModel.recentCompletedOrder.collectAsState()
     val incomingPackages by viewModel.incomingPackages.collectAsState()
     val dataError by viewModel.dataError.collectAsState()
-    val notificationUnreadCount by viewModel.notificationUnreadCount.collectAsState()
     val notificationUnreadByCategory by viewModel.notificationUnreadByCategory.collectAsState()
+    val walletBalance by viewModel.walletBalance.collectAsState()
+    val availablePromoCount by viewModel.availablePromoCount.collectAsState()
+    val featuredPromo by viewModel.featuredPromo.collectAsState()
     val banners by viewModel.banners.collectAsState()
     val services by viewModel.services.collectAsState()
     val experienceSnapshot by viewModel.experienceSnapshot.collectAsState()
@@ -224,8 +232,10 @@ fun DashboardScreen(
                     @Suppress("DEPRECATION")
                     val addr = geo.getFromLocation(loc.latitude, loc.longitude, 1)?.firstOrNull()
                     val parts = listOfNotNull(addr?.subLocality, addr?.locality, addr?.adminArea).filter { it.isNotBlank() }
-                    if (parts.isNotEmpty()) locationLabel = parts.take(2).joinToString(", ")
-                    else locationLabel = "Jakarta"
+                    // Do not turn a geocoder miss into a fabricated city. The
+                    // Figma header may omit the location row until the device
+                    // returns an authoritative label.
+                    locationLabel = parts.takeIf { it.isNotEmpty() }?.take(2)?.joinToString(", ")
                 }
             }
         }
@@ -260,7 +270,7 @@ fun DashboardScreen(
         val useNavigationRail = maxWidth >= 600.dp
         SharedTransitionLayout(Modifier.fillMaxSize()) {
             Scaffold(
-                containerColor = MaterialTheme.colorScheme.background,
+                containerColor = CustomerHomeCanvas,
                 bottomBar = {
                     if (!useNavigationRail) {
                         CustomerNavigation(
@@ -300,29 +310,21 @@ fun DashboardScreen(
                     ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(CustomerHomeCanvas),
                     contentPadding = PaddingValues(bottom = 30.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     item {
-                        val heroSection = experienceSnapshot.manifest.sections
-                            .firstOrNull { it.enabled && it.component == "hero_banner" }
-
-                        UnifiedHeroHeader(
+                        FigmaHomeHeader(
                             customerName = customerName.orEmpty().ifBlank { "Pelanggan" },
-                            notificationUnreadCount = notificationUnreadCount,
-                            heroSection = heroSection,
-                            manifestRevision = experienceSnapshot.manifest.revision,
-                            marketCode = experienceSnapshot.scope?.marketCode ?: experienceSnapshot.manifest.marketCode,
-                            manifestId = experienceSnapshot.manifest.manifestId,
-                            resolveAssetPath = { assetId -> viewModel.resolveExperienceAsset(experienceSnapshot, assetId) },
-                            onNotificationsClick = onNotificationsClick,
-                            onProfileClick = onProfileClick,
                             onSearchClick = onSearchClick,
-                            onBookingClick = onBookingClick,
-                            onRemoteAction = onRemoteAction,
-                            onBannerEvent = viewModel::recordExperienceBannerEvent,
+                            onWalletTopUpClick = onWalletTopUpClick,
+                            onVoucherClick = onVoucherClick,
+                            voucherCount = availablePromoCount,
                             locationLabel = locationLabel,
+                            walletBalance = walletBalance,
                             networkBanner = {
                                 CustomerNetworkRecoveryBanner(
                                     isOnline = isOnline,
@@ -334,6 +336,21 @@ fun DashboardScreen(
                         )
                     }
 
+                    if (activeOrders.isNotEmpty()) {
+                        item {
+                            CompactActiveOrdersSummaryCard(
+                                orders = activeOrders,
+                                hasUnreadMessage = hasUnreadMessages,
+                                onTrackingClick = onTrackingClick,
+                                onViewAllClick = onHistoryClick,
+                            )
+                        }
+                    } else {
+                        item {
+                            EmptyActiveOrderCard(onBookingClick = { onBookingClick("kirim") })
+                        }
+                    }
+
                     item {
                         val hasCustomServiceGrid = experienceSnapshot.manifest.sections
                             .any { it.enabled && it.component == "service_grid" }
@@ -341,14 +358,29 @@ fun DashboardScreen(
                         if (!hasCustomServiceGrid) {
                             TembusHomeServiceGrid(
                                 onKirimClick = { onBookingClick("kirim") },
-                                onAmbilClick = { onBookingClick("pickup") },
                                 onFoodClick = onFoodClick,
                                 showFood = foodEntryEnabled,
                                 onAggregatorClick = { onBookingClick("aggregator") },
                                 onTambalBanClick = { onBookingClick("tambal_ban") },
-                                onTowingClick = { onBookingClick("towing") }
+                                onTowingClick = { onBookingClick("towing") },
+                                onMoreClick = onSearchClick,
                             )
                         }
+
+                        val heroSection = experienceSnapshot.manifest.sections
+                            .firstOrNull { it.enabled && it.component == "hero_banner" }
+
+                        FigmaPromoBanner(
+                            heroSection = heroSection,
+                            eligiblePromo = featuredPromo,
+                            manifestRevision = experienceSnapshot.manifest.revision,
+                            marketCode = experienceSnapshot.scope?.marketCode ?: experienceSnapshot.manifest.marketCode,
+                            manifestId = experienceSnapshot.manifest.manifestId,
+                            onRemoteAction = onRemoteAction,
+                            onPromoClick = onVoucherClick,
+                            onBannerEvent = viewModel::recordExperienceBannerEvent,
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
 
                         // DESIGN.md §12: hero carousel CMS tepat seusai grid layanan.
                         if (banners.isNotEmpty()) {
@@ -380,17 +412,13 @@ fun DashboardScreen(
                                 excludeHeroBanner = true,
                             )
                         }
-                    }
 
-                    if (activeOrders.isNotEmpty()) {
-                        item {
-                            CompactActiveOrdersSummaryCard(
-                                orders = activeOrders,
-                                hasUnreadMessage = hasUnreadMessages,
-                                onTrackingClick = onTrackingClick,
-                                onViewAllClick = onHistoryClick,
+                        recentCompletedOrder?.let { order ->
+                            QuickRepeatOrderCard(
+                                order = order,
+                                onOpenHistory = onHistoryClick,
                             )
-                        }
+                        } ?: QuickRepeatEmptyState(onOpenHistory = onHistoryClick)
                     }
 
                     item {
@@ -398,6 +426,7 @@ fun DashboardScreen(
                             merchants = recommendedMerchants,
                             onMerchantClick = onMerchantClick,
                             onSeeAllClick = onFoodClick,
+                            locationLabel = locationLabel,
                         )
                     }
 
@@ -460,14 +489,15 @@ private fun SharedTransitionScope.CustomerNavigation(
 ) {
     data class NavItem(val key: String, val label: String, val icon: ImageVector, val onClick: () -> Unit)
     // DESIGN.md §11.10 + §12: Beranda, Aktivitas, Pesan, Notifikasi, Akun.
-    // Pesan → Business (pesan/inbox) sebagai placeholder; Notifikasi → Notifications.
+    // Pesan → inbox order-scoped; Notifikasi → Notifications.
     // Alasan: 5-destinasi app shell super-app 2026; orange hanya untuk indicator kecil.
     val items = listOf(
-        NavItem("home", CustomerTextCatalog.translate("Beranda"), Icons.Default.LocalShipping, onHomeClick),
-        NavItem("history", CustomerTextCatalog.translate("Aktivitas"), Icons.Default.History, onHistoryClick),
-        NavItem("business", CustomerTextCatalog.translate("Pesan"), Icons.Default.ChatBubble, onBusinessClick),
-        NavItem("notifications", CustomerTextCatalog.translate("Notifikasi"), Icons.Default.NotificationsActive, onNotificationsClick),
-        NavItem("profile", CustomerTextCatalog.translate("Profil"), Icons.Default.Person, onProfileClick)
+        // The Home shell follows the Indonesian Figma source exactly.
+        NavItem("home", "Beranda", Icons.Default.LocalShipping, onHomeClick),
+        NavItem("history", "Aktivitas", Icons.Default.History, onHistoryClick),
+        NavItem("business", "Pesan", Icons.Default.ChatBubble, onBusinessClick),
+        NavItem("notifications", "Notifikasi", Icons.Default.NotificationsActive, onNotificationsClick),
+        NavItem("profile", "Akun", Icons.Default.Person, onProfileClick)
     )
     AnimatedContent(targetState = selectedDestination, label = "customer-navigation-selection") { selected ->
         if (useNavigationRail) {
@@ -500,6 +530,12 @@ private fun SharedTransitionScope.CustomerNavigation(
                         onClick = { onSelect(item.key); item.onClick() },
                     )
                 },
+                // Customer Home Figma uses a neutral bar with a small orange
+                // active state; other destinations keep the shared green
+                // navigation treatment.
+                containerColor = CustomerHomeCanvas,
+                selectedColor = OrangeCta,
+                indicatorColor = Color.Transparent,
             )
         }
     }

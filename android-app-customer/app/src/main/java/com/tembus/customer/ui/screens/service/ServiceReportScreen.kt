@@ -88,6 +88,13 @@ fun ServiceReportScreen(
                 }
                 uiState.error != null -> {
                     Text(uiState.error ?: "Terjadi kesalahan", color = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(10.dp))
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { viewModel.loadReport(orderId, serviceSubType) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Coba lagi")
+                    }
                 }
                 uiState.tambalBanReport != null -> {
                     // Tambal Ban Report
@@ -120,6 +127,12 @@ fun ServiceReportScreen(
                     report.serviceDurationMinutes?.let { duration ->
                         Spacer(Modifier.height(8.dp))
                         Text("Durasi layanan: $duration menit", fontSize = 14.sp)
+                    }
+                    if (report.tireConditionBefore == null && report.tirePhotoBeforeUrl == null &&
+                        report.materialsUsed.isNullOrBlank() && report.notes.isNullOrBlank() &&
+                        report.serviceDurationMinutes == null
+                    ) {
+                        Text("Laporan layanan belum memiliki detail bukti.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 uiState.towingReport != null -> {
@@ -176,6 +189,12 @@ fun ServiceReportScreen(
                         Spacer(Modifier.height(8.dp))
                         Text("Catatan:", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         Text(notes, fontSize = 14.sp)
+                    }
+                    if (report.vehiclePhotoBeforeUrl == null && report.completionPhotoUrl == null &&
+                        report.loadingPhotoUrl == null && report.unloadingPhotoUrl == null &&
+                        report.signatureUrl == null && report.damageReport == null && report.notes.isNullOrBlank()
+                    ) {
+                        Text("Laporan towing belum memiliki detail bukti.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

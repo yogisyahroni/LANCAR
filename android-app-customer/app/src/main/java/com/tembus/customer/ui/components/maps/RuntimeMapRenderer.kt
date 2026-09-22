@@ -123,6 +123,19 @@ fun RuntimeMapRenderer(
 ) {
     val validMarkers = remember(markers) { markers.filter { it.position.isValidLatLng() } }
     val validRoutePoints = remember(routePoints) { routePoints.filter { it.isValidLatLng() } }
+    val hasAuthoritativePosition = validMarkers.isNotEmpty() ||
+        validRoutePoints.isNotEmpty() ||
+        followLocation?.isValidLatLng() == true
+
+    if (!hasAuthoritativePosition) {
+        RuntimeMapUnavailable(
+            title = "Lokasi belum tersedia",
+            message = "Peta tidak menampilkan koordinat contoh. Pilih alamat atau tunggu lokasi yang valid dari server/perangkat.",
+            modifier = modifier,
+        )
+        return
+    }
+
     val viewport = remember(validMarkers, validRoutePoints, followLocation) {
         resolveViewport(
             markers = validMarkers,
@@ -561,6 +574,30 @@ private fun RuntimeMapFallback(
     }
 }
 
+@Composable
+private fun RuntimeMapUnavailable(
+    title: String,
+    message: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.background(Color(0xFFEFF6FF)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Card(
+            modifier = Modifier.padding(20.dp).fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(title, fontWeight = FontWeight.Bold, color = Color(0xFF0B3D2E))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
+    }
+}
+
 private fun hasTomTomSdkKey(): Boolean = BuildConfig.TOMTOM_API_KEY.trim().isNotBlank()
 
 private fun LatLng.toGeoPoint(): GeoPoint = GeoPoint(latitude, longitude)
@@ -654,7 +691,10 @@ private fun resolveViewport(
         center = when {
             followLocation?.isValidLatLng() == true -> followLocation
             allPoints.isNotEmpty() -> allPoints.first()
-            else -> LatLng(-6.2088, 106.8456)
+            // RuntimeMapRenderer returns early when there is no authoritative
+            // point. Keep this unreachable defensive value neutral rather than
+            // presenting a real city as fabricated customer location.
+            else -> LatLng(0.0, 0.0)
         },
         zoom = 15
     )

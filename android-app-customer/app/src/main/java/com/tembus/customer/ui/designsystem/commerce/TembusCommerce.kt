@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.aspectRatio
@@ -37,7 +38,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.ui.designsystem.TembusBadge
 import com.tembus.customer.ui.designsystem.TembusBadgeTone
@@ -224,12 +225,18 @@ fun TembusCommerceImage(
     if (imageUrl.isNullOrBlank() || imageFailed) {
         TembusImagePlaceholder(label = placeholderLabel, modifier = modifier, fillWidth = false)
     } else {
-        AsyncImage(
+        SubcomposeAsyncImage(
             model = imageUrl,
             contentDescription = imageDescription,
             modifier = modifier,
             contentScale = contentScale,
-            onError = { imageFailed = true },
+            loading = {
+                TembusImagePlaceholder(label = placeholderLabel, modifier = Modifier.fillMaxSize(), fillWidth = false)
+            },
+            error = {
+                imageFailed = true
+                TembusImagePlaceholder(label = placeholderLabel, modifier = Modifier.fillMaxSize(), fillWidth = false)
+            },
         )
     }
 }

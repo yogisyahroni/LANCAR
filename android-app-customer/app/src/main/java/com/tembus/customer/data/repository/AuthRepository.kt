@@ -4,6 +4,7 @@ import com.tembus.customer.data.api.TEMBUSApiService
 import com.tembus.customer.data.api.withRequestReference
 import com.tembus.customer.data.device.DeviceIdentityProvider
 import com.tembus.customer.data.model.AuthResponse
+import com.tembus.customer.data.model.ChangeCustomerPinRequest
 import com.tembus.customer.data.model.CustomerPasswordLoginStartRequest
 import com.tembus.customer.data.model.CustomerPasswordRegisterStartRequest
 import com.tembus.customer.data.model.LoginV1Request
@@ -110,6 +111,28 @@ class AuthRepository @Inject constructor(
             )
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun changeCustomerPin(currentPin: String, newPin: String): Result<String> {
+        return try {
+            val response = apiService.changeCustomerPin(
+                ChangeCustomerPinRequest(currentPin = currentPin, newPin = newPin)
+            )
+            val body = response.body()
+            if (response.isSuccessful && body != null && body.error.isNullOrBlank()) {
+                Result.success(body.message ?: "PIN akun berhasil diubah.")
+            } else {
+                val fallback = when (response.code()) {
+                    400 -> "PIN harus 6 digit dan berbeda dari PIN lama."
+                    401 -> "PIN akun saat ini tidak sesuai."
+                    403 -> "Sesi tidak memiliki akses untuk mengubah PIN."
+                    else -> "PIN akun belum dapat diubah. Coba lagi."
+                }
+                Result.failure(Exception((body?.error ?: body?.message ?: fallback).take(160)))
+            }
+        } catch (_: Exception) {
+            Result.failure(Exception("PIN akun belum dapat diubah. Coba lagi."))
         }
     }
 

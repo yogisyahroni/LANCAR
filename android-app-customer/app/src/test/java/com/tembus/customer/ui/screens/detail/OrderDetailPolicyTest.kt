@@ -22,8 +22,12 @@ class OrderDetailPolicyTest {
         assertTrue(OrderActionPolicy.canTrack(" IN_TRANSIT "))
         assertTrue(OrderActionPolicy.canChat("accepted"))
         assertTrue(OrderActionPolicy.canCancel("pending_payment", "food_delivery"))
+        assertTrue(OrderActionPolicy.canResumePayment("pending_payment"))
+        assertTrue(OrderActionPolicy.canOpenTracking("delivered"))
+        assertTrue(OrderActionPolicy.canOpenTracking("scheduled"))
         assertFalse(OrderActionPolicy.canTrack("unknown_server_state"))
         assertFalse(OrderActionPolicy.canChat("delivered"))
+        assertFalse(OrderActionPolicy.canResumePayment("scheduled"))
         assertFalse(OrderActionPolicy.canCancel("cancelled", "towing_mobil"))
     }
 

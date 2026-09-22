@@ -15,6 +15,12 @@ object OrderActionPolicy {
 
     fun canTrack(status: String): Boolean = normalize(status) in trackableStates
 
+    fun canOpenTracking(status: String): Boolean = canTrack(status) || normalize(status) in setOf(
+        "scheduled", "delivered", "completed", "cancelled", "canceled", "failed", "failed_delivery"
+    )
+
+    fun canResumePayment(status: String): Boolean = normalize(status) == "pending_payment"
+
     fun canChat(status: String): Boolean = normalize(status) in trackableStates
 
     fun canCancel(status: String, serviceSubType: String? = null): Boolean {

@@ -44,9 +44,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tembus.customer.ui.theme.OrangeCta
+import com.tembus.customer.ui.theme.OnOrangeCta
+import com.tembus.customer.ui.theme.PrimarySoft
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,10 +69,27 @@ fun CourierDetailScreen(
         viewModel.loadDetail(courierId, serviceSubType)
     }
 
+    val isTowing = serviceSubType.startsWith("towing")
+    val providerLabel = if (isTowing) "Petugas Derek" else "Montir Siaga"
+
     Scaffold(
+        containerColor = Color(0xFFF2FCF3),
         topBar = {
             TopAppBar(
-                title = { Text("Detail Teknisi", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        uiState.detail?.courierName?.takeIf { it.isNotBlank() }
+                            ?.let { "$providerLabel - $it" }
+                            ?: "Profil $providerLabel",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFFF2FCF3),
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
@@ -100,7 +121,7 @@ fun CourierDetailScreen(
                     // Avatar + nama + rating
                     Card(
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F7FA))
+                        colors = CardDefaults.cardColors(containerColor = PrimarySoft)
                     ) {
                         Column(
                             modifier = Modifier
@@ -111,7 +132,7 @@ fun CourierDetailScreen(
                             Box(
                                 modifier = Modifier
                                     .size(72.dp)
-                                    .background(Color(0xFF00AED6), RoundedCornerShape(24.dp)),
+                                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(24.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -123,6 +144,7 @@ fun CourierDetailScreen(
                             }
                             Spacer(Modifier.height(12.dp))
                             Text(d.courierName, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            Text(providerLabel, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
@@ -141,7 +163,7 @@ fun CourierDetailScreen(
                                 Text(
                                     if (d.isOnline) "● Online" else "● Offline",
                                     fontSize = 13.sp,
-                                    color = if (d.isOnline) Color(0xFF00AA5B) else Color.Gray
+                                    color = if (d.isOnline) MaterialTheme.colorScheme.primary else Color.Gray
                                 )
                             }
                         }
@@ -152,7 +174,7 @@ fun CourierDetailScreen(
                     // Info detail
                     Card(
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                     ) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -172,20 +194,40 @@ fun CourierDetailScreen(
                     Spacer(Modifier.height(16.dp))
 
                     Text(
-                        "Harga jasa ditentukan oleh petugas. Biaya per-km dan tol ditentukan oleh sistem.",
+                        "Harga dan ketersediaan berasal dari server. Biaya per-km dan tol dihitung oleh sistem.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text("Informasi layanan terverifikasi", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Profil, status online, ETA, jarak, rating, dan harga ditampilkan dari respons server.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
 
                     Spacer(Modifier.height(20.dp))
 
                     Button(
                         onClick = { onBookClick(d.courierId, d.courierServicePrice, d.courierName, d.rating) },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AED6)),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = OrangeCta,
+                            contentColor = OnOrangeCta,
+                        ),
                         shape = RoundedCornerShape(14.dp)
                     ) {
-                        Text("Pesan Teknisi Ini", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(if (isTowing) "Pilih Petugas Derek Ini" else "Pilih Montir Ini", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(8.dp))
                 }
@@ -200,7 +242,7 @@ private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label
         Icon(
             icon,
             contentDescription = "",
-            tint = Color(0xFF008EB0),
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp)
         )
         Spacer(Modifier.width(12.dp))

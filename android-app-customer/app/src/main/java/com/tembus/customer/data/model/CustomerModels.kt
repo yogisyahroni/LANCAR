@@ -220,6 +220,7 @@ data class CustomerOrderCreateRequest(
     @SerialName("has_insurance") val hasInsurance: Boolean = false,
     @SerialName("item_value") val itemValue: Long = 0,
     @SerialName("schedule_type") val scheduleType: String = "now",
+    @SerialName("scheduled_at") val scheduledAt: String? = null,
     @SerialName("customer_notes") val customerNotes: String = "",
     @SerialName("price_breakdown") val priceBreakdown: PriceBreakdown,
     @SerialName("service_code") val serviceCode: String,
@@ -451,6 +452,31 @@ data class ProfileResponse(
     @SerialName("profile_image_url") val profileImageUrl: String? = null,
     @SerialName("store_name") val storeName: String? = null,
     @SerialName("default_pickup_address") val defaultPickupAddress: String? = null
+)
+
+@Serializable
+data class WalletBalance(
+    @SerialName("id") val id: String = "",
+    @SerialName("user_id") val userId: String = "",
+    @SerialName("balance") val balance: Long = 0L,
+    @SerialName("hold_balance") val holdBalance: Long = 0L,
+    @SerialName("currency") val currency: String = "IDR",
+    @SerialName("version") val version: Int = 0
+)
+
+@Serializable
+data class WalletTopUpRequest(
+    @SerialName("amount") val amount: Long
+)
+
+@Serializable
+data class WalletTopUpSession(
+    @SerialName("snap_token") val snapToken: String = "",
+    @SerialName("invoice_url") val invoiceUrl: String? = null,
+    @SerialName("reference_id") val referenceId: String = "",
+    @SerialName("amount") val amount: Long = 0L,
+    @SerialName("fee") val fee: Long = 0L,
+    @SerialName("total") val total: Long = 0L
 )
 
 @Serializable

@@ -352,7 +352,9 @@ class OrderRepository @Inject constructor(
                 emit(Result.success(
                     Order(
                         orderId = trackingOrder.id,
+                        orderNumber = trackingOrder.orderNumber.orEmpty(),
                         pickupAddress = trackingOrder.pickupAddress.orEmpty(),
+                        pickupTime = trackingOrder.scheduledAt.orEmpty(),
                         dropAddress = trackingOrder.dropoffAddress.orEmpty(),
                         distance = trackingOrder.distanceKm?.toString().orEmpty(),
                         fee = trackingOrder.totalPriceIdr?.toString().orEmpty(),
@@ -364,6 +366,7 @@ class OrderRepository @Inject constructor(
                         courierPlate = trackingOrder.courierPlate,
                         courierPhone = trackingOrder.courierPhone,
                         serviceSubType = trackingOrder.serviceSubType,
+                        serviceCategory = trackingOrder.serviceCategory,
                         merchantName = trackingOrder.merchantName,
                         orderNotes = trackingOrder.orderNotes, // FB-121
                         foodItems = trackingOrder.foodItems
@@ -713,7 +716,6 @@ class OrderRepository @Inject constructor(
         ): Result<SettlementResult> {
             return try {
                 val response = apiService.calculateSettlement(
-                    orderId,
                     mapOf(
                         "order_id" to orderId,
                         "service_code" to serviceCode,

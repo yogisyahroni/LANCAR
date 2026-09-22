@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -23,12 +25,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -39,7 +45,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VerifiedUser
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.AlertDialog
@@ -47,11 +52,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -63,8 +70,6 @@ import androidx.compose.material3.Surface
 import com.tembus.customer.ui.localization.CustomerText as Text
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -79,21 +84,28 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.tembus.customer.data.model.ProfileResponse
+import com.tembus.customer.data.model.LoyaltyInfo
 import com.tembus.customer.data.security.LocalDeviceSecurityManager
 import com.tembus.customer.ui.security.LocalSecuritySettingsPanel
+import com.tembus.customer.ui.designsystem.TembusBottomNavigation
+import com.tembus.customer.ui.designsystem.TembusNavigationItem
 import com.tembus.customer.ui.theme.Primary
+import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.BuildConfig
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 
+private val AccountCanvas = Color(0xFFF2FCF3) // Figma: TEMBUS - Akun Pengguna
 
 
 @Composable
@@ -119,13 +131,26 @@ private fun profileTextFieldColors() = OutlinedTextFieldDefaults.colors(
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
-    onBackClick: () -> Unit,
+    loyaltyViewModel: LoyaltyViewModel = hiltViewModel(),
     onLogout: () -> Unit,
+    onAddressesClick: (() -> Unit)? = null,
     onLanguageClick: () -> Unit = {},
-    onReferralClick: () -> Unit = {},
-    onLoyaltyClick: () -> Unit = {}
+    onLoyaltyClick: () -> Unit = {},
+    onPrivacyTermsClick: () -> Unit = {},
+    onHelpClick: () -> Unit = {},
+    onBusinessClick: () -> Unit = {},
+    onRatingClick: () -> Unit = {},
+    onTopUpClick: () -> Unit = {},
+    onPaymentMethodsClick: () -> Unit = {},
+    onHomeClick: () -> Unit = {},
+    onHistoryClick: () -> Unit = {},
+    onMessagesClick: () -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
+    val loyaltyInfo by loyaltyViewModel.loyaltyInfo.collectAsState()
+    val loyaltyLoading by loyaltyViewModel.loading.collectAsState()
+    val customerPinState by viewModel.customerPinState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -133,6 +158,10 @@ fun ProfileScreen(
         LocalDeviceSecurityManager(context.applicationContext)
     }
     var activeDialog by remember { mutableStateOf<ProfileDialog?>(null) }
+
+    LaunchedEffect(Unit) {
+        loyaltyViewModel.loadLoyaltyInfo()
+    }
 
     LaunchedEffect(state) {
         val currentState = state as? ProfileUiState.Success ?: return@LaunchedEffect
@@ -143,28 +172,33 @@ fun ProfileScreen(
         }
     }
 
+    LaunchedEffect(customerPinState) {
+        val notice = customerPinState.message ?: customerPinState.error
+        if (!notice.isNullOrBlank()) {
+            snackbarHostState.showSnackbar(notice)
+            viewModel.consumeCustomerPinNotice()
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("Profil", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
-                )
+        bottomBar = {
+            TembusBottomNavigation(
+                items = listOf(
+                    TembusNavigationItem("Beranda", Icons.Default.LocalShipping, false, onHomeClick),
+                    TembusNavigationItem("Aktivitas", Icons.Default.History, false, onHistoryClick),
+                    TembusNavigationItem("Pesan", Icons.Default.ChatBubbleOutline, false, onMessagesClick),
+                    TembusNavigationItem("Notifikasi", Icons.Default.NotificationsActive, false, onNotificationsClick),
+                    TembusNavigationItem("Akun", Icons.Default.Person, true, onClick = {}),
+                ),
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = AccountCanvas
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(AccountCanvas)
                 .padding(padding)
         ) {
             when (val currentState = state) {
@@ -175,17 +209,24 @@ fun ProfileScreen(
                 )
                 is ProfileUiState.Success -> ProfileContent(
                     profile = currentState.profile,
-                    isUpdating = currentState.isUpdating,
-                    onRefresh = viewModel::fetchProfile,
                     onEditClick = { activeDialog = ProfileDialog.Edit },
-                    onAddressesClick = { activeDialog = ProfileDialog.Addresses },
+                    onAddressesClick = {
+                        onAddressesClick?.invoke() ?: run { activeDialog = ProfileDialog.Addresses }
+                    },
                     onLanguageClick = onLanguageClick,
-                    onReferralClick = onReferralClick,
                     onLoyaltyClick = onLoyaltyClick,
+                    onPrivacyTermsClick = onPrivacyTermsClick,
                     onSettingsClick = { activeDialog = ProfileDialog.Settings },
                     onSecurityClick = { activeDialog = ProfileDialog.Security },
-                    onHelpClick = { activeDialog = ProfileDialog.Help },
-                    onWithdrawClick = { activeDialog = ProfileDialog.Withdraw },
+                    onHelpClick = onHelpClick,
+                    onBusinessClick = onBusinessClick,
+                    onRatingClick = onRatingClick,
+                    onNotificationsClick = onNotificationsClick,
+                     onWithdrawClick = { activeDialog = ProfileDialog.Withdraw },
+                     onTopUpClick = onTopUpClick,
+                     onPaymentMethodsClick = onPaymentMethodsClick,
+                     loyaltyInfo = loyaltyInfo,
+                    loyaltyLoading = loyaltyLoading,
                     onLogout = { viewModel.logout(onLogout) }
                 )
             }
@@ -214,10 +255,12 @@ fun ProfileScreen(
         )
         ProfileDialog.Security -> SecurityDialog(
             securityManager = localSecurityManager,
+            customerPinState = customerPinState,
             onDismiss = { activeDialog = null },
             onNotice = { message ->
                 scope.launch { snackbarHostState.showSnackbar(message) }
             },
+            onChangeCustomerPin = viewModel::changeCustomerPin,
             onLogout = {
                 activeDialog = null
                 viewModel.logout(onLogout)
@@ -247,17 +290,22 @@ fun ProfileScreen(
 @Composable
 private fun ProfileContent(
     profile: ProfileResponse,
-    isUpdating: Boolean,
-    onRefresh: () -> Unit,
+    loyaltyInfo: LoyaltyInfo?,
+    loyaltyLoading: Boolean,
     onEditClick: () -> Unit,
     onAddressesClick: () -> Unit,
     onLanguageClick: () -> Unit,
-    onReferralClick: () -> Unit,
     onLoyaltyClick: () -> Unit,
+    onPrivacyTermsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onSecurityClick: () -> Unit,
     onHelpClick: () -> Unit,
+    onBusinessClick: () -> Unit,
+    onRatingClick: () -> Unit,
+    onNotificationsClick: () -> Unit,
     onWithdrawClick: () -> Unit,
+    onTopUpClick: () -> Unit,
+    onPaymentMethodsClick: () -> Unit,
     onLogout: () -> Unit
 ) {
     val primaryContact = profile.email.ifBlank {
@@ -267,83 +315,88 @@ private fun ProfileContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
-            .padding(top = 32.dp, bottom = 18.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(horizontal = 16.dp)
+            .padding(top = 6.dp, bottom = 28.dp),
     ) {
-        AvatarBadge(name = profile.name)
-        Spacer(Modifier.height(14.dp))
-        Text(
-            text = profile.name.ifBlank { "Pelanggan TEMBUS" },
-            fontWeight = FontWeight.Black,
-            letterSpacing = (-0.5).sp,
-            fontSize = 24.sp,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = primaryContact,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        Spacer(Modifier.height(24.dp))
-        WalletCard(
-            balance = profile.walletBalance,
-            onWithdrawClick = onWithdrawClick
-        )
-        Spacer(Modifier.height(18.dp))
-        ProfileStatusCard(profile = profile)
-        Spacer(Modifier.height(18.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(24.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)) {
-                MenuRow(icon = Icons.Default.Edit, label = "Ubah Profil", onClick = onEditClick)
-                MenuRow(icon = Icons.Default.LocationOn, label = "Alamat Tersimpan", onClick = onAddressesClick)
-                MenuRow(icon = Icons.Default.People, label = "Ajak Teman", onClick = onReferralClick)
-                MenuRow(icon = Icons.Default.Star, label = "Keanggotaan", onClick = onLoyaltyClick)
-                MenuRow(icon = Icons.Default.Language, label = "Bahasa", onClick = onLanguageClick)
-                MenuRow(icon = Icons.Default.Settings, label = "Pengaturan Aplikasi", onClick = onSettingsClick)
-                MenuRow(icon = Icons.Default.Shield, label = "Keamanan", onClick = onSecurityClick)
-                    MenuRow(icon = Icons.AutoMirrored.Filled.Help, label = "Pusat Bantuan", onClick = onHelpClick, showDivider = false)
+        AccountChromeHeader()
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AvatarBadge(name = profile.name, imageUrl = profile.profileImageUrl, size = 54.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = profile.name.ifBlank { "Pelanggan TEMBUS" },
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-0.3).sp,
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(primaryContact, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("Customer TEMBUS", color = Primary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+            }
+            IconButton(onClick = onEditClick) {
+                Icon(Icons.Default.Edit, contentDescription = "Ubah profil", tint = Primary, modifier = Modifier.size(19.dp))
             }
         }
 
-        Spacer(Modifier.height(18.dp))
-        OutlinedButton(
-            onClick = onRefresh,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(16.dp),
-            enabled = !isUpdating
-        ) {
-            Icon(Icons.Default.Refresh, contentDescription = "")
-            Spacer(Modifier.width(8.dp))
-            Text("Sinkronkan Profil", fontWeight = FontWeight.Bold)
-        }
+        Spacer(Modifier.height(16.dp))
+        WalletCard(
+            balance = profile.walletBalance,
+            onWithdrawClick = onWithdrawClick,
+            onTopUpClick = onTopUpClick
+        )
+        Spacer(Modifier.height(14.dp))
+        MembershipSummaryCard(
+            info = loyaltyInfo,
+            isLoading = loyaltyLoading,
+            onClick = onLoyaltyClick,
+        )
+        Spacer(Modifier.height(14.dp))
 
-        Spacer(Modifier.height(12.dp))
+        ProfileMenuSection(
+            title = "PENGATURAN TRANSAKSI & BISNIS",
+            items = listOf(
+                AccountMenuItem(Icons.Default.LocationOn, "Alamat Tersimpan", "Kelola alamat tersimpan", onAddressesClick),
+                AccountMenuItem(Icons.Default.AccountBalanceWallet, "Metode Pembayaran", "TEMBUS-Pay dan metode pembayaran", onPaymentMethodsClick),
+                AccountMenuItem(Icons.Default.Description, "Profil Bisnis & E-Faktur", "Kelola faktur dan profil bisnis", onBusinessClick),
+            ),
+        )
+        Spacer(Modifier.height(14.dp))
+        ProfileMenuSection(
+            title = "PREFERENSI LAYANAN & KEAMANAN",
+            items = listOf(
+                AccountMenuItem(Icons.Default.People, "Kontak Darurat Keluarga", "Atur kontak untuk keadaan darurat", onSettingsClick),
+                AccountMenuItem(Icons.Default.NotificationsActive, "Notifikasi & Pesan Siaga", "Update status, promo, dan pengingat", onNotificationsClick),
+                AccountMenuItem(Icons.Default.Shield, "Keamanan & PIN Transaksi", "PIN akun dan perlindungan perangkat", onSecurityClick),
+                AccountMenuItem(Icons.Default.Language, "Bahasa & Satuan Jarak", "Bahasa Indonesia • Kilometer", onLanguageClick),
+            ),
+        )
+        Spacer(Modifier.height(14.dp))
+        ProfileMenuSection(
+            title = "BANTUAN & LEGALITAS",
+            items = listOf(
+                AccountMenuItem(Icons.AutoMirrored.Filled.Help, "Pusat Bantuan & CS 24 Jam", "Bantuan untuk order dan akun", onHelpClick),
+                AccountMenuItem(Icons.Default.Description, "Privasi & Ketentuan Layanan", "Kebijakan dan ketentuan TEMBUS", onPrivacyTermsClick),
+                AccountMenuItem(Icons.Default.Star, "Beri Rating TEMBUS", "Bagikan pengalamanmu", onRatingClick),
+            ),
+        )
+
+        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(4.dp))
         OutlinedButton(
             onClick = onLogout,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(54.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
+                .height(48.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = OrangeCta),
+            border = BorderStroke(1.dp, OrangeCta.copy(alpha = 0.6f))
         ) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "")
+            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "")
             Spacer(Modifier.width(8.dp))
-            Text("Keluar Akun", fontWeight = FontWeight.Bold)
+            Text("Keluar dari Akun", fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(24.dp))
         Text(
@@ -356,28 +409,139 @@ private fun ProfileContent(
     }
 }
 
+private data class AccountMenuItem(
+    val icon: ImageVector,
+    val label: String,
+    val description: String,
+    val onClick: () -> Unit,
+)
+
 @Composable
-private fun AvatarBadge(name: String) {
+private fun ProfileMenuSection(
+    title: String,
+    items: List<AccountMenuItem>,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            title,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 0.7.sp,
+        )
+        Spacer(Modifier.height(6.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp)) {
+                items.forEachIndexed { index, item ->
+                    MenuRow(
+                        icon = item.icon,
+                        label = item.label,
+                        description = item.description,
+                        onClick = item.onClick,
+                        showDivider = index < items.lastIndex,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MembershipSummaryCard(
+    info: LoyaltyInfo?,
+    isLoading: Boolean,
+    onClick: () -> Unit,
+) {
+    val title = info?.nextTier?.takeIf { it.isNotBlank() }?.let { "Menuju $it Prioritas" }
+        ?: info?.tier?.takeIf { it.isNotBlank() }?.let { "Member $it" }
+        ?: "Keanggotaan TEMBUS"
+    val detail = when {
+        info?.nextTier?.isNotBlank() == true ->
+            "Kurang ${info.pointsToNextTier} poin lagi • diskon ${info.nextTierDiscountPct ?: 0}%"
+        info?.tier?.isNotBlank() == true -> "Status dan benefit mengikuti akun TEMBUS kamu"
+        isLoading -> "Memuat status keanggotaan dari server"
+        else -> "Lihat status dan benefit keanggotaan"
+    }
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8EA)),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, Color(0xFFF0D9A7)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 13.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(Color(0xFFFFE8B3)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFB7791F), modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, fontSize = 12.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
+                Text(detail, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (info != null && info.nextTier != null) {
+                    LinearProgressIndicator(
+                        progress = { info.progressPct.coerceIn(0, 100) / 100f },
+                        modifier = Modifier.fillMaxWidth().height(5.dp).clip(CircleShape),
+                        color = Color(0xFFD39B2A),
+                        trackColor = Color(0xFFF2E2BE),
+                    )
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF9A7428), modifier = Modifier.size(19.dp))
+        }
+    }
+}
+
+@Composable
+private fun AvatarBadge(
+    name: String,
+    imageUrl: String? = null,
+    size: androidx.compose.ui.unit.Dp = 112.dp,
+) {
     val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "L"
     Box(
         modifier = Modifier
-            .size(112.dp)
+            .size(size)
             .clip(CircleShape)
             .background(Primary.copy(alpha = 0.12f)),
         contentAlignment = Alignment.Center
     ) {
-        if (initial == "L") {
+        if (!imageUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = "Foto profil",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else if (initial == "L") {
             Icon(
                 Icons.Default.Person,
                 contentDescription = "",
-                modifier = Modifier.size(52.dp),
+                modifier = Modifier.size(size * 0.46f),
                 tint = Primary
             )
         } else {
             Text(
                 text = initial,
                 color = Primary,
-                fontSize = 42.sp,
+                fontSize = if (size < 80.dp) 22.sp else 42.sp,
                 fontWeight = FontWeight.Black
             )
         }
@@ -385,66 +549,75 @@ private fun AvatarBadge(name: String) {
 }
 
 @Composable
-private fun WalletCard(balance: Long, onWithdrawClick: () -> Unit) {
+private fun WalletCard(
+    balance: Long,
+    onWithdrawClick: () -> Unit,
+    onTopUpClick: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF006640)),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFF0D6EFD), Color(0xFF008C5A))
-                    )
-                )
-                .padding(22.dp)
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Saldo Dompet", color = Color.White.copy(alpha = 0.84f), fontSize = 14.sp)
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = formatRupiah(balance),
-                        color = Color.White,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 28.sp
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(50.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White.copy(alpha = 0.18f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = "", tint = Color.White)
+            Box(Modifier.size(34.dp).clip(CircleShape).background(Color(0xFFE4F4EC)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.AccountBalanceWallet, contentDescription = "Saldo TEMBUS-Pay", tint = Color(0xFF006640), modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text("SALDO TEMBUS-PAY", color = Color(0xFFA9D4C0), fontSize = 9.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.35.sp)
+                Text(formatRupiah(balance), color = Color.White, fontWeight = FontWeight.Black, fontSize = 17.sp, maxLines = 1)
+            }
+            Surface(onClick = onTopUpClick, color = Color(0xFFFF7800), shape = RoundedCornerShape(999.dp)) {
+                Row(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text("Top up", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 }
             }
-            Spacer(Modifier.height(16.dp))
-            // Tombol Tarik Dana — tampil hanya jika ada saldo
-            androidx.compose.material3.OutlinedButton(
-                onClick = onWithdrawClick,
-                enabled = balance > 0L,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color.White,
-                    disabledContentColor = Color.White.copy(alpha = 0.4f)
-                ),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    Color.White.copy(alpha = if (balance > 0L) 0.7f else 0.3f)
-                )
+            Spacer(Modifier.width(7.dp))
+            IconButton(onClick = onWithdrawClick, enabled = balance > 0L, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.AccountBalanceWallet, contentDescription = "Tarik dana", tint = if (balance > 0L) Color.White else Color.White.copy(alpha = 0.35f), modifier = Modifier.size(17.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountChromeHeader() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "TEMBUS",
+            color = Color(0xFF005E3D),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 0.3.sp,
+        )
+        Spacer(Modifier.width(8.dp))
+        Surface(
+            color = Color(0xFFFFF7F1),
+            shape = RoundedCornerShape(999.dp),
+            border = BorderStroke(1.dp, Color(0xFFFF7800).copy(alpha = 0.28f)),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    Icons.Default.AccountBalanceWallet,
-                    contentDescription = "",
-                    modifier = Modifier.size(18.dp)
+                    Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = Color(0xFFFF7800),
+                    modifier = Modifier.size(12.dp),
                 )
-                Spacer(Modifier.width(8.dp))
-                Text("Tarik Dana", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Spacer(Modifier.width(3.dp))
+                Text("Pilih area", color = MaterialTheme.colorScheme.onSurface, fontSize = 10.sp)
             }
         }
     }
@@ -456,15 +629,16 @@ private fun ProfileStatusCard(profile: ProfileResponse) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
                 text = "Status Akun",
                 fontWeight = FontWeight.Black,
                 letterSpacing = (-0.5).sp,
-                fontSize = 18.sp,
+                fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurface
             )
             StatusRow(Icons.Default.VerifiedUser, "Identitas", if (profile.name.isNotBlank()) "Lengkap" else "Perlu dilengkapi")
@@ -488,20 +662,21 @@ private fun StatusRow(icon: ImageVector, label: String, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
-                .size(42.dp)
+                .size(34.dp)
                 .clip(RoundedCornerShape(14.dp))
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = "", tint = MaterialTheme.colorScheme.primary)
+            Icon(icon, contentDescription = "", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
             Text(
                 value,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -513,6 +688,7 @@ private fun StatusRow(icon: ImageVector, label: String, value: String) {
 private fun MenuRow(
     icon: ImageVector,
     label: String,
+    description: String? = null,
     onClick: () -> Unit,
     showDivider: Boolean = true
 ) {
@@ -522,12 +698,25 @@ private fun MenuRow(
         color = Color.Transparent
     ) {
         Row(
-            modifier = Modifier.padding(vertical = 16.dp),
+            modifier = Modifier.padding(vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
-            Spacer(Modifier.width(16.dp))
-            Text(label, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+            Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = "", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+            }
+            Spacer(Modifier.width(11.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                if (!description.isNullOrBlank()) {
+                    Text(
+                        description,
+                        fontSize = 8.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
             Icon(Icons.Default.ChevronRight, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
         }
     }
@@ -631,10 +820,13 @@ private fun SettingsDialog(onDismiss: () -> Unit, onRefresh: () -> Unit) {
 @Composable
 private fun SecurityDialog(
     securityManager: LocalDeviceSecurityManager,
+    customerPinState: CustomerPinUiState,
     onDismiss: () -> Unit,
     onNotice: (String) -> Unit,
+    onChangeCustomerPin: (String, String) -> Unit,
     onLogout: () -> Unit
 ) {
+    var showCustomerPinDialog by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Keamanan Akun", fontWeight = FontWeight.Bold) },
@@ -646,8 +838,17 @@ private fun SecurityDialog(
                     securityManager = securityManager,
                     onNotice = onNotice
                 )
+                OutlinedButton(
+                    onClick = { showCustomerPinDialog = true },
+                    enabled = !customerPinState.isUpdating,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = "")
+                    Spacer(Modifier.width(8.dp))
+                    Text("Ubah PIN akun / transaksi")
+                }
                 Text(
-                    text = "Saat proteksi aktif, pembayaran dan aksi sensitif perlu PIN atau biometrik lokal. Keluar akun tetap menghapus token terenkripsi dari perangkat ini.",
+                    text = "PIN akun diverifikasi server untuk aksi akun/transaksi. PIN dan biometrik perangkat tetap diproses lokal di HP ini.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
@@ -667,6 +868,86 @@ private fun SecurityDialog(
                 Text("Tutup")
             }
         }
+    )
+
+    if (showCustomerPinDialog) {
+        ChangeCustomerPinDialog(
+            isUpdating = customerPinState.isUpdating,
+            errorMessage = customerPinState.error,
+            successMessage = customerPinState.message,
+            onDismiss = { showCustomerPinDialog = false },
+            onSubmit = onChangeCustomerPin,
+        )
+    }
+}
+
+@Composable
+private fun ChangeCustomerPinDialog(
+    isUpdating: Boolean,
+    errorMessage: String?,
+    successMessage: String?,
+    onDismiss: () -> Unit,
+    onSubmit: (String, String) -> Unit,
+) {
+    var currentPin by remember { mutableStateOf("") }
+    var newPin by remember { mutableStateOf("") }
+    var confirmPin by remember { mutableStateOf("") }
+    var localError by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = { if (!isUpdating) onDismiss() },
+        title = { Text("Ubah PIN akun", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("PIN akun berbeda dari PIN perangkat. Jangan gunakan PIN yang sama dengan akun lain.", style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(
+                    value = currentPin,
+                    onValueChange = { currentPin = it.filter(Char::isDigit).take(6) },
+                    label = { Text("PIN saat ini") },
+                    singleLine = true,
+                    enabled = !isUpdating,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = newPin,
+                    onValueChange = { newPin = it.filter(Char::isDigit).take(6) },
+                    label = { Text("PIN baru") },
+                    singleLine = true,
+                    enabled = !isUpdating,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = confirmPin,
+                    onValueChange = { confirmPin = it.filter(Char::isDigit).take(6) },
+                    label = { Text("Ulangi PIN baru") },
+                    singleLine = true,
+                    enabled = !isUpdating,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                (localError ?: errorMessage)?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                successMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    localError = when {
+                        currentPin.length != 6 || newPin.length != 6 || confirmPin.length != 6 -> "Semua PIN harus 6 digit."
+                        newPin != confirmPin -> "Konfirmasi PIN baru belum sama."
+                        else -> null
+                    }
+                    if (localError == null) onSubmit(currentPin, newPin)
+                },
+                enabled = !isUpdating,
+            ) { if (isUpdating) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp) else Text("Simpan") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !isUpdating) { Text("Tutup") } },
     )
 }
 

@@ -6,18 +6,24 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -32,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import com.tembus.customer.ui.localization.CustomerText as Text
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TopAppBar
@@ -44,6 +51,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -68,6 +76,9 @@ import com.tembus.customer.ui.designsystem.service.TembusServiceIdentityCard
 import com.tembus.customer.ui.designsystem.service.TembusTireRepairIdentity
 import com.tembus.customer.ui.designsystem.service.TembusTowingIdentity
 import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.theme.OnOrangeCta
+import com.tembus.customer.ui.theme.OrangeCta
+import com.tembus.customer.ui.theme.PrimarySoft
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,17 +152,91 @@ fun ServiceBookingScreen(
         viewModel.loadMaterials(serviceSubType)
     }
 
+    val submitTowingAction = {
+        if (uiState.priceEstimate == null) {
+            if (uiState.customerLat != 0.0 && uiState.customerLng != 0.0 && uiState.dropoffAddress.isNotBlank()) {
+                viewModel.fetchEstimate(
+                    serviceSubType = serviceSubType,
+                    lat = uiState.customerLat,
+                    lng = uiState.customerLng,
+                    courierId = courierId,
+                )
+            }
+        } else {
+            viewModel.createOrder(
+                serviceSubType = serviceSubType,
+                vehicleType = vehicleType,
+                damageType = damageType,
+                vehicleMake = vehicleMake,
+                vehicleModel = vehicleModel,
+                vehicleCondition = vehicleCondition,
+                accessConstraints = accessConstraints,
+                notes = notes,
+                destinationContactName = destinationContactName,
+                destinationContactPhone = destinationContactPhone,
+                preferredCourierId = courierId,
+            )
+        }
+    }
+
     Scaffold(
+        containerColor = Color(0xFFF2FCF3),
         topBar = {
             TopAppBar(
                 title = { Text(formatServiceName(serviceSubType), fontWeight = FontWeight.Bold) },
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFFF2FCF3),
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
                     }
                 }
             )
-        }
+        },
+        bottomBar = {
+            if (isTowing) {
+                Surface(
+                    color = androidx.compose.ui.graphics.Color.White,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.navigationBarsPadding(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
+                    ) {
+                        Button(
+                            onClick = submitTowingAction,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !uiState.isLoading && uiState.customerLat != 0.0 &&
+                                uiState.dropoffAddress.isNotBlank() && courierId != null &&
+                                (uiState.priceEstimate == null || !uiState.requiresPriceConsent || uiState.priceConsent),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = OrangeCta,
+                                contentColor = OnOrangeCta,
+                            ),
+                        ) {
+                            Text(
+                                when {
+                                    uiState.isLoading -> "Memuat quote..."
+                                    uiState.priceEstimate == null -> "Cek Harga Towing"
+                                    uiState.requiresPriceConsent && !uiState.priceConsent -> "Setujui Quote Dulu"
+                                    else -> "Panggil Derek Towing Sekarang →"
+                                },
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                        Text(
+                            "Terhubung ke petugas terdekat setelah quote server dan persetujuan selesai.",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
+                }
+            }
+        },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -332,7 +417,7 @@ fun ServiceBookingScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(TembusRadius.Card),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                            containerColor = PrimarySoft.copy(alpha = 0.78f)
                         )
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
@@ -446,6 +531,12 @@ fun ServiceBookingScreen(
                             providerLabel = route?.provider?.ifBlank { "Belum tersedia" } ?: "Belum tersedia",
                         )
                     )
+                    Spacer(Modifier.height(10.dp))
+                    TowingRoutePreviewCard(
+                        pickupLabel = uiState.customerAddress.ifBlank { "Lokasi GPS" },
+                        dropoffLabel = uiState.dropoffAddress,
+                        distanceLabel = "Jarak ${"%.1f".format(estimate.distanceKm)} km",
+                    )
                     Spacer(Modifier.height(16.dp))
                 }
 
@@ -463,66 +554,70 @@ fun ServiceBookingScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
-                // Submit button
-                Button(
-                    onClick = {
-                        viewModel.createOrder(
-                            serviceSubType = serviceSubType,
-                            vehicleType = vehicleType,
-                            damageType = damageType,
-                            vehicleMake = vehicleMake,
-                            vehicleModel = vehicleModel,
-                            vehicleCondition = vehicleCondition,
-                            accessConstraints = accessConstraints,
-                            notes = notes,
-                            destinationContactName = destinationContactName,
-                            destinationContactPhone = destinationContactPhone,
-                            preferredCourierId = courierId
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = courierId != null && !uiState.isLoading && (!isTowing || uiState.dropoffAddress.isNotBlank()) && (!uiState.requiresPriceConsent || uiState.priceConsent),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(
-                        when {
-                            uiState.isLoading -> "Membuat pesanan..."
-                            isTowing && uiState.dropoffAddress.isBlank() -> "Pilih Tujuan Dulu"
-                            courierId == null -> "Pilih Petugas Dulu"
-                            else -> "Pesan Sekarang"
+                if (!isTowing) {
+                    // Submit button for Tambal Ban remains in the scroll flow.
+                    Button(
+                        onClick = {
+                            viewModel.createOrder(
+                                serviceSubType = serviceSubType,
+                                vehicleType = vehicleType,
+                                damageType = damageType,
+                                vehicleMake = vehicleMake,
+                                vehicleModel = vehicleModel,
+                                vehicleCondition = vehicleCondition,
+                                accessConstraints = accessConstraints,
+                                notes = notes,
+                                destinationContactName = destinationContactName,
+                                destinationContactPhone = destinationContactPhone,
+                                preferredCourierId = courierId
+                            )
                         },
-                        fontWeight = FontWeight.Bold
-                    )
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = courierId != null && !uiState.isLoading && (!uiState.requiresPriceConsent || uiState.priceConsent),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = OrangeCta,
+                            contentColor = OnOrangeCta,
+                        )
+                    ) {
+                        Text(
+                            when {
+                                uiState.isLoading -> "Membuat pesanan..."
+                                courierId == null -> "Pilih Petugas Dulu"
+                                else -> "Pesan Sekarang"
+                            },
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             } else {
-                // Check price button
-                Button(
-                    onClick = {
-                        if (uiState.customerLat != 0.0) {
-                            viewModel.fetchEstimate(
-                                serviceSubType = serviceSubType,
-                                lat = uiState.customerLat,
-                                lng = uiState.customerLng,
-                                courierId = courierId
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = uiState.customerLat != 0.0 && !uiState.isLoading && (!isTowing || uiState.dropoffAddress.isNotBlank()),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(
-                        when {
-                            uiState.isLoading -> "Menghitung..."
-                            isTowing && uiState.dropoffAddress.isBlank() -> "Pilih Tujuan Dulu"
-                            else -> "Cek Harga"
+                if (!isTowing) {
+                    // Check price button for Tambal Ban remains in the scroll flow.
+                    Button(
+                        onClick = {
+                            if (uiState.customerLat != 0.0) {
+                                viewModel.fetchEstimate(
+                                    serviceSubType = serviceSubType,
+                                    lat = uiState.customerLat,
+                                    lng = uiState.customerLng,
+                                    courierId = courierId
+                                )
+                            }
                         },
-                        fontWeight = FontWeight.Bold
-                    )
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = uiState.customerLat != 0.0 && !uiState.isLoading,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = OrangeCta,
+                            contentColor = OnOrangeCta,
+                        )
+                    ) {
+                        Text(
+                            when {
+                                uiState.isLoading -> "Menghitung..."
+                                else -> "Cek Harga"
+                            },
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
@@ -546,6 +641,45 @@ private fun formatServiceName(serviceSubType: String): String {
         "towing_motor" -> "Towing Motor"
         "towing_mobil" -> "Towing Mobil"
         else -> serviceSubType
+    }
+}
+
+@Composable
+private fun TowingRoutePreviewCard(
+    pickupLabel: String,
+    dropoffLabel: String,
+    distanceLabel: String,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Rute evakuasi & lokasi bengkel", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(distanceLabel, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(116.dp)
+                    .background(androidx.compose.ui.graphics.Color(0xFFE7F1EA), RoundedCornerShape(14.dp))
+                    .border(1.dp, androidx.compose.ui.graphics.Color(0xFFD2E4D8), RoundedCornerShape(14.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(3.dp)) {
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("Peta menunggu rute server", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Tidak ada jalur contoh yang ditampilkan", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                Text("Pickup: $pickupLabel", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), maxLines = 2)
+                Text("Drop-off: $dropoffLabel", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), maxLines = 2)
+            }
+        }
     }
 }
 

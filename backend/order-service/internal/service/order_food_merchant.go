@@ -55,9 +55,27 @@ func (s *orderServiceImpl) ListFoodMerchantsWithOptions(ctx context.Context, use
 		options.CustomerID = ""
 	}
 	if repo, ok := s.foodRepo.(domain.FoodDiscoveryRepository); ok {
-		return repo.ListFoodMerchantsWithOptions(ctx, lat, lng, options)
+		merchants, err := repo.ListFoodMerchantsWithOptions(ctx, lat, lng, options)
+		if err != nil {
+			return nil, err
+		}
+		if previewRepo, ok := s.foodRepo.(domain.FoodMerchantPreviewRepository); ok {
+			if err := previewRepo.AttachFoodMerchantMenuPreview(ctx, merchants); err != nil {
+				return nil, err
+			}
+		}
+		return merchants, nil
 	}
-	return s.ListFoodMerchants(ctx, lat, lng, options.Search, options.Halal)
+	merchants, err := s.ListFoodMerchants(ctx, lat, lng, options.Search, options.Halal)
+	if err != nil {
+		return nil, err
+	}
+	if previewRepo, ok := s.foodRepo.(domain.FoodMerchantPreviewRepository); ok {
+		if err := previewRepo.AttachFoodMerchantMenuPreview(ctx, merchants); err != nil {
+			return nil, err
+		}
+	}
+	return merchants, nil
 }
 
 func (s *orderServiceImpl) GetFoodMerchantDetail(ctx context.Context, merchantID string) (*domain.FoodMerchantInfo, error) {

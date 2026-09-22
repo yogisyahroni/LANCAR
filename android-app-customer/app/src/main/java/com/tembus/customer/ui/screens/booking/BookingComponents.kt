@@ -112,7 +112,7 @@ import com.tembus.customer.ui.components.maps.RuntimeMapMarker
 import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentSoft
-import com.tembus.customer.ui.theme.Background
+import com.tembus.customer.ui.theme.CustomerCanvas
 import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.OnSurface
 import com.tembus.customer.ui.theme.OnSurfaceVariant
@@ -135,12 +135,14 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
 import java.util.Currency
+import java.util.Date
 import java.util.Locale
 
 private val Ink = OnSurface
 private val Muted = OnSurfaceVariant
-private val FieldBg = Background
+private val FieldBg = CustomerCanvas
 private val LcGreen = Primary
 private val SoftGreen = PrimarySoft
 private val SoftBlue = SecondaryLight
@@ -773,6 +775,7 @@ internal fun PackageCard(
 internal fun AddOnCard(
     deliveryCodeEnabled: Boolean,
     insuranceEnabled: Boolean,
+    insurancePremiumIdr: Long,
     onDeliveryCodeChange: (Boolean) -> Unit,
     onInsuranceChange: (Boolean) -> Unit
 ) {
@@ -791,8 +794,12 @@ internal fun AddOnCard(
         AddOnRow(
             icon = Icons.Default.Shield,
             title = "Perlindungan paket",
-            description = "Tambahkan perlindungan untuk barang bernilai.",
-            price = "Opsional",
+            description = "Biaya dan cakupan mengikuti quote server berdasarkan nilai barang.",
+            price = when {
+                insurancePremiumIdr > 0 -> formatRupiah(insurancePremiumIdr)
+                insuranceEnabled -> "Menghitung..."
+                else -> "Lihat quote"
+            },
             checked = insuranceEnabled,
             onCheckedChange = onInsuranceChange
         )
@@ -1299,6 +1306,39 @@ internal fun BookingReviewSheet(
                     Text("${facts?.category?.ifBlank { state.packageCategory } ?: state.packageCategory} • ${facts?.quantity ?: state.packageQuantity} item", color = Ink, fontSize = 13.sp)
                     Text("Aktual ${formatWeightKg(breakdown.actualWeightKg)} kg • Volumetrik ${formatWeightKg(breakdown.dimensionalWeightKg)} kg • Ditagihkan ${formatWeightKg(breakdown.chargeableWeightKg)} kg", color = Muted, fontSize = 12.sp)
                     Text("Kode terima: ${if (facts?.deliveryCodePolicy == "required") "Wajib" else "Opsional"}${if (facts?.fragile == true || state.packageIsFragile) " • Rapuh" else ""}", color = Muted, fontSize = 12.sp)
+                }
+            }
+        }
+        price?.let { breakdown ->
+            val quoteLines = buildList {
+                if (breakdown.basePriceIdr > 0) add("Tarif dasar" to breakdown.basePriceIdr)
+                if (breakdown.volumetricSurchargeIdr > 0) add("Penyesuaian volumetrik" to breakdown.volumetricSurchargeIdr)
+                if (breakdown.insurancePremiumIdr > 0) add("Perlindungan paket" to breakdown.insurancePremiumIdr)
+                if (breakdown.dynamicPriceIdr > 0) add("Biaya dinamis" to breakdown.dynamicPriceIdr)
+                if (breakdown.platformFeeIdr > 0) add("Biaya layanan platform" to breakdown.platformFeeIdr)
+                if (breakdown.tollCostIdr > 0) add("Tol" to breakdown.tollCostIdr)
+            }
+            if (quoteLines.isNotEmpty()) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, Outline),
+                    shape = RoundedCornerShape(TembusRadius.Card),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Rincian quote server", color = Primary, fontWeight = FontWeight.ExtraBold)
+                        quoteLines.forEach { (label, amount) ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(label, color = Muted, fontSize = 13.sp)
+                                Text(formatRupiah(amount), color = Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        HorizontalDivider(color = Outline)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Total", color = Ink, fontWeight = FontWeight.ExtraBold)
+                            Text(formatPrice(breakdown), color = Ink, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
                 }
             }
         }
@@ -1967,6 +2007,49 @@ internal fun formatMoney(valueMinor: Long, currencyCode: String, minorUnit: Int)
         maximumFractionDigits = safeMinorUnit
     }
     return formatter.format(BigDecimal.valueOf(valueMinor, safeMinorUnit))
+}
+
+@Composable
+internal fun BookingScheduleCard(
+    scheduleType: String,
+    scheduledAtMillis: Long?,
+    onScheduleNow: () -> Unit,
+    onSchedulePickerClick: () -> Unit,
+) {
+    val scheduledLabel = scheduledAtMillis?.let {
+        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(it))
+    }
+    LcCard {
+        Text("Waktu pickup", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Pilih pickup sekarang atau jadwalkan minimal 30 menit dari sekarang.",
+            color = Muted,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            if (scheduleType == "now") {
+                Button(onClick = onScheduleNow, modifier = Modifier.weight(1f)) { Text("Sekarang") }
+            } else {
+                OutlinedButton(onClick = onScheduleNow, modifier = Modifier.weight(1f)) { Text("Sekarang") }
+            }
+            if (scheduleType == "scheduled") {
+                Button(onClick = onSchedulePickerClick, modifier = Modifier.weight(1f)) {
+                    Text("${scheduledLabel ?: "Atur jadwal"}")
+                }
+            } else {
+                OutlinedButton(onClick = onSchedulePickerClick, modifier = Modifier.weight(1f)) {
+                    Text("Atur jadwal")
+                }
+            }
+        }
+        if (scheduleType == "scheduled" && scheduledLabel == null) {
+            Spacer(Modifier.height(6.dp))
+            Text("Pilih jam pickup agar order bisa dilanjutkan.", color = Error, fontSize = 12.sp)
+        }
+    }
 }
 
 internal fun formatPrice(price: PriceBreakdown): String {

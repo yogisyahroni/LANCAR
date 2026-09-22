@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.json.JSONObject
 import retrofit2.Response
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,6 +40,38 @@ class ProfileRepository @Inject constructor(
             }
         } catch (e: Exception) {
             emit(Result.failure(e))
+        }
+    }
+
+    suspend fun getWalletBalance(): Result<WalletBalance> {
+        return try {
+            val response = apiService.getWalletBalance()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.readErrorMessage("Gagal mengambil saldo TEMBUS-Pay")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createWalletTopUp(
+        amount: Long,
+        idempotencyKey: String = UUID.randomUUID().toString()
+    ): Result<WalletTopUpSession> {
+        return try {
+            val response = apiService.createWalletTopUp(
+                idempotencyKey = idempotencyKey,
+                request = WalletTopUpRequest(amount = amount)
+            )
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.readErrorMessage("Gagal memulai top-up")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

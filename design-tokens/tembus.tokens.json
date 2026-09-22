@@ -5,6 +5,9 @@
   "figma": {
     "file": "https://www.figma.com/design/9JTlREMJNVkLYchQD1QcpV",
     "foundationsPage": "Foundations & Components",
+    "customerScreenSource": "https://www.figma.com/design/nKUNTKLwAWj8AlWu74chfF/ALL-TEMBUS-CUSTOMER?node-id=0-1",
+    "customerScreenPage": "Page 1",
+    "customerScreenWidthPx": 390,
     "mappingRule": "Figma role names map to the semantic token path; platform outputs are generated from this file."
   },
   "themes": {

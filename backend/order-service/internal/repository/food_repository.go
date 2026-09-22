@@ -1000,7 +1000,10 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 				  AND ((schedule.starts_at < schedule.ends_at AND (NOW() AT TIME ZONE 'Asia/Jakarta')::time >= schedule.starts_at AND (NOW() AT TIME ZONE 'Asia/Jakarta')::time < schedule.ends_at)
 				       OR (schedule.starts_at > schedule.ends_at AND ((NOW() AT TIME ZONE 'Asia/Jakarta')::time >= schedule.starts_at OR (NOW() AT TIME ZONE 'Asia/Jakarta')::time < schedule.ends_at)))
 			   )) AS schedule_available,
-		       prep_time_minutes, kategori, foto
+		       prep_time_minutes, stock_quantity, daily_sales_limit, daily_sales_count,
+		       sales_limit_reset_at,
+		       merchant_enforcement_is_active(merchant_id, branch_id, id, NULL),
+			       kategori, foto, deskripsi
 		FROM merchant_menu_items
 		WHERE merchant_id = $1
 		  AND status NOT IN ('draft', 'moderation_pending', 'rejected', 'archived')
@@ -1016,11 +1019,12 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 	menuIDs := make([]string, 0)
 	for rows.Next() {
 		var item domain.FoodMenuItemInfo
-		var kategori, foto sql.NullString
+		var kategori, foto, deskripsi sql.NullString
 		var scheduleAvailable bool
 		if err := rows.Scan(
 			&item.ID, &item.MerchantID, &item.Name, &item.Price, &item.IsAvailable, &item.Status, &scheduleAvailable,
-			&item.PrepTimeMinutes, &kategori, &foto,
+			&item.PrepTimeMinutes, &item.StockQuantity, &item.DailySalesLimit, &item.DailySalesCount,
+			&item.SalesResetAt, &item.EnforcementActive, &kategori, &foto, &deskripsi,
 		); err != nil {
 			return nil, err
 		}
@@ -1029,6 +1033,9 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 		}
 		if foto.Valid {
 			item.Foto = &foto.String
+		}
+		if deskripsi.Valid {
+			item.Deskripsi = &deskripsi.String
 		}
 		item.ScheduleAvailable = &scheduleAvailable
 		out = append(out, item)
@@ -1080,6 +1087,112 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 		out[i].Variants = variantMap[out[i].ID]
 	}
 	return out, nil
+}
+
+// AttachFoodMerchantMenuPreview loads at most two available menu items per
+// merchant in one query. Discovery itself remains merchant-ranked; this is a
+// presentation enrichment sourced from the canonical merchant catalog so the
+// customer Home cards can show the same photo/name/price hierarchy as Figma
+// without shipping sample data from the app.
+func (r *foodRepo) AttachFoodMerchantMenuPreview(ctx context.Context, merchants []domain.FoodMerchantInfo) error {
+	if len(merchants) == 0 {
+		return nil
+	}
+
+	ids := make([]string, 0, len(merchants))
+	placeholders := make([]string, 0, len(merchants))
+	args := make([]any, 0, len(merchants))
+	for _, merchant := range merchants {
+		if _, err := uuid.Parse(merchant.ID); err != nil {
+			continue
+		}
+		ids = append(ids, merchant.ID)
+		args = append(args, merchant.ID)
+		placeholders = append(placeholders, fmt.Sprintf("$%d", len(args)))
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	query := fmt.Sprintf(`
+		WITH ranked AS (
+			SELECT
+				item.id::text,
+				item.merchant_id::text,
+				item.nama,
+				item.harga,
+				item.is_available,
+				item.status,
+				item.prep_time_minutes,
+				item.stock_quantity,
+				item.daily_sales_limit,
+				item.daily_sales_count,
+				item.sales_limit_reset_at,
+				merchant_enforcement_is_active(item.merchant_id, item.branch_id, item.id, NULL) AS enforcement_active,
+				item.kategori,
+				COALESCE(NULLIF(BTRIM(item.foto), ''), primary_image.url) AS foto,
+				item.deskripsi,
+				ROW_NUMBER() OVER (
+					PARTITION BY item.merchant_id
+					ORDER BY CASE WHEN item.status = 'active' THEN 0 ELSE 1 END,
+						item.kategori NULLS LAST, item.nama ASC
+				) AS preview_rank
+			FROM merchant_menu_items item
+			LEFT JOIN LATERAL (
+				SELECT image.url
+				FROM merchant_menu_item_images image
+				WHERE image.menu_item_id = item.id
+				ORDER BY image.is_primary DESC, image.sort_order ASC, image.created_at ASC
+				LIMIT 1
+			) primary_image ON TRUE
+			WHERE item.merchant_id IN (%s)
+			  AND item.is_available = TRUE
+			  AND item.status NOT IN ('draft', 'moderation_pending', 'rejected', 'archived')
+		)
+		SELECT id, merchant_id, nama, harga, is_available, status,
+		       prep_time_minutes, stock_quantity, daily_sales_limit, daily_sales_count,
+		       sales_limit_reset_at, enforcement_active, kategori, foto, deskripsi
+		FROM ranked
+		WHERE preview_rank <= 2
+		ORDER BY merchant_id, preview_rank`, strings.Join(placeholders, ", "))
+
+	rows, err := r.readDB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	previews := make(map[string][]domain.FoodMenuItemInfo, len(ids))
+	for rows.Next() {
+		var item domain.FoodMenuItemInfo
+		var kategori, foto, deskripsi sql.NullString
+		if err := rows.Scan(
+			&item.ID, &item.MerchantID, &item.Name, &item.Price, &item.IsAvailable, &item.Status,
+			&item.PrepTimeMinutes, &item.StockQuantity, &item.DailySalesLimit, &item.DailySalesCount,
+			&item.SalesResetAt, &item.EnforcementActive, &kategori, &foto, &deskripsi,
+		); err != nil {
+			return err
+		}
+		if kategori.Valid {
+			item.Kategori = &kategori.String
+		}
+		if foto.Valid {
+			item.Foto = &foto.String
+		}
+		if deskripsi.Valid {
+			item.Deskripsi = &deskripsi.String
+		}
+		previews[item.MerchantID] = append(previews[item.MerchantID], item)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for i := range merchants {
+		if menu := previews[merchants[i].ID]; len(menu) > 0 {
+			merchants[i].MenuItems = menu
+		}
+	}
+	return nil
 }
 
 // GetPendingMerchantFoodOrders — order food pending_merchant yang belum direspon

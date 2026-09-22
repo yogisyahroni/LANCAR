@@ -7,6 +7,7 @@ import com.tembus.customer.data.model.SafetyActionResponse
 import com.tembus.customer.data.model.SafetyCenterData
 import com.tembus.customer.data.model.SafetyIncident
 import com.tembus.customer.data.model.SafetyIncidentRequest
+import com.tembus.customer.data.model.SafetyShareData
 import com.tembus.customer.data.model.TrackingResponse
 import retrofit2.Response
 import javax.inject.Inject
@@ -72,6 +73,24 @@ class TrackingRepository @Inject constructor(
             throw Exception(body?.message ?: "SOS gagal dikirim (${response.code()})")
         }
         body
+    }
+
+    suspend fun createSafetyShare(orderId: String, idempotencyKey: String): Result<SafetyShareData> = runCatching {
+        val response = apiService.createCustomerSafetyShare(orderId, idempotencyKey)
+        val body = response.body()
+        if (!response.isSuccessful || body?.success != true || body.data == null || body.data.url.isBlank()) {
+            throw Exception(body?.message ?: "Link berbagi belum dapat dibuat (${response.code()})")
+        }
+        body.data
+    }
+
+    suspend fun revokeSafetyShare(tokenId: String, idempotencyKey: String): Result<Unit> = runCatching {
+        val response = apiService.revokeCustomerSafetyShare(tokenId, idempotencyKey)
+        val body = response.body()
+        if (!response.isSuccessful || body?.success != true || body.data?.revoked != true) {
+            throw Exception(body?.message ?: "Link berbagi belum dapat dicabut (${response.code()})")
+        }
+        Unit
     }
 
     private fun handleResponse(response: Response<ApiResponse<TrackingResponse>>): Result<TrackingResponse> {

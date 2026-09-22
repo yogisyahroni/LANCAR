@@ -5,6 +5,7 @@ import type { PoolClient } from 'pg';
 import { db } from '../../db';
 
 import { withCanonicalOrderContract } from '../../services/orderContract';
+import { paidCustomerOrderStatus } from '../../services/customerOrderSchedule';
 
 import { createNotification } from '../../notifications';
 import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../../midtrans';
@@ -516,7 +517,9 @@ export const notifyCustomerPaymentLifecycle = async ({
     ? `Pembayaran diterima - ${orderNumber}`
     : `Pembayaran ${paymentStatus === 'expired' ? 'kedaluwarsa' : 'gagal'} - ${orderNumber}`;
   const body = paid
-    ? serviceSubType === 'food_delivery'
+    ? orderStatus === 'scheduled'
+      ? 'Pembayaran diterima. Pickup akan dimulai sesuai jadwal yang kamu pilih.'
+      : serviceSubType === 'food_delivery'
       ? 'Pembayaran diterima. Pesanan diteruskan ke merchant.'
       : 'Pembayaran diterima. Order sedang masuk antrean dispatch.'
     : paymentStatus === 'expired'
@@ -582,6 +585,8 @@ export const getCustomerOrderPaymentRow = async (customerId: string, orderId: st
             p.redirect_url,
             p.client_key,
             p.snap_js_url
+            ,o.schedule_type
+            ,o.scheduled_at
        FROM orders o
        LEFT JOIN payments p ON p.order_id = o.id
       WHERE o.id = $1 AND o.customer_id = $2`,
@@ -1410,6 +1415,8 @@ export const completeCustomerLapayPayment = async (customerId: string, orderId: 
               p.redirect_url,
               p.client_key,
               p.snap_js_url
+              ,o.schedule_type
+              ,o.scheduled_at
          FROM orders o
          LEFT JOIN payments p ON p.order_id = o.id
         WHERE o.id = $1 AND o.customer_id = $2
@@ -1611,9 +1618,13 @@ export const completeCustomerLapayPayment = async (customerId: string, orderId: 
     // yang menunggu dispatch kurir). Tanpa ini merchant tidak bisa accept:
     // AcceptOrder hanya menerima status pending_merchant.
     const isFoodOrder = order.merchant_id != null;
+    const isScheduledOrder = order.schedule_type === 'scheduled' && order.scheduled_at;
+    const nextPaidOrderStatus = isScheduledOrder
+      ? 'scheduled'
+      : paidCustomerOrderStatus({ scheduleType: 'now', scheduledAt: null }, isFoodOrder);
     await client.query(
       `UPDATE orders SET status = $2, updated_at = NOW() WHERE id = $1 AND status = 'pending_payment'`,
-      [orderId, isFoodOrder ? 'pending_merchant' : 'pending']
+      [orderId, nextPaidOrderStatus]
     );
 
     await redeemReservedPromosForPaidOrder(client, customerId, orderId);
@@ -1639,7 +1650,7 @@ export const completeCustomerLapayPayment = async (customerId: string, orderId: 
       },
     });
 
-    if (!isFoodOrder) {
+    if (!isFoodOrder && !isScheduledOrder) {
       createdOffers = await advanceOnDemandDispatchQueue(client, 1);
     }
 
@@ -1648,7 +1659,7 @@ export const completeCustomerLapayPayment = async (customerId: string, orderId: 
     const payment = publicCustomerPaymentSession({
       ...order,
       ...paymentResult.rows[0],
-      order_status: isFoodOrder ? 'pending_merchant' : 'pending',
+      order_status: nextPaidOrderStatus,
       wallet_balance: runningBalance
     });
 
@@ -1661,7 +1672,7 @@ export const completeCustomerLapayPayment = async (customerId: string, orderId: 
         customerId,
         merchantId: order.merchant_id,
         paymentStatus: 'paid' as const,
-        orderStatus: isFoodOrder ? 'pending_merchant' : 'pending',
+        orderStatus: nextPaidOrderStatus,
         source: 'payment_reconciled' as const,
         serviceSubType: order.service_sub_type,
         provider: 'lapay',
@@ -1694,7 +1705,11 @@ export const toMobileCustomerOrderDto = (row: any) => {
     fee: row.total_price_idr !== null && row.total_price_idr !== undefined ? String(row.total_price_idr) : '',
     customer_name: row.recipient_name || row.customer_name || '',
     status: row.status || 'pending',
-    status_label: customerOrderStatusLabel(row.status, row.service_sub_type || row.serviceSubType),
+    status_label: customerOrderStatusLabel(
+      row.status,
+      row.service_sub_type || row.serviceSubType,
+      row.service_category || row.serviceCategory,
+    ),
     created_at: Number.isFinite(createdAtMs) ? createdAtMs : Date.now(),
     updated_at: Number.isFinite(updatedAtMs) ? updatedAtMs : Date.now(),
     customer_phone: null,

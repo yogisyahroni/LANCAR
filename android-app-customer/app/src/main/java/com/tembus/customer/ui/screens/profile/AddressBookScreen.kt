@@ -1,5 +1,7 @@
 package com.tembus.customer.ui.screens.profile
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.clickable
@@ -12,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import com.tembus.customer.ui.localization.CustomerText as Text
@@ -32,10 +35,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.data.model.CustomerAddress
+import com.tembus.customer.data.model.LocationPayload
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryLight
+
+private val AddressCanvas = Color(0xFFF7F8F6) // Figma: TEMBUS - Alamat Tersimpan
 
 // C5: Address book multi-alamat (tambah/pilih/edit/hapus)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,25 +54,39 @@ fun AddressBookScreen(
     onSelectAddress: ((CustomerAddress) -> Unit)? = null,
     viewModel: AddressBookViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
+    var deviceLocation by remember { mutableStateOf<LocationPayload?>(null) }
     val addresses by viewModel.addresses.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadAddresses()
+        val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (hasFine || hasCoarse) {
+            LocationServices.getFusedLocationProviderClient(context).lastLocation
+                .addOnSuccessListener { location ->
+                    if (location != null) {
+                        deviceLocation = LocationPayload(location.latitude, location.longitude)
+                    }
+                }
+        }
     }
 
     var showAddDialog by remember { mutableStateOf(false) }
     var editingAddress by remember { mutableStateOf<CustomerAddress?>(null) }
+    var query by remember { mutableStateOf("") }
+    var selectedFilter by remember { mutableStateOf("Semua") }
 
     Scaffold(
-        containerColor = Color(0xFFF7F8FA),
+        containerColor = AddressCanvas,
         topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .background(Color.White)
+                    .background(AddressCanvas)
                     .padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -76,6 +99,20 @@ fun AddressBookScreen(
                     Icon(Icons.Default.Add, contentDescription = CustomerTextCatalog.translate("Tambah Alamat"), tint = Primary)
                 }
             }
+        },
+        bottomBar = {
+            Surface(color = AddressCanvas) {
+                Button(
+                    onClick = { showAddDialog = true },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7800), contentColor = Color.White),
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Tambah alamat baru", fontWeight = FontWeight.Bold)
+                }
+            }
         }
     ) { padding ->
         PullToRefreshBox(
@@ -83,7 +120,39 @@ fun AddressBookScreen(
             onRefresh = viewModel::loadAddresses,
             modifier = Modifier.fillMaxSize()
         ) {
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Column(modifier = Modifier.fillMaxSize().background(AddressCanvas).padding(padding)) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                singleLine = true,
+                placeholder = { Text("Cari alamat, gedung, atau kantor...", fontSize = 12.sp) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                shape = RoundedCornerShape(22.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = Primary,
+                    unfocusedBorderColor = Color(0xFFDCE7DF),
+                ),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf("Semua", "Rumah", "Kantor").forEach { filter ->
+                    FilterChip(
+                        selected = selectedFilter == filter,
+                        onClick = { selectedFilter = filter },
+                        label = { Text(filter, fontSize = 11.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Primary,
+                            selectedLabelColor = Color.White,
+                            containerColor = Color.White,
+                        ),
+                    )
+                }
+            }
             when {
                 loading && addresses.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -113,18 +182,33 @@ fun AddressBookScreen(
                     }
                 }
                 else -> {
+                    val visibleAddresses = addresses.filter { address ->
+                        val matchesQuery = query.isBlank() || listOf(address.label, address.address, address.contactName.orEmpty())
+                            .any { it.contains(query, ignoreCase = true) }
+                        val matchesFilter = selectedFilter == "Semua" || address.label.contains(selectedFilter, ignoreCase = true)
+                        matchesQuery && matchesFilter
+                    }
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(addresses, key = { it.id }) { address ->
+                        items(visibleAddresses, key = { it.id }) { address ->
                             AddressCard(
                                 address = address,
                                 onClick = { onSelectAddress?.invoke(address) },
                                 onEdit = { editingAddress = address },
                                 onDelete = { viewModel.deleteAddress(address.id) }
                             )
+                        }
+                        if (visibleAddresses.isEmpty()) {
+                            item {
+                                Text(
+                                    "Tidak ada alamat yang cocok",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -136,6 +220,7 @@ fun AddressBookScreen(
     if (showAddDialog) {
         AddressEditDialog(
             address = null,
+            currentLocation = deviceLocation,
             onDismiss = { showAddDialog = false },
             onSave = { request ->
                 viewModel.createAddress(request)
@@ -147,6 +232,7 @@ fun AddressBookScreen(
     editingAddress?.let { addr ->
         AddressEditDialog(
             address = addr,
+            currentLocation = null,
             onDismiss = { editingAddress = null },
             onSave = { request ->
                 viewModel.updateAddress(addr.id, request)

@@ -37,6 +37,18 @@ type Wallet struct {
 	UpdatedAt           time.Time `json:"updated_at" db:"updated_at"`
 }
 
+// TopUpSession is the provider-neutral customer contract for starting a
+// wallet top-up. The mobile client may use the server-produced invoice URL;
+// it must never construct a provider URL from the token itself.
+type TopUpSession struct {
+	SnapToken   string `json:"snap_token"`
+	InvoiceURL  string `json:"invoice_url,omitempty"`
+	ReferenceID string `json:"reference_id"`
+	Amount      int64  `json:"amount"`
+	Fee         int64  `json:"fee"`
+	Total       int64  `json:"total"`
+}
+
 // AvailableBalance adalah saldo yang benar-benar bisa dipakai/ditarik:
 // total balance dikurangi hold (jaminan anti-ghosting yang disimpan).
 func (w *Wallet) AvailableBalance() int64 {
@@ -122,7 +134,10 @@ type SettingsRepository interface {
 
 type WalletService interface {
 	GetBalance(ctx context.Context, userID uuid.UUID) (*Wallet, error)
-	CreateTopUp(ctx context.Context, userID uuid.UUID, amount int64) (string, error)
+	// CreateTopUp is idempotent per customer-supplied key. The key is scoped to
+	// the wallet owner and must be reused when the client retries the same
+	// top-up after a network interruption.
+	CreateTopUp(ctx context.Context, userID uuid.UUID, amount int64, idempotencyKey string) (TopUpSession, error)
 	Deposit(ctx context.Context, userID uuid.UUID, amount int64, referenceID string) error
 	// Withdraw menerima WithdrawRequest yang sudah tervalidasi penuh di handler layer.
 	// Tidak ada parameter map[string]any yang tidak tervalidasi — zero-trust.

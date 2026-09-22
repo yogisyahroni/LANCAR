@@ -4,6 +4,18 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class ChangeCustomerPinRequest(
+    @SerialName("current_pin") val currentPin: String,
+    @SerialName("new_pin") val newPin: String,
+)
+
+@Serializable
+data class CustomerSecurityResponse(
+    @SerialName("message") val message: String? = null,
+    @SerialName("error") val error: String? = null,
+)
+
+@Serializable
 data class OtpRequest(
     @SerialName("phone")
     val phone: String

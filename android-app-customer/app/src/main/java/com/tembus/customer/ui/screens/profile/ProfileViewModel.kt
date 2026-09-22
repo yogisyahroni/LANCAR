@@ -27,8 +27,15 @@ sealed class ProfileUiState {
     data class Error(val message: String) : ProfileUiState()
 }
 
+data class CustomerPinUiState(
+    val isUpdating: Boolean = false,
+    val message: String? = null,
+    val error: String? = null,
+)
+
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
+    private val authRepository: com.tembus.customer.data.repository.AuthRepository,
     private val repository: ProfileRepository,
     private val sessionManager: AuthSessionManager,
     private val experienceConfigManager: ExperienceConfigManager,
@@ -36,6 +43,8 @@ class ProfileViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<ProfileUiState>(ProfileUiState.Idle)
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+    private val _customerPinState = MutableStateFlow(CustomerPinUiState())
+    val customerPinState: StateFlow<CustomerPinUiState> = _customerPinState.asStateFlow()
 
     init {
         fetchProfile()
@@ -94,6 +103,33 @@ class ProfileViewModel @Inject constructor(
     fun consumeProfileNotice() {
         val currentState = _uiState.value as? ProfileUiState.Success ?: return
         _uiState.value = currentState.copy(message = null, error = null)
+    }
+
+    fun changeCustomerPin(currentPin: String, newPin: String) {
+        val current = currentPin.trim()
+        val next = newPin.trim()
+        if (!current.matches(Regex("^\\d{6}$")) || !next.matches(Regex("^\\d{6}$"))) {
+            _customerPinState.value = CustomerPinUiState(error = "PIN akun harus tepat 6 digit.")
+            return
+        }
+        if (current == next) {
+            _customerPinState.value = CustomerPinUiState(error = "PIN baru harus berbeda dari PIN lama.")
+            return
+        }
+        viewModelScope.launch {
+            _customerPinState.value = CustomerPinUiState(isUpdating = true)
+            authRepository.changeCustomerPin(current, next)
+                .onSuccess { _ ->
+                    _customerPinState.value = CustomerPinUiState(message = "PIN akun berhasil diubah.")
+                }
+                .onFailure { error ->
+                    _customerPinState.value = CustomerPinUiState(error = error.localizedMessage ?: "PIN akun belum dapat diubah.")
+                }
+        }
+    }
+
+    fun consumeCustomerPinNotice() {
+        _customerPinState.value = CustomerPinUiState()
     }
 
     fun logout(onLoggedOut: () -> Unit) {

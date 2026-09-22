@@ -103,6 +103,12 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		if !mi.IsAvailable {
 			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item tidak tersedia: %s", mi.Name))
 		}
+		if mi.ScheduleAvailable != nil && !*mi.ScheduleAvailable {
+			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item di luar jadwal: %s", mi.Name))
+		}
+		if mi.Status != "" && mi.Status != "active" && mi.Status != "scheduled" {
+			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item tidak tersedia: %s", mi.Name))
+		}
 		if mi.EnforcementActive {
 			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item sedang ditangguhkan untuk peninjauan: %s", mi.Name))
 		}

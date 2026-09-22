@@ -48,6 +48,8 @@ internal fun BookingStepContent(
     onPickupClick: () -> Unit,
     onDestinationClick: () -> Unit,
     onRequestLocationClick: () -> Unit,
+    onScheduleNow: () -> Unit,
+    onSchedulePickerClick: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -175,8 +177,17 @@ internal fun BookingStepContent(
                 AddOnCard(
                     deliveryCodeEnabled = state.deliveryCodeEnabled,
                     insuranceEnabled = state.insuranceEnabled,
+                    insurancePremiumIdr = state.selectedPrice()?.insurancePremiumIdr ?: 0,
                     onDeliveryCodeChange = viewModel::toggleDeliveryCode,
                     onInsuranceChange = viewModel::toggleInsurance
+                )
+            }
+            item {
+                BookingScheduleCard(
+                    scheduleType = state.scheduleType,
+                    scheduledAtMillis = state.scheduledAtMillis,
+                    onScheduleNow = onScheduleNow,
+                    onSchedulePickerClick = onSchedulePickerClick,
                 )
             }
             if (state.promoCode.isNotBlank()) {

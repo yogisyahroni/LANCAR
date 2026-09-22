@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"tembus/payment-service/internal/domain"
 	"tembus/payment-service/internal/featureflags"
 	"time"
@@ -23,7 +24,7 @@ type invoiceResponse struct {
 	InvoiceURL string `json:"InvoiceURL"`
 }
 
-func createInvoiceViaGateway(ctx context.Context, orderID string, grossAmountIDR int64, userID uuid.UUID, flagReader featureflags.FlagReader) (string, error) {
+func createInvoiceViaGateway(ctx context.Context, orderID string, grossAmountIDR int64, userID uuid.UUID, flagReader featureflags.FlagReader) (invoiceResponse, error) {
 	gatewayURL := os.Getenv("INTEGRATION_GATEWAY_URL")
 	if gatewayURL == "" {
 		gatewayURL = "http://integration-gateway:8085"
@@ -40,12 +41,12 @@ func createInvoiceViaGateway(ctx context.Context, orderID string, grossAmountIDR
 
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return "", err
+		return invoiceResponse{}, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, gatewayURL+"/api/internal/payment/invoice", bytes.NewReader(body))
 	if err != nil {
-		return "", err
+		return invoiceResponse{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if internalAPIKey != "" {
@@ -67,24 +68,24 @@ func createInvoiceViaGateway(ctx context.Context, orderID string, grossAmountIDR
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("payment gateway request failed: %w", err)
+		return invoiceResponse{}, fmt.Errorf("payment gateway request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("payment gateway rejected with status %d", resp.StatusCode)
+		return invoiceResponse{}, fmt.Errorf("payment gateway rejected with status %d", resp.StatusCode)
 	}
 
 	var result invoiceResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("failed to parse gateway response: %w", err)
+		return invoiceResponse{}, fmt.Errorf("failed to parse gateway response: %w", err)
 	}
 
 	if result.Token == "" {
-		return "", errors.New("gateway response did not include token")
+		return invoiceResponse{}, errors.New("gateway response did not include token")
 	}
 
-	return result.Token, nil
+	return result, nil
 }
 
 type walletService struct {
@@ -121,48 +122,66 @@ func (s *walletService) GetBalance(ctx context.Context, userID uuid.UUID) (*doma
 	return wallet, nil
 }
 
-func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amount int64) (string, error) {
+func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amount int64, idempotencyKey string) (domain.TopUpSession, error) {
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if idempotencyKey == "" {
+		return domain.TopUpSession{}, errors.New("top up idempotency key is required")
+	}
+
 	// 1. Get Wallet
 	wallet, err := s.GetBalance(ctx, userID)
 	if err != nil {
-		return "", err
+		return domain.TopUpSession{}, err
 	}
 
 	// 2. Calculate Fees
 	feeFixedStr, err := s.settingsRepo.GetSetting(ctx, "topup_fee_fixed")
 	if err != nil {
-		return "", fmt.Errorf("topup_fee_fixed is not configured: %w", err)
+		return domain.TopUpSession{}, fmt.Errorf("topup_fee_fixed is not configured: %w", err)
 	}
 	feePercentStr, err := s.settingsRepo.GetSetting(ctx, "topup_fee_percent")
 	if err != nil {
-		return "", fmt.Errorf("topup_fee_percent is not configured: %w", err)
+		return domain.TopUpSession{}, fmt.Errorf("topup_fee_percent is not configured: %w", err)
 	}
 
 	feeFixed, err := strconv.ParseFloat(feeFixedStr, 64)
 	if err != nil {
-		return "", fmt.Errorf("topup_fee_fixed is invalid: %w", err)
+		return domain.TopUpSession{}, fmt.Errorf("topup_fee_fixed is invalid: %w", err)
 	}
 	feePercent, err := strconv.ParseFloat(feePercentStr, 64)
 	if err != nil {
-		return "", fmt.Errorf("topup_fee_percent is invalid: %w", err)
+		return domain.TopUpSession{}, fmt.Errorf("topup_fee_percent is invalid: %w", err)
 	}
 
 	adminFee := int64(feeFixed + (float64(amount) * feePercent / 100))
 	totalAmount := amount + adminFee
 
 	if amount <= 0 {
-		return "", errors.New("top up amount must be greater than zero")
+		return domain.TopUpSession{}, errors.New("top up amount must be greater than zero")
+	}
+
+	// Reuse the same provider session when the mobile client retries after a
+	// timeout. The deterministic reference also gives provider adapters a
+	// stable external/order ID instead of creating a second invoice.
+	referenceID := fmt.Sprintf("TOPUP-%s", idempotencyKey)
+	if existing, lookupErr := s.repo.GetTransactionByReferenceID(ctx, referenceID); lookupErr == nil && existing != nil {
+		if existing.WalletID != wallet.ID || existing.Type != domain.TypeDeposit || existing.Amount != amount {
+			return domain.TopUpSession{}, errors.New("top up idempotency key was reused with a different request")
+		}
+		return topUpSessionFromTransaction(existing)
+	} else if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
+		return domain.TopUpSession{}, fmt.Errorf("check existing top up: %w", lookupErr)
 	}
 
 	// 3. Create Provider Transaction
-	orderID := fmt.Sprintf("TOPUP-%d-%d", time.Now().Unix(), uuid.New().ID())
+	orderID := referenceID
 	totalAmountIDR := totalAmount
 	if totalAmountIDR <= 0 {
-		return "", errors.New("top up amount is invalid")
+		return domain.TopUpSession{}, errors.New("top up amount is invalid")
 	}
-	snapToken, err := createInvoiceViaGateway(ctx, orderID, totalAmountIDR, userID, s.flagReader)
+	invoice, err := createInvoiceViaGateway(ctx, orderID, totalAmountIDR, userID, s.flagReader)
 	if err != nil {
-		return "", err
+		return domain.TopUpSession{}, err
 	}
 
 	// 4. Create Transaction (Status: PENDING)
@@ -173,14 +192,53 @@ func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amoun
 		Fee:         adminFee,
 		Status:      domain.StatusPending,
 		ReferenceID: orderID,
-		Metadata:    map[string]any{"source": "web_portal", "total_paid_idr": totalAmountIDR, "provider": "midtrans_snap"},
+		Metadata: map[string]any{
+			"source":          "wallet_topup",
+			"total_paid_idr":  totalAmountIDR,
+			"provider":        "midtrans_snap",
+			"idempotency_key": idempotencyKey,
+			"snap_token":      invoice.Token,
+			"invoice_url":     invoice.InvoiceURL,
+		},
 	}
 	err = s.repo.CreateTransaction(ctx, walletTx)
 	if err != nil {
-		return "", err
+		return domain.TopUpSession{}, err
 	}
 
-	return snapToken, nil
+	return domain.TopUpSession{
+		SnapToken:   invoice.Token,
+		InvoiceURL:  invoice.InvoiceURL,
+		ReferenceID: orderID,
+		Amount:      amount,
+		Fee:         adminFee,
+		Total:       totalAmountIDR,
+	}, nil
+}
+
+func topUpSessionFromTransaction(tx *domain.WalletTransaction) (domain.TopUpSession, error) {
+	if tx == nil {
+		return domain.TopUpSession{}, errors.New("top up transaction is empty")
+	}
+	snapToken, _ := tx.Metadata["snap_token"].(string)
+	invoiceURL, _ := tx.Metadata["invoice_url"].(string)
+	if snapToken == "" || invoiceURL == "" {
+		return domain.TopUpSession{}, errors.New("existing top up session is missing provider invoice data")
+	}
+	total, _ := tx.Metadata["total_paid_idr"].(float64)
+	if total == 0 {
+		if totalInt, ok := tx.Metadata["total_paid_idr"].(int64); ok {
+			total = float64(totalInt)
+		}
+	}
+	return domain.TopUpSession{
+		SnapToken:   snapToken,
+		InvoiceURL:  invoiceURL,
+		ReferenceID: tx.ReferenceID,
+		Amount:      tx.Amount,
+		Fee:         tx.Fee,
+		Total:       int64(total),
+	}, nil
 }
 
 func (s *walletService) Deposit(ctx context.Context, userID uuid.UUID, amount int64, referenceID string) error {

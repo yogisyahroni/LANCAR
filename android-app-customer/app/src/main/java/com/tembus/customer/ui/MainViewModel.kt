@@ -87,7 +87,15 @@ class MainViewModel @Inject constructor(
         }
 
         if (com.tembus.customer.BuildConfig.DEBUG) {
-            val autoLoginResult = authRepository.startPasswordLogin("customer.mobile@tembus.id", "Customer123!")
+            // UAT credentials are injected through BuildConfig from the local/CI
+            // environment. Never ship a reusable staging password in source.
+            val uatEmail = com.tembus.customer.BuildConfig.UAT_EMAIL.trim()
+            val uatPassword = com.tembus.customer.BuildConfig.UAT_PASSWORD
+            if (uatEmail.isBlank() || uatPassword.isBlank()) {
+                sessionManager.clearSession(SessionInvalidationReason.TOKEN_EXPIRED)
+                return Screen.AuthGraph.route
+            }
+            val autoLoginResult = authRepository.startPasswordLogin(uatEmail, uatPassword)
             if (autoLoginResult.isSuccess) {
                 val response = autoLoginResult.getOrNull()
                 val liveToken = response?.data?.token ?: response?.accessToken

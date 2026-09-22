@@ -78,7 +78,10 @@ class NotificationCenterViewModel @Inject constructor(
             val category = _uiState.value.selectedCategory
             notificationRepository.markAllRead(category).onSuccess {
                 _uiState.update { current ->
-                    current.copy(notifications = current.notifications.map { it.copy(isRead = true) })
+                    current.copy(
+                        notifications = current.notifications.map { it.copy(isRead = true) },
+                        error = null,
+                    )
                 }
                 notificationRepository.getUnreadCount().onSuccess { count ->
                     _uiState.update { it.copy(unreadCount = count) }

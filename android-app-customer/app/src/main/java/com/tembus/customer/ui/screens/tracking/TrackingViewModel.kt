@@ -38,7 +38,10 @@ data class TrackingUiState(
     val hasUnreadMessage: Boolean = false,
     val safetyCenter: SafetyCenterData? = null,
     val safetyActionPending: Boolean = false,
-    val safetyMessage: String? = null
+    val safetyMessage: String? = null,
+    val safetyShareUrl: String? = null,
+    val safetyShareExpiresAt: String? = null,
+    val safetyShareTokenId: String? = null
 )
 
 @HiltViewModel
@@ -222,6 +225,49 @@ class TrackingViewModel @Inject constructor(
                 fetchSafetyCenter(orderId)
             }.onFailure { exception ->
                 _uiState.update { it.copy(safetyMessage = exception.message ?: "SOS belum dapat dikirim. Gunakan layanan darurat lokal bila Anda dalam bahaya.") }
+            }
+            _uiState.update { it.copy(safetyActionPending = false) }
+        }
+    }
+
+    fun createSafetyShare(orderId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(safetyActionPending = true, safetyMessage = null) }
+            val key = safetyActionKeys.getOrPut("share:$orderId") { "customer-safety-share-${UUID.randomUUID()}" }
+            repository.createSafetyShare(orderId, key).onSuccess { share ->
+                safetyActionKeys.remove("share:$orderId")
+                _uiState.update {
+                    it.copy(
+                        safetyShareUrl = share.url,
+                        safetyShareExpiresAt = share.expiresAt,
+                        safetyShareTokenId = share.tokenId,
+                        safetyMessage = "Link status order aktif selama 6 jam dan hanya menampilkan data minimum.",
+                    )
+                }
+            }.onFailure { exception ->
+                _uiState.update { it.copy(safetyMessage = exception.message ?: "Link berbagi belum dapat dibuat.") }
+            }
+            _uiState.update { it.copy(safetyActionPending = false) }
+        }
+    }
+
+    fun revokeSafetyShare() {
+        val tokenId = _uiState.value.safetyShareTokenId ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(safetyActionPending = true, safetyMessage = null) }
+            val key = safetyActionKeys.getOrPut("revoke-share:$tokenId") { "customer-safety-share-revoke-${UUID.randomUUID()}" }
+            repository.revokeSafetyShare(tokenId, key).onSuccess {
+                safetyActionKeys.remove("revoke-share:$tokenId")
+                _uiState.update {
+                    it.copy(
+                        safetyShareUrl = null,
+                        safetyShareExpiresAt = null,
+                        safetyShareTokenId = null,
+                        safetyMessage = "Link berbagi sudah dicabut.",
+                    )
+                }
+            }.onFailure { exception ->
+                _uiState.update { it.copy(safetyMessage = exception.message ?: "Link berbagi belum dapat dicabut.") }
             }
             _uiState.update { it.copy(safetyActionPending = false) }
         }

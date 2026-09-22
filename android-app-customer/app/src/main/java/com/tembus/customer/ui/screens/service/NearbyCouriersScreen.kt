@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -22,6 +23,8 @@ import androidx.compose.material3.Scaffold
 import com.tembus.customer.ui.localization.CustomerText as Text
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -36,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.ui.components.CourierPriceCard
+import androidx.compose.ui.graphics.Color
+import com.tembus.customer.ui.theme.OrangeCta
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,11 +59,16 @@ fun NearbyCouriersScreen(
         viewModel.loadNearbyCouriers(serviceSubType, customerLat, customerLng)
     }
     
+    val isTowing = serviceSubType.startsWith("towing")
     Scaffold(
+        containerColor = Color(0xFFF2FCF3),
         topBar = {
             TopAppBar(
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFFF2FCF3),
+                ),
                 title = {
-                    Text("Petugas di Sekitar Anda", fontWeight = FontWeight.Bold)
+                    Text(if (isTowing) "Pilih petugas towing" else "Pilih penawaran montir", fontWeight = FontWeight.Bold)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
@@ -79,10 +89,23 @@ fun NearbyCouriersScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            Text(formatServiceName(serviceSubType), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(8.dp))
-            uiState.priceRange?.let { range ->
-                Text("Estimasi harga jasa: Rp ${formatRupiah(range.min)} - Rp ${formatRupiah(range.max)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(if (isTowing) "Penawaran towing terdekat" else "Penawaran montir terdekat", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text(formatServiceName(serviceSubType), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text("${uiState.couriers.size} opsi", fontSize = 11.sp, color = OrangeCta, fontWeight = FontWeight.Bold)
+                    }
+                    uiState.priceRange?.let { range ->
+                        Text("Rentang dari server: Rp ${formatRupiah(range.min)} - Rp ${formatRupiah(range.max)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
             Spacer(Modifier.height(16.dp))
             when {
@@ -96,7 +119,7 @@ fun NearbyCouriersScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Text("💡 Harga jasa ditentukan oleh masing-masing petugas. Biaya per-km dan tol ditentukan oleh sistem.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Harga jasa ditentukan oleh petugas. Biaya per-km dan tol dihitung oleh server.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         }
     }

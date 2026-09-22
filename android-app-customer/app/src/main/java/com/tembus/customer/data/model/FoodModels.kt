@@ -2,6 +2,7 @@ package com.tembus.customer.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.time.Instant
 
 // ============================================================
 // FOOD DELIVERY — Models (FOOD-BIKE-055/056/057/075)
@@ -13,6 +14,11 @@ data class FoodMerchant(
     @SerialName("name") val name: String,
     @SerialName("address") val address: String = "",
     @SerialName("is_open") val isOpen: Boolean = true,
+    @SerialName("operating_state") val operatingState: String = "",
+    @SerialName("operating_state_reason") val operatingStateReason: String? = null,
+    @SerialName("paused_until") val pausedUntil: String? = null,
+    @SerialName("enforcement_active") val enforcementActive: Boolean = false,
+    @SerialName("min_order_idr") val minOrderIdr: Long = 0,
     @SerialName("verification_status") val verificationStatus: String = "approved",
     @SerialName("lat") val lat: Double = 0.0,
     @SerialName("lng") val lng: Double = 0.0,
@@ -45,6 +51,16 @@ data class FoodMerchant(
             "non_halal" -> "Non-Halal"
             else -> ""
         }
+
+    /** Discovery/detail may be stale; only these server states accept a new order. */
+    val acceptsNewOrders: Boolean
+        get() {
+            if (!isOpen || enforcementActive) return false
+            if (operatingState.isNotBlank() && operatingState !in setOf("open", "busy")) return false
+            return pausedUntil?.let {
+                runCatching { !Instant.parse(it).isAfter(Instant.now()) }.getOrDefault(false)
+            } ?: true
+        }
 }
 
 @Serializable
@@ -54,6 +70,9 @@ data class FoodMenuItem(
     @SerialName("name") val name: String,
     @SerialName("price") val price: Long = 0,
     @SerialName("is_available") val isAvailable: Boolean = true,
+    @SerialName("status") val status: String = "active",
+    @SerialName("schedule_available") val scheduleAvailable: Boolean? = null,
+    @SerialName("enforcement_active") val enforcementActive: Boolean = false,
     @SerialName("prep_time_minutes") val prepTimeMinutes: Int = 10,
     @SerialName("stock_quantity") val stockQuantity: Int? = null,
     @SerialName("daily_sales_limit") val dailySalesLimit: Int? = null,
@@ -61,10 +80,20 @@ data class FoodMenuItem(
     @SerialName("sales_limit_reset_at") val salesLimitResetAt: String? = null,
     @SerialName("kategori") val kategori: String? = null,
     @SerialName("foto") val foto: String? = null,
+    @SerialName("deskripsi") val deskripsi: String? = null,
     // FB-108: grup varian menu (Ukuran, Level Pedas, Tambahan...).
     // Kosong = item single-variant.
     @SerialName("variants") val variants: List<MenuItemVariant> = emptyList()
-)
+) {
+    /** Availability is the intersection of inventory, schedule, moderation, and status. */
+    val canBeAddedToCart: Boolean
+        get() = isAvailable &&
+            scheduleAvailable != false &&
+            status in setOf("", "active", "scheduled") &&
+            !enforcementActive &&
+            (stockQuantity == null || stockQuantity > 0) &&
+            (dailySalesLimit == null || dailySalesCount < dailySalesLimit)
+}
 
 // FB-108: grup varian menu item (dengan opsi-opsinya).
 @Serializable
@@ -282,7 +311,8 @@ data class FoodQuoteResponse(
     @SerialName("supply_status") val supplyStatus: String = "",
     @SerialName("confidence") val confidence: String = "",
     @SerialName("pricing_rule_version") val pricingRuleVersion: String = "",
-    @SerialName("expires_at") val expiresAt: String = ""
+    @SerialName("expires_at") val expiresAt: String = "",
+    @SerialName("min_order_idr") val minOrderIdr: Long = 0
 )
 
 // Response POST /orders/food — handler return Order object langsung

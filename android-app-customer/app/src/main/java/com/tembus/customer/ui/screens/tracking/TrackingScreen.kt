@@ -1,5 +1,6 @@
 package com.tembus.customer.ui.screens.tracking
 
+import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.material3.MaterialTheme
 import android.graphics.BitmapFactory
@@ -86,6 +87,7 @@ fun TrackingScreen(
     val merchantRatingState by merchantRatingViewModel.uiState.collectAsStateWithLifecycle()
     val tipState by tipViewModel.uiState.collectAsStateWithLifecycle()
     val isOnline by rememberNetworkAvailable()
+    val context = LocalContext.current
     var wasOffline by remember(orderId) { mutableStateOf(false) }
     var safetyCenterOpen by remember(orderId) { mutableStateOf(false) }
     var sosConfirmationOpen by remember(orderId) { mutableStateOf(false) }
@@ -306,10 +308,44 @@ fun TrackingScreen(
                         if (!uiState.safetyMessage.isNullOrBlank()) {
                             Text(uiState.safetyMessage.orEmpty(), style = MaterialTheme.typography.bodySmall)
                         }
+                        Text(
+                            "Bagikan status order ke kontak tepercaya. Link hanya menampilkan data minimum dan tidak memberi akses untuk mengubah order.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 },
                 confirmButton = {
                     Column(horizontalAlignment = Alignment.End) {
+                        OutlinedButton(
+                            onClick = {
+                                val shareUrl = uiState.safetyShareUrl
+                                if (shareUrl.isNullOrBlank()) {
+                                    viewModel.createSafetyShare(orderId)
+                                } else {
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, "Status order TEMBUS: $shareUrl")
+                                    }
+                                    runCatching {
+                                        context.startActivity(Intent.createChooser(shareIntent, "Bagikan status order"))
+                                    }.onFailure {
+                                        // Keep the link in the state; a missing share target
+                                        // must not turn a successfully-created token into a fake failure.
+                                    }
+                                }
+                            },
+                            enabled = !uiState.safetyActionPending,
+                            modifier = Modifier
+                                .heightIn(min = 48.dp)
+                                .criticalAction("Bagikan status order"),
+                        ) { Text(if (uiState.safetyShareUrl.isNullOrBlank()) "Buat link status" else "Bagikan link status") }
+                        if (uiState.safetyShareTokenId != null) {
+                            TextButton(
+                                onClick = viewModel::revokeSafetyShare,
+                                enabled = !uiState.safetyActionPending,
+                            ) { Text("Cabut link") }
+                        }
                         OutlinedButton(
                             onClick = { viewModel.reportSafety(orderId, safetyNote) },
                             enabled = !uiState.safetyActionPending && safetyNote.isNotBlank(),

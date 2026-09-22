@@ -54,6 +54,13 @@ interface TEMBUSApiService {
         @Header("If-None-Match") ifNoneMatch: String? = null,
     ): Response<ExperienceManifestEnvelope>
 
+    /** Read-only market policy metadata. Legal documents stay server-approved. */
+    @GET("api/v1/markets/config")
+    suspend fun getPublicMarketConfig(
+        @Query("market_code") marketCode: String,
+        @Query("city_code") cityCode: String? = null,
+    ): Response<ApiResponse<PublicMarketConfig>>
+
     @POST("api/v1/customer/experience/events")
     suspend fun recordCustomerExperienceEvent(
         @Body request: ExperienceBannerEventRequest,
@@ -126,6 +133,11 @@ interface TEMBUSApiService {
         @Body request: CustomerOtpVerifyRequest
     ): Response<CustomerOtpVerifyResponse>
 
+    @POST("api/v1/customer/security/pin")
+    suspend fun changeCustomerPin(
+        @Body request: ChangeCustomerPinRequest
+    ): Response<CustomerSecurityResponse>
+
     // Tracking Endpoints
     @GET("api/v1/tracking")
     suspend fun getTracking(
@@ -169,6 +181,18 @@ interface TEMBUSApiService {
         @Header("X-Idempotency-Key") idempotencyKey: String,
         @Body request: Map<String, String> = emptyMap()
     ): Response<SafetyActionResponse>
+
+    @POST("api/v1/customer/orders/{id}/safety-share")
+    suspend fun createCustomerSafetyShare(
+        @Path("id") id: String,
+        @Header("X-Idempotency-Key") idempotencyKey: String
+    ): Response<SafetyShareResponse>
+
+    @DELETE("api/v1/customer/safety-share/{tokenId}")
+    suspend fun revokeCustomerSafetyShare(
+        @Path("tokenId") tokenId: String,
+        @Header("X-Idempotency-Key") idempotencyKey: String
+    ): Response<SafetyShareRevokeResponse>
 
     @GET("api/v1/customer/delivery-services")
     suspend fun getCustomerDeliveryServices(): Response<DeliveryServicesResponse>
@@ -272,6 +296,12 @@ interface TEMBUSApiService {
     suspend fun validateVoucher(
         @Body request: VoucherValidateRequest
     ): Response<VoucherValidateResponse>
+
+    @GET("api/v1/customer/promos/eligible")
+    suspend fun getCustomerEligiblePromos(
+        @Query("service_code") serviceCode: String? = null,
+        @Query("limit") limit: Int = 20,
+    ): Response<CustomerEligiblePromosResponse>
 
     @GET("api/v1/customer/addresses")
     suspend fun getCustomerAddresses(
@@ -467,6 +497,17 @@ interface TEMBUSApiService {
         @Body request: WithdrawRequest
     ): Response<ApiResponse<WithdrawResponse>>
 
+    // Wallet: saldo and top-up are owned by payment-service. The app only
+    // opens the provider URL returned by the server and never builds one.
+    @GET("api/v1/wallet/balance")
+    suspend fun getWalletBalance(): Response<WalletBalance>
+
+    @POST("api/v1/wallet/topup")
+    suspend fun createWalletTopUp(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: WalletTopUpRequest
+    ): Response<WalletTopUpSession>
+
     // ============================================================
     // TAMBAL BAN & TOWING — Nearby Couriers
     // ============================================================
@@ -512,18 +553,18 @@ interface TEMBUSApiService {
     // TAMBAL BAN & TOWING — Service Reports
     // ============================================================
     
-    @GET("api/v1/customer/orders/{orderId}/report/tambal-ban")
-    suspend fun getTambalBanReport(@Path("orderId") orderId: String): Response<TambalBanReport>
+    @GET("api/v1/customer/service-report/tambal-ban")
+    suspend fun getTambalBanReport(@Query("order_id") orderId: String): Response<TambalBanReport>
     
-    @GET("api/v1/customer/orders/{orderId}/report/towing")
-    suspend fun getTowingReport(@Path("orderId") orderId: String): Response<TowingReport>
+    @GET("api/v1/customer/service-report/towing")
+    suspend fun getTowingReport(@Query("order_id") orderId: String): Response<TowingReport>
     
     // ============================================================
     // TAMBAL BAN & TOWING — Settlement
     // ============================================================
     
-    @POST("api/v1/order/{orderId}/settlement")
-    suspend fun calculateSettlement(@Path("orderId") orderId: String, @Body request: Map<String, Any>): Response<SettlementResult>
+    @POST("api/v1/order/settlement")
+    suspend fun calculateSettlement(@Body request: Map<String, Any>): Response<SettlementResult>
 
     // ============================================================
     // FOOD DELIVERY — Browse merchant, detail, cart, checkout (FOOD-BIKE-055/056/057/075)

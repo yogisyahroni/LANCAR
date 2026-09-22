@@ -7,11 +7,13 @@ import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.data.model.GlobalBanner
 import com.tembus.customer.data.model.Order
 import com.tembus.customer.data.model.DeliveryServiceProduct
+import com.tembus.customer.data.model.CustomerEligiblePromo
 import com.tembus.customer.data.config.ExperienceBannerAnalytics
 import com.tembus.customer.data.config.ExperienceBannerEvent
 import com.tembus.customer.data.config.model.ExperienceConfigSnapshot
 import com.tembus.customer.data.repository.NotificationRepository
 import com.tembus.customer.data.repository.OrderRepository
+import com.tembus.customer.data.repository.ProfileRepository
 import com.tembus.customer.data.session.AuthSessionManager
 import com.tembus.customer.domain.config.ExperienceConfigManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,6 +30,7 @@ import javax.inject.Inject
 class DashboardViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
     private val notificationRepository: NotificationRepository,
+    private val profileRepository: ProfileRepository,
     private val sessionManager: AuthSessionManager,
     private val experienceConfigManager: ExperienceConfigManager,
     private val experienceBannerAnalytics: ExperienceBannerAnalytics,
@@ -42,6 +45,9 @@ class DashboardViewModel @Inject constructor(
     // tampilkan SEMUA order aktif (list), bukan satu banner saja.
     private val _activeOrders = MutableStateFlow<List<Order>>(emptyList())
     val activeOrders = _activeOrders.asStateFlow()
+
+    private val _recentCompletedOrder = MutableStateFlow<Order?>(null)
+    val recentCompletedOrder = _recentCompletedOrder.asStateFlow()
 
     private val _incomingPackages = MutableStateFlow<List<Order>>(emptyList())
     val incomingPackages = _incomingPackages.asStateFlow()
@@ -87,6 +93,20 @@ class DashboardViewModel @Inject constructor(
     private val _notificationUnreadByCategory = MutableStateFlow<Map<String, Int>>(emptyMap())
     val notificationUnreadByCategory = _notificationUnreadByCategory.asStateFlow()
 
+    // Home wallet must be profile-backed; null means unavailable/loading rather
+    // than a sample balance copied from a design frame.
+    private val _walletBalance = MutableStateFlow<Long?>(null)
+    val walletBalance = _walletBalance.asStateFlow()
+
+    private val _availablePromoCount = MutableStateFlow<Int?>(null)
+    val availablePromoCount = _availablePromoCount.asStateFlow()
+
+    // The home hero is presentation for the canonical promo campaign. Keep
+    // the campaign itself server-owned so the Figma copy never becomes a
+    // second, hardcoded source of truth in the Android client.
+    private val _featuredPromo = MutableStateFlow<CustomerEligiblePromo?>(null)
+    val featuredPromo = _featuredPromo.asStateFlow()
+
     // DESIGN.md §12: rekomendasi kuliner dekatmu (maks 6, hanya yang buka).
     // Dimuat sekali per lokasi GPS; gagal diam-diam agar Home tidak diblokir.
     private val _recommendedMerchants = MutableStateFlow<List<FoodMerchant>>(emptyList())
@@ -108,8 +128,17 @@ class DashboardViewModel @Inject constructor(
                     // process death; the repository is server-first and only
                     // falls back to the encrypted Room snapshot when offline.
                     _activeOrders.value = ActiveOrderRecoveryPolicy.recoverableOrders(orders)
+                    _recentCompletedOrder.value = orders
+                        .asSequence()
+                        .filter { it.status.lowercase() in setOf("delivered", "completed", "arrived") }
+                        .filterNot { order ->
+                            order.serviceCategory.orEmpty().contains("towing", ignoreCase = true) ||
+                                order.serviceCategory.orEmpty().contains("tambal", ignoreCase = true)
+                        }
+                        .maxByOrNull { it.updatedAt }
                 }.onFailure { error ->
                     _activeOrders.value = emptyList()
+                    _recentCompletedOrder.value = null
                     _dataError.value = userSafeMessage(
                         error.localizedMessage,
                         "Riwayat pengiriman belum dapat dimuat. Coba lagi."
@@ -154,6 +183,22 @@ class DashboardViewModel @Inject constructor(
                     _banners.value = banners.sortedByDescending { it.priority }
                 }
                 .onFailure { _banners.value = emptyList() }
+        }
+        viewModelScope.launch {
+            profileRepository.getProfile().collectLatest { result ->
+                result.onSuccess { profile -> _walletBalance.value = profile.walletBalance }
+                    .onFailure { _walletBalance.value = null }
+            }
+        }
+        viewModelScope.launch {
+            runCatching { apiService.getCustomerEligiblePromos(limit = 20) }
+                .onSuccess { response ->
+                    if (response.isSuccessful) {
+                        val promos = response.body()?.data.orEmpty()
+                        _availablePromoCount.value = promos.size
+                        _featuredPromo.value = promos.firstOrNull()
+                    }
+                }
         }
     }
 

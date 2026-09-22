@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.booking
 
 import android.Manifest
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -113,7 +114,7 @@ import com.tembus.customer.ui.components.maps.RuntimeMapMarker
 import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentSoft
-import com.tembus.customer.ui.theme.Background
+import com.tembus.customer.ui.theme.CustomerCanvas
 import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.OnSurface
 import com.tembus.customer.ui.theme.OnSurfaceVariant
@@ -129,15 +130,17 @@ import com.tembus.customer.ui.theme.Surface as TembusSurface
 import com.tembus.customer.ui.theme.SurfaceVariant
 import com.tembus.customer.ui.theme.TembusRadius
 import com.tembus.customer.ui.theme.TextDisabled
+import com.tembus.customer.ui.policy.PackageOrderFlowPolicy
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
+import java.util.Calendar
 import java.util.Locale
 
 private val Ink = OnSurface
 private val Muted = OnSurfaceVariant
-private val FieldBg = Background
+private val FieldBg = CustomerCanvas
 private val LcGreen = Primary
 private val SoftGreen = PrimarySoft
 private val SoftBlue = SecondaryLight
@@ -161,11 +164,41 @@ fun BookingScreen(
     var showLocationRequestSheet by remember { mutableStateOf(false) }
     var showReviewSheet by remember { mutableStateOf(false) }
     var lastAutoServiceKey by remember { mutableStateOf("") }
-    var currentStep by remember { mutableStateOf(1) }
+    // Keep the visual step in sync with the SavedStateHandle-backed booking
+    // draft after configuration changes/process recreation. The draft already
+    // restores the inputs; losing the step here would silently send the user
+    // back to the first Figma panel and make the resume flow feel broken.
+    var currentStep by rememberSaveable { mutableStateOf(1) }
     val locationPermissionState = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
+
+    fun openSchedulePicker() {
+        val minimumMillis = System.currentTimeMillis() + 30 * 60 * 1000L
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = (uiState.scheduledAtMillis ?: minimumMillis).coerceAtLeast(minimumMillis)
+        }
+        TimePickerDialog(
+            context,
+            { _, hour, minute ->
+                val pickedMillis = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, hour)
+                    set(Calendar.MINUTE, minute)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                if (!PackageOrderFlowPolicy.scheduledAtValid(pickedMillis, System.currentTimeMillis())) {
+                    Toast.makeText(context, "Pilih waktu pickup minimal 30 menit dari sekarang.", Toast.LENGTH_LONG).show()
+                } else {
+                    viewModel.setScheduledAt(pickedMillis)
+                }
+            },
+            calendar.get(Calendar.HOUR_OF_DAY),
+            calendar.get(Calendar.MINUTE),
+            true,
+        ).show()
+    }
 
     LaunchedEffect(Unit) {
         if (!locationPermissionState.status.isGranted) {
@@ -243,7 +276,7 @@ fun BookingScreen(
     }
 
     Scaffold(
-        containerColor = Background,
+        containerColor = CustomerCanvas,
         topBar = {
             BookingHeader(onBackClick = {
                 if (currentStep > 1) {
@@ -305,7 +338,9 @@ fun BookingScreen(
                 keyboardController?.hide()
                 focusManager.clearFocus()
                 scope.launch { delay(150); showLocationRequestSheet = true }
-            }
+            },
+            onScheduleNow = viewModel::setScheduleNow,
+            onSchedulePickerClick = ::openSchedulePicker,
         )
     }
 

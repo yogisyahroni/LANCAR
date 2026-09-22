@@ -55,20 +55,31 @@ internal data class TrackingCopy(
     val podProofTitle: String
 )
 
-internal fun trackingCopy(serviceSubType: String?, model: String?, merchantId: String?): TrackingCopy {
-    val normalized = listOfNotNull(serviceSubType, model).joinToString(" ").lowercase()
+internal fun trackingCopy(
+    serviceSubType: String?,
+    model: String?,
+    merchantId: String?,
+    serviceCategory: String? = null,
+): TrackingCopy {
+    // Tracking payloads from older orders may omit `service_sub_type` while
+    // still carrying the canonical `service_category`. Include both fields so
+    // a roadside order can never fall through to parcel vocabulary merely
+    // because its subtype is missing or provider-specific.
+    val normalized = listOfNotNull(serviceCategory, serviceSubType, model)
+        .joinToString(" ")
+        .lowercase()
     return when {
-        !merchantId.isNullOrBlank() || normalized.contains("food") -> TrackingCopy(
-            kind = TrackingServiceKind.FOOD,
-            timelineTitle = "Timeline pengiriman",
-            acceptedLabel = "Kurir sepeda mengambil",
-            pickupLabel = "Diverifikasi di merchant",
-            activeLabel = "Dalam pengantaran",
-            completedLabel = "POD diterima",
-            cancelledLabel = "Pengiriman tidak dilanjutkan",
-            proofSectionTitle = "Bukti pengiriman",
-            pickupProofTitle = "Foto pickup di merchant",
-            podProofTitle = "Foto POD"
+        normalized.contains("towing") || normalized.contains("derek") -> TrackingCopy(
+            kind = TrackingServiceKind.TOWING,
+            timelineTitle = "Timeline towing",
+            acceptedLabel = "Driver towing menerima order",
+            pickupLabel = "Kendaraan diverifikasi di titik jemput",
+            activeLabel = "Kendaraan dalam proses towing",
+            completedLabel = "Towing selesai",
+            cancelledLabel = "Towing tidak dilanjutkan",
+            proofSectionTitle = "Bukti towing",
+            pickupProofTitle = "Foto kendaraan saat pickup",
+            podProofTitle = "Foto serah terima akhir"
         )
         normalized.contains("tambal") || normalized.contains("ban") || normalized.contains("tire") -> TrackingCopy(
             kind = TrackingServiceKind.TAMBAL_BAN,
@@ -82,17 +93,17 @@ internal fun trackingCopy(serviceSubType: String?, model: String?, merchantId: S
             pickupProofTitle = "Foto kondisi sebelum layanan",
             podProofTitle = "Foto penyelesaian layanan"
         )
-        normalized.contains("towing") -> TrackingCopy(
-            kind = TrackingServiceKind.TOWING,
-            timelineTitle = "Timeline towing",
-            acceptedLabel = "Driver towing menerima order",
-            pickupLabel = "Kendaraan diverifikasi di titik jemput",
-            activeLabel = "Kendaraan dalam proses towing",
-            completedLabel = "Towing selesai",
-            cancelledLabel = "Towing tidak dilanjutkan",
-            proofSectionTitle = "Bukti towing",
-            pickupProofTitle = "Foto kendaraan saat pickup",
-            podProofTitle = "Foto serah terima akhir"
+        !merchantId.isNullOrBlank() || normalized.contains("food") -> TrackingCopy(
+            kind = TrackingServiceKind.FOOD,
+            timelineTitle = "Timeline pengiriman",
+            acceptedLabel = "Kurir sepeda mengambil",
+            pickupLabel = "Diverifikasi di merchant",
+            activeLabel = "Dalam pengantaran",
+            completedLabel = "POD diterima",
+            cancelledLabel = "Pengiriman tidak dilanjutkan",
+            proofSectionTitle = "Bukti pengiriman",
+            pickupProofTitle = "Foto pickup di merchant",
+            podProofTitle = "Foto POD"
         )
         else -> TrackingCopy(
             kind = TrackingServiceKind.PACKAGE,
@@ -109,8 +120,13 @@ internal fun trackingCopy(serviceSubType: String?, model: String?, merchantId: S
     }
 }
 
-internal fun trackingStageText(status: String?, serviceSubType: String?): String {
-    val copy = trackingCopy(serviceSubType, null, null)
+internal fun trackingStageText(
+    status: String?,
+    serviceSubType: String?,
+    serviceCategory: String? = null,
+    model: String? = null,
+): String {
+    val copy = trackingCopy(serviceSubType, model, null, serviceCategory)
     return when (status?.lowercase()) {
         "scheduled" -> if (copy.kind == TrackingServiceKind.FOOD) "Pesanan terjadwal, akan diproses merchant mendekati jam pilihan" else "Order terjadwal"
         "pending_merchant" -> "Menunggu merchant menerima pesanan"

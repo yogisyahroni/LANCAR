@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Store
@@ -34,15 +35,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.tembus.customer.ui.theme.Background
 import com.tembus.customer.ui.theme.Primary
+
+private val BusinessCanvas = Color(0xFFF2FCF3) // Figma: TEMBUS - Profil Bisnis & E-Faktur
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,19 +68,19 @@ fun BusinessScreen(
     }
 
     Scaffold(
-        containerColor = Background,
+        containerColor = BusinessCanvas,
         topBar = {
             TopAppBar(
-                title = { Text("Generate Payment Link", fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic) },
+                title = { Text("Profil Bisnis & E-Faktur", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Primary,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = BusinessCanvas,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -88,7 +89,7 @@ fun BusinessScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Background)
+                .background(BusinessCanvas)
         ) {
             Column(
                 modifier = Modifier
@@ -102,8 +103,7 @@ fun BusinessScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Primary.copy(alpha = 0.1f))
-                        .border(1.dp, Primary.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                        .background(Color(0xFF006640))
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -111,15 +111,54 @@ fun BusinessScreen(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Primary.copy(alpha = 0.2f)),
+                            .background(Color.White.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Store, contentDescription = "", tint = Primary)
+                        Icon(Icons.Default.Store, contentDescription = "", tint = Color.White)
                     }
                     Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text("Toko Pengirim", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Primary, letterSpacing = 1.sp)
-                        Text(storeName.ifEmpty { "Loading..." }, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Column(Modifier.weight(1f)) {
+                        Text("PROFIL BISNIS", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFA9D4C0), letterSpacing = 1.sp)
+                        Text(storeName.ifEmpty { "Data bisnis belum tersedia" }, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Data akun tersinkron dari server", fontSize = 11.sp, color = Color.White.copy(alpha = 0.78f))
+                    }
+                    Surface(
+                        color = Color.White.copy(alpha = 0.14f),
+                        shape = RoundedCornerShape(999.dp),
+                    ) {
+                        Text("SERVER", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
+                    }
+                }
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Primary.copy(alpha = 0.10f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Default.Description, contentDescription = null, tint = Primary)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("E-Faktur & invoice", fontWeight = FontWeight.Bold)
+                            Text(
+                                "Dokumen mengikuti invoice server setelah pembayaran terkonfirmasi.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text("Menunggu transaksi", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 

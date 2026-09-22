@@ -19,8 +19,14 @@ sealed class Screen(val route: String) {
     }
     object History : Screen("history")
     object Business : Screen("business")
+    object Messages : Screen("messages")
     object Profile : Screen("profile")
+    object Support : Screen("support")
+    object AddressBook : Screen("address-book")
+    object WalletTopUp : Screen("wallet-topup")
+    object PaymentMethods : Screen("payment-methods")
     object Notifications : Screen("notifications")
+    object Promos : Screen("promos")
     
     // Details
     object Tracking : Screen("tracking/{orderId}") {
@@ -29,8 +35,13 @@ sealed class Screen(val route: String) {
     object OrderDetail : Screen("detail/{orderId}") {
         fun createRoute(orderId: String) = "detail/$orderId"
     }
-    object Payment : Screen("payment/{orderId}") {
-        fun createRoute(orderId: String) = "payment/$orderId"
+    object Payment : Screen("payment/{orderId}?serviceSubType={serviceSubType}") {
+        fun createRoute(orderId: String, serviceSubType: String? = null): String {
+            val subtype = serviceSubType?.takeIf { it.isNotBlank() }?.let {
+                "?serviceSubType=${java.net.URLEncoder.encode(it, "UTF-8")}"
+            }.orEmpty()
+            return "payment/$orderId$subtype"
+        }
     }
     object Chat : Screen("chat/{orderId}?name={name}") {
         fun createRoute(orderId: String, name: String?): String {
@@ -128,5 +139,5 @@ sealed class Screen(val route: String) {
 
     // C9: Loyalty
     object Loyalty : Screen("loyalty")
+    object PrivacyTerms : Screen("privacy-terms")
 }
-

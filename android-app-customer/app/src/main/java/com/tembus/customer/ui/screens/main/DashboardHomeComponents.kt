@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -34,12 +36,13 @@ import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.MoveToInbox
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -50,6 +53,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import com.tembus.customer.ui.localization.CustomerText as Text
+import androidx.compose.material3.Text as MaterialText
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -79,15 +83,18 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tembus.customer.R
 import com.tembus.customer.data.model.GlobalBanner
 import com.tembus.customer.data.model.FoodMerchant
+import com.tembus.customer.data.model.CustomerEligiblePromo
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.BrandHeader
+import com.tembus.customer.ui.theme.CustomerHomeCanvas
 import com.tembus.customer.ui.theme.OnOrangeCta
 import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.ui.theme.Error
@@ -268,26 +275,30 @@ internal fun HomeHeroPromoBanner(
     marketCode: String,
     manifestId: String?,
     resolveAssetPath: suspend (String) -> String?,
-    onBookingClick: (String?) -> Unit,
     onRemoteAction: (RemoteDeepLinkTarget) -> Unit,
     onBannerEvent: (ExperienceBannerEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isCms = heroSection != null
-    val properties = heroSection?.properties
-    val title = (properties?.get("title") as? JsonPrimitive)?.contentOrNull
-        ?: "Kirim Paket Cepat & Hemat"
-    val body = (properties?.get("body") as? JsonPrimitive)?.contentOrNull
-        ?: "Diskon ongkir s.d. 30% untuk pengiriman instan hari ini"
-    val badge = (properties?.get("badge") as? JsonPrimitive)?.contentOrNull
-        ?: "PROMO TEMBUS"
-    val ctaLabel = (properties?.get("cta_label") as? JsonPrimitive)?.contentOrNull
-        ?: "Pesan Sekarang"
-    val deepLink = (properties?.get("deep_link") as? JsonPrimitive)?.contentOrNull
-    val externalUrl = (properties?.get("external_url") as? JsonPrimitive)?.contentOrNull
-    val imageAssetId = (properties?.get("image_asset_id") as? JsonPrimitive)?.contentOrNull
-    val campaignId = (properties?.get("campaign_id") as? JsonPrimitive)?.contentOrNull
-        ?: heroSection?.id ?: "tembus_hero_default"
+    val section = heroSection ?: return
+    val isCms = true
+    val properties = section.properties
+    val title = (properties["title"] as? JsonPrimitive)?.contentOrNull
+        ?.takeIf { it.isNotBlank() }
+        ?: return
+    val body = (properties["body"] as? JsonPrimitive)?.contentOrNull
+        ?.takeIf { it.isNotBlank() }
+    val badge = (properties["badge"] as? JsonPrimitive)?.contentOrNull
+        ?.takeIf { it.isNotBlank() }
+        ?: return
+    val ctaLabel = (properties["cta_label"] as? JsonPrimitive)?.contentOrNull
+        ?.takeIf { it.isNotBlank() }
+        ?: return
+    val deepLink = (properties["deep_link"] as? JsonPrimitive)?.contentOrNull
+    val externalUrl = (properties["external_url"] as? JsonPrimitive)?.contentOrNull
+    val imageAssetId = (properties["image_asset_id"] as? JsonPrimitive)?.contentOrNull
+    val campaignId = (properties["campaign_id"] as? JsonPrimitive)?.contentOrNull
+        ?.takeIf { it.isNotBlank() }
+        ?: section.id
 
     val assetPath by produceState<String?>(initialValue = null, imageAssetId, manifestRevision) {
         value = imageAssetId?.let { resolveAssetPath(it) }
@@ -309,7 +320,7 @@ internal fun HomeHeroPromoBanner(
                     type = ExperienceBannerEventType.IMPRESSION,
                     component = "hero_banner",
                     campaignId = campaignId,
-                    sectionId = heroSection?.id ?: "hero",
+                    sectionId = section.id,
                     manifestRevision = manifestRevision,
                     marketCode = marketCode,
                     manifestId = manifestId,
@@ -319,7 +330,7 @@ internal fun HomeHeroPromoBanner(
     }
 
     if (hasBannerImage) {
-        // When marketing uploads a designed banner graphic (like Gojek GoCar/GoFood),
+        // When marketing uploads a designed banner graphic,
         // the banner image itself already contains the artwork, marketing typography, and badges.
         // We provide a dedicated interactive banner area linking directly to the promo target.
         Box(
@@ -335,7 +346,7 @@ internal fun HomeHeroPromoBanner(
                                 type = ExperienceBannerEventType.CLICK,
                                 component = "hero_banner",
                                 campaignId = campaignId,
-                                sectionId = heroSection?.id ?: "hero",
+                                sectionId = section.id,
                                 manifestRevision = manifestRevision,
                                 marketCode = marketCode,
                                 manifestId = manifestId,
@@ -344,8 +355,6 @@ internal fun HomeHeroPromoBanner(
                     }
                     if (target != null && target !is RemoteDeepLinkTarget.Invalid) {
                         onRemoteAction(target)
-                    } else {
-                        onBookingClick("pickup")
                     }
                 }
         )
@@ -406,7 +415,7 @@ internal fun HomeHeroPromoBanner(
                                 type = ExperienceBannerEventType.CLICK,
                                 component = "hero_banner",
                                 campaignId = campaignId,
-                                sectionId = heroSection?.id ?: "hero",
+                                sectionId = section.id,
                                 manifestRevision = manifestRevision,
                                 marketCode = marketCode,
                                 manifestId = manifestId,
@@ -415,8 +424,6 @@ internal fun HomeHeroPromoBanner(
                     }
                     if (target != null && target !is RemoteDeepLinkTarget.Invalid) {
                         onRemoteAction(target)
-                    } else {
-                        onBookingClick("pickup")
                     }
                 },
                 colors = ButtonDefaults.buttonColors(
@@ -495,13 +502,13 @@ internal fun UnifiedHeroHeader(
     onNotificationsClick: () -> Unit,
     onProfileClick: () -> Unit,
     onSearchClick: () -> Unit,
-    onBookingClick: (String?) -> Unit,
     onRemoteAction: (RemoteDeepLinkTarget) -> Unit,
     onBannerEvent: (ExperienceBannerEvent) -> Unit,
     modifier: Modifier = Modifier,
     networkBanner: @Composable () -> Unit = {},
     // DESIGN.md §12: label lokasi terbalik-geocode (null = sembunyikan baris).
     locationLabel: String? = null,
+    walletBalance: Long? = null,
 ) {
     val properties = heroSection?.properties
     val customBgColorHex = (properties?.get("background_color") as? JsonPrimitive)?.contentOrNull
@@ -612,54 +619,394 @@ internal fun UnifiedHeroHeader(
                 marketCode = marketCode,
                 manifestId = manifestId,
                 resolveAssetPath = resolveAssetPath,
-                onBookingClick = onBookingClick,
                 onRemoteAction = onRemoteAction,
                 onBannerEvent = onBannerEvent,
             )
             Spacer(Modifier.height(14.dp))
-            WalletCard()
+            WalletCard(balance = walletBalance)
+        }
+    }
+}
+
+/** Compact campaign card matching the customer-home Figma frame. */
+@Composable
+internal fun FigmaPromoBanner(
+    heroSection: ExperienceSection?,
+    eligiblePromo: CustomerEligiblePromo?,
+    manifestRevision: Int,
+    marketCode: String,
+    manifestId: String?,
+    onRemoteAction: (RemoteDeepLinkTarget) -> Unit,
+    onPromoClick: () -> Unit,
+    onBannerEvent: (ExperienceBannerEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // CMS controls presentation copy when a hero manifest is available. The
+    // eligible promo remains the authoritative source for campaign data, so
+    // this card still renders in a fresh environment where CMS has no hero
+    // section yet, without falling back to a Figma sample in the client.
+    val properties = heroSection?.properties.orEmpty()
+    fun propertyText(key: String): String? = (properties[key] as? JsonPrimitive)?.contentOrNull
+        ?.takeIf { it.isNotBlank() }
+    val copy = eligiblePromo?.notificationCopy.orEmpty()
+    val title = propertyText("title") ?: eligiblePromo?.name?.takeIf { it.isNotBlank() }
+        ?: eligiblePromo?.code?.takeIf { it.isNotBlank() }
+        ?: return
+    val body = propertyText("body")
+        ?: copy["body"]?.takeIf { it.isNotBlank() }
+        ?: eligiblePromo?.description?.takeIf { it.isNotBlank() }
+    // Monetary value is deliberately read only from the eligible campaign.
+    // Experience config cannot override transaction economics.
+    val price = eligiblePromo?.let(::promoDiscountLabel)
+    val badge = propertyText("badge")
+        ?: copy["badge"]?.takeIf { it.isNotBlank() }
+        ?: eligiblePromo?.code?.takeIf { it.isNotBlank() }
+    val ctaLabel = propertyText("cta_label")
+        ?: copy["cta_label"]?.takeIf { it.isNotBlank() }
+    val deepLink = propertyText("deep_link")
+    val externalUrl = propertyText("external_url")
+    val campaignId = propertyText("campaign_id")
+        ?: eligiblePromo?.id?.takeIf { it.isNotBlank() }
+        ?: heroSection?.id
+        ?: eligiblePromo?.code
+        ?: return
+    val sectionId = heroSection?.id ?: "promo_campaign"
+    val target = remember(deepLink, externalUrl) {
+        if (!deepLink.isNullOrBlank() || !externalUrl.isNullOrBlank()) {
+            RemoteDeepLinkResolver.resolve(deepLink, externalUrl)
+        } else null
+    }
+
+    LaunchedEffect(campaignId, manifestRevision) {
+        if (manifestRevision > 0 && heroSection != null) {
+            onBannerEvent(
+                ExperienceBannerEvent(
+                    type = ExperienceBannerEventType.IMPRESSION,
+                    component = "hero_banner",
+                    campaignId = campaignId,
+                    sectionId = sectionId,
+                    manifestRevision = manifestRevision,
+                    marketCode = marketCode,
+                    manifestId = manifestId,
+                ),
+            )
+        }
+    }
+
+    val onClick = {
+        if (manifestRevision > 0 && heroSection != null) {
+            onBannerEvent(
+                ExperienceBannerEvent(
+                    type = ExperienceBannerEventType.CLICK,
+                    component = "hero_banner",
+                    campaignId = campaignId,
+                    sectionId = sectionId,
+                    manifestRevision = manifestRevision,
+                    marketCode = marketCode,
+                    manifestId = manifestId,
+                ),
+            )
+        }
+        if (target != null && target !is RemoteDeepLinkTarget.Invalid) onRemoteAction(target)
+        else onPromoClick()
+    }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF003D27)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                // Keep the Figma compact baseline, but let the CTA remain
+                // fully visible when localized/CMS copy wraps differently.
+                .heightIn(min = 176.dp)
+                .padding(start = 13.dp, top = 13.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f).padding(end = 6.dp)) {
+                badge?.let { label ->
+                    Surface(color = OrangeCta, shape = RoundedCornerShape(999.dp)) {
+                        Text(
+                            label.uppercase(),
+                            color = OnOrangeCta,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+                if (badge != null) Spacer(Modifier.height(7.dp))
+                Text(
+                    title,
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    lineHeight = 20.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                price?.let { value ->
+                    Text(
+                        value,
+                        color = OrangeCta,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black,
+                        lineHeight = 20.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 1.dp),
+                    )
+                }
+                body?.let { copy ->
+                    Text(
+                        copy,
+                        color = Color(0xFFA7C4B6),
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 3.dp),
+                    )
+                }
+                ctaLabel?.let { label ->
+                    Spacer(Modifier.height(8.dp))
+                    Surface(color = OrangeCta, shape = RoundedCornerShape(999.dp)) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(label, color = OnOrangeCta, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            Spacer(Modifier.width(3.dp))
+                            Icon(Icons.Default.ArrowForward, contentDescription = null, tint = OnOrangeCta, modifier = Modifier.size(12.dp))
+                        }
+                    }
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .width(100.dp)
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(Modifier.size(112.dp).clip(CircleShape).border(8.dp, Color(0xFF1E654A), CircleShape))
+                Box(Modifier.size(76.dp).clip(CircleShape).border(7.dp, Color(0xFF1E654A), CircleShape))
+                Box(Modifier.size(42.dp).clip(CircleShape).background(Color(0xFF1E654A)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Color(0xFFB8D8C7), modifier = Modifier.size(22.dp))
+                }
+            }
+        }
+    }
+}
+
+private fun promoDiscountLabel(promo: CustomerEligiblePromo): String? = when {
+    promo.discountPercent != null && promo.discountPercent > 0 ->
+        "Diskon ${java.math.BigDecimal.valueOf(promo.discountPercent).stripTrailingZeros().toPlainString()}%"
+    promo.discountValueIdr > 0 -> "Diskon ${formatPromoIdr(promo.discountValueIdr)}"
+    promo.discountType.equals("free_insurance", ignoreCase = true) -> "Gratis proteksi"
+    else -> null
+}
+
+private fun formatPromoIdr(value: Long): String =
+    "Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(value.coerceAtLeast(0))}"
+
+/**
+ * Customer Home shell from the Figma reference. Keep the CMS hero out of this
+ * shell: the reference puts the product chrome, location, search and wallet
+ * before the order/service content.
+ */
+@Composable
+internal fun FigmaHomeHeader(
+    customerName: String,
+    onSearchClick: () -> Unit,
+    onWalletTopUpClick: () -> Unit = {},
+    onVoucherClick: () -> Unit = {},
+    voucherCount: Int? = null,
+    networkBanner: @Composable () -> Unit = {},
+    locationLabel: String? = null,
+    walletBalance: Long? = null,
+    showSearchBar: Boolean = true,
+    showWalletCard: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    val areaLabel = locationLabel
+        ?.substringAfterLast(",")
+        ?.trim()
+        ?.removePrefix("Kecamatan ")
+        ?.takeIf { it.isNotBlank() }
+        ?: "Pilih area"
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(CustomerHomeCanvas)
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = TembusCopy.BrandName,
+                color = Color(0xFF005E3D),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.3.sp,
+            )
+            Spacer(Modifier.width(8.dp))
+            Surface(
+                color = Color(0xFFFFF7F1),
+                shape = RoundedCornerShape(999.dp),
+                border = BorderStroke(1.dp, OrangeCta.copy(alpha = 0.28f)),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = OrangeCta, modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text(areaLabel, color = Ink, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+        Spacer(Modifier.height(9.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Default.LocationOn, contentDescription = null, tint = OrangeCta, modifier = Modifier.size(13.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("LOKASI ANDA", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.4.sp)
+            Spacer(Modifier.width(7.dp))
+            Text(
+                locationLabel ?: "Pilih titik lokasi",
+                color = Ink,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        if (showSearchBar) {
+            Spacer(Modifier.height(7.dp))
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .clickable(role = Role.Button, onClick = onSearchClick)
+                    .semantics {
+                        contentDescription = "$customerName. Cari layanan, makanan, atau lokasi"
+                        role = Role.Button
+                    },
+                color = Color.White,
+                shape = RoundedCornerShape(22.dp),
+                border = BorderStroke(1.dp, Color(0xFFE2EAE5)),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF507267), modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Cari layanan, makanan, atau lokasi...", color = Muted, fontSize = 11.sp)
+                    Spacer(Modifier.weight(1f))
+                    Icon(Icons.Default.GridView, contentDescription = null, tint = Color(0xFF006A45), modifier = Modifier.size(14.dp))
+                }
+            }
+        }
+        networkBanner()
+        if (showWalletCard) {
+            Spacer(Modifier.height(7.dp))
+            WalletCard(
+                balance = walletBalance,
+                onTopUpClick = onWalletTopUpClick,
+                onVoucherClick = onVoucherClick,
+                voucherCount = voucherCount,
+            )
         }
     }
 }
 
 @Composable
-internal fun WalletCard() {
+internal fun WalletCard(
+    balance: Long?,
+    onTopUpClick: () -> Unit = {},
+    onVoucherClick: () -> Unit = {},
+    voucherCount: Int? = null,
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(TembusRadius.Card),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            .padding(horizontal = 0.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF006640)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(TembusRadius.Card))
-                    .background(SoftGreen),
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE4F4EC)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.AccountBalanceWallet, contentDescription = "", tint = LcGreen)
+                Icon(Icons.Default.AccountBalanceWallet, contentDescription = "Saldo TEMBUS-Pay", tint = Color(0xFF006640), modifier = Modifier.size(16.dp))
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
-                Text("Saldo siap dipakai", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Muted)
-                Text("Rp50.000", fontWeight = FontWeight.Black, fontSize = 18.sp, color = Ink)
-                Text("183 coins reward", color = Muted, fontSize = 12.sp)
+                Text("SALDO TEMBUS-PAY", fontWeight = FontWeight.Medium, fontSize = 8.sp, color = Color(0xFFA9D4C0), letterSpacing = 0.4.sp)
+                Text(
+                    text = balance?.let { "Rp ${formatHomeRupiah(it)}" } ?: "Saldo belum tersedia",
+                    fontWeight = FontWeight.Black,
+                    fontSize = if (balance == null) 11.sp else 14.sp,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                WalletAction(Icons.Default.ArrowUpward, "Bayar")
-                WalletAction(Icons.Default.Add, "Top Up")
-                WalletAction(Icons.Default.MoreHoriz, "Lainnya")
+            Surface(
+                color = Color(0xFF1B7A59),
+                shape = RoundedCornerShape(999.dp),
+                modifier = Modifier.clickable(role = Role.Button, onClick = onVoucherClick),
+            ) {
+                Text(
+                    voucherCount?.takeIf { it > 0 }?.let { "$it Voucher" } ?: "Voucher",
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                )
+            }
+            Spacer(Modifier.width(7.dp))
+            Box(
+                modifier = Modifier
+                    .size(27.dp)
+                    .clip(CircleShape)
+                    .background(OrangeCta),
+                contentAlignment = Alignment.Center,
+            ) {
+                IconButton(
+                    onClick = onTopUpClick,
+                    modifier = Modifier.size(27.dp),
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Top up saldo", tint = OnOrangeCta, modifier = Modifier.size(17.dp))
+                }
             }
         }
     }
 }
+
+private fun formatHomeRupiah(value: Long): String =
+    value.coerceAtLeast(0L).toString().reversed().chunked(3).joinToString(".").reversed()
 
 @Composable
 internal fun WalletAction(icon: ImageVector, label: String) {
@@ -678,37 +1025,41 @@ internal fun WalletAction(icon: ImageVector, label: String) {
 @Composable
 internal fun TembusHomeServiceGrid(
     onKirimClick: () -> Unit,
-    onAmbilClick: () -> Unit,
     onFoodClick: () -> Unit,
     showFood: Boolean = true,
     onAggregatorClick: () -> Unit,
     onTambalBanClick: () -> Unit,
     onTowingClick: () -> Unit,
+    onMoreClick: () -> Unit,
     // LEGACY: single pickup entry (kirim+ambil gabung). Dipertahankan untuk
-    // kompatibilitas, tetapi grid baru memakai onKirimClick/onAmbilClick.
+    // kompatibilitas, tetapi grid baru memakai onKirimClick dan aggregator.
     onPickupClick: (() -> Unit)? = null,
 ) {
     val goKirim = onPickupClick ?: onKirimClick
-    val goAmbil = onPickupClick ?: onAmbilClick
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
     ) {
-        Text("Mau apa hari ini?", color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
-        Text("Layanan utama TEMBUS, satu tap ke pesanan.", color = Muted, fontSize = 12.sp)
-        Spacer(Modifier.height(12.dp))
-        // DESIGN.md §12: grid 2x3 — Kirim | Ambil | Food / Tambal | Towing | Lainnya.
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Layanan Utama", color = Ink, fontWeight = FontWeight.Black, fontSize = 14.sp)
+            Spacer(Modifier.weight(1f))
+            Text("CEPAT & SIAGA", color = OrangeCta, fontWeight = FontWeight.Bold, fontSize = 8.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        // Customer Home Figma: grid 2x3 — Kirim | Agregator | Food /
+        // Tambal | Towing | Lainnya. Ambil Paket tetap tersedia lewat
+        // universal search/secondary entry, bukan menggantikan aggregator.
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             TembusHomeServiceTile("Kirim Paket", Icons.Default.Send, TembusHomeServiceTone.Primary, goKirim, modifier = Modifier.weight(1f))
-            TembusHomeServiceTile("Ambil Paket", Icons.Default.MoveToInbox, TembusHomeServiceTone.Primary, goAmbil, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile("Agregator", Icons.Default.LocalShipping, TembusHomeServiceTone.Primary, onAggregatorClick, modifier = Modifier.weight(1f))
             if (showFood) {
                 TembusHomeServiceTile(TembusServiceIcons.Food.label, TembusServiceIcons.Food.icon, TembusHomeServiceTone.Food, onFoodClick, modifier = Modifier.weight(1f))
             }
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TembusHomeServiceTile(TembusServiceIcons.TambalBan.label, TembusServiceIcons.TambalBan.icon, TembusHomeServiceTone.Emergency, onTambalBanClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
-            TembusHomeServiceTile(TembusServiceIcons.Towing.label, TembusServiceIcons.Towing.icon, TembusHomeServiceTone.Towing, onTowingClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
-            TembusHomeServiceTile("Lainnya", Icons.Default.GridView, TembusHomeServiceTone.Secondary, onAggregatorClick, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile(TembusServiceIcons.TambalBan.label, TembusServiceIcons.TambalBan.icon, TembusHomeServiceTone.Emergency, onTambalBanClick, badge = "24 Jam", emergency = true, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile(TembusServiceIcons.Towing.label, TembusServiceIcons.Towing.icon, TembusHomeServiceTone.Towing, onTowingClick, badge = "Cepat", emergency = true, modifier = Modifier.weight(1f))
+            TembusHomeServiceTile("Lainnya", Icons.Default.GridView, TembusHomeServiceTone.Secondary, onMoreClick, modifier = Modifier.weight(1f))
         }
     }
 }
@@ -726,14 +1077,19 @@ internal fun TembusHomeServiceTile(
     modifier: Modifier = Modifier
 ) {
     val (bgColor, iconColor) = when (tone) {
-        TembusHomeServiceTone.Primary -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
-        TembusHomeServiceTone.Food -> MaterialTheme.colorScheme.tertiary to MaterialTheme.colorScheme.onTertiary
-        TembusHomeServiceTone.Secondary -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        TembusHomeServiceTone.Emergency -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
-        TembusHomeServiceTone.Towing -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+        TembusHomeServiceTone.Primary -> Color(0xFFEAF6F0) to Color(0xFF006640)
+        TembusHomeServiceTone.Food -> Color(0xFFFFF0E7) to OrangeCta
+        TembusHomeServiceTone.Secondary -> Color(0xFFEAF6F0) to Color(0xFF006640)
+        TembusHomeServiceTone.Emergency -> Color(0xFFFFF0E7) to Color(0xFFE75B19)
+        TembusHomeServiceTone.Towing -> Color(0xFFFFEAE6) to Color(0xFFE2472F)
     }
     Column(
         modifier = modifier
+            .height(90.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White)
+            .border(1.dp, Color(0xFFE6EEE9), RoundedCornerShape(12.dp))
+            .padding(vertical = 6.dp)
             .semantics {
                 contentDescription = if (emergency) "$label, layanan darurat" else label
                 role = Role.Button
@@ -741,33 +1097,64 @@ internal fun TembusHomeServiceTile(
             .clickable(role = Role.Button) { onClick() },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(32.dp),
+        ) {
             Box(
                 modifier = Modifier
-                    .size(54.dp)
-                    .clip(RoundedCornerShape(TembusRadius.Card))
-                    .background(bgColor),
-                contentAlignment = Alignment.Center
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(bgColor)
+                    .align(Alignment.Center),
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(icon, contentDescription = label, tint = iconColor, modifier = Modifier.size(28.dp))
+                Icon(icon, contentDescription = label, tint = iconColor, modifier = Modifier.size(17.dp))
             }
             if (badge != null) {
                 Box(
-                    modifier = Modifier.align(Alignment.TopEnd).size(22.dp).clip(CircleShape).background(Error),
-                    contentAlignment = Alignment.Center
+                    modifier = Modifier.align(Alignment.TopEnd),
                 ) {
-                    Text(badge, color = MaterialTheme.colorScheme.onError, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(OrangeCta)
+                            .padding(horizontal = 5.dp, vertical = 2.dp),
+                    ) {
+                        MaterialText(
+                            badge,
+                            color = OnOrangeCta,
+                            fontSize = 7.sp,
+                            lineHeight = 8.sp,
+                            fontWeight = FontWeight.Black,
+                        )
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Text(
+        Spacer(Modifier.height(4.dp))
+        MaterialText(
             text = label,
-            fontSize = 11.sp,
+            fontSize = 9.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
+        )
+        MaterialText(
+            text = when (label.lowercase()) {
+                "kirim paket" -> "Instant & Sameday"
+                "agregator" -> "Pick-up Driver"
+                "food" -> "Kuliner Hangat"
+                "tambal ban" -> "Darurat Siaga"
+                "towing" -> "Derek Motor/Mobil"
+                else -> "Semua Ekspedisi"
+            },
+            fontSize = 7.sp,
+            color = Muted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -989,16 +1376,17 @@ private fun TembusMiniCta(label: String) {
 
 /**
  * Strip merchant terdekat: foto + nama + rating. Tap membuka detail merchant.
- * Disembunyikan total bila daftar kosong (tidak ada placeholder palsu, R-38).
+ * Saat daftar kosong, pertahankan hierarki Figma dengan empty state yang
+ * mengarahkan ke Food; jangan menampilkan merchant atau rating sintetis.
  */
 @Composable
 internal fun TembusFoodRecommendationStrip(
     merchants: List<FoodMerchant>,
     onMerchantClick: (String) -> Unit,
     onSeeAllClick: () -> Unit,
+    locationLabel: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    if (merchants.isEmpty()) return
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -1007,55 +1395,160 @@ internal fun TembusFoodRecommendationStrip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Rekomendasi kuliner dekatmu", color = Ink, fontWeight = FontWeight.Black, fontSize = 16.sp)
             Text(
-                "Lihat Semua",
-                color = Primary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable(role = Role.Button) { onSeeAllClick() }
+                "Kuliner Terdekat${locationLabel?.let { " di ${it.substringAfterLast(',').trim()}" } ?: ""}",
+                color = Ink,
+                fontWeight = FontWeight.Black,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
+            if (merchants.isNotEmpty()) {
+                Text(
+                    "Semua (${merchants.size})",
+                    color = OrangeCta,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable(role = Role.Button) { onSeeAllClick() }
+                )
+            }
         }
         Spacer(Modifier.height(10.dp))
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(horizontal = 20.dp)
-        ) {
-            items(merchants, key = { it.id }) { merchant ->
-                Card(
-                    modifier = Modifier.width(148.dp),
-                    shape = RoundedCornerShape(TembusRadius.Card),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    onClick = { onMerchantClick(merchant.id) }
+        if (merchants.isEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                shape = RoundedCornerShape(TembusRadius.Card),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                onClick = onSeeAllClick,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column {
-                        if (!merchant.imageUrl.isNullOrBlank()) {
-                            AsyncImage(
-                                model = merchant.imageUrl,
-                                contentDescription = merchant.name,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(88.dp)
-                            )
-                        }
-                        Column(Modifier.padding(10.dp)) {
-                            Text(
-                                merchant.name,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                "★ ${formatOneDecimal(merchant.avgRating ?: 0.0)}",
-                                fontSize = 11.sp,
-                                color = Muted,
-                                maxLines = 1
-                            )
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEAF6F0)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Default.Store, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Belum ada merchant di sekitar lokasi ini",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            "Coba ubah kategori atau periksa kembali lokasi perangkat.",
+                            fontSize = 10.sp,
+                            color = Muted,
+                            textAlign = TextAlign.Start,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Text("Lihat", color = OrangeCta, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        } else {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(horizontal = 20.dp)
+            ) {
+                items(merchants, key = { it.id }) { merchant ->
+                    val previewItem = merchant.menuItems
+                        .firstOrNull { it.canBeAddedToCart }
+                        ?: merchant.menuItems.firstOrNull()
+                    val previewImage = previewItem?.foto?.takeIf { it.isNotBlank() }
+                        ?: merchant.imageUrl?.takeIf { it.isNotBlank() }
+                    val previewTitle = previewItem?.name?.takeIf { it.isNotBlank() } ?: merchant.name
+                    val previewDescription = previewItem?.deskripsi?.takeIf { it.isNotBlank() }
+                        ?: previewItem?.kategori?.takeIf { it.isNotBlank() }
+                        ?: merchant.address.takeIf { it.isNotBlank() }
+                    val ratingLabel = merchant.avgRating
+                        ?.takeIf { merchant.ratingCount > 0 }
+                        ?.let { "★ ${formatOneDecimal(it)} (${merchant.ratingCount})" }
+                        ?: "Belum ada rating"
+                    Card(
+                        modifier = Modifier.width(166.dp),
+                        shape = RoundedCornerShape(TembusRadius.Card),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        onClick = { onMerchantClick(merchant.id) }
+                    ) {
+                        Column {
+                            if (!previewImage.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = previewImage,
+                                    contentDescription = "Foto $previewTitle dari ${merchant.name}",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(86.dp)
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(86.dp)
+                                        .background(Color(0xFFEAF5EE)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(Icons.Default.Restaurant, contentDescription = null, tint = Primary, modifier = Modifier.size(28.dp))
+                                }
+                            }
+                            Column(Modifier.padding(10.dp)) {
+                                Text(
+                                    merchant.name,
+                                    fontSize = 9.sp,
+                                    color = Muted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    previewTitle,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    previewDescription ?: ratingLabel,
+                                    fontSize = 9.sp,
+                                    color = Muted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Spacer(Modifier.height(5.dp))
+                                Text(ratingLabel, fontSize = 9.sp, color = Muted, maxLines = 1)
+                                Spacer(Modifier.height(7.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    previewItem?.price?.takeIf { it > 0 }?.let {
+                                        Text(formatIdr(it), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Ink, modifier = Modifier.weight(1f))
+                                    } ?: Spacer(Modifier.weight(1f))
+                                    merchant.distanceKm?.let {
+                                        Surface(color = Color(0xFFFFF0E7), shape = RoundedCornerShape(999.dp)) {
+                                            Text(
+                                                "${String.format(java.util.Locale.US, "%.1f", it)} km",
+                                                fontSize = 8.sp,
+                                                color = OrangeCta,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1065,3 +1558,8 @@ internal fun TembusFoodRecommendationStrip(
 }
 
 private fun formatOneDecimal(value: Double): String = "%.1f".format(java.util.Locale.US, value)
+
+private fun formatIdr(value: Long): String =
+    java.text.NumberFormat.getCurrencyInstance(java.util.Locale("id", "ID"))
+        .apply { maximumFractionDigits = 0; minimumFractionDigits = 0 }
+        .format(value)

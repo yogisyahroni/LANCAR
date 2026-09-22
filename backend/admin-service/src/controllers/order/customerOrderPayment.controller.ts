@@ -61,6 +61,7 @@ import {
   routeVehicleTypeForService,
   validatePackagePolicy,
 } from './_shared';
+import { paidCustomerOrderStatus } from '../../services/customerOrderSchedule';
 
 export const createCustomerOrderPaymentSession = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -259,7 +260,9 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
               p.snap_js_url,
               p.status AS payment_status,
               o.merchant_id,
-              o.service_sub_type
+              o.service_sub_type,
+              o.schedule_type,
+              o.scheduled_at
        FROM orders o
        LEFT JOIN payments p ON p.order_id = o.id
        WHERE o.id = $1 AND o.customer_id = $2
@@ -284,11 +287,15 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
     const paymentAlreadyPaid = order.payment_status === 'paid';
 
     const isFoodOrder = order.merchant_id != null || order.service_sub_type === 'food_delivery';
+    const isScheduledOrder = order.schedule_type === 'scheduled' && order.scheduled_at;
+    const nextPaidOrderStatus = isScheduledOrder
+      ? 'scheduled'
+      : paidCustomerOrderStatus({ scheduleType: 'now', scheduledAt: null }, isFoodOrder);
 
     if (order.status === 'pending_payment' && (paymentAlreadyPaid || manualConfirmEnabled)) {
       await client.query(
         `UPDATE orders SET status = $2, updated_at = NOW() WHERE id = $1`,
-        [id, isFoodOrder ? 'pending_merchant' : 'pending']
+        [id, nextPaidOrderStatus]
       );
       if (manualConfirmEnabled && !paymentAlreadyPaid) {
         await client.query(
@@ -323,7 +330,7 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
           manual_confirmed: manualConfirmEnabled && !paymentAlreadyPaid,
         },
       });
-      if (!isFoodOrder) {
+      if (!isFoodOrder && !isScheduledOrder) {
         createdOffers = await advanceOnDemandDispatchQueue(client, 1);
       }
     }
@@ -350,7 +357,7 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
         orderNumber: order.order_number,
         customerId: customer_id,
         paymentStatus: 'paid',
-        orderStatus: isFoodOrder ? 'pending_merchant' : 'pending',
+        orderStatus: nextPaidOrderStatus,
         source: manualConfirmEnabled && !paymentAlreadyPaid ? 'manual_confirm' : 'payment_reconciled',
         serviceSubType: order.service_sub_type,
         merchantId: order.merchant_id,
@@ -363,7 +370,7 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
     const payment = publicCustomerPaymentSession({
       ...order,
       payment_status: paymentAlreadyPaid || manualConfirmEnabled ? 'paid' : order.payment_status,
-      order_status: paymentAlreadyPaid || manualConfirmEnabled ? (isFoodOrder ? 'pending_merchant' : 'pending') : order.order_status
+      order_status: paymentAlreadyPaid || manualConfirmEnabled ? nextPaidOrderStatus : order.order_status
     });
 
     res.json({
@@ -467,7 +474,9 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
               o.customer_id,
               o.order_number,
               o.merchant_id,
-              o.service_sub_type
+              o.service_sub_type,
+              o.schedule_type,
+              o.scheduled_at
        FROM payments p
        JOIN orders o ON o.id = p.order_id
        WHERE p.provider_reference = $1
@@ -484,7 +493,7 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
 
     const orderIds = rows.map((row) => row.order_id);
     const dispatchableOrderIds = rows
-      .filter((row) => row.merchant_id == null && row.service_sub_type !== 'food_delivery')
+      .filter((row) => row.merchant_id == null && row.service_sub_type !== 'food_delivery' && row.schedule_type !== 'scheduled')
       .map((row) => row.order_id);
     const customerId = rows[0].customer_id;
     const paidWebhook = isSuccessfulTransaction(transaction_status, fraud_status);
@@ -501,6 +510,7 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
       await client.query(
         `UPDATE orders
          SET status = CASE
+               WHEN schedule_type = 'scheduled' AND scheduled_at IS NOT NULL THEN 'scheduled'
                WHEN merchant_id IS NOT NULL OR service_sub_type = 'food_delivery' THEN 'pending_merchant'
                ELSE 'pending'
              END,
@@ -548,7 +558,9 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
         customerId: row.customer_id,
         paymentStatus: paidWebhook ? 'paid' : failedPaymentStatus,
         orderStatus: paidWebhook
-          ? (row.merchant_id != null || row.service_sub_type === 'food_delivery' ? 'pending_merchant' : 'pending')
+          ? (row.schedule_type === 'scheduled' && row.scheduled_at
+            ? 'scheduled'
+            : (row.merchant_id != null || row.service_sub_type === 'food_delivery' ? 'pending_merchant' : 'pending'))
           : 'payment_failed',
         source: 'midtrans_webhook',
         serviceSubType: row.service_sub_type,

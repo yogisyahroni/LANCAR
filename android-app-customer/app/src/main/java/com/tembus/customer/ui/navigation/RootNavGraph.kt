@@ -1,7 +1,10 @@
 package com.tembus.customer.ui.navigation
 
 import android.net.Uri
+import android.content.pm.PackageManager
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import android.Manifest
 import androidx.compose.animation.AnimatedVisibility
@@ -72,6 +75,7 @@ import com.tembus.customer.ui.screens.profile.LoyaltyScreen
 import com.tembus.customer.ui.screens.profile.ReferralScreen
 import com.tembus.customer.ui.screens.booking.BookingScreen
 import com.tembus.customer.ui.screens.booking.BookingViewModel
+import com.tembus.customer.ui.screens.business.BusinessScreen
 import com.tembus.customer.ui.screens.call.InAppCallScreen
 import com.tembus.customer.ui.screens.call.InAppCallState
 import com.tembus.customer.ui.screens.chat.ChatScreen
@@ -88,11 +92,18 @@ import com.tembus.customer.ui.screens.history.OrderHistoryViewModel
 import com.tembus.customer.ui.screens.main.DashboardScreen
 import com.tembus.customer.ui.screens.main.TembusUniversalSearchScreen
 import com.tembus.customer.ui.screens.notifications.NotificationCenterScreen
+import com.tembus.customer.ui.screens.promo.PromoCenterScreen
 import com.tembus.customer.ui.screens.onboarding.OnboardingScreen
 import com.tembus.customer.ui.screens.payment.PaymentScreen
 import com.tembus.customer.ui.screens.payment.PaymentViewModel
 import com.tembus.customer.ui.screens.profile.ProfileScreen
 import com.tembus.customer.ui.screens.profile.ProfileViewModel
+import com.tembus.customer.ui.screens.profile.AddressBookScreen
+import com.tembus.customer.ui.screens.profile.WalletTopUpScreen
+import com.tembus.customer.ui.screens.profile.PaymentMethodsScreen
+import com.tembus.customer.ui.screens.profile.PrivacyTermsScreen
+import com.tembus.customer.ui.screens.profile.SupportScreen
+import com.tembus.customer.ui.screens.messages.MessagesScreen
 import com.tembus.customer.ui.screens.service.NearbyCouriersScreen
 import com.tembus.customer.ui.screens.service.ServiceBookingScreen
 import com.tembus.customer.ui.screens.service.ServiceCategoryScreen
@@ -134,7 +145,13 @@ fun RootNavGraph(
     var foregroundNotification by remember { mutableStateOf<NotificationRealtimeEvent?>(null) }
     val lastHandledDeepLink = remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(initialDeepLink?.toString()) {
+    LaunchedEffect(initialDeepLink?.toString(), isLoading, startDestination) {
+        // The graph is not ready while startup auth is resolving. Keep the
+        // validated link pending so a cold-start link is replayed after login
+        // instead of navigating into an incomplete graph or being discarded.
+        if (isLoading || startDestination == Screen.AuthGraph.route || startDestination == Screen.Onboarding.route) {
+            return@LaunchedEffect
+        }
         val deepLink = initialDeepLink ?: return@LaunchedEffect
         val key = deepLink.toString()
         if (lastHandledDeepLink.value == key) return@LaunchedEffect
@@ -158,7 +175,15 @@ fun RootNavGraph(
         Screen.AuthGraph.route,
         Screen.Booking.route,
         Screen.Profile.route,
+        Screen.Support.route,
+        Screen.AddressBook.route,
+        Screen.Business.route,
+        Screen.Messages.route,
+        Screen.WalletTopUp.route,
+        Screen.PaymentMethods.route,
         Screen.Notifications.route,
+        Screen.Promos.route,
+        Screen.PrivacyTerms.route,
         Screen.OrderDetail.route,
         Screen.Payment.route,
         Screen.Tracking.route,
@@ -172,6 +197,22 @@ fun RootNavGraph(
         Screen.ServiceReport.route,
     )
     SecureScreenEffect(enabled = secureScreenRequired)
+
+    val handleRemoteAction: (RemoteDeepLinkTarget) -> Unit = { target ->
+        when (target) {
+            is RemoteDeepLinkTarget.Internal -> when (target.destination) {
+                RemoteInternalDestination.HOME -> navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
+                RemoteInternalDestination.FOOD -> navController.navigate(Screen.FoodHome.route) { launchSingleTop = true }
+                RemoteInternalDestination.FOOD_FAVORITES -> navController.navigate(Screen.FoodFavorites.route) { launchSingleTop = true }
+                RemoteInternalDestination.PROMO -> navController.navigate(Screen.Promos.route) { launchSingleTop = true }
+                RemoteInternalDestination.ORDERS -> navController.navigate(Screen.History.route) { launchSingleTop = true }
+                RemoteInternalDestination.SUPPORT -> navController.navigate(Screen.Support.route) { launchSingleTop = true }
+                RemoteInternalDestination.PROFILE -> navController.navigate(Screen.Profile.route) { launchSingleTop = true }
+            }
+            is RemoteDeepLinkTarget.External -> RemoteDeepLinkResolver.openExternalUrl(context, target)
+            RemoteDeepLinkTarget.Invalid -> dispatchRemoteDeepLinkFailure(target)
+        }
+    }
 
     if (isLoading) return
 
@@ -266,31 +307,42 @@ fun RootNavGraph(
                     },
                     onFoodClick = { navController.navigate(Screen.FoodHome.route) },
                     onIncomingClick = { navController.navigate(Screen.History.route) },
-                    onRemoteAction = { target ->
-                        when (target) {
-                            is RemoteDeepLinkTarget.Internal -> when (target.destination) {
-                                RemoteInternalDestination.HOME -> navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
-                                RemoteInternalDestination.FOOD -> navController.navigate(Screen.FoodHome.route) { launchSingleTop = true }
-                                RemoteInternalDestination.FOOD_FAVORITES -> navController.navigate(Screen.FoodFavorites.route) { launchSingleTop = true }
-                                RemoteInternalDestination.PROMO -> navController.navigate(Screen.Booking.createRoute("promo")) { launchSingleTop = true }
-                                RemoteInternalDestination.ORDERS -> navController.navigate(Screen.History.route) { launchSingleTop = true }
-                                RemoteInternalDestination.SUPPORT -> Unit
-                                RemoteInternalDestination.PROFILE -> navController.navigate(Screen.Profile.route) { launchSingleTop = true }
-                            }
-                            is RemoteDeepLinkTarget.External -> RemoteDeepLinkResolver.openExternalUrl(context, target)
-                            RemoteDeepLinkTarget.Invalid -> dispatchRemoteDeepLinkFailure(target)
-                        }
-                    },
+                    onRemoteAction = handleRemoteAction,
                     onTrackingClick = { orderId -> navController.navigate(Screen.Tracking.createRoute(orderId)) },
                     onChatClick = { orderId -> navController.navigate(Screen.Chat.createRoute(orderId, null)) },
                     onHistoryClick = { navController.navigate(Screen.History.route) },
-                    onBusinessClick = { navController.navigate(Screen.Business.route) },
+                    onBusinessClick = { navController.navigate(Screen.Messages.route) },
                     onProfileClick = { navController.navigate(Screen.Profile.route) },
                     onHomeClick = {
                         navController.popBackStack(Screen.Dashboard.route, inclusive = false)
                             ?: navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
                     },
                     onSearchClick = { navController.navigate(Screen.UniversalSearch.route) },
+                    onWalletTopUpClick = { navController.navigate(Screen.WalletTopUp.route) },
+                    onVoucherClick = { navController.navigate(Screen.Promos.route) { launchSingleTop = true } },
+                )
+            }
+
+            composable(Screen.Business.route) {
+                BusinessScreen(onBackClick = { navController.popBackStack() })
+            }
+
+            composable(Screen.Messages.route) {
+                MessagesScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onOpenChat = { orderId, participantName ->
+                        navController.navigate(Screen.Chat.createRoute(orderId, participantName))
+                    },
+                    onOpenOrder = { orderId ->
+                        navController.navigate(Screen.OrderDetail.createRoute(orderId))
+                    },
+                    onHomeClick = {
+                        navController.popBackStack(Screen.Dashboard.route, inclusive = false)
+                            ?: navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
+                    },
+                    onHistoryClick = { navController.navigate(Screen.History.route) },
+                    onNotificationsClick = { navController.navigate(Screen.Notifications.route) },
+                    onProfileClick = { navController.navigate(Screen.Profile.route) },
                 )
             }
 
@@ -322,42 +374,80 @@ fun RootNavGraph(
                 val context = LocalContext.current
                 var userLat by remember { mutableStateOf<Double?>(null) }
                 var userLng by remember { mutableStateOf<Double?>(null) }
-                LaunchedEffect(Unit) {
+                var locationMessage by remember { mutableStateOf<String?>(null) }
+                var locationRequestVersion by remember { mutableStateOf(0) }
+                val locationPermissionLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestMultiplePermissions()
+                ) { result ->
+                    val granted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                        result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+                    if (granted) {
+                        locationMessage = null
+                        locationRequestVersion++
+                    } else {
+                        locationMessage = "Lokasi ditolak. Aktifkan izin lokasi untuk melihat merchant di sekitar kamu."
+                    }
+                }
+                LaunchedEffect(locationRequestVersion) {
                     val fused = LocationServices.getFusedLocationProviderClient(context)
-                    val hasLocationPermission = ContextCompat.checkSelfPermission(
+                    val hasFinePermission = ContextCompat.checkSelfPermission(
                         context,
                         Manifest.permission.ACCESS_FINE_LOCATION
-                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                    if (!hasLocationPermission) {
-                        userLat = -6.2088
-                        userLng = 106.8456
+                    ) == PackageManager.PERMISSION_GRANTED
+                    val hasCoarsePermission = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (!hasFinePermission && !hasCoarsePermission) {
+                        userLat = null
+                        userLng = null
                         return@LaunchedEffect
                     }
                     try {
-                        fused.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                        fused.getCurrentLocation(
+                            if (hasFinePermission) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                            null
+                        )
                             .addOnSuccessListener { loc ->
                                 if (loc != null) {
                                     userLat = loc.latitude
                                     userLng = loc.longitude
+                                    locationMessage = null
+                                } else {
+                                    userLat = null
+                                    userLng = null
+                                    locationMessage = "Lokasi belum ditemukan. Pastikan GPS aktif lalu coba lagi."
                                 }
                             }
-                            .addOnFailureListener {
-                                userLat = -6.2088
-                                userLng = 106.8456
+                            .addOnFailureListener { error ->
+                                userLat = null
+                                userLng = null
+                                locationMessage = error.localizedMessage?.takeIf { it.isNotBlank() }
+                                    ?: "Lokasi belum tersedia. Pastikan GPS aktif lalu coba lagi."
                             }
                     } catch (_: Exception) {
-                        userLat = -6.2088
-                        userLng = 106.8456
+                        userLat = null
+                        userLng = null
+                        locationMessage = "Lokasi belum tersedia. Pastikan GPS aktif lalu coba lagi."
                     }
                 }
-                val lat = userLat ?: -6.2088
-                val lng = userLng ?: 106.8456
                 FoodHomeScreen(
-                    initialLat = lat,
-                    initialLng = lng,
+                    initialLat = userLat,
+                    initialLng = userLng,
                     onBack = { navController.popBackStack() },
                     onMerchantClick = { merchantId -> navController.navigate(Screen.FoodMerchantDetail.createRoute(merchantId)) },
-                    onCartClick = { navController.navigate(Screen.FoodCart.route) }
+                    onCartClick = { navController.navigate(Screen.FoodCart.route) },
+                    onAccountClick = { navController.navigate(Screen.Profile.route) },
+                    onPromoAction = handleRemoteAction,
+                    onRequestLocation = {
+                        locationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                            )
+                        )
+                    },
+                    locationMessage = locationMessage,
                 )
             }
 
@@ -385,7 +475,10 @@ fun RootNavGraph(
                 FoodCheckoutScreen(
                     onBack = { navController.popBackStack() },
                     onOrderCreated = { orderId ->
-                        navController.navigate(Screen.Tracking.createRoute(orderId)) {
+                        // Food order dibuat dalam status pending_payment. Selalu
+                        // lewati payment screen agar merchant/courier hanya melihat
+                        // order setelah payment service mengonfirmasi pembayaran.
+                        navController.navigate(Screen.Payment.createRoute(orderId)) {
                             popUpTo(Screen.Dashboard.route)
                         }
                     }
@@ -402,10 +495,40 @@ fun RootNavGraph(
             composable(Screen.Profile.route) {
                 ProfileScreen(
                     onLogout = onLogout,
-                    onBackClick = { navController.popBackStack() },
+                    onAddressesClick = { navController.navigate(Screen.AddressBook.route) },
                     onLanguageClick = { navController.navigate(Screen.Language.route) },
-                    onReferralClick = { navController.navigate(Screen.Referral.route) },
-                    onLoyaltyClick = { navController.navigate(Screen.Loyalty.route) }
+                    onLoyaltyClick = { navController.navigate(Screen.Loyalty.route) },
+                    onPrivacyTermsClick = { navController.navigate(Screen.PrivacyTerms.route) },
+                    onHelpClick = { navController.navigate(Screen.Support.route) { launchSingleTop = true } },
+                    onBusinessClick = { navController.navigate(Screen.Business.route) },
+                    onTopUpClick = { navController.navigate(Screen.WalletTopUp.route) },
+                    onPaymentMethodsClick = { navController.navigate(Screen.PaymentMethods.route) },
+                    onHomeClick = {
+                        navController.popBackStack(Screen.Dashboard.route, inclusive = false)
+                            ?: navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
+                    },
+                    onHistoryClick = { navController.navigate(Screen.History.route) },
+                    onMessagesClick = { navController.navigate(Screen.Messages.route) },
+                    onNotificationsClick = { navController.navigate(Screen.Notifications.route) },
+                )
+            }
+
+            composable(Screen.WalletTopUp.route) {
+                WalletTopUpScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(Screen.PaymentMethods.route) {
+                PaymentMethodsScreen(
+                    onBack = { navController.popBackStack() },
+                    onTopUp = { navController.navigate(Screen.WalletTopUp.route) },
+                    onSecurity = { navController.popBackStack(); navController.navigate(Screen.Profile.route) },
+                )
+            }
+
+            composable(Screen.AddressBook.route) {
+                AddressBookScreen(
+                    onBack = { navController.popBackStack() },
+                    onSelectAddress = null
                 )
             }
 
@@ -419,6 +542,10 @@ fun RootNavGraph(
 
             composable(Screen.Loyalty.route) {
                 LoyaltyScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(Screen.PrivacyTerms.route) {
+                PrivacyTermsScreen(onBack = { navController.popBackStack() })
             }
 
             composable(
@@ -451,14 +578,34 @@ fun RootNavGraph(
                     viewModel = historyViewModel,
                     onBackClick = { navController.popBackStack() },
                     onOrderClick = { orderId -> navController.navigate(Screen.OrderDetail.createRoute(orderId)) },
-                    onReorderNavigate = { navController.navigate(Screen.FoodCart.route) }
+                    onReorderNavigate = { navController.navigate(Screen.FoodCart.route) },
+                    onTrackClick = { orderId -> navController.navigate(Screen.Tracking.createRoute(orderId)) },
+                    onChatClick = { orderId -> navController.navigate(Screen.Chat.createRoute(orderId, null)) },
+                    onCallClick = { orderId, name -> navController.navigate(Screen.InAppCall.createRoute(orderId, name)) },
+                    onSearchClick = { navController.navigate(Screen.UniversalSearch.route) },
+                    onHomeClick = {
+                        navController.popBackStack(Screen.Dashboard.route, inclusive = false)
+                            ?: navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
+                    },
+                    onMessagesClick = { navController.navigate(Screen.Messages.route) },
+                    onNotificationsClick = { navController.navigate(Screen.Notifications.route) },
+                    onProfileClick = { navController.navigate(Screen.Profile.route) },
                 )
             }
 
             composable(Screen.ServiceCategory.route) {
                 ServiceCategoryScreen(
                     onBackClick = { navController.popBackStack() },
-                    onCategorySelected = { category -> navController.navigate(Screen.SubTypeSelector.createRoute(category)) }
+                    onCategorySelected = { category ->
+                        // Towing landing already captures the vehicle choice. Do not ask for
+                        // the same choice a second time; keep the canonical subtype for the
+                        // quote/courier flow. Tambal ban keeps the existing selector route.
+                        if (category == "towing_motor" || category == "towing_mobil") {
+                            navController.navigate(Screen.ServiceBooking.createRoute(category))
+                        } else {
+                            navController.navigate(Screen.SubTypeSelector.createRoute(category))
+                        }
+                    }
                 )
             }
 
@@ -502,7 +649,9 @@ fun RootNavGraph(
                     onBackClick = { navController.popBackStack() },
                     onSelectCourierClick = { lat, lng -> navController.navigate(Screen.NearbyCouriers.createRoute(serviceSubType, lat, lng)) },
                     onBookingSuccess = { orderId ->
-                        navController.navigate(Screen.ServiceTracking.createRoute(orderId, serviceSubType)) {
+                        // Roadside/towing menggunakan order lifecycle yang sama:
+                        // pending_payment -> payment confirmation -> dispatch.
+                        navController.navigate(Screen.Payment.createRoute(orderId, serviceSubType)) {
                             popUpTo(Screen.Dashboard.route)
                         }
                     }
@@ -531,6 +680,39 @@ fun RootNavGraph(
                 )
             }
 
+            composable(
+                route = Screen.ServiceTracking.route,
+                arguments = listOf(
+                    navArgument("orderId") { type = NavType.StringType },
+                    navArgument("serviceSubType") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId").orEmpty()
+                val serviceSubType = backStackEntry.arguments?.getString("serviceSubType").orEmpty()
+                ServiceTrackingScreen(
+                    orderId = orderId,
+                    serviceSubType = serviceSubType,
+                    onBackClick = { navController.popBackStack() },
+                    onChatClick = { id -> navController.navigate(Screen.Chat.createRoute(id, null)) },
+                    onCallClick = { id -> navController.navigate(Screen.InAppCall.createRoute(id, null, "outgoing")) },
+                    onReportClick = { id -> navController.navigate(Screen.OrderDetail.createRoute(id)) }
+                )
+            }
+
+            composable(
+                route = Screen.ServiceReport.route,
+                arguments = listOf(
+                    navArgument("orderId") { type = NavType.StringType },
+                    navArgument("serviceSubType") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                ServiceReportScreen(
+                    orderId = backStackEntry.arguments?.getString("orderId").orEmpty(),
+                    serviceSubType = backStackEntry.arguments?.getString("serviceSubType").orEmpty(),
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+
             // ============================================================
             // TAMBAL BAN HOME + DETAIL + SEARCH (design Stitch UI/UX)
             // ============================================================
@@ -538,7 +720,13 @@ fun RootNavGraph(
                 TambalBanHomeScreen(
                     onBackClick = { navController.popBackStack() },
                     onServiceSelected = { serviceSubType ->
-                        navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType))
+                        if (serviceSubType.startsWith("towing")) {
+                            // The Figma emergency flow is the canonical towing entry point.
+                            // Keep the legacy booking route for tire-repair subtypes only.
+                            navController.navigate(Screen.ServiceCategory.route)
+                        } else {
+                            navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType))
+                        }
                     },
                     onCourierSelected = { courier ->
                         navController.navigate(
@@ -607,7 +795,32 @@ fun RootNavGraph(
                     onOpenChat = { orderId -> navController.navigate(Screen.Chat.createRoute(orderId, null)) },
                     onOpenOrder = { orderId -> navController.navigate(Screen.OrderDetail.createRoute(orderId)) },
                     onOpenPromo = { promoCode -> navController.navigate(Screen.Booking.createRoute(open = null, promoCode = promoCode)) },
-                    onOpenSupport = { /* handled in screen */ }
+                    onOpenSupport = { navController.navigate(Screen.Support.route) { launchSingleTop = true } },
+                    onHomeClick = {
+                        navController.popBackStack(Screen.Dashboard.route, inclusive = false)
+                            ?: navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
+                    },
+                    onHistoryClick = { navController.navigate(Screen.History.route) },
+                    onMessagesClick = { navController.navigate(Screen.Messages.route) },
+                    onProfileClick = { navController.navigate(Screen.Profile.route) },
+                )
+            }
+
+            composable(Screen.Promos.route) {
+                PromoCenterScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onUsePromo = { code ->
+                        navController.navigate(Screen.Booking.createRoute(promoCode = code))
+                    }
+                )
+            }
+
+            composable(Screen.Support.route) {
+                SupportScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onOpenOrder = { orderId ->
+                        navController.navigate(Screen.OrderDetail.createRoute(orderId))
+                    }
                 )
             }
 
@@ -619,7 +832,36 @@ fun RootNavGraph(
                     viewModel = detailViewModel,
                     onBackClick = { navController.popBackStack() },
                     onTrackClick = { navController.navigate(Screen.Tracking.createRoute(it)) },
+                    onPaymentClick = { id, subtype ->
+                        navController.navigate(Screen.Payment.createRoute(id, subtype))
+                    },
                     onChatClick = { id, name -> navController.navigate(Screen.Chat.createRoute(id, name)) }
+                )
+            }
+
+            composable(
+                route = Screen.Payment.route,
+                arguments = listOf(
+                    navArgument("orderId") { type = NavType.StringType },
+                    navArgument("serviceSubType") { type = NavType.StringType; nullable = true; defaultValue = "" }
+                )
+            ) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId").orEmpty()
+                val serviceSubType = backStackEntry.arguments?.getString("serviceSubType").orEmpty()
+                PaymentScreen(
+                    orderId = orderId,
+                    onClose = { navController.popBackStack() },
+                    onPaymentSuccess = {
+                        if (serviceSubType.isNotBlank()) {
+                            navController.navigate(Screen.ServiceTracking.createRoute(orderId, serviceSubType)) {
+                                popUpTo(Screen.Payment.route) { inclusive = true }
+                            }
+                        } else {
+                            navController.navigate(Screen.Tracking.createRoute(orderId)) {
+                                popUpTo(Screen.Payment.route) { inclusive = true }
+                            }
+                        }
+                    }
                 )
             }
 

@@ -32,6 +32,12 @@ val OnBrandHeader = Color(0xFFF5F7F4)    // text on brand header
 // Neutral light
 val Background = Color(0xFFF7F8F7)
 val Surface = Color(0xFFFFFFFF)
+// Figma customer-flow canvas: used by screens whose source frame exposes #F2FCF3.
+val CustomerCanvas = Color(0xFFF2FCF3)
+// Figma Customer Home artboard uses the neutral #F7F8F6 canvas.
+// Keep this separate from CustomerCanvas because parcel/tracking screens use
+// the pale-green canvas and should not inherit Home's neutral background.
+val CustomerHomeCanvas = Color(0xFFF7F8F6)
 val SurfaceVariant = Color(0xFFEEF3EF)
 val Outline = Color(0xFFC7D1CA)
 val OutlineStrong = Color(0xFF718078)

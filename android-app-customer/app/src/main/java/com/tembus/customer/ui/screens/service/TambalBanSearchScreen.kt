@@ -58,6 +58,7 @@ fun TambalBanSearchScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var query by remember { mutableStateOf("") }
+    val hasLocation = hasUsableServiceLocation(lat, lng)
 
     Scaffold(
         topBar = {
@@ -84,7 +85,7 @@ fun TambalBanSearchScreen(
                 value = query,
                 onValueChange = { q ->
                     query = q
-                    if (q.isBlank()) {
+                    if (!hasLocation || q.isBlank()) {
                         viewModel.clear()
                     } else {
                         viewModel.search(q, lat, lng, serviceSubType)
@@ -111,6 +112,16 @@ fun TambalBanSearchScreen(
             Spacer(Modifier.height(16.dp))
 
             when {
+                !hasLocation -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TembusServiceEmptyState(
+                        title = "Lokasi belum tersedia",
+                        message = "Aktifkan lokasi lalu buka kembali pencarian teknisi dari halaman Tambal Ban.",
+                    )
+                }
+
                 uiState.isLoading -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center

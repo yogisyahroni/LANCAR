@@ -368,6 +368,7 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
     const orderQuery = `
       SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name,
              o.recipient_phone_masked, o.model, o.status, o.distance_km, o.total_price_idr,
+             o.service_category, o.schedule_type, o.scheduled_at,
              o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
              COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0)::int AS route_distance_meters,
              COALESCE(o.route_duration_seconds, NULLIF(o.route_snapshot->>'duration_seconds', '')::int, 0)::int AS route_duration_seconds,
@@ -533,7 +534,11 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
 
     const order = {
       ...rows[0],
-      status_label: customerOrderStatusLabel(rows[0].status, rows[0].service_sub_type),
+      status_label: customerOrderStatusLabel(
+        rows[0].status,
+        rows[0].service_sub_type,
+        rows[0].service_category,
+      ),
       invoice: publicCustomerInvoice(rows[0]),
       food_items: foodItems,
       tambal_ban_report: tambalBanReports[0] || null,

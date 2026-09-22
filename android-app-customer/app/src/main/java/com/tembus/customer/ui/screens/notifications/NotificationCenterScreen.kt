@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -32,8 +31,11 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -67,17 +69,17 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.data.model.NotificationData
 import com.tembus.customer.ui.components.getTembusServiceIconSpec
-import com.tembus.customer.ui.theme.Background
+import com.tembus.customer.ui.designsystem.TembusBottomNavigation
+import com.tembus.customer.ui.designsystem.TembusNavigationItem
 import com.tembus.customer.ui.theme.OnSurface
 import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryDark
-import com.tembus.customer.ui.theme.PrimaryLight
 import com.tembus.customer.ui.theme.Secondary
-import com.tembus.customer.ui.theme.SecondaryLight
 
 private val PromoOrange = Color(0xFFF97316) // palet TEMBUS 2026
+private val NotificationCanvas = Color(0xFFF2FCF3) // Figma: TEMBUS - Notifikasi
 
 private data class NotificationCategoryTab(
     val key: String?,
@@ -102,11 +104,26 @@ fun NotificationCenterScreen(
     onOpenOrder: (String) -> Unit,
     onOpenPromo: (String?) -> Unit,
     onOpenSupport: () -> Unit,
+    onHomeClick: () -> Unit = {},
+    onHistoryClick: () -> Unit = {},
+    onMessagesClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
 
     Scaffold(
-        containerColor = Background,
+        containerColor = NotificationCanvas,
+        bottomBar = {
+            TembusBottomNavigation(
+                items = listOf(
+                    TembusNavigationItem("Beranda", Icons.Default.LocalShipping, false, onHomeClick),
+                    TembusNavigationItem("Aktivitas", Icons.Default.History, false, onHistoryClick),
+                    TembusNavigationItem("Pesan", Icons.Default.ChatBubbleOutline, false, onMessagesClick),
+                    TembusNavigationItem("Notifikasi", Icons.Default.NotificationsActive, true, onClick = {}),
+                    TembusNavigationItem("Akun", Icons.Default.Person, false, onProfileClick),
+                ),
+            )
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -124,7 +141,7 @@ fun NotificationCenterScreen(
                         Text("Baca", color = Primary, fontWeight = FontWeight.ExtraBold)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = NotificationCanvas)
             )
         }
     ) { padding ->
@@ -143,6 +160,13 @@ fun NotificationCenterScreen(
                 unreadByCategory = state.unreadCount.byCategory,
                 onSelect = viewModel::selectCategory
             )
+
+            if (state.error != null && state.notifications.isNotEmpty()) {
+                NotificationInlineErrorState(
+                    message = state.error.orEmpty(),
+                    onRetry = viewModel::refresh,
+                )
+            }
 
             when {
                 state.error != null && state.notifications.isEmpty() -> {
@@ -167,8 +191,8 @@ fun NotificationCenterScreen(
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 18.dp, top = 24.dp, end = 18.dp, bottom = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(state.notifications, key = { it.id }) { notification ->
                             NotificationRow(
@@ -202,8 +226,8 @@ private fun NotificationCategoryTabs(
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(vertical = 12.dp),
+            .background(NotificationCanvas)
+            .padding(vertical = 8.dp),
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -212,11 +236,11 @@ private fun NotificationCategoryTabs(
             val unread = if (tab.key == null) unreadByCategory.values.sum() else unreadByCategory[tab.key].orZero()
             Surface(
                 onClick = { onSelect(tab.key) },
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                color = if (selected) MaterialTheme.colorScheme.primary else Color.White,
                 shape = RoundedCornerShape(100.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(tab.icon, contentDescription = "", tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
@@ -265,29 +289,29 @@ private fun NotificationRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, if (notification.isRead) Outline else accent.copy(alpha = 0.34f)),
         elevation = CardDefaults.cardElevation(defaultElevation = if (notification.isRead) 1.dp else 3.dp)
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(13.dp))
                         .background(accent.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(icon, contentDescription = "", tint = accent)
                 }
-                Spacer(Modifier.width(13.dp))
+                Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             notification.title,
                             color = OnSurface,
-                            fontSize = 15.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.ExtraBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -306,8 +330,8 @@ private fun NotificationRow(
                     Text(
                         notification.body,
                         color = OnSurfaceVariant,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -315,9 +339,9 @@ private fun NotificationRow(
                 Spacer(Modifier.width(8.dp))
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(9.dp))
             HorizontalDivider(color = Outline)
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(7.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 NotificationPill(label = notification.category.displayCategory(), color = accent)
                 Spacer(Modifier.width(8.dp))
@@ -331,7 +355,7 @@ private fun NotificationRow(
                 }
                 Text(formatNotificationDate(notification.createdAt), color = OnSurfaceVariant, fontSize = 11.sp)
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = onArchive, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
+                IconButton(onClick = onArchive, modifier = Modifier.sizeIn(minWidth = 40.dp, minHeight = 40.dp)) {
                     Icon(Icons.Default.DeleteOutline, contentDescription = CustomerTextCatalog.translate("Arsipkan"), tint = OnSurfaceVariant, modifier = Modifier.size(18.dp))
                 }
             }
@@ -442,6 +466,48 @@ private fun NotificationErrorState(message: String, onRetry: () -> Unit) {
             Spacer(Modifier.height(16.dp))
             Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = Primary)) {
                 Text("Coba Lagi", fontWeight = FontWeight.ExtraBold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotificationInlineErrorState(message: String, onRetry: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Perubahan belum tersimpan",
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                )
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    fontSize = 11.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            TextButton(onClick = onRetry) {
+                Text(
+                    text = "Coba lagi",
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    fontWeight = FontWeight.ExtraBold,
+                )
             }
         }
     }

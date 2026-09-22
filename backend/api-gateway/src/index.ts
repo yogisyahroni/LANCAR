@@ -261,7 +261,7 @@ const directProxyPolicies: DirectProxyPolicy[] = [
     bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: false,
   },
   {
-    matches: (path) => path.startsWith('/api/v1/orders/') || path.startsWith('/api/v1/food') || path.startsWith('/api/v1/customer/nearby-couriers') || path.startsWith('/api/v1/customer/tambal-ban') || path.startsWith('/api/v1/customer/rating-reminders') || path.startsWith('/api/v1/courier/service-report') || path.startsWith('/api/v1/customer/couriers/') || path.startsWith('/api/v1/device-tokens'),
+    matches: (path) => path.startsWith('/api/v1/orders/') || path.startsWith('/api/v1/food') || path.startsWith('/api/v1/customer/nearby-couriers') || path.startsWith('/api/v1/customer/tambal-ban') || path.startsWith('/api/v1/customer/service-report') || path.startsWith('/api/v1/customer/roadside') || path.startsWith('/api/v1/customer/rating-reminders') || path.startsWith('/api/v1/courier/service-report') || path.startsWith('/api/v1/customer/couriers/') || path === '/api/v1/order/settlement' || path.startsWith('/api/v1/device-tokens'),
     serviceName: 'order-service', breaker: orderBreaker,
     bulkhead: new Bulkhead(resolveBulkheadLimit('order-service')), observeResponse: false,
   },
@@ -707,7 +707,12 @@ const prepareProxyRequest = (proxyReq: any, req: Request) => {
 };
 
 // Helper for proxying with body fix and circuit breaker integration
-const proxyWithResilience = (target: string, breaker: any, bulkhead: Bulkhead) => {
+const proxyWithResilience = (
+  target: string,
+  breaker: any,
+  bulkhead: Bulkhead,
+  pathFilter?: (pathname: string) => boolean,
+) => {
   // A proxy can emit both `error` and `close`/`finish` for one request. Keep
   // ownership of the acquired slot per request so an upstream failure cannot
   // release another request's slot while concurrent traffic is in flight.
@@ -721,6 +726,7 @@ const proxyWithResilience = (target: string, breaker: any, bulkhead: Bulkhead) =
   return createProxyMiddleware({
     target,
     changeOrigin: true,
+    ...(pathFilter ? { pathFilter } : {}),
     on: {
       proxyReq: (proxyReq: any, req: any, res: any) => {
         if (!breaker.opened) {
@@ -1359,9 +1365,12 @@ app.use(createProxyMiddleware({
     // telan ke order-service (dulu 404) agar jatuh ke proxy /api/v1/customer.
     (pathname.startsWith('/api/v1/customer/tambal-ban') &&
       !pathname.startsWith('/api/v1/customer/tambal-ban/materials')) ||
+    pathname.startsWith('/api/v1/customer/service-report') ||
+    pathname.startsWith('/api/v1/customer/roadside') ||
     pathname.startsWith('/api/v1/customer/rating-reminders') ||
     pathname.startsWith('/api/v1/courier/service-report') ||
-    (pathname.startsWith('/api/v1/customer/couriers/')),
+    (pathname.startsWith('/api/v1/customer/couriers/')) ||
+    pathname === '/api/v1/order/settlement',
   target: ORDER_SERVICE_URL,
   changeOrigin: true,
   on: {
@@ -1982,9 +1991,28 @@ app.use(createProxyMiddleware({
 // Payment intents are customer-owned and must be authenticated before the
 // payment-service state machine sees them. The gateway only forwards identity;
 // it cannot manufacture a paid flag or provider event.
-app.use('/api/v1/payment-intents', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_URL, paymentBreaker, paymentBulkhead));
-app.use('/api/v1/payment-methods', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_URL, paymentBreaker, paymentBulkhead));
-app.use('/api/v1/wallet', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_URL, paymentBreaker, paymentBulkhead));
+// Keep these proxies at the application root so http-proxy-middleware receives
+// and forwards the versioned upstream path. Mounting the proxy with
+// app.use('/api/v1/wallet', ...) strips that prefix under Express 5 and sends
+// `/balance` to payment-service, which correctly returns 404 because its
+// canonical route is `/api/v1/wallet/balance`.
+const paymentApiPathFilter = (pathname: string) =>
+  pathname.startsWith('/api/v1/payment-intents') ||
+  pathname.startsWith('/api/v1/payment-methods') ||
+  pathname.startsWith('/api/v1/wallet');
+
+app.use(
+  ['/api/v1/payment-intents', '/api/v1/payment-methods', '/api/v1/wallet'],
+  authenticateJWT,
+);
+app.use(
+  proxyWithResilience(
+    PAYMENT_SERVICE_URL,
+    paymentBreaker,
+    paymentBulkhead,
+    paymentApiPathFilter,
+  ),
+);
 
 // ─────────────────────────────────────────────
 // Merchant Routes (Merchant Service — FOOD-BIKE-019)

@@ -4,6 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.customer.data.CartStore
 import com.tembus.customer.data.api.TEMBUSApiService
+import com.tembus.customer.data.api.withRequestReference
+import com.tembus.customer.data.config.ExperienceBannerAnalytics
+import com.tembus.customer.data.config.ExperienceBannerEvent
+import com.tembus.customer.data.config.model.ExperienceConfigSnapshot
 import com.tembus.customer.data.model.CartItem
 import com.tembus.customer.data.model.AdsEventRequest
 import com.tembus.customer.data.model.CreateFoodOrderRequest
@@ -19,12 +23,14 @@ import com.tembus.customer.data.model.FavoriteCheckResponse
 import com.tembus.customer.data.model.MapsGeocodeResult
 import com.tembus.customer.data.model.FoodQuoteResponse
 import com.tembus.customer.data.model.VoucherValidateRequest
+import com.tembus.customer.domain.config.ExperienceConfigManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.Response
+import org.json.JSONObject
 import java.util.UUID
 import javax.inject.Inject
 
@@ -34,7 +40,9 @@ import javax.inject.Inject
 @HiltViewModel
 class FoodViewModel @Inject constructor(
     private val apiService: TEMBUSApiService,
-    private val cartStore: CartStore
+    private val cartStore: CartStore,
+    private val experienceConfigManager: ExperienceConfigManager,
+    private val experienceBannerAnalytics: ExperienceBannerAnalytics,
 ) : ViewModel() {
 	private val discoverySessionId = UUID.randomUUID().toString()
 
@@ -51,6 +59,16 @@ class FoodViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // Presentation-only campaign configuration is server owned. Food can
+    // render it when the published experience manifest contains a valid
+    // campaign, without inventing discount or eligibility data locally.
+    val experienceSnapshot = experienceConfigManager.snapshot
+
+    private val _discoveryLocationLabel = MutableStateFlow<String?>(null)
+    val discoveryLocationLabel: StateFlow<String?> = _discoveryLocationLabel.asStateFlow()
+    private var reverseGeocodedLat: Double? = null
+    private var reverseGeocodedLng: Double? = null
+
     // ── ADR 003: filter halal — "all" (default) | "halal_certified" | "non_halal" ──
     private val _halalFilter = MutableStateFlow("all")
     val halalFilter: StateFlow<String> = _halalFilter.asStateFlow()
@@ -65,6 +83,7 @@ class FoodViewModel @Inject constructor(
     val cart: StateFlow<List<CartItem>> = cartStore.cart
     val cartSize: StateFlow<Int> = cartStore.cartSize
     val cartTotal: StateFlow<Long> = cartStore.cartTotal
+    val cartMerchantName: StateFlow<String?> = cartStore.cartMerchantName
 
     // ── Checkout result ──
     private val _checkoutResult = MutableStateFlow<FoodOrderCreateResponse?>(null)
@@ -93,6 +112,38 @@ class FoodViewModel @Inject constructor(
     val checkoutAddressSearching: StateFlow<Boolean> = _checkoutAddressSearching.asStateFlow()
     private var discoveryLat: Double? = null
     private var discoveryLng: Double? = null
+
+    fun recordExperienceBannerEvent(event: ExperienceBannerEvent) {
+        viewModelScope.launch {
+            experienceBannerAnalytics.record(event)
+        }
+    }
+
+    suspend fun resolveExperienceAsset(snapshot: ExperienceConfigSnapshot, assetId: String): String? {
+        val path = experienceConfigManager.resolveAssetPath(snapshot, assetId)
+        if (!path.isNullOrBlank()) return path
+        if (assetId.startsWith("http://") || assetId.startsWith("https://")) return assetId
+        if (assetId.startsWith("/")) return "http://10.0.2.2:8080$assetId"
+        val ref = snapshot.manifest.assetReferences.firstOrNull { it.assetId == assetId }
+        if (ref != null && ref.uri.isNotBlank()) {
+            return if (ref.uri.startsWith("/")) "http://10.0.2.2:8080${ref.uri}" else ref.uri
+        }
+        return "http://10.0.2.2:8080/uploads/banners/$assetId.jpg"
+    }
+
+    fun resolveDiscoveryLocation(lat: Double, lng: Double) {
+        if (reverseGeocodedLat == lat && reverseGeocodedLng == lng) return
+        reverseGeocodedLat = lat
+        reverseGeocodedLng = lng
+        viewModelScope.launch {
+            runCatching {
+                apiService.reverseGeocodePoint(lat, lng, "customer_mobile")
+            }.getOrNull()?.body()?.result?.label
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?.let { _discoveryLocationLabel.value = it }
+        }
+    }
 
     // ── FB-090: Saved addresses — reuse alamat favorit customer di checkout food ──
     private val _addressBook = MutableStateFlow<List<CustomerAddress>>(emptyList())
@@ -441,7 +492,8 @@ class FoodViewModel @Inject constructor(
                     foodCreateIdempotencyKey = null
                     onResult(Result.success(res.body()!!))
                 } else {
-                    onResult(Result.failure(Exception("Gagal membuat order food (${res.code()})")))
+                    if (res.code() in 400..499) _foodQuote.value = null
+                    onResult(Result.failure(Exception(res.readFoodErrorMessage("Gagal membuat order food (${res.code()})"))))
                 }
             } catch (e: Exception) {
                 onResult(Result.failure(e))
@@ -468,6 +520,7 @@ class FoodViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _loading.value = true
+            _foodQuote.value = null
             try {
                 val request = CreateFoodOrderRequest(
                     merchantId = merchantId,
@@ -492,7 +545,7 @@ class FoodViewModel @Inject constructor(
                     _foodQuote.value = quote
                     onResult(Result.success(quote))
                 } else {
-                    onResult(Result.failure(Exception("Gagal menghitung harga food (${res.code()})")))
+                    onResult(Result.failure(Exception(res.readFoodErrorMessage("Gagal menghitung harga food (${res.code()})"))))
                 }
             } catch (e: Exception) {
                 onResult(Result.failure(e))
@@ -610,6 +663,26 @@ class FoodViewModel @Inject constructor(
             } catch (e: Exception) {
                 onResult(Result.failure(e))
             }
+        }
+    }
+
+    private fun <T> Response<T>.readFoodErrorMessage(fallback: String): String {
+        return try {
+            val raw = errorBody()?.string()?.takeIf { it.isNotBlank() }
+                ?: return fallback.withRequestReference(this)
+            val json = runCatching { JSONObject(raw) }.getOrNull()
+            val code = json?.optString("code").orEmpty()
+            val message = json?.optString("message")?.takeIf { it.isNotBlank() }
+                ?: json?.optString("error")?.takeIf { it.isNotBlank() }
+                ?: raw.take(240)
+            val actionable = when (code) {
+                "REQUOTE_REQUIRED" -> "Harga berubah atau quote kedaluwarsa. Hitung ulang harga sebelum melanjutkan."
+                "ERR_BAD_REQUEST" -> message
+                else -> message
+            }
+            actionable.withRequestReference(this)
+        } catch (_: Exception) {
+            fallback.withRequestReference(this)
         }
     }
 }

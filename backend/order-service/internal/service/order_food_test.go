@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -73,10 +74,15 @@ func TestCreateFoodOrderPreservesContactlessFlag(t *testing.T) {
 	if o2 != nil && o2.Contactless {
 		t.Errorf("Order.Contactless must be false")
 	}
+	foodRepo.item.ScheduleAvailable = boolp(false)
+	if _, err := svc.CreateFoodOrder(ctx, "customer-3", req); err == nil || !strings.Contains(err.Error(), "di luar jadwal") {
+		t.Fatalf("scheduled-out menu item must be rejected, got %v", err)
+	}
 }
 
 // Helper constructors
-func ip(i int) *int { return &i }
+func ip(i int) *int      { return &i }
+func boolp(v bool) *bool { return &v }
 
 type clFoodRepo struct {
 	domain.FoodRepository

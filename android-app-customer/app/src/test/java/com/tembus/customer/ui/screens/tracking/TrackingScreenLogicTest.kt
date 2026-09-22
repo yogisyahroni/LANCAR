@@ -80,6 +80,31 @@ class TrackingScreenLogicTest {
     }
 
     @Test
+    fun trackingCopy_roadsideCategoryWinsWhenSubtypeIsMissing() {
+        val copy = trackingCopy(
+            serviceSubType = null,
+            model = "UAT Tambal Ban Motor",
+            merchantId = null,
+            serviceCategory = "tambal_ban",
+        )
+        assertEquals(TrackingServiceKind.TAMBAL_BAN, copy.kind)
+        assertEquals("Timeline layanan", copy.timelineTitle)
+    }
+
+    @Test
+    fun trackingStageText_roadsideCategoryUsesTechnicianVocabulary() {
+        assertEquals(
+            "Teknisi menuju lokasi",
+            trackingStageText(
+                status = "accepted",
+                serviceSubType = null,
+                serviceCategory = "tambal_ban",
+                model = "UAT Tambal Ban Motor",
+            ),
+        )
+    }
+
+    @Test
     fun trackingStageText_delivered_usesCompletedLabel() {
         assertEquals("POD diterima", trackingStageText("delivered", "package"))
     }

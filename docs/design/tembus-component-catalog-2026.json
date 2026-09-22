@@ -2,6 +2,9 @@
   "catalog_version": "1.0.0",
   "design_system_version": "1.0.0",
   "figma_file": "https://www.figma.com/design/9JTlREMJNVkLYchQD1QcpV",
+  "customer_screen_source": "https://www.figma.com/design/nKUNTKLwAWj8AlWu74chfF/ALL-TEMBUS-CUSTOMER?node-id=0-1",
+  "customer_screen_page": "Page 1",
+  "customer_screen_width_px": 390,
   "required_pages": [
     "Foundations & Components",
     "Customer Super-App Patterns",

@@ -20,6 +20,33 @@ data class SafetyActionResponse(
 )
 
 @Serializable
+data class SafetyShareResponse(
+    @SerialName("success") val success: Boolean,
+    @SerialName("data") val data: SafetyShareData? = null,
+    @SerialName("message") val message: String? = null
+)
+
+@Serializable
+data class SafetyShareData(
+    @SerialName("token_id") val tokenId: String? = null,
+    @SerialName("url") val url: String = "",
+    @SerialName("expires_at") val expiresAt: String? = null,
+    @SerialName("can_mutate") val canMutate: Boolean = false
+)
+
+@Serializable
+data class SafetyShareRevokeResponse(
+    @SerialName("success") val success: Boolean,
+    @SerialName("data") val data: SafetyShareRevocation? = null,
+    @SerialName("message") val message: String? = null
+)
+
+@Serializable
+data class SafetyShareRevocation(
+    @SerialName("revoked") val revoked: Boolean = false
+)
+
+@Serializable
 data class SafetyIncidentRequest(
     @SerialName("category") val category: String,
     @SerialName("severity") val severity: String,

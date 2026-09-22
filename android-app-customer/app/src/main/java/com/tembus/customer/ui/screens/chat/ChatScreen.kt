@@ -39,11 +39,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.data.model.ChatMessage
 import com.tembus.customer.ui.theme.Primary
+import com.tembus.customer.ui.theme.PrimarySoft
 import coil.compose.AsyncImage
 import com.tembus.customer.R
 import com.tembus.customer.BuildConfig
 import java.text.SimpleDateFormat
 import java.util.*
+
+private val ChatCanvas = Color(0xFFF2FCF3) // Figma: TEMBUS - Obrolan Kurir
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,7 +105,6 @@ fun ChatScreen(
     LaunchedEffect(uiState.error) {
         uiState.error?.let { err ->
             Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
-            viewModel.clearError()
         }
     }
 
@@ -246,8 +248,8 @@ fun ChatScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
+                    containerColor = ChatCanvas,
+                    scrolledContainerColor = ChatCanvas
                 )
             )
         }
@@ -264,7 +266,7 @@ fun ChatScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .background(Color(0xFFF2F2F7)) // Soft subtle gray background
+                    .background(ChatCanvas)
             ) {
             AnimatedVisibility(visible = uiState.isSending) {
                 LinearProgressIndicator(
@@ -296,6 +298,39 @@ fun ChatScreen(
                                 Toast.makeText(context, "Nomor pesanan disalin", Toast.LENGTH_SHORT).show()
                             }
                         )
+                    }
+                }
+            }
+
+            uiState.error?.let { errorMessage ->
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = Color(0xFFFFF4F2),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, Color(0xFFF0B8AE)),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ErrorOutline,
+                            contentDescription = null,
+                            tint = Color(0xFFB42318),
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = errorMessage,
+                            modifier = Modifier.weight(1f),
+                            color = Color(0xFF7A271A),
+                            fontSize = 12.sp,
+                        )
+                        TextButton(onClick = viewModel::refresh) {
+                            Text("Coba lagi", color = Primary, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -496,7 +531,7 @@ private fun DeliveryGroupContextBanner(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 10.dp),
-        color = Color(0xFFE8F5EE),
+        color = PrimarySoft,
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, Primary.copy(alpha = 0.18f))
     ) {

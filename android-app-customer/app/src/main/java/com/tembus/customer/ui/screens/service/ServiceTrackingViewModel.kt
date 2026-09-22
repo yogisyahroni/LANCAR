@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -18,7 +17,12 @@ data class ServiceTrackingUiState(
     val courierName: String? = null,
     val statusText: String? = null,
     val etaMinutes: Int? = null,
-    val error: String? = null
+    val error: String? = null,
+    val hasSnapshot: Boolean = false,
+    val isStale: Boolean = false,
+    val isTerminal: Boolean = false,
+    val canViewReport: Boolean = false,
+    val noSupply: Boolean = false
 )
 
 @HiltViewModel
@@ -31,66 +35,46 @@ class ServiceTrackingViewModel @Inject constructor(
 
     fun startTracking(orderId: String, serviceSubType: String = "") {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            
-            orderRepository.getOrderDetail(orderId)
-                .collect { result ->
-                    result.onSuccess { order ->
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                currentStepIndex = if (serviceSubType.startsWith("tambal_ban")) {
-                                    tambalBanStepIndex(order.status)
-                                } else {
-                                    calculateStepIndex(order.status)
-                                },
-                                courierName = order.courierName,
-                                statusText = if (serviceSubType.startsWith("tambal_ban")) {
-                                    tambalBanStatusText(order.status)
-                                } else {
-                                    getStatusText(order.status)
-                                },
-                                etaMinutes = order.etaMinutes
-                            )
-                        }
+            _uiState.update { it.copy(isLoading = true, error = null) }
+
+            orderRepository.getOrderTrackingDetail(orderId)
+                .onSuccess { detail ->
+                    val order = detail.order
+                    val terminal = isRoadsideTerminalStatus(order.status)
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = null,
+                            currentStepIndex = if (serviceSubType.startsWith("tambal_ban")) {
+                                tambalBanStepIndex(order.status)
+                            } else {
+                                towingStepIndex(order.status)
+                            },
+                            courierName = order.courierName,
+                            statusText = if (serviceSubType.startsWith("tambal_ban")) {
+                                tambalBanStatusText(order.status)
+                            } else {
+                                towingStatusText(order.status)
+                            },
+                            etaMinutes = order.etaMinutes,
+                            hasSnapshot = true,
+                            isStale = false,
+                            isTerminal = terminal,
+                            canViewReport = terminal,
+                            noSupply = isRoadsideNoSupplyStatus(order.status)
+                        )
                     }
-                    result.onFailure { e ->
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                error = e.message ?: "Gagal memuat data"
-                            )
-                        }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isStale = it.hasSnapshot,
+                            error = e.message ?: "Status terbaru belum dapat dimuat. Tarik untuk mencoba lagi."
+                        )
                     }
                 }
         }
     }
     
-    private fun calculateStepIndex(status: String): Int {
-        return when (status.lowercase()) {
-            "navigating", "picking_up" -> 0
-            "arrived_pickup", "arrived" -> 1
-            "verifying" -> 2
-            "inspecting" -> 3
-            "loading", "in_progress" -> 4
-            "in_transit", "delivering" -> 5
-            "arrived_dropoff" -> 6
-            "completed", "delivered" -> 7
-            else -> 0
-        }
-    }
-    
-    private fun getStatusText(status: String): String {
-        return when (status.lowercase()) {
-            "navigating", "picking_up" -> "Sedang dalam perjalanan ke lokasi Anda"
-            "arrived_pickup", "arrived" -> "Sudah tiba di lokasi Anda"
-            "verifying" -> "Sedang melakukan verifikasi"
-            "inspecting" -> "Sedang melakukan inspeksi"
-            "loading", "in_progress" -> "Sedang mengerjakan layanan"
-            "in_transit", "delivering" -> "Sedang dalam perjalanan ke tujuan"
-            "arrived_dropoff" -> "Sudah tiba di lokasi tujuan"
-            "completed", "delivered" -> "Layanan telah selesai"
-            else -> "Memproses..."
-        }
-    }
 }

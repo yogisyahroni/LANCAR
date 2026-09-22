@@ -1,5 +1,6 @@
 package com.tembus.customer.ui.screens.booking
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.customer.ui.components.maps.LatLng
@@ -23,10 +24,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import java.util.UUID
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.tembus.customer.ui.policy.PackageOrderFlowPolicy
 
 data class BookingState(
@@ -59,6 +68,9 @@ data class BookingState(
     val deliveryCodeEnabled: Boolean = false,
     val insuranceEnabled: Boolean = false,
     val itemValue: Long = 0,
+    val scheduleType: String = "now",
+    val scheduledAt: String? = null,
+    val scheduledAtMillis: Long? = null,
     val dimensionsScanned: Boolean = false,
     val receiverLocationLink: ReceiverLocationLink? = null,
     val isCreatingLocationLink: Boolean = false,
@@ -82,18 +94,139 @@ data class BookingState(
     val voucherError: String? = null
 )
 
+@Serializable
+private data class BookingDraft(
+    val pickupLatitude: Double? = null,
+    val pickupLongitude: Double? = null,
+    val pickupAddress: String = "",
+    val destinationLatitude: Double? = null,
+    val destinationLongitude: Double? = null,
+    val destinationAddress: String = "",
+    val packageLength: Int = 0,
+    val packageWidth: Int = 0,
+    val packageHeight: Int = 0,
+    val packageWeight: Double = 0.0,
+    val packageCategory: String = "",
+    val packageQuantity: Int = 1,
+    val packageIsFragile: Boolean = false,
+    val packageIsProhibited: Boolean = false,
+    val sizeTier: String = "",
+    val isPackageSizeSelected: Boolean = false,
+    val itemDescription: String = "",
+    val recipientName: String = "",
+    val recipientPhone: String = "",
+    val deliveryCodeEnabled: Boolean = false,
+    val insuranceEnabled: Boolean = false,
+    val itemValue: Long = 0,
+    val scheduleType: String = "now",
+    val scheduledAt: String? = null,
+    val scheduledAtMillis: Long? = null,
+    val promoCode: String = "",
+    val voucherCode: String = ""
+)
+
+private const val BOOKING_DRAFT_KEY = "customer_booking_draft_v1"
+private val bookingDraftJson = Json { ignoreUnknownKeys = true }
+
+private fun BookingState.toBookingDraft(): BookingDraft = BookingDraft(
+    pickupLatitude = pickupLocation?.latitude,
+    pickupLongitude = pickupLocation?.longitude,
+    pickupAddress = pickupAddress,
+    destinationLatitude = destinationLocation?.latitude,
+    destinationLongitude = destinationLocation?.longitude,
+    destinationAddress = destinationAddress,
+    packageLength = packageLength,
+    packageWidth = packageWidth,
+    packageHeight = packageHeight,
+    packageWeight = packageWeight,
+    packageCategory = packageCategory,
+    packageQuantity = packageQuantity,
+    packageIsFragile = packageIsFragile,
+    packageIsProhibited = packageIsProhibited,
+    sizeTier = sizeTier,
+    isPackageSizeSelected = isPackageSizeSelected,
+    itemDescription = itemDescription,
+    recipientName = recipientName,
+    recipientPhone = recipientPhone,
+    deliveryCodeEnabled = deliveryCodeEnabled,
+    insuranceEnabled = insuranceEnabled,
+    itemValue = itemValue,
+    scheduleType = scheduleType,
+    scheduledAt = scheduledAt,
+    scheduledAtMillis = scheduledAtMillis,
+    promoCode = promoCode,
+    voucherCode = voucherCode
+)
+
+private fun BookingDraft.toBookingState(): BookingState {
+    val pickup = if (pickupLatitude != null && pickupLongitude != null && pickupAddress.isNotBlank()) {
+        LatLng(pickupLatitude, pickupLongitude)
+    } else null
+    val destination = if (destinationLatitude != null && destinationLongitude != null && destinationAddress.isNotBlank()) {
+        LatLng(destinationLatitude, destinationLongitude)
+    } else null
+    return BookingState(
+        pickupPoint = pickup?.let {
+            BookingAddressPoint("restored-pickup", pickupAddress, pickupAddress, it.latitude, it.longitude, source = BookingAddressPoint.Source.MANUAL)
+        },
+        pickupLocation = pickup,
+        pickupAddress = pickupAddress,
+        destinationPoint = destination?.let {
+            BookingAddressPoint("restored-destination", destinationAddress, destinationAddress, it.latitude, it.longitude, source = BookingAddressPoint.Source.MANUAL)
+        },
+        destinationLocation = destination,
+        destinationAddress = destinationAddress,
+        packageLength = packageLength,
+        packageWidth = packageWidth,
+        packageHeight = packageHeight,
+        packageWeight = packageWeight,
+        packageCategory = packageCategory,
+        packageQuantity = packageQuantity,
+        packageIsFragile = packageIsFragile,
+        packageIsProhibited = packageIsProhibited,
+        sizeTier = sizeTier,
+        isPackageSizeSelected = isPackageSizeSelected,
+        itemDescription = itemDescription,
+        recipientName = recipientName,
+        recipientPhone = recipientPhone,
+        deliveryCodeEnabled = deliveryCodeEnabled,
+        insuranceEnabled = insuranceEnabled,
+        itemValue = itemValue,
+        scheduleType = scheduleType,
+        scheduledAt = scheduledAt,
+        scheduledAtMillis = scheduledAtMillis,
+        promoCode = promoCode,
+        voucherCode = voucherCode
+    )
+}
+
 @HiltViewModel
 class BookingViewModel @Inject constructor(
-    private val orderRepository: OrderRepository
+    private val orderRepository: OrderRepository,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val _bookingState = MutableStateFlow(BookingState())
+    private val _bookingState = MutableStateFlow(
+        savedStateHandle.get<String>(BOOKING_DRAFT_KEY)
+            ?.let { encoded -> runCatching { bookingDraftJson.decodeFromString<BookingDraft>(encoded).toBookingState() }.getOrNull() }
+            ?: BookingState()
+    )
     val bookingState: StateFlow<BookingState> = _bookingState.asStateFlow()
 
     private val _bookingSuccess = MutableSharedFlow<String>()
     val bookingSuccess = _bookingSuccess.asSharedFlow()
     private var routeCalculationVersion = 0
     private var createOrderIdempotencyKey: String? = null
+
+    private fun persistBookingDraft(state: BookingState) {
+        val draft = state.toBookingDraft()
+        val hasInput = draft.pickupAddress.isNotBlank() || draft.destinationAddress.isNotBlank() ||
+            draft.recipientName.isNotBlank() || draft.itemDescription.isNotBlank() ||
+            draft.sizeTier.isNotBlank() || draft.promoCode.isNotBlank() || draft.voucherCode.isNotBlank()
+        if (hasInput) {
+            savedStateHandle[BOOKING_DRAFT_KEY] = bookingDraftJson.encodeToString(draft)
+        }
+    }
 
     private fun PriceBreakdown.hasRoadRoute(): Boolean {
         val polyline = routeSnapshot?.routePolyline?.trim().orEmpty()
@@ -104,6 +237,9 @@ class BookingViewModel @Inject constructor(
     }
 
     init {
+        viewModelScope.launch {
+            bookingState.collect { persistBookingDraft(it) }
+        }
         loadServices()
         loadAddressBook()
         loadMapsProviderConfig()
@@ -529,6 +665,31 @@ class BookingViewModel @Inject constructor(
         calculateRoute()
     }
 
+    fun setScheduleNow() {
+        _bookingState.value = _bookingState.value.copy(
+            scheduleType = "now",
+            scheduledAt = null,
+            scheduledAtMillis = null,
+            error = null,
+        )
+    }
+
+    fun setScheduledAt(epochMillis: Long) {
+        if (!PackageOrderFlowPolicy.scheduledAtValid(epochMillis, System.currentTimeMillis())) {
+            _bookingState.value = _bookingState.value.copy(
+                error = "Pilih waktu pickup minimal 30 menit dari sekarang.",
+            )
+            return
+        }
+        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(Date(epochMillis))
+        _bookingState.value = _bookingState.value.copy(
+            scheduleType = "scheduled",
+            scheduledAt = iso,
+            scheduledAtMillis = epochMillis,
+            error = null,
+        )
+    }
+
     private fun calculateRoute() {
         val state = _bookingState.value
         if (
@@ -690,6 +851,8 @@ class BookingViewModel @Inject constructor(
                 ),
                 hasInsurance = state.insuranceEnabled,
                 itemValue = state.itemValue,
+                scheduleType = state.scheduleType,
+                scheduledAt = state.scheduledAt,
                 customerNotes = state.itemDescription,
                 priceBreakdown = priceBreakdown,
                 serviceCode = state.selectedServiceCode,
@@ -705,6 +868,7 @@ class BookingViewModel @Inject constructor(
             orderRepository.createCustomerOnDemandOrder(req, idempotencyKey).collectLatest { result ->
                 result.onSuccess { order ->
                     _bookingState.value = _bookingState.value.copy(isLoading = false)
+                    savedStateHandle.remove<String>(BOOKING_DRAFT_KEY)
                     createOrderIdempotencyKey = null
                     _bookingSuccess.emit(order.id)
                 }

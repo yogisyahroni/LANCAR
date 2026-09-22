@@ -319,6 +319,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	quote := &domain.FoodQuoteResponse{
 		QuoteID: uuid.New().String(), InputFingerprint: foodQuoteInputFingerprint(req),
 		MerchantID: req.MerchantID, Currency: currency, CurrencyMinorUnit: currencyMinorUnit, Items: quoteItems, SubtotalIDR: subtotal,
+		MinOrderIDR:    merchant.MinOrderIDR,
 		DeliveryFeeIDR: deliveryFee, PlatformFeeIDR: platformFee, TaxIDR: taxIDR, DiscountIDR: discount, MembershipSubsidyIDR: membershipSubsidy,
 		TotalPriceIDR: total, DistanceKM: distanceKM,
 		ETAMinutes: prepMinutes + pickupTravelMinutes,

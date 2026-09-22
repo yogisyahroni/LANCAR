@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -122,8 +123,16 @@ fun TembusAppBar(
 fun TembusBottomNavigation(
     items: List<TembusNavigationItem>,
     modifier: Modifier = Modifier,
+    containerColor: Color? = null,
+    selectedColor: Color? = null,
+    indicatorColor: Color? = null,
 ) {
-    NavigationBar(modifier = modifier) {
+    val selectedContentColor = selectedColor ?: MaterialTheme.colorScheme.primary
+    val unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    NavigationBar(
+        modifier = modifier,
+        containerColor = containerColor ?: MaterialTheme.colorScheme.surface,
+    ) {
         items.forEach { item ->
             NavigationBarItem(
                 selected = item.selected,
@@ -131,7 +140,15 @@ fun TembusBottomNavigation(
                 enabled = item.enabled,
                 icon = { Icon(item.icon, contentDescription = item.label) },
                 label = { Text(item.label) },
-                colors = TembusComponentDefaults.bottomNavItemColors(),
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = selectedContentColor,
+                    selectedTextColor = selectedContentColor,
+                    indicatorColor = indicatorColor ?: MaterialTheme.colorScheme.primaryContainer,
+                    unselectedIconColor = unselectedContentColor,
+                    unselectedTextColor = unselectedContentColor,
+                    disabledIconColor = unselectedContentColor.copy(alpha = 0.38f),
+                    disabledTextColor = unselectedContentColor.copy(alpha = 0.38f),
+                ),
             )
         }
     }

@@ -97,7 +97,10 @@ class PaymentViewModel @Inject constructor(
                 }
             }
             result.onFailure {
-                _uiState.value = PaymentUiState.Choosing(selectedMethod = selected)
+                _uiState.value = PaymentUiState.Error(
+                    message = "Status pembayaran belum dapat dimuat. Coba lagi untuk menyinkronkan ke server.",
+                    selectedMethod = selected
+                )
             }
         }
     }
@@ -168,12 +171,18 @@ class PaymentViewModel @Inject constructor(
             _uiState.value = PaymentUiState.Verifying
             val idempotencyKey = paymentConfirmKey ?: UUID.randomUUID().toString().also { paymentConfirmKey = it }
             val result = repository.confirmCustomerPayment(orderId, idempotencyKey)
-            result.onSuccess { payment ->
-                val status = payment.paymentStatus.ifBlank { payment.status }
-                if (isPaidOrBypassed(status, payment.orderStatus)) {
-                    _uiState.value = PaymentUiState.Paid
-                } else {
-                    _uiState.value = PaymentUiState.Ready(payment.redirectUrl.orEmpty(), status)
+                result.onSuccess { payment ->
+                    val status = payment.paymentStatus.ifBlank { payment.status }
+                    val redirectUrl = payment.redirectUrl
+                    if (isPaidOrBypassed(status, payment.orderStatus)) {
+                        _uiState.value = PaymentUiState.Paid
+                    } else if (redirectUrl.isNullOrBlank()) {
+                        _uiState.value = PaymentUiState.Error(
+                            message = "Pembayaran belum terkonfirmasi dan sesi lanjut belum tersedia. Coba cek status lagi.",
+                            selectedMethod = CustomerPaymentMethod.QRIS
+                        )
+                    } else {
+                        _uiState.value = PaymentUiState.Ready(redirectUrl, status)
                 }
             }
             result.onFailure { error ->
@@ -197,7 +206,7 @@ class PaymentViewModel @Inject constructor(
                 }
                 statusResult.onFailure {
                     _uiState.value = PaymentUiState.Error(
-                        message = error.localizedMessage ?: "Gagal mengecek pembayaran",
+                        message = "Status pembayaran belum dapat disinkronkan. Coba lagi.",
                         selectedMethod = CustomerPaymentMethod.QRIS
                     )
                 }

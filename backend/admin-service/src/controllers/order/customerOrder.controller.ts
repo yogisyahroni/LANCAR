@@ -42,6 +42,10 @@ import {
 } from '../../services/orderContract';
 import { validateTowingBookingContract } from './towingBookingContract';
 import { evaluateTowingQuoteConsent } from './towingQuotePolicy';
+import {
+  normalizeCustomerOrderSchedule,
+  paidCustomerOrderStatus,
+} from '../../services/customerOrderSchedule';
 
 import { releasePromoReservation, validatePromoStackForCheckout } from '../../services/promoEngine';
 import {
@@ -153,6 +157,25 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       res.status(400).json({
         code: 'ERR_SERVICE_NOT_AVAILABLE',
         error: 'Layanan pengiriman tidak tersedia'
+      });
+      return;
+    }
+
+    let customerSchedule;
+    try {
+      customerSchedule = normalizeCustomerOrderSchedule(
+        schedule_type,
+        scheduled_at,
+        {
+          allowScheduled: service.service_category === 'on_demand' || service.service_category === 'regular',
+        },
+      );
+    } catch (error: any) {
+      releaseClient();
+      res.status(error.statusCode || 400).json({
+        success: false,
+        code: error.code || 'ERR_INVALID_SCHEDULE',
+        error: error.message || 'Waktu pickup tidak valid.',
       });
       return;
     }
@@ -721,7 +744,9 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
           service.route_model,
           service.code,
           JSON.stringify(trustedPriceBreakdown.service_snapshot || publicServiceSnapshot(service)),
-          isPaymentBypassed ? 'pending' : 'pending_payment',
+          isPaymentBypassed
+            ? paidCustomerOrderStatus(customerSchedule, service.service_category === 'food_delivery')
+            : 'pending_payment',
           trustedPriceBreakdown.distance_km || 0,
           trustedPriceBreakdown.base_price_idr || 0,
           trustedPriceBreakdown.volumetric_surcharge_idr || 0,
@@ -738,8 +763,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
           item_value || 0,
           JSON.stringify(normalizePackageDetailsForOrder(package_details || {}, service, selectedTier, packageChargeableWeight, normalizedPackages)),
           customer_notes || '',
-          schedule_type || 'now',
-          scheduled_at ? new Date(scheduled_at) : null,
+          customerSchedule.scheduleType,
+          customerSchedule.scheduledAt,
           JSON.stringify(trustedRouteSnapshot),
           trustedRouteSnapshot.provider,
           trustedRouteSnapshot.route_profile,
@@ -922,7 +947,9 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         customer_id,
         model: service.route_model,
         service_code: service.code,
-        status: 'pending_payment',
+        status: isPaymentBypassed
+          ? paidCustomerOrderStatus(customerSchedule, service.service_category === 'food_delivery')
+          : 'pending_payment',
         total_price_idr: totalPrice,
         gross_total_price_idr: grossTotalPrice,
         promo_discount_idr: promoDiscountIdr,
@@ -942,7 +969,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     releaseClient();
 
     // Jika payment di-bypass, langsung dispatch ke kurir tanpa menunggu alur pembayaran
-    if (isPaymentBypassed) {
+    if (isPaymentBypassed && newOrder.status !== 'scheduled') {
       const dispatchClient = await db.connect();
       try {
         let createdOffers: Awaited<ReturnType<typeof advanceOnDemandDispatchQueue>> = [];
@@ -1003,7 +1030,7 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
     const reason = String(req.body?.reason || 'Dibatalkan oleh pelanggan');
 
     // Statuses pelanggan boleh membatalkan (sebelum kurir pick up)
-    const cancellableStatuses = ['pending', 'pending_payment', 'paid', 'dispatching', 'offered', 'searching', 'no_courier_found'];
+    const cancellableStatuses = ['pending', 'pending_payment', 'scheduled', 'paid', 'dispatching', 'offered', 'searching', 'no_courier_found'];
     // FB-079: food order — window lebih panjang: boleh cancel sampai picking_up
     // (accepted/picking_up dikenakan biaya layanan sbg cancellation fee)
     const foodCancellableStatuses = [

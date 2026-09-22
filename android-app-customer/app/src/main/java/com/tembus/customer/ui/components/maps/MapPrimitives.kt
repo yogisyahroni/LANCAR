@@ -46,7 +46,9 @@ class CameraPositionState(initialPosition: CameraPosition) {
 
 @Composable
 fun rememberCameraPositionState(init: CameraPositionState.() -> Unit = {}): CameraPositionState {
-    val initial = remember { CameraPositionState(CameraPosition.fromLatLngZoom(LatLng(-6.2088, 106.8456), 12f)) }
+    // This primitive is only a state holder; callers must provide an
+    // authoritative camera position through `init` before rendering a map.
+    val initial = remember { CameraPositionState(CameraPosition.fromLatLngZoom(LatLng(0.0, 0.0), 1f)) }
     initial.init()
     return initial
 }

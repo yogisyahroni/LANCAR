@@ -104,6 +104,17 @@ func (h *WalletHandler) TopUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	if idempotencyKey == "" {
+		idempotencyKey = r.Header.Get("X-Idempotency-Key")
+	}
+	parsedIdempotencyKey, err := uuid.Parse(idempotencyKey)
+	if err != nil || parsedIdempotencyKey == uuid.Nil {
+		h.respondError(w, "Idempotency-Key wajib berupa UUID yang valid", http.StatusBadRequest)
+		return
+	}
+	idempotencyKey = parsedIdempotencyKey.String()
+
 	var req struct {
 		Amount int64 `json:"amount"`
 	}
@@ -119,13 +130,13 @@ func (h *WalletHandler) TopUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snapToken, err := h.svc.CreateTopUp(r.Context(), userID, req.Amount)
+	session, err := h.svc.CreateTopUp(r.Context(), userID, req.Amount, idempotencyKey)
 	if err != nil {
 		h.safeError(w, r, err, correlationID, "create_top_up")
 		return
 	}
 
-	h.respondJSON(w, map[string]string{"snap_token": snapToken}, http.StatusOK)
+	h.respondJSON(w, session, http.StatusOK)
 }
 
 func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {

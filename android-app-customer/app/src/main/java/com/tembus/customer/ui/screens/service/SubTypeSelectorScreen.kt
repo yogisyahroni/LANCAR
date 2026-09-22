@@ -34,6 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.theme.PrimarySoft
+import com.tembus.customer.ui.theme.Background
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,11 +47,15 @@ fun SubTypeSelectorScreen(
     val isTambalBan = category == "tambal_ban"
     
     Scaffold(
+        containerColor = Background,
         topBar = {
             TopAppBar(
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = Background,
+                ),
                 title = { 
                     Text(
-                        if (isTambalBan) "Pilih Jenis Kendaraan" else "Pilih Jenis Towing",
+                        if (isTambalBan) "Pilih jenis kendaraan" else "Pilih kendaraan towing",
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -68,6 +74,11 @@ fun SubTypeSelectorScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Text(
+                if (isTambalBan) "Pilih kendaraan yang membutuhkan bantuan." else "Pilih kendaraan yang akan ditangani petugas Derek.",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -77,8 +88,8 @@ fun SubTypeSelectorScreen(
                     icon = Icons.Default.TwoWheeler,
                     title = "Motor",
                     subtitle = if (isTambalBan) "Bebek/Matic/Sport" else "Angkut pakai Pickup/Van",
-                    priceRange = if (isTambalBan) "Harga mulai Rp 25.000" else "Harga mulai Rp 50.000",
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    priceRange = "Cek harga sesuai lokasi",
+                    color = PrimarySoft,
                     onClick = { onSubTypeSelected("${category}_motor") },
                     modifier = Modifier.weight(1f)
                 )
@@ -88,8 +99,8 @@ fun SubTypeSelectorScreen(
                     icon = Icons.Default.DirectionsCar,
                     title = "Mobil",
                     subtitle = if (isTambalBan) "Sedan/MPV/SUV" else "Angkut pakai Towing Truck",
-                    priceRange = if (isTambalBan) "Harga mulai Rp 45.000" else "Harga mulai Rp 75.000",
-                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    priceRange = "Cek harga sesuai lokasi",
+                    color = PrimarySoft,
                     onClick = { onSubTypeSelected("${category}_mobil") },
                     modifier = Modifier.weight(1f)
                 )
@@ -98,7 +109,7 @@ fun SubTypeSelectorScreen(
             Spacer(Modifier.height(16.dp))
             
             Text(
-                "Catatan: harga jasa ditentukan oleh masing-masing petugas. Biaya per-km ditentukan oleh sistem.",
+                "Harga final mengikuti quote server, petugas yang dipilih, jarak, material, dan komponen operasional yang berlaku.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -125,9 +136,9 @@ private fun SubTypeCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(

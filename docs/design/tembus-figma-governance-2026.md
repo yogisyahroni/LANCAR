@@ -1,6 +1,8 @@
 # TEMBUS Figma library governance and code traceability — 2026
 
-The current visual reference is the [TEMBUS/LANCAR Figma file](https://www.figma.com/design/9JTlREMJNVkLYchQD1QcpV). The repository contract for its stable library is `tembus-component-catalog-2026.json`; this keeps component names, semantic variants, usage boundaries, accessibility notes, and implementation review references auditable in version control.
+The stable component-library reference is the [TEMBUS/LANCAR Figma file](https://www.figma.com/design/9JTlREMJNVkLYchQD1QcpV). The customer-screen visual source for the 2026 parity work is [ALL TEMBUS CUSTOMER](https://www.figma.com/design/nKUNTKLwAWj8AlWu74chfF/ALL-TEMBUS-CUSTOMER?node-id=0-1), Page 1, at a 390px mobile design width. The repository contract for the stable library is `tembus-component-catalog-2026.json`; this keeps component names, semantic variants, usage boundaries, accessibility notes, and implementation review references auditable in version control.
+
+These are deliberately two layers of the same source-of-truth boundary: the stable library file governs reusable primitives and semantic tokens, while `ALL TEMBUS CUSTOMER` governs customer screen composition, hierarchy, and flow intent. Screen designs must reuse the stable library contract; they must not introduce screen-specific palette or a second component registry. The customer-screen source does not override server-authoritative order, payment, price, ETA, availability, or provider state.
 
 ## Library structure
 

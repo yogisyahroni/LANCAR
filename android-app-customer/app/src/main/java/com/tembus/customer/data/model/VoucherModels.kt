@@ -24,3 +24,27 @@ data class VoucherValidateResponse(
     @SerialName("discount_idr") val discountIdr: Long = 0,
     @SerialName("error") val error: String? = null
 )
+
+@Serializable
+data class CustomerEligiblePromo(
+    @SerialName("id") val id: String = "",
+    @SerialName("code") val code: String = "",
+    @SerialName("name") val name: String = "",
+    @SerialName("description") val description: String? = null,
+    @SerialName("discount_type") val discountType: String = "",
+    @SerialName("discount_value_idr") val discountValueIdr: Long = 0,
+    @SerialName("discount_percent") val discountPercent: Double? = null,
+    @SerialName("max_discount_idr") val maxDiscountIdr: Long? = null,
+    @SerialName("min_order_idr") val minOrderIdr: Long? = null,
+    @SerialName("service_codes") val serviceCodes: List<String> = emptyList(),
+    @SerialName("starts_at") val startsAt: String? = null,
+    @SerialName("ends_at") val endsAt: String? = null,
+    @SerialName("notification_copy") val notificationCopy: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class CustomerEligiblePromosResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("data") val data: List<CustomerEligiblePromo> = emptyList(),
+    @SerialName("message") val message: String? = null,
+)

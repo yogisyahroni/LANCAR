@@ -8,6 +8,7 @@ import java.time.Instant
  * retry affordances; price, state and proof remain server-authoritative.
  */
 object PackageOrderFlowPolicy {
+    const val MIN_SCHEDULE_LEAD_MILLIS = 30 * 60 * 1000L
     enum class PaymentOutcome { PENDING, PAID, FAILED, LATE_CALLBACK_REVIEW }
     enum class CourierOutcome { SEARCHING, ASSIGNED, NO_SUPPLY_RETRYABLE, INVALID }
     enum class PickupOutcome { AWAITING_VERIFICATION, VERIFIED, REJECTED }
@@ -27,6 +28,9 @@ object PackageOrderFlowPolicy {
     }
 
     fun shouldSubmitCreate(isLoading: Boolean): Boolean = !isLoading
+
+    fun scheduledAtValid(scheduledAtMillis: Long?, nowMillis: Long): Boolean =
+        scheduledAtMillis != null && scheduledAtMillis >= nowMillis + MIN_SCHEDULE_LEAD_MILLIS
 
     fun paymentOutcome(paymentStatus: String, orderStatus: String): PaymentOutcome {
         val payment = paymentStatus.trim().lowercase()

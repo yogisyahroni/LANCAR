@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -21,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Checkbox
@@ -54,6 +57,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.ui.theme.Error
+import com.tembus.customer.ui.theme.Accent
+import com.tembus.customer.ui.theme.CustomerCanvas
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.Success
 import com.tembus.customer.ui.theme.TembusRadius
@@ -82,6 +87,7 @@ fun FoodCheckoutScreen(
 ) {
     val cart by viewModel.cart.collectAsState()
     val cartTotal by viewModel.cartTotal.collectAsState()
+    val cartMerchantName by viewModel.cartMerchantName.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val checkoutLat by viewModel.checkoutLat.collectAsState()
     val checkoutLng by viewModel.checkoutLng.collectAsState()
@@ -189,44 +195,162 @@ fun FoodCheckoutScreen(
         requestFoodQuote(lat, lng)
     }
 
+    fun submitOrder() {
+        submitError = null
+        if (address.isBlank()) {
+            submitError = "Alamat pengantaran wajib diisi"
+            return
+        }
+        if (checkoutLat == null || checkoutLng == null) {
+            submitError = "Titik pengantaran belum dipilih. Pilih alamat tersimpan atau gunakan lokasi perangkat."
+            return
+        }
+        val currentQuote = foodQuote
+        if (currentQuote == null) {
+            submitError = "Hitung harga dan ETA terbaru sebelum membuat pesanan."
+            return
+        }
+        FoodCheckoutPolicy.quoteExpiryMessage(currentQuote.expiresAt)?.let {
+            submitError = it
+            viewModel.clearFoodQuote()
+            return
+        }
+        if (cart.isEmpty()) {
+            submitError = "Keranjang kosong"
+            return
+        }
+        if (!scheduleNow && scheduledAtMs == null) {
+            submitError = "Pilih waktu jadwal dulu (minimal 30 menit lagi)"
+            return
+        }
+        scope.launch {
+            val safeLat = checkoutLat ?: return@launch
+            val safeLng = checkoutLng ?: return@launch
+            viewModel.checkout(
+                merchantId = merchantId,
+                dropoffAddress = address,
+                dropoffLat = safeLat,
+                dropoffLng = safeLng,
+                receiverName = receiverName.ifBlank { null },
+                receiverPhone = receiverPhone.ifBlank { null },
+                voucherCode = (voucherState as? VoucherState.Applied)?.code ?: voucherInput,
+                orderNotes = orderNotes,
+                contactless = contactless,
+                cutlery = cutlery,
+                deliveryNote = deliveryNote,
+                giftMode = giftMode,
+                receiverPrivacy = receiverPrivacy,
+                isScheduled = !scheduleNow,
+                scheduledAt = scheduledAtIso(),
+                onResult = { result ->
+                    result.onSuccess { order ->
+                        viewModel.clearCart()
+                        onOrderCreated(order.id)
+                    }.onFailure { e ->
+                        submitError = e.message ?: "Gagal membuat order"
+                    }
+                },
+            )
+        }
+    }
+
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = CustomerCanvas,
         topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                    .background(CustomerCanvas)
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"), tint = Primary)
                 }
                 Text(
-                    "Checkout",
+                    "Checkout makanan",
                     modifier = Modifier.weight(1f),
-                    fontSize = 18.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Primary
                 )
             }
-        }
+        },
+        bottomBar = {
+            Surface(
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
+                color = Color.White,
+                shadowElevation = 10.dp,
+                border = BorderStroke(1.dp, Color(0xFFE4EEE8)),
+            ) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Total pembayaran", fontSize = 11.sp, color = Color(0xFF6B7A73))
+                            Text(
+                                "Rp ${formatRupiah(foodQuote?.totalPriceIdr ?: cartTotal)}",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF10241D),
+                            )
+                        }
+                        Text("${cart.size} item", fontSize = 11.sp, color = Color(0xFF6B7A73))
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = ::submitOrder,
+                        enabled = !loading,
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(TembusRadius.Button),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = Accent,
+                            contentColor = Color.White,
+                        ),
+                    ) {
+                        if (loading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.height(20.dp).width(20.dp),
+                            )
+                        } else {
+                            Text("Pesan Sekarang", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+            .background(CustomerCanvas)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            // Ringkasan pesanan
-            Text("Ringkasan Pesanan", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
+            // Figma checkout hierarchy: show destination context before the
+            // editable fields, while keeping address/quote values honest.
+            Text(
+                "Rincian Pesanan",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF10241D),
+            )
+            Text(
+                "Pesanan dari ${cartMerchantName ?: "merchant pilihanmu"}",
+                fontSize = 11.sp,
+                color = Color(0xFF6B7A73),
+                modifier = Modifier.padding(top = 2.dp),
+            )
             Spacer(Modifier.height(10.dp))
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(TembusRadius.Card))
+                    .background(Color.White, RoundedCornerShape(TembusRadius.Card))
                     .padding(14.dp)
             ) {
                 cart.forEach { item ->
@@ -261,6 +385,52 @@ fun FoodCheckoutScreen(
                         color = Primary
                     )
                 }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(TembusRadius.Input),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFDCEBE0)),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = Primary,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Alamat Pengantaran", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10241D))
+                        Text(
+                            address.ifBlank { "Pilih alamat pengantaran" },
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (address.isBlank()) Color(0xFF6B7A73) else Color(0xFF10241D),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            if (checkoutLat != null && checkoutLng != null) "Pin lokasi siap untuk menghitung quote"
+                            else "Lengkapi alamat dan pin di form berikutnya",
+                            fontSize = 10.sp,
+                            color = if (checkoutLat != null && checkoutLng != null) Success else Color(0xFF6B7A73),
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onBack,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(TembusRadius.Button),
+            ) {
+                Text("Tambah menu lain", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
 
             Spacer(Modifier.height(16.dp))
@@ -441,7 +611,7 @@ fun FoodCheckoutScreen(
             Spacer(Modifier.height(16.dp))
 
             // Alamat pengantaran
-            Text("Alamat Pengantaran", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
+            Text("Lengkapi Alamat & Titik Antar", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(10.dp))
             // FB-090: saved addresses — reuse alamat favorit (receiver)
             val savedAddresses by viewModel.addressBook.collectAsState()
@@ -577,6 +747,21 @@ fun FoodCheckoutScreen(
                 Text(if (foodQuote == null) "Hitung harga dan ETA" else "Perbarui harga dan ETA", fontSize = 13.sp)
             }
             foodQuote?.let { quote ->
+                FoodCheckoutPolicy.quoteExpiryMessage(quote.expiresAt)?.let { expiryMessage ->
+                    Text(
+                        expiryMessage,
+                        color = Error,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                if (quote.minOrderIdr > 0) {
+                    Text(
+                        "Minimum order Rp ${formatRupiah(quote.minOrderIdr)}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                    )
+                }
                 Text(
                     "Subtotal Rp ${formatRupiah(quote.subtotalIdr)} • Antar Rp ${formatRupiah(quote.deliveryFeeIdr)} • ETA ${quote.etaMinutes} menit",
                     color = Success,
@@ -598,6 +783,11 @@ fun FoodCheckoutScreen(
                     color = Primary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    "Biaya layanan Rp ${formatRupiah(quote.platformFeeIdr)} • Pajak Rp ${formatRupiah(quote.taxIdr)} • Diskon Rp ${formatRupiah(quote.discountIdr)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
                 )
             }
             Spacer(Modifier.height(10.dp))
@@ -709,72 +899,6 @@ fun FoodCheckoutScreen(
             }
 
             Spacer(Modifier.height(20.dp))
-
-            Button(
-                onClick = {
-                    submitError = null
-                    if (address.isBlank()) {
-                        submitError = "Alamat pengantaran wajib diisi"
-                        return@Button
-                    }
-                    if (checkoutLat == null || checkoutLng == null) {
-                        submitError = "Titik pengantaran belum dipilih. Pilih alamat tersimpan atau gunakan lokasi perangkat."
-                        return@Button
-                    }
-                    if (foodQuote == null) {
-                        submitError = "Hitung harga dan ETA terbaru sebelum membuat pesanan."
-                        return@Button
-                    }
-                    if (cart.isEmpty()) {
-                        submitError = "Keranjang kosong"
-                        return@Button
-                    }
-                    // FB-123: kalau jadwalkan, waktu wajib dipilih dulu.
-                    if (!scheduleNow && scheduledAtMs == null) {
-                        submitError = "Pilih waktu jadwal dulu (minimal 30 menit lagi)"
-                        return@Button
-                    }
-                    scope.launch {
-                        val safeLat = checkoutLat
-                        val safeLng = checkoutLng
-                        if (safeLat == null || safeLng == null) return@launch
-                        viewModel.checkout(
-                            merchantId = merchantId,
-                            dropoffAddress = address,
-                            dropoffLat = safeLat,
-                            dropoffLng = safeLng,
-                            receiverName = receiverName.ifBlank { null },
-                            receiverPhone = receiverPhone.ifBlank { null },
-                            voucherCode = (voucherState as? VoucherState.Applied)?.code ?: voucherInput,
-                            orderNotes = orderNotes, // FB-121
-                            contactless = contactless, // FB-089
-                            cutlery = cutlery,
-                            deliveryNote = deliveryNote,
-                            giftMode = giftMode,
-                            receiverPrivacy = receiverPrivacy,
-                            isScheduled = !scheduleNow, // FB-123
-                            scheduledAt = scheduledAtIso(),
-                            onResult = { result ->
-                                result.onSuccess { order ->
-                                    viewModel.clearCart()
-                                    onOrderCreated(order.id)
-                                }.onFailure { e ->
-                                    submitError = e.message ?: "Gagal membuat order"
-                                }
-                            }
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(TembusRadius.Button),
-                enabled = !loading
-            ) {
-                if (loading) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.height(22.dp).width(22.dp))
-                } else {
-                    Text("Buat Pesanan • Rp ${formatRupiah(foodQuote?.totalPriceIdr ?: cartTotal)}", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
-            }
 
             Spacer(Modifier.height(8.dp))
             Text(

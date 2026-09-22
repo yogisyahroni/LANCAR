@@ -46,6 +46,12 @@ data class TrackingOrder(
     val status: String = "pending",
     @SerialName("status_label")
     val statusLabel: String? = null,
+    @SerialName("service_category")
+    val serviceCategory: String? = null,
+    @SerialName("schedule_type")
+    val scheduleType: String? = null,
+    @SerialName("scheduled_at")
+    val scheduledAt: String? = null,
     @SerialName("distance_km")
     val distanceKm: Double? = null,
     @SerialName("total_price_idr")

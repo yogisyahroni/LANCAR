@@ -24,6 +24,7 @@ import com.tembus.customer.data.model.LocationPayload
 @Composable
 fun AddressEditDialog(
     address: CustomerAddress?,
+    currentLocation: LocationPayload? = null,
     onDismiss: () -> Unit,
     onSave: (CustomerAddressRequest) -> Unit
 ) {
@@ -68,6 +69,19 @@ fun AddressEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2
                 )
+                if (address == null && currentLocation == null) {
+                    Text(
+                        "Lokasi perangkat belum tersedia. Izinkan akses lokasi lalu buka ulang halaman ini sebelum menyimpan alamat baru.",
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp
+                    )
+                } else if (address == null) {
+                    Text(
+                        "Titik lokasi diambil dari lokasi perangkat saat ini.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
@@ -84,23 +98,22 @@ fun AddressEditDialog(
         confirmButton = {
             Button(
                 onClick = {
+                    val selectedLocation = address?.let { LocationPayload(it.lat, it.lng) } ?: currentLocation
+                    if (selectedLocation == null) return@Button
                     onSave(
                         CustomerAddressRequest(
                             label = label,
                             contactName = contactName.ifBlank { null },
                             contactPhone = contactPhone.ifBlank { null },
                             address = street,
-                            location = LocationPayload(
-                                address?.lat ?: -6.2088,
-                                address?.lng ?: 106.8456
-                            ),
+                            location = selectedLocation,
                             notes = notes.ifBlank { null },
                             kind = "receiver",
                             isFavorite = isFavorite
                         )
                     )
                 },
-                enabled = label.isNotBlank() && street.isNotBlank()
+                enabled = label.isNotBlank() && street.isNotBlank() && (address != null || currentLocation != null)
             ) {
                 Text("Simpan", fontWeight = FontWeight.Bold)
             }
