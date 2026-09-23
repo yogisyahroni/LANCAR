@@ -1,4 +1,9 @@
-import { normalizePackageInputs, summarizePackages, validatePackagePolicy } from './_shared';
+import {
+  normalizePackageDetailsForOrder,
+  normalizePackageInputs,
+  summarizePackages,
+  validatePackagePolicy,
+} from './_shared';
 
 const service = {
   name: 'TEMBUS Instant',
@@ -32,5 +37,32 @@ describe('package facts contract', () => {
   it('rejects an explicitly prohibited package before quote/order work', () => {
     const packages = normalizePackageInputs(null, { is_prohibited: true });
     expect(() => validatePackagePolicy(service, packages)).toThrow('terlarang');
+  });
+
+  it('keeps roadside towing conditions and customer notes in the persisted package details', () => {
+    const packageDetails = normalizePackageDetailsForOrder(
+      {
+        item_description: 'Towing mobil',
+        vehicle_details: {
+          type: 'mobil',
+          make: 'Honda',
+          model: 'Brio',
+          condition: 'Tidak dapat berjalan',
+          damage: '',
+          access_constraints: 'Kecelakaan, Terjebak',
+          notes: 'Menunggu di bahu jalan dekat gerbang tol',
+          towing_conditions: ['Kecelakaan', 'Terjebak'],
+        },
+      },
+      { ...service, code: 'towing_mobil', name: 'Towing Mobil' } as any,
+      null,
+      0,
+      [],
+    );
+
+    expect(packageDetails.vehicle_details).toMatchObject({
+      towing_conditions: ['Kecelakaan', 'Terjebak'],
+      notes: 'Menunggu di bahu jalan dekat gerbang tol',
+    });
   });
 });

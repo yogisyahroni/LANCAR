@@ -99,6 +99,7 @@ fun ServiceCategoryScreen(
 ) {
     var selectedVehicle by remember { mutableStateOf<String?>(null) }
     var selectedConditions by remember { mutableStateOf(setOf<String>()) }
+    var towingNotes by remember { mutableStateOf("") }
     var servicePhotos by remember { mutableStateOf(initialPhotos) }
     var consentChecked by remember { mutableStateOf(false) }
     var pickerTarget by remember { mutableStateOf<TowingRouteTarget?>(null) }
@@ -174,11 +175,11 @@ fun ServiceCategoryScreen(
                             onCategorySelected(
                                 if (selectedVehicle == "motor") "towing_motor" else "towing_mobil",
                                 servicePhotos,
-                                viewModel.selection(),
+                                viewModel.selection(selectedConditions, towingNotes),
                             )
                         },
                         variant = TembusButtonVariant.Primary,
-                        state = if (selectedVehicle != null && consentChecked && routeState.pickup != null && routeState.dropoff != null) {
+                        state = if (selectedVehicle != null && selectedConditions.isNotEmpty() && consentChecked && routeState.pickup != null && routeState.dropoff != null) {
                             TembusControlState.Default
                         } else {
                             TembusControlState.Disabled
@@ -244,7 +245,7 @@ fun ServiceCategoryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
                 )
-                val conditions = listOf("Roda bisa berputar", "Gigi bisa netral (N)", "Setir kemudi terkunci", "Terjebak parit / salju")
+                val conditions = listOf("Kecelakaan", "Transmisi", "Terjebak", "Mogok")
                 conditions.chunked(2).forEach { rowConditions ->
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         rowConditions.forEach { condition ->
@@ -260,6 +261,16 @@ fun ServiceCategoryScreen(
                         if (rowConditions.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
+                Spacer(Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = towingNotes,
+                    onValueChange = { towingNotes = it.take(500) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Catatan untuk petugas (opsional)") },
+                    placeholder = { Text("Contoh: kendaraan di bahu jalan, roda depan rusak") },
+                    minLines = 3,
+                    maxLines = 5,
+                )
             }
 
             item {

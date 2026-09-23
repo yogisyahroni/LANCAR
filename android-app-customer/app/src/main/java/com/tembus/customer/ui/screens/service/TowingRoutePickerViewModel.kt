@@ -31,6 +31,8 @@ data class TowingRoutePoint(
 data class TowingRouteSelection(
     val pickup: TowingRoutePoint? = null,
     val dropoff: TowingRoutePoint? = null,
+    val conditions: List<String> = emptyList(),
+    val notes: String = "",
 )
 
 data class TowingRoutePickerUiState(
@@ -175,9 +177,11 @@ class TowingRoutePickerViewModel @Inject constructor(
         }
     }
 
-    fun selection(): TowingRouteSelection = TowingRouteSelection(
+    fun selection(conditions: Set<String> = emptySet(), notes: String = ""): TowingRouteSelection = TowingRouteSelection(
         pickup = _uiState.value.pickup,
         dropoff = _uiState.value.dropoff,
+        conditions = conditions.toList(),
+        notes = notes.trim(),
     )
 
     fun setError(message: String) {

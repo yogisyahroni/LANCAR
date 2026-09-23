@@ -375,6 +375,7 @@ class ServiceBookingViewModel @Inject constructor(
         vehicleCondition: String,
         accessConstraints: String,
         notes: String,
+        towingConditions: List<String> = emptyList(),
         destinationContactName: String,
         destinationContactPhone: String,
         preferredCourierId: String?,
@@ -456,7 +457,8 @@ class ServiceBookingViewModel @Inject constructor(
                     vehicleDetails = if (isRoadside) VehicleDetailsPayload(
                         type = vehicleType.trim(), make = vehicleMake.trim(), model = vehicleModel.trim(),
                         condition = vehicleCondition.trim(), damage = damageType.trim(),
-                        accessConstraints = accessConstraints.trim(), notes = notes.trim()
+                        accessConstraints = accessConstraints.trim(), notes = notes.trim(),
+                        towingConditions = towingConditions.map(String::trim).filter(String::isNotBlank).distinct()
                     ) else null
                 ),
                 priceBreakdown = breakdown,

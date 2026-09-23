@@ -280,6 +280,7 @@ data class RoadsideVehicleDetails(
     @SerialName("damage") val damage: String = "",
     @SerialName("access_constraints") val accessConstraints: String = "",
     @SerialName("notes") val notes: String = "",
+    @SerialName("towing_conditions") val towingConditions: List<String> = emptyList(),
     @SerialName("photo_urls") val photoUrls: List<String> = emptyList(),
     @SerialName("photo_items") val photoItems: List<RoadsideVehiclePhoto> = emptyList()
 )

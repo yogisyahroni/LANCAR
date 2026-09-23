@@ -78,7 +78,10 @@ fun RoadsideVehicleVerificationCard(
                 VehicleValue("Jenis", customerVehicle.type)
                 VehicleValue("Merek / model", listOf(customerVehicle.make, customerVehicle.model).filter(String::isNotBlank).joinToString(" "))
                 VehicleValue("Kondisi", customerVehicle.condition)
-                VehicleValue("Kerusakan / catatan", listOf(customerVehicle.damage, customerVehicle.notes).filter(String::isNotBlank).joinToString(" • "))
+                VehicleValue("Kondisi towing", customerVehicle.towingConditions.joinToString(" • "))
+                VehicleValue("Akses / evakuasi", customerVehicle.accessConstraints)
+                VehicleValue("Kerusakan", customerVehicle.damage)
+                VehicleValue("Catatan customer", customerVehicle.notes)
                 if (customerVehicle.photoUrls.isNotEmpty() || customerVehicle.photoItems.isNotEmpty()) {
                     val photoUrl = customerVehicle.photoItems.firstOrNull()?.url?.takeIf { it.isNotBlank() }
                         ?: customerVehicle.photoUrls.firstOrNull().orEmpty()

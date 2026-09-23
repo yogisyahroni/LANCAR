@@ -663,6 +663,14 @@ fun RootNavGraph(
                                 navController.currentBackStackEntry?.savedStateHandle?.set("towing_dropoff_lat", point.latitude)
                                 navController.currentBackStackEntry?.savedStateHandle?.set("towing_dropoff_lng", point.longitude)
                             }
+                            navController.currentBackStackEntry?.savedStateHandle?.set(
+                                "towing_conditions",
+                                ArrayList(routeSelection.conditions),
+                            )
+                            navController.currentBackStackEntry?.savedStateHandle?.set(
+                                "towing_notes",
+                                routeSelection.notes,
+                            )
                             navController.navigate(Screen.ServiceBooking.createRoute(category))
                         } else {
                             stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, photos)
@@ -720,6 +728,8 @@ fun RootNavGraph(
                         longitude = routeHandle.get<Double>("towing_dropoff_lng") ?: 0.0,
                     )
                 }
+                val initialTowingConditions = routeHandle?.get<ArrayList<String>>("towing_conditions")?.toList().orEmpty()
+                val initialTowingNotes = routeHandle?.get<String>("towing_notes").orEmpty()
                 ServiceBookingScreen(
                     serviceSubType = serviceSubType,
                     courierId = courierId,
@@ -729,6 +739,8 @@ fun RootNavGraph(
                     initialPhotos = initialPhotos,
                     initialDamageType = initialDraft.damageType,
                     initialNotes = initialDraft.notes,
+                    initialTowingConditions = initialTowingConditions,
+                    initialTowingNotes = initialTowingNotes,
                     initialPickup = initialPickup,
                     initialDropoff = initialDropoff,
                     onBackClick = { navController.popBackStack() },

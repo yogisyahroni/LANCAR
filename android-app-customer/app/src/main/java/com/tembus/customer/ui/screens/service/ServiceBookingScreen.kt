@@ -94,6 +94,8 @@ fun ServiceBookingScreen(
     initialPhotos: List<LocalServicePhoto> = emptyList(),
     initialDamageType: String = "",
     initialNotes: String = "",
+    initialTowingConditions: List<String> = emptyList(),
+    initialTowingNotes: String = "",
     initialPickup: TowingRoutePoint? = null,
     initialDropoff: TowingRoutePoint? = null,
     viewModel: ServiceBookingViewModel = hiltViewModel()
@@ -107,8 +109,12 @@ fun ServiceBookingScreen(
     var vehicleMake by remember { mutableStateOf("") }
     var vehicleModel by remember { mutableStateOf("") }
     var vehicleCondition by remember { mutableStateOf("") }
-    var accessConstraints by remember { mutableStateOf("") }
-    var notes by remember(serviceSubType, initialNotes) { mutableStateOf(initialNotes) }
+    var accessConstraints by remember(serviceSubType, initialTowingConditions) {
+        mutableStateOf(initialTowingConditions.joinToString(", "))
+    }
+    var notes by remember(serviceSubType, initialNotes, initialTowingNotes) {
+        mutableStateOf(initialNotes.ifBlank { initialTowingNotes })
+    }
     var destinationContactName by remember { mutableStateOf("") }
     var destinationContactPhone by remember { mutableStateOf("") }
     var servicePhotos by remember(serviceSubType, initialPhotos) { mutableStateOf(initialPhotos) }
@@ -185,6 +191,7 @@ fun ServiceBookingScreen(
             vehicleCondition = vehicleCondition,
             accessConstraints = accessConstraints,
             notes = notes,
+            towingConditions = initialTowingConditions,
             destinationContactName = destinationContactName,
             destinationContactPhone = destinationContactPhone,
             preferredCourierId = courierId,
