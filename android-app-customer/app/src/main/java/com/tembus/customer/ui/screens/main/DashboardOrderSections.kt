@@ -95,7 +95,7 @@ internal fun UnreadDot(modifier: Modifier = Modifier) {
 internal fun CompactActiveOrdersSummaryCard(
     orders: List<Order>,
     hasUnreadMessage: Boolean,
-    onTrackingClick: (String) -> Unit,
+    onTrackingClick: (Order) -> Unit,
     onViewAllClick: () -> Unit,
 ) {
     if (orders.isEmpty()) return
@@ -125,7 +125,7 @@ internal fun CompactActiveOrdersSummaryCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clickable {
-                if (orderCount == 1) onTrackingClick(primaryOrder.orderId) else onViewAllClick()
+                if (orderCount == 1) onTrackingClick(primaryOrder) else onViewAllClick()
             },
         shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -189,7 +189,7 @@ internal fun CompactActiveOrdersSummaryCard(
                     modifier = Modifier.weight(1f),
                 )
                 Button(
-                    onClick = { if (orderCount == 1) onTrackingClick(primaryOrder.orderId) else onViewAllClick() },
+                    onClick = { if (orderCount == 1) onTrackingClick(primaryOrder) else onViewAllClick() },
                     shape = RoundedCornerShape(999.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = OrangeCta, contentColor = OnOrangeCta),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp),
@@ -347,7 +347,7 @@ internal fun QuickRepeatEmptyState(
 internal fun ActiveOrdersSection(
     orders: List<Order>,
     hasUnreadMessage: Boolean,
-    onTrackingClick: (String) -> Unit,
+    onTrackingClick: (Order) -> Unit,
     onChatClick: (String) -> Unit,
 ) {
     Column(
@@ -381,7 +381,7 @@ internal fun ActiveOrdersSection(
                 subtitle = order.orderNumber.ifBlank { order.serviceCategory.orEmpty().ifBlank { "Pesanan TEMBUS" } },
                 status = order.status,
                 hasUnreadMessage = hasUnreadMessage,
-                onClick = { onTrackingClick(order.orderId) },
+                onClick = { onTrackingClick(order) },
                 onChatClick = { onChatClick(order.orderId) },
             )
         }
@@ -496,7 +496,7 @@ internal fun ActiveOrderCard(
 internal fun IncomingPackagesSection(
     packages: List<Order>,
     hasUnreadMessage: Boolean,
-    onTrackingClick: (String) -> Unit,
+    onTrackingClick: (Order) -> Unit,
     onChatClick: (String) -> Unit,
     onViewAllClick: () -> Unit,
 ) {
@@ -536,7 +536,7 @@ internal fun IncomingPackagesSection(
                 IncomingPackageCard(
                     order = order,
                     hasUnreadMessage = hasUnreadMessage,
-                    onTrackingClick = { onTrackingClick(order.orderId) },
+                    onTrackingClick = { onTrackingClick(order) },
                     onChatClick = { onChatClick(order.orderId) }
                 )
             }

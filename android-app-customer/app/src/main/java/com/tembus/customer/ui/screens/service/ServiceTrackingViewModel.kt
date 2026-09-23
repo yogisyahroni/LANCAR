@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -44,8 +47,20 @@ class ServiceTrackingViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ServiceTrackingUiState())
     val uiState: StateFlow<ServiceTrackingUiState> = _uiState.asStateFlow()
 
+    private var trackingJob: Job? = null
+
     fun startTracking(orderId: String, serviceSubType: String = "") {
-        viewModelScope.launch {
+        trackingJob?.cancel()
+        trackingJob = viewModelScope.launch {
+            while (isActive) {
+                loadTrackingSnapshot(orderId, serviceSubType)
+                if (_uiState.value.isTerminal) break
+                delay(if (_uiState.value.hasSnapshot) 5_000L else 1_000L)
+            }
+        }
+    }
+
+    private suspend fun loadTrackingSnapshot(orderId: String, serviceSubType: String) {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             orderRepository.getOrderTrackingDetail(orderId)
@@ -101,7 +116,10 @@ class ServiceTrackingViewModel @Inject constructor(
                         )
                     }
                 }
-        }
     }
-    
+
+    override fun onCleared() {
+        trackingJob?.cancel()
+        super.onCleared()
+    }
 }

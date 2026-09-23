@@ -165,6 +165,35 @@ internal fun isPackageCourierSearchInProgress(
         PackageOrderFlowPolicy.CourierOutcome.SEARCHING
 }
 
+/**
+ * A tracking detail can arrive before the dispatch worker has persisted a
+ * courier profile. Keep that state visibly separate from an accepted order;
+ * a status label alone is not enough because older payloads may still say
+ * "menunggu update" while dispatch is running.
+ */
+internal fun isCourierSearchInProgress(
+    status: String?,
+    hasAssignedCourier: Boolean,
+): Boolean {
+    if (hasAssignedCourier) return false
+    return status.orEmpty()
+        .trim()
+        .lowercase()
+        .replace('-', '_')
+        .replace(' ', '_') in setOf(
+        "pending",
+        "created",
+        "waiting",
+        "waiting_for_driver",
+        "pending_assignment",
+        "dispatching",
+        "offered",
+        "matched",
+        "searching",
+        "searching_driver",
+    )
+}
+
 internal fun trackingFreshnessLabel(lastLiveTrackingAt: Long?): String {
     if (lastLiveTrackingAt == null) return "Data tracking belum pernah tersinkron"
     val elapsedSeconds = ((System.currentTimeMillis() - lastLiveTrackingAt) / 1000).coerceAtLeast(0)

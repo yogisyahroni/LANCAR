@@ -147,6 +147,20 @@ class TrackingScreenLogicTest {
         )
     }
 
+    @Test
+    fun courierSearch_isSharedByOnDemandAndRoadsideUntilAssigned() {
+        assertTrue(isCourierSearchInProgress("searching_driver", hasAssignedCourier = false))
+        assertTrue(isCourierSearchInProgress("pending_assignment", hasAssignedCourier = false))
+        assertTrue(isCourierSearchInProgress("searching", hasAssignedCourier = false))
+        assertFalse(isCourierSearchInProgress("accepted", hasAssignedCourier = true))
+    }
+
+    @Test
+    fun courierSearch_neverShowsRadarForAnAcceptedOrderWithoutSearchStatus() {
+        assertFalse(isCourierSearchInProgress("accepted", hasAssignedCourier = false))
+        assertFalse(isCourierSearchInProgress("in_transit", hasAssignedCourier = false))
+    }
+
     // --- trackingFreshnessLabel -------------------------------------------
     @Test
     fun trackingFreshnessLabel_null_returnsNeverSynced() {

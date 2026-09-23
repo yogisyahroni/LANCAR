@@ -86,7 +86,7 @@ fun OrderHistoryScreen(
     onBackClick: () -> Unit,
     onOrderClick: (String) -> Unit,
     onReorderNavigate: () -> Unit,
-    onTrackClick: (String) -> Unit = {},
+    onTrackClick: (Order) -> Unit = {},
     onChatClick: (String) -> Unit = {},
     onCallClick: (String, String?) -> Unit = { _, _ -> },
     onSearchClick: () -> Unit = {},
@@ -240,7 +240,7 @@ fun OrderHistoryScreen(
                                     // opening one requests its authoritative profile and location.
                                     detail = activeTracking?.takeIf { it.order.id == activeOrder.orderId },
                                     mapsProviderConfig = mapsProviderConfig,
-                                    onTrackClick = { onTrackClick(activeOrder.orderId) },
+                                    onTrackClick = { onTrackClick(activeOrder) },
                                     onChatClick = { onChatClick(activeOrder.orderId) },
                                     onCallClick = { onCallClick(activeOrder.orderId, activeOrder.courierName) },
                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp),

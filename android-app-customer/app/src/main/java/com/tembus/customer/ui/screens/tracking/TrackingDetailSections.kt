@@ -143,10 +143,10 @@ fun CourierStatusCard(
                 merchantId = order?.merchantId,
                 serviceCategory = order?.serviceCategory,
             ).kind
-            val isPackageSearching = isPackageCourierSearchInProgress(
+            val hasAssignedCourier = !order?.courierName.isNullOrBlank()
+            val isCourierSearching = isCourierSearchInProgress(
                 status = order?.status,
-                kind = trackingKind,
-                hasAssignedCourier = !order?.courierName.isNullOrBlank(),
+                hasAssignedCourier = hasAssignedCourier,
             )
             val stageText = remember(
                 order?.status,
@@ -155,8 +155,15 @@ fun CourierStatusCard(
                 order?.model,
                 order?.statusLabel,
                 detail?.tracking?.stageLabel,
+                isCourierSearching,
             ) {
-                order?.statusLabel?.takeIf { it.isNotBlank() }
+                if (isCourierSearching) {
+                    when (trackingKind) {
+                        TrackingServiceKind.TAMBAL_BAN -> "Mencari teknisi terdekat"
+                        TrackingServiceKind.TOWING -> "Mencari petugas towing terdekat"
+                        else -> "Mencari driver terdekat"
+                    }
+                } else order?.statusLabel?.takeIf { it.isNotBlank() }
                     ?: detail?.tracking?.stageLabel?.takeIf { it.isNotBlank() }
                     ?: trackingStageText(
                         status = order?.status,
@@ -194,7 +201,7 @@ fun CourierStatusCard(
                 fontSize = 13.sp,
                 modifier = Modifier.padding(start = 32.dp, top = 6.dp)
             )
-            if (isPackageSearching) {
+            if (isCourierSearching) {
                 Spacer(modifier = Modifier.height(14.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -221,13 +228,17 @@ fun CourierStatusCard(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Mencari kurir terdekat",
+                                text = when (trackingKind) {
+                                    TrackingServiceKind.TAMBAL_BAN -> "Mencari teknisi terdekat"
+                                    TrackingServiceKind.TOWING -> "Mencari petugas towing terdekat"
+                                    else -> "Mencari driver terdekat"
+                                },
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
                                 color = Primary,
                             )
                             Text(
-                                text = "Radar aktif — kami sedang mencarikan kurir untuk paketmu.",
+                                text = "Radar aktif — petugas yang tersedia akan muncul setelah menerima order.",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 lineHeight = 17.sp,
@@ -277,8 +288,8 @@ fun CourierStatusCard(
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        val initials = remember(order?.courierName) {
-                            val name = order?.courierName ?: "K"
+                        val initials = remember(order?.courierName, isCourierSearching) {
+                            val name = order?.courierName ?: if (isCourierSearching) "…" else "TM"
                             val parts = name.trim().split("\\s+".toRegex())
                             if (parts.size >= 2) {
                                 "${parts[0].take(1)}${parts[1].take(1)}".uppercase()
@@ -294,13 +305,23 @@ fun CourierStatusCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = order?.courierName ?: "Sedang mencari kurir...",
+                        text = order?.courierName ?: when (trackingKind) {
+                            TrackingServiceKind.TAMBAL_BAN -> "Mencari teknisi terdekat"
+                            TrackingServiceKind.TOWING -> "Mencari petugas towing terdekat"
+                            else -> "Mencari driver terdekat"
+                        },
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = if (order?.courierPlate != null) "${order.courierPlate} • ${order.courierVehicle ?: ""}" else "Menghubungkan driver",
+                        text = if (hasAssignedCourier && order?.courierPlate != null) {
+                            "${order.courierPlate} • ${order.courierVehicle ?: ""}"
+                        } else if (hasAssignedCourier) {
+                            order?.courierVehicle ?: "Petugas menerima order"
+                        } else {
+                            "Menunggu petugas menerima order"
+                        },
                         color = Color.Gray,
                         fontSize = 14.sp
                     )
@@ -310,6 +331,7 @@ fun CourierStatusCard(
                 Row {
                     FilledIconButton(
                         onClick = onCallClick,
+                        enabled = hasAssignedCourier,
                         modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).criticalAction("Telepon kurir"),
                         shape = CircleShape,
                         colors = IconButtonDefaults.filledIconButtonColors(
@@ -327,6 +349,7 @@ fun CourierStatusCard(
                     Box {
                         FilledIconButton(
                             onClick = onChatClick,
+                            enabled = hasAssignedCourier,
                             modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).criticalAction("Chat kurir"),
                             shape = CircleShape,
                             colors = IconButtonDefaults.filledIconButtonColors(

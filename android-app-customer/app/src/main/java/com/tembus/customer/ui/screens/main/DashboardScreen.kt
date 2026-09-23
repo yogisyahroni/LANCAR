@@ -164,7 +164,7 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
     onNotificationsClick: () -> Unit = {},
     onBookingClick: (String?) -> Unit = {},
-    onTrackingClick: (String) -> Unit = {},
+    onTrackingClick: (Order) -> Unit = {},
     onChatClick: (String) -> Unit = {},
     onHistoryClick: () -> Unit = {},
     onBusinessClick: () -> Unit = {},

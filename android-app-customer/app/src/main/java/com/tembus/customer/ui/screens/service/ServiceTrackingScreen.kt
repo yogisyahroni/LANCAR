@@ -64,6 +64,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.tembus.customer.BuildConfig
 import com.tembus.customer.ui.components.ServiceProgressBar
+import com.tembus.customer.ui.components.RadarPulseIndicator
 import com.tembus.customer.ui.components.TambalBanProgressSteps
 import com.tembus.customer.ui.components.TowingProgressSteps
 import com.tembus.customer.ui.localization.CustomerTextCatalog
@@ -101,6 +102,9 @@ fun ServiceTrackingScreen(
 
     val isTambalBan = serviceSubType.startsWith("tambal_ban")
     val steps = if (isTambalBan) TambalBanProgressSteps.steps else TowingProgressSteps.steps
+    val isSearching = !uiState.isTerminal &&
+        uiState.courierName.isNullOrBlank() &&
+        (uiState.currentStepIndex == 0 || uiState.statusText.orEmpty().contains("mencari", ignoreCase = true))
 
     Scaffold(
         containerColor = TrackingCanvas,
@@ -155,6 +159,9 @@ fun ServiceTrackingScreen(
                 if (uiState.isLoading && !uiState.hasSnapshot) {
                     LoadingCard()
                 } else {
+                    if (isSearching) {
+                        SearchingServiceCard(isTambalBan = isTambalBan)
+                    }
                     ProgressCard(steps = steps, currentStep = uiState.currentStepIndex)
                 }
 
@@ -226,6 +233,44 @@ fun ServiceTrackingScreen(
                     }
                 }
                 Spacer(Modifier.height(8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchingServiceCard(isTambalBan: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = TrackingSoftGreen),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.76f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                RadarPulseIndicator(active = true, size = 30.dp, dotSize = 8.dp)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    if (isTambalBan) "Mencari teknisi terdekat" else "Mencari petugas towing terdekat",
+                    color = TrackingGreen,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                )
+                Text(
+                    "Radar aktif — petugas akan tampil setelah menerima order.",
+                    color = OnSurfaceVariant,
+                    fontSize = 12.sp,
+                )
             }
         }
     }

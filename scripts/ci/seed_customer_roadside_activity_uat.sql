@@ -395,7 +395,8 @@ VALUES
 )
 ON CONFLICT DO NOTHING;
 
--- Both active legs point to users.id. Reports point to courier_profiles.id.
+-- Active legs point to users.id. The customer tracking projection resolves
+-- the matching courier_profiles row through courier_profiles.user_id.
 INSERT INTO order_legs (
   id, order_id, leg_number, courier_id, status,
   pickup_location, dropoff_location, assigned_fee_idr,

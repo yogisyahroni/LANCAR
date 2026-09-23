@@ -54,6 +54,7 @@ import com.tembus.customer.ui.components.maps.*
 import com.tembus.customer.BuildConfig
 import com.tembus.customer.R
 import com.tembus.customer.data.model.OrderTrackingDetail
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.tembus.customer.ui.components.maps.RuntimeMapMarker
 import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
 import com.tembus.customer.ui.theme.Accent
@@ -78,6 +79,7 @@ fun TrackingScreen(
     onBackClick: () -> Unit,
     onChatClick: (String, String?) -> Unit,
     onCallClick: (String, String?) -> Unit,
+    onServiceTrackingRedirect: (String, String?, String?) -> Unit = { _, _, _ -> },
     ratingViewModel: CourierRatingViewModel = hiltViewModel(),
     merchantRatingViewModel: MerchantRatingViewModel = hiltViewModel(),
     tipViewModel: TipViewModel = hiltViewModel()
@@ -92,6 +94,7 @@ fun TrackingScreen(
     var safetyCenterOpen by remember(orderId) { mutableStateOf(false) }
     var sosConfirmationOpen by remember(orderId) { mutableStateOf(false) }
     var safetyNote by remember(orderId) { mutableStateOf("") }
+    var serviceRedirected by rememberSaveable(orderId) { mutableStateOf(false) }
 
     // Tracking lifecycle management
     DisposableEffect(orderId) {
@@ -110,6 +113,25 @@ fun TrackingScreen(
             // Polling continues while online; immediately reconcile after a
             // network transition so a stale map is not the only visible state.
             viewModel.refresh(orderId)
+        }
+    }
+
+    // Deep links and legacy notifications may still open the generic tracking
+    // route. Once the authoritative order detail arrives, hand off to the
+    // service-specific destination so aggregator/roadside never remain on a
+    // parcel courier screen.
+    LaunchedEffect(uiState.detail?.order?.id) {
+        val order = uiState.detail?.order ?: return@LaunchedEffect
+        val category = order.serviceCategory.orEmpty().lowercase()
+        val subtype = order.serviceSubType.orEmpty().lowercase()
+        val isServiceSpecific = category == "aggregator" ||
+            subtype.contains("aggregator") ||
+            category.contains("towing") || subtype.contains("towing") || subtype.contains("derek") ||
+            category.contains("tambal") || category.contains("ban") ||
+            subtype.contains("tambal") || subtype.contains("ban") || subtype.contains("tire")
+        if (isServiceSpecific && !serviceRedirected) {
+            serviceRedirected = true
+            onServiceTrackingRedirect(order.id, order.serviceCategory, order.serviceSubType)
         }
     }
 

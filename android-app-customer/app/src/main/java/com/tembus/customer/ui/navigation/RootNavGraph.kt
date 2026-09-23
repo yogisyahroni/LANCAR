@@ -64,6 +64,7 @@ import androidx.navigation.navDeepLink
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.tembus.customer.data.model.NotificationRealtimeEvent
+import com.tembus.customer.data.model.Order
 import com.tembus.customer.data.session.SessionInvalidationReason
 import com.tembus.customer.featureflag.FeatureFlagManager
 import com.tembus.customer.domain.config.StartupCampaignDecision
@@ -273,6 +274,37 @@ fun RootNavGraph(
         currentRoute?.let { telemetry?.screenView(it) }
     }
 
+    // Tracking is a service-specific contract. Aggregator ends at the 3PL
+    // handoff/e-resi screen; roadside has its own accepted/searching flow;
+    // regular on-demand orders use the live courier tracker.
+    val openCustomerTrackingByFields: (String, String?, String?) -> Unit = { orderId, rawCategory, rawSubtype ->
+        val category = rawCategory.orEmpty().trim().lowercase()
+        val subtype = rawSubtype.orEmpty().trim().lowercase()
+        when {
+            category == "aggregator" || subtype.contains("aggregator") ->
+                navController.navigate(Screen.AggregatorEResi.createRoute(orderId))
+            category.contains("towing") || subtype.contains("towing") || subtype.contains("derek") ->
+                navController.navigate(
+                    Screen.ServiceTracking.createRoute(
+                        orderId,
+                        rawSubtype?.takeIf { it.isNotBlank() } ?: "towing_motor",
+                    )
+                )
+            category.contains("tambal") || category.contains("ban") ||
+                subtype.contains("tambal") || subtype.contains("ban") || subtype.contains("tire") ->
+                navController.navigate(
+                    Screen.ServiceTracking.createRoute(
+                        orderId,
+                        rawSubtype?.takeIf { it.isNotBlank() } ?: "tambal_ban_motor",
+                    )
+                )
+            else -> navController.navigate(Screen.Tracking.createRoute(orderId))
+        }
+    }
+    val openCustomerTracking: (Order) -> Unit = { order ->
+        openCustomerTrackingByFields(order.orderId, order.serviceCategory, order.serviceSubType)
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
@@ -319,7 +351,7 @@ fun RootNavGraph(
                     onFoodClick = { navController.navigate(Screen.FoodHome.route) },
                     onIncomingClick = { navController.navigate(Screen.History.route) },
                     onRemoteAction = handleRemoteAction,
-                    onTrackingClick = { orderId -> navController.navigate(Screen.Tracking.createRoute(orderId)) },
+                    onTrackingClick = openCustomerTracking,
                     onChatClick = { orderId -> navController.navigate(Screen.Chat.createRoute(orderId, null)) },
                     onHistoryClick = { navController.navigate(Screen.History.route) },
                     onBusinessClick = { navController.navigate(Screen.Messages.route) },
@@ -628,7 +660,7 @@ fun RootNavGraph(
                     onBackClick = { navController.popBackStack() },
                     onOrderClick = { orderId -> navController.navigate(Screen.OrderDetail.createRoute(orderId)) },
                     onReorderNavigate = { navController.navigate(Screen.FoodCart.route) },
-                    onTrackClick = { orderId -> navController.navigate(Screen.Tracking.createRoute(orderId)) },
+                    onTrackClick = openCustomerTracking,
                     onChatClick = { orderId -> navController.navigate(Screen.Chat.createRoute(orderId, null)) },
                     onCallClick = { orderId, name -> navController.navigate(Screen.InAppCall.createRoute(orderId, name)) },
                     onSearchClick = { navController.navigate(Screen.UniversalSearch.route) },
@@ -970,13 +1002,8 @@ fun RootNavGraph(
                     onBackClick = { navController.popBackStack() },
                     onTrackClick = { trackedId ->
                         val currentOrder = (detailViewModel.uiState.value as? com.tembus.customer.ui.screens.detail.OrderDetailUiState.Success)?.order
-                        val isAgg = currentOrder?.serviceCategory == "aggregator" ||
-                                currentOrder?.serviceSubType == "aggregator"
-                        if (isAgg) {
-                            navController.navigate(Screen.AggregatorEResi.createRoute(trackedId))
-                        } else {
-                            navController.navigate(Screen.Tracking.createRoute(trackedId))
-                        }
+                        if (currentOrder != null) openCustomerTracking(currentOrder)
+                        else navController.navigate(Screen.Tracking.createRoute(trackedId))
                     },
                     onPaymentClick = { id, subtype ->
                         navController.navigate(Screen.Payment.createRoute(id, subtype))
@@ -1029,6 +1056,7 @@ fun RootNavGraph(
                     onBackClick = { navController.popBackStack() },
                     onChatClick = { id, name -> navController.navigate(Screen.Chat.createRoute(id, name)) },
                     onCallClick = { id, name -> navController.navigate(Screen.InAppCall.createRoute(id, name, "outgoing")) },
+                    onServiceTrackingRedirect = openCustomerTrackingByFields,
                     ratingViewModel = courierRatingViewModel,
                     merchantRatingViewModel = merchantRatingViewModel,
                     tipViewModel = tipViewModel
