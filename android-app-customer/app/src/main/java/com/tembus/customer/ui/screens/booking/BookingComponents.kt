@@ -115,7 +115,9 @@ import com.tembus.customer.ui.theme.AccentSoft
 import com.tembus.customer.ui.theme.CustomerCanvas
 import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.OnSurface
+import com.tembus.customer.ui.theme.OnOrangeCta
 import com.tembus.customer.ui.theme.OnSurfaceVariant
+import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.OutlineStrong
 import com.tembus.customer.ui.theme.Primary
@@ -1264,6 +1266,7 @@ internal fun ServiceRow(
 @Composable
 internal fun BookingReviewSheet(
     state: BookingState,
+    isAggregatorMode: Boolean,
     onSubmit: () -> Unit
 ) {
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
@@ -1304,7 +1307,9 @@ internal fun BookingReviewSheet(
                     Text("Fakta paket dari quote server", color = Primary, fontWeight = FontWeight.ExtraBold)
                     Text("${facts?.category?.ifBlank { state.packageCategory } ?: state.packageCategory} • ${facts?.quantity ?: state.packageQuantity} item", color = Ink, fontSize = 13.sp)
                     Text("Aktual ${formatWeightKg(breakdown.actualWeightKg)} kg • Volumetrik ${formatWeightKg(breakdown.dimensionalWeightKg)} kg • Ditagihkan ${formatWeightKg(breakdown.chargeableWeightKg)} kg", color = Muted, fontSize = 12.sp)
-                    Text("Kode terima: ${if (facts?.deliveryCodePolicy == "required") "Wajib" else "Opsional"}${if (facts?.fragile == true || state.packageIsFragile) " • Rapuh" else ""}", color = Muted, fontSize = 12.sp)
+                    if (!isAggregatorMode) {
+                        Text("Kode terima: ${if (facts?.deliveryCodePolicy == "required") "Wajib" else "Opsional"}${if (facts?.fragile == true || state.packageIsFragile) " • Rapuh" else ""}", color = Muted, fontSize = 12.sp)
+                    }
                 }
             }
         }
@@ -1368,7 +1373,10 @@ internal fun BookingReviewSheet(
                 .height(58.dp)
                 .criticalAction("Kirim order dengan harga yang ditampilkan"),
             shape = RoundedCornerShape(TembusRadius.Button),
-            colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isAggregatorMode) OrangeCta else LcGreen,
+                contentColor = if (isAggregatorMode) OnOrangeCta else MaterialTheme.colorScheme.onPrimary,
+            )
         ) {
             Text(
                 if (state.isLoading) "Mengirim order..." else "Kirim ${service?.name ?: "TEMBUS"} • ${price?.let(::formatPrice) ?: formatMoney(0, "IDR", 0)}",

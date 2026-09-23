@@ -259,7 +259,6 @@ fun AggregatorScreen(
                 )
             }
             item { AggregatorPickupPolicyCard(state) }
-            item { AggregatorDeliveryCodeCard(state.deliveryCodeEnabled, viewModel::toggleDeliveryCode) }
             item { AggregatorPaymentSummary(state) }
             item { AggregatorSafetyNote() }
         }
@@ -852,17 +851,6 @@ private fun AggregatorInsuranceOption(
             )
         }
         Switch(checked = enabled, onCheckedChange = onEnabledChange)
-    }
-}
-
-@Composable
-private fun AggregatorDeliveryCodeCard(enabled: Boolean, onEnabledChange: (Boolean) -> Unit) {
-    AggregatorCard {
-        AggregatorSectionHeader(Icons.Default.Security, "OPSIONAL", "Kode terima paket", "Gratis")
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Penerima wajib memberi kode saat paket diterima.", color = AggregatorMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-            Switch(checked = enabled, onCheckedChange = onEnabledChange)
-        }
     }
 }
 

@@ -190,6 +190,7 @@ internal fun BookingModalSheets(
         ) {
             BookingReviewSheet(
                 state = state,
+                isAggregatorMode = viewModel.isAggregatorMode,
                 onSubmit = viewModel::confirmBooking
             )
         }
