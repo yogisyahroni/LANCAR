@@ -124,6 +124,26 @@ class ServiceBookingViewModel @Inject constructor(
         }
     }
 
+    fun applyInitialRoute(pickup: TowingRoutePoint?, dropoff: TowingRoutePoint?) {
+        pickup?.takeIf { it.latitude != 0.0 && it.longitude != 0.0 }
+            ?.let { point -> setLocation(point.latitude, point.longitude) }
+        dropoff?.takeIf { it.latitude != 0.0 && it.longitude != 0.0 }
+            ?.let { point ->
+                _uiState.update {
+                    it.copy(
+                        dropoffQuery = point.label,
+                        dropoffAddress = point.label,
+                        dropoffLat = point.latitude,
+                        dropoffLng = point.longitude,
+                        dropoffResults = emptyList(),
+                        priceEstimate = null,
+                        rawPriceBreakdown = null,
+                        error = null,
+                    )
+                }
+            }
+    }
+
     fun setLocationError(message: String) {
         _uiState.update { it.copy(error = message) }
     }

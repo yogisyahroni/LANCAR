@@ -94,6 +94,8 @@ fun ServiceBookingScreen(
     initialPhotos: List<LocalServicePhoto> = emptyList(),
     initialDamageType: String = "",
     initialNotes: String = "",
+    initialPickup: TowingRoutePoint? = null,
+    initialDropoff: TowingRoutePoint? = null,
     viewModel: ServiceBookingViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -141,8 +143,14 @@ fun ServiceBookingScreen(
         if (granted) fetchCurrentLocation()
     }
 
-    LaunchedEffect(hasLocationPermission) {
-        if (hasLocationPermission) {
+    LaunchedEffect(initialPickup, initialDropoff) {
+        if (initialPickup != null || initialDropoff != null) {
+            viewModel.applyInitialRoute(initialPickup, initialDropoff)
+        }
+    }
+
+    LaunchedEffect(hasLocationPermission, initialPickup?.latitude, initialPickup?.longitude) {
+        if (hasLocationPermission && initialPickup == null) {
             fetchCurrentLocation()
         }
     }

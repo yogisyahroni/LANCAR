@@ -1,5 +1,9 @@
 package com.tembus.customer.ui.screens.service
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,19 +36,26 @@ import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import com.tembus.customer.ui.localization.CustomerText as Text
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +67,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.tembus.customer.ui.designsystem.TembusBadge
 import com.tembus.customer.ui.designsystem.TembusBadgeTone
 import com.tembus.customer.ui.designsystem.TembusButton
@@ -64,6 +80,9 @@ import com.tembus.customer.ui.designsystem.TembusCard
 import com.tembus.customer.ui.designsystem.TembusControlState
 import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.ui.theme.PrimarySoft
+import com.tembus.customer.ui.components.maps.LatLng
+import com.tembus.customer.ui.components.maps.RuntimeMapMarker
+import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
 
 /**
  * Towing landing follows the Figma emergency flow. It is deliberately a
@@ -75,12 +94,54 @@ import com.tembus.customer.ui.theme.PrimarySoft
 fun ServiceCategoryScreen(
     onBackClick: () -> Unit,
     initialPhotos: List<LocalServicePhoto> = emptyList(),
-    onCategorySelected: (String, List<LocalServicePhoto>) -> Unit
+    onCategorySelected: (String, List<LocalServicePhoto>, TowingRouteSelection) -> Unit,
+    viewModel: TowingRoutePickerViewModel = hiltViewModel(),
 ) {
     var selectedVehicle by remember { mutableStateOf<String?>(null) }
     var selectedConditions by remember { mutableStateOf(setOf<String>()) }
     var servicePhotos by remember { mutableStateOf(initialPhotos) }
     var consentChecked by remember { mutableStateOf(false) }
+    var pickerTarget by remember { mutableStateOf<TowingRouteTarget?>(null) }
+    val routeState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+
+    val fetchCurrentLocation: () -> Unit = {
+        if (hasLocationPermission) {
+            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener { location ->
+                    if (location != null) {
+                        viewModel.selectMapPoint(LatLng(location.latitude, location.longitude))
+                    } else {
+                        viewModel.setError("Lokasi perangkat belum tersedia. Tap peta atau cari alamat pickup.")
+                    }
+                }
+                .addOnFailureListener {
+                    viewModel.setError("Lokasi perangkat tidak dapat dibaca. Tap peta atau cari alamat pickup.")
+                }
+        }
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasLocationPermission = granted
+        if (granted) fetchCurrentLocation()
+    }
+
+    fun useCurrentLocation() {
+        viewModel.setActiveTarget(TowingRouteTarget.PICKUP)
+        if (hasLocationPermission) fetchCurrentLocation()
+        else permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+
+    LaunchedEffect(Unit) {
+        if (hasLocationPermission && routeState.pickup == null) fetchCurrentLocation()
+    }
 
     Scaffold(
         containerColor = Color(0xFFF2FCF3),
@@ -110,15 +171,14 @@ fun ServiceCategoryScreen(
                     TembusButton(
                         text = "Panggil Derek Towing Sekarang",
                         onClick = {
-                            // Carry the selected vehicle into the authoritative booking flow.
-                            // The next screen owns location, quote and payment state.
                             onCategorySelected(
                                 if (selectedVehicle == "motor") "towing_motor" else "towing_mobil",
                                 servicePhotos,
+                                viewModel.selection(),
                             )
                         },
                         variant = TembusButtonVariant.Primary,
-                        state = if (selectedVehicle != null && consentChecked) {
+                        state = if (selectedVehicle != null && consentChecked && routeState.pickup != null && routeState.dropoff != null) {
                             TembusControlState.Default
                         } else {
                             TembusControlState.Disabled
@@ -143,7 +203,16 @@ fun ServiceCategoryScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item { TowingSafetyBanner() }
-            item { TowingRouteCard() }
+            item {
+                TowingRouteCard(
+                    state = routeState,
+                    onTargetClick = { target ->
+                        viewModel.setActiveTarget(target)
+                        pickerTarget = target
+                    },
+                    onMapClick = viewModel::selectMapPoint,
+                )
+            }
 
             item {
                 TowingSectionTitle("Jenis Kendaraan", "WAJIB SESUAI DIMENSI")
@@ -233,6 +302,21 @@ fun ServiceCategoryScreen(
 
         }
     }
+
+    pickerTarget?.let { target ->
+        ModalBottomSheet(onDismissRequest = { pickerTarget = null }) {
+            TowingRoutePickerSheet(
+                target = target,
+                state = routeState,
+                onSearchQueryChange = viewModel::updateSearchQuery,
+                onSearch = viewModel::searchAddress,
+                onResultSelected = viewModel::selectSearchResult,
+                onMapClick = viewModel::selectMapPoint,
+                onUseCurrentLocation = ::useCurrentLocation,
+                onDismiss = { pickerTarget = null },
+            )
+        }
+    }
 }
 
 @Composable
@@ -254,43 +338,198 @@ private fun TowingSafetyBanner() {
 }
 
 @Composable
-private fun TowingRouteCard() {
+private fun TowingRouteCard(
+    state: TowingRoutePickerUiState,
+    onTargetClick: (TowingRouteTarget) -> Unit,
+    onMapClick: (LatLng) -> Unit,
+) {
     TembusCard {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Rute evakuasi", fontSize = 17.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
-                TembusBadge("Belum dipilih", tone = TembusBadgeTone.Warning)
+                val badge = when {
+                    state.pickup != null && state.dropoff != null -> "Rute siap"
+                    state.pickup != null || state.dropoff != null -> "Lengkapi rute"
+                    else -> "Belum dipilih"
+                }
+                TembusBadge(
+                    badge,
+                    tone = if (state.pickup != null && state.dropoff != null) TembusBadgeTone.Success else TembusBadgeTone.Warning,
+                )
             }
-            RoutePlaceholderRow("Titik penjemputan darurat", "Pilih lokasi kendaraan", Icons.Default.MyLocation)
-            RoutePlaceholderRow("Tujuan pengantaran / bengkel", "Pilih tujuan drop-off", Icons.Default.LocationOn)
-            Box(
+            RoutePlaceholderRow(
+                label = "Titik penjemputan darurat",
+                value = state.pickup?.label ?: "Pilih lokasi kendaraan",
+                icon = Icons.Default.MyLocation,
+                onClick = { onTargetClick(TowingRouteTarget.PICKUP) },
+            )
+            RoutePlaceholderRow(
+                label = "Tujuan pengantaran / bengkel",
+                value = state.dropoff?.label ?: "Pilih tujuan drop-off",
+                icon = Icons.Default.LocationOn,
+                onClick = { onTargetClick(TowingRouteTarget.DROPOFF) },
+            )
+            TowingRouteMap(
+                state = state,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(118.dp)
-                    .background(Color(0xFFE7F1EA), RoundedCornerShape(14.dp))
-                    .border(1.dp, Color(0xFFD2E4D8), RoundedCornerShape(14.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                    Text("Peta menunggu lokasi yang valid", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                    Text("Rute akan dihitung ulang oleh server", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                    .height(168.dp),
+                onMapClick = onMapClick,
+            )
+            Text(
+                if (state.pickup != null && state.dropoff != null) {
+                    "Dua titik sudah dipilih. Rute jalan dan jarak final dihitung server saat cek harga."
+                } else {
+                    "Ketuk salah satu titik untuk mencari alamat atau memilih langsung dari peta."
+                },
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            state.error?.let { error ->
+                Text(error, fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
             }
-            Text("Alamat dan jarak final akan berasal dari peta serta quote server.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
-private fun RoutePlaceholderRow(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Row(modifier = Modifier.fillMaxWidth().background(PrimarySoft, RoundedCornerShape(12.dp)).padding(11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+private fun RoutePlaceholderRow(
+    label: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(PrimarySoft, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
         Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         Column(Modifier.weight(1f)) {
             Text(label.uppercase(), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             Text(value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun TowingRoutePickerSheet(
+    target: TowingRouteTarget,
+    state: TowingRoutePickerUiState,
+    onSearchQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    onResultSelected: (com.tembus.customer.data.model.MapsGeocodeResult) -> Unit,
+    onMapClick: (LatLng) -> Unit,
+    onUseCurrentLocation: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .navigationBarsPadding()
+            .padding(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            if (target == TowingRouteTarget.PICKUP) "Pilih titik penjemputan kendaraan" else "Pilih tujuan pengantaran / bengkel",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            "Pilih hasil pencarian atau tap langsung di peta. Koordinat dan alamat disimpan dari hasil server.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (target == TowingRouteTarget.PICKUP) {
+            Button(onClick = onUseCurrentLocation, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.MyLocation, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Gunakan lokasi saya")
+            }
+        }
+        OutlinedTextField(
+            value = state.searchQuery,
+            onValueChange = onSearchQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(if (target == TowingRouteTarget.PICKUP) "Cari alamat pickup" else "Cari alamat bengkel / drop-off") },
+            singleLine = true,
+        )
+        OutlinedButton(
+            onClick = onSearch,
+            enabled = state.searchQuery.trim().length >= 3 && !state.isLoading,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (state.isLoading) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            else Text("Cari alamat")
+        }
+        state.searchResults.take(5).forEach { result ->
+            OutlinedButton(onClick = { onResultSelected(result) }, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(result.label.ifBlank { "Titik terpilih" }, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("${result.latitude}, ${result.longitude}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        TowingRouteMap(
+            state = state,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp),
+            onMapClick = onMapClick,
+        )
+        state.isResolvingPoint.takeIf { it }?.let {
+            Text("Membaca alamat titik peta...", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        state.error?.let { error -> Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
+        OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Selesai") }
+    }
+}
+
+@Composable
+private fun TowingRouteMap(
+    state: TowingRoutePickerUiState,
+    modifier: Modifier,
+    onMapClick: (LatLng) -> Unit,
+) {
+    val points = buildList {
+        state.pickup?.let { add(RuntimeMapMarker("pickup", it.asLatLng(), "Titik penjemputan")) }
+        state.dropoff?.let { add(RuntimeMapMarker("dropoff", it.asLatLng(), "Tujuan pengantaran")) }
+    }
+    val config = state.mapsProviderConfig
+    if (config != null && points.isNotEmpty()) {
+        RuntimeMapRenderer(
+            providerConfig = config,
+            markers = points,
+            routePoints = emptyList(),
+            modifier = modifier,
+            followLocation = points.firstOrNull()?.position,
+            onMapClick = onMapClick,
+            fallbackTitle = "Peta belum siap",
+            fallbackMessage = "Konfigurasi peta belum dapat menampilkan tile. Coba lagi atau pilih alamat dari pencarian.",
+        )
+    } else {
+        Box(
+            modifier = modifier
+                .background(Color(0xFFE7F1EA), RoundedCornerShape(14.dp))
+                .border(1.dp, Color(0xFFD2E4D8), RoundedCornerShape(14.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+                Text(
+                    if (config == null) "Memuat konfigurasi peta..." else "Pilih titik pertama untuk mengaktifkan peta",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                )
+                Text("Tap pickup, gunakan GPS, atau cari alamat", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
 

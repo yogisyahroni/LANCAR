@@ -115,6 +115,7 @@ import com.tembus.customer.ui.screens.service.ServiceReportScreen
 import com.tembus.customer.ui.screens.service.ServiceTrackingScreen
 import com.tembus.customer.ui.screens.service.SubTypeSelectorScreen
 import com.tembus.customer.ui.screens.service.LocalServicePhoto
+import com.tembus.customer.ui.screens.service.TowingRoutePoint
 import com.tembus.customer.ui.screens.service.restoreServicePhotos
 import com.tembus.customer.ui.screens.service.restoreServiceRequestDraft
 import com.tembus.customer.ui.screens.service.stageServicePhotos
@@ -646,12 +647,22 @@ fun RootNavGraph(
                 ServiceCategoryScreen(
                     onBackClick = { navController.popBackStack() },
                     initialPhotos = initialPhotos,
-                    onCategorySelected = { category, photos ->
+                    onCategorySelected = { category, photos, routeSelection ->
                         // Towing landing already captures the vehicle choice. Do not ask for
                         // the same choice a second time; keep the canonical subtype for the
                         // quote/courier flow. Tambal ban keeps the existing selector route.
                         if (category == "towing_motor" || category == "towing_mobil") {
                             stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, photos)
+                            routeSelection.pickup?.let { point ->
+                                navController.currentBackStackEntry?.savedStateHandle?.set("towing_pickup_label", point.label)
+                                navController.currentBackStackEntry?.savedStateHandle?.set("towing_pickup_lat", point.latitude)
+                                navController.currentBackStackEntry?.savedStateHandle?.set("towing_pickup_lng", point.longitude)
+                            }
+                            routeSelection.dropoff?.let { point ->
+                                navController.currentBackStackEntry?.savedStateHandle?.set("towing_dropoff_label", point.label)
+                                navController.currentBackStackEntry?.savedStateHandle?.set("towing_dropoff_lat", point.latitude)
+                                navController.currentBackStackEntry?.savedStateHandle?.set("towing_dropoff_lng", point.longitude)
+                            }
                             navController.navigate(Screen.ServiceBooking.createRoute(category))
                         } else {
                             stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, photos)
@@ -694,6 +705,21 @@ fun RootNavGraph(
                 val courierRating = backStackEntry.arguments?.getString("courierRating")?.toDoubleOrNull()
                 val initialPhotos = restoreServicePhotos(navController.previousBackStackEntry?.savedStateHandle)
                 val initialDraft = restoreServiceRequestDraft(navController.previousBackStackEntry?.savedStateHandle)
+                val routeHandle = navController.previousBackStackEntry?.savedStateHandle
+                val initialPickup = routeHandle?.get<String>("towing_pickup_label")?.let { label ->
+                    TowingRoutePoint(
+                        label = label,
+                        latitude = routeHandle.get<Double>("towing_pickup_lat") ?: 0.0,
+                        longitude = routeHandle.get<Double>("towing_pickup_lng") ?: 0.0,
+                    )
+                }
+                val initialDropoff = routeHandle?.get<String>("towing_dropoff_label")?.let { label ->
+                    TowingRoutePoint(
+                        label = label,
+                        latitude = routeHandle.get<Double>("towing_dropoff_lat") ?: 0.0,
+                        longitude = routeHandle.get<Double>("towing_dropoff_lng") ?: 0.0,
+                    )
+                }
                 ServiceBookingScreen(
                     serviceSubType = serviceSubType,
                     courierId = courierId,
@@ -703,6 +729,8 @@ fun RootNavGraph(
                     initialPhotos = initialPhotos,
                     initialDamageType = initialDraft.damageType,
                     initialNotes = initialDraft.notes,
+                    initialPickup = initialPickup,
+                    initialDropoff = initialDropoff,
                     onBackClick = { navController.popBackStack() },
                     onSelectCourierClick = { lat, lng -> navController.navigate(Screen.NearbyCouriers.createRoute(serviceSubType, lat, lng)) },
                     onBookingSuccess = { orderId ->
