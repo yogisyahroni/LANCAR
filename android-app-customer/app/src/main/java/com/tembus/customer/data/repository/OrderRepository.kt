@@ -561,6 +561,23 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    suspend fun uploadPackagePhoto(
+        orderId: String,
+        file: okhttp3.MultipartBody.Part,
+    ): Result<String> {
+        return try {
+            val response = apiService.uploadPackagePhoto(orderId, file)
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.url != null) {
+                Result.success(body.url)
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.error ?: "Gagal menyimpan foto paket")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun createCustomerDispute(request: CreateDisputeRequest): Result<CustomerDisputeResponse> {
         return try {
             val response = apiService.createCustomerDispute(request)

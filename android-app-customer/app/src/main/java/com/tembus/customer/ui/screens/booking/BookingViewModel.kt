@@ -41,6 +41,15 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import com.tembus.customer.ui.policy.PackageOrderFlowPolicy
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
+
+data class PackagePhotoUploadPayload(
+    val bytes: ByteArray,
+    val mimeType: String,
+    val fileName: String
+)
 
 data class BookingState(
     val pickupPoint: BookingAddressPoint? = null,
@@ -106,7 +115,10 @@ data class BookingState(
     val aggregatorQuoteLoading: Boolean = false,
     val aggregatorError: String? = null,
     val aggregatorPackageCategories: List<AggregatorPackageCategory> = emptyList(),
-    val aggregatorPackageCategoriesError: String? = null
+    val aggregatorPackageCategoriesError: String? = null,
+    val packagePhotoUploadError: String? = null,
+    val packagePhotoUploadCount: Int = 0,
+    val packagePhotoUploadTotal: Int = 0
 )
 
 @Serializable
@@ -234,6 +246,8 @@ class BookingViewModel @Inject constructor(
     val bookingSuccess = _bookingSuccess.asSharedFlow()
     private var routeCalculationVersion = 0
     private var createOrderIdempotencyKey: String? = null
+    private var pendingPackagePhotoOrderId: String? = null
+    private var pendingPackagePhotoUploads: List<PackagePhotoUploadPayload> = emptyList()
 
     private fun persistBookingDraft(state: BookingState) {
         val draft = state.toBookingDraft()
@@ -286,8 +300,43 @@ class BookingViewModel @Inject constructor(
             val result = orderRepository.getCustomerAddresses()
             result.onSuccess { addresses ->
                 _bookingState.value = _bookingState.value.copy(addressBook = addresses)
+                if (isAggregatorMode) initializeAggregatorFromAddressBook(addresses)
             }
         }
+    }
+
+    private fun initializeAggregatorFromAddressBook(addresses: List<CustomerAddress>) {
+        val current = _bookingState.value
+        val pickupAddress = addresses.firstOrNull { address ->
+            address.kind.equals("pickup", ignoreCase = true) || address.kind.equals("sender", ignoreCase = true)
+        } ?: addresses.firstOrNull()
+        val destinationAddress = addresses.firstOrNull { address ->
+            address.id != pickupAddress?.id && address.kind.equals("receiver", ignoreCase = true)
+        } ?: addresses.firstOrNull { it.id != pickupAddress?.id }
+
+        fun CustomerAddress.toPoint() = BookingAddressPoint(
+            id = id,
+            label = label,
+            address = address,
+            latitude = lat,
+            longitude = lng,
+            receiverName = contactName,
+            contactPhone = contactPhoneMasked,
+            instruction = notes,
+            source = BookingAddressPoint.Source.SAVED,
+        )
+
+        val resolvedPickup = current.pickupPoint ?: pickupAddress?.toPoint()
+        val resolvedDestination = current.destinationPoint ?: destinationAddress?.toPoint()
+        _bookingState.value = current.copy(
+            pickupPoint = resolvedPickup,
+            pickupLocation = current.pickupLocation ?: resolvedPickup?.asLatLng(),
+            pickupAddress = current.pickupAddress.ifBlank { resolvedPickup?.address.orEmpty() },
+            destinationPoint = resolvedDestination,
+            destinationLocation = current.destinationLocation ?: resolvedDestination?.asLatLng(),
+            destinationAddress = current.destinationAddress.ifBlank { resolvedDestination?.address.orEmpty() },
+            recipientName = current.recipientName.ifBlank { resolvedDestination?.receiverName.orEmpty() },
+        )
     }
 
     fun loadServices() {
@@ -569,10 +618,11 @@ class BookingViewModel @Inject constructor(
     fun selectAggregatorQuote(quoteId: String) {
         val state = _bookingState.value
         val quote = state.aggregatorQuotes.firstOrNull { it.quoteId == quoteId } ?: return
-        val aggregatorService = state.services.firstOrNull() ?: return
+        val aggregatorServiceCode = state.services.firstOrNull()?.code.orEmpty()
+        if (aggregatorServiceCode.isBlank()) return
         val price = state.priceBreakdowns[quoteId]?.totalPriceIdr ?: quote.customerTariffIdr
         _bookingState.value = state.copy(
-            selectedServiceCode = aggregatorService.code,
+            selectedServiceCode = aggregatorServiceCode,
             aggregatorSelectedQuoteId = quote.quoteId,
             estimatedPrice = price
         )
@@ -613,8 +663,12 @@ class BookingViewModel @Inject constructor(
                 .onSuccess { categories ->
                     _bookingState.value = _bookingState.value.copy(
                         aggregatorPackageCategories = categories,
-                        aggregatorPackageCategoriesError = null
+                        aggregatorPackageCategoriesError = null,
+                        packageCategory = _bookingState.value.packageCategory
+                            .takeIf { current -> categories.any { it.code == current } }
+                            ?: categories.firstOrNull()?.code.orEmpty()
                     )
+                    calculateRoute()
                 }
                 .onFailure { error ->
                     _bookingState.value = _bookingState.value.copy(
@@ -630,9 +684,6 @@ class BookingViewModel @Inject constructor(
         if (normalized.isBlank()) return
         _bookingState.value = _bookingState.value.copy(
             aggregatorProvider = normalized,
-            aggregatorLocations = emptyList(),
-            aggregatorOriginCode = "",
-            aggregatorDestinationCode = "",
             aggregatorQuotes = emptyList(),
             aggregatorSelectedQuoteId = null,
             selectedServiceCode = "",
@@ -648,11 +699,20 @@ class BookingViewModel @Inject constructor(
             _bookingState.value = _bookingState.value.copy(aggregatorQuoteLoading = true, aggregatorError = null)
             orderRepository.getCustomerLogisticsLocations(provider).fold(
                 onSuccess = { locations ->
+                    val origin = _bookingState.value.aggregatorOriginCode.ifBlank {
+                        locations.firstOrNull { it.name.contains("Jakarta", ignoreCase = true) || it.code.startsWith("CGK") }?.code ?: locations.firstOrNull()?.code.orEmpty()
+                    }
+                    val dest = _bookingState.value.aggregatorDestinationCode.ifBlank {
+                        locations.firstOrNull { it.code != origin }?.code ?: origin
+                    }
                     _bookingState.value = _bookingState.value.copy(
                         aggregatorLocations = locations,
+                        aggregatorOriginCode = origin,
+                        aggregatorDestinationCode = dest,
                         aggregatorQuoteLoading = false,
                         aggregatorError = null
                     )
+                    calculateRoute()
                 },
                 onFailure = { error ->
                     _bookingState.value = _bookingState.value.copy(
@@ -942,14 +1002,14 @@ class BookingViewModel @Inject constructor(
     }
 
     private fun calculateAggregatorQuotes(state: BookingState) {
+        val aggregatorServiceCode = state.services.firstOrNull()?.code.orEmpty()
         if (
-            state.pickupLocation == null ||
-            state.destinationLocation == null ||
-            state.services.isEmpty() ||
             !state.isPackageReady() ||
             state.aggregatorProvider.isBlank() ||
             state.aggregatorOriginCode.isBlank() ||
-            state.aggregatorDestinationCode.isBlank()
+            state.aggregatorDestinationCode.isBlank() ||
+            state.packageCategory.isBlank() ||
+            aggregatorServiceCode.isBlank()
         ) {
             routeCalculationVersion++
             _bookingState.value = state.copy(
@@ -968,46 +1028,10 @@ class BookingViewModel @Inject constructor(
         _bookingState.value = state.copy(
             isCalculatingRoute = true,
             aggregatorQuoteLoading = true,
-            aggregatorError = null,
-            selectedServiceCode = "",
-            estimatedPrice = 0,
-            priceBreakdowns = emptyMap(),
-            aggregatorQuotes = emptyList(),
-            aggregatorSelectedQuoteId = null
+            aggregatorError = null
         )
         viewModelScope.launch {
             val dimensions = DimensionsPayload(state.packageLength, state.packageWidth, state.packageHeight)
-            val routeResult = orderRepository.calculateCustomerOrderPrices(
-                CustomerPriceEstimateRequest(
-                    pickup = LocationPayload(state.pickupLocation.latitude, state.pickupLocation.longitude),
-                    dropoff = LocationPayload(state.destinationLocation.latitude, state.destinationLocation.longitude),
-                    dimensions = dimensions,
-                    weightKg = state.packageWeight,
-                    hasInsurance = state.insuranceEnabled,
-                    itemValue = state.itemValue,
-                    dimensionScanVerified = state.dimensionsScanned,
-                    serviceCode = "AGGREGATOR",
-                    sizeTier = state.sizeTier,
-                    packageDetails = PackageDetailsPayload(
-                        sizeTier = state.sizeTier,
-                        weightKg = state.packageWeight,
-                        dimensions = dimensions,
-                        dimensionsScanned = state.dimensionsScanned,
-                        requiresDeliveryCode = state.deliveryCodeEnabled,
-                        itemDescription = state.itemDescription,
-                        category = state.packageCategory,
-                        quantity = state.packageQuantity,
-                        itemValueIdr = state.itemValue,
-                        isFragile = state.packageIsFragile,
-                        isProhibited = state.packageIsProhibited
-                    ),
-                    recipientName = state.recipientName,
-                    recipientPhone = state.recipientPhone
-                )
-            )
-            val routeBreakdown = routeResult.getOrNull()
-                ?.firstOrNull { it.serviceCode == state.services.firstOrNull()?.code && it.hasRoadRoute() }
-                ?: routeResult.getOrNull()?.firstOrNull { it.hasRoadRoute() }
             val tariffResult = orderRepository.checkCustomerLogisticsTariff(
                 provider = state.aggregatorProvider,
                 originCode = state.aggregatorOriginCode,
@@ -1026,16 +1050,14 @@ class BookingViewModel @Inject constructor(
                         quote.quoteId to PriceBreakdown(
                             quoteId = quote.quoteId,
                             expiresAt = tariff.expiresAt,
-                            serviceCode = state.services.first().code,
+                            serviceCode = aggregatorServiceCode,
                             serviceName = quote.serviceName,
-                            distanceKm = routeBreakdown?.distanceKm ?: 0.0,
-                            routeSnapshot = routeBreakdown?.routeSnapshot,
+                            distanceKm = 0.0,
                             actualWeightKg = state.packageWeight,
                             chargeableWeightKg = tariff.chargeableWeightKg,
-                            etaMinutes = routeBreakdown?.etaMinutes ?: 0,
+                            etaMinutes = 0,
                             totalPriceIdr = quote.customerTariffIdr,
-                            basePriceIdr = quote.customerTariffIdr,
-                            packageFacts = routeBreakdown?.packageFacts
+                            basePriceIdr = quote.customerTariffIdr
                         )
                     }
                     val selectedQuote = mapped.firstOrNull()
@@ -1044,11 +1066,11 @@ class BookingViewModel @Inject constructor(
                         aggregatorQuoteLoading = false,
                         aggregatorQuotes = mapped,
                         aggregatorSelectedQuoteId = selectedQuote?.quoteId,
-                        selectedServiceCode = state.services.first().code,
+                        selectedServiceCode = aggregatorServiceCode,
                         priceBreakdowns = breakdowns,
                         estimatedPrice = selectedQuote?.customerTariffIdr ?: 0,
                         aggregatorError = if (mapped.isEmpty()) "Ekspedisi belum mengembalikan layanan untuk rute ini." else null,
-                        error = if (routeBreakdown == null) "Rute jalan belum tersedia untuk alamat ini." else null
+                        error = null
                     )
                 },
                 onFailure = { error ->
@@ -1060,12 +1082,60 @@ class BookingViewModel @Inject constructor(
                         selectedServiceCode = "",
                         priceBreakdowns = emptyMap(),
                         estimatedPrice = 0,
-                        aggregatorError = error.localizedMessage ?: "Tarif ekspedisi belum tersedia."
+                        aggregatorError = error.localizedMessage ?: "Gagal mengambil tarif ekspedisi."
                     )
                 }
             )
         }
     }
+
+    fun setPackagePhotoUploads(uploads: List<PackagePhotoUploadPayload>) {
+        pendingPackagePhotoUploads = uploads.take(3)
+        _bookingState.value = _bookingState.value.copy(
+            packagePhotoUploadError = null,
+            packagePhotoUploadCount = 0,
+            packagePhotoUploadTotal = pendingPackagePhotoUploads.size
+        )
+    }
+
+    fun retryPackagePhotoUploads() {
+        if (pendingPackagePhotoOrderId.isNullOrBlank() || pendingPackagePhotoUploads.isEmpty() || _bookingState.value.isLoading) return
+        viewModelScope.launch { uploadPendingPackagePhotos() }
+    }
+
+    private suspend fun uploadPendingPackagePhotos() {
+        val orderId = pendingPackagePhotoOrderId ?: return
+        val uploads = pendingPackagePhotoUploads
+        _bookingState.value = _bookingState.value.copy(
+            isLoading = true,
+            packagePhotoUploadError = null,
+            packagePhotoUploadCount = 0,
+            packagePhotoUploadTotal = uploads.size
+        )
+
+        uploads.forEachIndexed { index, upload ->
+            val requestBody = upload.bytes.toRequestBody(upload.mimeType.toMediaTypeOrNull())
+            val part = MultipartBody.Part.createFormData("file", upload.fileName, requestBody)
+            val result = orderRepository.uploadPackagePhoto(orderId, part)
+            if (result.isFailure) {
+                _bookingState.value = _bookingState.value.copy(
+                    isLoading = false,
+                    packagePhotoUploadError = result.exceptionOrNull()?.message
+                        ?: "Foto paket ke-${index + 1} belum tersimpan. Coba lagi.",
+                    packagePhotoUploadCount = index
+                )
+                return
+            }
+            _bookingState.value = _bookingState.value.copy(packagePhotoUploadCount = index + 1)
+        }
+
+        pendingPackagePhotoOrderId = null
+        pendingPackagePhotoUploads = emptyList()
+        _bookingState.value = _bookingState.value.copy(isLoading = false, packagePhotoUploadError = null)
+        createOrderIdempotencyKey = null
+        _bookingSuccess.emit(orderId)
+    }
+
     fun confirmBooking() {
         val state = _bookingState.value
         if (!PackageOrderFlowPolicy.shouldSubmitCreate(state.isLoading)) return
@@ -1170,10 +1240,15 @@ class BookingViewModel @Inject constructor(
             val idempotencyKey = createOrderIdempotencyKey ?: UUID.randomUUID().toString().also { createOrderIdempotencyKey = it }
             orderRepository.createCustomerOnDemandOrder(req, idempotencyKey).collectLatest { result ->
                 result.onSuccess { order ->
-                    _bookingState.value = _bookingState.value.copy(isLoading = false)
                     savedStateHandle.remove<String>(BOOKING_DRAFT_KEY)
-                    createOrderIdempotencyKey = null
-                    _bookingSuccess.emit(order.id)
+                    if (isAggregatorMode && pendingPackagePhotoUploads.isNotEmpty()) {
+                        pendingPackagePhotoOrderId = order.id
+                        uploadPendingPackagePhotos()
+                    } else {
+                        _bookingState.value = _bookingState.value.copy(isLoading = false)
+                        createOrderIdempotencyKey = null
+                        _bookingSuccess.emit(order.id)
+                    }
                 }
                 result.onFailure { e ->
                     _bookingState.value = _bookingState.value.copy(

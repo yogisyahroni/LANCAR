@@ -246,7 +246,7 @@ class MainActivity : FragmentActivity() {
     private fun validateDeepLinkOrFinish(uri: Uri) {
         val pathSegments = uri.pathSegments
         val validHost = when (uri.host) {
-            "orders" -> pathSegments.size in 1..2 && (pathSegments.size == 1 || pathSegments[1] in setOf("chat", "tracking"))
+            "orders" -> pathSegments.size in 1..2 && (pathSegments.size == 1 || pathSegments[1] in setOf("chat", "tracking", "eresi", "e-resi", "resi"))
             "booking" -> pathSegments.isEmpty()
             "debug" -> BuildConfig.DEBUG && pathSegments.size >= 3 && pathSegments[0] == "uat" && pathSegments[1] == "chat"
             else -> false
@@ -267,6 +267,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun isLikelyRootedDevice(): Boolean {
+        if (BuildConfig.DEBUG) return false
         return try {
             // 1. Test-keys build tag — indicates a non-production kernel build
             val hasTestKeys = android.os.Build.TAGS?.contains("test-keys", ignoreCase = true) == true

@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -75,6 +76,8 @@ import com.tembus.customer.ui.theme.PrimaryLight
 import java.util.*
 import com.tembus.customer.data.localization.LocaleFormatters
 import com.tembus.customer.ui.screens.detail.OrderActionPolicy
+import com.tembus.customer.BuildConfig
+import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -193,17 +196,15 @@ fun OrderHistoryScreen(
                             ) {
                                 items(chipOptions.size) { index ->
                                     val label = chipOptions[index]
-                                    val count = when (label) {
-                                        "Semua" -> res.orders.size
-                                        "Berlangsung" -> activeOrders.size
-                                        "Selesai" -> selesaiOrders.size
-                                        else -> cancelledOrders.size
-                                    }
                                     val selected = selectedFilter == label
+                                    val displayLabel = when {
+                                        label == "Berlangsung" && activeOrders.isNotEmpty() -> "$label (${activeOrders.size})"
+                                        else -> label
+                                    }
                                     FilterChip(
                                         selected = selected,
                                         onClick = { selectedFilter = label },
-                                        label = { Text("$label ($count)", fontSize = 12.sp) },
+                                        label = { Text(displayLabel, fontSize = 12.sp) },
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = Primary,
                                             selectedLabelColor = Color.White,
@@ -492,6 +493,68 @@ private fun ActiveActivityCard(
                 }
             }
             Spacer(Modifier.height(8.dp))
+            val trackingOrder = detail?.order
+            val courierName = trackingOrder?.courierName ?: order.courierName
+            val courierVehicle = trackingOrder?.courierVehicle ?: order.courierVehicle
+            val courierRating = trackingOrder?.courierRating
+            val etaMinutes = trackingOrder?.etaMinutes ?: order.etaMinutes ?: detail?.tracking?.etaMinutes
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEAF5EE)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val courierPhoto = trackingOrder?.courierPhotoUrl
+                    if (!courierPhoto.isNullOrBlank()) {
+                        AsyncImage(
+                            model = activityMediaUrl(courierPhoto),
+                            contentDescription = "Foto ${courierName ?: "kurir"}",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        Text(
+                            courierInitials(courierName),
+                            color = Primary,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 12.sp,
+                        )
+                    }
+                }
+                Spacer(Modifier.width(9.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        courierName ?: "Mencari kurir",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = OnSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        listOfNotNull(
+                            courierRating?.let { "★ ${String.format(Locale.US, "%.1f", it)}" },
+                            courierVehicle,
+                        ).joinToString("  •  ").ifBlank { "Menunggu penugasan dari mitra" },
+                        fontSize = 10.sp,
+                        color = OnSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (etaMinutes != null && etaMinutes > 0) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("ESTIMASI", fontSize = 8.sp, color = Color(0xFFE85D04), fontWeight = FontWeight.Bold)
+                        Text("${etaMinutes} mnt", fontSize = 11.sp, color = Color(0xFFE85D04), fontWeight = FontWeight.ExtraBold)
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
             Text(order.pickupAddress.ifBlank { "Lokasi penjemputan belum tersedia" }, fontSize = 12.sp, color = OnSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("→ ${order.dropAddress.ifBlank { "Tujuan belum tersedia" }}", fontSize = 12.sp, color = OnSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(10.dp))
@@ -546,18 +609,31 @@ private fun ActivityHistoryCard(
     )
     Card(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(2.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFF0F2EF)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.Top) {
-                Box(
-                    modifier = Modifier.size(52.dp).background(if (isFood) Color(0xFFFFF0E9) else Color(0xFFEAF5EE)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(serviceIconSpec.icon, contentDescription = serviceIconSpec.label, tint = if (isFood) Color(0xFFE85D04) else Primary, modifier = Modifier.size(24.dp))
+                val foodImage = order.foodItems.firstOrNull { !it.photo.isNullOrBlank() }?.photo
+                if (isFood && !foodImage.isNullOrBlank()) {
+                    AsyncImage(
+                        model = activityMediaUrl(foodImage),
+                        contentDescription = "Foto ${order.merchantName ?: "pesanan makanan"}",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(52.dp).clip(CircleShape),
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (isFood) Color(0xFFFFF0E9) else Color(0xFFEAF5EE)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(serviceIconSpec.icon, contentDescription = serviceIconSpec.label, tint = if (isFood) Color(0xFFE85D04) else Primary, modifier = Modifier.size(24.dp))
+                    }
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -636,6 +712,21 @@ private fun foodSummary(order: Order): String {
         }
         if (order.foodItems.size > 2) append(" +${order.foodItems.size - 2} lainnya")
     }
+}
+
+private fun courierInitials(name: String?): String {
+    val parts = name.orEmpty().trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
+    return when {
+        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}".uppercase(Locale.getDefault())
+        parts.size == 1 -> parts.first().take(2).uppercase(Locale.getDefault())
+        else -> "K"
+    }
+}
+
+private fun activityMediaUrl(path: String): String {
+    if (path.startsWith("http://") || path.startsWith("https://")) return path
+    val gatewayBase = BuildConfig.BASE_URL.substringBefore("/api/v1").trimEnd('/')
+    return "$gatewayBase/${path.trimStart('/')}"
 }
 
 private fun Order.isFoodOrder(): Boolean =

@@ -70,6 +70,7 @@ orderRoutes.post('/api/v1/customer/orders/:id/payment/check', requireMobileOrWeb
 orderRoutes.get('/api/v1/customer/orders/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrder(req, res));
 orderRoutes.post('/api/v1/customer/orders/:id/upload', requireMobileOrWebAuth, ...secureUploadSingle('file', 'customerAttachment'), (req, res) => controllers.customerOrder.uploadOrderFile(req, res));
 orderRoutes.post('/api/v1/customer/orders/:id/roadside-photo', requireMobileOrWebAuth, ...secureUploadSingle('file', 'evidenceImage'), (req, res) => controllers.customerOrder.uploadRoadsidePhoto(req, res));
+orderRoutes.post('/api/v1/customer/orders/:id/package-photo', requireMobileOrWebAuth, ...secureUploadSingle('file', 'evidenceImage'), (req, res) => controllers.customerOrder.uploadPackagePhoto(req, res));
 orderRoutes.post('/api/v1/customer/orders/:id/cancel', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.cancelCustomerOrder(req, res));
 orderRoutes.post('/api/v1/customer/orders/:id/retry-matching', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.retryCustomerOrderMatching(req, res));
 orderRoutes.get('/api/v1/customer/orders/:id/pickup-corrections', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.listPickupLocationCorrections(req, res));

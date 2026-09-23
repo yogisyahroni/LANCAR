@@ -142,4 +142,117 @@ export const uploadRoadsidePhoto = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Uploads an optional customer package photo for aggregator orders. This is
+ * deliberately a separate contract from roadside evidence so a package
+ * photo can never be attached to a towing or tire-repair order by mistake.
+ */
+export const uploadPackagePhoto = async (req: Request, res: Response) => {
+  let savedUpload: ReturnType<typeof saveSecureUploadBuffer> | null = null;
+  const orderId = String(req.params.id || '').trim();
+  const customerId = req.user?.id;
+
+  if (!customerId) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+  if (!orderId) {
+    return res.status(400).json({ success: false, error: 'Order paket wajib diisi' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'No file uploaded' });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const orderResult = await client.query(
+      `SELECT id, service_category, status, package_details
+         FROM orders
+        WHERE id = $1 AND customer_id = $2
+        FOR UPDATE`,
+      [orderId, customerId],
+    );
+    if (orderResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Order paket tidak ditemukan' });
+    }
+
+    const order = orderResult.rows[0];
+    if (String(order.service_category || '').trim().toLowerCase() !== 'aggregator') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'Foto paket hanya tersedia untuk order aggregator' });
+    }
+    if (terminalOrderStatuses.has(String(order.status || '').toLowerCase())) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ success: false, error: 'Foto tidak dapat ditambahkan setelah order selesai atau dibatalkan' });
+    }
+
+    const packageDetails = order.package_details && typeof order.package_details === 'object'
+      ? { ...order.package_details }
+      : {};
+    const existingItems = Array.isArray(packageDetails.package_photo_items)
+      ? packageDetails.package_photo_items
+      : [];
+    const duplicateItem = existingItems.find((item: { checksum_sha256?: unknown }) =>
+      String(item?.checksum_sha256 || '') === String(req.file?.checksumSha256 || '')
+    );
+    if (duplicateItem && typeof duplicateItem === 'object') {
+      await client.query('ROLLBACK');
+      return res.status(200).json({
+        success: true,
+        url: String((duplicateItem as { url?: unknown }).url || ''),
+        photo_role: 'package_photo',
+        photo_count: existingItems.length,
+        deduplicated: true,
+      });
+    }
+    if (existingItems.length >= 3) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ success: false, error: 'Maksimal 3 foto paket dapat ditambahkan' });
+    }
+
+    savedUpload = saveSecureUploadBuffer(req.file, 'orders/package');
+    const photoItem = {
+      role: 'package_photo',
+      url: savedUpload.fileUrl,
+      mime_type: req.file.detectedMimeType,
+      checksum_sha256: req.file.checksumSha256,
+      uploaded_at: new Date().toISOString(),
+    };
+    packageDetails.package_photo_items = [...existingItems, photoItem];
+    packageDetails.package_photo_urls = packageDetails.package_photo_items
+      .map((item: { url?: unknown }) => String(item?.url || ''))
+      .filter(Boolean);
+
+    await client.query(
+      `UPDATE orders
+          SET package_details = $1::jsonb,
+              updated_at = NOW()
+        WHERE id = $2 AND customer_id = $3`,
+      [JSON.stringify(packageDetails), orderId, customerId],
+    );
+    await client.query('COMMIT');
+
+    return res.status(201).json({
+      success: true,
+      url: savedUpload.fileUrl,
+      photo_role: 'package_photo',
+      photo_count: packageDetails.package_photo_items.length,
+    });
+  } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    if (savedUpload?.absolutePath) {
+      try {
+        fs.unlinkSync(savedUpload.absolutePath);
+      } catch {
+        // Best-effort cleanup; the DB transaction remains authoritative.
+      }
+    }
+    securityLog.error('Error uploading package photo:', { error: error?.message, orderId });
+    return res.status(500).json({ success: false, error: 'Gagal menyimpan foto paket' });
+  } finally {
+    client.release();
+  }
+};
+
 

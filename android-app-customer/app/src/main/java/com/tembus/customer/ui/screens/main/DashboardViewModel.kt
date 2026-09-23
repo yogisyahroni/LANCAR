@@ -165,7 +165,16 @@ class DashboardViewModel @Inject constructor(
             orderRepository.getCustomerDeliveryServices().collectLatest { result ->
                 result.onSuccess { services ->
                     _services.value = services
-                        .filter { it.serviceCategory in setOf("on_demand", "regular", "food_delivery", "tambal_ban", "towing") && it.isEnabled } // FIX 2026-08-11: food_delivery, tambal_ban, towing category ikut muncul di grid
+                        .filter {
+                            it.serviceCategory in setOf(
+                                "on_demand",
+                                "regular",
+                                "aggregator",
+                                "food_delivery",
+                                "tambal_ban",
+                                "towing",
+                            ) && it.isEnabled
+                        } // Home service registry includes every CMS-configurable customer entry.
                         .sortedBy { it.displayOrder }
                 }.onFailure { error ->
                     _services.value = emptyList()

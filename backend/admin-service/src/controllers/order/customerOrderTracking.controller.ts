@@ -375,7 +375,7 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
               COALESCE(NULLIF(o.route_snapshot->>'eta_minutes', '')::int, 0)::int AS eta_minutes,
               COALESCE(o.awb_number, (SELECT awb_number FROM aggregator_awb_attempts WHERE order_id = o.id LIMIT 1), '') AS awb_number,
               COALESCE(o.tracking_url, (SELECT tracking_url FROM aggregator_awb_attempts WHERE order_id = o.id LIMIT 1), '') AS tracking_url,
-              COALESCE(NULLIF(o.carrier, ''), (SELECT provider FROM aggregator_awb_attempts WHERE order_id = o.id LIMIT 1), NULLIF(o.service_code, ''), '') AS carrier_name,
+              COALESCE(NULLIF(o.logistics_provider, ''), (SELECT provider FROM aggregator_awb_attempts WHERE order_id = o.id LIMIT 1), NULLIF(o.service_code, ''), '') AS carrier_name,
               o.package_details, o.customer_notes, o.created_at, o.updated_at,
              p.status AS payment_status,
              p.provider AS payment_provider,

@@ -170,6 +170,8 @@ fun RootNavGraph(
                 navController.navigate(Screen.OrderDetail.createRoute(target.orderId)) { launchSingleTop = false }
             is CustomerDeepLinkTarget.Booking ->
                 navController.navigate(Screen.Booking.createRoute(promoCode = target.promo)) { launchSingleTop = true }
+            is CustomerDeepLinkTarget.AggregatorEResi ->
+                navController.navigate(Screen.AggregatorEResi.createRoute(target.orderId)) { launchSingleTop = true }
             null -> Unit
         }
         onDeepLinkConsumed()
@@ -588,6 +590,7 @@ fun RootNavGraph(
                 AggregatorScreen(
                     viewModel = aggregatorViewModel,
                     onBackClick = { navController.popBackStack() },
+                    onHelpClick = { navController.navigate(Screen.Support.route) { launchSingleTop = true } },
                     onBookingSuccess = { orderId ->
                         navController.navigate(Screen.AggregatorEResi.createRoute(orderId)) {
                             popUpTo(Screen.Dashboard.route)

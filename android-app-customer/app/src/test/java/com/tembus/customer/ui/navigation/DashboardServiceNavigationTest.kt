@@ -12,6 +12,7 @@ class DashboardServiceNavigationTest {
         assertTrue(dashboardServiceDestination("tambal_ban") === DashboardServiceDestination.TambalBan)
         assertTrue(dashboardServiceDestination("towing") === DashboardServiceDestination.Towing)
         assertTrue(dashboardServiceDestination("aggregator") === DashboardServiceDestination.Aggregator)
+        assertTrue(dashboardServiceDestination("tembus_aggregator") === DashboardServiceDestination.Aggregator)
     }
 
     @Test

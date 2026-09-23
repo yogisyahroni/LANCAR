@@ -497,6 +497,13 @@ interface TEMBUSApiService {
         @Part file: okhttp3.MultipartBody.Part
     ): Response<UploadResponse>
 
+    @Multipart
+    @POST("api/v1/customer/orders/{id}/package-photo")
+    suspend fun uploadPackagePhoto(
+        @Path("id") orderId: String,
+        @Part file: okhttp3.MultipartBody.Part
+    ): Response<UploadResponse>
+
     @POST("api/v1/customer/disputes")
     suspend fun createCustomerDispute(
         @Body request: CreateDisputeRequest

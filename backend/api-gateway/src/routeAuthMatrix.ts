@@ -202,6 +202,18 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: exact('/api/v1/pricing/estimate', ['POST']),
   },
   {
+    id: 'logistics-rates-public',
+    requirement: 'public',
+    publicReason: 'Logistics providers, locations, and tariff quotes are public discovery endpoints.',
+    matches: prefix('/api/v1/logistics', ['GET']),
+  },
+  {
+    id: 'customer-delivery-services-public',
+    requirement: 'public',
+    publicReason: 'Customer delivery service discovery is public catalog information.',
+    matches: exact('/api/v1/customer/delivery-services', ['GET']),
+  },
+  {
     id: 'public-tracking-lookup',
     requirement: 'public',
     publicReason: 'Public tracking lookup is bounded by the dedicated limiter and downstream coarse-data policy.',
@@ -241,7 +253,8 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: (method, path) => 
       prefix('/api/v1/customer')(method, path) || 
       prefix('/api/v1/payment-links')(method, path) ||
-      prefix('/api/v1/products')(method, path),
+      prefix('/api/v1/products')(method, path) ||
+      prefix('/api/v1/logistics')(method, path),
   },
   {
     id: 'mobile-courier-api',

@@ -271,7 +271,7 @@ const directProxyPolicies: DirectProxyPolicy[] = [
     bulkhead: new Bulkhead(resolveBulkheadLimit('order-service')), observeResponse: true,
   },
   {
-    matches: (path) => path.startsWith('/api/v1/payment-links') || path.startsWith('/api/v1/products') || path.startsWith('/api/v1/logistics/locations') || path.startsWith('/api/v1/logistics/providers'),
+    matches: (path) => path.startsWith('/api/v1/payment-links') || path.startsWith('/api/v1/products') || path.startsWith('/api/v1/logistics'),
     serviceName: 'admin-service', breaker: adminBreaker,
     bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: false,
   },
@@ -1248,7 +1248,7 @@ app.use(createProxyMiddleware({
 
 // Payment Links & Products Service (Routed via Admin Service for Session Verification)
 app.use(createProxyMiddleware({
-  pathFilter: ['/api/v1/payment-links', '/api/v1/products', '/api/v1/logistics/locations', '/api/v1/logistics/providers'],
+  pathFilter: ['/api/v1/payment-links', '/api/v1/products', '/api/v1/logistics'],
   target: ADMIN_SERVICE_URL,
   changeOrigin: true,
   on: {

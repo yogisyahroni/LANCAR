@@ -25,7 +25,11 @@ internal fun dashboardServiceDestination(open: String?): DashboardServiceDestina
         "towing" -> DashboardServiceDestination.Towing
         "food_delivery" -> DashboardServiceDestination.FoodHome
         "food_favorites" -> DashboardServiceDestination.FoodFavorites
-        "aggregator" -> DashboardServiceDestination.Aggregator
+        // The delivery-service registry owns the canonical code, while the
+        // legacy/static home entry uses the shorter alias. Both must open the
+        // same Figma aggregator flow instead of falling through to generic
+        // on-demand booking.
+        "aggregator", "tembus_aggregator" -> DashboardServiceDestination.Aggregator
         else -> DashboardServiceDestination.GenericBooking(rawServiceCode)
     }
 }

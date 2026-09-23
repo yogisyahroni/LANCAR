@@ -1290,7 +1290,6 @@ internal fun BookingReviewSheet(
         Text("Cek lagi detail pengiriman", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         Text("Pastikan alamat, penerima, layanan, dan harga sudah benar sebelum order diteruskan ke kurir.", color = Muted)
         ReviewRouteBlock(state)
-        ReviewRouteSnapshotBlock(state = state, price = price)
         ReviewInfoRow("Penerima", state.recipientName, state.recipientPhone)
         ReviewInfoRow("Isi paket", state.itemDescription, packageSummary)
         price?.let { breakdown ->

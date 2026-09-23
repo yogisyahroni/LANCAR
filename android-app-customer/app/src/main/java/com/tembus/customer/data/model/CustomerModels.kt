@@ -55,6 +55,10 @@ data class LogisticsProviderOption(
     @SerialName("available") val available: Boolean = true,
     @SerialName("capabilities") val capabilities: List<String> = emptyList(),
     @SerialName("services") val services: List<LogisticsProviderService> = emptyList(),
+    @SerialName("customer_badge") val customerBadge: String? = null,
+    @SerialName("customer_service_label") val customerServiceLabel: String? = null,
+    @SerialName("customer_rating") val customerRating: Double? = null,
+    @SerialName("customer_rating_label") val customerRatingLabel: String? = null,
     @SerialName("tracking_mode") val trackingMode: String = "",
     @SerialName("tracking_degraded") val trackingDegraded: Boolean = false,
     @SerialName("availability_reason") val availabilityReason: String? = null
@@ -108,6 +112,9 @@ data class AggregatorTariffService(
     @SerialName("customer_tariff_idr") val customerTariffIdr: Long = 0,
     @SerialName("etd") val etd: String = "",
     @SerialName("etd_source") val etdSource: String? = null,
+    @SerialName("display_badge") val displayBadge: String? = null,
+    @SerialName("display_description") val displayDescription: String? = null,
+    @SerialName("min_weight_kg") val minWeightKg: Double? = null,
     @SerialName("quote_id") val quoteId: String = ""
 )
 
