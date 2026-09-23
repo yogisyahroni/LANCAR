@@ -18,6 +18,8 @@ courierRoutes.post('/api/v1/courier/market-change-requests', requireMobileOrWebA
 courierRoutes.post('/api/v1/courier/cross-border-eligibility', requireMobileOrWebAuth, requireIdempotencyKey('courier.cross_border.request'), (req, res) => controllers.createMobileCourierCrossBorderEligibility(req, res));
 courierRoutes.put('/api/v1/courier/profile/capacity', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierCapacity(req, res));
 courierRoutes.get('/api/v1/courier/on-demand/services', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOnDemandServices(req, res));
+courierRoutes.get('/api/v1/courier/service-prices', requireMobileOrWebAuth, (req, res) => controllers.getCourierServicePrices(req, res));
+courierRoutes.put('/api/v1/courier/service-price', requireMobileOrWebAuth, (req, res) => controllers.updateCourierServicePrice(req, res));
 courierRoutes.get('/api/v1/courier/on-demand/hotspots', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierHotspots(req, res));
 courierRoutes.get('/api/v1/courier/on-demand/pickup-cancellation-reasons', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPickupCancellationReasons(req, res));
 courierRoutes.get('/api/v1/courier/order-status-transitions', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierStatusTransitions(req, res));
@@ -50,5 +52,6 @@ courierRoutes.get('/api/v1/courier/routes/active-plan', requireMobileOrWebAuth, 
 courierRoutes.get('/api/v1/courier/orders/:orderId/route', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierRoutePreview(req, res));
 courierRoutes.post('/api/v1/courier/orders/:orderId/cancel-pickup', requireMobileOrWebAuth, ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.cancelMobileCourierOnDemandPickup(req, res));
 courierRoutes.post('/api/v1/courier/service-report/proof', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.service-report.proof'), ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.uploadMobileCourierServiceReportProof(req, res));
+courierRoutes.post('/api/v1/courier/roadside/vehicle-verification', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.roadside.vehicle_verification'), ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.submitCourierRoadsideVehicleVerification(req, res));
 courierRoutes.post('/api/v1/courier/fcm/register', requireMobileOrWebAuth, (req, res) => controllers.registerDeviceToken(req, res));
 courierRoutes.post('/api/v1/courier/fcm/unregister', requireMobileOrWebAuth, (req, res) => controllers.unregisterDeviceToken(req, res));

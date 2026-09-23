@@ -61,6 +61,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import android.location.Location
 import android.os.Build
 import com.tembus.courier.data.model.Order
+import com.tembus.courier.data.model.RoadsideVehicleVerificationDraft
 import com.tembus.courier.domain.TambalBanNextActionType
 import com.tembus.courier.domain.TambalBanStage
 import com.tembus.courier.ui.components.service.EarningsBreakdown
@@ -85,6 +86,12 @@ fun TambalBanFlowScreen(
     var selectedDamage by remember { mutableStateOf<String?>(null) }
     var selectedMaterials by remember { mutableStateOf<Set<String>>(emptySet()) }
     var inspectionPhoto by remember(orderId) { mutableStateOf<Bitmap?>(null) }
+    var observedType by remember(orderId) { mutableStateOf("") }
+    var observedMake by remember(orderId) { mutableStateOf("") }
+    var observedModel by remember(orderId) { mutableStateOf("") }
+    var observedPlate by remember(orderId) { mutableStateOf("") }
+    var verificationNotes by remember(orderId) { mutableStateOf("") }
+    var vehicleMatched by remember(orderId) { mutableStateOf(false) }
     var pendingCriticalAction by remember { mutableStateOf<TambalBanNextActionType?>(null) }
 
     LaunchedEffect(uiState.damageType) {
@@ -93,6 +100,14 @@ fun TambalBanFlowScreen(
     LaunchedEffect(uiState.materialsUsedItems) {
         selectedMaterials = uiState.materialsUsedItems.toSet()
     }
+    LaunchedEffect(uiState.customerVehicle) {
+        uiState.customerVehicle?.let { vehicle ->
+            if (observedType.isBlank()) observedType = vehicle.type
+            if (observedMake.isBlank()) observedMake = vehicle.make
+            if (observedModel.isBlank()) observedModel = vehicle.model
+        }
+    }
+    val vehicleVerificationReady = uiState.customerVehicle != null && observedType.isNotBlank() && observedMake.isNotBlank() && observedModel.isNotBlank() && vehicleMatched
 
     // Auto-navigate when completed without needing extra tap
     LaunchedEffect(uiState.isCompleted) {
@@ -122,7 +137,12 @@ fun TambalBanFlowScreen(
             } else if (actionType == TambalBanNextActionType.VERIFY_FACE) {
                 onVerifyFace(orderId, "tambal_ban")
             } else if (actionType == TambalBanNextActionType.CAPTURE_INSPECTION) {
-                inspectionPhoto?.let { viewModel.captureInspection(it) }
+                inspectionPhoto?.let {
+                    viewModel.captureInspection(
+                        it,
+                        RoadsideVehicleVerificationDraft(observedType, observedMake, observedModel, observedPlate, verificationNotes, vehicleMatched)
+                    )
+                }
             } else {
                 viewModel.handleNextAction(actionType)
             }
@@ -188,7 +208,7 @@ fun TambalBanFlowScreen(
                             val withinRadius = distanceM != null && distanceM!! <= ARRIVAL_RADIUS_M
                             val gateBlocked = isArriveAction && !overrideArrival && !withinRadius
                             val inspectionBlocked = isInspectionAction &&
-                                (inspectionPhoto == null || selectedDamage.isNullOrBlank())
+                                (inspectionPhoto == null || selectedDamage.isNullOrBlank() || !vehicleVerificationReady)
                             Surface(shadowElevation = 8.dp) {
                                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                                     if (uiState.error != null) {
@@ -230,7 +250,7 @@ fun TambalBanFlowScreen(
                                         )
                                     } else if (inspectionBlocked) {
                                         Text(
-                                            "Pilih jenis kerusakan dan ambil foto kondisi awal ban sebelum mulai layanan.",
+                                            "Lengkapi verifikasi kendaraan, pilih jenis kerusakan, lalu ambil foto kondisi awal ban dari kamera.",
                                             fontSize = 13.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.padding(bottom = 8.dp)
@@ -448,6 +468,22 @@ fun TambalBanFlowScreen(
             }
 
             if (uiState.nextActionType == TambalBanNextActionType.CAPTURE_INSPECTION) {
+                Spacer(Modifier.height(16.dp))
+                RoadsideVehicleVerificationCard(
+                    customerVehicle = uiState.customerVehicle,
+                    observedType = observedType,
+                    observedMake = observedMake,
+                    observedModel = observedModel,
+                    observedPlate = observedPlate,
+                    notes = verificationNotes,
+                    matched = vehicleMatched,
+                    onObservedTypeChange = { observedType = it },
+                    onObservedMakeChange = { observedMake = it },
+                    onObservedModelChange = { observedModel = it },
+                    onObservedPlateChange = { observedPlate = it },
+                    onNotesChange = { verificationNotes = it },
+                    onMatchedChange = { vehicleMatched = it }
+                )
                 Spacer(Modifier.height(16.dp))
                 InspectionPhotoCard(
                     photo = inspectionPhoto,

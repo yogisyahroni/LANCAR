@@ -188,7 +188,7 @@ internal fun OnDemandServiceToggleRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(service.name, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    if (lockedByAdmin) "Dikunci operasional" else "ETA maks ${service.maxEtaMinutes.takeIf { it > 0 } ?: 240} menit",
+                    if (lockedByAdmin) "Dikunci operasional" else service.maxEtaMinutes.takeIf { it > 0 }?.let { "ETA maks $it menit" } ?: "ETA dari server",
                     color = Color.White.copy(alpha = 0.62f),
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,

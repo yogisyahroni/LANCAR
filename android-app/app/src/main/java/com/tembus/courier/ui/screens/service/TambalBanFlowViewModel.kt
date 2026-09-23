@@ -6,10 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.repository.OrderRepository
 import com.tembus.courier.data.repository.ServiceReportProofDraftStore
 import com.tembus.courier.data.repository.ServiceReportProofUploader
+import com.tembus.courier.data.repository.RoadsideRepository
 import com.tembus.courier.data.model.distanceKmValue
 import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.ServiceAdjustmentItem
 import com.tembus.courier.data.model.estimatedNetEarningsIdr
+import com.tembus.courier.data.model.RoadsideVehicleDetails
+import com.tembus.courier.data.model.RoadsideVehicleVerificationDraft
 import com.tembus.courier.domain.TambalBanFlowResolver
 import com.tembus.courier.domain.TambalBanStage
 import com.tembus.courier.domain.TambalBanNextActionType
@@ -51,6 +54,9 @@ data class TambalBanFlowUiState(
         val damageType: String? = null,
         val materialsUsedItems: List<String> = emptyList(),
         val inspectionBeforePhotoUrl: String? = null,
+        val customerVehicle: RoadsideVehicleDetails? = null,
+        val verificationSubmitting: Boolean = false,
+        val vehicleVerified: Boolean = false,
         val adjustmentSubmitting: Boolean = false,
         val adjustmentMessage: String? = null,
         val adjustmentError: String? = null
@@ -60,7 +66,8 @@ data class TambalBanFlowUiState(
 class TambalBanFlowViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
     private val proofUploader: ServiceReportProofUploader,
-    private val proofDraftStore: ServiceReportProofDraftStore
+    private val proofDraftStore: ServiceReportProofDraftStore,
+    private val roadsideRepository: RoadsideRepository
 ) : ViewModel() {
 
     private var orderId: String = ""
@@ -104,7 +111,9 @@ class TambalBanFlowViewModel @Inject constructor(
                                                 stage = flowState.stage,
                                                 customerName = order.customerName,
                                                                             customerPhone = order.phoneNumber.orEmpty(),
-                                                                            activeAddress = flowState.activeAddress,
+                                                activeAddress = flowState.activeAddress,
+                                                customerVehicle = order.vehicleDetails,
+                                                vehicleVerified = flowState.stage != TambalBanStage.VERIFY_IDENTITY && flowState.stage != TambalBanStage.INSPECT_TIRE,
                                                                                                         orderNumber = order.orderNumber.orEmpty(),
                                                                                                         pickupLatitude = order.pickupLatitude,
                                                                                                         pickupLongitude = order.pickupLongitude,
@@ -231,9 +240,28 @@ class TambalBanFlowViewModel @Inject constructor(
         if (orderId.isNotBlank()) proofDraftStore.saveMaterialsUsed(orderId, normalized)
     }
 
-    fun captureInspection(beforePhoto: Bitmap) {
+    fun captureInspection(beforePhoto: Bitmap, verification: RoadsideVehicleVerificationDraft? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
+            if (verification != null && !_uiState.value.vehicleVerified) {
+                _uiState.update { it.copy(verificationSubmitting = true) }
+                val verificationResult = roadsideRepository.submitVehicleVerification(
+                    orderId = orderId,
+                    serviceType = "tambal_ban",
+                    matched = verification.matched,
+                    observedType = verification.observedType,
+                    observedMake = verification.observedMake,
+                    observedModel = verification.observedModel,
+                    observedPlate = verification.observedPlate,
+                    notes = verification.notes,
+                    photo = beforePhoto
+                )
+                if (verificationResult.isFailure) {
+                    _uiState.update { it.copy(isLoading = false, verificationSubmitting = false, error = verificationResult.exceptionOrNull()?.message ?: "Verifikasi kendaraan gagal disimpan.") }
+                    return@launch
+                }
+                _uiState.update { it.copy(verificationSubmitting = false, vehicleVerified = true) }
+            }
             val uploadResult = proofUploader.upload(
                 orderId = orderId,
                 serviceType = "tambal_ban",

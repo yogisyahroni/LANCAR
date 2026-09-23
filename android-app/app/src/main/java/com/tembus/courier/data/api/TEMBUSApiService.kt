@@ -31,6 +31,8 @@ import com.tembus.courier.data.model.CourierSafetyEventData
 import com.tembus.courier.data.model.CourierSafetyEventRequest
 import com.tembus.courier.data.model.CourierSupportContext
 import com.tembus.courier.data.model.CourierServiceProduct
+import com.tembus.courier.data.model.CourierServicePrice
+import com.tembus.courier.data.model.CourierServicePriceUpdateRequest
 import com.tembus.courier.data.model.CourierTrainingCompleteRequest
 import com.tembus.courier.data.model.CourierTrainingCompletion
 import com.tembus.courier.data.model.CourierDocumentUploadData
@@ -78,6 +80,7 @@ import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.*
 import com.tembus.courier.data.model.AppNotification
+import com.tembus.courier.data.model.RoadsideVehicleVerificationResult
 import com.tembus.courier.data.model.UnreadCountData
 import kotlinx.serialization.json.JsonElement
 
@@ -190,6 +193,9 @@ interface TEMBUSApiService {
 
     @GET("api/v1/courier/on-demand/services")
     suspend fun getOnDemandServices(): Response<ApiResponse<List<CourierServiceProduct>>>
+
+    @GET("api/v1/courier/service-prices")
+    suspend fun getCourierServicePrices(): Response<ApiResponse<List<CourierServicePrice>>>
 
     @GET("api/v1/courier/on-demand/hotspots")
     suspend fun getOnDemandHotspots(): Response<ApiResponse<List<CourierHotspot>>>
@@ -440,6 +446,21 @@ interface TEMBUSApiService {
         @Part photo: MultipartBody.Part
     ): Response<ApiResponse<JsonElement>>
 
+    @Multipart
+    @POST("api/v1/courier/roadside/vehicle-verification")
+    suspend fun submitRoadsideVehicleVerification(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Part("order_id") orderId: RequestBody,
+        @Part("service_type") serviceType: RequestBody,
+        @Part("match_status") matchStatus: RequestBody,
+        @Part("observed_type") observedType: RequestBody,
+        @Part("observed_make") observedMake: RequestBody,
+        @Part("observed_model") observedModel: RequestBody,
+        @Part("observed_plate") observedPlate: RequestBody?,
+        @Part("notes") notes: RequestBody?,
+        @Part photo: MultipartBody.Part
+    ): Response<ApiResponse<RoadsideVehicleVerificationResult>>
+
     // ── PROOF CHAIN-OF-CUSTODY (CORE-2026-006) ──────────────────
 
     /**
@@ -586,8 +607,5 @@ interface TEMBUSApiService {
     suspend fun createTowingReport(@Body request: Map<String, Any>): Response<Map<String, Any>>
     
     @PUT("api/v1/courier/service-price")
-    suspend fun updateServicePrice(@Body request: Map<String, Any>): Response<Map<String, String>>
-    
-    @GET("api/v1/courier/service-price/{serviceCode}")
-    suspend fun getServicePrice(@Path("serviceCode") serviceCode: String): Response<Map<String, Any>>
+    suspend fun updateServicePrice(@Body request: CourierServicePriceUpdateRequest): Response<ApiResponse<CourierServicePrice>>
 }

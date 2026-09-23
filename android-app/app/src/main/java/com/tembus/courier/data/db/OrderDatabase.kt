@@ -26,7 +26,7 @@ import kotlinx.serialization.json.Json
  */
 @Database(
     entities = [Order::class, Location::class, SafetyIncidentDraft::class],
-    version = 24,
+    version = 25,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -347,6 +347,13 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        /** Version 25: customer roadside vehicle snapshot shown to the provider. */
+        val MIGRATION_24_25 = object : Migration(24, 25) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addOrderColumnIfMissing(db, "vehicle_details", "ALTER TABLE `orders` ADD COLUMN `vehicle_details` TEXT")
+            }
+        }
+
         val ALL_MIGRATIONS = arrayOf(
             MIGRATION_2_3,
             MIGRATION_3_4,
@@ -370,6 +377,7 @@ abstract class OrderDatabase : RoomDatabase() {
             MIGRATION_21_22,
             MIGRATION_22_23,
             MIGRATION_23_24,
+            MIGRATION_24_25,
             MIGRATION_10_13,
             MIGRATION_11_13
         )
@@ -509,6 +517,20 @@ class Converters {
         if (value.isNullOrBlank()) return null
         return runCatching {
             json.decodeFromString(CourierProofRequirements.serializer(), value)
+        }.getOrNull()
+    }
+
+    @TypeConverter
+    fun roadsideVehicleDetailsToString(details: com.tembus.courier.data.model.RoadsideVehicleDetails?): String? {
+        if (details == null) return null
+        return json.encodeToString(com.tembus.courier.data.model.RoadsideVehicleDetails.serializer(), details)
+    }
+
+    @TypeConverter
+    fun stringToRoadsideVehicleDetails(value: String?): com.tembus.courier.data.model.RoadsideVehicleDetails? {
+        if (value.isNullOrBlank()) return null
+        return runCatching {
+            json.decodeFromString(com.tembus.courier.data.model.RoadsideVehicleDetails.serializer(), value)
         }.getOrNull()
     }
 }

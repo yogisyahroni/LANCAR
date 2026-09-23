@@ -53,6 +53,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.tembus.courier.domain.TowingNextActionType
 import com.tembus.courier.domain.TowingStage
+import com.tembus.courier.data.model.RoadsideVehicleVerificationDraft
 import com.tembus.courier.ui.theme.TembusRadius
 import com.tembus.courier.ui.components.service.EarningsBreakdown
 import com.tembus.courier.ui.components.service.ServiceProgressBar
@@ -74,7 +75,22 @@ fun TowingFlowScreen(
     var inspectionPhoto by remember(orderId) { mutableStateOf<Bitmap?>(null) }
     var loadingPhoto by remember(orderId) { mutableStateOf<Bitmap?>(null) }
     var unloadingPhoto by remember(orderId) { mutableStateOf<Bitmap?>(null) }
+    var observedType by remember(orderId) { mutableStateOf("") }
+    var observedMake by remember(orderId) { mutableStateOf("") }
+    var observedModel by remember(orderId) { mutableStateOf("") }
+    var observedPlate by remember(orderId) { mutableStateOf("") }
+    var verificationNotes by remember(orderId) { mutableStateOf("") }
+    var vehicleMatched by remember(orderId) { mutableStateOf(false) }
     var pendingCriticalAction by remember { mutableStateOf<TowingNextActionType?>(null) }
+
+    LaunchedEffect(uiState.customerVehicle) {
+        uiState.customerVehicle?.let { vehicle ->
+            if (observedType.isBlank()) observedType = vehicle.type
+            if (observedMake.isBlank()) observedMake = vehicle.make
+            if (observedModel.isBlank()) observedModel = vehicle.model
+        }
+    }
+    val vehicleVerificationReady = uiState.customerVehicle != null && observedType.isNotBlank() && observedMake.isNotBlank() && observedModel.isNotBlank() && vehicleMatched
 
     // Auto-navigate when completed without needing extra tap
     LaunchedEffect(uiState.isCompleted) {
@@ -108,7 +124,12 @@ fun TowingFlowScreen(
             } else if (actionType == TowingNextActionType.VERIFY_FACE) {
                 onVerifyFace(orderId, "towing")
             } else if (actionType == TowingNextActionType.CAPTURE_INSPECTION) {
-                inspectionPhoto?.let { viewModel.captureInspection(it) }
+                inspectionPhoto?.let {
+                    viewModel.captureInspection(
+                        it,
+                        RoadsideVehicleVerificationDraft(observedType, observedMake, observedModel, observedPlate, verificationNotes, vehicleMatched)
+                    )
+                }
             } else if (actionType == TowingNextActionType.START_TRANSIT && uiState.loadingPhotoUrl.isNullOrBlank()) {
                 loadingPhoto?.let { viewModel.captureLoading(it) }
             } else {
@@ -177,7 +198,7 @@ fun TowingFlowScreen(
                             val isUnloadingProofAction = uiState.nextActionType == TowingNextActionType.CAPTURE_COMPLETION && uiState.unloadingPhotoUrl.isNullOrBlank()
                             val withinRadius = distanceM != null && distanceM!! <= ARRIVAL_RADIUS_M
                             val gateBlocked = isArriveAction && !overrideArrival && !withinRadius
-                            val inspectionBlocked = isInspectionAction && inspectionPhoto == null
+                            val inspectionBlocked = isInspectionAction && (inspectionPhoto == null || !vehicleVerificationReady)
                             val loadingBlocked = isLoadingProofAction && loadingPhoto == null
                             val unloadingBlocked = isUnloadingProofAction && unloadingPhoto == null
                             Surface(shadowElevation = 8.dp) {
@@ -221,7 +242,7 @@ fun TowingFlowScreen(
                                         )
                                     } else if (inspectionBlocked) {
                                         Text(
-                                            "Ambil foto kondisi awal kendaraan sebelum mulai loading.",
+                                            "Lengkapi verifikasi kendaraan dan ambil foto kondisi awal kendaraan dari kamera sebelum mulai loading.",
                                             fontSize = 13.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.padding(bottom = 8.dp)
@@ -340,6 +361,22 @@ fun TowingFlowScreen(
             }
 
             if (uiState.nextActionType == TowingNextActionType.CAPTURE_INSPECTION) {
+                Spacer(Modifier.height(16.dp))
+                RoadsideVehicleVerificationCard(
+                    customerVehicle = uiState.customerVehicle,
+                    observedType = observedType,
+                    observedMake = observedMake,
+                    observedModel = observedModel,
+                    observedPlate = observedPlate,
+                    notes = verificationNotes,
+                    matched = vehicleMatched,
+                    onObservedTypeChange = { observedType = it },
+                    onObservedMakeChange = { observedMake = it },
+                    onObservedModelChange = { observedModel = it },
+                    onObservedPlateChange = { observedPlate = it },
+                    onNotesChange = { verificationNotes = it },
+                    onMatchedChange = { vehicleMatched = it }
+                )
                 Spacer(Modifier.height(16.dp))
                 InspectionPhotoCard(
                     photo = inspectionPhoto,

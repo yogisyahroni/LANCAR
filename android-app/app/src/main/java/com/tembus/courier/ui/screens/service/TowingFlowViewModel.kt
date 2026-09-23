@@ -6,9 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.repository.OrderRepository
 import com.tembus.courier.data.repository.ServiceReportProofDraftStore
 import com.tembus.courier.data.repository.ServiceReportProofUploader
+import com.tembus.courier.data.repository.RoadsideRepository
 import com.tembus.courier.data.model.distanceKmValue
 import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.estimatedNetEarningsIdr
+import com.tembus.courier.data.model.RoadsideVehicleDetails
+import com.tembus.courier.data.model.RoadsideVehicleVerificationDraft
 import com.tembus.courier.domain.TowingFlowResolver
 import com.tembus.courier.domain.TowingStage
 import com.tembus.courier.domain.TowingNextActionType
@@ -47,14 +50,18 @@ data class TowingFlowUiState(
                 val pickupLongitude: Double? = null,
                 val inspectionBeforePhotoUrl: String? = null,
                 val loadingPhotoUrl: String? = null,
-                val unloadingPhotoUrl: String? = null
+                val unloadingPhotoUrl: String? = null,
+                val customerVehicle: RoadsideVehicleDetails? = null,
+                val verificationSubmitting: Boolean = false,
+                val vehicleVerified: Boolean = false
             )
 
 @HiltViewModel
 class TowingFlowViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
     private val proofUploader: ServiceReportProofUploader,
-    private val proofDraftStore: ServiceReportProofDraftStore
+    private val proofDraftStore: ServiceReportProofDraftStore,
+    private val roadsideRepository: RoadsideRepository
 ) : ViewModel() {
 
     private var orderId: String = ""
@@ -106,6 +113,8 @@ class TowingFlowViewModel @Inject constructor(
                                                 customerName = order.customerName,
                                                                             customerPhone = order.phoneNumber.orEmpty(),
                                                                             activeAddress = activeAddress,
+                                                customerVehicle = order.vehicleDetails,
+                                                vehicleVerified = flowState.stage != TowingStage.VERIFY_IDENTITY && flowState.stage != TowingStage.INSPECT_VEHICLE,
                                                                                                                                                         orderNumber = order.orderNumber.orEmpty(),
                                                                                                                                                         pickupLatitude = order.pickupLatitude,
                                                                                                                                                         pickupLongitude = order.pickupLongitude,
@@ -222,9 +231,28 @@ class TowingFlowViewModel @Inject constructor(
         }.format(Date())
     }
 
-    fun captureInspection(beforePhoto: Bitmap) {
+    fun captureInspection(beforePhoto: Bitmap, verification: RoadsideVehicleVerificationDraft? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
+            if (verification != null && !_uiState.value.vehicleVerified) {
+                _uiState.update { it.copy(verificationSubmitting = true) }
+                val verificationResult = roadsideRepository.submitVehicleVerification(
+                    orderId = orderId,
+                    serviceType = "towing",
+                    matched = verification.matched,
+                    observedType = verification.observedType,
+                    observedMake = verification.observedMake,
+                    observedModel = verification.observedModel,
+                    observedPlate = verification.observedPlate,
+                    notes = verification.notes,
+                    photo = beforePhoto
+                )
+                if (verificationResult.isFailure) {
+                    _uiState.update { it.copy(isLoading = false, verificationSubmitting = false, error = verificationResult.exceptionOrNull()?.message ?: "Verifikasi kendaraan gagal disimpan.") }
+                    return@launch
+                }
+                _uiState.update { it.copy(verificationSubmitting = false, vehicleVerified = true) }
+            }
             val uploadResult = proofUploader.upload(
                 orderId = orderId,
                 serviceType = "towing",

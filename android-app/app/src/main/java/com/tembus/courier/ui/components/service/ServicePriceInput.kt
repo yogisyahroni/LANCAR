@@ -31,8 +31,8 @@ fun ServicePriceInput(
     serviceCode: String,
     price: String,
     onPriceChange: (String) -> Unit,
-    minPrice: Long = 15000,
-    maxPrice: Long = 150000,
+    minPrice: Long,
+    maxPrice: Long,
     modifier: Modifier = Modifier
 ) {
     var error by remember { mutableStateOf<String?>(null) }

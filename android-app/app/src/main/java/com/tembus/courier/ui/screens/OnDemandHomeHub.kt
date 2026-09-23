@@ -384,6 +384,8 @@ internal fun OnDemandHomeHub(
                     )
                 }
                 services.take(5).forEach { service ->
+                    val etaText = service.maxEtaMinutes.takeIf { it > 0 }?.let { "ETA $it menit" } ?: "ETA dari server"
+                    val vehicleText = service.vehicleTypes.filter(String::isNotBlank).joinToString(", ").ifBlank { "Kendaraan sesuai kapasitas" }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -392,7 +394,7 @@ internal fun OnDemandHomeHub(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(service.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
-                                "ETA ${service.maxEtaMinutes.takeIf { it > 0 } ?: 240} menit • ${service.vehicleTypes.firstOrNull() ?: "motor"}",
+                                "$etaText • $vehicleText",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

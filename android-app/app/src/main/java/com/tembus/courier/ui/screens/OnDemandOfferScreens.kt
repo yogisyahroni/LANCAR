@@ -205,7 +205,7 @@ internal fun ServiceCoverageToggleRow(
                     color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    "ETA maks ${service.maxEtaMinutes.takeIf { it > 0 } ?: 240} menit",
+                    service.maxEtaMinutes.takeIf { it > 0 }?.let { "ETA maks $it menit" } ?: "ETA dari server",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

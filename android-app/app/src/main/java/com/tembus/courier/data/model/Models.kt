@@ -247,6 +247,75 @@ data class CourierServiceProduct(
 )
 
 @Serializable
+data class CourierServicePrice(
+    @SerialName("service_code") val serviceCode: String,
+    @SerialName("service_name") val serviceName: String = "",
+    @SerialName("price_amount") val priceAmount: Long = 0,
+    @SerialName("min_price") val minPrice: Long = 0,
+    @SerialName("max_price") val maxPrice: Long = 0,
+    @SerialName("is_active") val isActive: Boolean = true,
+    @SerialName("updated_at") val updatedAt: String? = null
+)
+
+@Serializable
+data class CourierServicePriceUpdateRequest(
+    @SerialName("service_code") val serviceCode: String,
+    @SerialName("price_amount") val priceAmount: Long,
+    @SerialName("is_active") val isActive: Boolean = true
+)
+
+@Serializable
+data class RoadsideVehiclePhoto(
+    @SerialName("role") val role: String = "",
+    @SerialName("url") val url: String = "",
+    @SerialName("uploaded_at") val uploadedAt: String? = null
+)
+
+@Serializable
+data class RoadsideVehicleDetails(
+    @SerialName("type") val type: String = "",
+    @SerialName("make") val make: String = "",
+    @SerialName("model") val model: String = "",
+    @SerialName("condition") val condition: String = "",
+    @SerialName("damage") val damage: String = "",
+    @SerialName("access_constraints") val accessConstraints: String = "",
+    @SerialName("notes") val notes: String = "",
+    @SerialName("photo_urls") val photoUrls: List<String> = emptyList(),
+    @SerialName("photo_items") val photoItems: List<RoadsideVehiclePhoto> = emptyList()
+)
+
+@Serializable
+data class RoadsideVehicleVerification(
+    @SerialName("id") val id: String = "",
+    @SerialName("order_id") val orderId: String = "",
+    @SerialName("service_category") val serviceCategory: String = "",
+    @SerialName("match_status") val matchStatus: String = "",
+    @SerialName("observed_type") val observedType: String = "",
+    @SerialName("observed_make") val observedMake: String = "",
+    @SerialName("observed_model") val observedModel: String = "",
+    @SerialName("observed_plate") val observedPlate: String? = null,
+    @SerialName("notes") val notes: String? = null,
+    @SerialName("photo_url") val photoUrl: String = "",
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null
+)
+
+@Serializable
+data class RoadsideVehicleVerificationResult(
+    @SerialName("verification") val verification: RoadsideVehicleVerification? = null,
+    @SerialName("customer_vehicle") val customerVehicle: RoadsideVehicleDetails? = null
+)
+
+data class RoadsideVehicleVerificationDraft(
+    val observedType: String,
+    val observedMake: String,
+    val observedModel: String,
+    val observedPlate: String = "",
+    val notes: String = "",
+    val matched: Boolean = false
+)
+
+@Serializable
 data class CourierHotspot(
     @SerialName("id")
     val id: String,

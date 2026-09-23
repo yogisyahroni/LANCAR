@@ -374,6 +374,13 @@ export const mobileOrderSelect = `
   COALESCE(dsp.failed_delivery_policy, 'must_deliver') AS service_failed_delivery_policy,
   COALESCE(dsp.pod_label, 'POD') AS service_pod_label,
   NULLIF(COALESCE(o.package_details->>'description', o.customer_notes, o.pickup_notes, ''), '') AS item_description,
+  CASE
+    WHEN COALESCE(dsp.service_category, '') IN ('tambal_ban', 'towing')
+      OR COALESCE(o.service_sub_type, o.service_code, '') LIKE 'tambal_ban%'
+      OR COALESCE(o.service_sub_type, o.service_code, '') LIKE 'towing%'
+    THEN COALESCE(o.package_details->'vehicle_details', '{}'::jsonb)
+    ELSE NULL
+  END AS vehicle_details,
   -- FB-105: rincian item food untuk driver app (snapshot food_order_items).
   -- FB-108: + variants (nama grup/opsi + harga delta) supaya driver tahu
   -- pilihan yang harus diserahkan (mis. "Level Pedas: Extra Pedas").

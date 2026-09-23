@@ -312,6 +312,10 @@ data class Order(
     @SerialName("item_description")
     val itemDescription: String? = null,
 
+    @ColumnInfo(name = "vehicle_details")
+    @SerialName("vehicle_details")
+    val vehicleDetails: RoadsideVehicleDetails? = null,
+
     // FB-105: rincian item food (snapshot food_order_items dari backend).
     // Kosong [] untuk order parcel biasa. Dipakai OrderDetailScreen.
     @ColumnInfo(name = "food_items", defaultValue = "[]")
