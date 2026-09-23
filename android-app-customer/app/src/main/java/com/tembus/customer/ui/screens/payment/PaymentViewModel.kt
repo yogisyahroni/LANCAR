@@ -171,18 +171,18 @@ class PaymentViewModel @Inject constructor(
             _uiState.value = PaymentUiState.Verifying
             val idempotencyKey = paymentConfirmKey ?: UUID.randomUUID().toString().also { paymentConfirmKey = it }
             val result = repository.confirmCustomerPayment(orderId, idempotencyKey)
-                result.onSuccess { payment ->
-                    val status = payment.paymentStatus.ifBlank { payment.status }
-                    val redirectUrl = payment.redirectUrl
-                    if (isPaidOrBypassed(status, payment.orderStatus)) {
-                        _uiState.value = PaymentUiState.Paid
-                    } else if (redirectUrl.isNullOrBlank()) {
-                        _uiState.value = PaymentUiState.Error(
-                            message = "Pembayaran belum terkonfirmasi dan sesi lanjut belum tersedia. Coba cek status lagi.",
-                            selectedMethod = CustomerPaymentMethod.QRIS
-                        )
-                    } else {
-                        _uiState.value = PaymentUiState.Ready(redirectUrl, status)
+            result.onSuccess { payment ->
+                val status = payment.paymentStatus.ifBlank { payment.status }
+                val redirectUrl = payment.redirectUrl
+                if (isPaidOrBypassed(status, payment.orderStatus)) {
+                    _uiState.value = PaymentUiState.Paid
+                } else if (redirectUrl.isNullOrBlank()) {
+                    _uiState.value = PaymentUiState.Error(
+                        message = "Pembayaran belum terkonfirmasi dan sesi lanjut belum tersedia. Coba cek status lagi.",
+                        selectedMethod = CustomerPaymentMethod.QRIS
+                    )
+                } else {
+                    _uiState.value = PaymentUiState.Ready(redirectUrl, status)
                 }
             }
             result.onFailure { error ->

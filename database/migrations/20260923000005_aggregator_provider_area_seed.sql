@@ -1,4 +1,23 @@
 -- +goose Up
+-- The CI migration runner applies database/migrations independently from the
+-- legacy admin-service migration set. Keep the catalog schema available here
+-- so a fresh database can apply the seed without relying on another runner.
+CREATE TABLE IF NOT EXISTS provider_area_mappings (
+    id VARCHAR(64) PRIMARY KEY,
+    provider_code VARCHAR(32) NOT NULL,
+    postal_code VARCHAR(10) NOT NULL,
+    district_name VARCHAR(100) NOT NULL,
+    city_name VARCHAR(100) NOT NULL,
+    province_name VARCHAR(100) NOT NULL,
+    provider_area_code VARCHAR(64) NOT NULL,
+    provider_branch_code VARCHAR(64),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(provider_code, postal_code, district_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_provider_area_mappings_lookup
+    ON provider_area_mappings(provider_code, postal_code);
+
 INSERT INTO provider_area_mappings (
     id,
     provider_code,
