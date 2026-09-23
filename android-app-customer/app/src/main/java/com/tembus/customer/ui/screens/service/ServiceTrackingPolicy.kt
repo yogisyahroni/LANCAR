@@ -31,17 +31,20 @@ internal fun tambalBanStatusText(status: String): String {
     }
 }
 
-/** Customer-facing towing stages mirror the inspection/loading/transit proof chain. */
+/**
+ * Customer-facing towing stages collapse granular operational events into six
+ * readable milestones. The underlying status/event stream remains granular
+ * for dispatch, safety and proof-of-service reporting.
+ */
 internal fun towingStepIndex(status: String): Int {
     return when (normalizeRoadsideStatus(status)) {
         "matching", "pending", "searching", "navigating", "picking_up", "assigned", "accepted", "arriving", "on_the_way" -> 0
         "arrived_pickup", "arrived", "onsite" -> 1
-        "verifying", "verification" -> 2
-        "inspecting", "inspection" -> 3
-        "loading", "loaded" -> 4
-        "in_transit", "transit", "delivering" -> 5
-        "arrived_dropoff", "unloading", "unloaded" -> 6
-        "completed", "delivered", "finished" -> 7
+        "verifying", "verification", "inspecting", "inspection" -> 1
+        "loading", "loaded" -> 2
+        "in_transit", "transit", "delivering" -> 3
+        "arrived_dropoff", "unloading", "unloaded" -> 4
+        "completed", "delivered", "finished" -> 5
         else -> 0
     }
 }
@@ -71,7 +74,8 @@ internal fun normalizeRoadsideStatusForUi(status: String): String =
 
 internal fun isRoadsideTerminalStatus(status: String): Boolean =
     normalizeRoadsideStatus(status) in setOf(
-        "completed", "delivered", "finished", "cancelled", "canceled", "failed", "expired"
+        "completed", "delivered", "finished", "cancelled", "canceled", "failed",
+        "no_courier", "no_courier_found", "expired"
     )
 
 internal fun isRoadsideNoSupplyStatus(status: String): Boolean =

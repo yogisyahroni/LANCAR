@@ -72,7 +72,7 @@ internal fun trackingCopy(
     return when {
         normalized.contains("towing") || normalized.contains("derek") -> TrackingCopy(
             kind = TrackingServiceKind.TOWING,
-            timelineTitle = "Timeline towing",
+            timelineTitle = "Perjalanan layanan",
             acceptedLabel = "Driver towing menerima order",
             pickupLabel = "Kendaraan diverifikasi di titik jemput",
             activeLabel = "Kendaraan dalam proses towing",

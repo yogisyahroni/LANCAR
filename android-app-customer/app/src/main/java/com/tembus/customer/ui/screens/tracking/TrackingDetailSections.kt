@@ -144,6 +144,10 @@ fun CourierStatusCard(
                 serviceCategory = order?.serviceCategory,
             ).kind
             val hasAssignedCourier = !order?.courierName.isNullOrBlank()
+            val isAggregator = listOf(order?.serviceCategory, order?.serviceSubType).any { value ->
+                value.orEmpty().contains("aggregator", ignoreCase = true)
+            }
+            val canShowContactActions = hasAssignedCourier && !isAggregator
             val isCourierSearching = isCourierSearchInProgress(
                 status = order?.status,
                 hasAssignedCourier = hasAssignedCourier,
@@ -327,50 +331,52 @@ fun CourierStatusCard(
                     )
                 }
 
-                // Action Buttons (Call / Chat)
-                Row {
-                    FilledIconButton(
-                        onClick = onCallClick,
-                        enabled = hasAssignedCourier,
-                        modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).criticalAction("Telepon kurir"),
-                        shape = CircleShape,
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = Color(0xFFF2F2F7)
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Call,
-                            contentDescription = CustomerTextCatalog.translate("Panggil"),
-                            tint = Color.DarkGray,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box {
+                // Contact actions only appear after assignment. Aggregator
+                // orders use provider/e-Resi tracking and never contact a
+                // courier from this surface.
+                if (canShowContactActions) {
+                    Row {
                         FilledIconButton(
-                            onClick = onChatClick,
-                            enabled = hasAssignedCourier,
-                            modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).criticalAction("Chat kurir"),
+                            onClick = onCallClick,
+                            modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).criticalAction("Telepon kurir"),
                             shape = CircleShape,
                             colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = Primary
+                                containerColor = Color(0xFFF2F2F7)
                             )
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ChatBubbleOutline,
-                                contentDescription = CustomerTextCatalog.translate("Pesan"),
-                                tint = Color.White,
+                                imageVector = Icons.Default.Call,
+                                contentDescription = CustomerTextCatalog.translate("Panggil"),
+                                tint = Color.DarkGray,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
-                        if (hasUnreadMessage) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .size(11.dp)
-                                    .clip(CircleShape)
-                                    .background(Accent)
-                            )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box {
+                            FilledIconButton(
+                                onClick = onChatClick,
+                                modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).criticalAction("Chat kurir"),
+                                shape = CircleShape,
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = Primary
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ChatBubbleOutline,
+                                    contentDescription = CustomerTextCatalog.translate("Pesan"),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            if (hasUnreadMessage) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(11.dp)
+                                        .clip(CircleShape)
+                                        .background(Accent)
+                                )
+                            }
                         }
                     }
                 }
@@ -514,11 +520,11 @@ private fun TrackingTimeline(detail: OrderTrackingDetail) {
     } else if (isTowing) {
         fun pastOrAt(vararg states: String) = status in states || status == "delivered" || status == "completed"
         listOf(
-            TimelineStep("menuju_pickup", "Menuju pickup", pastOrAt("accepted", "assigned", "picking_up", "arrived_pickup", "service_started", "loading", "in_transit", "arrived_dropoff", "unloading")),
-            TimelineStep("inspeksi", "Inspeksi kendaraan", pastOrAt("arrived_pickup", "service_started", "loading", "in_transit", "arrived_dropoff", "unloading")),
-            TimelineStep("loading", "Loading kendaraan", pastOrAt("loading", "in_transit", "arrived_dropoff", "unloading")),
-            TimelineStep("perjalanan", "Perjalanan towing", pastOrAt("in_transit", "arrived_dropoff", "unloading")),
-            TimelineStep("unloading", "Unloading di tujuan", pastOrAt("arrived_dropoff", "unloading")),
+            TimelineStep("menuju_pickup", "Menuju lokasi", pastOrAt("accepted", "assigned", "picking_up", "arrived_pickup", "service_started", "loading", "in_transit", "arrived_dropoff", "unloading")),
+            TimelineStep("inspeksi", "Verifikasi kendaraan", pastOrAt("arrived_pickup", "service_started", "loading", "in_transit", "arrived_dropoff", "unloading")),
+            TimelineStep("loading", "Evakuasi kendaraan", pastOrAt("loading", "in_transit", "arrived_dropoff", "unloading")),
+            TimelineStep("perjalanan", "Perjalanan ke tujuan", pastOrAt("in_transit", "arrived_dropoff", "unloading")),
+            TimelineStep("unloading", "Tiba & menurunkan", pastOrAt("arrived_dropoff", "unloading")),
             TimelineStep("pod", "Selesai", status in setOf("delivered", "completed"))
         )
     } else if (isFood) {

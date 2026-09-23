@@ -110,7 +110,7 @@ fun ServiceProgressBar(
 }
 
 // ============================================================
-// TAMAL BAN PROGRESS STEPS
+// TAMBAL BAN PROGRESS STEPS
 // ============================================================
 
 object TambalBanProgressSteps {
@@ -124,18 +124,19 @@ object TambalBanProgressSteps {
 }
 
 // ============================================================
-// TOWING PROGRESS STEPS
+// TOWING CUSTOMER-FACING PROGRESS STEPS
+// Operational events such as verification and inspection remain available in
+// the server timeline/report; the primary mobile timeline uses six readable
+// milestones so labels do not wrap into an eight-column squeeze.
 // ============================================================
 
 object TowingProgressSteps {
     val steps = listOf(
-        "Perjalanan",
-        "Pickup",
-        "Verifikasi",
-        "Inspeksi",
-        "Loading",
-        "Transit",
-        "Tujuan",
+        "Menuju lokasi",
+        "Verifikasi kendaraan",
+        "Evakuasi kendaraan",
+        "Perjalanan ke tujuan",
+        "Tiba & menurunkan",
         "Selesai"
     )
 }

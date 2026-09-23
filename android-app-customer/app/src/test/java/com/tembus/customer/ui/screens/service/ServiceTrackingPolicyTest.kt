@@ -31,12 +31,12 @@ class ServiceTrackingPolicyTest {
     @Test
     fun towingTimelineUsesInspectionAndTransitStages() {
         assertEquals(0, towingStepIndex("accepted"))
-        assertEquals(2, towingStepIndex("verification"))
-        assertEquals(3, towingStepIndex("inspection"))
-        assertEquals(4, towingStepIndex("loaded"))
-        assertEquals(5, towingStepIndex("transit"))
-        assertEquals(6, towingStepIndex("unloading"))
-        assertEquals(7, towingStepIndex("completed"))
+        assertEquals(1, towingStepIndex("verification"))
+        assertEquals(1, towingStepIndex("inspection"))
+        assertEquals(2, towingStepIndex("loaded"))
+        assertEquals(3, towingStepIndex("transit"))
+        assertEquals(4, towingStepIndex("unloading"))
+        assertEquals(5, towingStepIndex("completed"))
     }
 
     @Test
@@ -50,6 +50,7 @@ class ServiceTrackingPolicyTest {
     fun terminalAndNoSupplyStatesAreExplicit() {
         assertEquals(true, isRoadsideTerminalStatus("cancelled"))
         assertEquals(true, isRoadsideTerminalStatus("FAILED"))
+        assertEquals(true, isRoadsideTerminalStatus("no_courier_found"))
         assertEquals(true, isRoadsideNoSupplyStatus("no-courier-found"))
         assertEquals(false, isRoadsideNoSupplyStatus("arriving"))
         assertEquals("Teknisi belum tersedia. Kamu bisa coba lagi.", tambalBanStatusText("no_courier_found"))

@@ -102,7 +102,7 @@ fun ServiceTrackingScreen(
 
     val isTambalBan = serviceSubType.startsWith("tambal_ban")
     val steps = if (isTambalBan) TambalBanProgressSteps.steps else TowingProgressSteps.steps
-    val isSearching = !uiState.isTerminal &&
+    val isSearching = !uiState.noSupply && !uiState.isTerminal &&
         uiState.courierName.isNullOrBlank() &&
         (uiState.currentStepIndex == 0 || uiState.statusText.orEmpty().contains("mencari", ignoreCase = true))
 
@@ -154,6 +154,8 @@ fun ServiceTrackingScreen(
                     etaMinutes = uiState.etaMinutes,
                     isStale = uiState.isStale,
                     isLoading = uiState.isLoading && !uiState.hasSnapshot,
+                    isSearching = isSearching,
+                    noSupply = uiState.noSupply,
                 )
 
                 if (uiState.isLoading && !uiState.hasSnapshot) {
@@ -283,7 +285,23 @@ private fun TrackingHero(
     etaMinutes: Int?,
     isStale: Boolean,
     isLoading: Boolean,
+    isSearching: Boolean,
+    noSupply: Boolean,
 ) {
+    val isTowing = serviceSubType.startsWith("towing")
+    val displayStatusText = when {
+        isSearching -> if (isTowing) {
+            "Sedang mencari petugas towing terdekat"
+        } else {
+            "Sedang mencari teknisi terdekat"
+        }
+        noSupply -> if (isTowing) {
+            "Petugas towing belum tersedia. Kamu bisa coba lagi."
+        } else {
+            "Teknisi belum tersedia. Kamu bisa coba lagi."
+        }
+        else -> statusText
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -293,14 +311,14 @@ private fun TrackingHero(
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("TEMBUS ${if (serviceSubType.startsWith("towing")) "DEREK" else "SIAGA"}", color = Color(0xFFBDE9C8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    Text("${if (serviceSubType.startsWith("towing")) "Towing" else "Tambal ban"} sedang diproses", color = OnBrandHeader, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("TEMBUS ${if (isTowing) "DEREK" else "SIAGA"}", color = Color(0xFFBDE9C8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("${if (isTowing) "Towing" else "Tambal ban"} sedang diproses", color = OnBrandHeader, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
                 }
                 Surface(color = if (isStale) TrackingOrangeSoft else Color(0xFF1B6548), shape = RoundedCornerShape(20.dp)) {
                     Text(if (isStale) "TERAKHIR" else "LIVE", color = if (isStale) Color(0xFF8A4300) else Color(0xFFDBF6DF), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp))
                 }
             }
-            Text(statusText ?: if (isLoading) "Mengambil status terbaru…" else "Status layanan belum tersedia", color = OnBrandHeader.copy(alpha = .82f), fontSize = 13.sp)
+            Text(displayStatusText ?: if (isLoading) "Mengambil status terbaru…" else "Status layanan belum tersedia", color = OnBrandHeader.copy(alpha = .82f), fontSize = 13.sp)
             if (isLoading) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Color(0xFF8DF0A7), trackColor = Color(0xFF1B6548))
             } else {
