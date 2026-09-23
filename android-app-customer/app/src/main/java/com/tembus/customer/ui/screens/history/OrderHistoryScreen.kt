@@ -225,19 +225,25 @@ fun OrderHistoryScreen(
                             item {
                                 ActivitySectionHeader(
                                     title = "PESANAN AKTIF",
-                                    trailing = "Update realtime",
+                                    trailing = "${activeOrders.size} aktif",
                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                                 )
                             }
-                            item {
+                            items(
+                                items = activeOrders,
+                                key = { it.orderId.ifBlank { it.localId.toString() } },
+                            ) { activeOrder ->
                                 ActiveActivityCard(
-                                    order = activeOrders.first(),
-                                    detail = activeTracking,
+                                    order = activeOrder,
+                                    // The activity snapshot is fetched for the most recent active
+                                    // order. Other cards still expose their own track/detail actions;
+                                    // opening one requests its authoritative profile and location.
+                                    detail = activeTracking?.takeIf { it.order.id == activeOrder.orderId },
                                     mapsProviderConfig = mapsProviderConfig,
-                                    onTrackClick = { onTrackClick(activeOrders.first().orderId) },
-                                    onChatClick = { onChatClick(activeOrders.first().orderId) },
-                                    onCallClick = { onCallClick(activeOrders.first().orderId, activeOrders.first().courierName) },
-                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    onTrackClick = { onTrackClick(activeOrder.orderId) },
+                                    onChatClick = { onChatClick(activeOrder.orderId) },
+                                    onCallClick = { onCallClick(activeOrder.orderId, activeOrder.courierName) },
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp),
                                 )
                             }
                         }
