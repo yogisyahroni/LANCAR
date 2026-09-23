@@ -504,6 +504,12 @@ private fun ActiveActivityCard(
             val courierVehicle = trackingOrder?.courierVehicle ?: order.courierVehicle
             val courierRating = trackingOrder?.courierRating
             val etaMinutes = trackingOrder?.etaMinutes ?: order.etaMinutes ?: detail?.tracking?.etaMinutes
+            val canShowContactActions = OrderActionPolicy.canContactCourier(
+                status = trackingOrder?.status ?: order.status,
+                serviceCategory = trackingOrder?.serviceCategory ?: order.serviceCategory,
+                serviceSubType = trackingOrder?.serviceSubType ?: order.serviceSubType,
+                hasAssignedCourier = !courierName.isNullOrBlank(),
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -574,11 +580,13 @@ private fun ActiveActivityCard(
                 ) {
                     Text("Lacak Pesanan", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
-                IconButton(onClick = onChatClick, modifier = Modifier.size(40.dp).background(Color(0xFFEAF5EE), CircleShape)) {
-                    Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Buka chat", tint = Primary, modifier = Modifier.size(19.dp))
-                }
-                IconButton(onClick = onCallClick, modifier = Modifier.size(40.dp).background(Color(0xFFEAF5EE), CircleShape)) {
-                    Icon(Icons.Default.Phone, contentDescription = "Hubungi kurir", tint = Primary, modifier = Modifier.size(19.dp))
+                if (canShowContactActions) {
+                    IconButton(onClick = onChatClick, modifier = Modifier.size(40.dp).background(Color(0xFFEAF5EE), CircleShape)) {
+                        Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Buka chat", tint = Primary, modifier = Modifier.size(19.dp))
+                    }
+                    IconButton(onClick = onCallClick, modifier = Modifier.size(40.dp).background(Color(0xFFEAF5EE), CircleShape)) {
+                        Icon(Icons.Default.Phone, contentDescription = "Hubungi kurir", tint = Primary, modifier = Modifier.size(19.dp))
+                    }
                 }
             }
         }

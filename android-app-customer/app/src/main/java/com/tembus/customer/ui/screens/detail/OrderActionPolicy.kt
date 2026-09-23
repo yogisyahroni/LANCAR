@@ -23,6 +23,27 @@ object OrderActionPolicy {
 
     fun canChat(status: String): Boolean = normalize(status) in trackableStates
 
+    /**
+     * Contact actions are only useful after the server has assigned a real
+     * courier. Aggregator orders end at the 3PL/provider handoff, so they do
+     * not expose customer-to-courier contact actions at all.
+     */
+    fun canContactCourier(
+        status: String,
+        serviceCategory: String? = null,
+        serviceSubType: String? = null,
+        hasAssignedCourier: Boolean,
+    ): Boolean {
+        if (!hasAssignedCourier) return false
+
+        val isAggregator = listOf(serviceCategory, serviceSubType).any { value ->
+            value.orEmpty().contains("aggregator", ignoreCase = true)
+        }
+        if (isAggregator) return false
+
+        return normalize(status) in trackableStates
+    }
+
     fun canCancel(status: String, serviceSubType: String? = null): Boolean {
         val normalized = normalize(status)
         if (normalized !in cancellableStates) return false

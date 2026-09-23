@@ -31,4 +31,36 @@ class OrderActionPolicyTest {
             OrderActionPolicy.statusLabel("provider_future_state", "tambal_ban_mobil"),
         )
     }
+
+    @Test
+    fun `contact actions require assigned courier and active status`() {
+        assertEquals(
+            false,
+            OrderActionPolicy.canContactCourier(
+                status = "searching",
+                serviceCategory = "towing",
+                hasAssignedCourier = false,
+            ),
+        )
+        assertEquals(
+            true,
+            OrderActionPolicy.canContactCourier(
+                status = "accepted",
+                serviceCategory = "towing",
+                hasAssignedCourier = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `aggregator never exposes courier contact actions`() {
+        assertEquals(
+            false,
+            OrderActionPolicy.canContactCourier(
+                status = "accepted",
+                serviceCategory = "aggregator",
+                hasAssignedCourier = true,
+            ),
+        )
+    }
 }
