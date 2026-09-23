@@ -92,6 +92,8 @@ fun ServiceBookingScreen(
     courierName: String = "",
     courierRating: Double = 0.0,
     initialPhotos: List<LocalServicePhoto> = emptyList(),
+    initialDamageType: String = "",
+    initialNotes: String = "",
     viewModel: ServiceBookingViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -99,12 +101,12 @@ fun ServiceBookingScreen(
     val isTowing = serviceSubType.startsWith("towing")
 
     var vehicleType by remember { mutableStateOf("") }
-    var damageType by remember { mutableStateOf("") }
+    var damageType by remember(serviceSubType, initialDamageType) { mutableStateOf(initialDamageType) }
     var vehicleMake by remember { mutableStateOf("") }
     var vehicleModel by remember { mutableStateOf("") }
     var vehicleCondition by remember { mutableStateOf("") }
     var accessConstraints by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+    var notes by remember(serviceSubType, initialNotes) { mutableStateOf(initialNotes) }
     var destinationContactName by remember { mutableStateOf("") }
     var destinationContactPhone by remember { mutableStateOf("") }
     var servicePhotos by remember(serviceSubType, initialPhotos) { mutableStateOf(initialPhotos) }

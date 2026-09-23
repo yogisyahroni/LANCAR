@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import com.tembus.customer.ui.localization.CustomerText as Text
 import androidx.compose.runtime.Composable
@@ -53,10 +54,17 @@ import com.tembus.customer.ui.theme.PrimarySoft
 private const val MAX_SERVICE_PHOTOS = 3
 const val SERVICE_PHOTO_URIS_KEY = "service_photo_uris"
 const val SERVICE_PHOTO_MIME_TYPES_KEY = "service_photo_mime_types"
+const val SERVICE_DAMAGE_TYPE_KEY = "service_damage_type"
+const val SERVICE_NOTES_KEY = "service_notes"
 
 data class LocalServicePhoto(
     val uri: Uri,
     val mimeType: String,
+)
+
+data class ServiceRequestDraft(
+    val damageType: String = "",
+    val notes: String = "",
 )
 
 fun stageServicePhotos(handle: SavedStateHandle?, photos: List<LocalServicePhoto>) {
@@ -80,11 +88,28 @@ fun restoreServicePhotos(handle: SavedStateHandle?): List<LocalServicePhoto> {
     }
 }
 
+fun stageServiceRequestDraft(handle: SavedStateHandle?, damageType: String, notes: String) {
+    if (handle == null) return
+    handle[SERVICE_DAMAGE_TYPE_KEY] = damageType
+    handle[SERVICE_NOTES_KEY] = notes
+}
+
+fun restoreServiceRequestDraft(handle: SavedStateHandle?): ServiceRequestDraft {
+    if (handle == null) return ServiceRequestDraft()
+    return ServiceRequestDraft(
+        damageType = handle.get<String>(SERVICE_DAMAGE_TYPE_KEY).orEmpty(),
+        notes = handle.get<String>(SERVICE_NOTES_KEY).orEmpty(),
+    )
+}
+
 @Composable
 fun ServicePhotoEvidencePicker(
     isTowing: Boolean,
     photos: List<LocalServicePhoto>,
     onPhotosChanged: (List<LocalServicePhoto>) -> Unit,
+    notes: String = "",
+    onNotesChanged: (String) -> Unit = {},
+    showNotes: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -138,7 +163,8 @@ fun ServicePhotoEvidencePicker(
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
-                if (isTowing) "Foto kondisi kendaraan" else "Foto kondisi ban",
+                if (showNotes) "Foto Kondisi & Catatan (Opsional)"
+                else if (isTowing) "Foto kondisi kendaraan" else "Foto kondisi ban",
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -177,6 +203,18 @@ fun ServicePhotoEvidencePicker(
                         }
                     }
                 }
+            }
+
+            if (showNotes) {
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = onNotesChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Catatan (opsional)") },
+                    placeholder = { Text("Contoh: ban depan kiri terkena paku") },
+                    minLines = 2,
+                    maxLines = 3,
+                )
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {

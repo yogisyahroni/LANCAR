@@ -116,7 +116,9 @@ import com.tembus.customer.ui.screens.service.ServiceTrackingScreen
 import com.tembus.customer.ui.screens.service.SubTypeSelectorScreen
 import com.tembus.customer.ui.screens.service.LocalServicePhoto
 import com.tembus.customer.ui.screens.service.restoreServicePhotos
+import com.tembus.customer.ui.screens.service.restoreServiceRequestDraft
 import com.tembus.customer.ui.screens.service.stageServicePhotos
+import com.tembus.customer.ui.screens.service.stageServiceRequestDraft
 import com.tembus.customer.ui.security.SecureScreenEffect
 import com.tembus.customer.ui.screens.rating.CourierRatingViewModel
 import com.tembus.customer.ui.screens.rating.MerchantRatingViewModel
@@ -691,6 +693,7 @@ fun RootNavGraph(
                 }
                 val courierRating = backStackEntry.arguments?.getString("courierRating")?.toDoubleOrNull()
                 val initialPhotos = restoreServicePhotos(navController.previousBackStackEntry?.savedStateHandle)
+                val initialDraft = restoreServiceRequestDraft(navController.previousBackStackEntry?.savedStateHandle)
                 ServiceBookingScreen(
                     serviceSubType = serviceSubType,
                     courierId = courierId,
@@ -698,6 +701,8 @@ fun RootNavGraph(
                     courierName = courierName ?: "",
                     courierRating = courierRating ?: 0.0,
                     initialPhotos = initialPhotos,
+                    initialDamageType = initialDraft.damageType,
+                    initialNotes = initialDraft.notes,
                     onBackClick = { navController.popBackStack() },
                     onSelectCourierClick = { lat, lng -> navController.navigate(Screen.NearbyCouriers.createRoute(serviceSubType, lat, lng)) },
                     onBookingSuccess = { orderId ->
@@ -721,6 +726,8 @@ fun RootNavGraph(
                 val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: ""
                 val lat = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull() ?: 0.0
                 val lng = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 0.0
+                val draftPhotos = restoreServicePhotos(navController.previousBackStackEntry?.savedStateHandle)
+                val draft = restoreServiceRequestDraft(navController.previousBackStackEntry?.savedStateHandle)
                 NearbyCouriersScreen(
                     serviceSubType = serviceSubType,
                     customerLat = lat,
@@ -729,6 +736,12 @@ fun RootNavGraph(
                     onCourierSelected = { courierId, _, _, _ ->
                         // Figma roadside flow: pilih penawaran -> profil mitra -> kunci tarif/booking.
                         // Detail mengambil harga, foto, kendaraan, sertifikasi, dan performa dari API berdasarkan courierId.
+                        stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, draftPhotos)
+                        stageServiceRequestDraft(
+                            navController.currentBackStackEntry?.savedStateHandle,
+                            draft.damageType,
+                            draft.notes,
+                        )
                         navController.navigate(Screen.CourierDetail.createRoute(serviceSubType = serviceSubType, courierId = courierId, lat = lat, lng = lng))
                     }
                 )
@@ -773,22 +786,39 @@ fun RootNavGraph(
             composable(Screen.TambalBanHome.route) {
                 TambalBanHomeScreen(
                     onBackClick = { navController.popBackStack() },
-                    onServiceSelected = { serviceSubType, photos ->
+                    onServiceSelected = { serviceSubType, photos, problemLabels, notes, lat, lng ->
+                        stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, photos)
+                        stageServiceRequestDraft(
+                            navController.currentBackStackEntry?.savedStateHandle,
+                            problemLabels.joinToString("; "),
+                            notes,
+                        )
                         if (serviceSubType.startsWith("towing")) {
                             // The Figma emergency flow is the canonical towing entry point.
                             // Keep the legacy booking route for tire-repair subtypes only.
-                            stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, photos)
                             navController.navigate(Screen.ServiceCategory.route)
+                        } else if (lat != 0.0 && lng != 0.0) {
+                            // Figma's primary Tambal Ban CTA opens the live technician offers.
+                            // The selected problem and notes travel with the draft; quote/payment
+                            // remain authoritative in the later booking step.
+                            navController.navigate(Screen.NearbyCouriers.createRoute(serviceSubType, lat, lng))
                         } else {
-                            stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, photos)
                             navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType))
                         }
                     },
-                    onCourierSelected = { courier ->
+                    onCourierSelected = { courier, photos, problemLabels, notes, lat, lng ->
+                        stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, photos)
+                        stageServiceRequestDraft(
+                            navController.currentBackStackEntry?.savedStateHandle,
+                            problemLabels.joinToString("; "),
+                            notes,
+                        )
                         navController.navigate(
                             Screen.CourierDetail.createRoute(
                                 courier.courierId,
-                                courier.serviceSubType
+                                courier.serviceSubType,
+                                lat,
+                                lng,
                             )
                         )
                     },
@@ -818,6 +848,17 @@ fun RootNavGraph(
                     lng = lng,
                     onBackClick = { navController.popBackStack() },
                     onBookClick = { courierId, price, name, rating ->
+                        val previousHandle = navController.previousBackStackEntry?.savedStateHandle
+                        stageServicePhotos(
+                            navController.currentBackStackEntry?.savedStateHandle,
+                            restoreServicePhotos(previousHandle),
+                        )
+                        val draft = restoreServiceRequestDraft(previousHandle)
+                        stageServiceRequestDraft(
+                            navController.currentBackStackEntry?.savedStateHandle,
+                            draft.damageType,
+                            draft.notes,
+                        )
                         navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType, courierId, price, name, rating))
                     }
                 )

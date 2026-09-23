@@ -414,9 +414,9 @@ class ServiceBookingViewModel @Inject constructor(
             val dropoffLat = if (isTowing) state.dropoffLat else state.customerLat
             val dropoffLng = if (isTowing) state.dropoffLng else state.customerLng
             val itemDesc = if (serviceSubType.startsWith("towing")) {
-                "Towing ${vehicleType.trim()} ${vehicleMake.trim()} ${vehicleModel.trim()}, ${vehicleCondition.trim()}"
+                "Towing ${vehicleType.trim()} ${vehicleMake.trim()} ${vehicleModel.trim()}, ${vehicleCondition.trim()}${damageType.trim().takeIf { it.isNotBlank() }?.let { ", $it" }.orEmpty()}"
             } else {
-                "Tambal ban ${vehicleType.trim()} ${vehicleMake.trim()} ${vehicleModel.trim()}, ${vehicleCondition.trim()}"
+                "Tambal ban ${vehicleType.trim()} ${vehicleMake.trim()} ${vehicleModel.trim()}, ${vehicleCondition.trim()}${damageType.trim().takeIf { it.isNotBlank() }?.let { ", $it" }.orEmpty()}"
             }
 
             val req = CustomerOrderCreateRequest(
@@ -433,7 +433,7 @@ class ServiceBookingViewModel @Inject constructor(
                     dimensionsScanned = false,
                     requiresDeliveryCode = false,
                     itemDescription = itemDesc,
-                    vehicleDetails = if (isTowing) VehicleDetailsPayload(
+                    vehicleDetails = if (isRoadside) VehicleDetailsPayload(
                         type = vehicleType.trim(), make = vehicleMake.trim(), model = vehicleModel.trim(),
                         condition = vehicleCondition.trim(), damage = damageType.trim(),
                         accessConstraints = accessConstraints.trim(), notes = notes.trim()

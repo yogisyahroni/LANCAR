@@ -25,12 +25,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material.icons.filled.Warning
@@ -39,8 +39,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -62,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -79,16 +78,27 @@ import com.tembus.customer.ui.designsystem.TembusBadge
 import com.tembus.customer.ui.designsystem.TembusBadgeTone
 import com.tembus.customer.ui.designsystem.TembusCard
 import com.tembus.customer.ui.theme.OrangeCta
-import com.tembus.customer.ui.theme.PrimaryPale
 import com.tembus.customer.ui.theme.PrimarySoft
 import com.tembus.customer.ui.theme.Warning
+
+private data class TambalBanProblemOption(
+    val label: String,
+    val icon: ImageVector,
+)
+
+private val TAMBAL_BAN_PROBLEM_OPTIONS = listOf(
+    TambalBanProblemOption("Ban Bocor Kena Paku / Benda Tajam", Icons.Default.Build),
+    TambalBanProblemOption("Ban Kempis / Kurang Angin", Icons.Default.Warning),
+    TambalBanProblemOption("Pentil Rusak / Bocor Halus", Icons.Default.Build),
+    TambalBanProblemOption("Ban Robek / Pasang Ban Cadangan", Icons.Default.Refresh),
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TambalBanHomeScreen(
     onBackClick: () -> Unit,
-    onServiceSelected: (String, List<LocalServicePhoto>) -> Unit,
-    onCourierSelected: (NearbyCourier) -> Unit,
+    onServiceSelected: (String, List<LocalServicePhoto>, List<String>, String, Double, Double) -> Unit,
+    onCourierSelected: (NearbyCourier, List<LocalServicePhoto>, List<String>, String, Double, Double) -> Unit,
     onSearchClick: (Double, Double) -> Unit,
     viewModel: TambalBanHomeViewModel = hiltViewModel()
 ) {
@@ -101,6 +111,7 @@ fun TambalBanHomeScreen(
     var selectedVehicle by remember { mutableStateOf<String?>(null) }
     var selectedIssues by remember { mutableStateOf(setOf<String>()) }
     var servicePhotos by remember { mutableStateOf<List<LocalServicePhoto>>(emptyList()) }
+    var notes by remember { mutableStateOf("") }
     var consentChecked by remember { mutableStateOf(false) }
 
     fun loadFromCurrentLocation() {
@@ -181,8 +192,20 @@ fun TambalBanHomeScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                         Button(
-                        onClick = { selectedService?.let { onServiceSelected(it.code, servicePhotos) } },
-                        enabled = selectedService != null && consentChecked && !uiState.isLoading,
+                        onClick = {
+                            selectedService?.let {
+                                onServiceSelected(
+                                    it.code,
+                                    servicePhotos,
+                                    selectedIssues.toList(),
+                                    notes,
+                                    currentLat,
+                                    currentLng,
+                                )
+                            }
+                        },
+                        enabled = selectedService != null && selectedIssues.isNotEmpty() && consentChecked &&
+                            currentLat != 0.0 && currentLng != 0.0 && !uiState.isLoading,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = OrangeCta,
@@ -196,6 +219,7 @@ fun TambalBanHomeScreen(
                             },
                             fontWeight = FontWeight.Bold,
                         )
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
                     }
                     Text(
                         "Quote final dihitung dari lokasi, jenis kendaraan, dan petugas yang tersedia.",
@@ -233,7 +257,12 @@ fun TambalBanHomeScreen(
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ServiceModeChip("Tambal Ban", selected = true, onClick = {}, modifier = Modifier.weight(1f))
-                    ServiceModeChip("Derek Towing", selected = false, onClick = { onServiceSelected("towing_motor", servicePhotos) }, modifier = Modifier.weight(1f))
+                    ServiceModeChip(
+                        "Derek Towing",
+                        selected = false,
+                        onClick = { onServiceSelected("towing_motor", servicePhotos, emptyList(), notes, currentLat, currentLng) },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
 
@@ -251,21 +280,28 @@ fun TambalBanHomeScreen(
             }
 
             item {
-                SectionTitle("Detail Masalah", "PILIH YANG SESUAI")
-                Text("Bantu teknisi menyiapkan perlengkapan yang tepat.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 3.dp, bottom = 7.dp))
-                listOf("Ban bocor / kempes", "Ban sobek", "Ban terkunci", "Kendaraan tidak bisa bergerak").chunked(2).forEach { rowIssues ->
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        rowIssues.forEach { issue ->
-                            FilterChip(
-                                selected = issue in selectedIssues,
-                                onClick = { selectedIssues = if (issue in selectedIssues) selectedIssues - issue else selectedIssues + issue },
-                                label = { Text(issue, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-                                leadingIcon = if (issue in selectedIssues) ({ Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }) else null,
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = PrimarySoft, selectedLabelColor = MaterialTheme.colorScheme.primary),
-                                modifier = Modifier.weight(1f)
-                            )
+                SectionTitle("Detail Masalah (Bisa pilih > 1)", "WAJIB DIPILIH")
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                    TAMBAL_BAN_PROBLEM_OPTIONS.forEach { option ->
+                        val selected = option.label in selectedIssues
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                selectedIssues = if (selected) selectedIssues - option.label else selectedIssues + option.label
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = if (selected) PrimarySoft else Color(0xFFF7F8F6)),
+                            border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 11.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Icon(option.icon, contentDescription = null, tint = if (selected) MaterialTheme.colorScheme.primary else OrangeCta, modifier = Modifier.size(22.dp))
+                                Text(option.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                Checkbox(checked = selected, onCheckedChange = null)
+                            }
                         }
-                        if (rowIssues.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
             }
@@ -275,6 +311,9 @@ fun TambalBanHomeScreen(
                     isTowing = false,
                     photos = servicePhotos,
                     onPhotosChanged = { servicePhotos = it },
+                    notes = notes,
+                    onNotesChanged = { notes = it },
+                    showNotes = true,
                 )
             }
 
@@ -288,7 +327,7 @@ fun TambalBanHomeScreen(
                         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("Tarif transparan", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                TembusBadge("Dari server", tone = TembusBadgeTone.Success)
+                                TembusBadge("Quote Tembus", tone = TembusBadgeTone.Success)
                             }
                             Text("Rp ${formatRupiahIdr(range.min)} – Rp ${formatRupiahIdr(range.max)}", fontSize = 21.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
                             Text("Quote final dihitung ulang berdasarkan layanan, lokasi, jarak, dan petugas yang dipilih.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -299,8 +338,17 @@ fun TambalBanHomeScreen(
 
             if (uiState.couriers.isNotEmpty()) {
                 item { SectionTitle("Teknisi Terdekat", "DATA LIVE") }
-                items(uiState.couriers.filter { selectedService == null || it.serviceSubType == selectedService.code }.take(3), key = { it.courierId }) { courier ->
-                    CourierPriceCard(courier = courier, isSelected = false, onSelect = { onCourierSelected(courier) })
+                items(
+                    uiState.couriers
+                        .filter { selectedService == null || it.serviceSubType == selectedService.code }
+                        .take(3),
+                    key = { it.courierId },
+                ) { courier ->
+                    CourierPriceCard(
+                        courier = courier,
+                        isSelected = false,
+                        onSelect = { onCourierSelected(courier, servicePhotos, selectedIssues.toList(), notes, currentLat, currentLng) },
+                    )
                 }
             }
 
