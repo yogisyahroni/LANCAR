@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"tembus/order-service/internal/domain"
+	"time"
 )
 
 type availabilityServiceImpl struct {
@@ -153,6 +154,67 @@ func (s *availabilityServiceImpl) FindAvailableCouriers(
 	}, nil
 }
 
+// progressiveSearchRadii validates the admin-managed radius stages before they
+// are used by discovery. This keeps the database as the source of truth while
+// preventing malformed configuration from widening the search unexpectedly.
+func progressiveSearchRadii(service *domain.DeliveryServiceProduct) ([]float64, error) {
+	if service == nil || len(service.SearchRadiiKM) == 0 {
+		return nil, fmt.Errorf("search radius configuration is missing for delivery service")
+	}
+
+	radii := make([]float64, len(service.SearchRadiiKM))
+	previous := 0.0
+	for i, radius := range service.SearchRadiiKM {
+		if math.IsNaN(radius) || math.IsInf(radius, 0) || radius <= previous || radius > 50 {
+			return nil, fmt.Errorf("invalid search radius configuration at stage %d", i+1)
+		}
+		radii[i] = radius
+		previous = radius
+	}
+	return radii, nil
+}
+
+// FindAvailableCouriersProgressive expands the discovery radius only when the
+// current configured stage has no eligible couriers. The selected stage is
+// returned to clients so the UI can explain the search state without guessing.
+func (s *availabilityServiceImpl) FindAvailableCouriersProgressive(
+	ctx context.Context,
+	serviceSubType string,
+	customerLat, customerLng float64,
+) (*domain.NearbyCouriersResponse, error) {
+	service, err := s.repo.GetDeliveryServiceByCode(ctx, serviceSubType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load search radius configuration: %w", err)
+	}
+	radii, err := progressiveSearchRadii(service)
+	if err != nil {
+		return nil, err
+	}
+
+	var last *domain.NearbyCouriersResponse
+	for _, radius := range radii {
+		result, err := s.FindAvailableCouriers(ctx, serviceSubType, customerLat, customerLng, radius)
+		if err != nil {
+			return nil, err
+		}
+		result.SearchRadiusKM = radius
+		result.SearchRadiiKM = append([]float64(nil), radii...)
+		last = result
+		if len(result.Couriers) > 0 {
+			now := time.Now().UTC()
+			result.LastUpdatedAt = &now
+			return result, nil
+		}
+	}
+
+	if last == nil {
+		last = &domain.NearbyCouriersResponse{SearchRadiiKM: append([]float64(nil), radii...)}
+	}
+	now := time.Now().UTC()
+	last.LastUpdatedAt = &now
+	return last, nil
+}
+
 // GetTambalBanHome — home tambal ban: 2 service products (motor/mobil) + nearby couriers.
 func (s *availabilityServiceImpl) GetTambalBanHome(ctx context.Context, customerLat, customerLng float64) (*domain.TambalBanHomeResponse, error) {
 	// Dua layanan tambal ban: motor & mobil
@@ -185,8 +247,8 @@ func (s *availabilityServiceImpl) GetTambalBanHome(ctx context.Context, customer
 		})
 	}
 
-	// Nearby couriers (default radius 5 km — sama seperti GetNearbyCouriers)
-	nearby, err := s.FindAvailableCouriers(ctx, "tambal_ban_motor", customerLat, customerLng, 5.0)
+	// Nearby couriers use the DB/Admin-managed progressive radius stages.
+	nearby, err := s.FindAvailableCouriersProgressive(ctx, "tambal_ban_motor", customerLat, customerLng)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find couriers: %w", err)
 	}
@@ -194,6 +256,9 @@ func (s *availabilityServiceImpl) GetTambalBanHome(ctx context.Context, customer
 	resp.Couriers = nearby.Couriers
 	resp.Count = nearby.Count
 	resp.PriceRange = nearby.PriceRange
+	resp.SearchRadiusKM = nearby.SearchRadiusKM
+	resp.SearchRadiiKM = nearby.SearchRadiiKM
+	resp.LastUpdatedAt = nearby.LastUpdatedAt
 
 	return resp, nil
 }
@@ -256,22 +321,42 @@ func (s *availabilityServiceImpl) SearchTambalBanCouriers(ctx context.Context, q
 		serviceSubType = "tambal_ban_motor"
 	}
 
-	// Ambil semua courier di radius 50 km (semua jenis tambal ban) lalu filter by name
-	nearby, err := s.FindAvailableCouriers(ctx, serviceSubType, customerLat, customerLng, 50.0)
+	service, err := s.repo.GetDeliveryServiceByCode(ctx, serviceSubType)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find couriers: %w", err)
+		return nil, fmt.Errorf("failed to load search radius configuration: %w", err)
+	}
+	radii, err := progressiveSearchRadii(service)
+	if err != nil {
+		return nil, err
 	}
 
-	if query == "" {
-		return nearby, nil
-	}
-
-	// Filter by name (case-insensitive)
 	q := strings.ToLower(strings.TrimSpace(query))
+	var nearby *domain.NearbyCouriersResponse
+	for _, radius := range radii {
+		candidate, searchErr := s.FindAvailableCouriers(ctx, serviceSubType, customerLat, customerLng, radius)
+		if searchErr != nil {
+			return nil, fmt.Errorf("failed to find couriers: %w", searchErr)
+		}
+		candidate.SearchRadiusKM = radius
+		candidate.SearchRadiiKM = append([]float64(nil), radii...)
+		nearby = candidate
+
+		if q == "" || hasCourierNameMatch(candidate.Couriers, q) {
+			break
+		}
+	}
+	if nearby == nil {
+		nearby = &domain.NearbyCouriersResponse{SearchRadiiKM: append([]float64(nil), radii...)}
+	}
+
 	var filtered []domain.NearbyCourier
-	for _, c := range nearby.Couriers {
-		if strings.Contains(strings.ToLower(c.CourierName), q) {
-			filtered = append(filtered, c)
+	if q == "" {
+		filtered = nearby.Couriers
+	} else {
+		for _, c := range nearby.Couriers {
+			if strings.Contains(strings.ToLower(c.CourierName), q) {
+				filtered = append(filtered, c)
+			}
 		}
 	}
 
@@ -295,6 +380,7 @@ func (s *availabilityServiceImpl) SearchTambalBanCouriers(ctx context.Context, q
 		avgPrice = totalPrice / int64(count)
 	}
 
+	now := time.Now().UTC()
 	return &domain.NearbyCouriersResponse{
 		Couriers: filtered,
 		Count:    len(filtered),
@@ -303,7 +389,19 @@ func (s *availabilityServiceImpl) SearchTambalBanCouriers(ctx context.Context, q
 			Max: maxPrice,
 			Avg: avgPrice,
 		},
+		SearchRadiusKM: nearby.SearchRadiusKM,
+		SearchRadiiKM:  nearby.SearchRadiiKM,
+		LastUpdatedAt:  &now,
 	}, nil
+}
+
+func hasCourierNameMatch(couriers []domain.NearbyCourier, query string) bool {
+	for _, courier := range couriers {
+		if strings.Contains(strings.ToLower(courier.CourierName), query) {
+			return true
+		}
+	}
+	return false
 }
 
 // canAcceptConditional checks if a courier in NAVIGATING state can accept a new order

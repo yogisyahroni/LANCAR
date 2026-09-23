@@ -166,9 +166,12 @@ type NearbyCourier struct {
 }
 
 type NearbyCouriersResponse struct {
-	Couriers   []NearbyCourier `json:"couriers"`
-	Count      int             `json:"count"`
-	PriceRange PriceRange      `json:"price_range"`
+	Couriers       []NearbyCourier `json:"couriers"`
+	Count          int             `json:"count"`
+	PriceRange     PriceRange      `json:"price_range"`
+	SearchRadiusKM float64         `json:"search_radius_km,omitempty"`
+	SearchRadiiKM  []float64       `json:"search_radii_km,omitempty"`
+	LastUpdatedAt  *time.Time      `json:"last_updated_at,omitempty"`
 }
 
 type PriceRange struct {
@@ -285,10 +288,13 @@ type TambalBanServiceProduct struct {
 }
 
 type TambalBanHomeResponse struct {
-	Services   []TambalBanServiceProduct `json:"services"`
-	Couriers   []NearbyCourier           `json:"couriers"`
-	Count      int                       `json:"count"`
-	PriceRange PriceRange                `json:"price_range"`
+	Services       []TambalBanServiceProduct `json:"services"`
+	Couriers       []NearbyCourier           `json:"couriers"`
+	Count          int                       `json:"count"`
+	PriceRange     PriceRange                `json:"price_range"`
+	SearchRadiusKM float64                   `json:"search_radius_km,omitempty"`
+	SearchRadiiKM  []float64                 `json:"search_radii_km,omitempty"`
+	LastUpdatedAt  *time.Time                `json:"last_updated_at,omitempty"`
 }
 
 type CourierDetail struct {
@@ -334,6 +340,7 @@ type SettlementService interface {
 type AvailabilityService interface {
 	UpdateCourierState(ctx context.Context, courierID, newState string, orderID *string) error
 	FindAvailableCouriers(ctx context.Context, serviceSubType string, customerLat, customerLng float64, radiusKM float64) (*NearbyCouriersResponse, error)
+	FindAvailableCouriersProgressive(ctx context.Context, serviceSubType string, customerLat, customerLng float64) (*NearbyCouriersResponse, error)
 	GetCourierAvailability(ctx context.Context, courierID string) (*CourierAvailabilityState, error)
 	// UpdateRadius — FOOD-BIKE-029: set radius_max_km driver food delivery.
 	UpdateRadius(ctx context.Context, courierID string, radiusKM int) error

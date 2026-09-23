@@ -14,11 +14,15 @@ import (
 
 type fakeAvailabilityRepo struct {
 	domain.AvailabilityRepository
-	couriers []*domain.NearbyCourier
-	services map[string]*domain.DeliveryServiceProduct
+	couriers         []*domain.NearbyCourier
+	services         map[string]*domain.DeliveryServiceProduct
+	couriersByRadius func(radiusKM float64) []*domain.NearbyCourier
 }
 
 func (f *fakeAvailabilityRepo) FindCouriersByCapability(ctx context.Context, serviceSubType string, radiusKM float64, lat, lng float64) ([]*domain.NearbyCourier, error) {
+	if f.couriersByRadius != nil {
+		return f.couriersByRadius(radiusKM), nil
+	}
 	return f.couriers, nil
 }
 
@@ -88,7 +92,7 @@ func newFakeRepo() *fakeAvailabilityRepo {
 				PerKmIDR:       2000,
 				PlatformFeeIDR: 1000,
 				PlatformFeePct: 2.5,
-				SearchRadiiKM:  []float64{3, 5, 10},
+				SearchRadiiKM:  []float64{1, 5, 10},
 			},
 			"tambal_ban_mobil": {
 				Code:           "tambal_ban_mobil",
@@ -97,9 +101,47 @@ func newFakeRepo() *fakeAvailabilityRepo {
 				PerKmIDR:       3000,
 				PlatformFeeIDR: 1000,
 				PlatformFeePct: 2.5,
-				SearchRadiiKM:  []float64{3, 5, 10},
+				SearchRadiiKM:  []float64{1, 5, 10},
 			},
 		},
+	}
+}
+
+func TestFindAvailableCouriersProgressiveUsesConfiguredStages(t *testing.T) {
+	repo := newFakeRepo()
+	repo.couriersByRadius = func(radiusKM float64) []*domain.NearbyCourier {
+		if radiusKM < 5 {
+			return nil
+		}
+		return repo.couriers[:1]
+	}
+
+	svc := NewAvailabilityService(repo)
+	resp, err := svc.FindAvailableCouriersProgressive(context.Background(), "tambal_ban_motor", -6.2, 106.8)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if resp.SearchRadiusKM != 5 {
+		t.Fatalf("expected second configured stage 5 km, got %v", resp.SearchRadiusKM)
+	}
+	if len(resp.SearchRadiiKM) != 3 || resp.SearchRadiiKM[0] != 1 || resp.SearchRadiiKM[2] != 10 {
+		t.Fatalf("expected configured stages [1 5 10], got %v", resp.SearchRadiiKM)
+	}
+	if resp.Count != 1 || resp.Couriers[0].CourierID != "c1" {
+		t.Fatalf("expected c1 after progressive expansion, got %+v", resp.Couriers)
+	}
+	if resp.LastUpdatedAt == nil {
+		t.Fatal("expected server last_updated_at")
+	}
+}
+
+func TestFindAvailableCouriersProgressiveRejectsMalformedConfiguration(t *testing.T) {
+	repo := newFakeRepo()
+	repo.services["tambal_ban_motor"].SearchRadiiKM = []float64{5, 1}
+
+	svc := NewAvailabilityService(repo)
+	if _, err := svc.FindAvailableCouriersProgressive(context.Background(), "tambal_ban_motor", -6.2, 106.8); err == nil {
+		t.Fatal("expected malformed radius configuration to fail closed")
 	}
 }
 

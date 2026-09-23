@@ -346,7 +346,7 @@ func (r *availabilityRepo) GetDeliveryServiceByCode(ctx context.Context, code st
 			COALESCE(platform_commission_percent, 0),
 			COALESCE(courier_payout_percent, 0),
 			COALESCE(courier_min_payout_idr, 0),
-			COALESCE(search_radii_km::text, '[3, 5, 10]') AS search_radii_km
+			search_radii_km::text AS search_radii_km
 		FROM delivery_service_products
 		WHERE code = $1
 		LIMIT 1
@@ -382,7 +382,7 @@ func (r *availabilityRepo) GetDeliveryServiceByCode(ctx context.Context, code st
 	}
 
 	if err := json.Unmarshal([]byte(searchRadiiJSON), &service.SearchRadiiKM); err != nil || len(service.SearchRadiiKM) == 0 {
-		service.SearchRadiiKM = []float64{3, 5, 10}
+		return nil, fmt.Errorf("invalid search radius configuration for service %s", code)
 	}
 	if err := json.Unmarshal([]byte(vehicleTypesJSON), &service.VehicleTypes); err != nil {
 		service.VehicleTypes = nil

@@ -114,6 +114,39 @@ class TrackingScreenLogicTest {
         assertTrue(trackingStageText(null, "package")?.contains("Menunggu") == true)
     }
 
+    @Test
+    fun packageCourierSearch_isActiveWhileSearching() {
+        assertTrue(
+            isPackageCourierSearchInProgress(
+                status = "searching",
+                kind = TrackingServiceKind.PACKAGE,
+                hasAssignedCourier = false,
+            )
+        )
+    }
+
+    @Test
+    fun packageCourierSearch_stopsAfterCourierAssigned() {
+        assertFalse(
+            isPackageCourierSearchInProgress(
+                status = "searching",
+                kind = TrackingServiceKind.PACKAGE,
+                hasAssignedCourier = true,
+            )
+        )
+    }
+
+    @Test
+    fun packageCourierSearch_doesNotAppearForRoadsideServices() {
+        assertFalse(
+            isPackageCourierSearchInProgress(
+                status = "searching",
+                kind = TrackingServiceKind.TOWING,
+                hasAssignedCourier = false,
+            )
+        )
+    }
+
     // --- trackingFreshnessLabel -------------------------------------------
     @Test
     fun trackingFreshnessLabel_null_returnsNeverSynced() {

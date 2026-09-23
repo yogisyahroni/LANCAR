@@ -59,7 +59,10 @@ data class NearbyCourier(
 data class NearbyCouriersResponse(
     @SerialName("couriers") val couriers: List<NearbyCourier> = emptyList(),
     @SerialName("count") val count: Int = 0,
-    @SerialName("price_range") val priceRange: PriceRange = PriceRange()
+    @SerialName("price_range") val priceRange: PriceRange = PriceRange(),
+    @SerialName("search_radius_km") val searchRadiusKm: Double? = null,
+    @SerialName("search_radii_km") val searchRadiiKm: List<Double> = emptyList(),
+    @SerialName("last_updated_at") val lastUpdatedAt: String? = null
 )
 
 @Serializable
@@ -91,7 +94,10 @@ data class TambalBanHomeResponse(
     @SerialName("services") val services: List<TambalBanServiceProduct> = emptyList(),
     @SerialName("couriers") val couriers: List<NearbyCourier> = emptyList(),
     @SerialName("count") val count: Int = 0,
-    @SerialName("price_range") val priceRange: PriceRange = PriceRange()
+    @SerialName("price_range") val priceRange: PriceRange = PriceRange(),
+    @SerialName("search_radius_km") val searchRadiusKm: Double? = null,
+    @SerialName("search_radii_km") val searchRadiiKm: List<Double> = emptyList(),
+    @SerialName("last_updated_at") val lastUpdatedAt: String? = null
 )
 
 @Serializable

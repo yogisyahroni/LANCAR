@@ -28,6 +28,7 @@ val OrangeCtaDeep = Color(0xFFE95700)    // pressed / emphasis variant
 val OnOrangeCta = Color(0xFF111713)      // CTA text (dark)
 val BrandHeader = Color(0xFF003A20)      // dark forest green header/sidebar
 val OnBrandHeader = Color(0xFFF5F7F4)    // text on brand header
+val RadarPulseGreen = Color(0xFF8DF0A7)   // active provider discovery pulse
 
 // Neutral light
 val Background = Color(0xFFF7F8F7)

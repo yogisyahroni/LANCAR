@@ -556,8 +556,7 @@ interface TEMBUSApiService {
     suspend fun getNearbyCouriers(
         @Query("service_sub_type") serviceSubType: String,
         @Query("lat") lat: Double,
-        @Query("lng") lng: Double,
-        @Query("radius_km") radiusKm: Double = 5.0
+        @Query("lng") lng: Double
     ): Response<NearbyCouriersResponse>
 
     // ============================================================

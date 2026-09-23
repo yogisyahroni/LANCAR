@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.tracking
 
 import com.tembus.customer.BuildConfig
+import com.tembus.customer.ui.policy.PackageOrderFlowPolicy
 
 // Extracted from TrackingScreen.kt (god-file refactor): pure tracking logic helpers
 // + shared enum/data class. All `internal` (same-package), no Compose state — unit-testable.
@@ -152,6 +153,16 @@ internal fun trackingStageText(
         "cancelled", "failed" -> copy.cancelledLabel
         else -> "Menunggu update pengiriman"
     }
+}
+
+internal fun isPackageCourierSearchInProgress(
+    status: String?,
+    kind: TrackingServiceKind,
+    hasAssignedCourier: Boolean,
+): Boolean {
+    return kind == TrackingServiceKind.PACKAGE &&
+        PackageOrderFlowPolicy.courierOutcome(status.orEmpty(), hasAssignedCourier) ==
+        PackageOrderFlowPolicy.CourierOutcome.SEARCHING
 }
 
 internal fun trackingFreshnessLabel(lastLiveTrackingAt: Long?): String {

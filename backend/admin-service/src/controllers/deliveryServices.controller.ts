@@ -113,7 +113,9 @@ const normalizeService = (row: any): DeliveryServiceProduct => {
   service.service_family = service.service_family || 'regular';
   service.failed_delivery_policy = service.failed_delivery_policy || (service.service_category === 'regular' ? 'reschedule_then_return' : 'must_deliver');
   service.pod_label = service.pod_label || 'POD';
-  service.search_radii_km = Array.isArray(service.search_radii_km) ? service.search_radii_km.map(Number) : [3, 5, 10];
+  service.search_radii_km = Array.isArray(service.search_radii_km)
+    ? service.search_radii_km.map(Number).filter((value: number) => Number.isFinite(value) && value > 0)
+    : [];
 
   return service;
 };
@@ -160,6 +162,50 @@ const positiveInt = (value: unknown, fallback: number, min: number, max: number)
 const nonNegativeNumber = (value: unknown, fallback: number) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+};
+
+const normalizeSearchRadii = (value: unknown, serviceCategory: unknown): number[] => {
+  const category = String(serviceCategory || '').trim().toLowerCase();
+  const isRoadside = category === 'tambal_ban' || category === 'towing';
+  // Existing generic service clients predate the editable field. Preserve
+  // their contract while making roadside discovery fail closed unless Admin
+  // supplies the DB-backed stages explicitly.
+  if (!Array.isArray(value) && !isRoadside) {
+    return [3, 5, 10];
+  }
+  const radii = Array.isArray(value)
+    ? value.map(Number)
+    : [];
+
+  if (radii.length === 0 || radii.some((radius) => !Number.isFinite(radius) || radius <= 0)) {
+    const error = new Error('search_radii_km wajib berisi angka positif dari konfigurasi Admin');
+    (error as any).statusCode = 400;
+    throw error;
+  }
+
+  for (let index = 1; index < radii.length; index += 1) {
+    if (radii[index] <= radii[index - 1]) {
+      const error = new Error('search_radii_km harus diurutkan naik tanpa nilai duplikat');
+      (error as any).statusCode = 400;
+      throw error;
+    }
+  }
+
+  if (radii.length > 10) {
+    const error = new Error('search_radii_km maksimal 10 tahap');
+    (error as any).statusCode = 400;
+    throw error;
+  }
+
+  if (isRoadside) {
+    if (radii.length < 2 || radii[radii.length - 1] > 50) {
+      const error = new Error('Layanan tambal ban/towing membutuhkan minimal 2 tahap dan radius maksimum 50 km');
+      (error as any).statusCode = 400;
+      throw error;
+    }
+  }
+
+  return radii;
 };
 
 const normalizeFailedDeliveryPolicy = (value: unknown, serviceCategory: string): DeliveryServiceProduct['failed_delivery_policy'] => {
@@ -324,7 +370,9 @@ export const listAdminDeliveryServices = async (_req: Request, res: Response): P
   }
 };
 
-const servicePayload = (body: any) => ({
+const servicePayload = (body: any) => {
+  const serviceCategory = String(body.service_category || 'on_demand').trim().toLowerCase();
+  return {
   code: String(body.code || '').trim(),
   name: String(body.name || '').trim(),
   description: String(body.description || '').trim(),
@@ -382,12 +430,13 @@ const servicePayload = (body: any) => ({
   platform_fee_pct: nonNegativeNumber(body.platform_fee_pct, 0),
   extra_dropoff_fee_idr: nonNegativeNumber(body.extra_dropoff_fee_idr, 0),
   show_customer_price_to_courier: Boolean(body.show_customer_price_to_courier),
-  search_radii_km: Array.isArray(body.search_radii_km) ? body.search_radii_km.map(Number).filter((n: number) => !isNaN(n) && n > 0) : [3, 5, 10],
+  search_radii_km: normalizeSearchRadii(body.search_radii_km, serviceCategory),
   size_tiers: Array.isArray(body.size_tiers) ? body.size_tiers : [],
   dimension_rules: body.dimension_rules || {},
   availability_rules: body.availability_rules || {},
   metadata: body.metadata || {}
-});
+  };
+};
 
 export const createAdminDeliveryService = async (req: Request, res: Response): Promise<void> => {
   try {

@@ -971,25 +971,64 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     // Jika payment di-bypass, langsung dispatch ke kurir tanpa menunggu alur pembayaran
     if (isPaymentBypassed && newOrder.status !== 'scheduled') {
       const dispatchClient = await db.connect();
+      const isRoadsidePreferred = Boolean(
+        preferred_courier_id
+        && ['tambal_ban', 'towing'].includes(String(service.service_category || '').toLowerCase())
+      );
+      const markPreferredRoadsideUnavailable = async (dispatchTarget: string) => {
+        securityLog.warn(`[WARN] Preferred roadside courier ${dispatchTarget} tidak tersedia untuk order ${newOrder.id}; tidak melakukan fallback ke petugas lain`);
+        await dispatchClient.query(
+          `UPDATE orders
+           SET status = 'no_courier_found', updated_at = NOW()
+           WHERE id = $1
+             AND status IN ('pending', 'paid', 'dispatching', 'pending_assignment', 'searching')`,
+          [newOrder.id]
+        );
+        await dispatchClient.query(
+          `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+           VALUES ($1, $2, 'no_courier_found', $3, $4)`,
+          [
+            newOrder.id,
+            customer_id,
+            'Petugas pilihan customer tidak tersedia lagi; order tidak dialihkan otomatis.',
+            JSON.stringify({
+              reason: 'preferred_courier_unavailable',
+              preferred_courier_id: preferred_courier_id,
+              dispatch_target: dispatchTarget,
+              service_category: service.service_category,
+              customer_can_retry: true,
+            }),
+          ]
+        );
+      };
       try {
         let createdOffers: Awaited<ReturnType<typeof advanceOnDemandDispatchQueue>> = [];
-                if (preferred_courier_id) {
-                  // "Pilih Petugas" flow: dispatch langsung ke courier yang dipilih customer.
-                  // WAJIB pakai resolvedPreferredCourierUserId (user_id) — dispatchToPreferredCourier
-                  // mencocokkan cp.user_id, sedangkan req.body.preferred_courier_id adalah
-                  // courier_profiles.id (yang TIDAK match FK orders).
-                  const dispatchTarget = resolvedPreferredCourierUserId || preferred_courier_id;
-                  const offer = await dispatchToPreferredCourier(dispatchClient, newOrder.id, dispatchTarget);
-                  if (offer) createdOffers.push(offer);
-                  if (!offer) {
-                    securityLog.warn(`[WARN] Preferred courier ${dispatchTarget} tidak bisa di-dispatch untuk order ${newOrder.id}; fallback ke queue normal`);
-                    createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
-                  }
-                } else {
-                  createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
-                }
-                await notifyOnDemandOffers(createdOffers);
+        if (preferred_courier_id) {
+          // "Pilih Petugas" flow: dispatch langsung ke courier yang dipilih customer.
+          // WAJIB pakai resolvedPreferredCourierUserId (user_id) — dispatchToPreferredCourier
+          // mencocokkan cp.user_id, sedangkan req.body.preferred_courier_id adalah
+          // courier_profiles.id (yang TIDAK match FK orders).
+          const dispatchTarget = resolvedPreferredCourierUserId || preferred_courier_id;
+          const offer = await dispatchToPreferredCourier(dispatchClient, newOrder.id, dispatchTarget);
+          if (offer) createdOffers.push(offer);
+          if (!offer) {
+            if (isRoadsidePreferred) {
+              await markPreferredRoadsideUnavailable(dispatchTarget);
+            } else {
+              securityLog.warn(`[WARN] Preferred courier ${dispatchTarget} tidak bisa di-dispatch untuk order ${newOrder.id}; fallback ke queue normal`);
+              createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
+            }
+          }
+        } else {
+          createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
+        }
+        await notifyOnDemandOffers(createdOffers);
       } catch (dispatchErr) {
+        if (isRoadsidePreferred) {
+          await markPreferredRoadsideUnavailable(resolvedPreferredCourierUserId || preferred_courier_id).catch((markErr) => {
+            securityLog.error('[WARN] failed to mark unavailable preferred roadside courier:', markErr);
+          });
+        }
         securityLog.error('[WARN] dispatch after bypass failed:', dispatchErr);
       } finally {
         dispatchClient.release();

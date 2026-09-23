@@ -31,6 +31,7 @@ import com.tembus.customer.R
 import com.tembus.customer.data.model.OrderTrackingDetail
 import com.tembus.customer.ui.a11y.criticalAction
 import com.tembus.customer.ui.components.maps.*
+import com.tembus.customer.ui.components.RadarPulseIndicator
 import com.tembus.customer.ui.screens.rating.*
 import com.tembus.customer.ui.screens.tip.*
 import com.tembus.customer.ui.theme.*
@@ -136,6 +137,17 @@ fun CourierStatusCard(
             modifier = Modifier.padding(20.dp)
         ) {
             val order = detail?.order
+            val trackingKind = trackingCopy(
+                serviceSubType = order?.serviceSubType,
+                model = order?.model,
+                merchantId = order?.merchantId,
+                serviceCategory = order?.serviceCategory,
+            ).kind
+            val isPackageSearching = isPackageCourierSearchInProgress(
+                status = order?.status,
+                kind = trackingKind,
+                hasAssignedCourier = !order?.courierName.isNullOrBlank(),
+            )
             val stageText = remember(
                 order?.status,
                 order?.serviceSubType,
@@ -182,6 +194,48 @@ fun CourierStatusCard(
                 fontSize = 13.sp,
                 modifier = Modifier.padding(start = 32.dp, top = 6.dp)
             )
+            if (isPackageSearching) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = PrimarySoft,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = .72f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            RadarPulseIndicator(
+                                active = true,
+                                size = 30.dp,
+                                dotSize = 8.dp,
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Mencari kurir terdekat",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = Primary,
+                            )
+                            Text(
+                                text = "Radar aktif — kami sedang mencarikan kurir untuk paketmu.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                            )
+                        }
+                    }
+                }
+            }
             staleTrackingReason?.let { reason ->
                 Text(
                     text = "${trackingFreshnessLabel(lastLiveTrackingAt)}. $reason",

@@ -42,7 +42,6 @@ func (h *TambalBanHandler) GetNearbyCouriers(w http.ResponseWriter, r *http.Requ
 		latStr  = r.URL.Query().Get("lat")
 		lngStr  = r.URL.Query().Get("lng")
 		subType = r.URL.Query().Get("service_sub_type")
-		radius  = r.URL.Query().Get("radius_km")
 	)
 	lat, err := strconv.ParseFloat(latStr, 64)
 	if err != nil || lat == 0 {
@@ -61,13 +60,6 @@ func (h *TambalBanHandler) GetNearbyCouriers(w http.ResponseWriter, r *http.Requ
 			middleware.GetCorrelationID(r.Context()))
 		return
 	}
-	radiusKM := 5.0
-	if radius != "" {
-		if parsed, perr := strconv.ParseFloat(radius, 64); perr == nil && parsed > 0 {
-			radiusKM = parsed
-		}
-	}
-
 	// Validate service sub type
 	if !service.IsTambalBanOrTowing(subType) {
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_SERVICE", "Invalid service sub type",
@@ -75,7 +67,7 @@ func (h *TambalBanHandler) GetNearbyCouriers(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	result, err := h.availabilitySvc.FindAvailableCouriers(r.Context(), subType, lat, lng, radiusKM)
+	result, err := h.availabilitySvc.FindAvailableCouriersProgressive(r.Context(), subType, lat, lng)
 	if err != nil {
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to find couriers",
 			middleware.GetCorrelationID(r.Context()))
