@@ -110,21 +110,13 @@ internal fun CourierIssueReportDialog(
     onSubmit: (eventType: String, reasonCode: String, reportedParty: String, severity: String, message: String, photoFile: File) -> Unit
 ) {
     val context = LocalContext.current
-    val isOnDemand = order.normalizedWorkflowRole() == "on_demand"
-    val reasons = remember(order.orderId, isOnDemand, pickupDone) {
-        if (pickupDone && isOnDemand) {
+    val reasons = remember(order.orderId, pickupDone) {
+        if (pickupDone) {
             listOf(
                 CourierIssueReason("recipient_unavailable", "Penerima tidak tersedia", "Kurir sudah di tujuan tetapi penerima tidak bisa menerima paket.", "high"),
                 CourierIssueReason("address_not_found", "Alamat tidak ditemukan", "Alamat tujuan tidak bisa diverifikasi dari lokasi atau navigasi.", "high"),
                 CourierIssueReason("package_issue", "Masalah paket", "Paket rusak, tertukar, atau butuh pemeriksaan operasional.", "high"),
                 CourierIssueReason("operational_assist", "Butuh bantuan operasional", "On-demand wajib diselesaikan, minta bantuan tanpa membuat return atau reschedule.", "high")
-            )
-        } else if (pickupDone) {
-            listOf(
-                CourierIssueReason("recipient_unavailable", "Penerima tidak tersedia", "Regular dapat dijadwalkan ulang sesuai policy percobaan maksimal.", "high"),
-                CourierIssueReason("address_not_found", "Alamat tidak ditemukan", "Alamat tujuan tidak bisa diverifikasi dari lokasi atau navigasi.", "high"),
-                CourierIssueReason("package_issue", "Masalah paket", "Paket rusak, tertukar, atau butuh pemeriksaan operasional.", "high"),
-                CourierIssueReason("reschedule_required", "Perlu reschedule", "Regular delivery perlu percobaan ulang sesuai policy operasional.", "high")
             )
         } else {
             listOf(

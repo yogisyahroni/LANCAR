@@ -213,11 +213,7 @@ object CourierFlowResolver {
             CourierStage.CANCELLED -> "Pekerjaan tidak lagi aktif."
             CourierStage.RETURN_TO_HUB -> "Kembalikan paket sesuai arahan operasional."
             CourierStage.PENDING_OFFER -> "Review tawaran sebelum menerima pekerjaan."
-            else -> if (role == "regular") {
-                "Jalankan order regular sesuai tahap pengiriman."
-            } else {
-                "Datang ke titik pickup, konfirmasi tiba, lalu verifikasi wajah sebelum scan barang."
-            }
+            else -> "Datang ke titik pickup, konfirmasi tiba, lalu verifikasi wajah sebelum scan barang."
         }
 
         val targetIsPickup = stage in setOf(

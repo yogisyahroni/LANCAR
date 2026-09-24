@@ -36,20 +36,12 @@ import com.tembus.courier.ui.theme.OnPrimary
 @Composable
 fun OrderScreen(
     orders: List<Order>,
-    courierRole: String,
     onOrderClick: (Order) -> Unit,
     onSync: () -> Unit,
     isSyncing: Boolean = false
 ) {
     var showSyncDialog by remember { mutableStateOf(false) }
-    val lockedRole = courierRole.toCourierWorkRole()
-    var selectedRole by remember(lockedRole) { mutableStateOf(lockedRole) }
-    val roleTabs = listOf(
-        "on_demand" to "On Demand",
-        "regular" to "Regular"
-    )
-    val roleOrders = orders.filter { it.normalizedWorkflowRole() == selectedRole }
-    val isRoleLocked = courierRole != "all"
+    val onDemandOrders = orders.filter { it.normalizedWorkflowRole() == "on_demand" }
 
     if (showSyncDialog) {
         AlertDialog(
@@ -76,9 +68,9 @@ fun OrderScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text(roleTitle(selectedRole), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("Riwayat pekerjaan", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text(
-                        text = "${roleOrders.size} pesanan ${roleTabs.first { it.first == selectedRole }.second.lowercase()}",
+                        text = "${onDemandOrders.size} pekerjaan On Demand",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -92,30 +84,17 @@ fun OrderScreen(
             }
         }
 
-        if (!isRoleLocked) {
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                roleTabs.forEachIndexed { index, tab ->
-                    SegmentedButton(
-                        selected = selectedRole == tab.first,
-                        onClick = { selectedRole = tab.first },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = roleTabs.size),
-                        label = { Text(tab.second, maxLines = 1) }
-                    )
-                }
-            }
-        } else {
-            AssistChip(
-                onClick = { },
-                label = { Text(roleTabs.first { it.first == selectedRole }.second) },
-                leadingIcon = { Icon(roleIcon(selectedRole), contentDescription = null, modifier = Modifier.size(16.dp)) }
-            )
-        }
+        AssistChip(
+            onClick = { },
+            label = { Text("On Demand") },
+            leadingIcon = { Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp)) }
+        )
 
-        if (roleOrders.isEmpty()) {
-            EmptyState(role = roleTabs.first { it.first == selectedRole }.second)
+        if (onDemandOrders.isEmpty()) {
+            EmptyState(role = "Pekerjaan On Demand")
         } else {
             OrderList(
-                orders = roleOrders,
+                orders = onDemandOrders,
                 onOrderClick = onOrderClick,
                 modifier = Modifier.fillMaxSize()
             )
@@ -226,9 +205,6 @@ private fun RoleChip(order: Order) {
     val hasFoodPayload = order.foodItems.isNotEmpty() ||
         serviceCode.startsWith("food") ||
         serviceCategory in setOf("food", "food_delivery")
-    val isKnownPackage = serviceCategory in setOf("package_on_demand", "regular", "on_demand") ||
-        serviceCode in setOf("tembus_instant", "p2p", "regular") ||
-        order.model.lowercase() in setOf("p2p", "on_demand", "regular")
     val (label, color, icon) = when {
         serviceCode.startsWith("tambal_ban") || serviceCategory == "tambal_ban" ->
             Triple("TAMBAL BAN", Warning, Icons.Default.Build)
@@ -238,10 +214,8 @@ private fun RoleChip(order: Order) {
             Triple("AGGREGATOR", Info, Icons.Default.LocalShipping)
         hasFoodPayload ->
             Triple("FOOD", Success, Icons.Default.Storefront)
-        isKnownPackage && order.normalizedWorkflowRole() == "regular" ->
-            Triple("REGULAR", Success, Icons.Default.LocalShipping)
         else ->
-            Triple("LAYANAN BELUM DIKENAL", Warning, Icons.Default.HelpOutline)
+            Triple("ON DEMAND", Success, Icons.Default.Bolt)
     }
 
     AssistChip(
@@ -260,22 +234,6 @@ private fun RoleChip(order: Order) {
             leadingIconContentColor = color
         )
     )
-}
-
-private fun String.toCourierWorkRole(): String = when (this) {
-    "regular", "pickup_only", "pickup", "delivery_only", "delivery" -> "regular"
-    "all" -> "on_demand"
-    else -> "on_demand"
-}
-
-private fun roleTitle(role: String): String = when (role) {
-    "regular" -> "Order Regular"
-    else -> "Pekerjaan On Demand"
-}
-
-private fun roleIcon(role: String) = when (role) {
-    "regular" -> Icons.Default.LocalShipping
-    else -> Icons.Default.Bolt
 }
 
 @Composable
@@ -324,8 +282,7 @@ private fun CompactInfo(
 @Composable
 private fun OrderStatusChip(order: Order) {
     val status = order.status
-    val role = order.normalizedWorkflowRole()
-    val label = courierOrderStatusLabel(status, role)
+    val label = courierOrderStatusLabel(status)
     val (containerColor, contentColor) = when (status) {
         "pending" -> Warning.copy(alpha = 0.16f) to Warning
         "assigned" -> Info.copy(alpha = 0.14f) to Info
@@ -346,25 +303,14 @@ private fun OrderStatusChip(order: Order) {
     )
 }
 
-private fun courierOrderStatusLabel(status: String, role: String): String {
-    return when (role) {
-        "on_demand" -> when (status) {
-            "pending" -> "TAWARAN"
-            "assigned" -> "SIAP PICKUP"
-            "picked_up" -> "SIAP ANTAR"
-            "in_transit" -> "MENGANTAR"
-            "delivered" -> "SELESAI"
-            "failed" -> "PERLU REVIEW"
-            else -> status.replace("_", " ").uppercase()
-        }
-        "regular" -> when (status) {
-            "assigned" -> "SIAP PICKUP"
-            "picked_up" -> "PICKUP SELESAI"
-            "in_transit" -> "MENGANTAR"
-            "delivered" -> "SELESAI"
-            "failed" -> "PERLU REVIEW"
-            else -> status.replace("_", " ").uppercase()
-        }
+private fun courierOrderStatusLabel(status: String): String {
+    return when (status) {
+        "pending" -> "TAWARAN"
+        "assigned" -> "SIAP PICKUP"
+        "picked_up" -> "SIAP ANTAR"
+        "in_transit" -> "MENGANTAR"
+        "delivered" -> "SELESAI"
+        "failed" -> "PERLU REVIEW"
         else -> status.replace("_", " ").uppercase()
     }
 }

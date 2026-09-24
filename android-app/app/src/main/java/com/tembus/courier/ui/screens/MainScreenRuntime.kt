@@ -187,7 +187,6 @@ internal fun MainScreenRuntime(
     // Real ViewModel backed by Hilt/Room DB
     val orderViewModel: OrderViewModel = hiltViewModel()
     val callEventsViewModel: CallEventsViewModel = hiltViewModel()
-    val notificationViewModel: com.tembus.courier.ui.screens.notification.NotificationViewModel = hiltViewModel()
 
     val allOrders by orderViewModel.allOrders.collectAsState()
     val pendingOrders by orderViewModel.pendingOrders.collectAsState()
@@ -217,22 +216,19 @@ internal fun MainScreenRuntime(
     // proof, chat and recovery remain available independently of this flag.
     val visibleOnDemandServices = if (serviceDiscoveryEnabled) onDemandServices else emptyList()
     
-    val unreadNotificationCount by notificationViewModel.unreadCount.collectAsState()
-
     val courierName by authSessionManager.courierName.collectAsState(initial = null)
     val isOnline by authSessionManager.isOnline.collectAsState(initial = false)
     val lifecycleOwner = LocalLifecycleOwner.current
-    // ponytail: single-mode app — non-on_demand retired 2026-08; always on_demand.
-    // Upgrade path: restore role inference only if a regular (P2P) courier mode is reintroduced.
+    // The Courier app currently exposes the On Demand work catalog only.
     val courierRole = "on_demand"
     val displayCourierName = courierName?.takeIf { it.isNotBlank() } ?: "Profil sedang disinkronkan"
     val courierVehicleType = capabilityProfile?.vehicle?.vehicleType
         ?: capabilityProfile?.vehicles?.firstOrNull { it.verificationStatus.equals("approved", ignoreCase = true) }?.vehicleType
         ?: capabilityProfile?.vehicles?.firstOrNull()?.vehicleType
         ?: ""
-    val roleOrders = allOrders.filterByCourierRole(courierRole)
-    val rolePendingOrders = pendingOrders.filterByCourierRole(courierRole)
-    val roleDeliveredToday = deliveredToday.filterByCourierRole(courierRole)
+    val roleOrders = allOrders.filterByCourierRole()
+    val rolePendingOrders = pendingOrders.filterByCourierRole()
+    val roleDeliveredToday = deliveredToday.filterByCourierRole()
     val roleEarningsToday = roleDeliveredToday.sumOf { it.cleanPayoutIdr() }.takeIf { it > 0 }
         ?: courierProfile?.todayEarningsIdr
         ?: 0
@@ -286,7 +282,6 @@ internal fun MainScreenRuntime(
     var showForegroundLocationPermissionDialog by showForegroundLocationPermissionDialogState
     val showBackgroundLocationPermissionDialogState = remember { mutableStateOf(false) }
     var showBackgroundLocationPermissionDialog by showBackgroundLocationPermissionDialogState
-    val isOnDemandCourier = courierRole == "on_demand"
     val activeOnDemandJobCount = roleOrders.count {
         it.normalizedWorkflowRole() == "on_demand" &&
             it.status.lowercase() in ACTIVE_ON_DEMAND_STATUSES
@@ -314,7 +309,7 @@ internal fun MainScreenRuntime(
     // showCallScreen          → SECURE (live call, caller identity)
     // LoginScreen + CourierRegistrationScreen → independently call SecureScreenEffect()
     val secureScreenRequired = selectedTab == 2 ||
-        (isOnDemandCourier && selectedTab == 3) ||
+        selectedTab == 3 ||
         showPodScreen ||
         showOrderDetail ||
         showScanScreen ||
@@ -428,18 +423,14 @@ internal fun MainScreenRuntime(
         experienceConfigRepository = experienceConfigRepository,
         scope = scope,
         snackbarHostState = snackbarHostState,
-        isOnDemandCourier = isOnDemandCourier,
         selectedTabState = selectedTabState,
         courierRole = courierRole,
         isSyncing = isSyncing,
         isOnline = isOnline,
         orderViewModel = orderViewModel,
-        unreadNotificationCount = unreadNotificationCount,
-        pendingOrders = pendingOrders,
         onDemandOffers = onDemandOffers,
         roleOrders = roleOrders,
         rolePendingOrders = rolePendingOrders,
-        roleDeliveredToday = roleDeliveredToday,
         roleEarningsToday = roleEarningsToday,
         allOrders = allOrders,
         onDemandServices = visibleOnDemandServices,
@@ -463,31 +454,9 @@ internal fun MainScreenRuntime(
         performanceSummary = performanceSummary,
         inlineErrorMessage = inlineErrorMessage,
         showLogoutDialog = showLogoutDialogState,
-        pendingDutySecurityTargetState = pendingDutySecurityTargetState,
         routeStateState = routeStateState,
-        selectedOrderState = selectedOrderState,
-        onRouteStateChange = { routeState = it },
-        onSelectedOrderChange = { selectedOrder = it },
-        onOpenOrdersTab = { selectedTab = 1 },
-        onTabChange = { selectedTab = it },
-        onToggleOnline = { requestDutyToggle(it) },
         onOpenOrderDetail = { openOrderDetail(it) },
-        onOpenProof = { o, p -> openProof(o, p) },
-        onOpenScan = { o, s -> openScan(o, s) },
-        onOnlineToggleRequested = { online, pending ->
-            if (online && !hasForegroundLocationPermission(context)) {
-                pendingOnlineAfterForegroundPermission = true
-                showForegroundLocationPermissionDialog = true
-            } else if (online && localSecuritySettings.active) {
-                pendingDutySecurityTarget = true
-            } else {
-                scope.launch { actions.performDutyToggle(snackbarHostState, orderViewModel, authSessionManager, allOrders, online) }
-            }
-        },
         requestDutyToggle = { requestDutyToggle(it) },
-        onPerformDutyToggle = { online -> performDutyToggle(online) },
-        pendingOnlineAfterForegroundPermissionState = pendingOnlineAfterForegroundPermissionState,
-        showForegroundLocationPermissionDialogState = showForegroundLocationPermissionDialogState,
         showMissingPhotoWarningState = showMissingPhotoWarningState,
         onDismissInlineError = { inlineErrorMessage = null }
     )

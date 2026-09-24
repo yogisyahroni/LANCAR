@@ -17,9 +17,6 @@
     <string name="status_online">Online</string>
     <string name="status_offline">Offline</string>
     <string name="status_busy">Busy</string>
-    <string name="courier_tab_home">Home</string>
-    <string name="courier_tab_orders">Orders</string>
-    <string name="courier_tab_profile">Profile</string>
     <string name="courier_language">Language</string>
     <string name="courier_language_description">Choose the app language</string>
     <string name="courier_close">Close</string>

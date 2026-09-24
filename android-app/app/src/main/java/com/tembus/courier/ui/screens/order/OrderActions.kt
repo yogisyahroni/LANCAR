@@ -190,7 +190,7 @@ internal fun OrderActions(
                 )
             } else if (!flowState.deliveryDone) {
                 PackageChecklistCard(order = order, deliveryDone = flowState.deliveryDone)
-                VerificationNotice("Order regular sedang diantar. Ambil bukti terima setelah paket diserahkan.")
+                VerificationNotice("Pekerjaan On Demand sedang diantar. Ambil bukti terima setelah paket diserahkan.")
             }
 
             OnDemandSupportActions(
@@ -202,10 +202,6 @@ internal fun OrderActions(
                 onCancelPickupClick = {},
                 showCancelPickup = false
             )
-
-            if (!flowState.deliveryDone && order.normalizedWorkflowRole() == "regular") {
-                RegularFailedDeliveryPanel(order = order, onReportFailed = { onUpdateStatus("failed") })
-            }
 
             TextButton(onClick = onStatusClick, modifier = Modifier.align(Alignment.End)) {
                 Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(16.dp))

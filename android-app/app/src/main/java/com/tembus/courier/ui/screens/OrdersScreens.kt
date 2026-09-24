@@ -162,7 +162,6 @@ import kotlin.math.min
 @Composable
 internal fun OrdersContent(
     orders: List<Order>,
-    courierRole: String,
     isSyncing: Boolean,
     isOnline: Boolean,
     lastRemoteSyncAt: Long?,
@@ -215,7 +214,6 @@ internal fun OrdersContent(
             )
             OrderScreen(
                 orders = orders,
-                courierRole = courierRole,
                 onOrderClick = onOrderClick,
                 onSync = onSync,
                 isSyncing = isSyncing
