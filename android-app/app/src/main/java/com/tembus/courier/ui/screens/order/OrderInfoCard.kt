@@ -87,6 +87,7 @@ import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryLight
 import com.tembus.courier.ui.theme.Secondary
 import com.tembus.courier.ui.theme.Success
+import com.tembus.courier.ui.theme.TembusComponentDefaults
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -107,7 +108,7 @@ import com.tembus.courier.util.NavigationHelper
 internal fun OrderInfoCard(order: Order) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
+        shape = TembusComponentDefaults.cardShape(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {

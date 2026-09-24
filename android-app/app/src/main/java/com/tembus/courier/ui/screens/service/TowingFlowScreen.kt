@@ -55,6 +55,8 @@ import com.tembus.courier.domain.TowingNextActionType
 import com.tembus.courier.domain.TowingStage
 import com.tembus.courier.data.model.RoadsideVehicleVerificationDraft
 import com.tembus.courier.ui.theme.TembusRadius
+import com.tembus.courier.ui.theme.TembusComponentDefaults
+import com.tembus.courier.ui.theme.TembusSpacing
 import com.tembus.courier.ui.components.service.EarningsBreakdown
 import com.tembus.courier.ui.components.service.ServiceProgressBar
 import com.tembus.courier.ui.components.service.TowingProgressSteps
@@ -181,6 +183,11 @@ fun TowingFlowScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Towing", fontWeight = FontWeight.Bold) },
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CourierTextCatalog.translate("Kembali"))
@@ -201,8 +208,11 @@ fun TowingFlowScreen(
                             val inspectionBlocked = isInspectionAction && (inspectionPhoto == null || !vehicleVerificationReady)
                             val loadingBlocked = isLoadingProofAction && loadingPhoto == null
                             val unloadingBlocked = isUnloadingProofAction && unloadingPhoto == null
-                            Surface(shadowElevation = 8.dp) {
-                                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surface,
+                                shadowElevation = 8.dp
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth().padding(TembusSpacing.Large)) {
                                     if (uiState.error != null) {
                                         Text(
                                             uiState.error!!,
@@ -272,9 +282,8 @@ fun TowingFlowScreen(
                                         },
                                         modifier = Modifier.fillMaxWidth(),
                                         enabled = !uiState.isLoading && !gateBlocked && !inspectionBlocked && !loadingBlocked && !unloadingBlocked,
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary
-                                        )
+                                        shape = TembusComponentDefaults.buttonShape(),
+                                        colors = TembusComponentDefaults.primaryButtonColors()
                                     ) {
                             if (uiState.isLoading) {
                                 Text("Memproses...", fontWeight = FontWeight.Bold)

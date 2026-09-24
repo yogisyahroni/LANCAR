@@ -148,6 +148,8 @@ import com.tembus.courier.ui.theme.SecondaryLight
 import com.tembus.courier.ui.theme.Success
 import com.tembus.courier.ui.theme.Info
 import com.tembus.courier.ui.theme.Warning
+import com.tembus.courier.ui.theme.TembusComponentDefaults
+import com.tembus.courier.ui.theme.TembusSpacing
 import com.tembus.courier.util.OrderSyncSignalBus
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -211,17 +213,16 @@ internal fun WalletContent(
 
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(TembusSpacing.Medium)
     ) {
-        Text(
-            text = "Dompet Kurir",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
+        CourierPageHeader(
+            title = "Dompet",
+            subtitle = "Saldo, pendapatan, dan pencairan"
         )
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
+            shape = TembusComponentDefaults.cardShape(),
             colors = CardDefaults.cardColors(containerColor = DeepForest)
         ) {
             Column(
@@ -233,7 +234,7 @@ internal fun WalletContent(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Surface(color = Color.White.copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp)) {
+                    Surface(color = Color.White.copy(alpha = 0.14f), shape = TembusComponentDefaults.chipShape()) {
                         Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(12.dp).size(28.dp))
                     }
                     Column(modifier = Modifier.weight(1f)) {
@@ -242,8 +243,22 @@ internal fun WalletContent(
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    MiniProfileStat("Hari ini", todayEarningsIdr.toRupiahCompact(), Modifier.weight(1f))
-                    MiniProfileStat("Total", totalEarningsIdr.toRupiahCompact(), Modifier.weight(1f))
+                    MiniProfileStat(
+                        "Hari ini",
+                        todayEarningsIdr.toRupiahCompact(),
+                        Modifier.weight(1f),
+                        valueColor = Color.White,
+                        labelColor = Color.White.copy(alpha = 0.78f),
+                        containerColor = PrimaryLight.copy(alpha = 0.72f)
+                    )
+                    MiniProfileStat(
+                        "Total",
+                        totalEarningsIdr.toRupiahCompact(),
+                        Modifier.weight(1f),
+                        valueColor = Color.White,
+                        labelColor = Color.White.copy(alpha = 0.78f),
+                        containerColor = PrimaryLight.copy(alpha = 0.72f)
+                    )
                 }
             }
         }
@@ -270,7 +285,7 @@ internal fun WalletContent(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(8.dp)
+                shape = TembusComponentDefaults.cardShape()
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -281,7 +296,7 @@ internal fun WalletContent(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Surface(color = Success.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                        Surface(color = Success.copy(alpha = 0.12f), shape = TembusComponentDefaults.chipShape()) {
                             Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = Success, modifier = Modifier.padding(10.dp).size(22.dp))
                         }
                         Column(modifier = Modifier.weight(1f)) {
@@ -328,7 +343,7 @@ internal fun WalletContent(
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             color = PrimaryLight.copy(alpha = 0.55f),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = TembusComponentDefaults.chipShape()
                         ) {
                             Text(
                                 "Belum ada transaksi pendapatan.",
@@ -349,7 +364,7 @@ internal fun CourierWalletSkeleton() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(8.dp),
+        shape = TembusComponentDefaults.cardShape(),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.10f))
     ) {
         Column(

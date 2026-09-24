@@ -168,9 +168,9 @@ internal fun OnDemandNavigationStatusChip(
 ) {
     Surface(
         modifier = modifier,
-        color = Color.White.copy(alpha = 0.08f),
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f))
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
@@ -178,7 +178,7 @@ internal fun OnDemandNavigationStatusChip(
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Icon(icon, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.size(15.dp))
-            Text(label, color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

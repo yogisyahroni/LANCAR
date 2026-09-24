@@ -139,7 +139,7 @@ import com.tembus.courier.ui.theme.AccentDark
 import com.tembus.courier.ui.theme.AccentLight
 import com.tembus.courier.ui.theme.Background
 import com.tembus.courier.ui.theme.CourierMapBase
-import com.tembus.courier.ui.theme.CourierPanel
+import com.tembus.courier.ui.theme.TembusComponentDefaults
 import com.tembus.courier.ui.theme.Outline
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryDark
@@ -168,9 +168,9 @@ internal fun OnDemandNavigationRequirement(
 ) {
     Surface(
         modifier = modifier,
-        color = if (done) Success.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.08f),
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, if (done) Success.copy(alpha = 0.38f) else Color.White.copy(alpha = 0.10f))
+        color = if (done) Success.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant,
+        shape = TembusComponentDefaults.chipShape(),
+        border = BorderStroke(1.dp, if (done) Success.copy(alpha = 0.38f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
@@ -180,10 +180,10 @@ internal fun OnDemandNavigationRequirement(
             Icon(
                 if (done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                 contentDescription = null,
-                tint = if (done) Success else Color.White.copy(alpha = 0.62f),
+                tint = if (done) Success else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(15.dp)
             )
-            Text(label, color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

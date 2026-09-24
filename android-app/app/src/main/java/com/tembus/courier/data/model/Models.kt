@@ -251,6 +251,10 @@ data class CourierServicePrice(
     @SerialName("service_code") val serviceCode: String,
     @SerialName("service_name") val serviceName: String = "",
     @SerialName("price_amount") val priceAmount: Long = 0,
+    @SerialName("price_per_hole_idr") val pricePerHoleIdr: Long = 0,
+    @SerialName("per_km_rate_idr") val perKmRateIdr: Long = 0,
+    @SerialName("toll_entry_idr") val tollEntryIdr: Long = 0,
+    @SerialName("toll_exit_idr") val tollExitIdr: Long = 0,
     @SerialName("min_price") val minPrice: Long = 0,
     @SerialName("max_price") val maxPrice: Long = 0,
     @SerialName("is_active") val isActive: Boolean = true,
@@ -261,6 +265,10 @@ data class CourierServicePrice(
 data class CourierServicePriceUpdateRequest(
     @SerialName("service_code") val serviceCode: String,
     @SerialName("price_amount") val priceAmount: Long,
+    @SerialName("price_per_hole_idr") val pricePerHoleIdr: Long? = null,
+    @SerialName("per_km_rate_idr") val perKmRateIdr: Long? = null,
+    @SerialName("toll_entry_idr") val tollEntryIdr: Long? = null,
+    @SerialName("toll_exit_idr") val tollExitIdr: Long? = null,
     @SerialName("is_active") val isActive: Boolean = true
 )
 
@@ -282,7 +290,8 @@ data class RoadsideVehicleDetails(
     @SerialName("notes") val notes: String = "",
     @SerialName("towing_conditions") val towingConditions: List<String> = emptyList(),
     @SerialName("photo_urls") val photoUrls: List<String> = emptyList(),
-    @SerialName("photo_items") val photoItems: List<RoadsideVehiclePhoto> = emptyList()
+    @SerialName("photo_items") val photoItems: List<RoadsideVehiclePhoto> = emptyList(),
+    @SerialName("requested_hole_count") val requestedHoleCount: Int? = null
 )
 
 @Serializable

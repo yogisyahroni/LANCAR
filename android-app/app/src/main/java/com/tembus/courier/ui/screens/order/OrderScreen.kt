@@ -25,6 +25,9 @@ import com.tembus.courier.ui.theme.Warning
 import com.tembus.courier.ui.theme.Success
 import com.tembus.courier.ui.theme.Info
 import com.tembus.courier.ui.theme.OnPrimary
+import com.tembus.courier.ui.theme.TembusComponentDefaults
+import com.tembus.courier.ui.theme.TembusSpacing
+import com.tembus.courier.ui.screens.CourierPageHeader
 
 /**
  * Order List Screen
@@ -61,20 +64,11 @@ fun OrderScreen(
         onRefresh = onSync,
         modifier = Modifier.fillMaxSize()
     ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text("Riwayat pekerjaan", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text(
-                        text = "${onDemandOrders.size} pekerjaan On Demand",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+    Column(verticalArrangement = Arrangement.spacedBy(TembusSpacing.Medium)) {
+        CourierPageHeader(
+            title = "Aktivitas",
+            subtitle = "${onDemandOrders.size} pekerjaan On Demand",
+            trailing = {
             IconButton(onClick = { onSync() }) {
                 Icon(
                     imageVector = Icons.Default.Sync,
@@ -82,7 +76,8 @@ fun OrderScreen(
                     tint = if (isSyncing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
+            }
+        )
 
         AssistChip(
             onClick = { },
@@ -126,13 +121,13 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+        shape = TembusComponentDefaults.cardShape(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(TembusSpacing.Large),
+            verticalArrangement = Arrangement.spacedBy(TembusSpacing.Medium)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -266,7 +261,7 @@ private fun CompactInfo(
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+        shape = TembusComponentDefaults.chipShape()
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),

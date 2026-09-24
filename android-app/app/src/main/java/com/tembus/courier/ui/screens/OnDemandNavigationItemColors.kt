@@ -163,9 +163,10 @@ import kotlin.math.min
 internal fun onDemandNavigationItemColors(): NavigationBarItemColors =
     NavigationBarItemDefaults.colors(
         selectedIconColor = LogisticsOrange,
-        selectedTextColor = Color.White,
-        indicatorColor = LogisticsOrange.copy(alpha = 0.22f),
-        unselectedIconColor = Color.White.copy(alpha = 0.66f),
-        unselectedTextColor = Color.White.copy(alpha = 0.66f)
+        selectedTextColor = LogisticsOrange,
+        indicatorColor = LogisticsOrange.copy(alpha = 0.12f),
+        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        disabledIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+        disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
     )
-

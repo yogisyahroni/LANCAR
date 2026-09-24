@@ -15,11 +15,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 object TembusRadius {
-    val Card = 8.dp
-    val Sheet = 8.dp
-    val Button = 8.dp
-    val Input = 8.dp
-    val Chip = 50.dp
+    val Card = 18.dp
+    val Sheet = 28.dp
+    val Button = 14.dp
+    val Input = 14.dp
+    val Chip = 14.dp
 }
 
 object TembusSpacing {
@@ -28,9 +28,9 @@ object TembusSpacing {
     val Medium = 12.dp
     val Large = 16.dp
     val XLarge = 20.dp
-    val Edge = 18.dp
-    val Screen = 24.dp
-    val Section = 32.dp
+    val Edge = 20.dp
+    val Screen = 20.dp
+    val Section = 28.dp
 }
 
 object TembusCopy {

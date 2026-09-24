@@ -140,7 +140,8 @@ import com.tembus.courier.ui.theme.AccentDark
 import com.tembus.courier.ui.theme.AccentLight
 import com.tembus.courier.ui.theme.Background
 import com.tembus.courier.ui.theme.CourierMapBase
-import com.tembus.courier.ui.theme.CourierPanel
+import com.tembus.courier.ui.theme.TembusComponentDefaults
+import com.tembus.courier.ui.theme.TembusSpacing
 import com.tembus.courier.ui.theme.Outline
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryDark
@@ -581,39 +582,40 @@ internal fun OnDemandOfferQueueDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.58f))
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.58f))
                 .padding(horizontal = 18.dp, vertical = 24.dp),
             contentAlignment = Alignment.Center
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = Color(0xF70A2218),
-                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shape = TembusComponentDefaults.sheetShape(),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.24f)),
                 shadowElevation = 12.dp
             ) {
                 Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    modifier = Modifier.padding(TembusSpacing.Large),
+                    verticalArrangement = Arrangement.spacedBy(TembusSpacing.Medium)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.Top,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Surface(color = LogisticsOrange, shape = RoundedCornerShape(12.dp)) {
-                            Icon(Icons.Default.Bolt, contentDescription = null, tint = Color.Black, modifier = Modifier.padding(10.dp).size(22.dp))
+                        Surface(color = LogisticsOrange.copy(alpha = 0.14f), shape = TembusComponentDefaults.chipShape()) {
+                            Icon(Icons.Default.Bolt, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(10.dp).size(22.dp))
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Tawaran Masuk", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+                            Text("Tawaran masuk", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
                             Text(
                                 "${orderedOffers.size} pekerjaan menunggu keputusan",
-                                color = Color.White.copy(alpha = 0.72f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Text(
                                 if (activeCapabilityText.isNotBlank()) "Kemampuan aktif: $activeCapabilityText"
                                 else "Kemampuan aktif mengikuti profil operasional",
-                                color = Color.White.copy(alpha = 0.64f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelSmall,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
@@ -623,8 +625,8 @@ internal fun OnDemandOfferQueueDialog(
 
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = if (acceptBlocked) MaterialTheme.colorScheme.error.copy(alpha = 0.14f) else Primary.copy(alpha = 0.14f),
-                        shape = RoundedCornerShape(14.dp),
+                        color = if (acceptBlocked) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = TembusComponentDefaults.cardShape(),
                         border = BorderStroke(
                             1.dp,
                             if (acceptBlocked) MaterialTheme.colorScheme.error.copy(alpha = 0.42f) else Primary.copy(alpha = 0.38f)
@@ -641,7 +643,7 @@ internal fun OnDemandOfferQueueDialog(
                                 tint = if (acceptBlocked) MaterialTheme.colorScheme.error else Primary,
                                 modifier = Modifier.size(18.dp)
                             )
-                            Text(capacityText, color = Color.White.copy(alpha = 0.86f), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                            Text(capacityText, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
                         }
                     }
 
@@ -724,17 +726,17 @@ internal fun OnDemandOfferQueueItem(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = if (promoted) Color.White else Color.White.copy(alpha = 0.92f),
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, if (promoted) LogisticsOrange.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.22f))
+        color = MaterialTheme.colorScheme.surface,
+        shape = TembusComponentDefaults.cardShape(),
+        border = BorderStroke(1.dp, if (promoted) LogisticsOrange.copy(alpha = 0.65f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(if (promoted) "Prioritas berikutnya" else order.orderId.ifBlank { "Tawaran lain" }, color = DeepForest, fontWeight = FontWeight.Black)
-                    Text(order.displayServiceName(), color = Color.DarkGray, style = MaterialTheme.typography.labelMedium)
+                    Text(if (promoted) "Prioritas berikutnya" else order.orderId.ifBlank { "Tawaran lain" }, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black)
+                    Text(order.displayServiceName(), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
                 }
-                Surface(color = if (expired) MaterialTheme.colorScheme.error.copy(alpha = 0.12f) else LogisticsOrange.copy(alpha = 0.16f), shape = RoundedCornerShape(10.dp)) {
+                Surface(color = if (expired) MaterialTheme.colorScheme.errorContainer else LogisticsOrange.copy(alpha = 0.14f), shape = TembusComponentDefaults.chipShape()) {
                     Text(
                         if (expired) "Expired" else "${remainingSeconds}s",
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -886,27 +888,28 @@ internal fun OnDemandOfferDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.62f))
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.62f))
                 .padding(horizontal = 28.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xF20A2218), RoundedCornerShape(24.dp))
-                    .padding(22.dp),
+                    .background(MaterialTheme.colorScheme.surface, TembusComponentDefaults.sheetShape())
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.24f), TembusComponentDefaults.sheetShape())
+                    .padding(TembusSpacing.Large),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "Pesanan Baru",
-                    color = Primary,
+                    text = "Pesanan baru",
+                    color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Black
                 )
                 Text(
                     text = "Waktu tersisa: $remainingSeconds detik",
-                    color = if (remainingSeconds <= 5) Color(0xFFFF5252) else Color(0xFFFF6F61),
+                    color = if (remainingSeconds <= 5) MaterialTheme.colorScheme.error else LogisticsOrange,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -915,40 +918,38 @@ internal fun OnDemandOfferDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(8.dp),
-                    color = Primary,
-                    trackColor = Color.White.copy(alpha = 0.18f)
+                    color = LogisticsOrange,
+                    trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
                 )
 
-                OfferServiceFacts(order = order, dark = true)
+                OfferServiceFacts(order = order)
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Jarak", color = Color.White.copy(alpha = 0.82f), style = MaterialTheme.typography.titleSmall)
-                    Text(order.distance.ifBlank { "Jarak dihitung" }, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                    Text("Jarak", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.titleSmall)
+                    Text(order.distance.ifBlank { "Jarak dihitung" }, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Pendapatan", color = Color.White.copy(alpha = 0.82f), style = MaterialTheme.typography.titleSmall)
-                    Text(order.estimatedNetEarningsIdr().toRupiahCompact(), color = Primary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                    Text("Pendapatan bersih", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.titleSmall)
+                    Text(order.estimatedNetEarningsIdr().toRupiahCompact(), color = LogisticsOrange, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
                 }
 
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color.White.copy(alpha = 0.04f),
-                    shape = RoundedCornerShape(18.dp),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = TembusComponentDefaults.cardShape(),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OfferRouteRowDark(
+                        OfferRouteRow(
                             icon = Icons.Default.LocationOn,
-                            tint = Primary,
                             label = if (order.isMaintenanceService()) "Lokasi layanan" else "Titik Jemput",
                             value = order.pickupAddress.ifBlank {
                                 if (order.isMaintenanceService()) "Alamat lokasi layanan sedang disinkronkan" else "Alamat jemput sedang disinkronkan"
                             }
                         )
                         if (!order.isMaintenanceService()) {
-                            OfferRouteRowDark(
+                            OfferRouteRow(
                                 icon = Icons.Default.Place,
-                                tint = Color(0xFFFF3B30),
                                 label = "Tujuan",
                                 value = order.dropAddress.ifBlank { "Alamat tujuan dibuka setelah diterima" }
                             )
@@ -961,8 +962,8 @@ internal fun OnDemandOfferDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(96.dp),
-                        color = Color.Black.copy(alpha = 0.22f),
-                        shape = RoundedCornerShape(18.dp)
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = TembusComponentDefaults.cardShape()
                     ) {
                         RuntimeMapRenderer(
                             modifier = Modifier.fillMaxSize(),
@@ -989,7 +990,7 @@ internal fun OnDemandOfferDialog(
                                 tiltGesturesEnabled = false,
                                 rotationGesturesEnabled = false
                             ),
-                            routeColor = Primary,
+                            routeColor = LogisticsOrange,
                             fallbackTitle = "Area pesanan",
                             fallbackMessage = "Peta mengikuti konfigurasi operasional."
                         )
@@ -1004,6 +1005,9 @@ internal fun OnDemandOfferDialog(
                 // pengamanan sekuat accept.
                 SwipeToAcceptTrack(
                     remainingSeconds = remainingSeconds,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    thumbColor = LogisticsOrange,
+                    textColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     onAccept = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onAccept()
@@ -1017,9 +1021,9 @@ internal fun OnDemandOfferDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252)),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.48f))
+                    shape = TembusComponentDefaults.buttonShape(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.52f))
                 ) {
                     Text("Tolak", fontWeight = FontWeight.Black)
                 }

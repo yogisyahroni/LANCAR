@@ -842,6 +842,8 @@ class OrderViewModel @Inject constructor(
         completionPhoto: Bitmap? = null,
         signatureBitmap: Bitmap? = null,
         damageReport: Map<String, Any>? = null,
+        completedHoleCount: Int? = null,
+        pricePerHoleIdr: Long? = null,
         onSuccess: () -> Unit = {}
     ) {
         viewModelScope.launch {
@@ -883,6 +885,8 @@ class OrderViewModel @Inject constructor(
                     reportRequest["service_duration_minutes"] = durationMinutes
                     reportRequest["materials_used_items"] = proofDraftStore.getMaterialsUsed(orderId)
                     reportRequest["tire_condition_after"] = "repair_completed_verified_by_after_photo"
+                    completedHoleCount?.let { reportRequest["completed_hole_count"] = it }
+                    pricePerHoleIdr?.let { reportRequest["price_per_hole_idr"] = it }
                 }
                 "towing" -> {
                     reportRequest["vehicle_photo_before_url"] = beforePhotoUrl

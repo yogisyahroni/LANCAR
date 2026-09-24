@@ -140,7 +140,6 @@ import com.tembus.courier.ui.theme.AccentDark
 import com.tembus.courier.ui.theme.AccentLight
 import com.tembus.courier.ui.theme.Background
 import com.tembus.courier.ui.theme.CourierMapBase
-import com.tembus.courier.ui.theme.CourierPanel
 import com.tembus.courier.ui.theme.Outline
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryDark
@@ -150,6 +149,8 @@ import com.tembus.courier.ui.theme.SecondaryLight
 import com.tembus.courier.ui.theme.Success
 import com.tembus.courier.ui.theme.Info
 import com.tembus.courier.ui.theme.Warning
+import com.tembus.courier.ui.theme.TembusComponentDefaults
+import com.tembus.courier.ui.theme.TembusSpacing
 import com.tembus.courier.util.OrderSyncSignalBus
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -394,9 +395,10 @@ internal fun OnDemandMapHome(
         Surface(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 18.dp, top = 18.dp),
-            color = CourierPanel,
-            shape = RoundedCornerShape(24.dp),
+                .padding(start = TembusSpacing.Edge, top = 18.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            shape = TembusComponentDefaults.cardShape(),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.34f)),
             shadowElevation = 6.dp
         ) {
             Row(
@@ -407,11 +409,11 @@ internal fun OnDemandMapHome(
                 Surface(
                     modifier = Modifier.size(10.dp),
                     color = if (isOnline) Success else MaterialTheme.colorScheme.error,
-                    shape = RoundedCornerShape(50)
+                    shape = CircleShape
                 ) {}
                 Text(
                     text = presenceStateLabel(presenceState),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Black
                 )
@@ -424,7 +426,7 @@ internal fun OnDemandMapHome(
                 .align(Alignment.TopEnd)
                 .padding(end = 18.dp, top = 18.dp)
                 .size(64.dp),
-            shape = RoundedCornerShape(18.dp),
+            shape = TembusComponentDefaults.buttonShape(),
             colors = IconButtonDefaults.filledIconButtonColors(
                 containerColor = if (isOnline) Color(0xFF9B100D) else Primary,
                 contentColor = Color.White
@@ -438,8 +440,9 @@ internal fun OnDemandMapHome(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(start = 86.dp, end = 86.dp, top = 102.dp),
-                color = CourierPanel.copy(alpha = 0.94f),
-                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                shape = TembusComponentDefaults.cardShape(),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.34f)),
                 shadowElevation = 8.dp
             ) {
                 Row(
@@ -458,7 +461,7 @@ internal fun OnDemandMapHome(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "Navigasi TEMBUS",
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Black,
                             maxLines = 1,
@@ -466,7 +469,7 @@ internal fun OnDemandMapHome(
                         )
                         Text(
                             "Ikuti rute dan stop aktif di aplikasi.",
-                            color = Color.White.copy(alpha = 0.70f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelSmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -490,14 +493,15 @@ internal fun OnDemandMapHome(
                     exit = fadeOut()
                 ) {
                     Surface(
-                        color = CourierPanel.copy(alpha = 0.92f),
-                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                        shape = TembusComponentDefaults.chipShape(),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.34f)),
                         shadowElevation = 8.dp
                     ) {
                         Text(
                             text = recenterMessage.orEmpty(),
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold
                         )

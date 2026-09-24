@@ -82,6 +82,7 @@ import com.tembus.courier.ui.theme.DarkAccentLight
 import com.tembus.courier.ui.theme.DarkSurface
 import com.tembus.courier.ui.theme.DarkSurfaceVariant
 import com.tembus.courier.ui.theme.Primary
+import com.tembus.courier.ui.theme.TembusComponentDefaults
 import com.tembus.courier.ui.theme.PrimaryLight
 import com.tembus.courier.ui.theme.Secondary
 import com.tembus.courier.ui.theme.Success
@@ -131,7 +132,7 @@ internal fun OnDemandTaskActions(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
+        shape = TembusComponentDefaults.cardShape(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)

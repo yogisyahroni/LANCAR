@@ -64,13 +64,15 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.tembus.courier.ui.theme.TembusComponentDefaults
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompletionScreen(
     serviceType: String, // "tambal_ban" or "towing"
+    requestedHoleCount: Int? = null,
     onBackClick: () -> Unit,
-    onComplete: (String, Bitmap, Bitmap?, Map<String, Any>?) -> Unit // notes, completion photo, signature, structured damage
+    onComplete: (String, Bitmap, Bitmap?, Map<String, Any>?, Int?, Long?) -> Unit // notes, completion photo, signature, structured damage, holes, price/hole
 ) {
     val context = LocalContext.current
     var notes by remember { mutableStateOf("") }
@@ -81,6 +83,8 @@ fun CompletionScreen(
     var damageAreas by remember { mutableStateOf(setOf<String>()) }
     var damageSeverity by remember { mutableStateOf("none") }
     var damageNotes by remember { mutableStateOf("") }
+    var completedHoleCountText by remember { mutableStateOf("") }
+    var pricePerHoleText by remember { mutableStateOf("") }
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
@@ -101,7 +105,13 @@ fun CompletionScreen(
     val requiresSignature = serviceType == "towing"
     val hasSignatureInk = signatureStrokes.any { it.size > 1 }
     val canComplete = completionPhoto != null &&
-        (!requiresSignature || (signatureName.isNotBlank() && hasSignatureInk))
+        (!requiresSignature || (signatureName.isNotBlank() && hasSignatureInk)) &&
+        (serviceType != "tambal_ban" || run {
+            val completed = completedHoleCountText.toIntOrNull()
+            val price = pricePerHoleText.toLongOrNull()
+            completed != null && completed > 0 && price != null && price > 0 &&
+                (requestedHoleCount == null || completed <= requestedHoleCount)
+        })
 
     if (showCompleteConfirm) {
         AlertDialog(
@@ -138,7 +148,9 @@ fun CompletionScreen(
                                         "safe_to_transport" to (damageSeverity != "major"),
                                         "notes" to damageNotes.trim()
                                     )
-                                } else null
+                                } else null,
+                                completedHoleCountText.toIntOrNull(),
+                                pricePerHoleText.toLongOrNull()
                             )
                         }
                     }
@@ -158,6 +170,11 @@ fun CompletionScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Selesai", fontWeight = FontWeight.Bold) },
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CourierTextCatalog.translate("Kembali"))
@@ -266,6 +283,37 @@ fun CompletionScreen(
                 )
             }
 
+            if (serviceType == "tambal_ban") {
+                Spacer(Modifier.height(16.dp))
+                Text("Rincian lubang yang dikerjakan", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    requestedHoleCount?.let { "Permintaan customer: $it lubang. Lubang tambahan di luar permintaan diselesaikan langsung di lapangan, tanpa ditagihkan melalui aplikasi." }
+                        ?: "Isi jumlah lubang yang benar-benar dikerjakan sesuai permintaan customer.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row {
+                    OutlinedTextField(
+                        value = completedHoleCountText,
+                        onValueChange = { value -> if (value.all(Char::isDigit)) completedHoleCountText = value },
+                        label = { Text("Lubang dikerjakan") },
+                        modifier = Modifier.weight(1f).padding(end = 6.dp),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = pricePerHoleText,
+                        onValueChange = { value -> if (value.all(Char::isDigit)) pricePerHoleText = value },
+                        label = { Text("Harga / lubang") },
+                        modifier = Modifier.weight(1f).padding(start = 6.dp),
+                        singleLine = true,
+                    )
+                }
+                if (requestedHoleCount != null && completedHoleCountText.toIntOrNull()?.let { it > requestedHoleCount } == true) {
+                    Text("Jumlah lubang dikerjakan tidak boleh melebihi permintaan customer ($requestedHoleCount).", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                }
+            }
+
             Spacer(Modifier.height(16.dp))
             
             OutlinedTextField(
@@ -282,6 +330,8 @@ fun CompletionScreen(
             if (!canComplete) {
                 val helperText = if (requiresSignature) {
                     "Ambil foto hasil, isi nama penerima, dan minta tanda tangan sebelum menyelesaikan layanan."
+                } else if (serviceType == "tambal_ban") {
+                    "Ambil foto hasil, isi jumlah lubang dan harga per lubang sebelum menyelesaikan layanan."
                 } else {
                     "Ambil foto hasil layanan sebelum menyelesaikan."
                 }
@@ -298,9 +348,8 @@ fun CompletionScreen(
                 onClick = { showCompleteConfirm = true },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = canComplete,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+                shape = TembusComponentDefaults.buttonShape(),
+                colors = TembusComponentDefaults.primaryButtonColors()
             ) {
                 Text("Selesaikan Layanan", fontWeight = FontWeight.Bold)
             }

@@ -527,10 +527,15 @@ internal fun MainScreenModalScreens(deps: MainScreenDeps) {
     if (routeState.screen == CourierRouteScreen.COMPLETION) {
         val orderId = routeState.orderId ?: return
         val serviceType = routeState.serviceType ?: ""
+        var requestedHoleCount by remember(orderId) { mutableStateOf<Int?>(null) }
+        LaunchedEffect(orderId) {
+            requestedHoleCount = orderViewModel.getOrderById(orderId)?.vehicleDetails?.requestedHoleCount
+        }
         CompletionScreen(
             serviceType = serviceType,
+            requestedHoleCount = requestedHoleCount,
             onBackClick = { routeState = CourierRouteReducer.home() },
-            onComplete = { notes, completionPhoto, signatureBitmap, damageReport ->
+            onComplete = { notes, completionPhoto, signatureBitmap, damageReport, completedHoleCount, pricePerHoleIdr ->
                 orderViewModel.submitServiceReport(
                     orderId = orderId,
                     serviceType = serviceType,
@@ -538,6 +543,8 @@ internal fun MainScreenModalScreens(deps: MainScreenDeps) {
                     completionPhoto = completionPhoto,
                     signatureBitmap = signatureBitmap,
                     damageReport = damageReport,
+                    completedHoleCount = completedHoleCount,
+                    pricePerHoleIdr = pricePerHoleIdr,
                     onSuccess = {
                         routeState = CourierRouteReducer.home()
                         scope.launch {

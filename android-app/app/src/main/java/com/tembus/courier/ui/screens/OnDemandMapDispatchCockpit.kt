@@ -140,7 +140,6 @@ import com.tembus.courier.ui.theme.AccentDark
 import com.tembus.courier.ui.theme.AccentLight
 import com.tembus.courier.ui.theme.Background
 import com.tembus.courier.ui.theme.CourierMapBase
-import com.tembus.courier.ui.theme.CourierPanel
 import com.tembus.courier.ui.theme.Outline
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryDark
@@ -150,6 +149,7 @@ import com.tembus.courier.ui.theme.SecondaryLight
 import com.tembus.courier.ui.theme.Success
 import com.tembus.courier.ui.theme.Info
 import com.tembus.courier.ui.theme.Warning
+import com.tembus.courier.ui.theme.TembusComponentDefaults
 import com.tembus.courier.util.OrderSyncSignalBus
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -324,7 +324,7 @@ internal fun OnDemandMapDispatchCockpit(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(8.dp)) {
+                        Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = TembusComponentDefaults.chipShape()) {
                             Icon(
                                 if (isOnline) Icons.Default.Radar else Icons.Default.Schedule,
                                 contentDescription = null,
@@ -385,8 +385,9 @@ internal fun OnDemandMapDispatchCockpit(
             AnimatedVisibility(visible = servicePanelExpanded) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = CourierPanel,
-                    shape = RoundedCornerShape(14.dp)
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = TembusComponentDefaults.cardShape(),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.34f))
                 ) {
                     Column(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -395,13 +396,13 @@ internal fun OnDemandMapDispatchCockpit(
                         if (isServiceCatalogLoading) {
                             Text(
                                 "Memuat layanan operasional...",
-                                color = Color.White.copy(alpha = 0.68f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelMedium
                             )
                         } else if (serviceItems.isEmpty()) {
                             Text(
                                 "Layanan akan muncul setelah profil kendaraan tersinkron.",
-                                color = Color.White.copy(alpha = 0.72f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelMedium
                             )
                         } else {

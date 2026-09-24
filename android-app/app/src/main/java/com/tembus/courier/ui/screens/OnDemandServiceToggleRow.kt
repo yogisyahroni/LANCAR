@@ -139,7 +139,7 @@ import com.tembus.courier.ui.theme.AccentDark
 import com.tembus.courier.ui.theme.AccentLight
 import com.tembus.courier.ui.theme.Background
 import com.tembus.courier.ui.theme.CourierMapBase
-import com.tembus.courier.ui.theme.CourierPanel
+import com.tembus.courier.ui.theme.TembusComponentDefaults
 import com.tembus.courier.ui.theme.Outline
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryDark
@@ -171,9 +171,9 @@ internal fun OnDemandServiceToggleRow(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White.copy(alpha = 0.08f),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f))
+        color = MaterialTheme.colorScheme.surface,
+        shape = TembusComponentDefaults.cardShape(),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -182,14 +182,14 @@ internal fun OnDemandServiceToggleRow(
         ) {
             Surface(
                 modifier = Modifier.size(10.dp),
-                color = if (enabled) Success else Color.White.copy(alpha = 0.28f),
+                color = if (enabled) Success else MaterialTheme.colorScheme.outline,
                 shape = RoundedCornerShape(50)
             ) {}
             Column(modifier = Modifier.weight(1f)) {
-                Text(service.name, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(service.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     if (lockedByAdmin) "Dikunci operasional" else service.maxEtaMinutes.takeIf { it > 0 }?.let { "ETA maks $it menit" } ?: "ETA dari server",
-                    color = Color.White.copy(alpha = 0.62f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -205,7 +205,7 @@ internal fun OnDemandServiceToggleRow(
                     remediationPath?.let { remediation ->
                         Text(
                             "Solusi: $remediation",
-                            color = Color.White.copy(alpha = 0.62f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelSmall,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
@@ -221,7 +221,7 @@ internal fun OnDemandServiceToggleRow(
                     checkedThumbColor = Color.White,
                     checkedTrackColor = LogisticsOrange,
                     uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = Color.White.copy(alpha = 0.22f)
+                    uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)
                 )
             )
         }

@@ -139,7 +139,7 @@ import com.tembus.courier.ui.theme.AccentDark
 import com.tembus.courier.ui.theme.AccentLight
 import com.tembus.courier.ui.theme.Background
 import com.tembus.courier.ui.theme.CourierMapBase
-import com.tembus.courier.ui.theme.CourierPanel
+import com.tembus.courier.ui.theme.TembusComponentDefaults
 import com.tembus.courier.ui.theme.Outline
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryDark
@@ -167,8 +167,9 @@ internal fun ActiveRoutePlanCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = CourierPanel.copy(alpha = 0.96f),
-        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shape = TembusComponentDefaults.cardShape(),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.24f)),
         shadowElevation = 10.dp
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -177,20 +178,20 @@ internal fun ActiveRoutePlanCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Surface(color = LogisticsOrange.copy(alpha = 0.18f), shape = RoundedCornerShape(12.dp)) {
+                Surface(color = LogisticsOrange.copy(alpha = 0.14f), shape = TembusComponentDefaults.chipShape()) {
                     Icon(Icons.Default.Route, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(10.dp).size(22.dp))
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Route plan aktif", color = Color.White, fontWeight = FontWeight.Black)
+                    Text("Route plan aktif", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black)
                     Text(
                         "${activeRoutePlan.stops.size} stop • ${String.format("%.1f", activeRoutePlan.totalDistanceKm)} km • ETA ${activeRoutePlan.totalEtaMinutes} menit",
-                        color = Color.White.copy(alpha = 0.68f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.labelMedium
                     )
                 }
                 Surface(
                     color = if (activeRoutePlan.trafficAware) Success.copy(alpha = 0.18f) else Warning.copy(alpha = 0.18f),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = TembusComponentDefaults.chipShape()
                 ) {
                     Text(
                         if (activeRoutePlan.trafficAware) "Traffic" else "Fallback",
@@ -208,22 +209,22 @@ internal fun ActiveRoutePlanCard(
                         Surface(
                             modifier = Modifier.size(26.dp),
                             color = if (stop.stopType == "pickup") Primary.copy(alpha = 0.24f) else LogisticsOrange.copy(alpha = 0.22f),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = TembusComponentDefaults.chipShape()
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text("${index + 1}", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelSmall)
+                                Text("${index + 1}", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelSmall)
                             }
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 if (stop.stopType == "pickup") "Pickup ${stop.orderNumber ?: stop.orderId.take(8)}" else "Dropoff ${stop.orderNumber ?: stop.orderId.take(8)}",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.labelLarge
                             )
                             Text(
                                 "${stop.packageCount} paket • ${stop.address ?: "Alamat sinkron"}",
-                                color = Color.White.copy(alpha = 0.62f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.labelSmall

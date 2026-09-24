@@ -150,6 +150,7 @@ import com.tembus.courier.ui.theme.SecondaryLight
 import com.tembus.courier.ui.theme.Success
 import com.tembus.courier.ui.theme.Info
 import com.tembus.courier.ui.theme.Warning
+import com.tembus.courier.ui.theme.TembusElevation
 import com.tembus.courier.util.OrderSyncSignalBus
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -167,10 +168,14 @@ internal fun OnDemandBottomNavigation(
     offerCount: Int,
     onSelectTab: (Int) -> Unit
 ) {
-    NavigationBar(containerColor = PrimaryDark, contentColor = Color.White) {
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = TembusElevation.bottomNav
+    ) {
         NavigationBarItem(
-            icon = { Icon(Icons.Default.Map, contentDescription = CourierTextCatalog.translate("Peta")) },
-            label = { Text("Peta") },
+            icon = { Icon(Icons.Default.Dashboard, contentDescription = CourierTextCatalog.translate("Beranda")) },
+            label = { Text("Beranda") },
             selected = selectedTab == 0,
             onClick = { onSelectTab(0) },
             colors = onDemandNavigationItemColors()
@@ -186,10 +191,10 @@ internal fun OnDemandBottomNavigation(
                         }
                     }
                 ) {
-                    Icon(Icons.Default.History, contentDescription = CourierTextCatalog.translate("Riwayat"))
+                    Icon(Icons.Default.ReceiptLong, contentDescription = CourierTextCatalog.translate("Aktivitas"))
                 }
             },
-            label = { Text("Riwayat") },
+            label = { Text("Aktivitas") },
             selected = selectedTab == 1,
             onClick = { onSelectTab(1) },
             colors = onDemandNavigationItemColors()

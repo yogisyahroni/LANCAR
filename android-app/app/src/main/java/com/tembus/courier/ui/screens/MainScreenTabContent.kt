@@ -3,7 +3,6 @@ package com.tembus.courier.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -38,7 +37,6 @@ import kotlinx.coroutines.CoroutineScope
  */
 @Composable
 internal fun MainScreenTabContent(
-    paddingValues: PaddingValues,
     context: android.content.Context,
     scope: CoroutineScope,
     snackbarHostState: androidx.compose.material3.SnackbarHostState,
@@ -70,9 +68,7 @@ internal fun MainScreenTabContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(paddingValues)
-            .padding(16.dp),
+            .background(MaterialTheme.colorScheme.background),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         CourierMarketEligibilityNotice(courierProfile?.marketEligibility)

@@ -133,7 +133,6 @@ internal fun MainScreenContent(
                 )
 
                 MainScreenTabContent(
-                    paddingValues = paddingValues,
                     context = context,
                     scope = scope,
                     snackbarHostState = snackbarHostState,

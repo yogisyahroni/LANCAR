@@ -149,6 +149,8 @@ import com.tembus.courier.ui.theme.SecondaryLight
 import com.tembus.courier.ui.theme.Success
 import com.tembus.courier.ui.theme.Info
 import com.tembus.courier.ui.theme.Warning
+import com.tembus.courier.ui.theme.TembusComponentDefaults
+import com.tembus.courier.ui.theme.TembusSpacing
 import com.tembus.courier.util.OrderSyncSignalBus
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -258,10 +260,9 @@ internal fun ProfileContent(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = "Profil Kurir",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
+        CourierPageHeader(
+            title = "Profil",
+            subtitle = "Akun, kesiapan, dan layanan yang kamu bawa"
         )
 
         Card(

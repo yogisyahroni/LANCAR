@@ -29,6 +29,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -50,6 +52,7 @@ class LocationTrackerService : Service() {
     private val TAG = "LocationTrackerService"
     private val MAIN_THREAD = MainScope()
     private val IO_THREAD = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val locationSyncMutex = Mutex()
 
     // Location tracking
     private var fusedLocationClient: FusedLocationProviderClient? = null
@@ -394,40 +397,29 @@ class LocationTrackerService : Service() {
             sensorIntegrity = sensorIntegrity
         )
 
-        // Save to local database
+        // Save and sync the latest point as one operation. Matchable courier
+        // presence is heartbeat-based (the server expires it after 120s), so
+        // waiting for a ten-point batch can make an on-duty courier disappear
+        // from customer offers while the courier is still available.
         IO_THREAD.launch {
             locationRepository.insertLocation(locationModel)
             debugLog("Location sample saved locally")
-        }
 
-        // Try to sync if we have enough unsynced locations
-        IO_THREAD.launch {
-            val unsyncedCount = locationRepository.getUnsyncedCount().first()
-            if (unsyncedCount >= 10) {
-                syncLocations()
+            val session = authSessionManager.getSession()
+            if (session == null) {
+                warnLog("Location sync skipped because courier session is unavailable")
+                return@launch
             }
-        }
-    }
 
-    /**
-     * Sync locations to backend
-     */
-    private fun syncLocations() {
-        MAIN_THREAD.launch {
-            authSessionManager.getSession()?.let { session ->
-                IO_THREAD.launch {
-                    val result = locationRepository.syncLocations(
-                        session.courierId,
-                        deviceId ?: ""
-                    )
-
-                    result.onSuccess { syncedIds ->
-                        debugLog("Synced ${syncedIds.size} location samples")
-                    }.onFailure { e ->
-                        errorLog("Location sync failed", e)
+            locationSyncMutex.withLock {
+                locationRepository.syncLocations(session.courierId, deviceId ?: "")
+                    .onSuccess { syncedIds ->
+                        debugLog("Synced ${syncedIds.size} location sample(s); courier heartbeat refreshed")
+                    }
+                    .onFailure { error ->
+                        errorLog("Location heartbeat sync failed; point remains queued", error)
                     }
                 }
-            }
         }
     }
 
@@ -438,10 +430,12 @@ class LocationTrackerService : Service() {
         MAIN_THREAD.launch {
             authSessionManager.getSession()?.let { session ->
                 IO_THREAD.launch {
-                    val result = locationRepository.syncLocations(
-                        session.courierId,
-                        deviceId ?: ""
-                    )
+                    val result = locationSyncMutex.withLock {
+                        locationRepository.syncLocations(
+                            session.courierId,
+                            deviceId ?: ""
+                        )
+                    }
 
                     result.onSuccess { syncedIds ->
                         debugLog("Force synced ${syncedIds.size} location samples")
@@ -563,8 +557,10 @@ class LocationTrackerService : Service() {
             interval
         ).apply {
             setMinUpdateIntervalMillis(fastestInterval)
-            setMaxUpdateDelayMillis(interval * 2)
-            setMinUpdateDistanceMeters(50f) // 50 meters
+            // Do not batch beyond the server's presence freshness window and
+            // keep stationary on-duty couriers alive as well.
+            setMaxUpdateDelayMillis(interval)
+            setMinUpdateDistanceMeters(0f)
         }.build()
         
         locationRequest = request

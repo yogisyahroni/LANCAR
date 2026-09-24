@@ -139,7 +139,8 @@ import com.tembus.courier.ui.theme.AccentDark
 import com.tembus.courier.ui.theme.AccentLight
 import com.tembus.courier.ui.theme.Background
 import com.tembus.courier.ui.theme.CourierMapBase
-import com.tembus.courier.ui.theme.CourierPanel
+import com.tembus.courier.ui.theme.TembusComponentDefaults
+import com.tembus.courier.ui.theme.TembusSpacing
 import com.tembus.courier.ui.theme.Outline
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryDark
@@ -266,20 +267,21 @@ internal fun OnDemandNavigationModeCard(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = CourierPanel.copy(alpha = 0.97f),
-        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+        shape = TembusComponentDefaults.cardShape(),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.34f)),
         shadowElevation = 12.dp
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(TembusSpacing.Large),
+            verticalArrangement = Arrangement.spacedBy(TembusSpacing.Medium)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Surface(color = LogisticsOrange, shape = RoundedCornerShape(12.dp)) {
+                Surface(color = LogisticsOrange, shape = TembusComponentDefaults.chipShape()) {
                     Icon(
                         imageVector = if (targetIsPickup) Icons.Default.Storefront else Icons.Default.Navigation,
                         contentDescription = null,
@@ -291,19 +293,19 @@ internal fun OnDemandNavigationModeCard(
                     Text(
                         navigationTitleDynamic,
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Black
                     )
                     Text(
                         if (isMaintenanceService) order.displayServiceName()
                         else "${order.displayServiceName()} • ${order.packageCount.coerceAtLeast(1)} paket",
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.68f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Surface(color = Color.White.copy(alpha = 0.12f), shape = RoundedCornerShape(10.dp)) {
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = TembusComponentDefaults.chipShape()) {
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             order.estimatedNetEarningsIdr().toRupiahCompact(),
@@ -316,7 +318,7 @@ internal fun OnDemandNavigationModeCard(
                             Text(
                                 "Pendapatan bersih",
                                 modifier = Modifier.padding(start = 9.dp, bottom = 5.dp, end = 9.dp),
-                                color = Color.White.copy(alpha = 0.50f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelSmall
                             )
                         }
@@ -326,16 +328,16 @@ internal fun OnDemandNavigationModeCard(
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.White.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f))
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
+                shape = TembusComponentDefaults.cardShape(),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))
             ) {
                 Row(
                     modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Surface(color = Color.White.copy(alpha = 0.12f), shape = RoundedCornerShape(10.dp)) {
+                    Surface(color = MaterialTheme.colorScheme.surface, shape = TembusComponentDefaults.chipShape()) {
                         Icon(
                             if (targetIsPickup) Icons.Default.Storefront else Icons.Default.LocationOn,
                             contentDescription = null,
@@ -344,8 +346,8 @@ internal fun OnDemandNavigationModeCard(
                         )
                     }
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(targetLabel, color = Color.White.copy(alpha = 0.68f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        Text(targetAddress, color = Color.White, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(targetLabel, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text(targetAddress, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -370,7 +372,7 @@ internal fun OnDemandNavigationModeCard(
 
             Text(
                 supportCopy,
-                color = Color.White.copy(alpha = 0.70f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall
             )
 
@@ -384,7 +386,7 @@ internal fun OnDemandNavigationModeCard(
                         }
                     },
                     modifier = Modifier.weight(1.18f).height(50.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = TembusComponentDefaults.buttonShape(),
                     enabled = !arrivalGateBlocked,
                     colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.White),
                     contentPadding = PaddingValues(horizontal = 10.dp)
@@ -400,7 +402,7 @@ internal fun OnDemandNavigationModeCard(
                 OutlinedButton(
                     onClick = { onOpenExternalMaps(targetAddress, targetNavigationPoint) },
                     modifier = Modifier.weight(0.82f).height(50.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = TembusComponentDefaults.buttonShape(),
                     border = BorderStroke(1.dp, LogisticsOrange.copy(alpha = 0.64f)),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = LogisticsOrange),
                     contentPadding = PaddingValues(horizontal = 10.dp)
@@ -417,13 +419,13 @@ internal fun OnDemandNavigationModeCard(
                     Text(
                         "Mengecek jarak ke lokasi layanan...",
                         fontSize = 13.sp,
-                        color = Color.White.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
                     Text(
                         "Kamu masih ${distanceM}m dari lokasi layanan. Dekati titik (maks. 100m) atau konfirmasi manual.",
                         fontSize = 13.sp,
-                        color = Color.White.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 TextButton(
@@ -439,7 +441,7 @@ internal fun OnDemandNavigationModeCard(
                     onClick = onStopNavigation,
                     modifier = Modifier.align(Alignment.End)
                 ) {
-                    Text("Keluar mode navigasi", color = Color.White.copy(alpha = 0.76f), fontWeight = FontWeight.Bold)
+                    Text("Keluar mode navigasi", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                 }
             }
         }

@@ -82,6 +82,7 @@ fun RoadsideVehicleVerificationCard(
                 VehicleValue("Akses / evakuasi", customerVehicle.accessConstraints)
                 VehicleValue("Kerusakan", customerVehicle.damage)
                 VehicleValue("Catatan customer", customerVehicle.notes)
+                customerVehicle.requestedHoleCount?.let { VehicleValue("Permintaan tambal ban", "$it lubang") }
                 if (customerVehicle.photoUrls.isNotEmpty() || customerVehicle.photoItems.isNotEmpty()) {
                     val photoUrl = customerVehicle.photoItems.firstOrNull()?.url?.takeIf { it.isNotBlank() }
                         ?: customerVehicle.photoUrls.firstOrNull().orEmpty()

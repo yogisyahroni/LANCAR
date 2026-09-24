@@ -87,6 +87,7 @@ import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryLight
 import com.tembus.courier.ui.theme.Secondary
 import com.tembus.courier.ui.theme.Success
+import com.tembus.courier.ui.theme.TembusComponentDefaults
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -227,13 +228,18 @@ fun OrderDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                ),
                 title = {
                     Column {
                         Text(if (order.isMaintenanceService()) serviceTitle(order) else "Pengantaran", fontWeight = FontWeight.Bold)
                         Text(
                             shortOrderId(order.orderId.ifBlank { "Order aktif" }),
                             style = MaterialTheme.typography.labelMedium,
-                            color = Color.White.copy(alpha = 0.72f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
@@ -273,7 +279,7 @@ fun OrderDetailScreen(
                     OutlinedButton(
                         onClick = onOpenTambalBanFlow,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = TembusComponentDefaults.buttonShape()
                     ) {
                         Icon(Icons.Default.Build, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
@@ -284,7 +290,7 @@ fun OrderDetailScreen(
                     OutlinedButton(
                         onClick = onOpenTowingFlow,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = TembusComponentDefaults.buttonShape()
                     ) {
                         Icon(Icons.Default.LocalShipping, contentDescription = null)
                         Spacer(Modifier.width(8.dp))

@@ -139,7 +139,7 @@ import com.tembus.courier.ui.theme.AccentDark
 import com.tembus.courier.ui.theme.AccentLight
 import com.tembus.courier.ui.theme.Background
 import com.tembus.courier.ui.theme.CourierMapBase
-import com.tembus.courier.ui.theme.CourierPanel
+import com.tembus.courier.ui.theme.TembusComponentDefaults
 import com.tembus.courier.ui.theme.Outline
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryDark
@@ -167,8 +167,9 @@ internal fun OnDemandActiveOrderCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = CourierPanel,
-        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shape = TembusComponentDefaults.cardShape(),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.24f)),
         shadowElevation = 10.dp
     ) {
         Row(
@@ -178,17 +179,17 @@ internal fun OnDemandActiveOrderCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Surface(color = Success.copy(alpha = 0.18f), shape = RoundedCornerShape(12.dp)) {
+            Surface(color = Success.copy(alpha = 0.14f), shape = TembusComponentDefaults.chipShape()) {
                 Icon(Icons.Default.Navigation, contentDescription = null, tint = Success, modifier = Modifier.padding(10.dp).size(22.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("Order aktif", color = Color.White.copy(alpha = 0.72f), style = MaterialTheme.typography.labelMedium)
-                Text(order.pickupAddress.ifBlank { order.displayServiceName() }, color = Color.White, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("Order aktif", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                Text(order.pickupAddress.ifBlank { order.displayServiceName() }, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(order.estimatedNetEarningsIdr().toRupiahCompact(), color = LogisticsOrange, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
             Button(
                 onClick = { onOpenDelivery(order) },
-                shape = RoundedCornerShape(12.dp),
+                shape = TembusComponentDefaults.buttonShape(),
                 colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Color.White)
             ) {
                 Text("Buka", fontWeight = FontWeight.Bold)

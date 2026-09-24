@@ -68,6 +68,8 @@ import com.tembus.courier.ui.components.service.EarningsBreakdown
 import com.tembus.courier.ui.components.service.ServiceProgressBar
 import com.tembus.courier.ui.components.service.TambalBanProgressSteps
 import com.tembus.courier.ui.theme.TembusRadius
+import com.tembus.courier.ui.theme.TembusComponentDefaults
+import com.tembus.courier.ui.theme.TembusSpacing
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import android.Manifest
@@ -192,6 +194,11 @@ fun TambalBanFlowScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Tambal Ban", fontWeight = FontWeight.Bold) },
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CourierTextCatalog.translate("Kembali"))
@@ -209,8 +216,11 @@ fun TambalBanFlowScreen(
                             val gateBlocked = isArriveAction && !overrideArrival && !withinRadius
                             val inspectionBlocked = isInspectionAction &&
                                 (inspectionPhoto == null || selectedDamage.isNullOrBlank() || !vehicleVerificationReady)
-                            Surface(shadowElevation = 8.dp) {
-                                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surface,
+                                shadowElevation = 8.dp
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth().padding(TembusSpacing.Large)) {
                                     if (uiState.error != null) {
                                         Text(
                                             uiState.error!!,
@@ -266,9 +276,8 @@ fun TambalBanFlowScreen(
                                         },
                                         modifier = Modifier.fillMaxWidth(),
                                         enabled = !uiState.isLoading && !gateBlocked && !inspectionBlocked,
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary
-                                        )
+                                        shape = TembusComponentDefaults.buttonShape(),
+                                        colors = TembusComponentDefaults.primaryButtonColors()
                                     ) {
                             if (uiState.isLoading) {
                                 Text("Memproses...", fontWeight = FontWeight.Bold)

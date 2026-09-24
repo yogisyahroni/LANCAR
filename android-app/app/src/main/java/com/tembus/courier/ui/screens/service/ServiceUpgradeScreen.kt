@@ -1,12 +1,14 @@
 package com.tembus.courier.ui.screens.service
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import com.tembus.courier.ui.localization.CourierText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.courier.ui.components.service.ServicePriceInput
@@ -22,6 +24,26 @@ fun ServiceUpgradeScreen(
             uiState.servicePrices.forEach { put(it.serviceCode, it.priceAmount.toString()) }
         }
     }
+    val perKmDrafts = remember(uiState.servicePrices) {
+        mutableStateMapOf<String, String>().apply {
+            uiState.servicePrices.forEach { put(it.serviceCode, it.perKmRateIdr.toString()) }
+        }
+    }
+    val tollEntryDrafts = remember(uiState.servicePrices) {
+        mutableStateMapOf<String, String>().apply {
+            uiState.servicePrices.forEach { put(it.serviceCode, it.tollEntryIdr.toString()) }
+        }
+    }
+    val tollExitDrafts = remember(uiState.servicePrices) {
+        mutableStateMapOf<String, String>().apply {
+            uiState.servicePrices.forEach { put(it.serviceCode, it.tollExitIdr.toString()) }
+        }
+    }
+    val pricePerHoleDrafts = remember(uiState.servicePrices) {
+        mutableStateMapOf<String, String>().apply {
+            uiState.servicePrices.forEach { put(it.serviceCode, it.pricePerHoleIdr.toString()) }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -30,7 +52,7 @@ fun ServiceUpgradeScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Daftar Layanan Tambal Ban",
+            text = "Tarif Layanan Roadside",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 16.dp)
@@ -38,7 +60,7 @@ fun ServiceUpgradeScreen(
 
         if (uiState.servicePrices.isNotEmpty()) {
             Text(
-                text = "Harga jasa roadside",
+                text = "Harga yang tampil di penawaran customer",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -58,9 +80,50 @@ fun ServiceUpgradeScreen(
                     maxPrice = price.maxPrice,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
+                RoadsideAmountInput(
+                    label = "Harga jarak per km",
+                    value = perKmDrafts[price.serviceCode].orEmpty(),
+                    onValueChange = { perKmDrafts[price.serviceCode] = it },
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                RoadsideAmountInput(
+                    label = "Tol masuk",
+                    value = tollEntryDrafts[price.serviceCode].orEmpty(),
+                    onValueChange = { tollEntryDrafts[price.serviceCode] = it },
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                RoadsideAmountInput(
+                    label = "Tol keluar",
+                    value = tollExitDrafts[price.serviceCode].orEmpty(),
+                    onValueChange = { tollExitDrafts[price.serviceCode] = it },
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                if (price.serviceCode.startsWith("tambal_ban")) {
+                    RoadsideAmountInput(
+                        label = "Harga per lubang tambal ban",
+                        value = pricePerHoleDrafts[price.serviceCode].orEmpty(),
+                        onValueChange = { pricePerHoleDrafts[price.serviceCode] = it },
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
                 Button(
-                    onClick = { viewModel.saveServicePrice(price.serviceCode, draft.toLongOrNull() ?: 0L) },
-                    enabled = uiState.savingPriceCode == null && (draft.toLongOrNull()?.let { it in price.minPrice..price.maxPrice } == true),
+                    onClick = {
+                        viewModel.saveServicePrice(
+                            serviceCode = price.serviceCode,
+                            priceAmount = draft.toLongOrNull() ?: 0L,
+                            perKmRateIdr = perKmDrafts[price.serviceCode]?.toLongOrNull() ?: 0L,
+                            tollEntryIdr = tollEntryDrafts[price.serviceCode]?.toLongOrNull() ?: 0L,
+                            tollExitIdr = tollExitDrafts[price.serviceCode]?.toLongOrNull() ?: 0L,
+                            pricePerHoleIdr = pricePerHoleDrafts[price.serviceCode]?.toLongOrNull() ?: 0L,
+                        )
+                    },
+                    enabled = uiState.savingPriceCode == null
+                        && (draft.toLongOrNull()?.let { it in price.minPrice..price.maxPrice } == true)
+                        && (perKmDrafts[price.serviceCode]?.toLongOrNull() ?: -1L) >= 0
+                        && (tollEntryDrafts[price.serviceCode]?.toLongOrNull() ?: -1L) >= 0
+                        && (tollExitDrafts[price.serviceCode]?.toLongOrNull() ?: -1L) >= 0
+                        && (!price.serviceCode.startsWith("tambal_ban")
+                            || (pricePerHoleDrafts[price.serviceCode]?.toLongOrNull() ?: 0L) > 0),
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                 ) {
                     Text(if (uiState.savingPriceCode == price.serviceCode) "Menyimpan..." else "Simpan harga ${price.serviceName.ifBlank { price.serviceCode }}")
@@ -76,7 +139,7 @@ fun ServiceUpgradeScreen(
         }
 
         Text(
-            text = "Anda dapat menambah layanan Tambal Ban ke profil Anda. Anda harus mengupload bukti foto peralatan tambal ban (pompa, alat tambal) yang Anda miliki.",
+            text = "Harga jasa, tarif jarak, dan estimasi tol disimpan ke server. Customer melihatnya sebagai penawaran terkunci sebelum pembayaran.",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(bottom = 24.dp)
         )
@@ -119,4 +182,22 @@ fun ServiceUpgradeScreen(
             Text("Kembali")
         }
     }
+}
+
+@Composable
+private fun RoadsideAmountInput(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { input -> if (input.all(Char::isDigit)) onValueChange(input) },
+        label = { Text("$label (Rp)") },
+        prefix = { Text("Rp ") },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        singleLine = true,
+        modifier = modifier.fillMaxWidth(),
+    )
 }

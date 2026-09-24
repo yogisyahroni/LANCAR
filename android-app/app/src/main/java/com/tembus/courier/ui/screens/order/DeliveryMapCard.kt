@@ -83,6 +83,7 @@ import com.tembus.courier.ui.theme.DarkAccentLight
 import com.tembus.courier.ui.theme.DarkSurface
 import com.tembus.courier.ui.theme.DarkSurfaceVariant
 import com.tembus.courier.ui.theme.Primary
+import com.tembus.courier.ui.theme.TembusComponentDefaults
 import com.tembus.courier.ui.theme.PrimaryLight
 import com.tembus.courier.ui.theme.Secondary
 import com.tembus.courier.ui.theme.Success
@@ -149,7 +150,7 @@ internal fun DeliveryMapCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
+        shape = TembusComponentDefaults.cardShape(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

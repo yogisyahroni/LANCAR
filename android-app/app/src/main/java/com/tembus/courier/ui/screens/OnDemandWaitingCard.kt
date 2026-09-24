@@ -139,7 +139,7 @@ import com.tembus.courier.ui.theme.AccentDark
 import com.tembus.courier.ui.theme.AccentLight
 import com.tembus.courier.ui.theme.Background
 import com.tembus.courier.ui.theme.CourierMapBase
-import com.tembus.courier.ui.theme.CourierPanel
+import com.tembus.courier.ui.theme.TembusComponentDefaults
 import com.tembus.courier.ui.theme.Outline
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryDark
@@ -164,8 +164,9 @@ import kotlin.math.min
 internal fun OnDemandWaitingCard(onViewOrders: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = CourierPanel.copy(alpha = 0.86f),
-        shape = RoundedCornerShape(18.dp)
+        color = MaterialTheme.colorScheme.surface,
+        shape = TembusComponentDefaults.cardShape(),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
     ) {
         Row(
             modifier = Modifier
@@ -176,8 +177,8 @@ internal fun OnDemandWaitingCard(onViewOrders: () -> Unit) {
         ) {
             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Primary, strokeWidth = 3.dp)
             Column(modifier = Modifier.weight(1f)) {
-                Text("Menunggu pesanan terdekat", color = Color.White, fontWeight = FontWeight.Black)
-                Text("Tawaran akan muncul otomatis.", color = Color.White.copy(alpha = 0.68f), style = MaterialTheme.typography.labelMedium)
+                Text("Menunggu pesanan terdekat", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black)
+                Text("Tawaran akan muncul otomatis.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
             }
             TextButton(onClick = onViewOrders) {
                 Text("Riwayat", color = LogisticsOrange, fontWeight = FontWeight.Bold)

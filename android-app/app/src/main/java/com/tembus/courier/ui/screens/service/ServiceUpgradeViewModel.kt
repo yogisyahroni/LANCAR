@@ -49,10 +49,26 @@ class ServiceUpgradeViewModel @Inject constructor(
         }
     }
 
-    fun saveServicePrice(serviceCode: String, priceAmount: Long) {
+    fun saveServicePrice(
+        serviceCode: String,
+        priceAmount: Long,
+        perKmRateIdr: Long,
+        tollEntryIdr: Long,
+        tollExitIdr: Long,
+        pricePerHoleIdr: Long = 0L,
+    ) {
         viewModelScope.launch {
             _uiState.update { it.copy(savingPriceCode = serviceCode, isError = false, message = null) }
-            roadsideRepository.updateServicePrice(CourierServicePriceUpdateRequest(serviceCode, priceAmount))
+            roadsideRepository.updateServicePrice(
+                CourierServicePriceUpdateRequest(
+                    serviceCode = serviceCode,
+                    priceAmount = priceAmount,
+                    pricePerHoleIdr = pricePerHoleIdr,
+                    perKmRateIdr = perKmRateIdr,
+                    tollEntryIdr = tollEntryIdr,
+                    tollExitIdr = tollExitIdr,
+                )
+            )
                 .onSuccess { saved ->
                     _uiState.update { state ->
                         state.copy(
