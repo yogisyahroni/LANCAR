@@ -22,10 +22,12 @@ Aplikasi Android untuk merchant/mitra TEMBUS (FOOD-BIKE-028/036/049).
 Pipeline `android-apps.yml` (Mobile Apps CI/CD) — matrix bersama courier & customer.
 Merchant tidak pakai Firebase/TomTom → `needs_firebase=false`, `needs_maps=false`.
 
-Release signing **optional**: set secrets `MERCHANT_RELEASE_KEYSTORE_BASE64`,
-`MERCHANT_RELEASE_KEYSTORE_PASSWORD`, `MERCHANT_RELEASE_KEY_ALIAS`,
-`MERCHANT_RELEASE_KEY_PASSWORD` → build signed release APK + AAB otomatis.
-Tanpa secrets → warning + debug APK tetap di-upload.
+Release signing wajib untuk build staging/production: set secrets
+`MERCHANT_RELEASE_KEYSTORE_BASE64`, `MERCHANT_RELEASE_KEYSTORE_PASSWORD`,
+`MERCHANT_RELEASE_KEY_ALIAS`, dan `MERCHANT_RELEASE_KEY_PASSWORD` → build signed
+release APK + AAB otomatis. Jika secret hilang atau invalid, CI fail-closed dan
+tidak menerbitkan release Merchant debug-only. Build pull request tetap hanya
+menjalankan lint/test/debug karena secret release tidak tersedia di PR.
 
 ## BASE_URL
 - Debug: `https://api.bawain.my.id/` (BuildConfig, bisa override via `DEBUG_BASE_URL` / `MOBILE_API_BASE_URL`; endpoint service menambahkan `api/v1/...`)

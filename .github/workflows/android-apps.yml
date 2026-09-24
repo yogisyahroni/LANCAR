@@ -86,7 +86,7 @@ jobs:
             working_dir: "android-app-merchant"
             needs_firebase: "false"
             needs_maps: "false"
-            signing_required: "false"
+            signing_required: "true"
 
     
     steps:
@@ -163,6 +163,10 @@ jobs:
           CUSTOMER_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.CUSTOMER_RELEASE_KEYSTORE_PASSWORD }}
           CUSTOMER_RELEASE_KEY_ALIAS: ${{ secrets.CUSTOMER_RELEASE_KEY_ALIAS }}
           CUSTOMER_RELEASE_KEY_PASSWORD: ${{ secrets.CUSTOMER_RELEASE_KEY_PASSWORD }}
+          MERCHANT_RELEASE_KEYSTORE_BASE64: ${{ secrets.MERCHANT_RELEASE_KEYSTORE_BASE64 }}
+          MERCHANT_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.MERCHANT_RELEASE_KEYSTORE_PASSWORD }}
+          MERCHANT_RELEASE_KEY_ALIAS: ${{ secrets.MERCHANT_RELEASE_KEY_ALIAS }}
+          MERCHANT_RELEASE_KEY_PASSWORD: ${{ secrets.MERCHANT_RELEASE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
@@ -192,7 +196,7 @@ jobs:
               },
               "android-app-merchant": {
                   "label": "merchant",
-                  "required": False,
+                  "required": True,
                   "keystore": "MERCHANT_RELEASE_KEYSTORE_BASE64",
                   "store_password": "MERCHANT_RELEASE_KEYSTORE_PASSWORD",
                   "alias": "MERCHANT_RELEASE_KEY_ALIAS",
@@ -217,15 +221,8 @@ jobs:
               if config["required"]:
                   print(f"Missing release signing secret(s): {', '.join(missing)}", file=sys.stderr)
                   sys.exit(1)
-              # Optional signing (merchant): warn and continue unsigned.
-              print(
-                  f"::warning::Missing {config['label']} release signing secret(s): "
-                  f"{', '.join(missing)}. Signed release artifacts will be skipped until secrets are set."
-              )
-              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as github_output:
-                  github_output.write("has_secrets=false\n")
-                  github_output.write("release_artifacts_enabled=false\n")
-              sys.exit(0)
+              print(f"Missing release signing secret(s): {', '.join(missing)}", file=sys.stderr)
+              sys.exit(1)
 
           encoded_keystore = "".join(os.environ[config["keystore"]].split())
           try:
@@ -251,14 +248,9 @@ jobs:
               encoding="utf-8",
           )
 
-          if not config["required"]:
-              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as github_output:
-                  github_output.write("release_artifacts_enabled=true\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as github_output:
+              github_output.write("release_artifacts_enabled=true\n")
           PY
-
-          if [[ "$(cat $GITHUB_OUTPUT | grep 'has_secrets=false')" != "" ]]; then
-            exit 0
-          fi
 
           key_path="${GITHUB_WORKSPACE}/${{ matrix.working_dir }}/app/ci-release-keystore.jks"
           signing_env="${GITHUB_WORKSPACE}/${{ matrix.working_dir }}/app/.ci-release-signing.env"
@@ -489,34 +481,6 @@ jobs:
           retention-days: 1
           compression-level: 9
 
-      - name: Prepare Merchant debug APK asset (unsigned until secrets set)
-        if: github.event_name != 'pull_request' && matrix.app_slug == 'merchant' && steps.prepare_signing.outputs.release_artifacts_enabled == 'false'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          debug_apk="$(find android-app-merchant/app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
-          if [[ -z "${debug_apk}" ]]; then
-            echo "Missing Merchant debug APK." >&2
-            exit 1
-          fi
-
-          asset_dir="android-app-merchant/app/build/release-assets"
-          rm -rf "${asset_dir}"
-          mkdir -p "${asset_dir}"
-          cp "${debug_apk}" "${asset_dir}/tembus-merchant-debug.apk"
-          ls -lh "${asset_dir}/tembus-merchant-debug.apk"
-
-      - name: Publish Merchant debug APK asset
-        if: github.event_name != 'pull_request' && matrix.app_slug == 'merchant' && steps.prepare_signing.outputs.release_artifacts_enabled == 'false'
-        uses: actions/upload-artifact@v4
-        with:
-          name: tembus-merchant-android-${{ github.run_number }}-debug
-          path: ./android-app-merchant/app/build/release-assets/tembus-merchant-debug.apk
-          if-no-files-found: error
-          retention-days: 30
-          compression-level: 9
-
       - name: Build Signed Release APK
         if: github.event_name != 'pull_request' && (steps.android_maps_key.outputs.release_artifacts_enabled == 'true' || steps.prepare_signing.outputs.release_artifacts_enabled == 'true')
         run: |
@@ -702,15 +666,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          merchant_assets=(release-assets/tembus-merchant-*)
-          if [[ ! -e "${merchant_assets[0]}" ]]; then
-            echo "No named Merchant asset was produced for this release." >&2
-            find release-assets -maxdepth 1 -type f -printf '%f\n' | sort >&2
-            exit 1
-          fi
+          required_assets=(
+            "release-assets/tembus-merchant-release.apk"
+            "release-assets/tembus-merchant-release.aab"
+          )
+          for asset in "${required_assets[@]}"; do
+            if [[ ! -s "${asset}" ]]; then
+              echo "Missing required Merchant release asset: ${asset}" >&2
+              find release-assets -maxdepth 1 -type f -printf '%f\n' | sort >&2
+              exit 1
+            fi
+          done
 
           printf 'Merchant release assets:\n'
-          printf ' - %s\n' "${merchant_assets[@]}"
+          printf ' - %s\n' "${required_assets[@]}"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
