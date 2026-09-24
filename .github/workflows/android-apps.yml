@@ -489,12 +489,30 @@ jobs:
           retention-days: 1
           compression-level: 9
 
-      - name: Upload Merchant debug APK (unsigned until secrets set)
+      - name: Prepare Merchant debug APK asset (unsigned until secrets set)
+        if: github.event_name != 'pull_request' && matrix.app_slug == 'merchant' && steps.prepare_signing.outputs.release_artifacts_enabled == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          debug_apk="$(find android-app-merchant/app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          if [[ -z "${debug_apk}" ]]; then
+            echo "Missing Merchant debug APK." >&2
+            exit 1
+          fi
+
+          asset_dir="android-app-merchant/app/build/release-assets"
+          rm -rf "${asset_dir}"
+          mkdir -p "${asset_dir}"
+          cp "${debug_apk}" "${asset_dir}/tembus-merchant-debug.apk"
+          ls -lh "${asset_dir}/tembus-merchant-debug.apk"
+
+      - name: Publish Merchant debug APK asset
         if: github.event_name != 'pull_request' && matrix.app_slug == 'merchant' && steps.prepare_signing.outputs.release_artifacts_enabled == 'false'
         uses: actions/upload-artifact@v4
         with:
           name: tembus-merchant-android-${{ github.run_number }}-debug
-          path: ./android-app-merchant/app/build/outputs/apk/debug/*.apk
+          path: ./android-app-merchant/app/build/release-assets/tembus-merchant-debug.apk
           if-no-files-found: error
           retention-days: 30
           compression-level: 9
@@ -678,6 +696,21 @@ jobs:
           pattern: '*-android-*'
           path: release-assets
           merge-multiple: true
+
+      - name: Verify Merchant release asset
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          merchant_assets=(release-assets/tembus-merchant-*)
+          if [[ ! -e "${merchant_assets[0]}" ]]; then
+            echo "No named Merchant asset was produced for this release." >&2
+            find release-assets -maxdepth 1 -type f -printf '%f\n' | sort >&2
+            exit 1
+          fi
+
+          printf 'Merchant release assets:\n'
+          printf ' - %s\n' "${merchant_assets[@]}"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
