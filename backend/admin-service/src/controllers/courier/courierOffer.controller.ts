@@ -173,6 +173,7 @@ export const getMobileCourierOffers = async (req: Request, res: Response) => {
        LEFT JOIN users c ON c.id = o.customer_id
        LEFT JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
        LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
+       WHERE LOWER(COALESCE(o.status, '')) NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'returned')
        ORDER BY d.expires_at ASC
        LIMIT 1`,
       [req.user.id]

@@ -47,6 +47,17 @@ describe('COURIER-2026-012 lifecycle release gate contract', () => {
     expect(earnings).toContain('courier_earning_localization_snapshots');
   });
 
+  it('does not resurrect a cancelled order from a stale accepted courier leg', () => {
+    const shared = fs.readFileSync(path.resolve(__dirname, 'controllers/courier/_shared.ts'), 'utf8');
+    const offer = fs.readFileSync(path.resolve(__dirname, 'controllers/courier/courierOffer.controller.ts'), 'utf8');
+
+    expect(shared).toContain('mobileOrderEffectiveStatusSql');
+    expect(shared).toContain("THEN o.status");
+    expect(shared).toContain("ELSE COALESCE(ol.status, o.status)");
+    expect(orders).toContain('${mobileOrderEffectiveStatusSql} AS status');
+    expect(offer).toContain("o.status, '')) NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'returned')");
+  });
+
   it('keeps suspension, appeal, reinstatement and safety history auditable', () => {
     expect(enforcement).toContain('courier_enforcement_appeals');
     expect(enforcement).toContain("status === 'approved'");

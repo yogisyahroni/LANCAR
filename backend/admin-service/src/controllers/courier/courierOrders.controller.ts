@@ -32,6 +32,7 @@ import {
 
 
 import {
+  mobileOrderEffectiveStatusSql,
   normalizeMobileOrder,
 } from './_shared';
 
@@ -176,7 +177,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          NULLIF(o.package_details->>'weight_kg', '')::float8 AS weight,
          COALESCE(c.full_name, 'Customer') AS customer_name,
         COALESCE(c.photo_url, '') AS customer_photo_url,
-         COALESCE(ol.status, o.status) AS status,
+         ${mobileOrderEffectiveStatusSql} AS status,
          (EXTRACT(EPOCH FROM o.created_at) * 1000)::bigint AS created_at,
          (EXTRACT(EPOCH FROM GREATEST(o.updated_at, ol.updated_at)) * 1000)::bigint AS updated_at,
          NULL::text AS customer_phone,

@@ -278,6 +278,16 @@ export const issueCourierLoginSession = async (
   };
 };
 
+// The canonical order status is authoritative for terminal states. A stale
+// accepted leg must never resurrect a cancelled order in the courier app.
+export const mobileOrderEffectiveStatusSql = `
+  CASE
+    WHEN LOWER(COALESCE(o.status, '')) IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'returned')
+      THEN o.status
+    ELSE COALESCE(ol.status, o.status)
+  END
+`;
+
 export const mobileOrderSelect = `
   o.id AS order_id,
   o.model,
@@ -410,19 +420,19 @@ export const mobileOrderSelect = `
   NULLIF(o.package_details->>'height_cm', '')::float8 AS height,
   NULLIF(o.package_details->>'weight_kg', '')::float8 AS weight,
   COALESCE(c.full_name, 'Customer') AS customer_name,
-  COALESCE(ol.status, o.status) AS status,
+  ${mobileOrderEffectiveStatusSql} AS status,
   (EXTRACT(EPOCH FROM o.created_at) * 1000)::bigint AS created_at,
   (EXTRACT(EPOCH FROM GREATEST(o.updated_at, COALESCE(ol.updated_at, o.updated_at))) * 1000)::bigint AS updated_at,
   NULL::text AS customer_phone,
   CASE
-    WHEN LOWER(COALESCE(ol.status, o.status)) IN ('picked_up', 'in_transit') THEN 'recipient'
+    WHEN LOWER(${mobileOrderEffectiveStatusSql}) IN ('picked_up', 'in_transit') THEN 'recipient'
     ELSE 'customer'
   END AS primary_contact_target,
   jsonb_build_object(
     'customer', jsonb_build_object('label', 'Customer', 'available', o.customer_id IS NOT NULL),
     'recipient', jsonb_build_object(
       'label', 'Penerima',
-      'available', LOWER(COALESCE(ol.status, o.status)) IN ('picked_up', 'in_transit')
+      'available', LOWER(${mobileOrderEffectiveStatusSql}) IN ('picked_up', 'in_transit')
     ),
     'support', jsonb_build_object('label', 'Support', 'available', TRUE),
     'raw_phone_exposed', FALSE
