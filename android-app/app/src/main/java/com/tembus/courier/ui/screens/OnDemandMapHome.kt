@@ -165,6 +165,8 @@ import kotlin.math.min
 @Composable
 internal fun OnDemandMapHome(
     modifier: Modifier = Modifier,
+    courierName: String,
+    todayEarningsIdr: Int,
     orders: List<Order>,
     offers: List<Order>,
     services: List<CourierServiceProduct>,
@@ -419,6 +421,15 @@ internal fun OnDemandMapHome(
                 )
             }
         }
+
+        StitchCourierEarningsStrip(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(start = 16.dp, end = 16.dp, top = 78.dp),
+            courierName = courierName,
+            todayEarningsIdr = todayEarningsIdr,
+            orderCount = orders.count { it.status.lowercase() in ACTIVE_ON_DEMAND_STATUSES }
+        )
 
         FilledIconButton(
             onClick = { onOnlineToggle(!isOnline) },

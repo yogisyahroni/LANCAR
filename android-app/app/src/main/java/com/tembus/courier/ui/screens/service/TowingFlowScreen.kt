@@ -60,6 +60,7 @@ import com.tembus.courier.ui.theme.TembusSpacing
 import com.tembus.courier.ui.components.service.EarningsBreakdown
 import com.tembus.courier.ui.components.service.ServiceProgressBar
 import com.tembus.courier.ui.components.service.TowingProgressSteps
+import com.tembus.courier.ui.screens.StitchServiceJobHero
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
@@ -307,6 +308,15 @@ fun TowingFlowScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            StitchServiceJobHero(
+                serviceName = "Towing",
+                orderNumber = uiState.orderNumber.ifBlank { orderId.take(8).uppercase() },
+                customerName = uiState.customerName,
+                address = uiState.activeAddress,
+                isTowing = true
+            )
+            Spacer(Modifier.height(16.dp))
+
             // Resi publik — prefer order_number (TMBSxxxxxx), fallback UUID pendek
                         val resi = uiState.orderNumber
                             .ifBlank { orderId.take(8).uppercase() }

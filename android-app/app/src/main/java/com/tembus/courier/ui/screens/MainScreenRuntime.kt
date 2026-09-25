@@ -301,7 +301,7 @@ internal fun MainScreenRuntime(
     // Tab 0 (Home/Orders)     → NOT secure by default (public order list, no PII shown at list level)
     // Tab 1 (Active Orders)   → NOT secure (same as home)
     // Tab 2 (Earnings/Wallet) → SECURE (IDR amounts, payout account details, earnings history)
-    // Tab 3 on-demand courier → SECURE (active job route, recipient address, live location)
+    // Tab 3 messages / Tab 4 profile → SECURE (customer conversation and account data)
     // showOrderDetail         → SECURE (recipient name, phone, address, package contents)
     // showPodScreen           → SECURE (delivery proof photo, recipient signature)
     // showScanScreen          → SECURE (package tracking codes, order context)
@@ -310,6 +310,7 @@ internal fun MainScreenRuntime(
     // LoginScreen + CourierRegistrationScreen → independently call SecureScreenEffect()
     val secureScreenRequired = selectedTab == 2 ||
         selectedTab == 3 ||
+        selectedTab == 4 ||
         showPodScreen ||
         showOrderDetail ||
         showScanScreen ||
@@ -456,6 +457,7 @@ internal fun MainScreenRuntime(
         showLogoutDialog = showLogoutDialogState,
         routeStateState = routeStateState,
         onOpenOrderDetail = { openOrderDetail(it) },
+        onOpenChat = { openChat(it) },
         requestDutyToggle = { requestDutyToggle(it) },
         showMissingPhotoWarningState = showMissingPhotoWarningState,
         onDismissInlineError = { inlineErrorMessage = null }

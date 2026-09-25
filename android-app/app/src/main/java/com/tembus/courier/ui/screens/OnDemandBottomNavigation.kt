@@ -175,7 +175,7 @@ internal fun OnDemandBottomNavigation(
     ) {
         NavigationBarItem(
             icon = { Icon(Icons.Default.Dashboard, contentDescription = CourierTextCatalog.translate("Beranda")) },
-            label = { Text("Beranda") },
+            label = { Text("Kerja") },
             selected = selectedTab == 0,
             onClick = { onSelectTab(0) },
             colors = onDemandNavigationItemColors()
@@ -194,7 +194,7 @@ internal fun OnDemandBottomNavigation(
                     Icon(Icons.Default.ReceiptLong, contentDescription = CourierTextCatalog.translate("Aktivitas"))
                 }
             },
-            label = { Text("Aktivitas") },
+            label = { Text("Order") },
             selected = selectedTab == 1,
             onClick = { onSelectTab(1) },
             colors = onDemandNavigationItemColors()
@@ -207,10 +207,19 @@ internal fun OnDemandBottomNavigation(
             colors = onDemandNavigationItemColors()
         )
         NavigationBarItem(
-                icon = { Icon(Icons.Default.Person, contentDescription = CourierTextCatalog.translate("Profil")) },
-            label = { Text("Profil") },
+            icon = {
+                Icon(Icons.Default.ChatBubble, contentDescription = CourierTextCatalog.translate("Pesan"))
+            },
+            label = { Text("Pesan") },
             selected = selectedTab == 3,
             onClick = { onSelectTab(3) },
+            colors = onDemandNavigationItemColors()
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Person, contentDescription = CourierTextCatalog.translate("Akun")) },
+            label = { Text("Akun") },
+            selected = selectedTab == 4,
+            onClick = { onSelectTab(4) },
             colors = onDemandNavigationItemColors()
         )
     }

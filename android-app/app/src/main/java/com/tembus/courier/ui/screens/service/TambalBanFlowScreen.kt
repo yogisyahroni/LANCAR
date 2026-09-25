@@ -67,6 +67,7 @@ import com.tembus.courier.domain.TambalBanStage
 import com.tembus.courier.ui.components.service.EarningsBreakdown
 import com.tembus.courier.ui.components.service.ServiceProgressBar
 import com.tembus.courier.ui.components.service.TambalBanProgressSteps
+import com.tembus.courier.ui.screens.StitchServiceJobHero
 import com.tembus.courier.ui.theme.TembusRadius
 import com.tembus.courier.ui.theme.TembusComponentDefaults
 import com.tembus.courier.ui.theme.TembusSpacing
@@ -301,6 +302,15 @@ fun TambalBanFlowScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            StitchServiceJobHero(
+                serviceName = "Tambal ban",
+                orderNumber = uiState.orderNumber.ifBlank { orderId.take(8).uppercase() },
+                customerName = uiState.customerName,
+                address = uiState.activeAddress,
+                isTowing = false
+            )
+            Spacer(Modifier.height(16.dp))
+
             // Resi publik — prefer order_number (TMBSxxxxxx), fallback UUID pendek
                         val resi = uiState.orderNumber
                             .ifBlank { orderId.take(8).uppercase() }

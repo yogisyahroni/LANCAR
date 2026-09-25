@@ -71,7 +71,9 @@ internal fun MainScreenTabContent(
             .background(MaterialTheme.colorScheme.background),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        CourierMarketEligibilityNotice(courierProfile?.marketEligibility)
+        if (selectedTab == 1) {
+            CourierMarketEligibilityNotice(courierProfile?.marketEligibility)
+        }
 
         when (selectedTab) {
             1 -> OrdersContent(
@@ -97,7 +99,7 @@ internal fun MainScreenTabContent(
                     onRequestPayout = { amountIdr, pin -> orderViewModel.submitPayoutRequest(amountIdr, pin) }
                 )
             }
-            3 -> {
+            4 -> {
                 val profileParams = buildProfileContentParams(
                     context = context,
                     scope = scope,

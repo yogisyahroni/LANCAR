@@ -68,6 +68,7 @@ internal fun MainScreenContent(
     showLogoutDialog: MutableState<Boolean>,
     routeStateState: MutableState<CourierRouteState>,
     onOpenOrderDetail: (Order) -> Unit,
+    onOpenChat: (Order) -> Unit,
     requestDutyToggle: (Boolean) -> Unit,
     showMissingPhotoWarningState: MutableState<Boolean>,
     onDismissInlineError: () -> Unit,
@@ -90,6 +91,8 @@ internal fun MainScreenContent(
                 CourierExperienceSlot(experienceConfigRepository, Modifier.padding(bottom = 8.dp))
                 OnDemandMapHome(
                     modifier = Modifier.weight(1f),
+                    courierName = displayCourierName,
+                    todayEarningsIdr = roleEarningsToday,
                     orders = roleOrders,
                     offers = onDemandOffers,
                     services = onDemandServices,
@@ -116,6 +119,11 @@ internal fun MainScreenContent(
                     onViewOrders = { selectedTab = 1 }
                 )
             }
+        } else if (selectedTab == 3) {
+            CourierMessagesScreen(
+                orders = roleOrders,
+                onOpenChat = onOpenChat
+            )
         } else {
             Column(
                 modifier = Modifier

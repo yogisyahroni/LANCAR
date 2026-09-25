@@ -37,6 +37,7 @@ import coil.compose.AsyncImage
 import com.tembus.courier.data.model.ChatMessage
 import com.tembus.courier.data.model.Order
 import com.tembus.courier.ui.theme.Primary
+import com.tembus.courier.ui.theme.PrimaryDark
 import com.tembus.courier.ui.theme.Secondary
 import com.tembus.courier.BuildConfig
 import java.text.SimpleDateFormat
@@ -125,12 +126,12 @@ fun ChatScreen(
                                 text = effectiveTitle,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = effectiveSubtitle,
                                 fontSize = 12.sp,
-                                color = Color.LightGray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -140,7 +141,7 @@ fun ChatScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = CourierTextCatalog.translate("Kembali"),
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -149,16 +150,16 @@ fun ChatScreen(
                         Icon(
                             imageVector = Icons.Default.Phone,
                             contentDescription = CourierTextCatalog.translate("Telepon dalam aplikasi"),
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         },
-        containerColor = Color(0xFFF4F6FA)
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -421,24 +422,7 @@ private fun ChatBubble(
                         bottomEnd = if (isFromMe) 4.dp else 16.dp
                     )
                 )
-                .background(
-                    if (isFromMe) {
-                        // Linear gradients for premium visual engagement
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Primary,
-                                Secondary
-                            )
-                        )
-                    } else {
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFFFFFFFF),
-                                Color(0xFFF9FAFB)
-                            )
-                        )
-                    }
-                )
+                .background(if (isFromMe) PrimaryDark else Color.White)
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
             Column {

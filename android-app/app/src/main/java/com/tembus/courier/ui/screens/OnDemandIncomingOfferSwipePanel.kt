@@ -137,6 +137,7 @@ import com.tembus.courier.ui.components.BidirectionalSwipeSlider
 import com.tembus.courier.ui.theme.Accent
 import com.tembus.courier.ui.theme.AccentDark
 import com.tembus.courier.ui.theme.AccentLight
+import com.tembus.courier.ui.theme.AccentSoft
 import com.tembus.courier.ui.theme.Background
 import com.tembus.courier.ui.theme.CourierMapBase
 import com.tembus.courier.ui.theme.CourierPanel
@@ -144,6 +145,7 @@ import com.tembus.courier.ui.theme.Outline
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryDark
 import com.tembus.courier.ui.theme.PrimaryLight
+import com.tembus.courier.ui.theme.PrimarySoft
 import com.tembus.courier.ui.theme.Secondary
 import com.tembus.courier.ui.theme.SecondaryLight
 import com.tembus.courier.ui.theme.Success
@@ -165,44 +167,80 @@ internal fun OnDemandIncomingOfferSwipePanel(order: Order, onAccept: () -> Unit,
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(24.dp),
-        shadowElevation = 8.dp
+        shape = RoundedCornerShape(20.dp),
+        tonalElevation = 2.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Surface(color = LogisticsOrange.copy(alpha = 0.12f), shape = CircleShape) {
-                    Icon(Icons.Default.Bolt, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(12.dp).size(24.dp))
+                Surface(color = AccentSoft, shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.Bolt, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(11.dp).size(22.dp))
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        if (order.isMaintenanceService()) "Pekerjaan ${order.displayServiceName()} Baru!" else "Pekerjaan On-Demand Baru!",
-                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest
+                        "ORDER MASUK • PRIORITAS",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = LogisticsOrange
                     )
                     Text(
-                        "${order.displayServiceName()} • ${order.estimatedNetEarningsIdr().toRupiahCompact()}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        order.displayServiceName().ifBlank { "On-Demand TEMBUS" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = DeepForest
                     )
                 }
-            }
-            
-            // Details
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Place, contentDescription = null, tint = Primary, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(order.pickupAddress, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Surface(color = AccentSoft, shape = RoundedCornerShape(999.dp)) {
+                    Text("Baru", modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp), color = AccentDark, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Navigation, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(order.dropAddress, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.54f),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Place, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Lokasi jemput", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(order.pickupAddress.ifBlank { "Lokasi order sedang disinkronkan" }, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    if (!order.isMaintenanceService()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Navigation, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Tujuan", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(order.dropAddress.ifBlank { "Tujuan dibuka setelah diterima" }, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OfferInfoPill(icon = Icons.Default.Route, label = order.distance.ifBlank { "Jarak dihitung" })
+                OfferInfoPill(icon = Icons.Default.Payments, label = order.estimatedNetEarningsIdr().toRupiahCompact())
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = PrimarySoft.copy(alpha = 0.62f),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = Primary)
+                    Text("Pendapatan dan rute sudah dikunci server sebelum diterima.", style = MaterialTheme.typography.bodySmall, color = Primary, fontWeight = FontWeight.SemiBold)
                 }
             }
 
@@ -210,6 +248,20 @@ internal fun OnDemandIncomingOfferSwipePanel(order: Order, onAccept: () -> Unit,
                 onAccept = onAccept,
                 onReject = onReject
             )
+        }
+    }
+}
+
+@Composable
+private fun RowScope.OfferInfoPill(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
+    Surface(
+        modifier = Modifier.weight(1f),
+        color = PrimarySoft.copy(alpha = 0.68f),
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(16.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
