@@ -1,5 +1,6 @@
 package com.tembus.courier.util
 
+import com.tembus.courier.BuildConfig
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
@@ -51,6 +52,13 @@ object SecurityUtils {
      */
     fun isDeviceRooted(context: Context): Boolean {
         return try {
+            // Android Studio emulators intentionally use dev/test system keys and
+            // the ranchu/goldfish hardware profile. They are not rooted user
+            // devices, but the production-oriented check below would classify
+            // them as rooted and make local UAT duty impossible. Keep this
+            // exception debug-only; release builds must retain the full gate.
+            if (BuildConfig.DEBUG && isKnownAndroidEmulator()) return false
+
             hasTestKeys() ||
                 hasKnownRootManagementPackage(context) ||
                 hasSuspiciousRootBinary()
@@ -61,6 +69,20 @@ object SecurityUtils {
             // detection by causing a controlled crash.
             true
         }
+    }
+
+    private fun isKnownAndroidEmulator(): Boolean {
+        val fingerprint = Build.FINGERPRINT.orEmpty().lowercase()
+        val model = Build.MODEL.orEmpty().lowercase()
+        val manufacturer = Build.MANUFACTURER.orEmpty().lowercase()
+        val hardware = Build.HARDWARE.orEmpty().lowercase()
+        return fingerprint.startsWith("generic") ||
+            fingerprint.startsWith("unknown") ||
+            model.contains("emulator") ||
+            model.contains("android sdk") ||
+            manufacturer.contains("genymotion") ||
+            hardware.contains("goldfish") ||
+            hardware.contains("ranchu")
     }
 
     private fun hasTestKeys(): Boolean {
