@@ -369,6 +369,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         recipientName: recipient_name,
         recipientPhone: recipient_phone,
         requiresDeliveryCode: package_details?.requires_delivery_code,
+        requestedHoleCount: package_details?.vehicle_details?.requested_hole_count == null
+          ? null : Number(package_details.vehicle_details.requested_hole_count),
       });
       const storedQuoteFingerprint = String(storedQuote.input_fingerprint || '').trim();
       const storedQuoteExpiresAt = Date.parse(String(storedQuote.expires_at || ''));
@@ -398,6 +400,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         recipientName: recipient_name,
         recipientPhone: recipient_phone,
         requiresDeliveryCode: package_details?.requires_delivery_code,
+        requestedHoleCount: package_details?.vehicle_details?.requested_hole_count == null
+          ? null : Number(package_details.vehicle_details.requested_hole_count),
       });
     }
     const trustedRouteSnapshot = trustedPriceBreakdown.route_snapshot;
@@ -1135,6 +1139,16 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
       `UPDATE orders
        SET status = 'cancelled', updated_at = NOW()
        WHERE id = $1`,
+      [orderId]
+    );
+
+    // The courier feed reads the leg lifecycle. Finalizing only the order
+    // row leaves an accepted leg visible as active work after cancellation.
+    await client.query(
+      `UPDATE order_legs
+          SET status = 'cancelled', updated_at = NOW()
+        WHERE order_id = $1
+          AND status NOT IN ('delivered', 'completed', 'cancelled', 'failed', 'rejected')`,
       [orderId]
     );
 

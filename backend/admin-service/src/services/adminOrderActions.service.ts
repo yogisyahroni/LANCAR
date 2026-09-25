@@ -166,6 +166,18 @@ export const forceCancelOrder = async (input: ForceCancelInput): Promise<ForceCa
       [input.orderId],
     );
 
+    // Keep the courier-facing leg state aligned with the canonical order
+    // state. Courier order feeds use the leg status for active-work rendering;
+    // leaving an accepted leg behind would resurrect a cancelled order in the
+    // courier app.
+    await client.query(
+      `UPDATE order_legs
+          SET status = 'cancelled', updated_at = NOW()
+        WHERE order_id = $1
+          AND status NOT IN ('delivered', 'completed', 'cancelled', 'failed', 'rejected')`,
+      [input.orderId],
+    );
+
     await client.query(
       `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
        VALUES ($1, $2, 'cancelled', $3, $4)`,
