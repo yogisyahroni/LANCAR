@@ -212,8 +212,11 @@ internal fun MainScreenRuntime(
     val lastRemoteSyncAt by orderViewModel.lastRemoteSyncAt.collectAsState()
     val featureFlags by FeatureFlagManager.snapshot.collectAsState()
     val serviceDiscoveryEnabled = featureFlags["courier_service_discovery_entry"]?.enabled ?: true
-    // Only the optional discovery catalog is gated. Offers, active orders,
-    // proof, chat and recovery remain available independently of this flag.
+    // Offers are behind a server-controlled kill switch while the offer UX is
+    // being revised. Fail closed when the flag is absent so a stale/pending
+    // offer cannot take over the courier home screen during UAT.
+    val offerSurfaceEnabled = featureFlags["courier_offer_surface"]?.enabled ?: false
+    val visibleOnDemandOffers = if (offerSurfaceEnabled) onDemandOffers else emptyList()
     val visibleOnDemandServices = if (serviceDiscoveryEnabled) onDemandServices else emptyList()
     
     val courierName by authSessionManager.courierName.collectAsState(initial = null)
@@ -369,7 +372,7 @@ internal fun MainScreenRuntime(
         isOnline = isOnline,
         lifecycleOwner = lifecycleOwner,
         syncIntervalMs = syncIntervalMs,
-        onDemandOffers = onDemandOffers,
+        onDemandOffers = visibleOnDemandOffers,
         roleOrders = roleOrders,
         capabilityProfile = capabilityProfile,
         mapsProviderConfig = mapsProviderConfig,
@@ -429,7 +432,7 @@ internal fun MainScreenRuntime(
         isSyncing = isSyncing,
         isOnline = isOnline,
         orderViewModel = orderViewModel,
-        onDemandOffers = onDemandOffers,
+        onDemandOffers = visibleOnDemandOffers,
         roleOrders = roleOrders,
         rolePendingOrders = rolePendingOrders,
         roleEarningsToday = roleEarningsToday,

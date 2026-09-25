@@ -450,21 +450,6 @@ internal fun OnDemandMapHome(
             orderCount = orders.count { it.status.lowercase() in ACTIVE_ON_DEMAND_STATUSES }
         )
 
-        FilledIconButton(
-            onClick = { onOnlineToggle(!isOnline) },
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(end = 18.dp, top = 18.dp)
-                .size(64.dp),
-            shape = TembusComponentDefaults.buttonShape(),
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = if (isOnline) Color(0xFF9B100D) else Primary,
-                contentColor = Color.White
-            )
-        ) {
-            Icon(Icons.Default.PowerSettingsNew, contentDescription = if (isOnline) "Nonaktifkan duty" else "Aktifkan duty")
-        }
-
         if (inAppNavigationActive) {
             Surface(
                 modifier = Modifier

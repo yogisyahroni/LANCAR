@@ -22,6 +22,7 @@ import com.tembus.courier.BuildConfig
 import com.tembus.courier.R
 import com.tembus.courier.TEMBUSApplication
 import com.tembus.courier.data.repository.FCMTokenRepository
+import com.tembus.courier.featureflag.FeatureFlagManager
 import com.tembus.courier.notification.notificationChannelId
 import com.tembus.courier.notification.notificationImageUrl
 import com.tembus.courier.notification.notificationLaunchTarget
@@ -101,6 +102,10 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
     private fun handleDataMessage(data: Map<String, String>) {
         when (data["type"] ?: "unknown") {
             "on_demand_offer" -> {
+                if (!FeatureFlagManager.isEnabled("courier_offer_surface", default = false)) {
+                    debugLog("On-demand offer notification suppressed by courier_offer_surface")
+                    return
+                }
                 signalOrderRefresh()
                 val serviceCode = data["service_code"] ?: ""
                 val isMaintenance = serviceCode.startsWith("tambal_ban") || serviceCode.startsWith("towing")
