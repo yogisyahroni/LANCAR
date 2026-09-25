@@ -172,6 +172,7 @@ internal fun OnDemandMapHome(
     services: List<CourierServiceProduct>,
     capabilityProfile: CourierCapabilityProfile?,
     courierVehicleType: String,
+    performanceSummary: CourierPerformanceSummary?,
     routePreviews: Map<String, CourierRoutePreview>,
     activeRoutePlan: CourierActiveRoutePlan?,
     hotspots: List<CourierHotspot>,
@@ -372,7 +373,25 @@ internal fun OnDemandMapHome(
         enabledByCapability && service.code !in disabledServiceCodes
     }
 
-    Box(
+    if (activeOrder == null && leadingOffer == null) {
+        CourierStandbyScreen(
+            modifier = modifier,
+            courierName = courierName,
+            todayEarningsIdr = todayEarningsIdr,
+            capabilityProfile = capabilityProfile,
+            courierVehicleType = courierVehicleType,
+            performanceSummary = performanceSummary,
+            activeServices = activeServiceItems,
+            hotspots = hotspots,
+            mapsProviderConfig = mapsProviderConfig,
+            mapMarkers = mapMarkers,
+            routePoints = routePoints,
+            mapFocusLocation = mapFocusLocation,
+            isOnline = isOnline,
+            onDutyToggle = onOnlineToggle,
+            onViewOrders = onViewOrders
+        )
+    } else Box(
         modifier = modifier
             .fillMaxSize()
             .background(CourierMapBase)
@@ -574,7 +593,9 @@ internal fun OnDemandMapHome(
                     onOpenExternalMaps = { address, point -> openCourierMapNavigation(context, address, point) },
                     onOpenDelivery = onOpenDelivery
                 )
-            } else {
+            } else if (leadingOffer != null) {
+                // Keep the offer acceptance flow isolated from standby. The
+                // standby redesign must never hide an incoming offer CTA.
                 OnDemandMapDispatchCockpit(
                     isOnline = isOnline,
                     offerCount = offers.size,

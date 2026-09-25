@@ -98,6 +98,7 @@ internal fun MainScreenContent(
                     services = onDemandServices,
                     capabilityProfile = capabilityProfile,
                     courierVehicleType = courierVehicleType,
+                    performanceSummary = performanceSummary,
                     routePreviews = routePreviews,
                     activeRoutePlan = activeRoutePlan,
                     hotspots = onDemandHotspots,
