@@ -311,7 +311,8 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
          JOIN orders ao ON ao.id = ol.order_id
          WHERE ol.courier_id = $1
            AND ol.order_id <> $4
-           AND COALESCE(ol.status, ao.status) NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
+           AND COALESCE(ao.status, '') NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
+           AND COALESCE(ol.status, '') NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
        )
        SELECT
          cp.id,

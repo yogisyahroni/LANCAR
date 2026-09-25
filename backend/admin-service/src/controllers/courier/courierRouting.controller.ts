@@ -205,7 +205,8 @@ export const getMobileCourierActiveRoutePlan = async (req: Request, res: Respons
        LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
        WHERE cp.user_id = $1
          AND cp.current_location IS NOT NULL
-         AND COALESCE(ol.status, o.status) NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
+         AND COALESCE(o.status, '') NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
+         AND COALESCE(ol.status, '') NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
        ORDER BY o.created_at ASC
        LIMIT 20`,
       [req.user.id]

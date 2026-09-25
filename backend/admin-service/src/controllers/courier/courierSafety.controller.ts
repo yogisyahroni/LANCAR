@@ -480,7 +480,8 @@ export const getMobileCourierSupportContext = async (req: Request, res: Response
        JOIN order_legs ol ON ol.order_id = o.id AND ol.courier_id = $2
        LEFT JOIN order_conversations oc ON oc.order_id = o.id
        WHERE o.id = $1
-         AND LOWER(COALESCE(ol.status, o.status)) NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'returned', 'rejected')
+         AND LOWER(COALESCE(o.status, '')) NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'returned', 'rejected')
+         AND LOWER(COALESCE(ol.status, '')) NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'returned', 'rejected')
        ORDER BY ol.leg_number ASC
        LIMIT 1`,
       [String(req.params.orderId || ''), req.user.id],

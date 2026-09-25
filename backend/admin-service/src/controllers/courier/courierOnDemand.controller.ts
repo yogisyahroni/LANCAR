@@ -107,7 +107,8 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
        JOIN orders target ON target.id = $1
        WHERE ol.courier_id IS NOT NULL
          AND ol.order_id <> $1
-         AND COALESCE(ol.status, ao.status) NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
+         AND COALESCE(ao.status, '') NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
+         AND COALESCE(ol.status, '') NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
        GROUP BY ol.courier_id
      ),
      candidate AS (
@@ -750,7 +751,16 @@ export const advanceOnDemandDispatchQueue = async (client: any, limit = 25): Pro
          WHERE d.order_id = o.id
            AND d.status IN ('offered', 'accepted')
        )
-     ORDER BY o.created_at ASC
+     ORDER BY CASE o.status
+                WHEN 'searching' THEN 0
+                WHEN 'pending_assignment' THEN 1
+                WHEN 'dispatching' THEN 2
+                WHEN 'matched' THEN 3
+                WHEN 'offered' THEN 4
+                WHEN 'pending' THEN 5
+                ELSE 6
+              END,
+              o.created_at ASC
      LIMIT $2
      FOR UPDATE SKIP LOCKED`,
     [ON_DEMAND_DISPATCH_READY_STATUSES, limit]

@@ -153,9 +153,11 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
     if (!online) {
       const activeJobs = await db.query(
         `SELECT COUNT(*)::int AS active_count
-         FROM order_legs
-         WHERE courier_id = $1
-           AND COALESCE(status, '') NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')`,
+         FROM order_legs ol
+         JOIN orders o ON o.id = ol.order_id
+         WHERE ol.courier_id = $1
+           AND COALESCE(o.status, '') NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
+           AND COALESCE(ol.status, '') NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')`,
         [req.user.id]
       );
       if (Number(activeJobs.rows[0]?.active_count || 0) > 0) {

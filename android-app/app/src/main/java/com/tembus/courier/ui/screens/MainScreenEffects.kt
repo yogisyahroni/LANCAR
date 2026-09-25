@@ -228,6 +228,7 @@ internal fun MainScreenEffects(deps: MainScreenDeps) {
             acceptBlocked = acceptBlocked,
             acceptBlockedReason = acceptBlockedReason,
             activeCapabilities = capabilityProfile?.serviceCapabilities.orEmpty(),
+            capabilityProfile = capabilityProfile,
             onAccept = { offer ->
                 orderViewModel.acceptOffer(offer) { accepted ->
                     openOrderDetail(accepted)

@@ -96,7 +96,9 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
              'active_job_count', (
                SELECT COUNT(*)::int
                FROM order_legs eol
+               JOIN orders eo ON eo.id = eol.order_id
                WHERE eol.courier_id = u.id
+                 AND COALESCE(eo.status, '') NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
                  AND COALESCE(eol.status, '') NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
              ),
              'appeal_eligible', TRUE

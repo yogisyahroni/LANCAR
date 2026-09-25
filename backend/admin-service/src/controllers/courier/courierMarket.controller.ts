@@ -242,7 +242,12 @@ export const reviewAdminCourierMarketChangeRequest = async (req: Request, res: R
     }
     if (requestedStatus === 'approved') {
       const activeJobs = await client.query(
-        `SELECT COUNT(*)::int AS count FROM order_legs WHERE courier_id = $1 AND COALESCE(status, '') NOT IN ('delivered','completed','failed','cancelled','rejected','return_required')`,
+        `SELECT COUNT(*)::int AS count
+         FROM order_legs ol
+         JOIN orders o ON o.id = ol.order_id
+         WHERE ol.courier_id = $1
+           AND COALESCE(o.status, '') NOT IN ('delivered','completed','failed','cancelled','rejected','return_required')
+           AND COALESCE(ol.status, '') NOT IN ('delivered','completed','failed','cancelled','rejected','return_required')`,
         [request.user_id]
       );
       if (request.is_online || Number(activeJobs.rows[0]?.count || 0) > 0) {

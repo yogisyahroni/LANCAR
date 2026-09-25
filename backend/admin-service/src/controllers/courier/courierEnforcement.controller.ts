@@ -148,7 +148,9 @@ export const getMobileCourierEnforcement = async (req: Request, res: Response): 
               COALESCE((
                 SELECT COUNT(*)::int
                 FROM order_legs active_ol
+                JOIN orders active_o ON active_o.id = active_ol.order_id
                 WHERE active_ol.courier_id = cp.user_id
+                  AND COALESCE(active_o.status, '') <> ALL($2::text[])
                   AND COALESCE(active_ol.status, '') <> ALL($2::text[])
               ), 0)::int AS active_job_count
        FROM courier_enforcement_actions cea
@@ -380,7 +382,9 @@ export const createAdminCourierEnforcementAction = async (req: Request, res: Res
          COUNT(*)::int AS active_job_count,
          COUNT(*) FILTER (WHERE ol.status = ANY($2::text[]))::int AS unpicked_job_count
        FROM order_legs ol
+       JOIN orders o ON o.id = ol.order_id
        WHERE ol.courier_id = $1
+         AND COALESCE(o.status, '') <> ALL($3::text[])
          AND COALESCE(ol.status, '') <> ALL($3::text[])`,
       [profile.user_id, UNPICKED_JOB_STATUSES, ACTIVE_JOB_STATUSES],
     );
@@ -452,13 +456,16 @@ export const createAdminCourierEnforcementAction = async (req: Request, res: Res
     if (initialStatus !== 'scheduled' && normalized.scope === 'account' && normalized.type === 'suspension') {
       if (normalized.safeJobPolicy === 'reassign_unpicked_jobs' && unpickedJobCount > 0) {
         const reassigned = await client.query(
-          `UPDATE order_legs
+          `UPDATE order_legs ol
            SET courier_id = NULL,
                status = 'pending',
                updated_at = NOW()
-           WHERE courier_id = $1
-             AND status = ANY($2::text[])
-           RETURNING id, order_id`,
+           FROM orders o
+           WHERE ol.order_id = o.id
+             AND ol.courier_id = $1
+             AND o.status NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
+             AND ol.status = ANY($2::text[])
+           RETURNING ol.id, ol.order_id`,
           [profile.user_id, UNPICKED_JOB_STATUSES],
         );
         unpickedJobCount = reassigned.rows.length;
@@ -481,8 +488,11 @@ export const createAdminCourierEnforcementAction = async (req: Request, res: Res
         );
         const remainingJobsRes = await client.query(
           `SELECT COUNT(*)::int AS active_job_count
-           FROM order_legs
-           WHERE courier_id = $1 AND COALESCE(status, '') <> ALL($2::text[])`,
+           FROM order_legs ol
+           JOIN orders o ON o.id = ol.order_id
+           WHERE ol.courier_id = $1
+             AND COALESCE(o.status, '') <> ALL($2::text[])
+             AND COALESCE(ol.status, '') <> ALL($2::text[])`,
           [profile.user_id, ACTIVE_JOB_STATUSES],
         );
         activeJobCount = Number(remainingJobsRes.rows[0]?.active_job_count || 0);
@@ -577,7 +587,9 @@ export const listAdminCourierEnforcementActions = async (req: Request, res: Resp
               COALESCE((
                 SELECT COUNT(*)::int
                 FROM order_legs active_ol
+                JOIN orders active_o ON active_o.id = active_ol.order_id
                 WHERE active_ol.courier_id = cp.user_id
+                  AND COALESCE(active_o.status, '') <> ALL($2::text[])
                   AND COALESCE(active_ol.status, '') <> ALL($2::text[])
               ), 0)::int AS active_job_count,
               (SELECT COUNT(*)::int FROM courier_enforcement_appeals cea2 WHERE cea2.enforcement_action_id = cea.id) AS appeal_count

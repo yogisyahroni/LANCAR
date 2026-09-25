@@ -1,9 +1,9 @@
 -- Customer roadside UAT fixture
 --
--- Purpose: create two server-backed, active customer orders for the same
--- customer so Activity, order detail, courier profile, tracking, notes and
--- roadside reports can be verified together:
---   1) Tambal Ban motor accepted by Andri Pratama
+-- Purpose: create two server-backed customer orders for the same customer so
+-- Activity, order detail, courier profile, tracking, notes and roadside
+-- reports can be verified together:
+--   1) Tambal Ban motor searching and ready for a fresh courier offer
 --   2) Towing motor accepted by Bima Saputra
 --
 -- This is intentionally a UAT/staging fixture, not a production migration.
@@ -143,12 +143,14 @@ WHERE order_id IN (
   'a1b2c3d4-1111-4aaa-8aaa-111111111111',
   'a1b2c3d4-2222-4aaa-8aaa-222222222222'
 );
+DELETE FROM courier_offer_dispatches
+WHERE order_id = 'a1b2c3d4-1111-4aaa-8aaa-111111111111';
 DELETE FROM tambal_ban_reports
 WHERE order_id = 'a1b2c3d4-1111-4aaa-8aaa-111111111111';
 DELETE FROM towing_reports
 WHERE order_id = 'a1b2c3d4-2222-4aaa-8aaa-222222222222';
 
--- Tambal Ban: a recent accepted order with a customer-visible service note.
+-- Tambal Ban: a fresh searching order with a customer-visible service note.
 INSERT INTO orders (
   id, order_number, customer_id, model, status,
   pickup_location, pickup_address, pickup_notes,
@@ -171,7 +173,7 @@ VALUES (
   'UAT-TAMBAL-CUSTOMER-01',
   'f567a612-8272-4c04-b42b-8f1f80817018',
   'p2p',
-  'accepted',
+  'searching',
   ST_SetSRID(ST_MakePoint(106.827153, -6.214621), 4326)::geography,
   'Jl. Prof. DR. Satrio No. 5, Karet, Jakarta Selatan',
   'Motor berhenti di bahu jalan dekat minimarket.',
@@ -246,6 +248,7 @@ ON CONFLICT (id) DO UPDATE SET
   correlation_id = EXCLUDED.correlation_id,
   service_metadata = EXCLUDED.service_metadata,
   route_snapshot = EXCLUDED.route_snapshot,
+  created_at = EXCLUDED.created_at,
   updated_at = NOW();
 
 -- Towing: separate profile, route and customer-visible note.
@@ -395,8 +398,8 @@ VALUES
 )
 ON CONFLICT DO NOTHING;
 
--- Active legs point to users.id. The customer tracking projection resolves
--- the matching courier_profiles row through courier_profiles.user_id.
+-- Tambal Ban intentionally has an unassigned leg so the courier offer queue
+-- can dispatch a fresh offer after the courier polls /courier/offers.
 INSERT INTO order_legs (
   id, order_id, leg_number, courier_id, status,
   pickup_location, dropoff_location, assigned_fee_idr,
@@ -408,24 +411,25 @@ VALUES
   'a1b2c3d4-3111-4aaa-8aaa-311111111111',
   'a1b2c3d4-1111-4aaa-8aaa-111111111111',
   1,
-  'd8180681-082f-4fa0-ba37-807b7262afc1',
-  'accepted',
+  NULL,
+  'pending',
   ST_SetSRID(ST_MakePoint(106.827153, -6.214621), 4326)::geography,
   ST_SetSRID(ST_MakePoint(106.838905, -6.229728), 4326)::geography,
-  15000,
-  NOW() - INTERVAL '45 seconds',
+  0,
+  NULL,
   '{"source":"uat_fixture","service":"tambal_ban_motor"}'::jsonb,
   '{"base_fee_idr":15000,"service_price_idr":15000}'::jsonb,
   NOW() - INTERVAL '90 seconds',
   NOW()
 )
 ON CONFLICT (order_id, leg_number) DO UPDATE SET
-  courier_id = EXCLUDED.courier_id,
+  courier_id = NULL,
+  vehicle_id = NULL,
   status = EXCLUDED.status,
   pickup_location = EXCLUDED.pickup_location,
   dropoff_location = EXCLUDED.dropoff_location,
-  assigned_fee_idr = EXCLUDED.assigned_fee_idr,
-  assigned_at = EXCLUDED.assigned_at,
+  assigned_fee_idr = 0,
+  assigned_at = NULL,
   updated_at = NOW();
 
 INSERT INTO order_legs (
@@ -458,10 +462,11 @@ ON CONFLICT (order_id, leg_number) DO UPDATE SET
   assigned_at = EXCLUDED.assigned_at,
   updated_at = NOW();
 
--- Final service reports are intentionally absent: both requests are active.
--- The customer-visible pre-service condition and notes live in orders.service_metadata,
--- while the courier writes immutable photo/report rows only after the service
--- proof is complete.
+-- Final service reports are intentionally absent. Tambal Ban remains in the
+-- searching state until a courier accepts the freshly dispatched offer;
+-- towing remains the accepted fixture. The customer-visible pre-service
+-- condition and notes live in orders.service_metadata, while the courier
+-- writes immutable photo/report rows only after the service proof is complete.
 
 INSERT INTO order_events (
   id, order_id, user_id, event_type, description, metadata,
@@ -473,13 +478,13 @@ VALUES
   'a1b2c3d4-1111-4aaa-8aaa-111111111111',
   'f567a612-8272-4c04-b42b-8f1f80817018',
   'roadside_request.created',
-  'Permintaan Tambal Ban diterima dan sedang menuju lokasi.',
+  'Permintaan Tambal Ban diterima dan sedang mencari petugas.',
   '{"source":"uat_fixture","service":"tambal_ban","customer_note":true}'::jsonb,
-  'd8180681-082f-4fa0-ba37-807b7262afc1',
-  'courier',
+  'f567a612-8272-4c04-b42b-8f1f80817018',
+  'customer',
+  'pending_assignment',
   'searching',
-  'accepted',
-  'uat-roadside-tire-accepted-v1',
+  'uat-roadside-tire-searching-v1',
   NOW() - INTERVAL '45 seconds'
 ),
 (
@@ -497,6 +502,27 @@ VALUES
   NOW() - INTERVAL '30 seconds'
 );
 
+-- Keep Andri matchable for the offer poll. Presence matching also checks the
+-- courier profile location heartbeat, not only courier_availability_state.
+UPDATE courier_profiles
+SET is_online = TRUE,
+    status = 'online',
+    current_zone_id = (
+      SELECT z.id
+      FROM zones z
+      WHERE z.is_active = TRUE
+        AND ST_Covers(z.polygon, ST_SetSRID(ST_MakePoint(106.827153, -6.214621), 4326))
+      ORDER BY z.name ASC, z.id
+      LIMIT 1
+    ),
+    current_location = ST_SetSRID(ST_MakePoint(106.8290, -6.2155), 4326)::geography,
+    current_lat = -6.2155,
+    current_lng = 106.8290,
+    last_location_at = NOW(),
+    last_active_at = NOW(),
+    updated_at = NOW()
+WHERE id = '451aba68-2de3-4883-b2fc-61bff58a4921';
+
 INSERT INTO courier_availability_state (
   courier_id, current_state, active_order_id, active_order_type,
   latitude, longitude, last_location_update, presence_state,
@@ -504,9 +530,9 @@ INSERT INTO courier_availability_state (
 )
 VALUES
 (
-  '451aba68-2de3-4883-b2fc-61bff58a4921', 'navigating_to_pickup',
-  'a1b2c3d4-1111-4aaa-8aaa-111111111111', 'tambal_ban_motor',
-  -6.2155, 106.8290, NOW(), 'online', 'uat_customer_roadside_activity', NOW(), NOW()
+  '451aba68-2de3-4883-b2fc-61bff58a4921', 'idle',
+  NULL, NULL,
+  -6.2155, 106.8290, NOW(), 'online', 'uat_customer_roadside_offer', NOW(), NOW()
 ),
 (
   'b3f4d5e6-7a89-4c12-8d34-9f0123456789', 'navigating_to_pickup',
@@ -530,11 +556,13 @@ COMMIT;
 -- Verification query (safe to run after the transaction):
 -- SELECT o.order_number, o.status, o.service_category, o.service_sub_type,
 --        o.order_notes, u.full_name AS courier, cp.vehicle_plate,
---        cp.vehicle_brand, cp.vehicle_model, ol.status AS leg_status
+--        cp.vehicle_brand, cp.vehicle_model, ol.status AS leg_status,
+--        d.status AS dispatch_status
 -- FROM orders o
 -- JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
--- JOIN users u ON u.id = ol.courier_id
+-- LEFT JOIN users u ON u.id = ol.courier_id
 -- LEFT JOIN courier_profiles cp ON cp.user_id = u.id
+-- LEFT JOIN courier_offer_dispatches d ON d.order_id = o.id AND d.status = 'offered'
 -- WHERE o.id IN ('a1b2c3d4-1111-4aaa-8aaa-111111111111',
 --                'a1b2c3d4-2222-4aaa-8aaa-222222222222')
 -- ORDER BY o.created_at DESC;

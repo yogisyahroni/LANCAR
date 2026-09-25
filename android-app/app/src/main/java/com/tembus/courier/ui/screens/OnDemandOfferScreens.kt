@@ -552,6 +552,7 @@ internal fun OnDemandOfferQueueDialog(
     acceptBlocked: Boolean,
     acceptBlockedReason: String? = null,
     activeCapabilities: List<CourierServiceCapability> = emptyList(),
+    capabilityProfile: CourierCapabilityProfile? = null,
     onAccept: (Order) -> Unit,
     onReject: (Order) -> Unit,
     onExpired: (Order) -> Unit
@@ -574,6 +575,24 @@ internal fun OnDemandOfferQueueDialog(
         .filter(String::isNotBlank)
         .distinct()
         .joinToString(", ")
+
+    // Tambal Ban has a dedicated, full-screen offer design in Figma. Keep the
+    // generic queue for mixed/other offers, but do not squeeze this service
+    // into the old centered dialog card.
+    val focusedTambalOffer = orderedOffers.singleOrNull { it.offerServiceMode() == OfferServiceMode.TAMBAL_BAN }
+    if (focusedTambalOffer != null) {
+        FigmaTambalBanOfferScreen(
+            order = focusedTambalOffer,
+            mapsProviderConfig = mapsProviderConfig,
+            capabilityProfile = capabilityProfile,
+            acceptBlocked = acceptBlocked,
+            blockedReason = capacityText,
+            onAccept = { onAccept(focusedTambalOffer) },
+            onReject = { onReject(focusedTambalOffer) },
+            onExpired = { onExpired(focusedTambalOffer) }
+        )
+        return
+    }
 
     Dialog(
         onDismissRequest = {},
@@ -670,6 +689,431 @@ internal fun OnDemandOfferQueueDialog(
                 }
             }
         }
+    }
+}
+
+/**
+ * Full-screen Tambal Ban offer, matching the Courier Apps Figma frame 13:951.
+ *
+ * This is intentionally a server-snapshot screen: no sample payout, customer,
+ * location, photo, or vehicle values are invented in the UI. Missing data is
+ * represented by a clear fallback state instead.
+ */
+@Composable
+private fun FigmaTambalBanOfferScreen(
+    order: Order,
+    mapsProviderConfig: MapsProviderConfig,
+    capabilityProfile: CourierCapabilityProfile?,
+    acceptBlocked: Boolean,
+    blockedReason: String,
+    onAccept: () -> Unit,
+    onReject: () -> Unit,
+    onExpired: () -> Unit
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val vehicle = order.vehicleDetails
+    val courierVehicle = capabilityProfile?.vehicle ?: capabilityProfile?.vehicles?.firstOrNull()
+    val netEarnings = order.estimatedNetEarningsIdr().toRupiahCompact()
+    val serviceLabel = order.serviceName?.trim()?.takeIf { it.isNotBlank() } ?: "Tambal Ban Motor"
+    val customerName = order.customerName.trim().ifBlank { "Customer" }
+    val vehicleLabel = listOf(vehicle?.make, vehicle?.model)
+        .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+        .joinToString(" ")
+        .ifBlank { vehicle?.type?.trim().orEmpty().ifBlank { "Kendaraan customer" } }
+    val courierVehicleLabel = listOf(courierVehicle?.brand, courierVehicle?.model)
+        .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+        .joinToString(" ")
+        .ifBlank { "Mitra TEMBUS" }
+    val courierPlate = courierVehicle?.plateNumber?.trim().orEmpty()
+    val damageLabel = listOf(
+        vehicle?.requestedHoleCount?.let { "$it lubang sesuai permintaan customer" },
+        vehicle?.damage,
+        vehicle?.condition
+    ).mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+        .firstOrNull() ?: "Detail kerusakan akan disinkronkan"
+    val etaLabel = order.etaMinutesValue().takeIf { it > 0 }?.let { "$it menit" } ?: "ETA sinkron"
+    val distanceLabel = order.distance.trim().ifBlank {
+        order.routeDistanceMeters.takeIf { it > 0 }?.let { meters ->
+            if (meters >= 1_000) String.format("%.1f km", meters / 1_000.0) else "$meters m"
+        } ?: "Jarak sinkron"
+    }
+    val pickupPoint = remember(order.pickupLatitude, order.pickupLongitude) {
+        val lat = order.pickupLatitude
+        val lng = order.pickupLongitude
+        if (lat != null && lng != null) LatLng(lat, lng) else null
+    }
+    val photoUrls = buildList {
+        vehicle?.photoItems.orEmpty().forEach { item ->
+            item.url.trim().takeIf(String::isNotBlank)?.let { add(item.role.humanizeOfferToken() to it) }
+        }
+        vehicle?.photoUrls.orEmpty().forEach { url ->
+            url.trim().takeIf(String::isNotBlank)?.let { add("Foto kondisi" to it) }
+        }
+    }.distinctBy { it.second }.take(2)
+    val specificationItems = buildList {
+        vehicle?.requestedHoleCount?.let { add("Permintaan customer: $it lubang") }
+        vehicle?.condition?.trim()?.takeIf(String::isNotBlank)?.let { add("Kondisi: $it") }
+        vehicle?.accessConstraints?.trim()?.takeIf(String::isNotBlank)?.let { add("Akses: $it") }
+        vehicle?.notes?.trim()?.takeIf(String::isNotBlank)?.let { add("Catatan: $it") }
+        add("Foto dan bukti kerja mengikuti SOP layanan TEMBUS")
+    }.distinct()
+    val breakdown = order.pricingBreakdown
+    val priceBreakdown = buildList {
+        breakdown?.serviceFeeIdr?.takeIf { it > 0 }?.let { add("Jasa" to it.toRupiahCompact()) }
+        breakdown?.travelFeeIdr?.takeIf { it > 0 }?.let { add("Jarak" to it.toRupiahCompact()) }
+        val platformFee = breakdown?.platformFeeIdr?.takeIf { it > 0 } ?: order.platformCommissionIdr.takeIf { it > 0 }
+        platformFee?.let { add("Platform" to "-${it.toRupiahCompact()}") }
+    }
+
+    var now by remember(order.dispatchId, order.orderId) { mutableStateOf(System.currentTimeMillis()) }
+    var expiredSent by remember(order.dispatchId, order.orderId) { mutableStateOf(false) }
+    val expiresAt = order.offerExpiresAt ?: remember(order.dispatchId, order.orderId) {
+        System.currentTimeMillis() + (order.offerTtlSeconds ?: ON_DEMAND_OFFER_TTL_SECONDS) * 1000L
+    }
+    val remainingSeconds = offerRemainingSeconds(expiresAt, now)
+    val expired = remainingSeconds <= 0
+    val actionEnabled = !acceptBlocked && !expired
+
+    LaunchedEffect(order.dispatchId, order.orderId, expiresAt) {
+        while (isActive && System.currentTimeMillis() < expiresAt) {
+            now = System.currentTimeMillis()
+            delay(250L)
+        }
+        now = System.currentTimeMillis()
+    }
+    LaunchedEffect(remainingSeconds) {
+        if (remainingSeconds in 1..5) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+        if (expired && !expiredSent) {
+            expiredSent = true
+            onExpired()
+        }
+    }
+
+    Dialog(
+        onDismissRequest = {},
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(TambalOfferCanvas)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .padding(bottom = 82.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(color = TambalOfferGreenSoft, shape = RoundedCornerShape(999.dp)) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Surface(modifier = Modifier.size(8.dp), color = TambalOfferGreen, shape = CircleShape) {}
+                            Text("ONLINE", color = TambalOfferGreen, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
+                        }
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "$courierVehicleLabel${courierPlate.takeIf { it.isNotBlank() }?.let { " • $it" } ?: ""}",
+                            color = TambalOfferGreen,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Black,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text("Siap menerima order Tambal Ban", color = TambalOfferMuted, style = MaterialTheme.typography.labelSmall)
+                    }
+                    Surface(color = Color.White, shape = CircleShape, border = BorderStroke(1.dp, TambalOfferBorder)) {
+                        Icon(Icons.Default.NotificationsNone, contentDescription = "Notifikasi", tint = TambalOfferGreen, modifier = Modifier.padding(10.dp).size(20.dp))
+                    }
+                }
+
+                Surface(color = TambalOfferGreen, shape = RoundedCornerShape(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Icon(Icons.Default.Bolt, contentDescription = null, tint = TambalOfferMint, modifier = Modifier.size(17.dp))
+                            Text("Pendapatan Mayan Siaga", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        }
+                        Surface(color = TambalOfferOrange, shape = RoundedCornerShape(999.dp)) {
+                            Text(
+                                if (expired) "Tawaran berakhir" else "Batas ${remainingSeconds}s • $netEarnings",
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
+                }
+
+                Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(17.dp), border = BorderStroke(1.dp, TambalOfferBorder)) {
+                    Column(modifier = Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Surface(color = TambalOfferOrangeTint, shape = RoundedCornerShape(999.dp)) {
+                                Row(modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Icon(Icons.Default.Place, contentDescription = null, tint = TambalOfferOrange, modifier = Modifier.size(15.dp))
+                                    Text("LOKASI LAYANAN", color = TambalOfferOrange, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
+                                }
+                            }
+                            Surface(color = TambalOfferGreenSoft, shape = RoundedCornerShape(999.dp)) {
+                                Text(distanceLabel, modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp), color = TambalOfferGreen, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
+                            }
+                        }
+                        if (pickupPoint != null) {
+                            Box(modifier = Modifier.fillMaxWidth().height(208.dp).clip(RoundedCornerShape(13.dp))) {
+                                RuntimeMapRenderer(
+                                    modifier = Modifier.fillMaxSize(),
+                                    providerConfig = mapsProviderConfig,
+                                    markers = listOf(RuntimeMapMarker("tambal-offer-${order.orderId}", pickupPoint, "Lokasi layanan", order.pickupAddress)),
+                                    routePoints = listOf(pickupPoint),
+                                    followLocation = pickupPoint,
+                                    mapUiSettings = MapUiSettings(
+                                        zoomControlsEnabled = false,
+                                        myLocationButtonEnabled = false,
+                                        mapToolbarEnabled = false,
+                                        scrollGesturesEnabled = false,
+                                        zoomGesturesEnabled = false,
+                                        tiltGesturesEnabled = false,
+                                        rotationGesturesEnabled = false
+                                    ),
+                                    routeColor = TambalOfferOrange,
+                                    fallbackTitle = "Lokasi layanan",
+                                    fallbackMessage = "Peta mengikuti koordinat order dari server."
+                                )
+                                Surface(modifier = Modifier.align(Alignment.BottomStart).padding(9.dp), color = Color.White.copy(alpha = 0.94f), shape = RoundedCornerShape(999.dp)) {
+                                    Row(modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                        Icon(Icons.Default.Navigation, contentDescription = null, tint = TambalOfferGreen, modifier = Modifier.size(15.dp))
+                                        Text("$distanceLabel • $etaLabel", color = TambalOfferGreen, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        } else {
+                            Surface(modifier = Modifier.fillMaxWidth().height(208.dp), color = TambalOfferCanvas, shape = RoundedCornerShape(13.dp)) {
+                                Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                    Icon(Icons.Default.LocationOff, contentDescription = null, tint = TambalOfferMuted, modifier = Modifier.size(30.dp))
+                                    Text("Lokasi layanan belum tersedia", color = TambalOfferMuted, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                    Text("Menunggu koordinat dari server", color = TambalOfferMuted, style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                        Text(order.pickupAddress.ifBlank { "Alamat lokasi layanan sedang disinkronkan" }, color = Color(0xFF111713), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+
+                Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(17.dp), border = BorderStroke(1.dp, TambalOfferBorder)) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Tawaran Tambal Ban", color = TambalOfferOrange, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Black)
+                                Text("Pendapatan Bersih Mitra", color = TambalOfferMuted, style = MaterialTheme.typography.labelSmall)
+                                Text(netEarnings, color = TambalOfferGreen, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Black)
+                            }
+                            Surface(color = TambalOfferGreenSoft, shape = RoundedCornerShape(999.dp)) {
+                                Text("Tarif terkunci", modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp), color = TambalOfferGreen, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
+                            }
+                        }
+                        if (priceBreakdown.isNotEmpty()) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                priceBreakdown.forEach { (label, value) ->
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(label, color = TambalOfferMuted, style = MaterialTheme.typography.labelSmall)
+                                        Text(value, color = Color(0xFF111713), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                            }
+                        }
+                        Surface(color = TambalOfferCanvas, shape = RoundedCornerShape(11.dp)) {
+                            Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = TambalOfferGreen, modifier = Modifier.size(19.dp))
+                                Text("Tarif berasal dari server dan tidak berubah karena inspeksi tambahan.", color = TambalOfferMuted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+
+                TambalOfferSectionCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        if (order.customerPhotoUrl.isNotBlank()) {
+                            AsyncImage(model = ImageRequest.Builder(context).data(order.customerPhotoUrl).crossfade(true).build(), contentDescription = "Foto $customerName", modifier = Modifier.size(44.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+                        } else {
+                            Surface(color = TambalOfferGreenSoft, shape = CircleShape) {
+                                Icon(Icons.Default.Person, contentDescription = null, tint = TambalOfferGreen, modifier = Modifier.padding(10.dp).size(24.dp))
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(customerName, color = Color(0xFF111713), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black)
+                            Text(vehicleLabel, color = TambalOfferMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Icon(Icons.Default.Phone, contentDescription = null, tint = TambalOfferGreen, modifier = Modifier.size(22.dp))
+                    }
+                    Surface(color = TambalOfferGreenSoft, shape = RoundedCornerShape(11.dp)) {
+                        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.TireRepair, contentDescription = null, tint = TambalOfferOrange, modifier = Modifier.size(19.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Kondisi kerusakan", color = TambalOfferMuted, style = MaterialTheme.typography.labelSmall)
+                                Text(damageLabel, color = Color(0xFF111713), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                TambalOfferSectionCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = TambalOfferGreen, modifier = Modifier.size(18.dp))
+                        Text("Foto lokasi & ban", color = Color(0xFF111713), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black)
+                        Text("${photoUrls.size} foto", color = TambalOfferMuted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
+                    if (photoUrls.isEmpty()) {
+                        Surface(color = TambalOfferCanvas, shape = RoundedCornerShape(11.dp)) {
+                            Text("Customer belum mengirim foto kondisi.", modifier = Modifier.padding(10.dp), color = TambalOfferMuted, style = MaterialTheme.typography.bodySmall)
+                        }
+                    } else {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            photoUrls.forEachIndexed { index, (_, url) ->
+                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    AsyncImage(model = ImageRequest.Builder(context).data(url).crossfade(true).build(), contentDescription = "Foto kondisi ${index + 1}", modifier = Modifier.fillMaxWidth().height(108.dp).clip(RoundedCornerShape(11.dp)), contentScale = ContentScale.Crop)
+                                    Text(photoUrls[index].first.ifBlank { "Foto kondisi" }, color = TambalOfferMuted, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                    Surface(color = TambalOfferCanvas, shape = RoundedCornerShape(11.dp)) {
+                        Row(modifier = Modifier.padding(9.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Icon(Icons.Default.Security, contentDescription = null, tint = TambalOfferGreen, modifier = Modifier.size(17.dp))
+                            Text("Gunakan perlengkapan sesuai standar keselamatan TEMBUS.", color = TambalOfferMuted, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+
+                TambalOfferSectionCard {
+                    Text("Rute penanganan darurat", color = Color(0xFF111713), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black)
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Surface(modifier = Modifier.size(12.dp), color = TambalOfferGreen, shape = CircleShape) {}
+                            Box(modifier = Modifier.width(2.dp).height(38.dp).background(TambalOfferGreen.copy(alpha = 0.25f)))
+                            Surface(modifier = Modifier.size(12.dp), color = TambalOfferOrange, shape = CircleShape) {}
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                            Column {
+                                Text("Posisi Anda sekarang", color = TambalOfferMuted, style = MaterialTheme.typography.labelSmall)
+                                Text("Menuju lokasi layanan", color = Color(0xFF111713), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            }
+                            Column {
+                                Text("TKP penanganan ban", color = TambalOfferOrange, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                Text(order.pickupAddress.ifBlank { "Alamat lokasi layanan sedang disinkronkan" }, color = Color(0xFF111713), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                TambalOfferSectionCard {
+                    Text("Spesifikasi & standar peralatan", color = Color(0xFF111713), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black)
+                    specificationItems.forEach { item ->
+                        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.CheckBox, contentDescription = null, tint = TambalOfferGreen, modifier = Modifier.size(18.dp))
+                            Text(item, color = Color(0xFF111713), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+
+                if (acceptBlocked) {
+                    Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(11.dp)) {
+                        Text(blockedReason, modifier = Modifier.padding(10.dp), color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Button(
+                    onClick = {
+                        if (actionEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onAccept()
+                        }
+                    },
+                    enabled = actionEnabled,
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    shape = RoundedCornerShape(999.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = TambalOfferOrange, contentColor = Color.White, disabledContainerColor = Color(0xFFD7DCD8), disabledContentColor = TambalOfferMuted)
+                ) {
+                    Icon(Icons.Default.TaskAlt, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(7.dp))
+                    Text("Terima $serviceLabel ($netEarnings)", fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                OutlinedButton(
+                    onClick = onReject,
+                    enabled = !expired,
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    shape = RoundedCornerShape(999.dp),
+                    border = BorderStroke(1.dp, TambalOfferBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TambalOfferMuted)
+                ) {
+                    Icon(Icons.Default.Cancel, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(7.dp))
+                    Text("Tolak tawaran", fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(6.dp))
+                    Surface(color = TambalOfferGreenSoft, shape = RoundedCornerShape(999.dp)) {
+                        Text("Bebas penalti SOP", modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp), color = TambalOfferGreen, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            Surface(
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                color = Color.White,
+                shadowElevation = 8.dp,
+                border = BorderStroke(1.dp, TambalOfferBorder)
+            ) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 7.dp), horizontalArrangement = Arrangement.SpaceAround) {
+                    TambalOfferNavItem(Icons.Default.WorkOutline, "Kerja", selected = true)
+                    TambalOfferNavItem(Icons.Default.ReceiptLong, "Order")
+                    TambalOfferNavItem(Icons.Default.AccountBalanceWallet, "Dompet")
+                    TambalOfferNavItem(Icons.Default.ChatBubbleOutline, "Pesan")
+                    TambalOfferNavItem(Icons.Default.PersonOutline, "Akun")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TambalOfferSectionCard(content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        shape = RoundedCornerShape(17.dp),
+        border = BorderStroke(1.dp, TambalOfferBorder)
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp), content = content)
+    }
+}
+
+@Composable
+private fun TambalOfferNavItem(icon: ImageVector, label: String, selected: Boolean = false) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.widthIn(min = 52.dp)) {
+        Icon(icon, contentDescription = label, tint = if (selected) TambalOfferOrange else TambalOfferMuted, modifier = Modifier.size(22.dp))
+        Text(label, color = if (selected) TambalOfferOrange else TambalOfferMuted, style = MaterialTheme.typography.labelSmall, fontWeight = if (selected) FontWeight.Black else FontWeight.Medium)
     }
 }
 
