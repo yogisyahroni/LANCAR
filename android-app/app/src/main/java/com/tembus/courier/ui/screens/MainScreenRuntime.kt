@@ -335,6 +335,18 @@ internal fun MainScreenRuntime(
         actions.performDutyToggle(snackbarHostState, orderViewModel, authSessionManager, allOrders, online)
     }
 
+    // The permission callback lives in the action state, while the actual
+    // duty request lives here. Keep the pending intent alive until permission
+    // is granted, then retry the original action instead of leaving the user
+    // stranded on Offline after tapping "Izinkan lokasi".
+    LaunchedEffect(actions.pendingOnlineAfterForegroundPermission(), hasForegroundLocationPermission(context)) {
+        if (actions.pendingOnlineAfterForegroundPermission() && hasForegroundLocationPermission(context)) {
+            actions.setPendingOnlineAfterForegroundPermission(false)
+            showForegroundLocationPermissionDialog = false
+            performDutyToggle(online = true)
+        }
+    }
+
     fun requestDutyToggle(online: Boolean) {
         if (online && !hasForegroundLocationPermission(context)) {
             actions.setPendingOnlineAfterForegroundPermission(true)

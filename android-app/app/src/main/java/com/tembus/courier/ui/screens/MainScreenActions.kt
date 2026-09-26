@@ -57,8 +57,8 @@ fun rememberMainScreenActionState(
         val granted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
             grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
             hasForegroundLocationPermission(context)
-        pendingOnlineAfterForegroundPermission = false
         if (!granted) {
+            pendingOnlineAfterForegroundPermission = false
             scope.launch {
                 // Snackbar shown by caller
             }
@@ -142,7 +142,23 @@ class MainScreenActionState(
         online: Boolean
     ) {
         if (!online) {
-            val hasActiveJobs = allOrders.any { it.status != "delivered" && it.status != "failed" }
+            // Cached history can still contain cancelled/failed orders. Only a
+            // non-terminal order should prevent the courier from going off duty.
+            val terminalStatuses = setOf(
+                "delivered",
+                "completed",
+                "done",
+                "selesai",
+                "failed",
+                "delivery_failed",
+                "gagal",
+                "cancelled",
+                "canceled",
+                "pickup_cancelled"
+            )
+            val hasActiveJobs = allOrders.any {
+                it.status.trim().lowercase() !in terminalStatuses
+            }
             if (hasActiveJobs) {
                 snackbarHostState.showSnackbar("Peringatan: Selesaikan semua tugas pengiriman sebelum nonaktif.")
                 return
