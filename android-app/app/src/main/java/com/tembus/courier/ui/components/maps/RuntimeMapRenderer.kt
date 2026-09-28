@@ -543,11 +543,18 @@ private fun hasTomTomSdkKey(): Boolean = BuildConfig.TOMTOM_API_KEY.trim().isNot
 
 /**
  * TomTom's runtime native map engine is packaged for ARM only in this app.
- * x86/x86_64 emulators must use the tile fallback instead of Android's ARM
- * translation layer, which is not stable for this native SDK.
+ *
+ * Android x86 emulator images may advertise ARM ABIs as translated
+ * compatibility ABIs (for example: x86, armeabi-v7a, armeabi). Checking the
+ * whole list would therefore route the emulator into TomTom even though its
+ * native TomTom library is not loadable. Only the primary ABI represents the
+ * actual runtime architecture that can safely load the SDK here.
  */
 private fun isTomTomSdkSupportedOnCurrentAbi(): Boolean =
-    Build.SUPPORTED_ABIS.any { abi -> abi == "arm64-v8a" || abi == "armeabi-v7a" }
+    when (Build.SUPPORTED_ABIS.firstOrNull()) {
+        "arm64-v8a", "armeabi-v7a" -> true
+        else -> false
+    }
 
 private fun LatLng.toGeoPoint(): GeoPoint = GeoPoint(latitude, longitude)
 
