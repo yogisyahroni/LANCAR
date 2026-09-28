@@ -154,11 +154,32 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 		batchOrders = []*domain.Order{order}
 	}
 
-	// Cascading search radius: dynamic from service product or default 3km, 5km, 10km
-	radii := []float64{3, 5, 10}
-	if serviceProduct, err := s.pricingRepo.GetDeliveryServiceByCode(ctx, order.Model); err == nil && len(serviceProduct.SearchRadiiKM) > 0 {
-		radii = serviceProduct.SearchRadiiKM
+	// Cascading radius and the maximum discovery window are both owned by the
+	// Admin-managed delivery service catalog. Do not silently fall back to a
+	// runtime timeout: customer-facing expiry must match the DB configuration.
+	if s.pricingRepo == nil {
+		return fmt.Errorf("provider search configuration repository is unavailable")
 	}
+	serviceCode := strings.TrimSpace(order.ServiceCode)
+	if serviceCode == "" {
+		serviceCode = strings.TrimSpace(order.ServiceSubType)
+	}
+	if serviceCode == "" {
+		serviceCode = strings.TrimSpace(order.Model)
+	}
+	serviceProduct, err := s.pricingRepo.GetDeliveryServiceByCode(ctx, serviceCode)
+	if err != nil {
+		return fmt.Errorf("load provider search configuration for %s: %w", serviceCode, err)
+	}
+	if serviceProduct == nil || len(serviceProduct.SearchRadiiKM) == 0 || serviceProduct.ProviderSearchTimeoutMinutes <= 0 {
+		return fmt.Errorf("provider search configuration is incomplete for %s", serviceCode)
+	}
+	radii := serviceProduct.SearchRadiiKM
+	searchStartedAt := order.CreatedAt
+	if searchStartedAt.IsZero() {
+		searchStartedAt = time.Now()
+	}
+	searchDeadline := searchStartedAt.Add(time.Duration(serviceProduct.ProviderSearchTimeoutMinutes) * time.Minute)
 
 	// S2-OS-02: Ganti time.Sleep(30s) blocking dengan polling loop
 	// (1 detik interval) + context cancellation. Ini mencegah goroutine
@@ -175,6 +196,9 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 		case <-ctx.Done():
 			return fmt.Errorf("matching cancelled: %w", ctx.Err())
 		default:
+		}
+		if !time.Now().Before(searchDeadline) {
+			break
 		}
 
 		courierIDs, err := s.redisRepo.FindNearbyCouriers(ctx, order.PickupLat, order.PickupLng, radius)
@@ -203,7 +227,11 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 			batch := scoredCouriers[i:end]
 
 			// Set dispatch expiry for the batch
-			expiry := time.Now().Add(batchOfferTimeout)
+			batchExpiry := time.Now().Add(batchOfferTimeout)
+			if searchDeadline.Before(batchExpiry) {
+				batchExpiry = searchDeadline
+			}
+			expiry := batchExpiry
 			for _, o := range batchOrders {
 				if err := s.orderRepo.SetDispatchExpiry(ctx, o.ID, expiry); err != nil {
 					log.Printf("Failed to set dispatch expiry for order %s: %v", o.ID, err)
@@ -218,7 +246,11 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 			// ── Polling wait instead of time.Sleep ─────────────────
 			// Poll every 1s for courier acceptance or timeout.
 			// Context cancellation lets the caller abort early.
-			deadline := time.After(batchOfferTimeout)
+			remaining := time.Until(batchExpiry)
+			if remaining <= 0 {
+				continue
+			}
+			deadline := time.NewTimer(remaining)
 			ticker := time.NewTicker(pollInterval)
 			accepted := false
 
@@ -228,7 +260,13 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 				case <-ctx.Done():
 					ticker.Stop()
 					return fmt.Errorf("matching cancelled: %w", ctx.Err())
-				case <-deadline:
+				case <-deadline.C:
+					if !deadline.Stop() {
+						select {
+						case <-deadline.C:
+						default:
+						}
+					}
 					ticker.Stop()
 					break pollLoop
 				case <-ticker.C:
@@ -337,7 +375,11 @@ func (s *orderServiceImpl) courierAvailableForMatching(ctx context.Context, cour
 	if state.PresenceState != "" && state.PresenceState != "online" {
 		return false
 	}
-	if state.HeartbeatAt != nil && time.Since(*state.HeartbeatAt) > 120*time.Second {
+	staleAfterSeconds := 600
+	if s.configRepo != nil {
+		staleAfterSeconds = s.configRepo.GetIntConfig(ctx, "courier_presence_stale_after_seconds", staleAfterSeconds)
+	}
+	if state.HeartbeatAt != nil && time.Since(*state.HeartbeatAt) > time.Duration(staleAfterSeconds)*time.Second {
 		return false
 	}
 

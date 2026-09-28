@@ -896,6 +896,7 @@ export type CustomerPriceCalculationInput = {
   recipientName?: string | null;
   recipientPhone?: string | null;
   requiresDeliveryCode?: boolean;
+  requestedHoleCount?: number | null;
 };
 
 const normalizeFingerprintDimensions = (value: unknown) => {
@@ -967,6 +968,7 @@ export const customerQuoteInputFingerprint = ({
   recipientName,
   recipientPhone,
   requiresDeliveryCode,
+  requestedHoleCount,
 }: CustomerPriceCalculationInput & { packages: NormalizedOrderPackage[] }) => crypto
   .createHash('sha256')
   .update(JSON.stringify({
@@ -986,6 +988,7 @@ export const customerQuoteInputFingerprint = ({
     recipient_name: recipientName || null,
     recipient_phone: recipientPhone || null,
     requires_delivery_code: Boolean(requiresDeliveryCode),
+    requested_hole_count: requestedHoleCount || null,
   }))
   .digest('hex');
 
@@ -1103,9 +1106,26 @@ export const calculateCustomerPriceBreakdown = async ({
     recipientName,
     recipientPhone,
     requiresDeliveryCode,
+    requestedHoleCount,
   }: CustomerPriceCalculationInput) => {
   const quoteId = crypto.randomUUID();
   const quoteExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const isTambalBanService = String(service.code || '').startsWith('tambal_ban');
+  const normalizedRequestedHoleCount = requestedHoleCount == null ? null : Number(requestedHoleCount);
+  const configuredMaxHoleCount = Number(service.metadata?.max_hole_count);
+  if (isTambalBanService && normalizedRequestedHoleCount != null
+    && (!Number.isSafeInteger(configuredMaxHoleCount) || configuredMaxHoleCount < 1
+      || !Number.isSafeInteger(normalizedRequestedHoleCount) || normalizedRequestedHoleCount < 1
+      || normalizedRequestedHoleCount > configuredMaxHoleCount)) {
+    const error = !Number.isSafeInteger(configuredMaxHoleCount) || configuredMaxHoleCount < 1
+      ? new Error('Konfigurasi batas jumlah lubang tambal ban belum tersedia.')
+      : new Error(`Jumlah lubang harus 1-${configuredMaxHoleCount}.`);
+    (error as any).statusCode = 400;
+    (error as any).code = !Number.isSafeInteger(configuredMaxHoleCount) || configuredMaxHoleCount < 1
+      ? 'ERR_TAMBAL_BAN_HOLE_LIMIT_NOT_CONFIGURED'
+      : 'ERR_INVALID_TAMBAL_BAN_HOLE_COUNT';
+    throw error;
+  }
 
   // ─── Quote-based pricing (aggregator/3PL) ────────────────────
   // These services don't use internal distance × multiplier pricing.
@@ -1138,6 +1158,7 @@ export const calculateCustomerPriceBreakdown = async ({
       service, pickupPoint, dropoffPoint, dimensions, weightKg, packages: normalizedPkgs,
       hasInsurance, itemValue, sizeTier, courierId, materialCodes,
       recipientName, recipientPhone, requiresDeliveryCode,
+      requestedHoleCount: normalizedRequestedHoleCount,
     });
     const publicQuoteRoute = publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` });
 
@@ -1223,6 +1244,7 @@ export const calculateCustomerPriceBreakdown = async ({
     service, pickupPoint, dropoffPoint, dimensions, weightKg, packages: normalizedPackages,
     hasInsurance, itemValue, sizeTier, courierId, materialCodes,
     recipientName, recipientPhone, requiresDeliveryCode,
+    requestedHoleCount: normalizedRequestedHoleCount,
   });
   const selectedTier = resolveSizeTier(service, sizeTier || normalizedPackages[0]?.size_tier || undefined);
   const divisor = toNumber(service.dimension_rules?.volumetric_divisor, 6000);
@@ -1260,7 +1282,8 @@ export const calculateCustomerPriceBreakdown = async ({
         // lalu +per_km utk km berikutnya.
               const courierPrice = isHomeService && courierId
                               ? await db.query(
-                                  `SELECT price_amount FROM courier_service_prices
+                                  `SELECT price_amount, price_per_hole_idr, per_km_rate_idr, toll_entry_idr, toll_exit_idr
+                                      FROM courier_service_prices
                                                                      WHERE (courier_id = $1
                                                                         OR courier_id = (SELECT id FROM courier_profiles WHERE user_id = $1))
                                                                        AND service_code = $2 AND is_active = TRUE
@@ -1268,12 +1291,30 @@ export const calculateCustomerPriceBreakdown = async ({
                                   [courierId, service.code]
                                 )
                               : null;
+              const providerPricePerHole = (isTambalBanService && courierId && courierPrice && courierPrice.rows.length > 0)
+                ? toNumber(courierPrice.rows[0].price_per_hole_idr, 0)
+                : 0;
+              if (isTambalBanService && normalizedRequestedHoleCount != null && courierId
+                && courierPrice && courierPrice.rows.length > 0 && providerPricePerHole <= 0) {
+                const error = new Error('Petugas belum mengatur harga per lubang tambal ban. Pilih petugas lain atau coba lagi.');
+                (error as any).statusCode = 422;
+                (error as any).code = 'ERR_TAMBAL_BAN_HOLE_PRICE_MISSING';
+                throw error;
+              }
               const serviceFee = (isHomeService && courierId && courierPrice && courierPrice.rows.length > 0)
-                ? toNumber(courierPrice.rows[0].price_amount, toNumber(service.base_fare_idr, 0))
+                ? (isTambalBanService && normalizedRequestedHoleCount != null
+                  ? providerPricePerHole * normalizedRequestedHoleCount
+                  : toNumber(courierPrice.rows[0].price_amount, toNumber(service.base_fare_idr, 0)))
                 : toNumber(service.base_fare_idr, 0);
+        const providerPerKmRate = (isHomeService && courierId && courierPrice && courierPrice.rows.length > 0)
+          ? toNumber(courierPrice.rows[0].per_km_rate_idr, toNumber(service.per_km_idr, 0))
+          : toNumber(service.per_km_idr, 0);
+        const providerTollCost = (isHomeService && courierId && courierPrice && courierPrice.rows.length > 0)
+          ? toNumber(courierPrice.rows[0].toll_entry_idr, 0) + toNumber(courierPrice.rows[0].toll_exit_idr, 0)
+          : 0;
         const distanceLeg = includedKm; // 0-1km = base fare penuh (bukan gratis)
         const baseBeforeMultiplier = serviceFee
-          + (distanceChargeKm * service.per_km_idr)
+          + (distanceChargeKm * providerPerKmRate)
           + (toNumber(service.base_fare_idr, 0) * distanceLeg)
           + tierDelta;
         const basePrice = roundRupiah(baseBeforeMultiplier * service.service_multiplier * tierMultiplier);
@@ -1321,10 +1362,10 @@ export const calculateCustomerPriceBreakdown = async ({
     let platformFeeBase = basePrice;
     if (isHomeService && courierId && courierPrice && courierPrice.rows.length > 0) {
       platformFeeBase = (toNumber(service.base_fare_idr, 0) * includedKm)
-        + (distanceChargeKm * service.per_km_idr);
+        + (distanceChargeKm * providerPerKmRate);
     }
     const platformFee = Math.ceil(service.platform_fee_idr + (platformFeeBase * service.platform_fee_pct));
-  const tollCost = toNumber(service.metadata?.toll_cost_idr, 0);
+  const tollCost = providerTollCost > 0 ? providerTollCost : toNumber(service.metadata?.toll_cost_idr, 0);
   const totalPrice = priceAfterSurge + volumetricSurcharge + insurancePremium + platformFee + materialCost + tollCost;
 
   return {
@@ -1343,17 +1384,23 @@ export const calculateCustomerPriceBreakdown = async ({
       route_snapshot: publicQuoteRoute,
       base_price_idr: basePrice,
       service_fee_idr: isHomeService && courierId && courierPrice && courierPrice.rows.length > 0
-        ? toNumber(courierPrice.rows[0].price_amount, toNumber(service.base_fare_idr, 0))
+        ? (isTambalBanService && normalizedRequestedHoleCount != null
+          ? toNumber(courierPrice.rows[0].price_per_hole_idr, 0) * normalizedRequestedHoleCount
+          : toNumber(courierPrice.rows[0].price_amount, toNumber(service.base_fare_idr, 0)))
         : 0,
+      price_per_hole_idr: isTambalBanService && courierPrice?.rows?.length
+        ? toNumber(courierPrice.rows[0].price_per_hole_idr, 0)
+        : 0,
+      requested_hole_count: normalizedRequestedHoleCount,
       travel_fee_idr: isHomeService && courierId && courierPrice && courierPrice.rows.length > 0
-              ? Math.ceil(toNumber(service.base_fare_idr, 0) * includedKm) + Math.round(distanceChargeKm * service.per_km_idr)
+              ? Math.ceil(toNumber(service.base_fare_idr, 0) * includedKm) + Math.round(distanceChargeKm * providerPerKmRate)
               : 0,
             platform_fee_breakdown_idr: isHomeService && courierId && courierPrice && courierPrice.rows.length > 0
               ? platformFee
               : 0,
             platform_commission_pct: toNumber(service.platform_commission_percent, 0),
       base_fare_idr: toNumber(service.base_fare_idr, 0),
-      per_km_idr: toNumber(service.per_km_idr, 0),
+      per_km_idr: providerPerKmRate,
       included_distance_km: includedKm,
       platform_fee_pct: toNumber(service.platform_fee_pct, 0),
       actual_weight_kg: Number(actualWeight.toFixed(2)),
@@ -1367,7 +1414,9 @@ export const calculateCustomerPriceBreakdown = async ({
     dynamic_price_idr: dynamicPrice,
       platform_fee_idr: platformFee,
       toll_cost_idr: tollCost,
-      toll_cost_source: tollCost > 0 ? 'service_configuration' : 'unavailable',
+      toll_cost_source: tollCost > 0
+        ? (providerTollCost > 0 ? 'provider_offer' : 'service_configuration')
+        : 'unavailable',
       material_cost_idr: materialCost,
       materials: selectedMaterials,
       delivery_model: service.route_model,
@@ -1382,6 +1431,15 @@ export const calculateCustomerPriceBreakdown = async ({
       material_cost_idr: materialCost,
       toll_cost_idr: tollCost,
       total_price_idr: totalPrice,
+      service_fee_idr: isHomeService && courierId && courierPrice && courierPrice.rows.length > 0
+        ? (isTambalBanService && normalizedRequestedHoleCount != null
+          ? toNumber(courierPrice.rows[0].price_per_hole_idr, 0) * normalizedRequestedHoleCount
+          : toNumber(courierPrice.rows[0].price_amount, toNumber(service.base_fare_idr, 0)))
+        : 0,
+      price_per_hole_idr: isTambalBanService && courierPrice?.rows?.length
+        ? toNumber(courierPrice.rows[0].price_per_hole_idr, 0)
+        : 0,
+      requested_hole_count: normalizedRequestedHoleCount,
     },
   };
 };

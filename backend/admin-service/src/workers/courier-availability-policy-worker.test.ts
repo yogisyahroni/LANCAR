@@ -29,4 +29,27 @@ describe('courier availability policy worker', () => {
       transitioned: 0,
     });
   });
+
+  it('reads the stale window from the database when no explicit override is supplied', async () => {
+    const queryable: AvailabilityPolicyQueryable = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({ rows: [{ stale_after_seconds: 600 }] })
+        .mockResolvedValueOnce({ rows: [{ transitioned: 0 }] }),
+    };
+
+    await expect(runCourierAvailabilityPolicyTick(queryable)).resolves.toEqual({
+      staleAfterSeconds: 600,
+      transitioned: 0,
+    });
+    expect(queryable.query).toHaveBeenNthCalledWith(
+      1,
+      'SELECT courier_presence_stale_after_seconds()::int AS stale_after_seconds',
+    );
+    expect(queryable.query).toHaveBeenNthCalledWith(
+      2,
+      'SELECT mark_stale_couriers_unavailable($1)::int AS transitioned',
+      [600],
+    );
+  });
 });

@@ -175,6 +175,7 @@ data class CustomerPriceEstimateRequest(
     @SerialName("package_details") val packageDetails: PackageDetailsPayload? = null,
     @SerialName("recipient_name") val recipientName: String? = null,
     @SerialName("recipient_phone") val recipientPhone: String? = null,
+    @SerialName("requested_hole_count") val requestedHoleCount: Int? = null,
     @SerialName("currency") val currency: String? = null,
     @SerialName("currency_minor_unit") val currencyMinorUnit: Int? = null
 )
@@ -222,6 +223,10 @@ data class PriceBreakdown(
     @SerialName("distance_km") val distanceKm: Double = 0.0,
     @SerialName("route_snapshot") val routeSnapshot: RouteSnapshot? = null,
     @SerialName("base_price_idr") val basePriceIdr: Long = 0,
+    @SerialName("service_fee_idr") val serviceFeeIdr: Long = 0,
+    @SerialName("travel_fee_idr") val travelFeeIdr: Long = 0,
+    @SerialName("price_per_hole_idr") val pricePerHoleIdr: Long = 0,
+    @SerialName("requested_hole_count") val requestedHoleCount: Int? = null,
     @SerialName("base_price_minor") val basePriceMinor: Long = 0,
     @SerialName("actual_weight_kg") val actualWeightKg: Double = 0.0,
     @SerialName("dimensional_weight_kg") val dimensionalWeightKg: Double = 0.0,
@@ -360,7 +365,8 @@ data class VehicleDetailsPayload(
     @SerialName("access_constraints") val accessConstraints: String,
     @SerialName("notes") val notes: String,
     @SerialName("towing_conditions") val towingConditions: List<String> = emptyList(),
-    @SerialName("photo_urls") val photoUrls: List<String> = emptyList()
+    @SerialName("photo_urls") val photoUrls: List<String> = emptyList(),
+    @SerialName("requested_hole_count") val requestedHoleCount: Int? = null
 )
 
 @Serializable

@@ -25,6 +25,9 @@ export type PreferredCourierEligibilityDecision = {
 const roadsideService = (serviceCode: string): boolean =>
   serviceCode.startsWith('tambal_ban_') || serviceCode.startsWith('towing_');
 
+export const requiresPreferredRoadsideCourier = (serviceCode: string, preferredCourierId: string): boolean =>
+  roadsideService(serviceCode) && preferredCourierId.trim().length === 0;
+
 const finiteNumber = (value: unknown): number | null => {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) ? numberValue : null;
@@ -196,7 +199,17 @@ export const validatePreferredCourierForCreate = async (
     .trim()
     .toLowerCase();
 
-  if (!preferredCourierId || !roadsideService(serviceCode)) {
+  if (requiresPreferredRoadsideCourier(serviceCode, preferredCourierId)) {
+    res.status(409).json({
+      success: false,
+      code: 'ERR_ROADSIDE_PROVIDER_REQUIRED',
+      error: 'Pilih dan kunci penawaran petugas terlebih dahulu sebelum membuat order roadside.',
+      next_action: 'Kembali ke daftar penawaran lalu pilih petugas yang tersedia.',
+    });
+    return;
+  }
+
+  if (!roadsideService(serviceCode)) {
     next();
     return;
   }

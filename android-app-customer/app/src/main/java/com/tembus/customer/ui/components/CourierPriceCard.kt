@@ -45,7 +45,11 @@ fun NearbyCourier.toTembusCarrierRateData(selected: Boolean = false): TembusCarr
         id = courierId,
         providerName = courierName,
         serviceLabel = serviceSubType.replace('_', ' ').ifBlank { "Layanan TEMBUS" },
-        priceLabel = "Rp ${formatRupiah(courierServicePrice)}",
+        priceLabel = if (serviceSubType.startsWith("tambal_ban") && pricePerHoleIdr > 0) {
+            "Rp ${formatRupiah(pricePerHoleIdr)} / lubang"
+        } else {
+            "Rp ${formatRupiah(courierServicePrice)}"
+        },
         etaLabel = "ETA ${etaMinutes.coerceAtLeast(0)} menit",
         capabilityLabel = capability,
         distanceLabel = "Jarak ${formatOneDecimal(distanceKm)} km",

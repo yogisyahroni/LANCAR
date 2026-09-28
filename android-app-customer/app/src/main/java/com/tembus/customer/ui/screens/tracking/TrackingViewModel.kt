@@ -25,6 +25,8 @@ import java.util.UUID
 data class TrackingUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
+    val pickupLocation: LatLng? = null,
+    val dropoffLocation: LatLng? = null,
     val courierLocation: LatLng? = null,
     val courierHeading: Float = 0f,
     val routePoints: List<LatLng> = emptyList(),
@@ -293,6 +295,14 @@ class TrackingViewModel @Inject constructor(
                     ?: detail.order.etaMinutes?.takeIf { minutes -> minutes > 0 }?.let { minutes -> "$minutes menit" }
                 currentState.copy(
                     detail = detail,
+                    pickupLocation = latLngOrNull(
+                        detail.order.pickupLatitude,
+                        detail.order.pickupLongitude,
+                    ),
+                    dropoffLocation = latLngOrNull(
+                        detail.order.dropoffLatitude,
+                        detail.order.dropoffLongitude,
+                    ),
                     routePoints = if (currentState.routePoints.isEmpty() && orderRoutePoints.isNotEmpty()) orderRoutePoints else currentState.routePoints,
                     eta = currentState.eta ?: etaFromOrder
                 )
@@ -340,6 +350,13 @@ class TrackingViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = false) }
         }
     }
+}
+
+private fun latLngOrNull(latitude: Double?, longitude: Double?): LatLng? {
+    if (latitude == null || longitude == null) return null
+    if (!latitude.isFinite() || !longitude.isFinite()) return null
+    if (latitude !in -90.0..90.0 || longitude !in -180.0..180.0) return null
+    return LatLng(latitude, longitude)
 }
 
 private fun decodeEncodedPolyline(encoded: String?): List<LatLng> {

@@ -868,6 +868,18 @@ data class CourierEarningsLedgerSummary(
     val taxIdr: Int = 0,
     @SerialName("fee_idr")
     val feeIdr: Int = 0,
+    @SerialName("today_net_earnings_idr")
+    val todayNetEarningsIdr: Int = 0,
+    @SerialName("today_order_earnings_idr")
+    val todayOrderEarningsIdr: Int = 0,
+    @SerialName("today_tip_earnings_idr")
+    val todayTipEarningsIdr: Int = 0,
+    @SerialName("today_incentive_earnings_idr")
+    val todayIncentiveEarningsIdr: Int = 0,
+    @SerialName("today_fee_idr")
+    val todayFeeIdr: Int = 0,
+    @SerialName("today_order_count")
+    val todayOrderCount: Int = 0,
     @SerialName("market_code")
     val marketCode: String? = null,
     @SerialName("currency_code")
@@ -1042,7 +1054,8 @@ data class CourierEarningsTransaction(
     @SerialName("created_at")
     val createdAt: String? = null,
     @SerialName("display_amount") val displayAmount: String? = null,
-    @SerialName("occurred_at_local") val occurredAtLocal: String? = null
+    @SerialName("occurred_at_local") val occurredAtLocal: String? = null,
+    @SerialName("earning_breakdown") val earningBreakdown: Map<String, Int> = emptyMap()
 )
 
 @Serializable

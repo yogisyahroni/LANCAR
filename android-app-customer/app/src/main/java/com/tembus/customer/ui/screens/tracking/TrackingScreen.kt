@@ -186,17 +186,30 @@ fun TrackingScreen(
         }
     }
 
-    val mapMarkers = remember(uiState.courierLocation, uiState.detail?.order?.courierName) {
-        uiState.courierLocation?.let { loc ->
-            listOf(
-                RuntimeMapMarker(
-                    id = "courier",
-                    position = loc,
-                    title = uiState.detail?.order?.courierName ?: "Kurir Anda",
-                    snippet = "Posisi diperbarui otomatis"
+    val mapMarkers = remember(
+        uiState.pickupLocation,
+        uiState.dropoffLocation,
+        uiState.courierLocation,
+        uiState.detail?.order?.courierName,
+    ) {
+        buildList {
+            uiState.pickupLocation?.let { location ->
+                add(RuntimeMapMarker("pickup", location, "Lokasi penjemputan", uiState.detail?.order?.pickupAddress))
+            }
+            uiState.dropoffLocation?.let { location ->
+                add(RuntimeMapMarker("dropoff", location, "Tujuan pengantaran", uiState.detail?.order?.dropoffAddress))
+            }
+            uiState.courierLocation?.let { location ->
+                add(
+                    RuntimeMapMarker(
+                        id = "courier",
+                        position = location,
+                        title = uiState.detail?.order?.courierName ?: "Kurir Anda",
+                        snippet = "Posisi diperbarui otomatis",
+                    )
                 )
-            )
-        } ?: emptyList()
+            }
+        }
     }
 
     PullToRefreshBox(
@@ -220,7 +233,7 @@ fun TrackingScreen(
             providerConfig = uiState.mapsProviderConfig,
             markers = mapMarkers,
             routePoints = uiState.routePoints,
-            followLocation = uiState.courierLocation,
+            followLocation = uiState.courierLocation ?: uiState.pickupLocation,
             mapProperties = mapProps,
             mapUiSettings = mapUi,
             routeColor = Primary,

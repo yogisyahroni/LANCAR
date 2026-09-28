@@ -125,3 +125,19 @@ func isVehicleCapable(vehicleType, serviceSubType string) bool {
 	}
 	return false
 }
+
+// isCourierVehicleCapable reads the canonical vehicle field for each service
+// family. Roadside towing uses the courier's transport vehicle (vehicle_type_car)
+// while tire repair uses the courier's motorcycle vehicle_type.
+func isCourierVehicleCapable(courier *domain.NearbyCourier, serviceSubType string) bool {
+	if courier == nil {
+		return false
+	}
+	if IsTowing(serviceSubType) {
+		if courier.VehicleTypeCar == nil {
+			return false
+		}
+		return isVehicleCapable(*courier.VehicleTypeCar, serviceSubType)
+	}
+	return isVehicleCapable(courier.VehicleType, serviceSubType)
+}

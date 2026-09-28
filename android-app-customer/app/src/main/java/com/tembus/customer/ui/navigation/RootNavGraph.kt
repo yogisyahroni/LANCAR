@@ -771,6 +771,7 @@ fun RootNavGraph(
                     initialPhotos = initialPhotos,
                     initialDamageType = initialDraft.damageType,
                     initialNotes = initialDraft.notes,
+                    initialRequestedHoleCount = initialDraft.requestedHoleCount,
                     initialTowingConditions = initialTowingConditions,
                     initialTowingNotes = initialTowingNotes,
                     initialPickup = initialPickup,
@@ -813,6 +814,7 @@ fun RootNavGraph(
                             navController.currentBackStackEntry?.savedStateHandle,
                             draft.damageType,
                             draft.notes,
+                            draft.requestedHoleCount,
                         )
                         navController.navigate(Screen.CourierDetail.createRoute(serviceSubType = serviceSubType, courierId = courierId, lat = lat, lng = lng))
                     }
@@ -858,12 +860,13 @@ fun RootNavGraph(
             composable(Screen.TambalBanHome.route) {
                 TambalBanHomeScreen(
                     onBackClick = { navController.popBackStack() },
-                    onServiceSelected = { serviceSubType, photos, problemLabels, notes, lat, lng ->
+                    onServiceSelected = { serviceSubType, photos, problemLabels, notes, requestedHoleCount, lat, lng ->
                         stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, photos)
                         stageServiceRequestDraft(
                             navController.currentBackStackEntry?.savedStateHandle,
                             problemLabels.joinToString("; "),
                             notes,
+                            requestedHoleCount,
                         )
                         if (serviceSubType.startsWith("towing")) {
                             // The Figma emergency flow is the canonical towing entry point.
@@ -878,12 +881,13 @@ fun RootNavGraph(
                             navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType))
                         }
                     },
-                    onCourierSelected = { courier, photos, problemLabels, notes, lat, lng ->
+                    onCourierSelected = { courier, photos, problemLabels, notes, requestedHoleCount, lat, lng ->
                         stageServicePhotos(navController.currentBackStackEntry?.savedStateHandle, photos)
                         stageServiceRequestDraft(
                             navController.currentBackStackEntry?.savedStateHandle,
                             problemLabels.joinToString("; "),
                             notes,
+                            requestedHoleCount,
                         )
                         navController.navigate(
                             Screen.CourierDetail.createRoute(
@@ -930,6 +934,7 @@ fun RootNavGraph(
                             navController.currentBackStackEntry?.savedStateHandle,
                             draft.damageType,
                             draft.notes,
+                            draft.requestedHoleCount,
                         )
                         navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType, courierId, price, name, rating))
                     }

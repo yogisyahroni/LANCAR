@@ -80,3 +80,13 @@ internal fun isRoadsideTerminalStatus(status: String): Boolean =
 
 internal fun isRoadsideNoSupplyStatus(status: String): Boolean =
     normalizeRoadsideStatus(status) in setOf("no_courier", "no_courier_found", "expired")
+
+/**
+ * The customer journey starts only after dispatch has attached a provider.
+ * No-supply is terminal for dispatch and must stay focused on the retry state.
+ */
+internal fun shouldShowServiceProgress(
+    hasAssignedProvider: Boolean,
+    isTerminal: Boolean,
+    noSupply: Boolean,
+): Boolean = !noSupply && (hasAssignedProvider || isTerminal)

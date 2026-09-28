@@ -2,7 +2,9 @@ package com.tembus.customer.ui.screens.service
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tembus.customer.data.model.MapsProviderConfig
 import com.tembus.customer.data.repository.OrderRepository
+import com.tembus.customer.ui.components.maps.LatLng
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +29,7 @@ data class ServiceTrackingUiState(
     val totalPriceIdr: Long? = null,
     val paymentStatus: String? = null,
     val paymentMethod: String? = null,
+    val pricingBreakdown: com.tembus.customer.data.model.TrackingPriceBreakdown? = null,
     val routeDistanceMeters: Int? = null,
     val routeDurationSeconds: Int? = null,
     val statusText: String? = null,
@@ -36,7 +39,16 @@ data class ServiceTrackingUiState(
     val isStale: Boolean = false,
     val isTerminal: Boolean = false,
     val canViewReport: Boolean = false,
-    val noSupply: Boolean = false
+    val noSupply: Boolean = false,
+    val providerAssigned: Boolean = false,
+    val mapsProviderConfig: MapsProviderConfig = MapsProviderConfig(),
+    val pickupLocation: LatLng? = null,
+    val dropoffLocation: LatLng? = null,
+    val courierLocation: LatLng? = null,
+    val routePoints: List<LatLng> = emptyList(),
+    val providerSearchTimeoutMinutes: Int? = null,
+    val providerSearchRemainingSeconds: Int? = null,
+    val providerSearchTimedOut: Boolean = false
 )
 
 @HiltViewModel
@@ -68,6 +80,21 @@ class ServiceTrackingViewModel @Inject constructor(
                     val order = detail.order
                     val tracking = detail.tracking
                     val terminal = isRoadsideTerminalStatus(order.status)
+                    val normalizedStatus = normalizeRoadsideStatusForUi(order.status)
+                    val providerAssigned = !order.courierName.isNullOrBlank() || normalizedStatus in setOf(
+                        "assigned", "accepted", "pickup_arrived", "picking_up", "picked_up", "inbound_origin",
+                        "outbound_origin", "inbound_destination", "outbound_destination", "delivering", "delivered"
+                    )
+                    val pickupLocation = latLngOrNull(order.pickupLatitude, order.pickupLongitude)
+                    val dropoffLocation = latLngOrNull(order.dropoffLatitude, order.dropoffLongitude)
+                    val courierLocation = tracking?.location?.let { location ->
+                        latLngOrNull(location.latitude, location.longitude)
+                    }
+                    val liveRoute = decodeEncodedPolyline(tracking?.routePolyline)
+                    val persistedRoute = decodeEncodedPolyline(
+                        tracking?.orderRoutePolyline ?: order.routePolyline ?: order.routeSnapshot?.routePolyline
+                    )
+                    val mapsConfig = orderRepository.getMapsProviderConfig().getOrElse { _uiState.value.mapsProviderConfig }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -87,6 +114,7 @@ class ServiceTrackingViewModel @Inject constructor(
                             totalPriceIdr = order.invoice?.amountIdr?.takeIf { amount -> amount > 0 } ?: order.totalPriceIdr,
                             paymentStatus = order.invoice?.paymentStatus,
                             paymentMethod = order.invoice?.paymentMethod,
+                            pricingBreakdown = order.pricingBreakdown,
                             routeDistanceMeters = tracking?.orderRouteDistanceMeters
                                 ?: order.routeDistanceMeters
                                 ?: order.routeSnapshot?.distanceMeters,
@@ -103,7 +131,16 @@ class ServiceTrackingViewModel @Inject constructor(
                             isStale = false,
                             isTerminal = terminal,
                             canViewReport = terminal,
-                            noSupply = isRoadsideNoSupplyStatus(order.status)
+                            noSupply = isRoadsideNoSupplyStatus(order.status) || tracking?.providerSearchTimedOut == true,
+                            providerAssigned = providerAssigned,
+                            mapsProviderConfig = mapsConfig,
+                            pickupLocation = pickupLocation,
+                            dropoffLocation = dropoffLocation,
+                            courierLocation = courierLocation,
+                            routePoints = liveRoute.ifEmpty { persistedRoute },
+                            providerSearchTimeoutMinutes = tracking?.providerSearchTimeoutMinutes,
+                            providerSearchRemainingSeconds = tracking?.providerSearchRemainingSeconds,
+                            providerSearchTimedOut = tracking?.providerSearchTimedOut == true
                         )
                     }
                 }
@@ -116,6 +153,47 @@ class ServiceTrackingViewModel @Inject constructor(
                         )
                     }
                 }
+    }
+
+    private fun latLngOrNull(latitude: Double?, longitude: Double?): LatLng? {
+        if (latitude == null || longitude == null) return null
+        if (!latitude.isFinite() || !longitude.isFinite()) return null
+        if (latitude !in -90.0..90.0 || longitude !in -180.0..180.0) return null
+        return LatLng(latitude, longitude)
+    }
+
+    private fun decodeEncodedPolyline(encoded: String?): List<LatLng> {
+        if (encoded.isNullOrBlank()) return emptyList()
+        val polyline = mutableListOf<LatLng>()
+        var index = 0
+        var latitude = 0
+        var longitude = 0
+
+        while (index < encoded.length) {
+            var result = 0
+            var shift = 0
+            while (index < encoded.length) {
+                val byte = encoded[index++].code - 63
+                result = result or ((byte and 0x1f) shl shift)
+                shift += 5
+                if (byte < 0x20) break
+            }
+            val latitudeDelta = if ((result and 1) != 0) (result shr 1).inv() else result shr 1
+            latitude += latitudeDelta
+
+            result = 0
+            shift = 0
+            while (index < encoded.length) {
+                val byte = encoded[index++].code - 63
+                result = result or ((byte and 0x1f) shl shift)
+                shift += 5
+                if (byte < 0x20) break
+            }
+            val longitudeDelta = if ((result and 1) != 0) (result shr 1).inv() else result shr 1
+            longitude += longitudeDelta
+            polyline += LatLng(latitude / 1e5, longitude / 1e5)
+        }
+        return polyline
     }
 
     override fun onCleared() {

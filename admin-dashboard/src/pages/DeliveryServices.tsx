@@ -42,6 +42,7 @@ type DeliveryService = {
   failed_delivery_policy: 'must_deliver' | 'reschedule_then_return' | 'admin_review'
   pod_label: string
   max_eta_minutes: number
+  provider_search_timeout_minutes: number
   max_distance_km: number | null
   max_weight_kg: number | null
   uses_size_tier: boolean
@@ -134,6 +135,7 @@ const emptyService: DeliveryService = {
   failed_delivery_policy: 'must_deliver',
   pod_label: 'POD',
   max_eta_minutes: 240,
+  provider_search_timeout_minutes: 10,
   max_distance_km: 70,
   max_weight_kg: 20,
   uses_size_tier: true,
@@ -196,6 +198,12 @@ const displayLabel = (code: string, source: Array<{ code: string; label: string 
     .join(' ')
 
 const serviceDefaultsForCategory = (categoryCode: string, familyCode = 'regular'): Partial<DeliveryService> => {
+  const providerSearchTimeoutMinutes = categoryCode === 'towing'
+    ? 30
+    : categoryCode === 'tambal_ban'
+      ? 15
+      : 10
+
   if (categoryCode === 'regular') {
     return {
       route_model: 'p2p',
@@ -208,6 +216,7 @@ const serviceDefaultsForCategory = (categoryCode: string, familyCode = 'regular'
       allow_new_offer_while_delivery: false,
       failed_delivery_policy: 'reschedule_then_return',
       max_eta_minutes: 480,
+      provider_search_timeout_minutes: providerSearchTimeoutMinutes,
       base_fare_idr: familyCode === 'express' ? 15000 : 9000,
       per_km_idr: familyCode === 'express' ? 3500 : 2500,
       service_multiplier: 1,
@@ -227,6 +236,7 @@ const serviceDefaultsForCategory = (categoryCode: string, familyCode = 'regular'
       allow_new_offer_while_delivery: false,
       failed_delivery_policy: 'must_deliver',
       max_eta_minutes: 240,
+      provider_search_timeout_minutes: providerSearchTimeoutMinutes,
       max_weight_kg: 100,
       uses_size_tier: false,
       requires_dimension_scan: true,
@@ -247,6 +257,7 @@ const serviceDefaultsForCategory = (categoryCode: string, familyCode = 'regular'
     allow_new_offer_while_delivery: false,
     failed_delivery_policy: 'must_deliver',
     max_eta_minutes: 180,
+    provider_search_timeout_minutes: providerSearchTimeoutMinutes,
     base_fare_idr: 12000,
     per_km_idr: 4500,
     service_multiplier: 1.1,
@@ -534,6 +545,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
                     <span className="rounded-full border border-border px-2 py-1">{displayLabel(service.service_family, serviceFamilies)}</span>
                     <span className="rounded-full border border-border px-2 py-1">{service.route_model}</span>
                     <span className="rounded-full border border-border px-2 py-1">{service.max_eta_minutes} min</span>
+                    <span className="rounded-full border border-border px-2 py-1">search {service.provider_search_timeout_minutes} min</span>
                     <span className="rounded-full border border-border px-2 py-1">{service.requires_dimension_scan ? 'scan' : 'tier'}</span>
                   </div>
                 </div>
@@ -607,6 +619,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
             <SelectInput label="Price Mode" value={form.price_mode} onChange={(v) => updateField('price_mode', v as PriceMode)} options={['final', 'estimated_then_adjusted']} />
             <NumberInput label="Display Order" value={form.display_order} onChange={(v) => updateField('display_order', v)} />
             <NumberInput label="Max ETA (minutes)" value={form.max_eta_minutes} onChange={(v) => updateField('max_eta_minutes', v)} />
+            <NumberInput label="Provider Search Timeout (minutes)" value={form.provider_search_timeout_minutes} onChange={(v) => updateField('provider_search_timeout_minutes', v)} />
             <NumberInput label="Max Distance (km)" value={form.max_distance_km || 0} onChange={(v) => updateField('max_distance_km', v)} />
             <NumberInput label="Max Weight (kg)" value={form.max_weight_kg || 0} onChange={(v) => updateField('max_weight_kg', v)} />
             <NumberInput label="Base Fare (Rp)" value={form.base_fare_idr} onChange={(v) => updateField('base_fare_idr', v)} />

@@ -35,6 +35,7 @@ data class NearbyCourier(
     @SerialName("rating_count") val ratingCount: Int = 0,
     @SerialName("distance_km") val distanceKm: Double = 0.0,
     @SerialName("courier_service_price") val courierServicePrice: Long = 0,
+    @SerialName("price_per_hole_idr") val pricePerHoleIdr: Long = 0,
     @SerialName("eta_minutes") val etaMinutes: Int = 0,
     @SerialName("vehicle_type") val vehicleType: String = "",
     @SerialName("vehicle_type_car") val vehicleTypeCar: String? = null,
@@ -86,7 +87,9 @@ data class TambalBanServiceProduct(
     @SerialName("platform_fee_idr") val platformFeeIdr: Long = 0,
     @SerialName("platform_fee_pct") val platformFeePct: Double = 0.0,
     @SerialName("is_enabled") val isEnabled: Boolean = true,
-    @SerialName("vehicle_label") val vehicleLabel: String = ""
+    @SerialName("vehicle_label") val vehicleLabel: String = "",
+    @SerialName("customer_note") val customerNote: String = "",
+    @SerialName("max_hole_count") val maxHoleCount: Int = 0
 )
 
 @Serializable
@@ -134,6 +137,7 @@ data class CourierDetail(
     @SerialName("distance_km") val distanceKm: Double = 0.0,
     @SerialName("eta_minutes") val etaMinutes: Int = 0,
     @SerialName("courier_service_price") val courierServicePrice: Long = 0,
+    @SerialName("price_per_hole_idr") val pricePerHoleIdr: Long = 0,
     @SerialName("min_price") val minPrice: Long = 0,
     @SerialName("max_price") val maxPrice: Long = 0,
     @SerialName("radius_max_km") val radiusMaxKm: Int = 0,
@@ -187,6 +191,11 @@ data class TambalBanReport(
     @SerialName("tire_condition_before") val tireConditionBefore: String? = null,
     @SerialName("tire_photo_before_url") val tirePhotoBeforeUrl: String? = null,
     @SerialName("service_duration_minutes") val serviceDurationMinutes: Int? = null,
+    @SerialName("requested_hole_count") val requestedHoleCount: Int? = null,
+    @SerialName("completed_hole_count") val completedHoleCount: Int? = null,
+    @SerialName("price_per_hole_idr") val pricePerHoleIdr: Long? = null,
+    @SerialName("service_total_idr") val serviceTotalIdr: Long? = null,
+    @SerialName("customer_note") val customerNote: String = "",
     @SerialName("materials_used") val materialsUsed: String? = null,
     @SerialName("notes") val notes: String? = null,
     @SerialName("tire_condition_after") val tireConditionAfter: String? = null,

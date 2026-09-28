@@ -97,6 +97,12 @@ func validateTambalBanReport(report *domain.TambalBanReport) error {
 	if report.CompletedAt == nil {
 		return fmt.Errorf("%w: completed_at wajib diisi", domain.ErrInvalidServiceReport)
 	}
+	if (report.CompletedHoleCount == nil) != (report.PricePerHoleIDR == nil) {
+		return fmt.Errorf("%w: completed_hole_count dan price_per_hole_idr harus dikirim bersamaan", domain.ErrInvalidServiceReport)
+	}
+	if report.CompletedHoleCount != nil && (*report.CompletedHoleCount < 1 || *report.PricePerHoleIDR < 1) {
+		return fmt.Errorf("%w: jumlah lubang dan harga per lubang harus lebih besar dari nol", domain.ErrInvalidServiceReport)
+	}
 	return nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"tembus/order-service/internal/domain"
 	"time"
@@ -12,6 +13,27 @@ import (
 
 type availabilityServiceImpl struct {
 	repo domain.AvailabilityRepository
+}
+
+func stringMetadata(metadata map[string]any, key string) string {
+	value, _ := metadata[key].(string)
+	return strings.TrimSpace(value)
+}
+
+func intMetadata(metadata map[string]any, key string) int {
+	switch value := metadata[key].(type) {
+	case float64:
+		return int(value)
+	case int:
+		return value
+	case int64:
+		return int(value)
+	case string:
+		parsed, _ := strconv.Atoi(value)
+		return parsed
+	default:
+		return 0
+	}
 }
 
 func NewAvailabilityService(repo domain.AvailabilityRepository) domain.AvailabilityService {
@@ -64,7 +86,7 @@ func (s *availabilityServiceImpl) FindAvailableCouriers(
 	for _, courier := range allCouriers {
 		// FOOD-2026-020: capability-safe technician discovery — filter motor/mobil
 		// per service_sub_type via vehicleRestrictionMatrix (vehicle_validation.go).
-		if !isVehicleCapable(courier.VehicleType, serviceSubType) {
+		if !isCourierVehicleCapable(courier, serviceSubType) {
 			continue
 		}
 		// Defense-in-depth: radius per-courier untuk food (sepeda).
@@ -237,13 +259,15 @@ func (s *availabilityServiceImpl) GetTambalBanHome(ctx context.Context, customer
 		resp.Services = append(resp.Services, domain.TambalBanServiceProduct{
 			Code:           prod.Code,
 			Name:           prod.Name,
-			Description:    prod.Name,
+			Description:    prod.Description,
 			BaseFareIDR:    prod.BaseFareIDR,
 			PerKmIDR:       prod.PerKmIDR,
 			PlatformFeeIDR: prod.PlatformFeeIDR,
 			PlatformFeePct: prod.PlatformFeePct,
 			IsEnabled:      true,
 			VehicleLabel:   c.vehicleLabel,
+			CustomerNote:   stringMetadata(prod.Metadata, "customer_note"),
+			MaxHoleCount:   intMetadata(prod.Metadata, "max_hole_count"),
 		})
 	}
 
@@ -291,6 +315,7 @@ func (s *availabilityServiceImpl) GetCourierDetail(ctx context.Context, courierI
 		DistanceKM:            target.DistanceKM,
 		ETAMinutes:            target.ETAMinutes,
 		CourierServicePrice:   target.CourierServicePrice,
+		PricePerHoleIDR:       target.PricePerHoleIDR,
 		RadiusMaxKM:           target.RadiusMaxKM,
 		ServiceSubType:        serviceSubType,
 		Status:                target.Status,

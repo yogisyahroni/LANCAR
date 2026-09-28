@@ -118,6 +118,7 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 			COALESCE(to_json(vehicle_types)::text, '[]') AS vehicle_types,
 			batching_allowed,
 			max_eta_minutes,
+			provider_search_timeout_minutes,
 			platform_fee_idr,
 			platform_fee_pct,
 			COALESCE(platform_commission_percent, 0),
@@ -144,6 +145,7 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 		&vehicleTypesJSON,
 		&service.BatchingAllowed,
 		&service.MaxETAMinutes,
+		&service.ProviderSearchTimeoutMinutes,
 		&service.PlatformFeeIDR,
 		&service.PlatformFeePct,
 		&service.PlatformCommissionPercent,
@@ -795,8 +797,18 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 				COALESCE(length, 0), COALESCE(width, 0), COALESCE(height, 0), COALESCE(weight, 0), COALESCE(item_description, ''), COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, COALESCE(handover_token, ''), COALESCE(dispatch_expiry, NOW()), COALESCE(batch_id::text, ''), sequence_no, created_at, updated_at
-			  FROM orders 
-			  WHERE status IN ('searching', 'dispatching') AND updated_at < $1`
+			  FROM orders o
+			  LEFT JOIN delivery_service_products dsp ON dsp.code = COALESCE(
+				NULLIF(o.service_code, ''),
+				NULLIF(o.service_sub_type, ''),
+				NULLIF(o.model, '')
+			  )
+			  WHERE o.status IN ('searching', 'dispatching')
+				AND (
+				  (dsp.provider_search_timeout_minutes IS NOT NULL
+				   AND o.created_at + make_interval(mins => dsp.provider_search_timeout_minutes) < NOW())
+				  OR (dsp.provider_search_timeout_minutes IS NULL AND o.updated_at < $1)
+				)`
 
 	thresholdTime := time.Now().Add(-threshold)
 	rows, err := r.readDB.QueryContext(ctx, query, thresholdTime)

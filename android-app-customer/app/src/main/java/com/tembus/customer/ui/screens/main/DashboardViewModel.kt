@@ -130,7 +130,7 @@ class DashboardViewModel @Inject constructor(
                     _activeOrders.value = ActiveOrderRecoveryPolicy.recoverableOrders(orders)
                     _recentCompletedOrder.value = orders
                         .asSequence()
-                        .filter { it.status.lowercase() in setOf("delivered", "completed", "arrived") }
+                        .filter { it.status.lowercase() in setOf("delivered", "completed", "pod_completed") }
                         .filterNot { order ->
                             order.serviceCategory.orEmpty().contains("towing", ignoreCase = true) ||
                                 order.serviceCategory.orEmpty().contains("tambal", ignoreCase = true)

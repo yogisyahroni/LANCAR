@@ -619,7 +619,8 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
             courier_id,
             material_codes,
             recipient_name,
-            recipient_phone
+            recipient_phone,
+            requested_hole_count
           } = req.body;
 
     const service = await findDeliveryServiceByCode(service_code);
@@ -675,6 +676,9 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       recipientName: recipient_name,
       recipientPhone: recipient_phone,
       requiresDeliveryCode: package_details?.requires_delivery_code,
+      requestedHoleCount: requested_hole_count == null
+        ? (package_details?.vehicle_details?.requested_hole_count == null ? null : Number(package_details.vehicle_details.requested_hole_count))
+        : Number(requested_hole_count),
     });
 
     await persistCustomerPriceQuote(breakdown, String(req.user?.id || ''));
@@ -707,7 +711,8 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
       courier_id,
       material_codes,
       recipient_name,
-      recipient_phone
+      recipient_phone,
+      requested_hole_count
     } = req.body;
 
     const pickupPoint = normalizeCoordinatePayload(pickup);
@@ -777,6 +782,9 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
           recipientName: recipient_name,
           recipientPhone: recipient_phone,
           requiresDeliveryCode: package_details?.requires_delivery_code,
+          requestedHoleCount: requested_hole_count == null
+            ? (package_details?.vehicle_details?.requested_hole_count == null ? null : Number(package_details.vehicle_details.requested_hole_count))
+            : Number(requested_hole_count),
         });
         await persistCustomerPriceQuote(breakdown, String(req.user?.id || ''));
         return { ok: true as const, service_code: service.code, breakdown };

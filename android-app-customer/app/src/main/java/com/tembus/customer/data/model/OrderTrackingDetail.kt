@@ -70,8 +70,16 @@ data class TrackingOrder(
     val carrierName: String? = null,
     @SerialName("pickup_address")
     val pickupAddress: String? = null,
+    @SerialName("pickup_latitude")
+    val pickupLatitude: Double? = null,
+    @SerialName("pickup_longitude")
+    val pickupLongitude: Double? = null,
     @SerialName("dropoff_address")
     val dropoffAddress: String? = null,
+    @SerialName("dropoff_latitude")
+    val dropoffLatitude: Double? = null,
+    @SerialName("dropoff_longitude")
+    val dropoffLongitude: Double? = null,
     @SerialName("recipient_name")
     val recipientName: String? = null,
     @SerialName("model")
@@ -90,6 +98,8 @@ data class TrackingOrder(
     val distanceKm: Double? = null,
     @SerialName("total_price_idr")
     val totalPriceIdr: Long? = null,
+    @SerialName("pricing_breakdown")
+    val pricingBreakdown: TrackingPriceBreakdown? = null,
     @SerialName("invoice")
     val invoice: TrackingInvoice? = null,
     @SerialName("courier_name")
@@ -139,6 +149,19 @@ data class TrackingOrder(
 )
 
 @Serializable
+data class TrackingPriceBreakdown(
+    @SerialName("service_fee_idr") val serviceFeeIdr: Long = 0,
+    @SerialName("travel_fee_idr") val travelFeeIdr: Long = 0,
+    @SerialName("platform_fee_breakdown_idr") val platformFeeBreakdownIdr: Long = 0,
+    @SerialName("platform_fee_idr") val platformFeeIdr: Long = 0,
+    @SerialName("toll_cost_idr") val tollCostIdr: Long = 0,
+    @SerialName("distance_km") val distanceKm: Double = 0.0,
+    @SerialName("per_km_idr") val perKmIdr: Long = 0,
+    @SerialName("total_price_idr") val totalPriceIdr: Long = 0,
+    @SerialName("toll_cost_source") val tollCostSource: String? = null,
+)
+
+@Serializable
 data class TrackingInvoice(
     @SerialName("amount_idr")
     val amountIdr: Long = 0,
@@ -168,6 +191,14 @@ data class CustomerTrackingSnapshot(
     val stageLabel: String? = null,
     @SerialName("status")
     val status: String? = null,
+    @SerialName("provider_search_timeout_minutes")
+    val providerSearchTimeoutMinutes: Int? = null,
+    @SerialName("provider_search_deadline")
+    val providerSearchDeadline: String? = null,
+    @SerialName("provider_search_remaining_seconds")
+    val providerSearchRemainingSeconds: Int? = null,
+    @SerialName("provider_search_timed_out")
+    val providerSearchTimedOut: Boolean = false,
     @SerialName("location")
     val location: TrackingLocation? = null,
     @SerialName("target")

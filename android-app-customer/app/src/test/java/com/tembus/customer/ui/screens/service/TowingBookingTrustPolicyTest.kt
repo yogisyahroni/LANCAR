@@ -39,11 +39,12 @@ class TowingBookingTrustPolicyTest {
     }
 
     @Test
-    fun vehicleFactsAndAccessConstraintsAreRequired() {
+    fun vehicleIdentityAndAccessDetailsAreOptionalWhenCanonicalIntakeHasCondition() {
         assertEquals(
-            "Lengkapi tipe, merek, model, kondisi, dan akses lokasi kendaraan",
-            validateTowingBookingTrust(validInput().copy(vehicleModel = ""))
+            "Lengkapi tipe dan kondisi kendaraan",
+            validateTowingBookingTrust(validInput().copy(vehicleCondition = ""))
         )
+        assertNull(validateTowingBookingTrust(validInput().copy(vehicleMake = "", vehicleModel = "", accessConstraints = "")))
     }
 
     @Test

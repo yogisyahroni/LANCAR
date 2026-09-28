@@ -1,6 +1,10 @@
 package service
 
-import "testing"
+import (
+	"testing"
+
+	"tembus/order-service/internal/domain"
+)
 
 func TestIsVehicleCapable(t *testing.T) {
 	cases := []struct {
@@ -26,5 +30,25 @@ func TestIsVehicleCapable(t *testing.T) {
 				t.Errorf("isVehicleCapable(%q,%q) = %v, want %v", c.vehicle, c.subType, got, c.expected)
 			}
 		})
+	}
+}
+
+func TestIsCourierVehicleCapableUsesTransportVehicleForTowing(t *testing.T) {
+	transport := "pickup"
+	courier := &domain.NearbyCourier{
+		VehicleType:    "matic",
+		VehicleTypeCar: &transport,
+	}
+
+	if !isCourierVehicleCapable(courier, "towing_motor") {
+		t.Fatal("expected pickup transport to be eligible for towing motor")
+	}
+	if isCourierVehicleCapable(courier, "towing_mobil") {
+		t.Fatal("did not expect pickup transport to be eligible for towing mobil")
+	}
+
+	courier.VehicleTypeCar = nil
+	if isCourierVehicleCapable(courier, "towing_motor") {
+		t.Fatal("did not expect towing eligibility without transport vehicle")
 	}
 }

@@ -169,6 +169,10 @@ export const getCourierServicePrices = async (req: Request, res: Response) => {
       `SELECT csp.service_code,
               COALESCE(dsp.name, csp.service_code) AS service_name,
               csp.price_amount,
+              csp.price_per_hole_idr,
+              csp.per_km_rate_idr,
+              csp.toll_entry_idr,
+              csp.toll_exit_idr,
               csp.min_price,
               csp.max_price,
               csp.is_active,
@@ -195,8 +199,24 @@ export const updateCourierServicePrice = async (req: Request, res: Response) => 
   }
   const serviceCode = clean(req.body?.service_code || req.body?.serviceCode);
   const priceAmount = Number(req.body?.price_amount ?? req.body?.priceAmount);
+  const pricePerHoleIdr = req.body?.price_per_hole_idr == null && req.body?.pricePerHoleIdr == null
+    ? null
+    : Number(req.body?.price_per_hole_idr ?? req.body?.pricePerHoleIdr);
+  const perKmRateIdr = req.body?.per_km_rate_idr == null && req.body?.perKmRateIdr == null
+    ? null
+    : Number(req.body?.per_km_rate_idr ?? req.body?.perKmRateIdr);
+  const tollEntryIdr = req.body?.toll_entry_idr == null && req.body?.tollEntryIdr == null
+    ? null
+    : Number(req.body?.toll_entry_idr ?? req.body?.tollEntryIdr);
+  const tollExitIdr = req.body?.toll_exit_idr == null && req.body?.tollExitIdr == null
+    ? null
+    : Number(req.body?.toll_exit_idr ?? req.body?.tollExitIdr);
   const isActive = req.body?.is_active == null ? true : Boolean(req.body.is_active);
-  if (!serviceCode || !/^((tambal_ban)|(towing))/.test(serviceCode) || !Number.isSafeInteger(priceAmount)) {
+  if (!serviceCode || !/^((tambal_ban)|(towing))/.test(serviceCode) || !Number.isSafeInteger(priceAmount)
+    || (pricePerHoleIdr != null && (!Number.isSafeInteger(pricePerHoleIdr) || pricePerHoleIdr < 0))
+    || (perKmRateIdr != null && (!Number.isSafeInteger(perKmRateIdr) || perKmRateIdr < 0))
+    || (tollEntryIdr != null && (!Number.isSafeInteger(tollEntryIdr) || tollEntryIdr < 0))
+    || (tollExitIdr != null && (!Number.isSafeInteger(tollExitIdr) || tollExitIdr < 0))) {
     sendBadRequest(res, 'Kode layanan dan harga jasa yang valid wajib dikirim.', 'ERR_BAD_REQUEST');
     return;
   }
@@ -204,6 +224,10 @@ export const updateCourierServicePrice = async (req: Request, res: Response) => 
     const result = await db.query(
       `UPDATE courier_service_prices csp
           SET price_amount = $3,
+              price_per_hole_idr = COALESCE($8, csp.price_per_hole_idr),
+              per_km_rate_idr = COALESCE($5, csp.per_km_rate_idr),
+              toll_entry_idr = COALESCE($6, csp.toll_entry_idr),
+              toll_exit_idr = COALESCE($7, csp.toll_exit_idr),
               is_active = $4,
               updated_at = NOW()
         FROM courier_profiles cp
@@ -211,8 +235,9 @@ export const updateCourierServicePrice = async (req: Request, res: Response) => 
          AND cp.user_id = $1
          AND csp.service_code = $2
          AND $3 BETWEEN csp.min_price AND csp.max_price
-       RETURNING csp.service_code, csp.price_amount, csp.min_price, csp.max_price, csp.is_active, csp.updated_at`,
-      [req.user.id, serviceCode, priceAmount, isActive],
+       RETURNING csp.service_code, csp.price_amount, csp.price_per_hole_idr, csp.per_km_rate_idr, csp.toll_entry_idr,
+                 csp.toll_exit_idr, csp.min_price, csp.max_price, csp.is_active, csp.updated_at`,
+      [req.user.id, serviceCode, priceAmount, isActive, perKmRateIdr, tollEntryIdr, tollExitIdr, pricePerHoleIdr],
     );
     if (result.rows.length === 0) {
       sendBadRequest(res, 'Harga di luar batas admin atau layanan belum dikonfigurasi untuk akun ini.', 'ERR_SERVICE_PRICE_BOUNDS', 422);

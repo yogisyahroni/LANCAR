@@ -1,6 +1,8 @@
 package com.tembus.customer.ui.screens.service
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ServiceTrackingPolicyTest {
@@ -55,5 +57,13 @@ class ServiceTrackingPolicyTest {
         assertEquals(false, isRoadsideNoSupplyStatus("arriving"))
         assertEquals("Teknisi belum tersedia. Kamu bisa coba lagi.", tambalBanStatusText("no_courier_found"))
         assertEquals("Petugas towing belum tersedia. Kamu bisa coba lagi.", towingStatusText("no_courier_found"))
+    }
+
+    @Test
+    fun serviceJourneyWaitsUntilProviderIsAssigned() {
+        assertFalse(shouldShowServiceProgress(hasAssignedProvider = false, isTerminal = false, noSupply = false))
+        assertFalse(shouldShowServiceProgress(hasAssignedProvider = false, isTerminal = true, noSupply = true))
+        assertTrue(shouldShowServiceProgress(hasAssignedProvider = true, isTerminal = false, noSupply = false))
+        assertTrue(shouldShowServiceProgress(hasAssignedProvider = false, isTerminal = true, noSupply = false))
     }
 }

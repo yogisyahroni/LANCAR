@@ -45,6 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import com.tembus.customer.ui.localization.CustomerText as Text
@@ -97,8 +98,8 @@ private val TAMBAL_BAN_PROBLEM_OPTIONS = listOf(
 @Composable
 fun TambalBanHomeScreen(
     onBackClick: () -> Unit,
-    onServiceSelected: (String, List<LocalServicePhoto>, List<String>, String, Double, Double) -> Unit,
-    onCourierSelected: (NearbyCourier, List<LocalServicePhoto>, List<String>, String, Double, Double) -> Unit,
+    onServiceSelected: (String, List<LocalServicePhoto>, List<String>, String, Int?, Double, Double) -> Unit,
+    onCourierSelected: (NearbyCourier, List<LocalServicePhoto>, List<String>, String, Int?, Double, Double) -> Unit,
     onSearchClick: (Double, Double) -> Unit,
     viewModel: TambalBanHomeViewModel = hiltViewModel()
 ) {
@@ -112,6 +113,7 @@ fun TambalBanHomeScreen(
     var selectedIssues by remember { mutableStateOf(setOf<String>()) }
     var servicePhotos by remember { mutableStateOf<List<LocalServicePhoto>>(emptyList()) }
     var notes by remember { mutableStateOf("") }
+    var requestedHoleCountText by remember { mutableStateOf("") }
     var consentChecked by remember { mutableStateOf(false) }
 
     fun loadFromCurrentLocation() {
@@ -160,6 +162,10 @@ fun TambalBanHomeScreen(
         "mobil" -> mobilService
         else -> null
     }
+    val requestedHoleCount = requestedHoleCountText.toIntOrNull()?.takeIf { count ->
+        count > 0 && (selectedService?.maxHoleCount ?: 0) >= count
+    }
+    val customerNote = selectedService?.customerNote?.takeIf { it.isNotBlank() }
     val etaLabel = uiState.couriers
         .filter { selectedService == null || it.serviceSubType == selectedService.code }
         .minByOrNull { it.etaMinutes }
@@ -199,12 +205,13 @@ fun TambalBanHomeScreen(
                                     servicePhotos,
                                     selectedIssues.toList(),
                                     notes,
+                                    requestedHoleCount,
                                     currentLat,
                                     currentLng,
                                 )
                             }
                         },
-                        enabled = selectedService != null && selectedIssues.isNotEmpty() && consentChecked &&
+                        enabled = selectedService != null && requestedHoleCount != null && selectedIssues.isNotEmpty() && consentChecked &&
                             currentLat != 0.0 && currentLng != 0.0 && !uiState.isLoading,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
@@ -260,7 +267,7 @@ fun TambalBanHomeScreen(
                     ServiceModeChip(
                         "Derek Towing",
                         selected = false,
-                        onClick = { onServiceSelected("towing_motor", servicePhotos, emptyList(), notes, currentLat, currentLng) },
+                        onClick = { onServiceSelected("towing_motor", servicePhotos, emptyList(), notes, null, currentLat, currentLng) },
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -276,6 +283,36 @@ fun TambalBanHomeScreen(
                 if (!uiState.isLoading && motorService == null && mobilService == null) {
                     Spacer(Modifier.height(8.dp))
                     Text("Jenis layanan belum tersedia dari server untuk lokasi ini.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                }
+            }
+
+            item {
+                if (selectedService != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Jumlah lubang yang perlu ditambal", fontWeight = FontWeight.Bold)
+                        OutlinedTextField(
+                            value = requestedHoleCountText,
+                            onValueChange = { value ->
+                                if (value.all(Char::isDigit)) requestedHoleCountText = value
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text("Jumlah lubang") },
+                            placeholder = { Text("Contoh: 1") },
+                            supportingText = {
+                                Text("Maksimal ${selectedService.maxHoleCount} lubang sesuai konfigurasi server.")
+                            },
+                            isError = requestedHoleCountText.isNotBlank() && requestedHoleCount == null,
+                        )
+                        customerNote?.let { note ->
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = PrimarySoft),
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Text(note, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(12.dp))
+                            }
+                        }
+                    }
                 }
             }
 
@@ -347,7 +384,7 @@ fun TambalBanHomeScreen(
                     CourierPriceCard(
                         courier = courier,
                         isSelected = false,
-                        onSelect = { onCourierSelected(courier, servicePhotos, selectedIssues.toList(), notes, currentLat, currentLng) },
+                    onSelect = { onCourierSelected(courier, servicePhotos, selectedIssues.toList(), notes, requestedHoleCount, currentLat, currentLng) },
                     )
                 }
             }

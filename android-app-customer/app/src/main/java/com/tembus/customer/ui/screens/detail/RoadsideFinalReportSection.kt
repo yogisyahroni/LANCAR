@@ -58,6 +58,17 @@ fun RoadsideFinalReportSection(
                     ReportRow("Kondisi awal", humanizeRoadsideValue(report.tireConditionBefore))
                     ReportRow("Kondisi akhir", humanizeRoadsideValue(report.tireConditionAfter))
                     report.serviceDurationMinutes?.let { ReportRow("Durasi pengerjaan", "$it menit") }
+                    report.requestedHoleCount?.let { ReportRow("Permintaan customer", "$it lubang") }
+                    report.completedHoleCount?.let { ReportRow("Lubang dikerjakan", "$it") }
+                    report.pricePerHoleIdr?.let { ReportRow("Harga per lubang", rupiah(it)) }
+                    report.serviceTotalIdr?.let { ReportRow("Total jasa tambal ban", rupiah(it), bold = true) }
+                    report.customerNote.takeIf { it.isNotBlank() }?.let { note ->
+                        Text(
+                            note,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     ReportRow(
                         "Material digunakan",
                         if (report.materialsUsedItems.isEmpty()) "Tidak ada material tambahan" else report.materialsUsedItems.joinToString { humanizeRoadsideValue(it) }

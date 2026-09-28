@@ -217,7 +217,7 @@ private fun CourierProfileContent(
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Tarif dari server", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                 Text(if (detail.courierServicePrice > 0) "Rp ${formatRupiah(detail.courierServicePrice)}" else "Menunggu quote server", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                Text("Biaya perjalanan, tol, dan perubahan kondisi dihitung di quote resmi sebelum pembayaran.", color = Color(0xFFD7E8DB), fontSize = 11.sp)
+                Text("Harga jasa, jarak per km, tol, dan biaya platform tampil dari tarif provider sebelum penawaran dikunci.", color = Color(0xFFD7E8DB), fontSize = 11.sp)
             }
         }
 

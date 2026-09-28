@@ -1,12 +1,13 @@
 package com.tembus.customer.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -19,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -32,78 +34,98 @@ fun ServiceProgressBar(
     currentStep: Int, // 0-indexed
     modifier: Modifier = Modifier
 ) {
+    if (steps.isEmpty()) return
+
+    val safeCurrentStep = currentStep.coerceIn(0, steps.lastIndex)
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val primaryContainerColor = MaterialTheme.colorScheme.primaryContainer
+    val surfaceVariantColor = MaterialTheme.colorScheme.surfaceVariant
+    val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        // Progress indicators
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // Keep the markers in a fixed-height row. Labels are rendered below in
+        // a separate equal-width row, so wrapping a long label can never move
+        // a marker or bend the connector line.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(24.dp),
         ) {
-            steps.forEachIndexed { index, step ->
-                val isCompleted = index < currentStep
-                val isCurrent = index == currentStep
-                
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    // Circle indicator
+            Canvas(modifier = Modifier.matchParentSize()) {
+                val slotWidth = size.width / steps.size
+                val markerDiameter = 24.dp.toPx()
+                val connectorY = size.height / 2f
+                for (index in 0 until steps.lastIndex) {
+                    val startX = slotWidth * (index + 0.5f) + markerDiameter / 2f
+                    val endX = slotWidth * (index + 1.5f) - markerDiameter / 2f
+                    drawLine(
+                        color = if (index < safeCurrentStep) primaryColor else surfaceVariantColor,
+                        start = androidx.compose.ui.geometry.Offset(startX, connectorY),
+                        end = androidx.compose.ui.geometry.Offset(endX, connectorY),
+                        strokeWidth = 2.dp.toPx(),
+                    )
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                steps.forEachIndexed { index, _ ->
+                    val isCompleted = index < safeCurrentStep
+                    val isCurrent = index == safeCurrentStep
                     Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(
-                                when {
-                                    isCompleted -> MaterialTheme.colorScheme.primary
-                                    isCurrent -> MaterialTheme.colorScheme.primaryContainer
-                                    else -> MaterialTheme.colorScheme.surfaceVariant
-                                }
-                            ),
-                        contentAlignment = Alignment.Center
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            "${index + 1}",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = when {
-                                isCompleted -> Color.White
-                                isCurrent -> MaterialTheme.colorScheme.primary
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
-                    }
-                    
-                    // Step label
-                    Text(
-                        step,
-                        fontSize = 9.sp,
-                        color = when {
-                            isCompleted -> MaterialTheme.colorScheme.primary
-                            isCurrent -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-                
-                // Connector line (except after last step)
-                if (index < steps.size - 1) {
-                    Box(
-                        modifier = Modifier
-                            .weight(0.5f)
-                            .height(2.dp)
-                            .background(
-                                if (index < currentStep) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.surfaceVariant
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    when {
+                                        isCompleted -> primaryColor
+                                        isCurrent -> primaryContainerColor
+                                        else -> surfaceVariantColor
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                "${index + 1}",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = when {
+                                    isCompleted -> Color.White
+                                    isCurrent -> primaryColor
+                                    else -> onSurfaceVariantColor
+                                },
                             )
-                    )
+                        }
+                    }
                 }
+            }
+        }
+
+        Row(modifier = Modifier.fillMaxWidth()) {
+            steps.forEachIndexed { index, step ->
+                val isCompleted = index < safeCurrentStep
+                val isCurrent = index == safeCurrentStep
+                Text(
+                    text = step,
+                    fontSize = 9.sp,
+                    color = when {
+                        isCompleted || isCurrent -> primaryColor
+                        else -> onSurfaceVariantColor
+                    },
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 32.dp)
+                        .padding(horizontal = 2.dp, vertical = 4.dp),
+                )
             }
         }
     }

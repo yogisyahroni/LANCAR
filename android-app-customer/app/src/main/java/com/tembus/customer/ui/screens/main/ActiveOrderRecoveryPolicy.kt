@@ -10,6 +10,8 @@ object ActiveOrderRecoveryPolicy {
     private val terminalStatuses = setOf(
         "delivered",
         "completed",
+        "pod_completed",
+        "returned",
         "cancelled",
         "canceled",
         "failed",

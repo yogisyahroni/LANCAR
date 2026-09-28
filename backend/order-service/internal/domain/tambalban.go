@@ -122,15 +122,19 @@ const (
 // ============================================================
 
 type CourierServicePrice struct {
-	ID          string    `json:"id" db:"id"`
-	CourierID   string    `json:"courier_id" db:"courier_id"`
-	ServiceCode string    `json:"service_code" db:"service_code"`
-	PriceAmount int64     `json:"price_amount" db:"price_amount"`
-	MinPrice    int64     `json:"min_price" db:"min_price"`
-	MaxPrice    int64     `json:"max_price" db:"max_price"`
-	IsActive    bool      `json:"is_active" db:"is_active"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+	ID              string    `json:"id" db:"id"`
+	CourierID       string    `json:"courier_id" db:"courier_id"`
+	ServiceCode     string    `json:"service_code" db:"service_code"`
+	PriceAmount     int64     `json:"price_amount" db:"price_amount"`
+	PricePerHoleIDR int64     `json:"price_per_hole_idr" db:"price_per_hole_idr"`
+	PerKMRateIDR    int64     `json:"per_km_rate_idr" db:"per_km_rate_idr"`
+	TollEntryIDR    int64     `json:"toll_entry_idr" db:"toll_entry_idr"`
+	TollExitIDR     int64     `json:"toll_exit_idr" db:"toll_exit_idr"`
+	MinPrice        int64     `json:"min_price" db:"min_price"`
+	MaxPrice        int64     `json:"max_price" db:"max_price"`
+	IsActive        bool      `json:"is_active" db:"is_active"`
+	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // ============================================================
@@ -145,6 +149,10 @@ type NearbyCourier struct {
 	RatingCount           int     `json:"rating_count"`
 	DistanceKM            float64 `json:"distance_km"`
 	CourierServicePrice   int64   `json:"courier_service_price"`
+	PricePerHoleIDR       int64   `json:"price_per_hole_idr"`
+	PerKMRateIDR          int64   `json:"per_km_rate_idr"`
+	TollEntryIDR          int64   `json:"toll_entry_idr"`
+	TollExitIDR           int64   `json:"toll_exit_idr"`
 	ETAMinutes            int     `json:"eta_minutes"`
 	VehicleType           string  `json:"vehicle_type"`
 	VehicleTypeCar        *string `json:"vehicle_type_car,omitempty"`
@@ -191,6 +199,11 @@ type TambalBanReport struct {
 	TireConditionBefore *string `json:"tire_condition_before,omitempty" db:"tire_condition_before"`
 	TirePhotoBeforeURL  *string `json:"tire_photo_before_url,omitempty" db:"tire_photo_before_url"`
 	ServiceDurationMins *int    `json:"service_duration_minutes,omitempty" db:"service_duration_minutes"`
+	RequestedHoleCount  *int    `json:"requested_hole_count,omitempty" db:"requested_hole_count"`
+	CompletedHoleCount  *int    `json:"completed_hole_count,omitempty" db:"completed_hole_count"`
+	PricePerHoleIDR     *int64  `json:"price_per_hole_idr,omitempty" db:"price_per_hole_idr"`
+	ServiceTotalIDR     *int64  `json:"service_total_idr,omitempty" db:"service_total_idr"`
+	CustomerNote        string  `json:"customer_note,omitempty" db:"-"`
 	MaterialsUsed       *string `json:"materials_used,omitempty" db:"materials_used"`
 	// MaterialsUsedItems is the structured client contract. The legacy
 	// materials_used TEXT column remains the storage boundary for compatibility.
@@ -285,6 +298,8 @@ type TambalBanServiceProduct struct {
 	PlatformFeePct float64 `json:"platform_fee_pct"`
 	IsEnabled      bool    `json:"is_enabled"`
 	VehicleLabel   string  `json:"vehicle_label"`
+	CustomerNote   string  `json:"customer_note"`
+	MaxHoleCount   int     `json:"max_hole_count"`
 }
 
 type TambalBanHomeResponse struct {
@@ -311,6 +326,10 @@ type CourierDetail struct {
 	DistanceKM            float64 `json:"distance_km"`
 	ETAMinutes            int     `json:"eta_minutes"`
 	CourierServicePrice   int64   `json:"courier_service_price"`
+	PricePerHoleIDR       int64   `json:"price_per_hole_idr"`
+	PerKMRateIDR          int64   `json:"per_km_rate_idr"`
+	TollEntryIDR          int64   `json:"toll_entry_idr"`
+	TollExitIDR           int64   `json:"toll_exit_idr"`
 	MinPrice              int64   `json:"min_price"`
 	MaxPrice              int64   `json:"max_price"`
 	RadiusMaxKM           int     `json:"radius_max_km"`

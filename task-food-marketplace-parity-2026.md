@@ -1251,7 +1251,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [x] Human-readable stages: menuju pickup→tiba→inspeksi→loading→perjalanan→unloading→selesai.
 - [x] ETA/route refresh.
 - [x] Snapshot recovery.
-- [ ] Staging/Docker tracking verification with real towing order, GPS, and reconnect.
+- [x] Staging/Docker tracking verification with real towing order, GPS, and reconnect. (2026-09-24 — local Docker/Postgres UAT towing order with persisted courier GPS, customer emulator map/timeline/provider verification, and tembus-admin restart snapshot recovery; evidence: `docs/task-evidence/TOW-2026-006.md`. Authenticated staging remains a release follow-up.)
 
 ## TOW-2026-007 — Conditional backend split [P1]
 

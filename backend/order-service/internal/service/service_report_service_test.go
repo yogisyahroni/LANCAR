@@ -114,6 +114,47 @@ func TestServiceReportRequiresStructuredTambalBanFields(t *testing.T) {
 	}
 }
 
+func TestServiceReportValidatesTambalBanHolePricingFields(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name   string
+		mutate func(*domain.TambalBanReport)
+	}{
+		{"missing per-hole price", func(r *domain.TambalBanReport) {
+			r.CompletedHoleCount = reportIntPtr(1)
+		}},
+		{"missing completed hole count", func(r *domain.TambalBanReport) {
+			price := int64(10000)
+			r.PricePerHoleIDR = &price
+		}},
+		{"zero completed holes", func(r *domain.TambalBanReport) {
+			r.CompletedHoleCount = reportIntPtr(0)
+			price := int64(10000)
+			r.PricePerHoleIDR = &price
+		}},
+		{"zero price per hole", func(r *domain.TambalBanReport) {
+			r.CompletedHoleCount = reportIntPtr(1)
+			price := int64(0)
+			r.PricePerHoleIDR = &price
+		}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeServiceReportRepo{}
+			svc := NewServiceReportService(repo)
+			report := validTambalBanReport(now)
+			tc.mutate(report)
+			if err := svc.CreateTambalBanReport(context.Background(), report); !errors.Is(err, domain.ErrInvalidServiceReport) {
+				t.Fatalf("expected invalid hole pricing error, got %v", err)
+			}
+			if repo.tambalCreated {
+				t.Fatal("repo should not be called for invalid hole pricing")
+			}
+		})
+	}
+}
+
 func TestServiceReportRejectsInvalidStructuredMaterials(t *testing.T) {
 	now := time.Now()
 	tests := [][]string{

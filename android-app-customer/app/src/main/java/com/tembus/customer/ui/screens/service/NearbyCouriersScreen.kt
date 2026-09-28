@@ -224,8 +224,8 @@ fun NearbyCouriersScreen(
                     item {
                         Surface(color = Color.White, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                Text("Harga tetap transparan", fontWeight = FontWeight.Bold, color = BrandHeader)
-                                Text("Harga jasa berasal dari petugas yang tersedia. Biaya perjalanan dan tol mengikuti perhitungan server pada saat pemesanan.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Penawaran transparan", fontWeight = FontWeight.Bold, color = BrandHeader)
+                                Text("Harga jasa, jarak per km, tol, dan biaya platform berasal dari tarif provider yang dipilih dan dikunci server sebelum pembayaran.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }

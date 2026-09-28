@@ -54,7 +54,7 @@ func TestCreateTambalBanReportRequiresFinalProofForFirstReport(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery("SELECT o.status").
 		WithArgs("order-1", "courier-user-1").
-		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(string(domain.StatusPickedUp)))
+		WillReturnRows(sqlmock.NewRows([]string{"status", "requested_hole_count"}).AddRow(string(domain.StatusPickedUp), nil))
 	mock.ExpectQuery("SELECT id, created_at").
 		WithArgs("order-1").
 		WillReturnError(sql.ErrNoRows)
@@ -88,7 +88,7 @@ func TestCreateTambalBanReportAllowsAssignedIdempotentReplayAfterDelivered(t *te
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery("SELECT o.status").
 		WithArgs("order-1", "courier-user-1").
-		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(string(domain.StatusDelivered)))
+		WillReturnRows(sqlmock.NewRows([]string{"status", "requested_hole_count"}).AddRow(string(domain.StatusDelivered), nil))
 	mock.ExpectQuery("SELECT id, created_at").
 		WithArgs("order-1").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow("report-1", createdAt))

@@ -54,6 +54,7 @@ export type DeliveryServiceProduct = {
   failed_delivery_policy: 'must_deliver' | 'reschedule_then_return' | 'admin_review';
   pod_label: string;
   max_eta_minutes: number;
+  provider_search_timeout_minutes?: number;
   max_distance_km: number | null;
   max_weight_kg: number | null;
   uses_size_tier: boolean;
@@ -96,6 +97,7 @@ const normalizeService = (row: any): DeliveryServiceProduct => {
   service.extra_dropoff_fee_idr = Number(service.extra_dropoff_fee_idr || 0);
   service.display_order = Number(service.display_order || 0);
   service.max_eta_minutes = Number(service.max_eta_minutes || 0);
+  service.provider_search_timeout_minutes = Number(service.provider_search_timeout_minutes || 10);
   service.max_packages_per_order = Number(service.max_packages_per_order || 1);
   service.max_active_orders_regular = Number(service.max_active_orders_regular || 3);
   service.max_active_orders_on_demand = Number(service.max_active_orders_on_demand || 1);
@@ -248,6 +250,7 @@ export const customerFacingService = (service: DeliveryServiceProduct) => ({
   failed_delivery_policy: service.failed_delivery_policy,
   pod_label: service.pod_label,
   max_eta_minutes: service.max_eta_minutes,
+  provider_search_timeout_minutes: service.provider_search_timeout_minutes,
   max_distance_km: service.max_distance_km,
   max_weight_kg: service.max_weight_kg,
   uses_size_tier: service.uses_size_tier,
@@ -410,6 +413,12 @@ const servicePayload = (body: any) => {
   failed_delivery_policy: normalizeFailedDeliveryPolicy(body.failed_delivery_policy, body.service_category || 'on_demand'),
   pod_label: String(body.pod_label || 'POD').trim().slice(0, 20) || 'POD',
   max_eta_minutes: Number(body.max_eta_minutes || 240),
+  provider_search_timeout_minutes: positiveInt(
+    body.provider_search_timeout_minutes,
+    serviceCategory === 'towing' ? 30 : serviceCategory === 'tambal_ban' ? 15 : 10,
+    1,
+    1440
+  ),
   max_distance_km: body.max_distance_km === '' || body.max_distance_km === null ? null : Number(body.max_distance_km),
   max_weight_kg: body.max_weight_kg === '' || body.max_weight_kg === null ? null : Number(body.max_weight_kg),
   uses_size_tier: Boolean(body.uses_size_tier),
@@ -460,7 +469,7 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
         price_mode, base_fare_idr, included_distance_km, per_km_idr, service_multiplier,
         platform_commission_percent, courier_payout_percent, courier_min_payout_idr,
         mdr_percent, ppn_percent, platform_fee_idr, platform_fee_pct, extra_dropoff_fee_idr, show_customer_price_to_courier, search_radii_km,
-        size_tiers, dimension_rules, availability_rules, metadata
+        size_tiers, dimension_rules, availability_rules, metadata, provider_search_timeout_minutes
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8,
         $9, $10, $11, $12, $13, $14,
@@ -475,7 +484,7 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
         $43, $44, $45,
         $46, $47, $48, $49, $50, $51, $52,
         $53, $54,
-        $55, $56
+        $55, $56, $57
       )
       RETURNING *`,
       [
@@ -496,7 +505,7 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
         payload.platform_fee_idr, payload.platform_fee_pct, payload.extra_dropoff_fee_idr,
         payload.show_customer_price_to_courier, JSON.stringify(payload.search_radii_km),
         JSON.stringify(payload.size_tiers), JSON.stringify(payload.dimension_rules),
-        JSON.stringify(payload.availability_rules), JSON.stringify(payload.metadata)
+        JSON.stringify(payload.availability_rules), JSON.stringify(payload.metadata), payload.provider_search_timeout_minutes
       ]
     );
 
@@ -567,6 +576,7 @@ export const updateAdminDeliveryService = async (req: Request, res: Response): P
         dimension_rules = $54,
         availability_rules = $55,
         metadata = $56,
+        provider_search_timeout_minutes = $57,
         updated_at = NOW()
       WHERE code = $1
       RETURNING *`,
@@ -588,7 +598,7 @@ export const updateAdminDeliveryService = async (req: Request, res: Response): P
         payload.platform_fee_idr, payload.platform_fee_pct, payload.extra_dropoff_fee_idr,
         payload.show_customer_price_to_courier, JSON.stringify(payload.search_radii_km),
         JSON.stringify(payload.size_tiers), JSON.stringify(payload.dimension_rules),
-        JSON.stringify(payload.availability_rules), JSON.stringify(payload.metadata)
+        JSON.stringify(payload.availability_rules), JSON.stringify(payload.metadata), payload.provider_search_timeout_minutes
       ]
     );
 

@@ -250,13 +250,20 @@ export const buildOnDemandTrackingSnapshot = async (
              o.route_provider,
              o.route_profile,
              o.route_distance_meters,
-             o.route_duration_seconds,
-             o.route_polyline,
-             COALESCE(o.service_sub_type, o.service_code) AS service_type,
-             o.package_details,
-             ol.courier_id,
-             cp.id AS courier_profile_id
+            o.route_duration_seconds,
+            o.route_polyline,
+            COALESCE(o.service_sub_type, o.service_code) AS service_type,
+            o.created_at,
+            dsp.provider_search_timeout_minutes,
+            o.package_details,
+            ol.courier_id,
+            cp.id AS courier_profile_id
      FROM orders o
+     LEFT JOIN delivery_service_products dsp ON dsp.code = COALESCE(
+       NULLIF(o.service_code, ''),
+       NULLIF(o.service_sub_type, ''),
+       NULLIF(o.model, '')
+     )
      LEFT JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
      LEFT JOIN courier_profiles cp ON cp.user_id = ol.courier_id
      WHERE o.id = $1
@@ -269,6 +276,20 @@ export const buildOnDemandTrackingSnapshot = async (
   const order = orderRows[0];
   const proofs = await getProofSummary(client, input.orderId);
   const stage = resolveTrackingStage(order.status, proofs, order.service_type);
+  const searchStatuses = new Set(['pending', 'pending_assignment', 'searching', 'dispatching']);
+  const providerSearchTimeoutMinutes = Math.max(0, toNumber(order.provider_search_timeout_minutes, 0));
+  const orderCreatedAt = order.created_at ? new Date(order.created_at) : null;
+  const providerSearchDeadline = providerSearchTimeoutMinutes > 0 && orderCreatedAt && !Number.isNaN(orderCreatedAt.getTime())
+    ? new Date(orderCreatedAt.getTime() + providerSearchTimeoutMinutes * 60 * 1000)
+    : null;
+  const providerSearchRemainingSeconds = providerSearchDeadline && searchStatuses.has(String(order.status))
+    ? Math.max(0, Math.ceil((providerSearchDeadline.getTime() - Date.now()) / 1000))
+    : null;
+  const providerSearchTimedOut = Boolean(
+    providerSearchDeadline &&
+    searchStatuses.has(String(order.status)) &&
+    providerSearchRemainingSeconds === 0
+  );
 
   const { rows: locationRows } = await client.query(
     `WITH latest_order_location AS (
@@ -368,6 +389,10 @@ export const buildOnDemandTrackingSnapshot = async (
     stage,
     stage_label: stageLabel(stage),
     status: order.status,
+    provider_search_timeout_minutes: providerSearchTimeoutMinutes || null,
+    provider_search_deadline: providerSearchDeadline?.toISOString() || null,
+    provider_search_remaining_seconds: providerSearchRemainingSeconds,
+    provider_search_timed_out: providerSearchTimedOut,
     location,
     target,
     proof_summary: proofs,

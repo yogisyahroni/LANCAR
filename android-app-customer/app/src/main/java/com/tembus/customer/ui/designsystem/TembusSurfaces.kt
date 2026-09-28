@@ -27,6 +27,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +41,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.tembus.customer.ui.theme.TembusComponentDefaults
 import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.theme.OrangeCta
 
 enum class TembusBadgeTone {
     Neutral,
@@ -127,7 +134,7 @@ fun TembusBottomNavigation(
     selectedColor: Color? = null,
     indicatorColor: Color? = null,
 ) {
-    val selectedContentColor = selectedColor ?: MaterialTheme.colorScheme.primary
+    val selectedContentColor = selectedColor ?: OrangeCta
     val unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
     NavigationBar(
         modifier = modifier,
@@ -138,12 +145,12 @@ fun TembusBottomNavigation(
                 selected = item.selected,
                 onClick = item.onClick,
                 enabled = item.enabled,
-                icon = { Icon(item.icon, contentDescription = item.label) },
+                icon = { Icon(item.bottomBarIcon(), contentDescription = item.label) },
                 label = { Text(item.label) },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = selectedContentColor,
                     selectedTextColor = selectedContentColor,
-                    indicatorColor = indicatorColor ?: MaterialTheme.colorScheme.primaryContainer,
+                    indicatorColor = indicatorColor ?: Color.Transparent,
                     unselectedIconColor = unselectedContentColor,
                     unselectedTextColor = unselectedContentColor,
                     disabledIconColor = unselectedContentColor.copy(alpha = 0.38f),
@@ -152,6 +159,20 @@ fun TembusBottomNavigation(
             )
         }
     }
+}
+
+/**
+ * Canonical customer bottom-bar icons from the Figma navigation shell.
+ * Call sites may keep their legacy icon for the large-screen rail, but the
+ * phone bottom bar must stay visually consistent on every destination.
+ */
+private fun TembusNavigationItem.bottomBarIcon(): ImageVector = when (label.trim().lowercase()) {
+    "beranda" -> Icons.Outlined.GridView
+    "aktivitas" -> Icons.AutoMirrored.Outlined.ReceiptLong
+    "pesan" -> Icons.Outlined.ChatBubbleOutline
+    "notifikasi" -> Icons.Outlined.NotificationsNone
+    "akun" -> Icons.Outlined.PersonOutline
+    else -> icon
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

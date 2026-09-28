@@ -60,7 +60,6 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import com.tembus.customer.ui.components.VehicleDetailInput
 import com.tembus.customer.ui.designsystem.logistics.TembusAddressData
 import com.tembus.customer.ui.designsystem.logistics.TembusQuoteBreakdown
 import com.tembus.customer.ui.designsystem.logistics.TembusQuoteBreakdownData
@@ -94,6 +93,7 @@ fun ServiceBookingScreen(
     initialPhotos: List<LocalServicePhoto> = emptyList(),
     initialDamageType: String = "",
     initialNotes: String = "",
+    initialRequestedHoleCount: Int? = null,
     initialTowingConditions: List<String> = emptyList(),
     initialTowingNotes: String = "",
     initialPickup: TowingRoutePoint? = null,
@@ -104,14 +104,13 @@ fun ServiceBookingScreen(
     val context = LocalContext.current
     val isTowing = serviceSubType.startsWith("towing")
 
-    var vehicleType by remember { mutableStateOf("") }
-    var damageType by remember(serviceSubType, initialDamageType) { mutableStateOf(initialDamageType) }
-    var vehicleMake by remember { mutableStateOf("") }
-    var vehicleModel by remember { mutableStateOf("") }
-    var vehicleCondition by remember { mutableStateOf("") }
-    var accessConstraints by remember(serviceSubType, initialTowingConditions) {
-        mutableStateOf(initialTowingConditions.joinToString(", "))
-    }
+    // The previous screen is the canonical roadside intake. This screen is only
+    // review/quote after a provider is selected; do not create a second editable
+    // vehicle form here.
+    val vehicleType = roadsideVehicleType(serviceSubType)
+    val damageType = initialDamageType.ifBlank { initialTowingConditions.joinToString(", ") }
+    val vehicleCondition = initialTowingConditions.joinToString(", ")
+    val accessConstraints = ""
     var notes by remember(serviceSubType, initialNotes, initialTowingNotes) {
         mutableStateOf(initialNotes.ifBlank { initialTowingNotes })
     }
@@ -186,11 +185,12 @@ fun ServiceBookingScreen(
             serviceSubType = serviceSubType,
             vehicleType = vehicleType,
             damageType = damageType,
-            vehicleMake = vehicleMake,
-            vehicleModel = vehicleModel,
+            vehicleMake = "",
+            vehicleModel = "",
             vehicleCondition = vehicleCondition,
             accessConstraints = accessConstraints,
             notes = notes,
+            requestedHoleCount = initialRequestedHoleCount,
             towingConditions = initialTowingConditions,
             destinationContactName = destinationContactName,
             destinationContactPhone = destinationContactPhone,
@@ -207,6 +207,7 @@ fun ServiceBookingScreen(
                     lat = uiState.customerLat,
                     lng = uiState.customerLng,
                     courierId = courierId,
+                    requestedHoleCount = initialRequestedHoleCount,
                 )
             }
         } else {
@@ -245,8 +246,7 @@ fun ServiceBookingScreen(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !uiState.isLoading && uiState.customerLat != 0.0 &&
                                 uiState.dropoffAddress.isNotBlank() && courierId != null &&
-                                uiState.photoUploadError == null &&
-                                (uiState.priceEstimate == null || !uiState.requiresPriceConsent || uiState.priceConsent),
+                                uiState.photoUploadError == null,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = OrangeCta,
                                 contentColor = OnOrangeCta,
@@ -254,16 +254,15 @@ fun ServiceBookingScreen(
                         ) {
                             Text(
                                 when {
-                                    uiState.isLoading -> "Memuat quote..."
-                                    uiState.priceEstimate == null -> "Cek Harga Towing"
-                                    uiState.requiresPriceConsent && !uiState.priceConsent -> "Setujui Quote Dulu"
-                                    else -> "Panggil Derek Towing Sekarang →"
+                                    uiState.isLoading -> "Memuat penawaran..."
+                                    uiState.priceEstimate == null -> "Cek Harga Penawaran"
+                                    else -> "Konfirmasi & kunci penawaran →"
                                 },
                                 fontWeight = FontWeight.Bold,
                             )
                         }
                         Text(
-                            "Terhubung ke petugas terdekat setelah quote server dan persetujuan selesai.",
+                            "Tarif petugas, jarak, tol, dan biaya platform dikunci dari penawaran server sebelum pembayaran.",
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.fillMaxWidth(),
@@ -291,34 +290,16 @@ fun ServiceBookingScreen(
             }
             Spacer(Modifier.height(4.dp))
 
-            // Vehicle detail input
-            VehicleDetailInput(
+            RoadsideRequestReviewCard(
                 serviceSubType = serviceSubType,
                 vehicleType = vehicleType,
-                onVehicleTypeChange = { vehicleType = it },
-                damageType = damageType,
-                onDamageTypeChange = { damageType = it },
-                vehicleMake = vehicleMake,
-                onVehicleMakeChange = { vehicleMake = it },
-                vehicleModel = vehicleModel,
-                onVehicleModelChange = { vehicleModel = it },
-                vehicleCondition = vehicleCondition,
-                onVehicleConditionChange = { vehicleCondition = it },
-                accessConstraints = accessConstraints,
-                onAccessConstraintsChange = { accessConstraints = it },
+                issueLabel = damageType,
+                conditionLabel = vehicleCondition,
                 notes = notes,
-                onNotesChange = { notes = it }
+                photoCount = servicePhotos.size,
             )
 
             Spacer(Modifier.height(12.dp))
-            ServicePhotoEvidencePicker(
-                isTowing = isTowing,
-                photos = servicePhotos,
-                onPhotosChanged = {
-                    servicePhotos = it
-                    photoReadError = null
-                },
-            )
             photoReadError?.let { message ->
                 Spacer(Modifier.height(6.dp))
                 Text(message, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
@@ -545,6 +526,14 @@ fun ServiceBookingScreen(
                         statusLabel = courierPrice?.takeIf { it > 0 }?.let { "Harga jasa: Rp ${formatRupiah(it)}" },
                     )
                 )
+                if (!isTowing && initialRequestedHoleCount != null) {
+                    Text(
+                        "Permintaan customer: $initialRequestedHoleCount lubang. Pekerjaan di sistem mengikuti jumlah ini.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
             } else {
                 // Pilih petugas dulu (wajib untuk tambal ban & towing)
@@ -557,7 +546,7 @@ fun ServiceBookingScreen(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = uiState.customerLat != 0.0 && (!isTowing || uiState.dropoffAddress.isNotBlank())
                 ) {
-                    Text("Pilih Petugas")
+                Text("Pilih Penawaran Petugas")
                 }
                 Spacer(Modifier.height(8.dp))
             }
@@ -565,16 +554,20 @@ fun ServiceBookingScreen(
             // Price estimation
             if (uiState.priceEstimate != null) {
                 val estimate = uiState.priceEstimate!!
-                val displayServiceFee = if (courierPrice != null && courierPrice > 0) {
-                    courierPrice
-                } else {
-                    (estimate.baseFare - estimate.distanceBase).coerceAtLeast(0)
-                }
-                val travelFee = estimate.distanceBase +
-                    (estimate.perKmRate * kotlin.math.max(0.0, kotlin.math.ceil(estimate.distanceKm - 1))).toLong()
+                val breakdown = uiState.rawPriceBreakdown
+                val displayServiceFee = breakdown?.serviceFeeIdr?.takeIf { it > 0 }
+                    ?: if (courierPrice != null && courierPrice > 0) courierPrice else (estimate.baseFare - estimate.distanceBase).coerceAtLeast(0)
+                val travelFee = breakdown?.travelFeeIdr?.takeIf { it > 0 }
+                    ?: (estimate.distanceBase +
+                        (estimate.perKmRate * kotlin.math.max(0.0, kotlin.math.ceil(estimate.distanceKm - 1))).toLong())
                 val route = uiState.rawPriceBreakdown?.routeSnapshot
                 val quoteLines = buildList {
-                    add(TembusQuoteLine("Jasa petugas", "Rp ${formatRupiah(displayServiceFee)}"))
+                    add(TembusQuoteLine(
+                        if (!isTowing && initialRequestedHoleCount != null && (breakdown?.pricePerHoleIdr ?: 0) > 0)
+                            "Jasa petugas ($initialRequestedHoleCount lubang × Rp ${formatRupiah(breakdown!!.pricePerHoleIdr)})"
+                        else "Jasa petugas",
+                        "Rp ${formatRupiah(displayServiceFee)}"
+                    ))
                     add(TembusQuoteLine("Biaya perjalanan", "Rp ${formatRupiah(travelFee)} (${"%.1f".format(estimate.distanceKm)} km)"))
                     if (estimate.dynamicPrice > 0) add(TembusQuoteLine("Biaya dinamis", "Rp ${formatRupiah(estimate.dynamicPrice)}"))
                     if (estimate.materialCost > 0) add(TembusQuoteLine("Material", "Rp ${formatRupiah(estimate.materialCost)}"))
@@ -583,7 +576,7 @@ fun ServiceBookingScreen(
                 }
                 TembusQuoteBreakdown(
                     data = TembusQuoteBreakdownData(
-                        title = if (isTowing) "Estimasi biaya towing" else "Estimasi biaya layanan",
+                        title = if (isTowing) "Penawaran towing" else "Penawaran tambal ban",
                         lines = quoteLines,
                         totalLabel = "Rp ${formatRupiah(estimate.totalPrice)}",
                         providerLabel = route?.provider?.ifBlank { null } ?: "Katalog operasional",
@@ -591,11 +584,7 @@ fun ServiceBookingScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 TembusSafetyNotice(
-                    message = if (isTowing) {
-                        "Pembayaran wajib non-tunai lewat aplikasi. Biaya final dapat berubah jika rute, tol, atau kondisi kendaraan berubah; persetujuan akan diminta sebelum perubahan diterapkan."
-                    } else {
-                        "Pembayaran diproses lewat aplikasi berdasarkan quote server dan detail layanan yang Anda pilih."
-                    }
+                    message = "Harga pada penawaran ini sudah berasal dari tarif provider yang dipilih dan disimpan server. Inspeksi petugas tidak mengubah harga yang telah dikunci."
                 )
 
                 Spacer(Modifier.height(24.dp))
@@ -618,20 +607,6 @@ fun ServiceBookingScreen(
                     Spacer(Modifier.height(16.dp))
                 }
 
-                if (isTowing && uiState.requiresPriceConsent) {
-                    TembusRequoteApprovalCard(
-                        data = TembusRequoteApprovalData(
-                            reason = "Saya menyetujui kenaikan harga Rp ${formatRupiah(uiState.priceDeltaIdr)} berdasarkan rute dan komponen aktual yang ditampilkan server.",
-                            originalTotalLabel = "Rp ${formatRupiah((estimate.totalPrice - uiState.priceDeltaIdr).coerceAtLeast(0))}",
-                            newTotalLabel = "Rp ${formatRupiah(estimate.totalPrice)}",
-                            expiresLabel = if (uiState.priceConsent) "Disetujui" else "Persetujuan diperlukan",
-                        ),
-                        onApprove = { viewModel.setPriceConsent(true) },
-                        onReject = { viewModel.setPriceConsent(false) },
-                    )
-                    Spacer(Modifier.height(12.dp))
-                }
-
                 if (!isTowing) {
                     // Submit button for Tambal Ban remains in the scroll flow.
                     Button(
@@ -640,7 +615,7 @@ fun ServiceBookingScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = courierId != null && !uiState.isLoading && uiState.photoUploadError == null &&
-                            (!uiState.requiresPriceConsent || uiState.priceConsent),
+                            uiState.priceEstimate != null,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = OrangeCta,
                             contentColor = OnOrangeCta,
@@ -650,7 +625,7 @@ fun ServiceBookingScreen(
                             when {
                                 uiState.isLoading -> "Membuat pesanan..."
                                 courierId == null -> "Pilih Petugas Dulu"
-                                else -> "Pesan Sekarang"
+                                else -> "Konfirmasi & kunci penawaran"
                             },
                             fontWeight = FontWeight.Bold
                         )
@@ -666,12 +641,13 @@ fun ServiceBookingScreen(
                                     serviceSubType = serviceSubType,
                                     lat = uiState.customerLat,
                                     lng = uiState.customerLng,
-                                    courierId = courierId
+                                    courierId = courierId,
+                                    requestedHoleCount = initialRequestedHoleCount,
                                 )
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = uiState.customerLat != 0.0 && !uiState.isLoading,
+                        enabled = uiState.customerLat != 0.0 && courierId != null && !uiState.isLoading,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = OrangeCta,
                             contentColor = OnOrangeCta,
@@ -680,6 +656,7 @@ fun ServiceBookingScreen(
                         Text(
                             when {
                                 uiState.isLoading -> "Menghitung..."
+                                courierId == null -> "Pilih Penawaran Petugas Dulu"
                                 else -> "Cek Harga"
                             },
                             fontWeight = FontWeight.Bold
@@ -699,6 +676,58 @@ fun ServiceBookingScreen(
             }
         }
     }
+}
+
+@Composable
+private fun RoadsideRequestReviewCard(
+    serviceSubType: String,
+    vehicleType: String,
+    issueLabel: String,
+    conditionLabel: String,
+    notes: String,
+    photoCount: Int,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Ringkasan permintaan", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("Siap dikunci", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            }
+            ReviewFactRow("Layanan", formatServiceName(serviceSubType))
+            ReviewFactRow("Kendaraan", vehicleType)
+            issueLabel.takeIf { it.isNotBlank() }?.let { ReviewFactRow("Masalah", it) }
+            conditionLabel.takeIf { it.isNotBlank() }?.let { ReviewFactRow("Kondisi untuk petugas", it) }
+            ReviewFactRow("Catatan", notes.ifBlank { "Tidak ada catatan tambahan" })
+            ReviewFactRow("Foto kondisi", if (photoCount > 0) "$photoCount foto dari kamera" else "Belum ada foto")
+            Text(
+                "Detail diambil dari formulir sebelumnya. Untuk mengubahnya, kembali ke halaman input sebelum memilih petugas.",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReviewFactRow(label: String, value: String) {
+    Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp)) {
+        Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+private fun roadsideVehicleType(serviceSubType: String): String = when {
+    serviceSubType.endsWith("_motor") -> "Sepeda motor"
+    serviceSubType.endsWith("_mobil") -> "Mobil penumpang"
+    else -> "Kendaraan roadside"
 }
 
 private fun formatServiceName(serviceSubType: String): String {

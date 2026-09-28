@@ -1,4 +1,15 @@
-import { evaluatePreferredCourierEligibility } from './preferredCourierValidation';
+import { evaluatePreferredCourierEligibility, requiresPreferredRoadsideCourier } from './preferredCourierValidation';
+
+describe('requiresPreferredRoadsideCourier', () => {
+  it('requires a selected provider for tambal ban and towing', () => {
+    expect(requiresPreferredRoadsideCourier('tambal_ban_motor', '')).toBe(true);
+    expect(requiresPreferredRoadsideCourier('towing_mobil', 'courier-1')).toBe(false);
+  });
+
+  it('does not change the provider requirement for parcel services', () => {
+    expect(requiresPreferredRoadsideCourier('tembus_instant', '')).toBe(false);
+  });
+});
 
 describe('evaluatePreferredCourierEligibility', () => {
   const eligible = {

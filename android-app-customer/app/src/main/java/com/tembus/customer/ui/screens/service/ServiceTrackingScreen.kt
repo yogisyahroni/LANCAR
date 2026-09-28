@@ -67,6 +67,9 @@ import com.tembus.customer.ui.components.ServiceProgressBar
 import com.tembus.customer.ui.components.RadarPulseIndicator
 import com.tembus.customer.ui.components.TambalBanProgressSteps
 import com.tembus.customer.ui.components.TowingProgressSteps
+import com.tembus.customer.ui.components.maps.MapUiSettings
+import com.tembus.customer.ui.components.maps.RuntimeMapMarker
+import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 import com.tembus.customer.ui.theme.BrandHeader
 import com.tembus.customer.ui.theme.CustomerHomeCanvas
@@ -102,9 +105,25 @@ fun ServiceTrackingScreen(
 
     val isTambalBan = serviceSubType.startsWith("tambal_ban")
     val steps = if (isTambalBan) TambalBanProgressSteps.steps else TowingProgressSteps.steps
+    val hasAssignedProvider = uiState.providerAssigned
     val isSearching = !uiState.noSupply && !uiState.isTerminal &&
-        uiState.courierName.isNullOrBlank() &&
+        !hasAssignedProvider &&
         (uiState.currentStepIndex == 0 || uiState.statusText.orEmpty().contains("mencari", ignoreCase = true))
+    // A service journey is meaningful only after the backend has assigned a
+    // provider. Keep no-supply/searching states focused on dispatch feedback;
+    // the first journey milestone starts once a real provider is attached.
+    val showServiceProgress = shouldShowServiceProgress(
+        hasAssignedProvider = hasAssignedProvider,
+        isTerminal = uiState.isTerminal,
+        noSupply = uiState.noSupply,
+    )
+    val mapMarkers = buildList {
+        uiState.pickupLocation?.let { add(RuntimeMapMarker("pickup", it, "Lokasi kendaraan", uiState.pickupAddress)) }
+        uiState.dropoffLocation?.let { add(RuntimeMapMarker("dropoff", it, "Tujuan layanan", uiState.dropoffAddress)) }
+        uiState.courierLocation?.let {
+            add(RuntimeMapMarker("provider", it, if (isTambalBan) "Teknisi tambal ban" else "Petugas towing"))
+        }
+    }
 
     Scaffold(
         containerColor = TrackingCanvas,
@@ -162,9 +181,24 @@ fun ServiceTrackingScreen(
                     LoadingCard()
                 } else {
                     if (isSearching) {
-                        SearchingServiceCard(isTambalBan = isTambalBan)
+                        SearchingServiceCard(
+                            isTambalBan = isTambalBan,
+                            remainingSeconds = uiState.providerSearchRemainingSeconds,
+                            timeoutMinutes = uiState.providerSearchTimeoutMinutes,
+                        )
                     }
-                    ProgressCard(steps = steps, currentStep = uiState.currentStepIndex)
+                    if (showServiceProgress) {
+                        ProgressCard(steps = steps, currentStep = uiState.currentStepIndex)
+                    }
+                    if (mapMarkers.isNotEmpty() || uiState.routePoints.isNotEmpty()) {
+                        ServiceMapCard(
+                            providerConfig = uiState.mapsProviderConfig,
+                            markers = mapMarkers,
+                            routePoints = uiState.routePoints,
+                            followLocation = uiState.courierLocation ?: uiState.pickupLocation,
+                            hasAssignedProvider = hasAssignedProvider,
+                        )
+                    }
                 }
 
                 uiState.courierName?.let { name ->
@@ -186,9 +220,11 @@ fun ServiceTrackingScreen(
                 )
 
                 PaymentCard(
+                    visible = hasAssignedProvider && !uiState.noSupply,
                     totalPriceIdr = uiState.totalPriceIdr,
                     paymentStatus = uiState.paymentStatus,
                     paymentMethod = uiState.paymentMethod,
+                    pricingBreakdown = uiState.pricingBreakdown,
                 )
 
                 if (uiState.isStale && uiState.hasSnapshot) {
@@ -241,7 +277,11 @@ fun ServiceTrackingScreen(
 }
 
 @Composable
-private fun SearchingServiceCard(isTambalBan: Boolean) {
+private fun SearchingServiceCard(
+    isTambalBan: Boolean,
+    remainingSeconds: Int?,
+    timeoutMinutes: Int?,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -273,8 +313,75 @@ private fun SearchingServiceCard(isTambalBan: Boolean) {
                     color = OnSurfaceVariant,
                     fontSize = 12.sp,
                 )
+                Text(
+                    searchTimeoutLabel(remainingSeconds, timeoutMinutes),
+                    color = OnSurfaceVariant,
+                    fontSize = 11.sp,
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun ServiceMapCard(
+    providerConfig: com.tembus.customer.data.model.MapsProviderConfig,
+    markers: List<RuntimeMapMarker>,
+    routePoints: List<com.tembus.customer.ui.components.maps.LatLng>,
+    followLocation: com.tembus.customer.ui.components.maps.LatLng?,
+    hasAssignedProvider: Boolean,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.LocationOn, contentDescription = null, tint = TrackingGreen, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (hasAssignedProvider) "Lokasi petugas & rute layanan" else "Peta lokasi penjemputan",
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                if (!hasAssignedProvider) {
+                    Text("Menunggu petugas", fontSize = 10.sp, color = OnSurfaceVariant)
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(210.dp)
+                    .clip(RoundedCornerShape(16.dp)),
+            ) {
+                RuntimeMapRenderer(
+                    providerConfig = providerConfig,
+                    markers = markers,
+                    routePoints = routePoints,
+                    followLocation = followLocation,
+                    mapUiSettings = MapUiSettings(
+                        zoomControlsEnabled = false,
+                        myLocationButtonEnabled = false,
+                        mapToolbarEnabled = false,
+                        compassEnabled = true,
+                    ),
+                    routeColor = TrackingGreen,
+                    fallbackTitle = "Peta tetap aktif",
+                    fallbackMessage = "Peta akan menampilkan lokasi valid dari server saat provider peta siap.",
+                )
+            }
+        }
+    }
+}
+
+private fun searchTimeoutLabel(remainingSeconds: Int?, timeoutMinutes: Int?): String {
+    val remaining = remainingSeconds?.coerceAtLeast(0)
+    return when {
+        remaining != null && remaining > 60 -> "Batas pencarian tersisa ${remaining / 60} menit"
+        remaining != null -> "Batas pencarian tersisa kurang dari 1 menit"
+        timeoutMinutes != null && timeoutMinutes > 0 -> "Pencarian maksimal $timeoutMinutes menit"
+        else -> "Batas pencarian mengikuti pengaturan layanan"
     }
 }
 
@@ -445,7 +552,14 @@ private fun AddressRow(label: String, value: String?, isStart: Boolean) {
 }
 
 @Composable
-private fun PaymentCard(totalPriceIdr: Long?, paymentStatus: String?, paymentMethod: String?) {
+private fun PaymentCard(
+    visible: Boolean,
+    totalPriceIdr: Long?,
+    paymentStatus: String?,
+    paymentMethod: String?,
+    pricingBreakdown: com.tembus.customer.data.model.TrackingPriceBreakdown?,
+) {
+    if (!visible) return
     val hasPaymentData = totalPriceIdr != null || !paymentStatus.isNullOrBlank() || !paymentMethod.isNullOrBlank()
     if (!hasPaymentData) return
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
@@ -461,12 +575,35 @@ private fun PaymentCard(totalPriceIdr: Long?, paymentStatus: String?, paymentMet
                 }
             }
             totalPriceIdr?.takeIf { it > 0 }?.let { Text("Rp ${formatRupiah(it)}", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = TrackingGreen) }
+            pricingBreakdown?.let { breakdown ->
+                val platformFee = breakdown.platformFeeBreakdownIdr.takeIf { it > 0 } ?: breakdown.platformFeeIdr
+                HorizontalDivider(color = Color(0xFFE5EAE6))
+                PriceLine("Harga jasa petugas", breakdown.serviceFeeIdr)
+                PriceLine(
+                    "Harga jarak${breakdown.perKmIdr.takeIf { it > 0 }?.let { " • Rp ${formatRupiah(it)}/km" }.orEmpty()}",
+                    breakdown.travelFeeIdr,
+                )
+                if (breakdown.tollCostIdr > 0) PriceLine("Tol", breakdown.tollCostIdr)
+                PriceLine("Biaya layanan platform", platformFee)
+            }
             paymentMethod?.takeIf { it.isNotBlank() }?.let { Text("Metode: ${it.replace('_', ' ')}", fontSize = 12.sp, color = OnSurfaceVariant) }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Security, contentDescription = null, tint = TrackingGreen, modifier = Modifier.size(15.dp))
                 Text("Rincian mengikuti invoice dan status pembayaran dari server", fontSize = 11.sp, color = OnSurfaceVariant)
             }
         }
+    }
+}
+
+@Composable
+private fun PriceLine(label: String, amount: Long) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, fontSize = 12.sp, color = OnSurfaceVariant)
+        Text("Rp ${formatRupiah(amount)}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

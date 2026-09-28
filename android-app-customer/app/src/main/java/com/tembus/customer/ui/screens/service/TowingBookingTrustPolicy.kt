@@ -24,9 +24,8 @@ internal fun validateTowingBookingTrust(input: TowingBookingTrustInput): String?
     if (input.destinationContactPhone.filter(Char::isDigit).length !in 8..15) {
         return "Nomor kontak tujuan wajib berisi 8-15 digit"
     }
-    if (input.vehicleType.isBlank() || input.vehicleMake.trim().length < 2 || input.vehicleModel.trim().length < 2 ||
-        input.vehicleCondition.isBlank() || input.accessConstraints.trim().length < 3) {
-        return "Lengkapi tipe, merek, model, kondisi, dan akses lokasi kendaraan"
+    if (input.vehicleType.isBlank() || input.vehicleCondition.isBlank()) {
+        return "Lengkapi tipe dan kondisi kendaraan"
     }
     return null
 }

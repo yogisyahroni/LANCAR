@@ -271,12 +271,62 @@ export const getMobileCourierEarningsLedger = async (req: Request, res: Response
       tax_idr: 0,
       fee_idr: 0,
     };
+    // Wallet UI daily figures must come from the authoritative ledger rather
+    // than from the courier's local order cache. Keep the day boundary in the
+    // market timezone used by the mobile ledger response.
+    const dailySummary = await db.query(
+      `SELECT
+         (
+           COALESCE(SUM(CASE
+           WHEN courier_ledger_statement_category(source, direction, COALESCE(transaction_type, 'earning_credit'), metadata) = 'order'
+             OR courier_ledger_statement_category(source, direction, COALESCE(transaction_type, 'earning_credit'), metadata) = 'incentive'
+             OR courier_ledger_statement_category(source, direction, COALESCE(transaction_type, 'earning_credit'), metadata) = 'fee'
+           THEN CASE WHEN direction = 'credit' THEN amount_idr ELSE -amount_idr END
+           ELSE 0
+         END), 0)
+           + COALESCE((SELECT SUM(CASE WHEN status = 'paid' THEN amount_idr ELSE -amount_idr END)
+             FROM driver_tips dt
+             WHERE dt.courier_id = $1
+               AND dt.created_at >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Jakarta') AT TIME ZONE 'Asia/Jakarta'), 0)
+         )::int AS today_net_earnings_idr,
+         COALESCE(SUM(CASE
+           WHEN courier_ledger_statement_category(source, direction, COALESCE(transaction_type, 'earning_credit'), metadata) = 'order'
+           THEN CASE WHEN direction = 'credit' THEN amount_idr ELSE -amount_idr END
+           ELSE 0
+         END), 0)::int AS today_order_earnings_idr,
+         COALESCE((SELECT SUM(CASE WHEN status = 'paid' THEN amount_idr ELSE -amount_idr END)
+           FROM driver_tips dt
+           WHERE dt.courier_id = $1
+             AND dt.created_at >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Jakarta') AT TIME ZONE 'Asia/Jakarta'), 0)::int AS today_tip_earnings_idr,
+         COALESCE(SUM(CASE
+           WHEN courier_ledger_statement_category(source, direction, COALESCE(transaction_type, 'earning_credit'), metadata) = 'incentive'
+           THEN CASE WHEN direction = 'credit' THEN amount_idr ELSE -amount_idr END
+           ELSE 0
+         END), 0)::int AS today_incentive_earnings_idr,
+         COALESCE(SUM(CASE
+           WHEN courier_ledger_statement_category(source, direction, COALESCE(transaction_type, 'earning_credit'), metadata) = 'fee'
+           THEN ABS(amount_idr)
+           ELSE 0
+         END), 0)::int AS today_fee_idr,
+         COUNT(DISTINCT order_id) FILTER (WHERE source = 'delivery' AND direction = 'credit')::int AS today_order_count
+       FROM courier_earnings_ledger
+       WHERE courier_id = $1
+         AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Jakarta') AT TIME ZONE 'Asia/Jakarta'`,
+      [req.user.id]
+    );
+    const dailySummaryRow = dailySummary.rows[0] || {};
 
     res.json({
       success: true,
       data: {
         summary: {
           ...summaryRow,
+          today_net_earnings_idr: Number(dailySummaryRow.today_net_earnings_idr || 0),
+          today_order_earnings_idr: Number(dailySummaryRow.today_order_earnings_idr || 0),
+          today_tip_earnings_idr: Number(dailySummaryRow.today_tip_earnings_idr || 0),
+          today_incentive_earnings_idr: Number(dailySummaryRow.today_incentive_earnings_idr || 0),
+          today_fee_idr: Number(dailySummaryRow.today_fee_idr || 0),
+          today_order_count: Number(dailySummaryRow.today_order_count || 0),
           payout_account: payoutAccount.rows[0] || null,
         },
         transactions: localizedTransactions,

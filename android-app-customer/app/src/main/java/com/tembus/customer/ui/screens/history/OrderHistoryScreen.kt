@@ -60,6 +60,7 @@ import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
 import com.tembus.customer.ui.designsystem.TembusBottomNavigation
 import com.tembus.customer.ui.designsystem.TembusNavigationItem
 import com.tembus.customer.ui.screens.main.FigmaHomeHeader
+import com.tembus.customer.ui.screens.main.ActiveOrderRecoveryPolicy
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.ui.draw.clip
@@ -172,7 +173,7 @@ fun OrderHistoryScreen(
                         FullScreenError(message = res.message, onRetry = { viewModel.fetchHistory() })
                     }
                     is HistoryUiState.Success -> {
-                        val activeOrders = res.orders.filterNot(::isTerminalOrder)
+                        val activeOrders = ActiveOrderRecoveryPolicy.recoverableOrders(res.orders)
                         val cancelledOrders = res.orders.filter(::isCancelledOrder)
                         val selesaiOrders = res.orders.filter(::isCompletedOrder)
                         val chipOptions = listOf("Semua", "Berlangsung", "Selesai", "Dibatalkan")
@@ -330,10 +331,8 @@ private fun isCancelledOrder(order: Order): Boolean {
 }
 
 private fun isCompletedOrder(order: Order): Boolean {
-    return order.status.trim().lowercase() in setOf("delivered", "completed", "arrived")
+    return order.status.trim().lowercase() in setOf("delivered", "completed", "pod_completed")
 }
-
-private fun isTerminalOrder(order: Order): Boolean = isCancelledOrder(order) || isCompletedOrder(order)
 
 @Composable
 private fun ActivityTitleBlock(modifier: Modifier = Modifier) {

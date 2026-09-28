@@ -17,7 +17,6 @@ import com.tembus.courier.data.model.CourierActiveRoutePlan
 import com.tembus.courier.data.model.CourierRoutePreview
 import com.tembus.courier.data.model.MapsProviderConfig
 import com.tembus.courier.data.model.Order
-import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.isMaintenanceService
 import com.tembus.courier.data.security.LocalDeviceSecuritySettings
 import com.tembus.courier.data.security.LocalDeviceSecurityManager
@@ -88,11 +87,24 @@ internal fun MainScreenTabContent(
             2 -> {
                 WalletContent(
                     courierName = displayCourierName,
+                    vehicleLabel = capabilityProfile?.vehicle?.let { vehicle ->
+                        listOfNotNull(vehicle.brand, vehicle.model)
+                            .joinToString(" ")
+                            .ifBlank { vehicle.vehicleType }
+                    } ?: capabilityProfile?.vehicles?.firstOrNull()?.let { vehicle ->
+                        listOfNotNull(vehicle.brand, vehicle.model)
+                            .joinToString(" ")
+                            .ifBlank { vehicle.vehicleType }
+                    }.orEmpty(),
+                    vehiclePlate = capabilityProfile?.vehicle?.plateNumber
+                        ?: capabilityProfile?.vehicles?.firstOrNull()?.plateNumber,
+                    rating = performanceSummary?.avgRating,
                     todayEarningsIdr = roleEarningsToday,
-                    totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
+                    isOnline = isOnline,
                     localSecurityManager = localSecurityManager,
                     earningsLedger = earningsLedger,
                     payoutSummary = payoutSummary,
+                    performanceSummary = performanceSummary,
                     payoutRequests = payoutRequests,
                     isPayoutSubmitting = isPayoutSubmitting,
                     onRefreshPayout = { orderViewModel.fetchPayoutState() },

@@ -112,6 +112,18 @@ fun ServiceReportScreen(
                     }
                     
                     Spacer(Modifier.height(16.dp))
+
+                    if (report.requestedHoleCount != null || report.completedHoleCount != null || report.serviceTotalIdr != null) {
+                        Text("Rincian pekerjaan tambal ban", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        report.requestedHoleCount?.let { Text("Permintaan customer: $it lubang", fontSize = 14.sp) }
+                        report.completedHoleCount?.let { Text("Lubang dikerjakan: $it", fontSize = 14.sp) }
+                        report.pricePerHoleIdr?.let { Text("Harga per lubang: ${formatReportIdr(it)}", fontSize = 14.sp) }
+                        report.serviceTotalIdr?.let { Text("Total jasa: ${formatReportIdr(it)}", fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                        report.customerNote.takeIf { it.isNotBlank() }?.let { note ->
+                            Text(note, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                    }
                     
                     report.materialsUsed?.let { materials ->
                         Text("Bahan yang digunakan:", fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -233,3 +245,6 @@ private fun absoluteServiceUploadUrl(path: String?): String? {
     val gatewayBase = BuildConfig.BASE_URL.substringBefore("/api/v1").trimEnd('/')
     return "$gatewayBase$path"
 }
+
+private fun formatReportIdr(value: Long): String =
+    "Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(value)}"

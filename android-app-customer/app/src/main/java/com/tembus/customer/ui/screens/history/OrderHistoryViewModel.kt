@@ -10,6 +10,7 @@ import com.tembus.customer.data.model.OrderTrackingDetail
 import com.tembus.customer.data.model.ReorderInfo
 import com.tembus.customer.data.repository.OrderRepository
 import com.tembus.customer.data.repository.TrackingRepository
+import com.tembus.customer.ui.screens.main.ActiveOrderRecoveryPolicy
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,10 +76,7 @@ class OrderHistoryViewModel @Inject constructor(
     }
 
     private fun refreshActivitySnapshot(orders: List<Order>) {
-        val activeOrder = orders.firstOrNull { order ->
-            val status = order.status.trim().lowercase()
-            status !in setOf("delivered", "completed", "arrived", "cancelled", "canceled", "failed", "rejected", "payment_failed") && !status.contains("cancel")
-        }
+        val activeOrder = ActiveOrderRecoveryPolicy.recoverableOrders(orders).firstOrNull()
         if (activeOrder == null) {
             _activeTracking.value = null
             return

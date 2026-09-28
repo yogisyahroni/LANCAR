@@ -175,6 +175,10 @@ func (r *availabilityRepo) FindCouriersByCapability(
 		    NULLIF(cp.vehicle_model, '') as vehicle_model,
 		    NULLIF(cp.vehicle_plate, '') as vehicle_plate,
 		    COALESCE(csp.price_amount, 0) as courier_service_price,
+		    COALESCE(csp.price_per_hole_idr, 0) as price_per_hole_idr,
+		    COALESCE(csp.per_km_rate_idr, 0) as per_km_rate_idr,
+		    COALESCE(csp.toll_entry_idr, 0) as toll_entry_idr,
+		    COALESCE(csp.toll_exit_idr, 0) as toll_exit_idr,
 		    COALESCE(cp.radius_max_km, 1) as radius_max_km,
 		    COALESCE(cp.acceptance_rate_pct, 0) as acceptance_rate_pct,
 		    COALESCE(cp.completion_rate_pct, 0) as completion_rate_pct,
@@ -244,7 +248,7 @@ func (r *availabilityRepo) FindCouriersByCapability(
 		err := rows.Scan(
 			&c.CourierID, &c.CourierName, &c.PhotoURL, &c.Rating, &c.RatingCount,
 			&c.VehicleType, &c.VehicleTypeCar, &c.VehicleBrand, &c.VehicleModel, &c.VehiclePlate,
-			&c.CourierServicePrice, &c.RadiusMaxKM,
+			&c.CourierServicePrice, &c.PricePerHoleIDR, &c.PerKMRateIDR, &c.TollEntryIDR, &c.TollExitIDR, &c.RadiusMaxKM,
 			&c.AcceptanceRatePct, &c.CompletionRatePct, &c.OntimeRatePct, &c.TotalDeliveries,
 			&c.Tier, &c.IsVerified, &c.TrainingCount, &c.VerifiedDocumentCount, &c.DistanceKM,
 		)
@@ -279,6 +283,10 @@ func (r *availabilityRepo) GetCourierByID(ctx context.Context, courierID, servic
 		    NULLIF(cp.vehicle_model, '') as vehicle_model,
 		    NULLIF(cp.vehicle_plate, '') as vehicle_plate,
 		    COALESCE(csp.price_amount, 0) as courier_service_price,
+		    COALESCE(csp.price_per_hole_idr, 0) as price_per_hole_idr,
+		    COALESCE(csp.per_km_rate_idr, 0) as per_km_rate_idr,
+		    COALESCE(csp.toll_entry_idr, 0) as toll_entry_idr,
+		    COALESCE(csp.toll_exit_idr, 0) as toll_exit_idr,
 		    COALESCE(cp.radius_max_km, 1) as radius_max_km,
 		    COALESCE(cp.acceptance_rate_pct, 0) as acceptance_rate_pct,
 		    COALESCE(cp.completion_rate_pct, 0) as completion_rate_pct,
@@ -311,7 +319,7 @@ func (r *availabilityRepo) GetCourierByID(ctx context.Context, courierID, servic
 	err := r.db.QueryRowContext(ctx, query, courierID, lat, lng, serviceSubType).Scan(
 		&c.CourierID, &c.CourierName, &c.PhotoURL, &c.Rating, &c.RatingCount,
 		&c.VehicleType, &c.VehicleTypeCar, &c.VehicleBrand, &c.VehicleModel, &c.VehiclePlate,
-		&c.CourierServicePrice, &c.RadiusMaxKM,
+		&c.CourierServicePrice, &c.PricePerHoleIDR, &c.PerKMRateIDR, &c.TollEntryIDR, &c.TollExitIDR, &c.RadiusMaxKM,
 		&c.AcceptanceRatePct, &c.CompletionRatePct, &c.OntimeRatePct, &c.TotalDeliveries,
 		&c.Tier, &c.IsVerified, &c.TrainingCount, &c.VerifiedDocumentCount, &c.DistanceKM,
 	)
@@ -341,6 +349,9 @@ func (r *availabilityRepo) GetDeliveryServiceByCode(ctx context.Context, code st
 			COALESCE(to_json(vehicle_types)::text, '[]') AS vehicle_types,
 			batching_allowed,
 			max_eta_minutes,
+			provider_search_timeout_minutes,
+			description,
+			metadata,
 			platform_fee_idr,
 			platform_fee_pct,
 			COALESCE(platform_commission_percent, 0),
@@ -355,6 +366,7 @@ func (r *availabilityRepo) GetDeliveryServiceByCode(ctx context.Context, code st
 	service := &domain.DeliveryServiceProduct{}
 	var searchRadiiJSON string
 	var vehicleTypesJSON string
+	var metadataJSON []byte
 	err := r.db.QueryRowContext(ctx, query, code).Scan(
 		&service.Code,
 		&service.Name,
@@ -367,6 +379,9 @@ func (r *availabilityRepo) GetDeliveryServiceByCode(ctx context.Context, code st
 		&vehicleTypesJSON,
 		&service.BatchingAllowed,
 		&service.MaxETAMinutes,
+		&service.ProviderSearchTimeoutMinutes,
+		&service.Description,
+		&metadataJSON,
 		&service.PlatformFeeIDR,
 		&service.PlatformFeePct,
 		&service.PlatformCommissionPercent,
@@ -386,6 +401,11 @@ func (r *availabilityRepo) GetDeliveryServiceByCode(ctx context.Context, code st
 	}
 	if err := json.Unmarshal([]byte(vehicleTypesJSON), &service.VehicleTypes); err != nil {
 		service.VehicleTypes = nil
+	}
+	if len(metadataJSON) > 0 {
+		if err := json.Unmarshal(metadataJSON, &service.Metadata); err != nil {
+			service.Metadata = map[string]any{}
+		}
 	}
 	return service, nil
 }
@@ -504,15 +524,21 @@ func (r *serviceReportRepo) CreateTambalBanReport(ctx context.Context, report *d
 	}
 
 	var orderStatus string
+	var requestedHoleCount sql.NullInt64
 	if err := tx.QueryRowContext(ctx, `
-		SELECT o.status
+		SELECT o.status,
+		       CASE
+		         WHEN (o.package_details->'vehicle_details'->>'requested_hole_count') ~ '^[0-9]+$'
+		         THEN (o.package_details->'vehicle_details'->>'requested_hole_count')::bigint
+		         ELSE NULL
+		       END
 		FROM orders o
 		JOIN order_legs ol
 		  ON ol.order_id = o.id
 		 AND ol.leg_number = 1
 		 AND ol.courier_id = $2
 		WHERE o.id = $1
-		FOR UPDATE OF o`, report.OrderID, report.CourierID).Scan(&orderStatus); err != nil {
+		FOR UPDATE OF o`, report.OrderID, report.CourierID).Scan(&orderStatus, &requestedHoleCount); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("%w: courier is not the assigned tambal ban technician", domain.ErrInvalidServiceReport)
 		}
@@ -534,18 +560,32 @@ func (r *serviceReportRepo) CreateTambalBanReport(ctx context.Context, report *d
 	if !domain.CanSubmitTambalBanCompletionReport(domain.OrderStatus(orderStatus)) {
 		return fmt.Errorf("%w: tambal ban completion report requires final-proof stage", domain.ErrInvalidServiceReport)
 	}
+	if requestedHoleCount.Valid {
+		requested := int(requestedHoleCount.Int64)
+		report.RequestedHoleCount = &requested
+		if report.CompletedHoleCount == nil || report.PricePerHoleIDR == nil {
+			return fmt.Errorf("%w: jumlah lubang dikerjakan dan harga per lubang wajib diisi", domain.ErrInvalidServiceReport)
+		}
+		if *report.CompletedHoleCount < 1 || *report.CompletedHoleCount > requested {
+			return fmt.Errorf("%w: jumlah lubang dikerjakan harus 1-%d sesuai permintaan customer", domain.ErrInvalidServiceReport, requested)
+		}
+		total := int64(*report.CompletedHoleCount) * *report.PricePerHoleIDR
+		report.ServiceTotalIDR = &total
+	}
 
 	query := `
 		INSERT INTO tambal_ban_reports 
 		    (order_id, courier_id, tire_condition_before, tire_photo_before_url,
-		     service_duration_minutes, materials_used, notes,
+		     service_duration_minutes, requested_hole_count, completed_hole_count,
+		     price_per_hole_idr, service_total_idr, materials_used, notes,
 		     tire_condition_after, tire_photo_after_url, completed_at)
-		VALUES ($1, (SELECT id FROM courier_profiles WHERE user_id = $2), $3, $4, $5, $6, $7, $8, $9, $10)
+		VALUES ($1, (SELECT id FROM courier_profiles WHERE user_id = $2), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING id, created_at`
 	if err := tx.QueryRowContext(ctx, query,
 		report.OrderID, report.CourierID,
 		report.TireConditionBefore, report.TirePhotoBeforeURL,
-		report.ServiceDurationMins, report.MaterialsUsed, report.Notes,
+		report.ServiceDurationMins, report.RequestedHoleCount, report.CompletedHoleCount,
+		report.PricePerHoleIDR, report.ServiceTotalIDR, report.MaterialsUsed, report.Notes,
 		report.TireConditionAfter, report.TirePhotoAfterURL, report.CompletedAt,
 	).Scan(&report.ID, &report.CreatedAt); err != nil {
 		return err
@@ -556,18 +596,24 @@ func (r *serviceReportRepo) CreateTambalBanReport(ctx context.Context, report *d
 
 func (r *serviceReportRepo) GetTambalBanReportByOrderID(ctx context.Context, orderID string) (*domain.TambalBanReport, error) {
 	query := `
-		SELECT id, order_id, courier_id, tire_condition_before, tire_photo_before_url,
-		       service_duration_minutes, materials_used, notes,
-		       tire_condition_after, tire_photo_after_url, completed_at, created_at
-		FROM tambal_ban_reports WHERE order_id = $1`
+		SELECT t.id, t.order_id, t.courier_id, t.tire_condition_before, t.tire_photo_before_url,
+		       service_duration_minutes, requested_hole_count, completed_hole_count,
+		       price_per_hole_idr, service_total_idr, materials_used, notes,
+		       tire_condition_after, tire_photo_after_url, completed_at, t.created_at,
+		       COALESCE(dsp.metadata->>'customer_note', '')
+		FROM tambal_ban_reports t
+		JOIN orders o ON o.id = t.order_id
+		LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
+		WHERE t.order_id = $1`
 
 	report := &domain.TambalBanReport{}
 	err := r.db.QueryRowContext(ctx, query, orderID).Scan(
 		&report.ID, &report.OrderID, &report.CourierID,
 		&report.TireConditionBefore, &report.TirePhotoBeforeURL,
-		&report.ServiceDurationMins, &report.MaterialsUsed, &report.Notes,
+		&report.ServiceDurationMins, &report.RequestedHoleCount, &report.CompletedHoleCount,
+		&report.PricePerHoleIDR, &report.ServiceTotalIDR, &report.MaterialsUsed, &report.Notes,
 		&report.TireConditionAfter, &report.TirePhotoAfterURL,
-		&report.CompletedAt, &report.CreatedAt,
+		&report.CompletedAt, &report.CreatedAt, &report.CustomerNote,
 	)
 	if err != nil {
 		return nil, err
@@ -584,19 +630,23 @@ func (r *serviceReportRepo) GetTambalBanReportByOrderID(ctx context.Context, ord
 func (r *serviceReportRepo) GetTambalBanReportForCustomer(ctx context.Context, orderID, customerID string) (*domain.TambalBanReport, error) {
 	query := `
 		SELECT t.id, t.order_id, t.courier_id, t.tire_condition_before, t.tire_photo_before_url,
-		       t.service_duration_minutes, t.materials_used, t.notes,
-		       t.tire_condition_after, t.tire_photo_after_url, t.completed_at, t.created_at
+		       t.service_duration_minutes, t.requested_hole_count, t.completed_hole_count,
+		       t.price_per_hole_idr, t.service_total_idr, t.materials_used, t.notes,
+		       t.tire_condition_after, t.tire_photo_after_url, t.completed_at, t.created_at,
+		       COALESCE(dsp.metadata->>'customer_note', '')
 		FROM tambal_ban_reports t
 		JOIN orders o ON o.id = t.order_id AND o.customer_id = $2
+		LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
 		WHERE t.order_id = $1 AND t.completed_at IS NOT NULL`
 
 	report := &domain.TambalBanReport{}
 	err := r.db.QueryRowContext(ctx, query, orderID, customerID).Scan(
 		&report.ID, &report.OrderID, &report.CourierID,
 		&report.TireConditionBefore, &report.TirePhotoBeforeURL,
-		&report.ServiceDurationMins, &report.MaterialsUsed, &report.Notes,
+		&report.ServiceDurationMins, &report.RequestedHoleCount, &report.CompletedHoleCount,
+		&report.PricePerHoleIDR, &report.ServiceTotalIDR, &report.MaterialsUsed, &report.Notes,
 		&report.TireConditionAfter, &report.TirePhotoAfterURL,
-		&report.CompletedAt, &report.CreatedAt,
+		&report.CompletedAt, &report.CreatedAt, &report.CustomerNote,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

@@ -56,6 +56,7 @@ const val SERVICE_PHOTO_URIS_KEY = "service_photo_uris"
 const val SERVICE_PHOTO_MIME_TYPES_KEY = "service_photo_mime_types"
 const val SERVICE_DAMAGE_TYPE_KEY = "service_damage_type"
 const val SERVICE_NOTES_KEY = "service_notes"
+const val SERVICE_REQUESTED_HOLE_COUNT_KEY = "service_requested_hole_count"
 
 data class LocalServicePhoto(
     val uri: Uri,
@@ -65,6 +66,7 @@ data class LocalServicePhoto(
 data class ServiceRequestDraft(
     val damageType: String = "",
     val notes: String = "",
+    val requestedHoleCount: Int? = null,
 )
 
 fun stageServicePhotos(handle: SavedStateHandle?, photos: List<LocalServicePhoto>) {
@@ -88,10 +90,12 @@ fun restoreServicePhotos(handle: SavedStateHandle?): List<LocalServicePhoto> {
     }
 }
 
-fun stageServiceRequestDraft(handle: SavedStateHandle?, damageType: String, notes: String) {
+fun stageServiceRequestDraft(handle: SavedStateHandle?, damageType: String, notes: String, requestedHoleCount: Int? = null) {
     if (handle == null) return
     handle[SERVICE_DAMAGE_TYPE_KEY] = damageType
     handle[SERVICE_NOTES_KEY] = notes
+    if (requestedHoleCount == null) handle.remove<Int>(SERVICE_REQUESTED_HOLE_COUNT_KEY)
+    else handle[SERVICE_REQUESTED_HOLE_COUNT_KEY] = requestedHoleCount
 }
 
 fun restoreServiceRequestDraft(handle: SavedStateHandle?): ServiceRequestDraft {
@@ -99,6 +103,7 @@ fun restoreServiceRequestDraft(handle: SavedStateHandle?): ServiceRequestDraft {
     return ServiceRequestDraft(
         damageType = handle.get<String>(SERVICE_DAMAGE_TYPE_KEY).orEmpty(),
         notes = handle.get<String>(SERVICE_NOTES_KEY).orEmpty(),
+        requestedHoleCount = handle.get<Int>(SERVICE_REQUESTED_HOLE_COUNT_KEY),
     )
 }
 

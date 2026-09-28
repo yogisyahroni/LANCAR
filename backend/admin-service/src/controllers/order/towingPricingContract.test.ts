@@ -1,4 +1,5 @@
 import { calculateCustomerPriceBreakdown } from './_shared';
+import { db } from '../../db';
 
 jest.mock('../../db', () => ({
   db: { query: jest.fn() },
@@ -121,5 +122,35 @@ describe('towing price breakdown contract', () => {
       toll_cost_idr: 0,
       toll_cost_source: 'unavailable',
     }));
+  });
+
+  it('uses the selected provider tariff and toll inputs for a locked roadside offer', async () => {
+    (db.query as jest.Mock).mockResolvedValueOnce({
+      rows: [{
+        price_amount: 40000,
+        per_km_rate_idr: 7500,
+        toll_entry_idr: 6000,
+        toll_exit_idr: 4000,
+      }],
+    });
+
+    const breakdown = await calculateCustomerPriceBreakdown({
+      service: service(0),
+      courierId: 'courier-provider-1',
+      pickupPoint: { lat: -6.2, lng: 106.8 },
+      dropoffPoint: { lat: -6.3, lng: 106.9 },
+      routeSnapshotOverride: routeSnapshot,
+    });
+
+    expect(breakdown).toEqual(expect.objectContaining({
+      service_fee_idr: 40000,
+      per_km_idr: 7500,
+      toll_cost_idr: 10000,
+      toll_cost_source: 'provider_offer',
+    }));
+    expect(breakdown.total_price_idr).toBe(
+      breakdown.base_price_idr + breakdown.dynamic_price_idr + breakdown.volumetric_surcharge_idr
+      + breakdown.insurance_premium_idr + breakdown.platform_fee_idr + breakdown.material_cost_idr + 10000
+    );
   });
 });

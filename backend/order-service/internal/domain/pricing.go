@@ -153,24 +153,27 @@ type PricingService interface {
 }
 
 type DeliveryServiceProduct struct {
-	Code                      string    `json:"code"`
-	Name                      string    `json:"name"`
-	BaseFareIDR               int64     `json:"base_fare_idr"`
-	PerKmIDR                  int64     `json:"per_km_idr"`
-	IncludedDistanceKM        float64   `json:"included_distance_km"`
-	UsesSizeTier              bool      `json:"uses_size_tier"`
-	MaxDistanceKM             *float64  `json:"max_distance_km"`
-	MaxWeightKG               *float64  `json:"max_weight_kg"`
-	PlatformFeeIDR            int64     `json:"platform_fee_idr"`
-	PlatformFeePct            float64   `json:"platform_fee_pct"`
-	PlatformCommissionPercent float64   `json:"platform_commission_percent"`
-	CourierPayoutPercent      float64   `json:"courier_payout_percent"`
-	CourierMinPayoutIDR       int64     `json:"courier_min_payout_idr"`
-	ExtraDropoffFeeIDR        int64     `json:"extra_dropoff_fee_idr"`
-	SearchRadiiKM             []float64 `json:"search_radii_km"`
-	VehicleTypes              []string  `json:"vehicle_types,omitempty"`
-	BatchingAllowed           bool      `json:"batching_allowed"`
-	MaxETAMinutes             int       `json:"max_eta_minutes"`
+	Code                         string         `json:"code"`
+	Name                         string         `json:"name"`
+	BaseFareIDR                  int64          `json:"base_fare_idr"`
+	PerKmIDR                     int64          `json:"per_km_idr"`
+	IncludedDistanceKM           float64        `json:"included_distance_km"`
+	UsesSizeTier                 bool           `json:"uses_size_tier"`
+	MaxDistanceKM                *float64       `json:"max_distance_km"`
+	MaxWeightKG                  *float64       `json:"max_weight_kg"`
+	PlatformFeeIDR               int64          `json:"platform_fee_idr"`
+	PlatformFeePct               float64        `json:"platform_fee_pct"`
+	PlatformCommissionPercent    float64        `json:"platform_commission_percent"`
+	CourierPayoutPercent         float64        `json:"courier_payout_percent"`
+	CourierMinPayoutIDR          int64          `json:"courier_min_payout_idr"`
+	ExtraDropoffFeeIDR           int64          `json:"extra_dropoff_fee_idr"`
+	SearchRadiiKM                []float64      `json:"search_radii_km"`
+	VehicleTypes                 []string       `json:"vehicle_types,omitempty"`
+	BatchingAllowed              bool           `json:"batching_allowed"`
+	MaxETAMinutes                int            `json:"max_eta_minutes"`
+	ProviderSearchTimeoutMinutes int            `json:"provider_search_timeout_minutes"`
+	Description                  string         `json:"description"`
+	Metadata                     map[string]any `json:"metadata,omitempty"`
 }
 
 type PricingRepository interface {

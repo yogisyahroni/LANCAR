@@ -264,7 +264,7 @@ class ServiceBookingViewModel @Inject constructor(
         }
     }
 
-    fun fetchEstimate(serviceSubType: String, lat: Double, lng: Double, courierId: String? = null) {
+    fun fetchEstimate(serviceSubType: String, lat: Double, lng: Double, courierId: String? = null, requestedHoleCount: Int? = null) {
         val normalizedCourierId = courierId?.trim()?.takeIf { it.isNotEmpty() }
         activeServiceSubType = serviceSubType
         activePreferredCourierId = normalizedCourierId
@@ -272,6 +272,18 @@ class ServiceBookingViewModel @Inject constructor(
         val state = _uiState.value
         val isTowing = serviceSubType.startsWith("towing")
         val isRoadside = serviceSubType.startsWith("tambal_ban") || isTowing
+        if (isRoadside && normalizedCourierId == null) {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    preferredCourierAvailable = null,
+                    priceEstimate = null,
+                    rawPriceBreakdown = null,
+                    error = "Pilih penawaran petugas terlebih dahulu. Harga dihitung dari tarif provider yang dipilih."
+                )
+            }
+            return
+        }
         val dropoffLat = if (isTowing) state.dropoffLat else lat
         val dropoffLng = if (isTowing) state.dropoffLng else lng
         if (isTowing && (dropoffLat == 0.0 || dropoffLng == 0.0 || state.dropoffAddress.isBlank())) {
@@ -336,7 +348,8 @@ class ServiceBookingViewModel @Inject constructor(
                 weightKg = if (isTowing) null else 0.0,
                 serviceCode = serviceSubType,
                 courierId = effectiveCourierId,
-                materialCodes = latestState.selectedMaterialCodes.toList()
+                materialCodes = latestState.selectedMaterialCodes.toList(),
+                requestedHoleCount = requestedHoleCount
             )
             orderRepository.calculateCustomerOrderPrice(req)
                 .onSuccess { breakdown ->
@@ -375,6 +388,7 @@ class ServiceBookingViewModel @Inject constructor(
         vehicleCondition: String,
         accessConstraints: String,
         notes: String,
+        requestedHoleCount: Int? = null,
         towingConditions: List<String> = emptyList(),
         destinationContactName: String,
         destinationContactPhone: String,
@@ -458,7 +472,8 @@ class ServiceBookingViewModel @Inject constructor(
                         type = vehicleType.trim(), make = vehicleMake.trim(), model = vehicleModel.trim(),
                         condition = vehicleCondition.trim(), damage = damageType.trim(),
                         accessConstraints = accessConstraints.trim(), notes = notes.trim(),
-                        towingConditions = towingConditions.map(String::trim).filter(String::isNotBlank).distinct()
+                        towingConditions = towingConditions.map(String::trim).filter(String::isNotBlank).distinct(),
+                        requestedHoleCount = requestedHoleCount
                     ) else null
                 ),
                 priceBreakdown = breakdown,
@@ -470,7 +485,10 @@ class ServiceBookingViewModel @Inject constructor(
                 quoteInputFingerprint = breakdown.inputFingerprint,
                 quoteSnapshotHash = breakdown.snapshotHash ?: breakdown.routeSnapshot?.snapshotHash,
                 quoteExpiresAt = breakdown.expiresAt,
-                quoteConsent = state.priceConsent
+                // Selecting the provider and pressing the confirmation CTA is
+                // the roadside quote consent. There is no post-arrival
+                // inspection re-quote in this flow.
+                quoteConsent = if (isRoadside) true else state.priceConsent
             )
 
             orderRepository.createCustomerOnDemandOrder(req).collectLatest { result ->

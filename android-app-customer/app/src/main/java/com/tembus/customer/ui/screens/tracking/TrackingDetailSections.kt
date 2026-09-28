@@ -247,6 +247,14 @@ fun CourierStatusCard(
                                 fontSize = 12.sp,
                                 lineHeight = 17.sp,
                             )
+                            detail?.tracking?.let { tracking ->
+                                providerSearchLabel(
+                                    remainingSeconds = tracking.providerSearchRemainingSeconds,
+                                    timeoutMinutes = tracking.providerSearchTimeoutMinutes,
+                                )?.let { label ->
+                                    Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                                }
+                            }
                         }
                     }
                 }
@@ -411,8 +419,14 @@ fun CourierStatusCard(
             }
 
             if (detail != null) {
-                Spacer(modifier = Modifier.height(18.dp))
-                TrackingTimeline(detail = detail)
+                val isSearching = isCourierSearchInProgress(
+                    status = detail.order.status,
+                    hasAssignedCourier = !detail.order.courierName.isNullOrBlank(),
+                )
+                if (!isSearching) {
+                    Spacer(modifier = Modifier.height(18.dp))
+                    TrackingTimeline(detail = detail)
+                }
                 PackageSection(detail = detail)
                 ProofSection(detail = detail)
             }
@@ -583,6 +597,16 @@ private fun TrackingTimeline(detail: OrderTrackingDetail) {
                 Spacer(modifier = Modifier.height(10.dp))
             }
         }
+    }
+}
+
+private fun providerSearchLabel(remainingSeconds: Int?, timeoutMinutes: Int?): String? {
+    val remaining = remainingSeconds?.coerceAtLeast(0)
+    return when {
+        remaining != null && remaining > 60 -> "Batas pencarian tersisa ${remaining / 60} menit"
+        remaining != null -> "Batas pencarian tersisa kurang dari 1 menit"
+        timeoutMinutes != null && timeoutMinutes > 0 -> "Pencarian maksimal $timeoutMinutes menit"
+        else -> null
     }
 }
 

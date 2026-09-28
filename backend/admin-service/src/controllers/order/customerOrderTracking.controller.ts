@@ -287,25 +287,25 @@ export const syncCourierTracking = async (req: Request, res: Response): Promise<
            ON CONFLICT (courier_id) DO UPDATE SET
              heartbeat_at = GREATEST(COALESCE(courier_availability_state.heartbeat_at, EXCLUDED.heartbeat_at), EXCLUDED.heartbeat_at),
              latitude = CASE
-               WHEN EXCLUDED.heartbeat_at >= NOW() - INTERVAL '120 seconds' THEN EXCLUDED.latitude
+                WHEN EXCLUDED.heartbeat_at >= NOW() - make_interval(secs => courier_presence_stale_after_seconds()) THEN EXCLUDED.latitude
                ELSE courier_availability_state.latitude
              END,
              longitude = CASE
-               WHEN EXCLUDED.heartbeat_at >= NOW() - INTERVAL '120 seconds' THEN EXCLUDED.longitude
+                WHEN EXCLUDED.heartbeat_at >= NOW() - make_interval(secs => courier_presence_stale_after_seconds()) THEN EXCLUDED.longitude
                ELSE courier_availability_state.longitude
              END,
              last_location_update = GREATEST(COALESCE(courier_availability_state.last_location_update, EXCLUDED.last_location_update), EXCLUDED.last_location_update),
              presence_state = CASE
                WHEN courier_availability_state.presence_state = 'unavailable'
                 AND courier_availability_state.presence_reason = 'heartbeat_or_location_stale'
-                AND EXCLUDED.heartbeat_at >= NOW() - INTERVAL '120 seconds'
+                AND EXCLUDED.heartbeat_at >= NOW() - make_interval(secs => courier_presence_stale_after_seconds())
                  THEN 'online'
                ELSE courier_availability_state.presence_state
              END,
              presence_reason = CASE
                WHEN courier_availability_state.presence_state = 'unavailable'
                 AND courier_availability_state.presence_reason = 'heartbeat_or_location_stale'
-                AND EXCLUDED.heartbeat_at >= NOW() - INTERVAL '120 seconds'
+                AND EXCLUDED.heartbeat_at >= NOW() - make_interval(secs => courier_presence_stale_after_seconds())
                  THEN NULL
                ELSE courier_availability_state.presence_reason
              END,
@@ -366,8 +366,18 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
     }
 
     const orderQuery = `
-      SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name,
+      SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address,
+             ST_Y(o.pickup_location::geometry) AS pickup_latitude,
+             ST_X(o.pickup_location::geometry) AS pickup_longitude,
+             ST_Y(o.dropoff_location::geometry) AS dropoff_latitude,
+             ST_X(o.dropoff_location::geometry) AS dropoff_longitude,
+             o.recipient_name,
              o.recipient_phone_masked, o.model, o.status, o.distance_km, o.total_price_idr,
+             COALESCE(
+               o.settlement_snapshot->'pricing_breakdown',
+               o.pricing_snapshot->'pricing_breakdown',
+               o.pricing_snapshot
+             ) AS pricing_breakdown,
              o.service_category, o.schedule_type, o.scheduled_at,
              o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
              COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0)::int AS route_distance_meters,

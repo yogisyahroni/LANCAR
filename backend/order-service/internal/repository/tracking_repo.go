@@ -78,19 +78,53 @@ func (r *PostgresTrackingRepo) SaveGPSLog(ctx context.Context, courierID uuid.UU
 }
 
 func (r *PostgresTrackingRepo) UpdateCourierLocation(ctx context.Context, courierID uuid.UUID, loc domain.GPSLocation) error {
-	// Mobile sessions carry users.id as courierID; courier_profiles is keyed by user_id in this platform.
+	// Mobile sessions carry users.id as courierID; courier_profiles is keyed by
+	// user_id in this platform. The accepted location is also the courier
+	// presence heartbeat. Without refreshing courier_availability_state here,
+	// an on-duty courier can become unavailable after the 120s stale window even
+	// though the mobile app is still sending valid GPS samples.
 	query := `
-		UPDATE courier_profiles 
-		SET current_location = ST_SetSRID(ST_MakePoint($2, $3), 4326), 
-		    current_zone_id = (
-		        SELECT id FROM zones z 
-		        WHERE is_active = TRUE AND ST_Covers(z.polygon, ST_SetSRID(ST_MakePoint($2, $3), 4326))
-		        LIMIT 1
-		    ),
-		    last_location_at = NOW(),
-		    last_active_at = NOW(),
+		WITH updated_profile AS (
+			UPDATE courier_profiles
+			SET current_location = ST_SetSRID(ST_MakePoint($2, $3), 4326),
+			    current_zone_id = (
+			        SELECT id FROM zones z
+			        WHERE is_active = TRUE
+			          AND ST_Covers(z.polygon, ST_SetSRID(ST_MakePoint($2, $3), 4326))
+			        LIMIT 1
+			    ),
+			    last_location_at = NOW(),
+			    last_active_at = NOW(),
+			    updated_at = NOW()
+			WHERE user_id = $1
+			RETURNING id
+		)
+		UPDATE courier_availability_state cas
+		SET heartbeat_at = NOW(),
+		    latitude = $3,
+		    longitude = $2,
+		    last_location_update = NOW(),
+		    presence_state = CASE
+		        WHEN cas.presence_state = 'unavailable'
+		         AND cas.presence_reason = 'heartbeat_or_location_stale'
+		        THEN 'online'
+		        ELSE cas.presence_state
+		    END,
+		    presence_reason = CASE
+		        WHEN cas.presence_state = 'unavailable'
+		         AND cas.presence_reason = 'heartbeat_or_location_stale'
+		        THEN 'courier_location_heartbeat'
+		        ELSE cas.presence_reason
+		    END,
+		    last_transition_at = CASE
+		        WHEN cas.presence_state = 'unavailable'
+		         AND cas.presence_reason = 'heartbeat_or_location_stale'
+		        THEN NOW()
+		        ELSE cas.last_transition_at
+		    END,
 		    updated_at = NOW()
-		WHERE user_id = $1
+		FROM updated_profile
+		WHERE cas.courier_id = updated_profile.id
 	`
 	_, err := r.db.ExecContext(ctx, query, courierID, loc.Longitude, loc.Latitude)
 	return err
