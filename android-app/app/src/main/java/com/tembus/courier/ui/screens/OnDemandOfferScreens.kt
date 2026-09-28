@@ -579,7 +579,11 @@ internal fun OnDemandOfferQueueDialog(
     // Tambal Ban has a dedicated, full-screen offer design in Figma. Keep the
     // generic queue for mixed/other offers, but do not squeeze this service
     // into the old centered dialog card.
-    val focusedTambalOffer = orderedOffers.singleOrNull { it.offerServiceMode() == OfferServiceMode.TAMBAL_BAN }
+    // A Tambal Ban offer must use the dedicated Figma surface even when the
+    // polling response contains another offer at the same time. The old
+    // singleOrNull guard silently fell back to the generic queue for mixed
+    // responses, which made the UAT screen appear inconsistent.
+    val focusedTambalOffer = orderedOffers.firstOrNull { it.offerServiceMode() == OfferServiceMode.TAMBAL_BAN }
     if (focusedTambalOffer != null) {
         FigmaTambalBanOfferScreen(
             order = focusedTambalOffer,
@@ -854,11 +858,11 @@ private fun FigmaTambalBanOfferScreen(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                             Icon(Icons.Default.Bolt, contentDescription = null, tint = TambalOfferMint, modifier = Modifier.size(17.dp))
-                            Text("Pendapatan Mayan Siaga", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Text("Panggilan Masuk: Siaga", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         }
                         Surface(color = TambalOfferOrange, shape = RoundedCornerShape(999.dp)) {
                             Text(
-                                if (expired) "Tawaran berakhir" else "Batas ${remainingSeconds}s • $netEarnings",
+                                if (expired) "Tawaran berakhir" else "${remainingSeconds}s Respon",
                                 modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                                 color = Color.White,
                                 style = MaterialTheme.typography.labelSmall,
@@ -926,6 +930,7 @@ private fun FigmaTambalBanOfferScreen(
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                             Column(modifier = Modifier.weight(1f)) {
+                                Text("${order.orderNumber?.takeIf { it.isNotBlank() } ?: order.orderId}", color = TambalOfferMuted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                                 Text("Tawaran Tambal Ban", color = TambalOfferOrange, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Black)
                                 Text("Pendapatan Bersih Mitra", color = TambalOfferMuted, style = MaterialTheme.typography.labelSmall)
                                 Text(netEarnings, color = TambalOfferGreen, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Black)

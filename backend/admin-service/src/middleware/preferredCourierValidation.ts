@@ -107,7 +107,12 @@ const preferredCourierEligibilityQuery = `
     SELECT COUNT(*)::int AS active_count
     FROM order_legs ol
     JOIN orders ao ON ao.id = ol.order_id
-    WHERE ol.courier_id = $1
+    WHERE ol.courier_id = (
+      SELECT target_cp.user_id
+      FROM courier_profiles target_cp
+      WHERE target_cp.user_id = $1::uuid OR target_cp.id = $1::uuid
+      LIMIT 1
+    )
       AND COALESCE(ol.status, ao.status) NOT IN (
         'delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required'
       )
@@ -179,7 +184,7 @@ const preferredCourierEligibilityQuery = `
   FROM courier_profiles cp
   CROSS JOIN target_service ts
   CROSS JOIN active_jobs aj
-  WHERE cp.user_id = $1
+  WHERE cp.user_id = $1::uuid OR cp.id = $1::uuid
   LIMIT 1
 `;
 
