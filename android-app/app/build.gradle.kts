@@ -217,7 +217,11 @@ android {
         vectorDrawables { useSupportLibrary = true }
 
         ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+            // Keep emulator coverage working as well as physical ARM devices.
+            // SQLCipher and the other runtime dependencies publish x86/x86_64
+            // variants; excluding them forces Android 11 x86 AVDs through
+            // ARM translation and can crash native worker startup.
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
 
         missingDimensionStrategy("tomtom-sdk-version", "complete")

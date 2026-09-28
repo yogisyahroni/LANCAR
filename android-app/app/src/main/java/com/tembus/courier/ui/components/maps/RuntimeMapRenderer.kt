@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.compose.foundation.Canvas
@@ -123,7 +124,9 @@ fun RuntimeMapRenderer(
     }
 
     when {
-        providerConfig.activeProvider == "tomtom_maps" && hasTomTomSdkKey() -> {
+        providerConfig.activeProvider == "tomtom_maps" &&
+            hasTomTomSdkKey() &&
+            isTomTomSdkSupportedOnCurrentAbi() -> {
             TomTomSdkMapRenderer(
                 markers = validMarkers,
                 routePoints = validRoutePoints,
@@ -537,6 +540,14 @@ private fun LatLng.isValidLatLng(): Boolean {
 }
 
 private fun hasTomTomSdkKey(): Boolean = BuildConfig.TOMTOM_API_KEY.trim().isNotBlank()
+
+/**
+ * TomTom's runtime native map engine is packaged for ARM only in this app.
+ * x86/x86_64 emulators must use the tile fallback instead of Android's ARM
+ * translation layer, which is not stable for this native SDK.
+ */
+private fun isTomTomSdkSupportedOnCurrentAbi(): Boolean =
+    Build.SUPPORTED_ABIS.any { abi -> abi == "arm64-v8a" || abi == "armeabi-v7a" }
 
 private fun LatLng.toGeoPoint(): GeoPoint = GeoPoint(latitude, longitude)
 
