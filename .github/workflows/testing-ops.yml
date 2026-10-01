@@ -136,10 +136,10 @@ jobs:
         working-directory: ./frontend
 
   # ─────────────────────────────────────────────
-  # VISUAL — Percy (jadwal; screenshot diff)
+  # VISUAL — browser smoke (jadwal)
   # ─────────────────────────────────────────────
   visual-regression:
-    name: Visual UI Smoke (Percy optional)
+    name: Visual UI Smoke
     runs-on: ubuntu-latest
     needs: [preflight]
     if: needs.preflight.outputs.web_ok == 'true'
