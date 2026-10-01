@@ -557,10 +557,10 @@ class LocationTrackerService : Service() {
             interval
         ).apply {
             setMinUpdateIntervalMillis(fastestInterval)
-            // Do not batch beyond the server's presence freshness window and
-            // keep stationary on-duty couriers alive as well.
+            // Keep location updates battery-bounded while still syncing each
+            // accepted sample immediately for server-side presence tracking.
             setMaxUpdateDelayMillis(interval)
-            setMinUpdateDistanceMeters(0f)
+            setMinUpdateDistanceMeters(50f)
         }.build()
         
         locationRequest = request
