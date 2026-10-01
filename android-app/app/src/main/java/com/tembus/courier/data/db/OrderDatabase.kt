@@ -26,7 +26,7 @@ import kotlinx.serialization.json.Json
  */
 @Database(
     entities = [Order::class, Location::class, SafetyIncidentDraft::class],
-    version = 25,
+    version = 26,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -354,6 +354,13 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        /** Version 26: food merchant snapshot for verified restaurant handoff. */
+        val MIGRATION_25_26 = object : Migration(25, 26) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addOrderColumnIfMissing(db, "merchant_name", "ALTER TABLE `orders` ADD COLUMN `merchant_name` TEXT")
+            }
+        }
+
         val ALL_MIGRATIONS = arrayOf(
             MIGRATION_2_3,
             MIGRATION_3_4,
@@ -378,6 +385,7 @@ abstract class OrderDatabase : RoomDatabase() {
             MIGRATION_22_23,
             MIGRATION_23_24,
             MIGRATION_24_25,
+            MIGRATION_25_26,
             MIGRATION_10_13,
             MIGRATION_11_13
         )

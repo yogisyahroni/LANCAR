@@ -104,6 +104,7 @@ import com.tembus.courier.data.model.displayServiceName
 import com.tembus.courier.data.model.etaMinutesValue
 import com.tembus.courier.data.model.estimatedNetEarningsIdr
 import com.tembus.courier.data.model.isMaintenanceService
+import com.tembus.courier.data.model.isFoodDeliveryOrder
 import com.tembus.courier.data.model.normalizedWorkflowRole
 import com.tembus.courier.data.model.toRupiahCompact
 import com.tembus.courier.domain.CourierProofTypes
@@ -413,7 +414,7 @@ private fun Order.offerServiceMode(): OfferServiceMode {
     return when {
         "tambal" in identity -> OfferServiceMode.TAMBAL_BAN
         "towing" in identity || "dere k" in identity -> OfferServiceMode.TOWING
-        "food" in identity || "makanan" in identity -> OfferServiceMode.FOOD
+        isFoodDeliveryOrder() || "food" in identity || "makanan" in identity -> OfferServiceMode.FOOD
         "paket" in identity || "package" in identity || "parcel" in identity || "instant" in identity -> OfferServiceMode.PACKAGE
         else -> OfferServiceMode.OTHER
     }
@@ -594,6 +595,42 @@ internal fun OnDemandOfferQueueDialog(
             onAccept = { onAccept(focusedTambalOffer) },
             onReject = { onReject(focusedTambalOffer) },
             onExpired = { onExpired(focusedTambalOffer) }
+        )
+        return
+    }
+
+    // Towing has its own emergency-roadside offer surface in Figma. Keep it
+    // separate from the generic queue so the locked payout, highway safety
+    // protocol, route and vehicle evidence remain visible before acceptance.
+    val focusedTowingOffer = orderedOffers.firstOrNull { it.offerServiceMode() == OfferServiceMode.TOWING }
+    if (focusedTowingOffer != null) {
+        FigmaTowingOfferScreen(
+            order = focusedTowingOffer,
+            mapsProviderConfig = mapsProviderConfig,
+            capabilityProfile = capabilityProfile,
+            acceptBlocked = acceptBlocked,
+            blockedReason = capacityText,
+            onAccept = { onAccept(focusedTowingOffer) },
+            onReject = { onReject(focusedTowingOffer) },
+            onExpired = { onExpired(focusedTowingOffer) },
+        )
+        return
+    }
+
+    // Food has a dedicated offer surface: restaurant, menu snapshot, locked
+    // payout and the merchant/customer handoff checklist must be visible
+    // before the courier accepts the job.
+    val focusedFoodOffer = orderedOffers.firstOrNull { it.offerServiceMode() == OfferServiceMode.FOOD }
+    if (focusedFoodOffer != null) {
+        FigmaFoodOfferScreen(
+            order = focusedFoodOffer,
+            mapsProviderConfig = mapsProviderConfig,
+            capabilityProfile = capabilityProfile,
+            acceptBlocked = acceptBlocked,
+            blockedReason = capacityText,
+            onAccept = { onAccept(focusedFoodOffer) },
+            onReject = { onReject(focusedFoodOffer) },
+            onExpired = { onExpired(focusedFoodOffer) },
         )
         return
     }

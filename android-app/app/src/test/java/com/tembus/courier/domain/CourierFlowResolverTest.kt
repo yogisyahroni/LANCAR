@@ -90,4 +90,40 @@ class CourierFlowResolverTest {
         assertEquals(CourierNextActionType.NONE, flow.nextAction.type)
         assertTrue(flow.deliveryDone)
     }
+
+    @Test
+    fun `food offer uses restaurant handoff language`() {
+        val order = Order(
+            orderId = "FOOD-OFFER",
+            status = "offered",
+            workflowRole = "on_demand",
+            serviceCategory = "food_delivery",
+            serviceCode = "food_delivery"
+        )
+
+        val flow = CourierFlowResolver.resolve(order)
+
+        assertEquals(CourierStage.PENDING_OFFER, flow.stage)
+        assertEquals(CourierNextActionType.ACCEPT_OFFER, flow.nextAction.type)
+        assertEquals("Terima Order Food", flow.nextAction.label)
+        assertEquals("Ambil di resto", flow.progressLabels[1])
+    }
+
+    @Test
+    fun `contactless food delivery requires photo without physical signature copy`() {
+        val order = Order(
+            orderId = "FOOD-CONTACTLESS",
+            status = "in_transit",
+            workflowRole = "on_demand",
+            serviceCategory = "food_delivery",
+            serviceCode = "food_delivery",
+            contactless = true
+        )
+
+        val flow = CourierFlowResolver.resolve(order, pickupPhotoRequired = false)
+
+        assertEquals(CourierStage.DELIVERY_POD_REQUIRED, flow.stage)
+        assertEquals(CourierNextActionType.CAPTURE_DELIVERY_PROOF, flow.nextAction.type)
+        assertTrue(flow.nextAction.helperText.contains("POD foto"))
+    }
 }

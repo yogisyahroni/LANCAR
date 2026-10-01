@@ -102,6 +102,7 @@ import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.displayServiceName
 import com.tembus.courier.data.model.estimatedNetEarningsIdr
 import com.tembus.courier.data.model.isMaintenanceService
+import com.tembus.courier.data.model.isFoodDeliveryOrder
 import com.tembus.courier.data.model.normalizedWorkflowRole
 import com.tembus.courier.data.model.toRupiahCompact
 import com.tembus.courier.domain.CourierProofTypes
@@ -449,6 +450,7 @@ internal fun MainScreenModalScreens(deps: MainScreenDeps) {
             initialOrderId = selectedOrder?.orderId,
             scanType = activeScanType ?: "",
             title = if (activeScanType == CourierProofTypes.PICKUP_SCAN) "Verifikasi Barang" else "Verifikasi Tujuan",
+            verificationSubject = if (selectedOrder?.isFoodDeliveryOrder() == true) "pesanan resto" else "paket",
             onScanSuccess = { orderId ->
                 scope.launch {
                     // Load real order from DB (may have been added by notification)

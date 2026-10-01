@@ -163,6 +163,20 @@ fun TambalBanFlowScreen(
             }
         }
 
+    // Figma node 13-2: after the inspection is accepted, the active service
+    // uses the execution surface instead of the generic maintenance form.
+    // Completion remains server-authoritative through CompletionScreen, which
+    // captures the after-photo and submits the service report.
+    if (uiState.stage == TambalBanStage.SERVICE_IN_PROGRESS) {
+        TambalBanExecutionScreen(
+            orderId = orderId,
+            uiState = uiState,
+            onBackClick = onBackClick,
+            onOpenCompletion = { onOpenCompletion(orderId, "tambal_ban") },
+        )
+        return
+    }
+
     pendingCriticalAction?.let { actionType ->
         AlertDialog(
             onDismissRequest = { pendingCriticalAction = null },

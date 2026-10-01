@@ -66,6 +66,7 @@ import com.tembus.courier.data.model.MapsProviderConfig
 import com.tembus.courier.data.model.CancelPickupReason
 import com.tembus.courier.data.model.OrderStatusTransition
 import com.tembus.courier.data.model.isMaintenanceService
+import com.tembus.courier.data.model.isFoodDeliveryOrder
 import com.tembus.courier.BuildConfig
 import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.estimatedNetEarningsIdr
@@ -192,6 +193,10 @@ internal fun OnDemandTaskActions(
             SyncStateNotice(order = order, onRetrySync = onRetrySync, onUseServerVersion = onUseServerVersion)
             OnDemandProgressTimeline(pickupDone = flowState.pickupDone, deliveryDone = flowState.deliveryDone, isServiceOrder = false)
 
+            if (order.isFoodDeliveryOrder()) {
+                FoodHandoffProtocolCard(order = order, pickupDone = flowState.pickupDone, deliveryDone = flowState.deliveryDone)
+            }
+
             if (!flowState.pickupDone) {
                 // FB-105: order food tampilkan isi pesanan (snapshot
                 // food_order_items) — driver tidak boleh buta terhadap
@@ -248,5 +253,54 @@ internal fun OnDemandTaskActions(
                 onReportIssue(eventType, reasonCode, reportedParty, severity, message, photoFile)
             }
         )
+    }
+}
+
+@Composable
+private fun FoodHandoffProtocolCard(order: Order, pickupDone: Boolean, deliveryDone: Boolean) {
+    val title = when {
+        deliveryDone -> "Handoff food selesai"
+        pickupDone -> "Jaga pesanan sampai customer"
+        else -> "Handoff resto wajib terverifikasi"
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = if (isSystemInDarkTheme()) DarkSurfaceVariant else Color(0xFFF1F8F3),
+        border = BorderStroke(1.dp, Primary.copy(alpha = 0.18f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(if (pickupDone) Icons.Default.LocalShipping else Icons.Default.Storefront, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, fontWeight = FontWeight.Black, color = DeepForest)
+                    Text(
+                        order.merchantName?.trim().takeIf { !it.isNullOrBlank() } ?: "Merchant food mengikuti data server",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            if (!pickupDone) {
+                FoodProtocolRow(Icons.Default.QrCodeScanner, "Scan QR/PIN merchant sebelum status pickup")
+                FoodProtocolRow(Icons.Default.CheckCircle, "Cocokkan jumlah, varian, dan catatan item")
+                FoodProtocolRow(Icons.Default.CameraAlt, "Pastikan kemasan aman dan foto sebelum berangkat")
+            } else if (!deliveryDone) {
+                FoodProtocolRow(Icons.Default.Security, if (order.contactless) "Contactless aktif: letakkan sesuai instruksi" else "Konfirmasi nama/order atau OTP customer")
+                FoodProtocolRow(Icons.Default.CameraAlt, "POD foto tetap wajib untuk audit serah-terima")
+            } else {
+                FoodProtocolRow(Icons.Default.CheckCircle, "Server sudah mencatat bukti penyelesaian order")
+            }
+        }
+    }
+}
+
+@Composable
+private fun FoodProtocolRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(17.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
     }
 }

@@ -76,6 +76,7 @@ fun ScanScreen(
     initialOrderId: String? = null,
     scanType: String = CourierProofTypes.PICKUP_SCAN,
     title: String = "Verifikasi Barang",
+    verificationSubject: String = "paket",
     onScanSuccess: (String) -> Unit,
     onScanSuccessWithToken: (String, com.tembus.courier.data.model.ProofTokenIssueResponse) -> Unit = { _, _ -> },
     onBack: () -> Unit,
@@ -212,7 +213,7 @@ fun ScanScreen(
             }
             
             Text(
-                text = if (isPickupScan) "Scan Kode Paket atau masukkan kode paket" else "Scan ulang Kode Paket",
+                text = if (isPickupScan) "Scan QR/PIN atau masukkan kode $verificationSubject" else "Scan ulang kode $verificationSubject",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -223,7 +224,7 @@ fun ScanScreen(
                     packageCodeInput = it
                     hasSubmittedScan = false
                 },
-                label = { Text(if (initialOrderId.isNullOrBlank()) "Order ID / kode paket" else "Nomor resi / kode paket") },
+                label = { Text(if (initialOrderId.isNullOrBlank()) "Order ID / kode $verificationSubject" else "Nomor order / kode $verificationSubject") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -267,7 +268,7 @@ fun ScanScreen(
                 if (uiState is ScanUiState.Loading) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                 } else {
-                    Text(if (isPickupScan) "Verifikasi Pickup" else "Verifikasi Tujuan")
+                    Text(if (isPickupScan) "Verifikasi ${if (verificationSubject == "pesanan resto") "Handoff Resto" else "Pickup"}" else "Verifikasi Tujuan")
                 }
             }
         }

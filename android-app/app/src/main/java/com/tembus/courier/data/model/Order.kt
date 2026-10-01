@@ -151,6 +151,11 @@ data class Order(
     @SerialName("pickup_address")
     val pickupAddress: String = "",
 
+    /** Snapshot nama merchant food untuk handoff di resto. */
+    @ColumnInfo(name = "merchant_name")
+    @SerialName("merchant_name")
+    val merchantName: String? = null,
+
     @ColumnInfo(name = "pickup_latitude")
     @SerialName("pickup_lat")
     val pickupLatitude: Double? = null,
@@ -568,6 +573,22 @@ fun Order.isMaintenanceService(): Boolean {
     val sc = serviceCode.orEmpty().lowercase()
     return code in setOf("tambal_ban", "towing") ||
         sc.startsWith("tambal_ban") || sc.startsWith("towing")
+}
+
+/**
+ * Food is a first-class on-demand flow. Prefer the explicit service identity,
+ * but keep the item snapshot as a safe fallback for older orders that were
+ * created before the food service code was attached.
+ */
+fun Order.isFoodDeliveryOrder(): Boolean {
+    val identity = listOf(serviceCode, serviceCategory, serviceFamily, serviceName)
+        .filterNotNull()
+        .joinToString(" ")
+        .lowercase()
+    return "food" in identity ||
+        "makanan" in identity ||
+        identity.contains("kuliner") ||
+        foodItems.isNotEmpty()
 }
 
 fun Order.distanceKmValue(): Double {

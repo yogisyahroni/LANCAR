@@ -180,6 +180,72 @@ fun TowingFlowScreen(
             )
         }
 
+        // Figma node 13-2568: active towing jobs use the dedicated execution
+        // ticket. The existing action runner remains the source of truth for
+        // status transitions, camera proofs, geofence and face verification.
+        val isActiveExecutionStage = uiState.stage !in setOf(
+            TowingStage.PENDING_OFFER,
+            TowingStage.COMPLETED,
+            TowingStage.FAILED,
+            TowingStage.CANCELLED,
+        )
+        if (isActiveExecutionStage) {
+            val isArriveAction = uiState.nextActionType == TowingNextActionType.ARRIVED_AT_PICKUP
+            val isInspectionAction = uiState.nextActionType == TowingNextActionType.CAPTURE_INSPECTION
+            val isLoadingProofAction = uiState.nextActionType == TowingNextActionType.START_TRANSIT && uiState.loadingPhotoUrl.isNullOrBlank()
+            val isUnloadingProofAction = uiState.nextActionType == TowingNextActionType.CAPTURE_COMPLETION && uiState.unloadingPhotoUrl.isNullOrBlank()
+            val withinRadius = distanceM != null && distanceM!! <= ARRIVAL_RADIUS_M
+            val gateBlocked = isArriveAction && !overrideArrival && !withinRadius
+            val inspectionBlocked = isInspectionAction && (inspectionPhoto == null || !vehicleVerificationReady)
+            val loadingBlocked = isLoadingProofAction && loadingPhoto == null
+            val unloadingBlocked = isUnloadingProofAction && unloadingPhoto == null
+            val actionHint = when {
+                gateBlocked && distanceM == null -> "Mengecek jarak ke lokasi layanan sebelum konfirmasi kedatangan."
+                gateBlocked -> "Kamu masih ${distanceM}m dari lokasi. Dekati titik layanan maksimal 100m atau gunakan konfirmasi manual."
+                inspectionBlocked -> "Lengkapi kecocokan kendaraan dan ambil foto kondisi awal sebelum loading."
+                loadingBlocked -> "Ambil foto kendaraan saat loading sebelum memulai transit."
+                unloadingBlocked -> "Ambil foto kendaraan saat unloading sebelum serah terima."
+                uiState.nextActionType == TowingNextActionType.VERIFY_FACE -> "Verifikasi wajah wajib dilakukan dari kamera sebelum inspeksi kendaraan."
+                else -> uiState.instruction
+            }
+            TowingExecutionScreen(
+                orderId = orderId,
+                uiState = uiState,
+                inspectionPhoto = inspectionPhoto,
+                loadingPhoto = loadingPhoto,
+                unloadingPhoto = unloadingPhoto,
+                observedType = observedType,
+                observedMake = observedMake,
+                observedModel = observedModel,
+                observedPlate = observedPlate,
+                verificationNotes = verificationNotes,
+                vehicleMatched = vehicleMatched,
+                vehicleVerificationReady = vehicleVerificationReady,
+                actionEnabled = !uiState.isLoading && !gateBlocked && !inspectionBlocked && !loadingBlocked && !unloadingBlocked && uiState.nextActionType != TowingNextActionType.NONE,
+                actionHint = actionHint,
+                showManualArrivalAction = gateBlocked,
+                onBackClick = onBackClick,
+                onAction = {
+                    if (requiresTowingConfirmation(uiState.nextActionType)) {
+                        pendingCriticalAction = uiState.nextActionType
+                    } else {
+                        runNextAction(uiState.nextActionType)
+                    }
+                },
+                onManualArrival = { overrideArrival = true },
+                onObservedTypeChange = { observedType = it },
+                onObservedMakeChange = { observedMake = it },
+                onObservedModelChange = { observedModel = it },
+                onObservedPlateChange = { observedPlate = it },
+                onVerificationNotesChange = { verificationNotes = it },
+                onVehicleMatchedChange = { vehicleMatched = it },
+                onInspectionPhotoCaptured = { inspectionPhoto = it },
+                onLoadingPhotoCaptured = { loadingPhoto = it },
+                onUnloadingPhotoCaptured = { unloadingPhoto = it },
+            )
+            return
+        }
+
         Scaffold(
         topBar = {
             TopAppBar(

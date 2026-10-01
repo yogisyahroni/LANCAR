@@ -2,6 +2,7 @@ package com.tembus.courier.domain
 
 import com.tembus.courier.data.model.Order
 import com.tembus.courier.data.model.normalizedWorkflowRole
+import com.tembus.courier.data.model.isFoodDeliveryOrder
 
 enum class CourierStage {
     PENDING_OFFER,
@@ -96,6 +97,7 @@ object CourierFlowResolver {
         val pickupArrivalRecorded = status in pickupArrivedStatuses || status in pickupImpliedStatuses
         val pickupAddress = order.pickupAddress.ifBlank { "Alamat pickup sedang disinkronkan" }
         val dropAddress = order.dropAddress.ifBlank { "Alamat tujuan sedang disinkronkan" }
+        val foodOrder = order.isFoodDeliveryOrder()
 
         val stage = when {
             status in deliveredStatuses -> CourierStage.DELIVERED
@@ -119,8 +121,8 @@ object CourierFlowResolver {
         val nextAction = when (stage) {
             CourierStage.PENDING_OFFER -> CourierNextAction(
                 type = CourierNextActionType.ACCEPT_OFFER,
-                label = "Terima Order",
-                helperText = "Konfirmasi pekerjaan sebelum mulai pickup."
+                label = if (foodOrder) "Terima Order Food" else "Terima Order",
+                helperText = if (foodOrder) "Periksa resto, item, tujuan, dan pendapatan sebelum menerima tawaran." else "Konfirmasi pekerjaan sebelum mulai pickup."
             )
             CourierStage.PICKUP_FACE_REQUIRED -> CourierNextAction(
                 type = CourierNextActionType.VERIFY_FACE_PICKUP,
@@ -134,26 +136,26 @@ object CourierFlowResolver {
             )
             CourierStage.PICKUP_SCAN_REQUIRED -> CourierNextAction(
                 type = CourierNextActionType.SCAN_PICKUP,
-                label = "Scan Kode Paket",
-                helperText = "Cocokkan paket dengan order aktif di titik pickup."
+                label = if (foodOrder) "Verifikasi Handoff Resto" else "Scan Kode Paket",
+                helperText = if (foodOrder) "Scan QR/PIN dari merchant. Server akan mengikat order, resto, kurir, dan status pickup." else "Cocokkan paket dengan order aktif di titik pickup."
             )
             CourierStage.PICKUP_PHOTO_REQUIRED -> CourierNextAction(
                 type = CourierNextActionType.CAPTURE_PICKUP_PHOTO,
-                label = "Foto Barang Saat Pickup",
-                helperText = "Ambil bukti kondisi barang sebelum mulai antar."
+                label = if (foodOrder) "Foto Pesanan Sebelum Berangkat" else "Foto Barang Saat Pickup",
+                helperText = if (foodOrder) "Pastikan item dan kemasan terlihat sebelum makanan dibawa ke customer." else "Ambil bukti kondisi barang sebelum mulai antar."
             )
             CourierStage.PICKUP_VERIFIED -> CourierNextAction(
                 type = CourierNextActionType.START_DELIVERY,
-                label = "Mulai Antar",
-                helperText = "Pickup lengkap. Lanjutkan perjalanan ke penerima.",
+                label = if (foodOrder) "Mulai Antar ke Customer" else "Mulai Antar",
+                helperText = if (foodOrder) "Handoff resto sudah terverifikasi. Jaga kemasan dan lanjutkan ke customer." else "Pickup lengkap. Lanjutkan perjalanan ke penerima.",
                 targetStatus = "in_transit"
             )
             CourierStage.IN_TRANSIT,
             CourierStage.ARRIVED_AT_DROPOFF,
             CourierStage.DELIVERY_POD_REQUIRED -> CourierNextAction(
                 type = CourierNextActionType.CAPTURE_DELIVERY_PROOF,
-                label = "Ambil Bukti Terima",
-                helperText = "Ambil bukti serah terima di titik penerima."
+                label = if (foodOrder) "Selesaikan Serah-terima Food" else "Ambil Bukti Terima",
+                helperText = if (foodOrder && order.contactless) "Letakkan sesuai instruksi customer dan ambil POD foto. Jangan minta tanda tangan fisik." else if (foodOrder) "Konfirmasi nama/order atau OTP lalu ambil POD sesuai instruksi customer." else "Ambil bukti serah terima di titik penerima."
             )
             CourierStage.FAILED,
             CourierStage.CANCEL_REQUESTED,
@@ -170,29 +172,29 @@ object CourierFlowResolver {
             )
             CourierStage.ASSIGNED -> CourierNextAction(
                 type = CourierNextActionType.NAVIGATE_TO_PICKUP,
-                label = "Navigasi ke Pickup",
-                helperText = "Datang ke titik pickup untuk mulai verifikasi barang."
+                label = if (foodOrder) "Navigasi ke Resto" else "Navigasi ke Pickup",
+                helperText = if (foodOrder) "Datang ke resto untuk mengambil pesanan dan mulai handoff merchant." else "Datang ke titik pickup untuk mulai verifikasi barang."
             )
             CourierStage.GOING_TO_PICKUP -> CourierNextAction(
                 type = CourierNextActionType.MARK_PICKUP_ARRIVED,
-                label = "Saya sudah tiba di pickup",
-                helperText = "Konfirmasi tiba sebelum verifikasi wajah dan pemeriksaan paket.",
+                label = if (foodOrder) "Saya sudah tiba di resto" else "Saya sudah tiba di pickup",
+                helperText = if (foodOrder) "Konfirmasi tiba sebelum verifikasi merchant dan QR/PIN handoff." else "Konfirmasi tiba sebelum verifikasi wajah dan pemeriksaan paket.",
                 targetStatus = "pickup_arrived"
             )
         }
 
         val title = when (stage) {
-            CourierStage.PENDING_OFFER -> "Pesanan baru"
+            CourierStage.PENDING_OFFER -> if (foodOrder) "Tawaran food baru" else "Pesanan baru"
             CourierStage.PICKUP_FACE_REQUIRED -> "Verifikasi wajah dulu"
             CourierStage.PICKUP_SCAN_REQUIRED,
             CourierStage.PICKUP_PHOTO_REQUIRED,
             CourierStage.ASSIGNED,
             CourierStage.GOING_TO_PICKUP,
-            CourierStage.ARRIVED_AT_PICKUP -> "Tiba di pickup"
-            CourierStage.PICKUP_VERIFIED -> "Pickup lengkap"
+            CourierStage.ARRIVED_AT_PICKUP -> if (foodOrder) "Menuju / ambil di resto" else "Tiba di pickup"
+            CourierStage.PICKUP_VERIFIED -> if (foodOrder) "Pesanan siap diantar" else "Pickup lengkap"
             CourierStage.IN_TRANSIT,
             CourierStage.ARRIVED_AT_DROPOFF,
-            CourierStage.DELIVERY_POD_REQUIRED -> "Menuju penerima"
+            CourierStage.DELIVERY_POD_REQUIRED -> if (foodOrder) "Antar ke customer" else "Menuju penerima"
             CourierStage.DELIVERED -> "Pekerjaan selesai"
             CourierStage.FAILED -> "Pengiriman bermasalah"
             CourierStage.CANCEL_REQUESTED -> "Pembatalan diproses"
@@ -201,19 +203,19 @@ object CourierFlowResolver {
         }
 
         val instruction = when (stage) {
-            CourierStage.PICKUP_FACE_REQUIRED -> "Scan wajah terlebih dahulu untuk memulai verifikasi pickup barang."
-            CourierStage.ARRIVED_AT_PICKUP -> "Kamu sudah tiba di pickup. Scan wajah terlebih dahulu sebelum memeriksa paket."
-            CourierStage.PICKUP_SCAN_REQUIRED -> "Scan atau input kode paket saat barang sudah siap diverifikasi."
-            CourierStage.PICKUP_PHOTO_REQUIRED -> "Scan sudah tercatat. Lengkapi foto barang pickup."
-            CourierStage.PICKUP_VERIFIED -> "Semua bukti pickup sudah lengkap. Mulai antar ke penerima."
-            CourierStage.DELIVERY_POD_REQUIRED -> "Antarkan paket ke penerima, lalu ambil bukti terima."
+            CourierStage.PICKUP_FACE_REQUIRED -> if (foodOrder) "Verifikasi wajah sebelum handoff dengan merchant." else "Scan wajah terlebih dahulu untuk memulai verifikasi pickup barang."
+            CourierStage.ARRIVED_AT_PICKUP -> if (foodOrder) "Kamu sudah tiba di resto. Verifikasi wajah lalu cocokkan order dengan merchant." else "Kamu sudah tiba di pickup. Scan wajah terlebih dahulu sebelum memeriksa paket."
+            CourierStage.PICKUP_SCAN_REQUIRED -> if (foodOrder) "Scan QR/PIN handoff merchant saat pesanan sudah siap." else "Scan atau input kode paket saat barang sudah siap diverifikasi."
+            CourierStage.PICKUP_PHOTO_REQUIRED -> if (foodOrder) "Handoff resto tercatat. Lengkapi foto kemasan sebelum berangkat." else "Scan sudah tercatat. Lengkapi foto barang pickup."
+            CourierStage.PICKUP_VERIFIED -> if (foodOrder) "Item dan handoff resto lengkap. Mulai antar ke customer." else "Semua bukti pickup sudah lengkap. Mulai antar ke penerima."
+            CourierStage.DELIVERY_POD_REQUIRED -> if (foodOrder && order.contactless) "Letakkan makanan sesuai instruksi customer, lalu ambil POD foto." else if (foodOrder) "Konfirmasi customer dengan nama/order atau OTP, lalu ambil POD." else "Antarkan paket ke penerima, lalu ambil bukti terima."
             CourierStage.DELIVERED -> "Bukti selesai sudah tercatat."
             CourierStage.FAILED -> "Ikuti instruksi operasional untuk penyelesaian masalah."
             CourierStage.CANCEL_REQUESTED -> "Menunggu hasil pembatalan dari operasional."
             CourierStage.CANCELLED -> "Pekerjaan tidak lagi aktif."
             CourierStage.RETURN_TO_HUB -> "Kembalikan paket sesuai arahan operasional."
-            CourierStage.PENDING_OFFER -> "Review tawaran sebelum menerima pekerjaan."
-            else -> "Datang ke titik pickup, konfirmasi tiba, lalu verifikasi wajah sebelum scan barang."
+            CourierStage.PENDING_OFFER -> if (foodOrder) "Review resto, rincian menu, rute, dan pendapatan sebelum menerima." else "Review tawaran sebelum menerima pekerjaan."
+            else -> if (foodOrder) "Datang ke resto, konfirmasi tiba, verifikasi handoff, lalu jaga pesanan sampai customer." else "Datang ke titik pickup, konfirmasi tiba, lalu verifikasi wajah sebelum scan barang."
         }
 
         val targetIsPickup = stage in setOf(
@@ -230,9 +232,9 @@ object CourierFlowResolver {
             stage = stage,
             title = title,
             instruction = instruction,
-            progressLabels = listOf("Verifikasi Wajah", "Pickup", "Antar", "Bukti Terima"),
+            progressLabels = if (foodOrder) listOf("Terima order", "Ambil di resto", "Dalam perjalanan", "Serah-terima") else listOf("Verifikasi Wajah", "Pickup", "Antar", "Bukti Terima"),
             activeAddress = if (targetIsPickup) pickupAddress else dropAddress,
-            activeAddressLabel = if (targetIsPickup) "Lokasi pickup" else "Lokasi penerima",
+            activeAddressLabel = if (targetIsPickup) (if (foodOrder) "Lokasi resto" else "Lokasi pickup") else (if (foodOrder) "Lokasi customer" else "Lokasi penerima"),
             targetIsPickup = targetIsPickup,
             faceVerifiedForPickup = faceVerifiedForPickup,
             pickupScanDone = scanDone,

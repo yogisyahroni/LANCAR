@@ -56,7 +56,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          o.sequence_no,
          ol.leg_number,
          CASE
-           WHEN COALESCE(dsp.service_category, '') IN ('on_demand', 'tambal_ban', 'towing') THEN 'on_demand'
+           WHEN COALESCE(dsp.service_category, '') IN ('on_demand', 'food_delivery', 'tambal_ban', 'towing') THEN 'on_demand'
            WHEN LOWER(o.model) = 'p2p' THEN 'regular'
            WHEN ol.leg_number = 1 THEN 'pickup'
            ELSE 'delivery'
@@ -106,6 +106,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
           o.route_fallback_reason,
           NULLIF(o.route_snapshot->>'vehicle_type', '') AS route_vehicle_type,
           COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'TEMBUS Service') AS service_name,
+         (SELECT m.nama_toko FROM merchants m WHERE m.id = o.merchant_id) AS merchant_name,
          COALESCE(dsp.service_category, 'network') AS service_category,
          COALESCE(dsp.service_family, 'regular') AS service_family,
          COALESCE(dsp.route_model, o.model, 'p2p') AS service_route_model,

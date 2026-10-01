@@ -163,6 +163,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
           COALESCE(dsp.pod_label, 'POD') AS service_pod_label,
           dsp.service_category,
           o.merchant_id,
+          (SELECT m.nama_toko FROM merchants m WHERE m.id = o.merchant_id) AS merchant_name,
           COALESCE(dsp.max_active_orders_on_demand, 1)::int AS max_active_orders_on_demand,
           COALESCE(dsp.same_customer_batching_required, TRUE) AS same_customer_batching_required,
           COALESCE(dsp.allow_new_offer_while_pickup, FALSE) AS allow_new_offer_while_pickup,
@@ -410,6 +411,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
     courier_id: nextCourier.courier_id,
     vehicle_id: nextCourier.vehicle_id || null,
     merchant_id: nextCourier.merchant_id || null,
+    merchant_name: nextCourier.merchant_name || null,
     pickup_address: nextCourier.pickup_address,
     dropoff_address: nextCourier.dropoff_address,
     distance: ['tambal_ban', 'towing'].includes(nextCourier.service_code?.split('_')[0] ?? '')
@@ -497,6 +499,7 @@ export const dispatchToPreferredCourier = async (
        COALESCE(u.full_name, 'Customer') AS customer_name,
        COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'TEMBUS') AS service_name,
        o.merchant_id,
+       (SELECT m.nama_toko FROM merchants m WHERE m.id = o.merchant_id) AS merchant_name,
        o.service_code,
        COALESCE(dsp.face_verification_required, TRUE) AS service_face_verification_required,
        COALESCE(dsp.proof_geofence_radius_m, 10)::int AS service_proof_geofence_radius_m,
@@ -692,6 +695,7 @@ export const dispatchToPreferredCourier = async (
     courier_id: nextCourier.courier_id,
     vehicle_id: nextCourier.vehicle_id || null,
     merchant_id: nextCourier.merchant_id || null,
+    merchant_name: nextCourier.merchant_name || null,
     pickup_address: nextCourier.pickup_address,
     dropoff_address: nextCourier.dropoff_address,
     distance: ['tambal_ban', 'towing'].includes((nextCourier.service_code ?? '').split('_')[0])
