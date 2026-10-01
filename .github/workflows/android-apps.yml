@@ -447,6 +447,9 @@ jobs:
       - name: Validate localization contracts
         run: python scripts/mobile/check_localization.py
 
+      - name: Validate Android release hardening
+        run: python scripts/mobile/validate_android_release_hardening.py
+
       # 1. Quality Gate: Linting (fail-fast — do not ignore lint errors)
       - name: Run Lint
         run: ./gradlew lintDebug

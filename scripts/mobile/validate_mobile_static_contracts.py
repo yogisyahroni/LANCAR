@@ -234,6 +234,19 @@ def main() -> int:
             "never shipped in release APKs",
         )
 
+    # Retrofit inspects Kotlin suspend continuation generic metadata at runtime.
+    # This is a release-only R8 regression guard: source/unit tests can pass even
+    # when a minified APK loses ParameterizedType metadata.
+    require(
+        errors,
+        "android-app-merchant/app/proguard-rules.pro",
+        "-keepattributes Signature,InnerClasses,EnclosingMethod",
+        "-keep class retrofit2.** { *; }",
+        "-keep class com.tembus.merchant.data.api.** { *; }",
+        "-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation",
+        "@retrofit2.http.* <methods>;",
+    )
+
     # Crash context is allowlisted, bounded, and installed at app startup in
     # every mobile client. Merchant currently has no remote crash vendor, but
     # keeps the same safe context contract for future provider wiring.

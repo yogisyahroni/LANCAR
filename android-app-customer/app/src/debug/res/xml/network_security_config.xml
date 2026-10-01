@@ -2,7 +2,7 @@
 <!-- DEBUG-ONLY: izinkan cleartext ke 10.0.2.2 (docker host dari emulator staging)
      supaya foto UAT bisa di-load dari local image server. Tidak masuk ke release. -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="true">
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

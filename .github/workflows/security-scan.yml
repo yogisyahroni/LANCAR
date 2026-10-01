@@ -120,6 +120,10 @@ jobs:
               - '**/Pipfile.lock'
               - '**/pom.xml'
               - '**/build.gradle'
+              - '**/build.gradle.kts'
+              - '**/settings.gradle.kts'
+              - '**/gradle.lockfile'
+              - '**/gradle/wrapper/gradle-wrapper.properties'
               - '**/go.mod'
               - '**/go.sum'
               # A security workflow change must execute SCA so its own
@@ -170,7 +174,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Setup Java
-        if: ${{ hashFiles('pom.xml') != '' || hashFiles('build.gradle') != '' }}
+        if: ${{ hashFiles('pom.xml') != '' || hashFiles('build.gradle') != '' || hashFiles('**/build.gradle.kts') != '' }}
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
@@ -199,6 +203,36 @@ jobs:
       - name: Install Python dependencies
         if: ${{ hashFiles('requirements.txt') != '' }}
         run: pip install -r requirements.txt
+
+      # Gradle projects do not expose their resolved dependency graph through
+      # npm/pip tooling. Keep an auditable releaseRuntimeClasspath snapshot so
+      # Android dependency review is not silently skipped by this SCA job.
+      - name: Generate Android Gradle dependency reports
+        if: ${{ hashFiles('**/build.gradle.kts') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p android-gradle-dependency-reports
+          for working_dir in android-app android-app-customer android-app-merchant; do
+            if [[ -x "${working_dir}/gradlew" ]]; then
+              (
+                cd "${working_dir}"
+                ./gradlew :app:dependencies \
+                  --configuration releaseRuntimeClasspath \
+                  --no-daemon --console=plain \
+                  > "../android-gradle-dependency-reports/${working_dir}.txt"
+              )
+            fi
+          done
+
+      - name: Upload Android Gradle dependency reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-gradle-dependency-reports
+          path: android-gradle-dependency-reports/
+          if-no-files-found: ignore
+          retention-days: 14
 
       # -------------------------------------------------------
       # SCA Tool 1: Trivy Filesystem Scan
