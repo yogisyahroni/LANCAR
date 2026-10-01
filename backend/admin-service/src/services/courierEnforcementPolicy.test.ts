@@ -12,13 +12,13 @@ describe('courier enforcement policy', () => {
       marketCode: 'ID-JKT',
       reasonCategory: 'safety',
       reasonDetail: 'Review keselamatan diperlukan sebelum akses dilanjutkan.',
-      effectiveUntil: '2026-10-01T00:00:00.000Z',
+      effectiveUntil: '2099-10-01T00:00:00.000Z',
     });
 
     expect(input.scope).toBe('market');
     expect(input.marketCode).toBe('id-jkt');
     expect(input.safeJobPolicy).toBe('allow_active_job_completion');
-    expect(input.effectiveUntil?.toISOString()).toBe('2026-10-01T00:00:00.000Z');
+    expect(input.effectiveUntil?.toISOString()).toBe('2099-10-01T00:00:00.000Z');
   });
 
   it('rejects invalid targets and dates instead of silently broadening enforcement', () => {
@@ -34,8 +34,8 @@ describe('courier enforcement policy', () => {
       scope: 'account',
       reasonCategory: 'quality',
       reasonDetail: 'Alasan review kualitas minimal sepuluh karakter.',
-      effectiveFrom: '2026-10-02T00:00:00.000Z',
-      effectiveUntil: '2026-10-01T00:00:00.000Z',
+      effectiveFrom: '2099-10-02T00:00:00.000Z',
+      effectiveUntil: '2099-10-01T00:00:00.000Z',
     })).toThrow('effective_until must be after effective_from');
   });
 
@@ -51,4 +51,3 @@ describe('courier enforcement policy', () => {
     }));
   });
 });
-

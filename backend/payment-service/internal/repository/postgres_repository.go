@@ -70,11 +70,11 @@ func NewPostgresWalletRepository(db, readDB *sql.DB) domain.WalletRepository {
 func (r *postgresWalletRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.Wallet, error) {
 	// For Extreme Security, we check both tables but in practice, we should know the role.
 	// We'll try customers first.
-	query := `SELECT id, customer_id as user_id, balance::bigint, hold_balance, hold_minimum_required, currency, version, created_at, updated_at FROM customer_wallets WHERE customer_id = $1`
+	query := `SELECT id, customer_id as user_id, balance::bigint, hold_balance, hold_minimum_required, currency, status, version, created_at, updated_at FROM customer_wallets WHERE customer_id = $1`
 
 	var w domain.Wallet
 	err := r.queryRowContext(ctx, false, query, userID).Scan(
-		&w.ID, &w.UserID, &w.Balance, &w.HoldBalance, &w.HoldMinimumRequired, &w.Currency, &w.Version, &w.CreatedAt, &w.UpdatedAt,
+		&w.ID, &w.UserID, &w.Balance, &w.HoldBalance, &w.HoldMinimumRequired, &w.Currency, &w.Status, &w.Version, &w.CreatedAt, &w.UpdatedAt,
 	)
 
 	if err == nil {
@@ -86,9 +86,9 @@ func (r *postgresWalletRepository) GetByUserID(ctx context.Context, userID uuid.
 	}
 
 	// Try couriers
-	query = `SELECT id, courier_id as user_id, balance::bigint, hold_balance, hold_minimum_required, currency, version, created_at, updated_at FROM courier_wallets WHERE courier_id = $1`
+	query = `SELECT id, courier_id as user_id, balance::bigint, hold_balance, hold_minimum_required, currency, status, version, created_at, updated_at FROM courier_wallets WHERE courier_id = $1`
 	err = r.queryRowContext(ctx, false, query, userID).Scan(
-		&w.ID, &w.UserID, &w.Balance, &w.HoldBalance, &w.HoldMinimumRequired, &w.Currency, &w.Version, &w.CreatedAt, &w.UpdatedAt,
+		&w.ID, &w.UserID, &w.Balance, &w.HoldBalance, &w.HoldMinimumRequired, &w.Currency, &w.Status, &w.Version, &w.CreatedAt, &w.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -128,17 +128,17 @@ func (r *postgresWalletRepository) Create(ctx context.Context, userID uuid.UUID)
 	switch role {
 	case "customer":
 		query = `INSERT INTO customer_wallets (customer_id) VALUES ($1)
-		         RETURNING id, customer_id as user_id, balance::bigint, hold_balance, hold_minimum_required, currency, version, created_at, updated_at`
+		         RETURNING id, customer_id as user_id, balance::bigint, hold_balance, hold_minimum_required, currency, status, version, created_at, updated_at`
 	case "courier":
 		query = `INSERT INTO courier_wallets (courier_id) VALUES ($1)
-		         RETURNING id, courier_id as user_id, balance::bigint, hold_balance, hold_minimum_required, currency, version, created_at, updated_at`
+		         RETURNING id, courier_id as user_id, balance::bigint, hold_balance, hold_minimum_required, currency, status, version, created_at, updated_at`
 	default:
 		return nil, fmt.Errorf("wallet owner role %q is not supported", role)
 	}
 
 	var w domain.Wallet
 	err = r.queryRowContext(ctx, true, query, userID).Scan(
-		&w.ID, &w.UserID, &w.Balance, &w.HoldBalance, &w.HoldMinimumRequired, &w.Currency, &w.Version, &w.CreatedAt, &w.UpdatedAt,
+		&w.ID, &w.UserID, &w.Balance, &w.HoldBalance, &w.HoldMinimumRequired, &w.Currency, &w.Status, &w.Version, &w.CreatedAt, &w.UpdatedAt,
 	)
 
 	if err != nil {
@@ -150,19 +150,19 @@ func (r *postgresWalletRepository) Create(ctx context.Context, userID uuid.UUID)
 
 func (r *postgresWalletRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Wallet, error) {
 	w := &domain.Wallet{}
-	query := `SELECT id, user_id, balance::bigint, hold_balance, hold_minimum_required, currency, version, created_at, updated_at 
+	query := `SELECT id, customer_id as user_id, balance::bigint, hold_balance, hold_minimum_required, currency, status, version, created_at, updated_at
 	          FROM customer_wallets WHERE id = $1`
 	err := r.queryRowContext(ctx, false, query, id).Scan(
-		&w.ID, &w.UserID, &w.Balance, &w.HoldBalance, &w.HoldMinimumRequired, &w.Currency, &w.Version, &w.CreatedAt, &w.UpdatedAt,
+		&w.ID, &w.UserID, &w.Balance, &w.HoldBalance, &w.HoldMinimumRequired, &w.Currency, &w.Status, &w.Version, &w.CreatedAt, &w.UpdatedAt,
 	)
 	if err == nil {
 		return w, nil
 	}
 
-	query = `SELECT id, user_id, balance::bigint, hold_balance, hold_minimum_required, currency, version, created_at, updated_at 
+	query = `SELECT id, courier_id as user_id, balance::bigint, hold_balance, hold_minimum_required, currency, status, version, created_at, updated_at
 	          FROM courier_wallets WHERE id = $1`
 	err = r.queryRowContext(ctx, false, query, id).Scan(
-		&w.ID, &w.UserID, &w.Balance, &w.HoldBalance, &w.HoldMinimumRequired, &w.Currency, &w.Version, &w.CreatedAt, &w.UpdatedAt,
+		&w.ID, &w.UserID, &w.Balance, &w.HoldBalance, &w.HoldMinimumRequired, &w.Currency, &w.Status, &w.Version, &w.CreatedAt, &w.UpdatedAt,
 	)
 	if err != nil {
 		return nil, errors.New("wallet not found")
@@ -460,9 +460,10 @@ func (r *postgresWalletRepository) HasActiveSOS(ctx context.Context, userID uuid
 	err := r.queryRowContext(
 		ctx, false,
 		`SELECT COUNT(*)
-		 FROM sos_incidents
-		 WHERE victim_courier_id = $1
-		   AND status IN ('broadcasted', 'accepted')`,
+		 FROM courier_sos_incidents si
+		 JOIN courier_profiles cp ON cp.id = si.victim_courier_id
+		 WHERE cp.user_id = $1
+		   AND si.status IN ('broadcasted', 'accepted')`,
 		userID,
 	).Scan(&count)
 	if err != nil {

@@ -54,7 +54,7 @@ describe('membership eligibility boundary', () => {
     readDb.query.mockResolvedValueOnce({ rows: [{
       id: 'entitlement-1',
       state: 'ACTIVE',
-      current_period_end: '2026-10-01T00:00:00.000Z',
+      current_period_end: '2099-10-01T00:00:00.000Z',
       payment_intent_id: 'payment-1',
       plan_code: 'plus',
       version: 2,

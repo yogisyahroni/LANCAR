@@ -6,6 +6,7 @@ import { earningComponentsFromSnapshot } from '../../services/courierEarningsPol
 import { createNotification } from '../../notifications';
 
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import axios from 'axios';
 
 import { evaluateCourierPayoutRisk } from '../../services/payoutRiskEngine';
@@ -62,6 +63,10 @@ export const isValidCourierPassword = (password: string, pinHash: string | null)
   // narrow so seeded couriers can be tested without weakening real hashes.
   if (pinHash === PLACEHOLDER_SEEDED_PIN_HASH) {
     return password === getDevelopmentSeedCourierPin();
+  }
+
+  if (pinHash.startsWith('$2a$') || pinHash.startsWith('$2b$') || pinHash.startsWith('$2y$')) {
+    return bcrypt.compareSync(password, pinHash);
   }
 
   return password === pinHash;

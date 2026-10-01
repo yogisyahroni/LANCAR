@@ -23,6 +23,11 @@ func TestCanonicalServiceCategoryForDoesNotInventUnknownCategories(t *testing.T)
 			order:    Order{Model: "future_service"},
 			expected: nil,
 		},
+		{
+			name:     "regular is retired and is not on demand",
+			order:    Order{ServiceCategory: "regular", Model: "regular"},
+			expected: nil,
+		},
 	}
 
 	for _, tt := range tests {

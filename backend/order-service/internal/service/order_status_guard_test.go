@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/service"
 )
 
 // ── AUDIT-FIX m5: guard transisi status final di orderSvc.UpdateStatus ──
@@ -70,5 +71,22 @@ func TestUpdateStatus_TransisiNormalTetapJalan(t *testing.T) {
 	}
 	if orderRepo.order.Status != domain.StatusSearching {
 		t.Fatalf("status tidak berubah: %s", orderRepo.order.Status)
+	}
+}
+
+// TestUpdateStatus_WithoutRabbitMQQueueDoesNotPanic verifies that local/dev
+// startup without RabbitMQ remains usable instead of panicking in a worker
+// when the task queue is unavailable.
+func TestUpdateStatus_WithoutRabbitMQQueueDoesNotPanic(t *testing.T) {
+	ctx := context.Background()
+	orderRepo := &mockOrderRepo{order: &domain.Order{ID: "order-no-queue", Status: domain.StatusPendingAssignment, CustomerID: "user-1"}}
+	svc := service.NewOrderService(
+		orderRepo, &stubEventRepo{}, &MockRedisRepo{}, &MockPricingRepo{},
+		&stubRelay{}, &stubEventBus{}, nil, &stubFlags{}, &stubNotification{},
+		&MockConfigRepo{}, &stubLedger{}, &stubTax{},
+	)
+
+	if err := svc.UpdateStatus(ctx, "order-no-queue", domain.StatusSearching); err != nil {
+		t.Fatalf("status transition without RabbitMQ should still succeed, got: %v", err)
 	}
 }

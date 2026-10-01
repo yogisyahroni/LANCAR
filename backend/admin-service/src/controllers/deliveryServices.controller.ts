@@ -319,6 +319,8 @@ export const findDeliveryServiceByCode = async (
      FROM delivery_service_products
      WHERE code = $1
        AND (route_model = 'p2p' OR service_category = 'aggregator')
+       AND COALESCE(service_category, '') <> 'regular'
+       AND code NOT IN ('tembus_reg', 'tembus_yes')
        ${options.includeDisabled ? '' : 'AND is_enabled = TRUE'}
      LIMIT 1`,
     [serviceCode]
@@ -332,7 +334,7 @@ export const listEnabledDeliveryServicesForCustomer = async (): Promise<Delivery
     `SELECT *
      FROM delivery_service_products
      WHERE is_enabled = TRUE
-       AND (route_model = 'p2p' AND service_category IN ('on_demand', 'regular', 'food_delivery')
+       AND (route_model = 'p2p' AND service_category IN ('on_demand', 'food_delivery')
         OR service_category = 'aggregator')
      ORDER BY display_order ASC, name ASC`
   );

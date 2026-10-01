@@ -45,7 +45,7 @@ func CanonicalServiceCategoryForModel(model string) string {
 		return "towing"
 	case "aggregator", "jne", "jnt", "sicepat", "anteraja":
 		return "aggregator"
-	case "p2p", "two_legs", "three_legs", "hub_and_spoke", "model_p2p", "package_on_demand", "on_demand", "regular", "network":
+	case "p2p", "two_legs", "three_legs", "hub_and_spoke", "model_p2p", "package_on_demand", "on_demand", "network":
 		return "package_on_demand"
 	default:
 		return "unknown"

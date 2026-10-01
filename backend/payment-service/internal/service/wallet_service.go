@@ -377,6 +377,9 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 		if err != nil {
 			return err
 		}
+		if s.isUATTestAccount(txCtx, userID) {
+			return domain.ErrUATCreditNotWithdrawable
+		}
 
 		walletBalanceIDR := wallet.Balance
 		if walletBalanceIDR < totalDeductionIDR {
@@ -521,6 +524,28 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 	// Jika amount > threshold, transaksi tetap PENDING untuk manual approval admin
 
 	return nil
+}
+
+// isUATTestAccount keeps seeded test credit spendable for orders while making
+// the same credit explicitly non-withdrawable. The allowlist is persisted in
+// the database, not inferred from an email prefix, so ordinary accounts cannot
+// accidentally enter this path.
+func (s *walletService) isUATTestAccount(ctx context.Context, userID uuid.UUID) bool {
+	if s.db == nil {
+		return false
+	}
+	var blocked bool
+	err := s.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM uat_test_accounts
+			WHERE user_id = $1
+			  AND account_type = 'customer'
+			  AND wallet_credit_idr > 0
+			  AND allow_withdrawal = FALSE
+			  AND (wallet_credit_expires_at IS NULL OR wallet_credit_expires_at > NOW())
+		)`, userID).Scan(&blocked)
+	return err == nil && blocked
 }
 
 func (s *walletService) ProcessPayment(ctx context.Context, userID uuid.UUID, amount int64, orderID string) error {

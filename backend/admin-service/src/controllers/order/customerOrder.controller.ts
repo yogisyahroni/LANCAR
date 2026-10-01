@@ -167,7 +167,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         schedule_type,
         scheduled_at,
         {
-          allowScheduled: service.service_category === 'on_demand' || service.service_category === 'regular',
+          allowScheduled: service.service_category === 'on_demand',
         },
       );
     } catch (error: any) {

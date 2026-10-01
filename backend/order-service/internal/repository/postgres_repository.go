@@ -791,12 +791,12 @@ func (r *postgresRepo) GetActiveCourierOrder(ctx context.Context, courierID stri
 
 func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold time.Duration) ([]*domain.Order, error) {
 	query := `SELECT 
-				id, order_number, customer_id, model, status, 
-				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, 
-				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
-				COALESCE(length, 0), COALESCE(width, 0), COALESCE(height, 0), COALESCE(weight, 0), COALESCE(item_description, ''), COALESCE(item_image_url, ''),
-				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, COALESCE(handover_token, ''), COALESCE(dispatch_expiry, NOW()), COALESCE(batch_id::text, ''), sequence_no, created_at, updated_at
+				o.id, o.order_number, o.customer_id, o.model, o.status,
+				ST_Y(o.pickup_location::geometry), ST_X(o.pickup_location::geometry), o.pickup_address,
+				ST_Y(o.dropoff_location::geometry), ST_X(o.dropoff_location::geometry), o.dropoff_address,
+				COALESCE(o.length, 0), COALESCE(o.width, 0), COALESCE(o.height, 0), COALESCE(o.weight, 0), COALESCE(o.item_description, ''), COALESCE(o.item_image_url, ''),
+				o.distance_km, o.base_price_idr, o.volumetric_surcharge_idr,
+				o.dynamic_price_idr, o.total_price_idr, COALESCE(o.handover_token, ''), COALESCE(o.dispatch_expiry, NOW()), COALESCE(o.batch_id::text, ''), o.sequence_no, o.created_at, o.updated_at
 			  FROM orders o
 			  LEFT JOIN delivery_service_products dsp ON dsp.code = COALESCE(
 				NULLIF(o.service_code, ''),
@@ -832,6 +832,9 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 			return nil, err
 		}
 		orders = append(orders, o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return orders, nil
 }
@@ -1376,16 +1379,16 @@ func (r *postgresRepo) SaveMerchantRating(ctx context.Context, orderID string, m
 func (r *postgresRepo) GetDeliveredUnratedOrders(ctx context.Context, customerID string, maxReminder int, reminderIntervalHours int) ([]*domain.Order, error) {
 	query := `
 		SELECT 
-			id, order_number, 
-			COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
-			rating_reminder_count, last_rating_reminder_at 
-		FROM orders 
-		WHERE customer_id = $1 
-		AND status = 'delivered' 
-		AND courier_rating IS NULL 
-		AND COALESCE(rating_reminder_count, 0) < $2 
-		AND (last_rating_reminder_at IS NULL OR last_rating_reminder_at < NOW() - INTERVAL '1 hour' * $3)
-		ORDER BY created_at DESC 
+			o.id, o.order_number,
+			COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = o.id AND ol.leg_number = 1 LIMIT 1), ''),
+			o.rating_reminder_count, o.last_rating_reminder_at
+		FROM orders o
+		WHERE (NULLIF($1, '') IS NULL OR o.customer_id = NULLIF($1, '')::uuid)
+		AND o.status = 'delivered'
+		AND o.courier_rating IS NULL
+		AND COALESCE(o.rating_reminder_count, 0) < $2
+		AND (o.last_rating_reminder_at IS NULL OR o.last_rating_reminder_at < NOW() - INTERVAL '1 hour' * $3)
+		ORDER BY o.created_at DESC
 		LIMIT 10
 	`
 	rows, err := r.readDB.QueryContext(ctx, query, customerID, maxReminder, reminderIntervalHours)
@@ -1416,6 +1419,9 @@ func (r *postgresRepo) GetDeliveredUnratedOrders(ctx context.Context, customerID
 		}
 
 		orders = append(orders, &o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	for _, o := range orders {

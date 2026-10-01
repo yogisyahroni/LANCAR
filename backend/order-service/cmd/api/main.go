@@ -9,6 +9,7 @@ import (
 
 	"context"
 	"tembus/order-service/internal/domain"
+	domainqueue "tembus/order-service/internal/domain/queue"
 	"tembus/order-service/internal/experiment"
 	"tembus/order-service/internal/featureflags"
 	"tembus/order-service/internal/handler"
@@ -228,11 +229,13 @@ func main() {
 		}
 		rabbitmqURL = "amqp://guest:guest@localhost:5672/"
 	}
-	tq, err := queue.NewRabbitMQQueue(rabbitmqURL)
+	var tq domainqueue.Queue
+	rabbitQueue, err := queue.NewRabbitMQQueue(rabbitmqURL)
 	if err != nil {
 		log.Printf("Warning: Failed to connect to RabbitMQ: %v. Running without task queue.", err)
 	} else {
-		defer tq.Close()
+		tq = rabbitQueue
+		defer rabbitQueue.Close()
 	}
 
 	notifRepo := repository.NewPostgresNotificationRepo(sqlx.NewDb(db, "postgres"))

@@ -74,7 +74,7 @@ func CanonicalServiceCategoryFor(o *Order) *CanonicalServiceCategory {
 	}
 	rawCategory := strings.ToLower(strings.TrimSpace(string(o.ServiceCategory)))
 	switch rawCategory {
-	case string(CanonicalPackageOnDemand), "on_demand", "regular", "network":
+	case string(CanonicalPackageOnDemand), "on_demand", "network":
 		category := CanonicalPackageOnDemand
 		return &category
 	case string(CanonicalFood), "food_delivery":

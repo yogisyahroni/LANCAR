@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"tembus/payment-service/internal/domain"
@@ -80,6 +81,10 @@ func (h *WalletHandler) safeError(w http.ResponseWriter, r *http.Request, err er
 		"path":           r.URL.Path,
 		"error":          err.Error(), // logged only — not sent to client
 	})
+	if errors.Is(err, domain.ErrUATCreditNotWithdrawable) {
+		h.respondError(w, domain.ErrUATCreditNotWithdrawable.Error(), http.StatusForbidden)
+		return
+	}
 	h.respondError(w, "Terjadi kesalahan. Silakan coba lagi.", http.StatusInternalServerError)
 }
 

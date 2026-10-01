@@ -708,13 +708,15 @@ func (s *orderServiceImpl) notifyCustomerNoCourier(ctx context.Context, order *d
 		log.Printf("Failed to send notification to customer %s: %v", order.CustomerID, err)
 	}
 
-	_ = s.taskQueue.Push(ctx, queue.Task{
-		Type: "order.no_courier_found",
-		Payload: map[string]interface{}{
-			"order_id": order.ID,
-			"user_id":  order.CustomerID,
-		},
-	})
+	if s.taskQueue != nil {
+		_ = s.taskQueue.Push(ctx, queue.Task{
+			Type: "order.no_courier_found",
+			Payload: map[string]interface{}{
+				"order_id": order.ID,
+				"user_id":  order.CustomerID,
+			},
+		})
+	}
 
 	// LAUNCH-3: Alert on no-driver-found for ops visibility
 	go func() {

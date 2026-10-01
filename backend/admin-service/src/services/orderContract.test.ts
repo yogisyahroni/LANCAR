@@ -9,6 +9,7 @@ describe('canonical order contract', () => {
     expect(normalizeServiceCategory({ service_category: 'food_delivery', service_sub_type: 'food_delivery' })).toBe('food');
     expect(normalizeServiceCategory({ service_sub_type: 'towing_mobil' })).toBe('towing');
     expect(normalizeServiceCategory({ model: 'aggregator', logistics_provider: 'jne' })).toBe('aggregator');
+    expect(normalizeServiceCategory({ service_category: 'regular' })).toBeNull();
     expect(normalizeServiceCategory({ model: 'unknown_future_model' })).toBeNull();
   });
 

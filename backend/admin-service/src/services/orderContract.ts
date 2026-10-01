@@ -83,7 +83,7 @@ export const normalizeServiceCategory = (row: Record<string, any>): CanonicalSer
   if (raw === 'tambal_ban') return 'tambal_ban';
   if (raw === 'towing') return 'towing';
   if (raw === 'aggregator') return 'aggregator';
-  if (raw === 'package_on_demand' || raw === 'on_demand' || raw === 'regular' || raw === 'network') return 'package_on_demand';
+  if (raw === 'package_on_demand' || raw === 'on_demand' || raw === 'network') return 'package_on_demand';
 
   const subtype = clean(row.service_sub_type)?.toLowerCase();
   if (subtype === 'food_delivery') return 'food';

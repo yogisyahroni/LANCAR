@@ -2,10 +2,13 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+var ErrUATCreditNotWithdrawable = errors.New("saldo kredit UAT hanya untuk pembayaran testing dan tidak dapat ditarik")
 
 type TransactionType string
 type TransactionStatus string
@@ -32,6 +35,7 @@ type Wallet struct {
 	HoldBalance         int64     `json:"hold_balance" db:"hold_balance"`
 	HoldMinimumRequired int64     `json:"hold_minimum_required" db:"hold_minimum_required"`
 	Currency            string    `json:"currency" db:"currency"`
+	Status              string    `json:"status" db:"status"`
 	Version             int       `json:"version" db:"version"`
 	CreatedAt           time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt           time.Time `json:"updated_at" db:"updated_at"`

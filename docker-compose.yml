@@ -286,8 +286,6 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
     environment:
       # ─── Semua koneksi DB WAJIB via PgBouncer (port 6432) ──────────────
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
@@ -642,6 +640,8 @@ services:
       db-read:
         condition: service_started
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     environment:
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
