@@ -155,6 +155,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+          # This repository is a monorepo without a root package-lock.json.
+          # Point setup-node at every lockfile so npm caching does not fail
+          # before the SCA tools can run.
+          cache-dependency-path: '**/package-lock.json'
 
       - name: Setup Python
         if: ${{ hashFiles('requirements.txt') != '' || hashFiles('Pipfile') != '' }}
@@ -282,21 +286,21 @@ jobs:
       # -------------------------------------------------------
       - name: Upload Trivy SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: ${{ always() && hashFiles('trivy-fs-results.sarif') != '' }}
         with:
           sarif_file: 'trivy-fs-results.sarif'
           category: 'trivy-sca'
 
       - name: Upload Snyk report as artifact
         uses: actions/upload-artifact@v4
-        if: always()
+        if: ${{ always() && hashFiles('snyk-report.json') != '' }}
         with:
           name: snyk-report
           path: snyk-report.json
 
       - name: Upload Trivy JSON report as artifact
         uses: actions/upload-artifact@v4
-        if: always()
+        if: ${{ always() && hashFiles('trivy-fs-report.json') != '' }}
         with:
           name: trivy-fs-report
           path: trivy-fs-report.json
