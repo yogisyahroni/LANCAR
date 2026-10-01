@@ -122,6 +122,9 @@ jobs:
               - '**/build.gradle'
               - '**/go.mod'
               - '**/go.sum'
+              # A security workflow change must execute SCA so its own
+              # dependency-scan wiring is verified on the same push.
+              - '.github/workflows/security-scan.yml'
             docker:
               - '**/Dockerfile'
               - '**/docker-compose.yml'
