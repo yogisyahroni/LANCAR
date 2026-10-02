@@ -359,7 +359,7 @@ private fun StrukContent(
                 qrBitmap?.let {
                     Image(
                         bitmap = it.asImageBitmap(),
-                        contentDescription = MerchantTextCatalog.translate("QR Handover Token"),
+                        contentDescription = "QR serah terima pesanan",
                         modifier = Modifier
                             .size(180.dp)
                             .align(Alignment.CenterHorizontally),
@@ -370,7 +370,7 @@ private fun StrukContent(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Tunjukkan QR ini ke kurir saat pickup",
+                    text = "Tunjukkan QR ini ke kurir saat pengambilan",
                     style = MaterialTheme.typography.labelSmall,
                     color = Color(0xFF6B7280),
                     textAlign = TextAlign.Center,

@@ -319,7 +319,7 @@ private fun StoreControlCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        if (merchant?.isOpen == true) "Status tersinkron dari server" else "Aktifkan toko untuk menerima pesanan",
+                        if (merchant?.isOpen == true) "Status toko diperbarui" else "Aktifkan toko untuk menerima pesanan",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -536,7 +536,7 @@ private fun StockWarningCard(items: List<MenuItem>, onOpenMenu: () -> Unit) {
                             when {
                                 !item.isAvailable -> "Menu tidak tersedia"
                                 item.stockQuantity == 0 -> "Stok habis"
-                                else -> "Ketersediaan tersimpan di server"
+                                else -> "Ketersediaan berhasil diperbarui"
                             },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant

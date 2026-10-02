@@ -86,14 +86,14 @@ object MerchantTextCatalog {
         "Rating Toko" to "Store Rating",
         "Ulasan Pelanggan" to "Customer Reviews",
         "Dibatalkan" to "Cancelled",
-        "Dihitung dari pesanan delivered" to "Calculated from delivered orders",
+        "Dihitung dari pesanan delivered" to "Calculated from completed orders",
         "Dari semua order food periode ini" to "From all food orders in this period",
-        "Payout history" to "Payout history",
-        "REQUEST PAYOUT" to "REQUEST PAYOUT",
-        "Payment settings saved." to "Payment settings saved.",
-        "Payout request submitted." to "Payout request submitted.",
-        "Pengaturan Pembayaran" to "Payment Settings",
-        "Rekening bank dan pencairan" to "Bank accounts and payouts",
+        "Payout history" to "Withdrawal history",
+        "REQUEST PAYOUT" to "WITHDRAW FUNDS",
+        "Payment settings saved." to "Withdrawal settings saved.",
+        "Payout request submitted." to "Withdrawal request submitted.",
+        "Pengaturan Pembayaran" to "Withdrawal Settings",
+        "Rekening bank dan pencairan" to "Bank account and withdrawals",
         "Jam Operasional" to "Operating Hours",
         "Jam Buka" to "Opening time",
         "Jam Tutup" to "Closing time",
@@ -116,7 +116,7 @@ object MerchantTextCatalog {
         "Tidak dapat memuat pesanan" to "Unable to load orders",
         "Item tidak tersedia" to "Item unavailable",
         "Item tidak ada" to "Item not found",
-        "Item pesanan tidak tersedia dari backend" to "Order item is unavailable from the backend",
+        "Item pesanan tidak tersedia dari backend" to "Order item details are unavailable",
         "Belum ditentukan" to "Not specified",
         "Kembali" to "Back",
         "Tutup" to "Close",
@@ -131,7 +131,7 @@ object MerchantTextCatalog {
         "Tulis pesan ke customer…" to "Write a message to the customer…",
         "Buka Maps" to "Open Maps",
         "Go back" to "Go back",
-        "Public profile saved." to "Public profile saved.",
+        "Public profile saved." to "Store profile saved.",
         "Preferences updated." to "Preferences updated.",
         "Update Preferences" to "Update Preferences",
         "SAVE PROFILE" to "SAVE PROFILE",
@@ -144,13 +144,13 @@ object MerchantTextCatalog {
         "Linked Bank Account" to "Linked Bank Account",
         "Withdrawal request" to "Withdrawal request",
         "Open" to "Open",
-        "QR Handover Token" to "QR Handover Token",
+        "QR Handover Token" to "Order handover QR",
         "Struk Pembelian" to "Purchase Receipt",
         "Cetak Struk (PDF / Printer Biasa)" to "Print Receipt (PDF / Standard Printer)",
         "Pilih Printer Bluetooth" to "Choose Bluetooth Printer",
         "Preview impor menu" to "Menu import preview",
         "Impor CSV" to "Import CSV",
-        "Impor ke server" to "Import to server",
+        "Impor ke server" to "Add to menu",
         "Daftar Menu" to "Menu List",
         "Daftar Merchant" to "Merchant List",
         "Daftar" to "Register",
@@ -161,8 +161,8 @@ object MerchantTextCatalog {
         "Pilih alasan agar customer menerima informasi yang jelas." to "Choose a reason so the customer receives clear information.",
         "Wajib pilih" to "Selection required",
         "Tanggapan Anda" to "Your response",
-        "Token Undangan" to "Invitation Token",
-        "Belum ada transaksi payout dari backend." to "No payout transactions from the backend yet.",
+        "Token Undangan" to "Invitation Code",
+        "Belum ada transaksi payout dari backend." to "No withdrawal history yet.",
         "No special closures have been added." to "No special closures have been added.",
         "The store will remain closed for this local date." to "The store will remain closed for this local date.",
         "Boost Your Sales" to "Boost Your Sales",
@@ -183,9 +183,9 @@ object MerchantTextCatalog {
         ,"Belum ada ulasan" to "No reviews yet"
         ,"Nama toko belum tersedia" to "Store name unavailable"
         ,"Profil toko belum tersedia" to "Store profile unavailable"
-        ,"Informasi toko belum tersedia dari backend." to "Store information is not available from the backend."
-        ,"Pengaturan pembayaran belum tersedia dari backend." to "Payment settings are not available from the backend."
-        ,"Menu tidak ditemukan dari katalog backend." to "Menu was not found in the backend catalog."
+        ,"Informasi toko belum tersedia dari backend." to "Store information is not available yet."
+        ,"Pengaturan pembayaran belum tersedia dari backend." to "Withdrawal settings are not available yet."
+        ,"Menu tidak ditemukan dari katalog backend." to "Menu was not found."
         ,"Izin Bluetooth ditolak" to "Bluetooth permission denied"
         ,"Undangan diterima! Sekarang kamu staff toko ini." to "Invitation accepted! You are now staff for this store."
         ,"Peran: " to "Role: "
@@ -208,14 +208,14 @@ object MerchantTextCatalog {
         ,"Jeda pesanan" to "Pause orders"
         ,"Pesanan baru akan dijeda selama:" to "New orders will be paused for:"
         ,"Pilih jenis promosi yang ingin Anda tawarkan." to "Choose the type of promotion you want to offer."
-        ,"Harga promo dihitung saat customer checkout; breakdown nominal belum disediakan API." to "Promotion price is calculated at customer checkout; the API does not provide a nominal breakdown."
+        ,"Harga promo dihitung saat customer checkout; breakdown nominal belum disediakan API." to "The promotion price is confirmed when the customer pays."
         ,"Kalkulasi nominal menunggu data harga saat checkout." to "The amount calculation is waiting for price data at checkout."
-        ,"Biaya layanan platform belum dikirim oleh API promo." to "The promotion API has not provided the platform service fee."
-        ,"Menu tidak tersedia dari backend." to "Menu is unavailable from the backend."
+        ,"Biaya layanan platform belum dikirim oleh API promo." to "The service fee is not available for this promotion yet."
+        ,"Menu tidak tersedia dari backend." to "Menu is not available yet."
         ,"Mengunggah foto..." to "Uploading photo..."
         ,"Tidak dapat memuat pesanan" to "Unable to load orders"
-        ,"Snapshot dari order food delivered" to "Snapshot of delivered food orders"
-        ,"Belum ada transaksi payout dari backend." to "No payout transactions from the backend yet."
+        ,"Snapshot dari order food delivered" to "Summary of completed food orders"
+        ,"Belum ada transaksi payout dari backend." to "No withdrawal history yet."
         ,"Detail item belum tersedia" to "Item details are unavailable"
         ,"Detail alasan" to "Reason details"
         ,"Pilih alasan agar customer menerima informasi yang jelas." to "Choose a reason so the customer receives clear information."
@@ -224,7 +224,7 @@ object MerchantTextCatalog {
         ,"Perusahaan" to "Company"
         ,"Perorangan" to "Individual"
         ,"Penjualan kena pajak" to "Taxable sales"
-        ,"Invoice wajib / terbit" to "Invoice required / issued"
+        ,"Invoice wajib / terbit" to "Required / issued tax documents"
         ,"Non-Halal" to "Non-Halal"
         ,"Halal" to "Halal"
         ,"Tanggapan Anda" to "Your response"

@@ -1,6 +1,7 @@
 package com.tembus.merchant.data.repository
 
 import com.tembus.merchant.data.api.TEMBUSApiService
+import com.tembus.merchant.data.api.MerchantErrorMessages
 import com.tembus.merchant.data.model.ChatMessage
 import com.tembus.merchant.data.model.ChatResponse
 import com.tembus.merchant.data.model.ConversationInfo
@@ -32,7 +33,7 @@ class ChatRepository(private val api: TEMBUSApiService) {
                 emit(Result.failure(Exception("Gagal memuat histori pesan")))
             }
         } catch (e: Exception) {
-            emit(Result.failure(e))
+            emit(Result.failure(Exception(MerchantErrorMessages.from(e, "Pesan belum dapat dimuat. Coba lagi."), e)))
         }
     }
 
@@ -48,7 +49,7 @@ class ChatRepository(private val api: TEMBUSApiService) {
                 emit(Result.failure(Exception("Gagal mengirim pesan")))
             }
         } catch (e: Exception) {
-            emit(Result.failure(e))
+            emit(Result.failure(Exception(MerchantErrorMessages.from(e, "Pesan belum terkirim. Coba lagi."), e)))
         }
     }
 

@@ -74,7 +74,7 @@ fun EditOrderScreen(
                     Text("Total pesanan sekarang: ${Format.rupiah(res.totalIdr)}")
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Subtotal ${Format.rupiah(res.subtotalIdr)} · Fee layanan ${Format.rupiah(res.platformFeeIdr)}",
+                        "Subtotal ${Format.rupiah(res.subtotalIdr)} · Biaya layanan ${Format.rupiah(res.platformFeeIdr)}",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }

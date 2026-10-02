@@ -99,7 +99,7 @@ fun StaffAcceptScreen(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = "Masukkan token undangan yang dikirim ke email/WA kamu",
+                            text = "Masukkan kode undangan yang dikirim ke email atau WhatsApp kamu",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -109,8 +109,8 @@ fun StaffAcceptScreen(
                         OutlinedTextField(
                             value = token,
                             onValueChange = { token = it },
-                            label = { Text("Token Undangan") },
-                            placeholder = { Text("Contoh: abc123xyz...") },
+                            label = { Text("Kode Undangan") },
+                            placeholder = { Text("Masukkan kode undangan") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                             modifier = Modifier.fillMaxWidth(),

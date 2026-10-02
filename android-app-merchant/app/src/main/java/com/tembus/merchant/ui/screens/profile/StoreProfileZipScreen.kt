@@ -177,7 +177,7 @@ private fun StoreProfileZipContent(
             StoreProfileOption(
                 icon = Icons.Filled.Info,
                 title = "Status kebijakan toko",
-                subtitle = "Lihat peninjauan, order aman, dan ajukan appeal",
+                subtitle = "Lihat peninjauan, pesanan yang dijaga, dan kirim pengajuan",
                 onClick = onOpenEnforcement
             )
         }

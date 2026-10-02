@@ -138,7 +138,7 @@ private fun OrderDetailContent(struk: StrukData, modifier: Modifier) {
                     )
                     Text(
                         (if (rejected) struk.rejectReason else struk.cancellationReason)
-                            ?.takeIf(String::isNotBlank) ?: "Alasan tidak tersedia dari backend",
+                            ?.takeIf(String::isNotBlank) ?: "Alasan belum tersedia",
                         color = MaterialTheme.colorScheme.onErrorContainer
                     )
                 }
@@ -164,7 +164,7 @@ private fun OrderDetailContent(struk: StrukData, modifier: Modifier) {
                 SectionLabel(Icons.Filled.Restaurant, "RINCIAN PESANAN")
                 Divider(Modifier.padding(vertical = 12.dp))
                 if (struk.items.isEmpty()) {
-                    Text("Item pesanan tidak tersedia dari backend", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Item pesanan belum tersedia", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     struk.items.forEach { item -> OrderItemRow(item) }
                 }

@@ -16,7 +16,7 @@ data class MenuImportParseResult(
 object MenuImportParser {
     fun parse(csv: String): MenuImportParseResult {
         val records = parseRecords(csv)
-        if (records.isEmpty()) return MenuImportParseResult(emptyList(), listOf("File CSV kosong."))
+        if (records.isEmpty()) return MenuImportParseResult(emptyList(), listOf("File menu kosong."))
         val headers = records.first().map { normalize(it) }
         val nameIndex = headers.indexOfFirst { it in setOf("nama", "name", "nama_menu") }
         val priceIndex = headers.indexOfFirst { it in setOf("harga", "price", "harga_idr") }

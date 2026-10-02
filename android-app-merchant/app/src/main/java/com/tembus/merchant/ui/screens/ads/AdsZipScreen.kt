@@ -2,6 +2,7 @@ package com.tembus.merchant.ui.screens.ads
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,10 +18,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -72,7 +77,9 @@ fun AdsZipScreen(
     var branchIds by remember { mutableStateOf("") }
     var audience by remember { mutableStateOf("") }
     var bid by remember { mutableStateOf("100") }
-    var daypart by remember { mutableStateOf("全天") }
+    var daypart by remember { mutableStateOf("Sepanjang hari") }
+    var objectiveMenuExpanded by remember { mutableStateOf(false) }
+    var placementMenuExpanded by remember { mutableStateOf(false) }
     var startAt by remember { mutableStateOf(Instant.now().plusSeconds(60).toString()) }
     var endAt by remember { mutableStateOf(Instant.now().plus(Duration.ofDays(7)).toString()) }
     var validationError by remember { mutableStateOf<String?>(null) }
@@ -124,8 +131,8 @@ fun AdsZipScreen(
                             Spacer(Modifier.padding(4.dp))
                             Text("Visibilitas berbayar", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         }
-                        Text("Iklan membeli visibilitas di discovery. Iklan tidak mengubah harga, ETA, rating, atau urutan organik.")
-                        Text("Saldo merchant akan dipotong saat kampanye dibuat; performa paid dan organik dilaporkan terpisah.", style = MaterialTheme.typography.bodySmall)
+                        Text("Iklan membantu toko lebih mudah ditemukan. Iklan tidak mengubah harga, waktu antar, rating, atau urutan biasa.")
+                        Text("Saldo akan dipotong saat kampanye dibuat; hasil iklan dan hasil biasa ditampilkan terpisah.", style = MaterialTheme.typography.bodySmall)
                         Text("Promo adalah penawaran harga di Menu Promo. Iklan adalah produk visibilitas terpisah.", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                     }
                 }
@@ -140,21 +147,55 @@ fun AdsZipScreen(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Buat kampanye Iklan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         OutlinedTextField(name, { name = it }, label = { Text("Nama kampanye") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(objective, { objective = it }, label = { Text("Objective") }, supportingText = { Text("Contoh: visibility, new_customer") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(placement, { placement = it }, label = { Text("Placement") }, supportingText = { Text("Food discovery atau food search; posisi tetap dibatasi policy") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(branchIds, { branchIds = it }, label = { Text("Branch/location (opsional)") }, supportingText = { Text("Pisahkan beberapa branch dengan koma") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(audience, { audience = it }, label = { Text("Audience kontekstual (opsional)") }, supportingText = { Text("Kategori/area/time; tanpa atribut sensitif atau daftar user") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(headline, { headline = it }, label = { Text("Headline kreatif") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(body, { body = it }, label = { Text("Teks kreatif (opsional)") }, maxLines = 3, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(imageUrl, { imageUrl = it }, label = { Text("URL gambar HTTPS (opsional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(daypart, { daypart = it }, label = { Text("Daypart / jam tayang") }, supportingText = { Text("Estimate; gunakan timezone market merchant") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(startAt, { startAt = it }, label = { Text("Mulai (RFC3339)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(endAt, { endAt = it }, label = { Text("Selesai (RFC3339)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        Box {
+                            OutlinedTextField(
+                                value = when (objective) {
+                                    "new_customer" -> "Menarik pelanggan baru"
+                                    else -> "Agar toko lebih mudah ditemukan"
+                                },
+                                onValueChange = {},
+                                label = { Text("Tujuan iklan") },
+                                readOnly = true,
+                                trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = "Pilih tujuan iklan") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth().clickable { objectiveMenuExpanded = true }
+                            )
+                            DropdownMenu(expanded = objectiveMenuExpanded, onDismissRequest = { objectiveMenuExpanded = false }) {
+                                DropdownMenuItem(text = { Text("Agar toko lebih mudah ditemukan") }, onClick = { objective = "visibility"; objectiveMenuExpanded = false })
+                                DropdownMenuItem(text = { Text("Menarik pelanggan baru") }, onClick = { objective = "new_customer"; objectiveMenuExpanded = false })
+                            }
+                        }
+                        Box {
+                            OutlinedTextField(
+                                value = when (placement) {
+                                    "food_search" -> "Hasil pencarian makanan"
+                                    else -> "Beranda pelanggan"
+                                },
+                                onValueChange = {},
+                                label = { Text("Lokasi penayangan") },
+                                readOnly = true,
+                                trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = "Pilih lokasi penayangan") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth().clickable { placementMenuExpanded = true }
+                            )
+                            DropdownMenu(expanded = placementMenuExpanded, onDismissRequest = { placementMenuExpanded = false }) {
+                                DropdownMenuItem(text = { Text("Beranda pelanggan") }, onClick = { placement = "food_discovery"; placementMenuExpanded = false })
+                                DropdownMenuItem(text = { Text("Hasil pencarian makanan") }, onClick = { placement = "food_search"; placementMenuExpanded = false })
+                            }
+                        }
+                        OutlinedTextField(branchIds, { branchIds = it }, label = { Text("Cabang toko (opsional)") }, supportingText = { Text("Pisahkan beberapa cabang dengan koma") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(audience, { audience = it }, label = { Text("Sasaran pelanggan (opsional)") }, supportingText = { Text("Contoh: pelanggan di area tertentu atau pencarian makanan") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(headline, { headline = it }, label = { Text("Judul iklan") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(body, { body = it }, label = { Text("Deskripsi iklan (opsional)") }, maxLines = 3, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(imageUrl, { imageUrl = it }, label = { Text("Tautan gambar (opsional)") }, supportingText = { Text("Gunakan alamat gambar yang aman") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(daypart, { daypart = it }, label = { Text("Jam tayang") }, supportingText = { Text("Gunakan waktu setempat toko") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(startAt, { startAt = it }, label = { Text("Mulai kampanye") }, supportingText = { Text("Masukkan tanggal dan waktu mulai") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(endAt, { endAt = it }, label = { Text("Selesai kampanye") }, supportingText = { Text("Masukkan tanggal dan waktu selesai") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 totalBudget,
                                 { totalBudget = it.filter(Char::isDigit) },
-                                label = { Text("Total budget") },
+                                label = { Text("Total biaya") },
                                 prefix = { Text("Rp ") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true,
@@ -163,7 +204,7 @@ fun AdsZipScreen(
                             OutlinedTextField(
                                 dailyBudget,
                                 { dailyBudget = it.filter(Char::isDigit) },
-                                label = { Text("Budget harian") },
+                                label = { Text("Biaya harian") },
                                 prefix = { Text("Rp ") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true,
@@ -172,7 +213,7 @@ fun AdsZipScreen(
                             OutlinedTextField(
                                 bid,
                                 { bid = it.filter(Char::isDigit) },
-                                label = { Text("Max bid") },
+                                label = { Text("Batas biaya per klik") },
                                 prefix = { Text("Rp ") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true,
@@ -183,8 +224,8 @@ fun AdsZipScreen(
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text("Preview Iklan", fontWeight = FontWeight.Bold)
                                 Text(headline.ifBlank { "Headline kreatif tampil di sini" }, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                Text("Sponsored / Iklan · Estimasi jangkauan, bukan jaminan order", style = MaterialTheme.typography.bodySmall)
-                                Text("Hard cap: ${Format.rupiah(total)} · Model: CPC · Daypart: $daypart", style = MaterialTheme.typography.bodySmall)
+                                Text("Iklan · Perkiraan jangkauan, bukan jaminan pesanan", style = MaterialTheme.typography.bodySmall)
+                                Text("Batas biaya: ${Format.rupiah(total)} · Biaya per klik · Jam tayang: $daypart", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         validationError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -230,8 +271,8 @@ fun AdsZipScreen(
                     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("Performa Iklan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text("${performance.paid.impressions} tayangan · ${performance.paid.clicks} klik · ${performance.paid.attributedOrders} attributed order")
-                            Text("Spend paid: ${Format.rupiah(performance.paid.spendIdr)} · organic tetap terpisah", style = MaterialTheme.typography.bodySmall)
+                            Text("${performance.paid.impressions} tayangan · ${performance.paid.clicks} klik · ${performance.paid.attributedOrders} pesanan dari iklan")
+                            Text("Biaya iklan: ${Format.rupiah(performance.paid.spendIdr)} · hasil biasa tetap terpisah", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -251,7 +292,7 @@ fun AdsZipScreen(
 
 private fun validateAdForm(name: String, headline: String, imageUrl: String, total: Long, daily: Long): String? {
     if (name.trim().length < 3 || headline.trim().length < 3) return "Nama dan headline minimal 3 karakter."
-    if (imageUrl.isNotBlank() && !imageUrl.trim().startsWith("https://")) return "URL gambar harus menggunakan HTTPS."
+    if (imageUrl.isNotBlank() && !imageUrl.trim().startsWith("https://")) return "Tautan gambar harus menggunakan alamat yang aman."
     if (total < 10_000L || daily !in 1_000L..total) return "Total minimal Rp 10.000 dan budget harian harus valid."
     return null
 }
@@ -277,22 +318,33 @@ private fun MerchantAdCard(ad: MerchantAd, actionLoadingId: String?, onToggle: (
                     enabled = actionLoadingId != ad.id && !ad.status.equals("rejected", true) && !ad.status.equals("suspended", true)
                 )
             }
-            Text("Status: ${ad.status.ifBlank { "unknown" }}", style = MaterialTheme.typography.labelMedium)
+            Text("Status: ${ad.statusLabel()}", style = MaterialTheme.typography.labelMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("${ad.impressions} tayangan", style = MaterialTheme.typography.bodySmall)
                 Text("${ad.clicks} klik", style = MaterialTheme.typography.bodySmall)
-                Text("Spend ${Format.rupiah(ad.chargedAmountIdr)}", style = MaterialTheme.typography.bodySmall, color = Primary)
+                Text("Biaya ${Format.rupiah(ad.chargedAmountIdr)}", style = MaterialTheme.typography.bodySmall, color = Primary)
             }
-            Text("Attributed: ${ad.attributedOrders} order · ${Format.rupiah(ad.attributedRevenueIdr)}", style = MaterialTheme.typography.bodySmall)
+            Text("Pesanan dari iklan: ${ad.attributedOrders} · ${Format.rupiah(ad.attributedRevenueIdr)}", style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (ad.status.equals("draft", true)) {
-                    OutlinedButton(onClick = { onToggle(ad) }, enabled = actionLoadingId != ad.id) { Text("Ajukan launch") }
+                    OutlinedButton(onClick = { onToggle(ad) }, enabled = actionLoadingId != ad.id) { Text("Ajukan tayang") }
                 }
-                OutlinedButton(onClick = { onClone(ad) }, enabled = actionLoadingId != ad.id) { Text("Clone") }
+                OutlinedButton(onClick = { onClone(ad) }, enabled = actionLoadingId != ad.id) { Text("Duplikat") }
                 OutlinedButton(onClick = { onEnd(ad) }, enabled = actionLoadingId != ad.id && !ad.status.equals("ended", true)) { Text("Akhiri") }
             }
             if (ad.rejectionReason.isNotBlank()) Text("Ditolak: ${ad.rejectionReason}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             if (ad.suspensionReason.isNotBlank()) Text("Ditangguhkan: ${ad.suspensionReason}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
     }
+}
+
+private fun MerchantAd.statusLabel(): String = when (status.lowercase()) {
+    "draft" -> "Draf"
+    "validating" -> "Sedang diperiksa"
+    "scheduled" -> "Terjadwal"
+    "active" -> "Aktif"
+    "ended" -> "Selesai"
+    "rejected" -> "Ditolak"
+    "suspended" -> "Ditangguhkan"
+    else -> "Belum tersedia"
 }

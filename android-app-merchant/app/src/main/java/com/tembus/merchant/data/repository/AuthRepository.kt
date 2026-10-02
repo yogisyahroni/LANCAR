@@ -1,5 +1,6 @@
 package com.tembus.merchant.data.repository
 
+import com.tembus.merchant.data.api.MerchantErrorMessages
 import com.tembus.merchant.data.api.TEMBUSApiService
 import com.tembus.merchant.data.device.DeviceIdentityProvider
 import com.tembus.merchant.data.model.AuthResponse
@@ -20,7 +21,7 @@ class AuthRepository(
 ) {
 
     suspend fun login(email: String, password: String): Result<AuthResponse> {
-        return runCatching {
+        return try {
             val resp = api.login(
                 LoginRequest(
                     email = email.trim(),
@@ -50,7 +51,9 @@ class AuthRepository(
 
             sessionManager.saveLogin(token, auth.refreshToken, userId, name, emailSaved)
             onboardingPreferences.markHadLoggedIn()
-            auth
+            Result.success(auth)
+        } catch (error: Exception) {
+            Result.failure(Exception(MerchantErrorMessages.from(error, "Login gagal. Periksa email dan password Anda."), error))
         }
     }
 
@@ -78,9 +81,10 @@ class AuthRepository(
         if (body.isNullOrBlank()) return fallback
         return try {
             val json = org.json.JSONObject(body)
-            json.optString("message")?.takeIf { it.isNotBlank() }
-                ?: json.optString("error")?.takeIf { it.isNotBlank() }
-                ?: fallback
+            MerchantErrorMessages.from(
+                Exception(json.optString("message").takeIf { it.isNotBlank() } ?: json.optString("error")),
+                fallback
+            )
         } catch (e: Exception) {
             fallback
         }

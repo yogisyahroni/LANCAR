@@ -184,7 +184,7 @@ private fun RevenueInsightCard(report: SalesReportSummary?) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.TrendingUp, contentDescription = "", tint = Primary, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.size(4.dp))
-                Text("Dihitung dari pesanan delivered", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Dihitung dari pesanan selesai", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             RevenueTrendChart(report?.dailyBreakdown.orEmpty())
         }
@@ -342,23 +342,23 @@ private fun MarketingPerformanceCard(performance: MerchantMarketingPerformance?)
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Promo & Iklan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("Performa berbayar dan organik dihitung terpisah dari order delivered.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Performa iklan dan penjualan biasa dihitung terpisah dari pesanan selesai.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MarketingMetricColumn("Iklan (paid)", performance?.paid, Modifier.weight(1f))
-                MarketingMetricColumn("Organik", performance?.organic, Modifier.weight(1f))
+                MarketingMetricColumn("Iklan", performance?.paid, showSpend = true, modifier = Modifier.weight(1f))
+                MarketingMetricColumn("Penjualan biasa", performance?.organic, showSpend = false, modifier = Modifier.weight(1f))
             }
         }
     }
 }
 
 @Composable
-private fun MarketingMetricColumn(label: String, metric: MerchantMarketingMetric?, modifier: Modifier = Modifier) {
+private fun MarketingMetricColumn(label: String, metric: MerchantMarketingMetric?, showSpend: Boolean, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(label, fontWeight = FontWeight.Bold)
-        Text("${metric?.attributedOrders ?: 0} order", style = MaterialTheme.typography.bodyMedium)
+        Text("${metric?.attributedOrders ?: 0} pesanan", style = MaterialTheme.typography.bodyMedium)
         Text(Format.rupiah(metric?.revenueIdr ?: 0L), style = MaterialTheme.typography.bodySmall, color = Primary)
-        if (label.contains("paid")) {
-            Text("Spend ${Format.rupiah(metric?.spendIdr ?: 0L)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (showSpend) {
+            Text("Biaya ${Format.rupiah(metric?.spendIdr ?: 0L)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

@@ -28,7 +28,7 @@ class StaffAcceptViewModel(
 
     fun accept(token: String) {
         if (token.trim().isEmpty()) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Token undangan wajib diisi")
+            _uiState.value = _uiState.value.copy(errorMessage = "Kode undangan wajib diisi")
             return
         }
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null, success = false)
@@ -44,7 +44,7 @@ class StaffAcceptViewModel(
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        errorMessage = e.message ?: "Gagal menerima undangan (token invalid/expired?)"
+                        errorMessage = e.message ?: "Undangan tidak dapat diterima. Periksa kembali kodenya."
                     )
                 }
         }

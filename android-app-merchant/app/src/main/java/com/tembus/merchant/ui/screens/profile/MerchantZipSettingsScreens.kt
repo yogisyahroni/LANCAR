@@ -84,7 +84,7 @@ fun StoreInformationZipScreen(
     val state by viewModel.uiState.collectAsState()
 
     ZipSettingsScaffold(
-        title = "Store Information",
+        title = "Informasi Toko",
         onBack = onBack,
         isRefreshing = state.isLoading && state.merchant != null,
         onRefresh = viewModel::load,
@@ -94,14 +94,14 @@ fun StoreInformationZipScreen(
                     onClick = onEditPublicProfile,
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Accent)
-                ) { Text("UPDATE INFORMATION") }
+                ) { Text("SIMPAN INFORMASI") }
             }
         }
     ) {
         when {
             state.isLoading -> ZipSettingsLoading()
             state.merchant == null -> ZipSettingsEmptyState(
-                message = state.errorMessage ?: "Informasi toko belum tersedia dari backend.",
+                message = state.errorMessage ?: "Informasi toko belum tersedia.",
                 onRetry = viewModel::load
             )
             else -> StoreInformationZipContent(state.merchant!!)
@@ -113,32 +113,32 @@ fun StoreInformationZipScreen(
 private fun StoreInformationZipContent(merchant: Merchant) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         ZipSettingsCard {
-            Text("Location Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            ZipReadOnlyField("Store Address", merchant.alamat)
+            Text("Lokasi Toko", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            ZipReadOnlyField("Alamat Toko", merchant.alamat)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.LocationOn, contentDescription = "", tint = Primary)
                 Spacer(Modifier.size(8.dp))
                 val coordinates = if (merchant.lokasiLat != null && merchant.lokasiLng != null) {
                     "${merchant.lokasiLat}, ${merchant.lokasiLng}"
                 } else {
-                    "Location coordinates not configured"
+                    "Lokasi belum diatur"
                 }
                 Text(coordinates, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         ZipSettingsCard {
-            Text("Contact Information", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            ZipReadOnlyField("Contact Number", merchant.ownerPhone)
-            ZipReadOnlyField("Store Email", merchant.ownerEmail)
+            Text("Kontak", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            ZipReadOnlyField("Nomor Kontak", merchant.ownerPhone)
+            ZipReadOnlyField("Email Toko", merchant.ownerEmail)
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Icon(Icons.Filled.Phone, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Icon(Icons.Filled.Email, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         ZipSettingsCard {
-            Text("Business Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            ZipReadOnlyField("Business Name", merchant.namaToko)
-            ZipReadOnlyField("Verification Status", merchant.verificationStatus)
+            Text("Detail Usaha", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            ZipReadOnlyField("Nama Usaha", merchant.namaToko)
+            ZipReadOnlyField("Status Verifikasi", merchant.verificationStatus)
         }
     }
 }
@@ -177,7 +177,7 @@ fun PaymentSettingsZipScreen(
     }
 
     ZipSettingsScaffold(
-        title = "Payment Settings",
+        title = "Pengaturan Pencairan",
         onBack = onBack,
         isRefreshing = state.isLoading && state.merchant != null,
         onRefresh = viewModel::load,
@@ -193,7 +193,7 @@ fun PaymentSettingsZipScreen(
                     else {
                         Icon(Icons.Filled.Save, contentDescription = "", modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(8.dp))
-                        Text("SAVE SETTINGS")
+                        Text("SIMPAN PENGATURAN")
                     }
                 }
             }
@@ -202,20 +202,20 @@ fun PaymentSettingsZipScreen(
         when {
             state.isLoading -> ZipSettingsLoading()
             state.merchant == null -> ZipSettingsEmptyState(
-                message = state.errorMessage ?: "Pengaturan pembayaran belum tersedia dari backend.",
+                message = state.errorMessage ?: "Pengaturan pencairan belum tersedia.",
                 onRetry = viewModel::load
             )
             else -> {
                 val merchant = state.merchant!!
                 Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
                     Text(
-                        "Manage your payout account and settlement information.",
+                        "Atur rekening pencairan dan jadwal penerimaan dana.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     ZipInfoBanner(
-                        title = "Secure Payment Setup",
-                        body = "Informasi keuangan dibaca dari akun merchant dan dikirim melalui koneksi API yang terlindungi."
+                        title = "Atur Rekening Pencairan",
+                        body = "Informasi keuangan Anda dikirim melalui koneksi yang terlindungi."
                     )
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
@@ -223,9 +223,9 @@ fun PaymentSettingsZipScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Linked Bank Account", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Rekening Bank Terhubung", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             if (!editing) {
-                                TextButton(onClick = { editing = true }) { Text("CHANGE BANK") }
+                                TextButton(onClick = { editing = true }) { Text("GANTI REKENING") }
                             }
                         }
                         if (editing) {
@@ -256,28 +256,28 @@ fun PaymentSettingsZipScreen(
                     PayoutScheduleSection(payoutSchedule) { payoutSchedule = it }
                     onOpenSettlement?.let {
                         TextButton(onClick = it, modifier = Modifier.align(Alignment.Start)) {
-                            Text("VIEW PAYOUT HISTORY")
+                            Text("LIHAT RIWAYAT PENCAIRAN")
                         }
                     }
                     ZipSettingsCard {
-                        Text("Tax Information", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Informasi Pajak", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         OutlinedTextField(
                             value = npwp,
                             onValueChange = { npwp = it.take(32) },
-                            label = { Text("NPWP (Taxpayer Identification Number)") },
+                            label = { Text("NPWP") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
                         Text(
-                            "Required for accurate tax reporting on payouts.",
+                            "Diperlukan agar pencatatan pajak pencairan lebih akurat.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     state.paymentSaveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     if (state.paymentSaved) {
-                        Text("Payment settings saved.", color = Color(0xFF16A34A))
+                        Text("Pengaturan pencairan berhasil disimpan.", color = Color(0xFF16A34A))
                     }
                 }
             }
@@ -288,16 +288,16 @@ fun PaymentSettingsZipScreen(
 @Composable
 private fun PayoutScheduleSection(selected: String, onSelect: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Payout Schedule", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Jadwal pencairan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(
-            "Choose how often you want funds transferred to your bank account.",
+            "Pilih seberapa sering dana dikirim ke rekening Anda.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         listOf(
-            Triple("daily", "Daily", "Funds transferred every business day."),
-            Triple("weekly", "Weekly", "Funds transferred every Monday."),
-            Triple("monthly", "Monthly", "Funds transferred on the first of every month.")
+            Triple("daily", "Harian", "Dana dikirim setiap hari kerja."),
+            Triple("weekly", "Mingguan", "Dana dikirim setiap hari Senin."),
+            Triple("monthly", "Bulanan", "Dana dikirim setiap tanggal satu.")
         ).forEach { (value, label, description) ->
             Card(
                 onClick = { onSelect(value) },
@@ -335,14 +335,14 @@ private fun BankAccountEditor(
         OutlinedTextField(
             value = bankName,
             onValueChange = onBankNameChange,
-            label = { Text("Bank Name") },
+            label = { Text("Nama Bank") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
         OutlinedTextField(
             value = accountNumber,
             onValueChange = onAccountNumberChange,
-            label = { Text("Account Number") },
+            label = { Text("Nomor Rekening") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth()
@@ -350,13 +350,13 @@ private fun BankAccountEditor(
         OutlinedTextField(
             value = accountHolder,
             onValueChange = onAccountHolderChange,
-            label = { Text("Account Holder") },
+            label = { Text("Nama Pemilik Rekening") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onCancel, enabled = !isSaving) { Text("Cancel") }
+        TextButton(onClick = onCancel, enabled = !isSaving) { Text("Batal") }
             Button(
                 onClick = onSave,
                 enabled = bankName.isNotBlank() && accountNumber.length >= 5 && accountHolder.isNotBlank() && !isSaving,
@@ -366,7 +366,7 @@ private fun BankAccountEditor(
                 else {
                     Icon(Icons.Filled.Save, contentDescription = "", modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text("SAVE SETTINGS")
+                    Text("SIMPAN PENGATURAN")
                 }
             }
         }

@@ -46,7 +46,7 @@ fun MenuEditorZipScreen(
                 CircularProgressIndicator(color = Primary)
             }
         menuId != null && existing == null ->
-            MenuEditorRouteError(message = "Menu tidak ditemukan dari katalog backend.", onRetry = viewModel::load, onBack = onBack)
+            MenuEditorRouteError(message = "Menu tidak ditemukan.", onRetry = viewModel::load, onBack = onBack)
         else -> {
             MenuItemEditorZipContent(
                 existing = existing,

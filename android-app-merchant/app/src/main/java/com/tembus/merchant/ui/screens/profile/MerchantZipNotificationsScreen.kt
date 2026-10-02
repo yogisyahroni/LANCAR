@@ -73,7 +73,7 @@ fun NotificationsZipScreen(
         containerColor = PrimaryPale,
         topBar = {
             TopAppBar(
-                title = { Text("Notifications", fontWeight = FontWeight.Bold) },
+                title = { Text("Notifikasi", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = MerchantTextCatalog.translate("Go back"))
@@ -91,7 +91,7 @@ fun NotificationsZipScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Primary)
                 ) {
                     if (state.isSaving) CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White)
-                    else Text("Update Preferences")
+                    else Text("Simpan Pengaturan")
                 }
             }
         }
@@ -121,7 +121,7 @@ fun NotificationsZipScreen(
                 )
             }
             state.saveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            if (state.saved) Text("Preferences updated.", color = Primary)
+            if (state.saved) Text("Pengaturan notifikasi berhasil disimpan.", color = Primary)
             Spacer(Modifier.height(16.dp))
         }
     }

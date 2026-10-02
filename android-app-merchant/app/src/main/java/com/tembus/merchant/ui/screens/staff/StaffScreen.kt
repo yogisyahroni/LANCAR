@@ -257,7 +257,7 @@ private fun InviteStaffDialog(
                     }
                 }
                 Text(
-                    "Undangan dikirim ke email/nomor. Staff menerima lewat token (backend mengirim notifikasi).",
+                    "Undangan dikirim ke email atau nomor yang dipilih. Setelah dikonfirmasi, staf dapat membantu mengelola toko.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

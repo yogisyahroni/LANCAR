@@ -75,7 +75,7 @@ class MerchantEnforcementViewModel(
 
     fun submitAppeal(actionId: String, reason: String) {
         if (reason.trim().length < 10) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Alasan appeal minimal 10 karakter")
+            _uiState.value = _uiState.value.copy(errorMessage = "Alasan pengajuan minimal 10 karakter")
             return
         }
         _uiState.value = _uiState.value.copy(submitting = true, errorMessage = null)
@@ -86,7 +86,7 @@ class MerchantEnforcementViewModel(
                     load()
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(submitting = false, errorMessage = error.message ?: "Gagal mengirim appeal")
+                    _uiState.value = _uiState.value.copy(submitting = false, errorMessage = error.message ?: "Gagal mengirim pengajuan")
                 }
         }
     }
@@ -123,8 +123,8 @@ fun MerchantEnforcementScreen(
             state.actions.isEmpty() -> Column(Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
                 Icon(Icons.Filled.Info, contentDescription = "")
                 Spacer(Modifier.height(12.dp))
-                Text("Tidak ada enforcement aktif.", style = MaterialTheme.typography.titleMedium)
-                Text("Jika ada peninjauan baru, status dan jalur remediation akan muncul di halaman ini.")
+                Text("Tidak ada tindakan kebijakan aktif.", style = MaterialTheme.typography.titleMedium)
+                Text("Jika ada peninjauan baru, status dan langkah berikutnya akan muncul di halaman ini.")
             }
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
@@ -132,7 +132,7 @@ fun MerchantEnforcementScreen(
             ) {
                 item {
                     Text("Tindakan kebijakan aktif", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 16.dp))
-                    Text("Order yang sedang berjalan tetap diproses sesuai kebijakan safe completion.", style = MaterialTheme.typography.bodyMedium)
+                    Text("Pesanan yang sedang berjalan tetap diproses sampai selesai sesuai kebijakan toko.", style = MaterialTheme.typography.bodyMedium)
                 }
                 items(state.actions, key = { it.id }) { action ->
                     EnforcementActionCard(action, state, viewModel::submitAppeal)
@@ -155,11 +155,11 @@ private fun EnforcementActionCard(
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(action.scope.uppercase(), style = MaterialTheme.typography.titleMedium)
-                Text(action.status, color = MaterialTheme.colorScheme.error)
+                Text(policyScopeLabel(action.scope), style = MaterialTheme.typography.titleMedium)
+                Text(policyStatusLabel(action.status), color = MaterialTheme.colorScheme.error)
             }
             val target = action.targetBranchName.ifBlank { action.targetMenuItemName }.ifBlank { action.capability }
-            if (target.isNotBlank()) Text("Target: $target")
+            if (target.isNotBlank()) Text("Bagian yang terdampak: ${policyTargetLabel(target)}")
             Text("Alasan: ${action.reasonDetail}")
             if (action.activeOrderCount > 0) Text("Order aktif yang dijaga: ${action.activeOrderCount}")
             Text(action.remediationMessage, style = MaterialTheme.typography.bodyMedium)
@@ -168,14 +168,41 @@ private fun EnforcementActionCard(
                     value = reason,
                     onValueChange = { reason = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Alasan remediation / appeal") },
+                    label = { Text("Alasan pengajuan peninjauan") },
                     minLines = 3
                 )
                 Button(
                     onClick = { onSubmitAppeal(action.id, reason) },
                     enabled = !state.submitting && reason.trim().length >= 10
-                ) { Text(if (state.submittedActionId == action.id) "Terkirim" else "Kirim appeal") }
+                ) { Text(if (state.submittedActionId == action.id) "Terkirim" else "Ajukan peninjauan") }
             }
         }
     }
+}
+
+private fun policyScopeLabel(value: String): String = when (value.trim().lowercase()) {
+    "store", "merchant", "toko" -> "Toko"
+    "branch", "outlet", "cabang" -> "Cabang"
+    "menu", "menu_item", "menu item" -> "Menu"
+    "order", "orders", "pesanan" -> "Pesanan"
+    else -> value.trim().replace('_', ' ').replace('-', ' ')
+        .replaceFirstChar { it.uppercase() }
+        .ifBlank { "Toko" }
+}
+
+private fun policyStatusLabel(value: String): String = when (value.trim().lowercase()) {
+    "active", "enforced", "open", "in_effect" -> "Aktif"
+    "suspended", "blocked", "paused" -> "Ditangguhkan"
+    "review", "under_review", "pending" -> "Sedang ditinjau"
+    "resolved", "closed", "lifted" -> "Selesai"
+    else -> "Perlu diperiksa"
+}
+
+private fun policyTargetLabel(value: String): String = when (value.trim().lowercase()) {
+    "ordering", "order_acceptance", "accept_orders" -> "Penerimaan pesanan"
+    "catalog", "menu", "menu_item" -> "Menu"
+    "payout", "settlement", "withdrawal" -> "Pencairan dana"
+    "profile", "store_profile" -> "Profil toko"
+    else -> value.trim().replace('_', ' ').replace('-', ' ')
+        .replaceFirstChar { it.uppercase() }
 }

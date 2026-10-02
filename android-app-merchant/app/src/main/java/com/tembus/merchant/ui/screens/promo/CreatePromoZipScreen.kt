@@ -243,14 +243,14 @@ private fun PromoMenuSection(
             } else if (menuState.errorMessage != null) {
                 Text(menuState.errorMessage, color = MaterialTheme.colorScheme.error)
             } else if (filteredMenu.isEmpty()) {
-                Text("Menu tidak tersedia dari backend.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Menu belum tersedia. Coba muat ulang atau tambahkan menu terlebih dahulu.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 filteredMenu.take(8).forEach { menu ->
                     MenuChoiceRow(menu, onClick = { onSelect(menu) })
                 }
             }
         } else {
-            Text("Harga promo dihitung saat customer checkout; breakdown nominal belum disediakan API.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Harga promo ditentukan saat pelanggan melakukan pembayaran.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -302,7 +302,7 @@ private fun PromoCalculationSection(
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("RINCIAN PERHITUNGAN", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     PaymentCalculationRow("Harga setelah diskon", Format.rupiah(discountedPrice), emphasize = true)
-                    Text("Biaya layanan platform belum dikirim oleh API promo.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Biaya layanan belum tersedia untuk promo ini.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

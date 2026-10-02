@@ -1,6 +1,7 @@
 package com.tembus.merchant.data.repository
 
 import com.tembus.merchant.data.api.TEMBUSApiService
+import com.tembus.merchant.data.api.MerchantErrorMessages
 import com.tembus.merchant.data.cache.MerchantOfflineCache
 import com.tembus.merchant.data.model.*
 import okhttp3.MediaType.Companion.toMediaType
@@ -254,13 +255,15 @@ class MerchantRepository(
         request { api.updateStaff(merchantId, staffId, req) }.map { it.data }
 
     private suspend fun <T> request(block: suspend () -> retrofit2.Response<T>): Result<T> {
-        return runCatching {
+        return try {
             val resp = block()
             if (!resp.isSuccessful) {
                 val body = resp.errorBody()?.string()
                 throw Exception(parseErrorMessage(body, "Terjadi kesalahan (${resp.code()})"))
             }
-            resp.body() ?: throw Exception("Response kosong")
+            Result.success(resp.body() ?: throw Exception("Response kosong"))
+        } catch (error: Exception) {
+            Result.failure(Exception(MerchantErrorMessages.from(error, "Permintaan belum berhasil. Coba lagi."), error))
         }
     }
 
@@ -268,9 +271,10 @@ class MerchantRepository(
         if (body.isNullOrBlank()) return fallback
         return try {
             val json = JSONObject(body)
-            json.optString("error").takeIf { it.isNotBlank() }
-                ?: json.optString("message").takeIf { it.isNotBlank() }
-                ?: fallback
+            MerchantErrorMessages.from(
+                Exception(json.optString("error").takeIf { it.isNotBlank() } ?: json.optString("message")),
+                fallback
+            )
         } catch (e: Exception) {
             fallback
         }

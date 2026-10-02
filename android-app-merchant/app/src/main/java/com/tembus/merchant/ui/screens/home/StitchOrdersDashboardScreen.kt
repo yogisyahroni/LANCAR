@@ -346,7 +346,7 @@ private fun KitchenDeviceBanner(posStatus: com.tembus.merchant.data.model.Mercha
             Column(modifier = Modifier.weight(1f)) {
                 Text("Speaker Dapur ${if (connected) "Terhubung" else "Belum Terhubung"}", color = if (connected) Color.White else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    text = connector?.let { "${it.providerName.ifBlank { it.providerCode }} • ${it.state.ifBlank { "status tidak tersedia" }}" } ?: "Belum ada perangkat dapur dari server",
+                    text = connector?.let { "${it.providerName.ifBlank { it.providerCode }} • ${it.state.ifBlank { "status tidak tersedia" }}" } ?: "Belum ada perangkat dapur yang terhubung",
                     color = if (connected) Color.White.copy(alpha = 0.80f) else OnSurfaceSecondary,
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,
@@ -418,7 +418,7 @@ private fun BusyOrdersDialog(
         title = { Text("Mode sibuk") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Toko tetap menerima order, tetapi ETA persiapan ditambah:")
+                Text("Toko tetap menerima pesanan, tetapi waktu persiapan ditambah:")
                 Text("Durasi", fontWeight = FontWeight.Bold)
                 listOf(30, 60, 120, 180).forEach { minutes ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -584,7 +584,7 @@ private fun StitchOrderCard(
             }
             Divider(Modifier.padding(vertical = 14.dp))
             if (order.items.isEmpty()) {
-                Text("Detail item belum tersedia dari server", color = OnSurfaceSecondary, style = MaterialTheme.typography.bodySmall)
+                Text("Detail item belum tersedia.", color = OnSurfaceSecondary, style = MaterialTheme.typography.bodySmall)
             } else {
                 order.items.take(4).forEach { item ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {

@@ -206,7 +206,7 @@ private fun FinanceContent(
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("Keuangan & Settlement", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("Keuangan & Pencairan", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text("Kelola omzet, bagi hasil, dan penarikan instan.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -265,17 +265,17 @@ private fun WalletCard(availableIdr: Long?, bankName: String?, payoutEnabled: Bo
                 }
                 Text("BI Regulated", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.labelSmall)
             }
-            Text("SALDO SIAP DITARIK (NET SETTLEMENT)", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text("SALDO YANG BISA DICAIRKAN", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
             Text(availableIdr?.let(Format::rupiah) ?: "Belum tersedia", color = Color.White, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Lock, contentDescription = null, tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.size(15.dp))
                 Spacer(Modifier.size(5.dp))
-                Text("Dana diproses melalui rekening payout terverifikasi", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall)
+                Text("Dana diproses melalui rekening pencairan yang sudah diverifikasi", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall)
             }
             Button(onClick = onWithdraw, enabled = payoutEnabled, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White, disabledContainerColor = Color.White.copy(alpha = 0.14f), disabledContentColor = Color.White.copy(alpha = 0.55f)), shape = RoundedCornerShape(50)) {
                 Icon(Icons.Filled.Wallet, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.size(7.dp))
-                Text(if (payoutEnabled) "Tarik Dana Instan (Payout)" else "Payout belum tersedia")
+                Text(if (payoutEnabled) "Tarik dana sekarang" else "Pencairan belum tersedia")
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = onHistory, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)), shape = RoundedCornerShape(50)) {
@@ -292,7 +292,7 @@ private fun WalletCard(availableIdr: Long?, bankName: String?, payoutEnabled: Bo
 @Composable
 private fun AutomaticPayoutCard(merchant: Merchant?, onOpenBankSettings: (() -> Unit)?) {
     val schedule = when (merchant?.payoutSchedule?.lowercase(Locale.US)) { "weekly" -> "Mingguan"; "monthly" -> "Bulanan"; else -> "Harian" }
-    val account = merchant?.bankName?.takeIf { it.isNotBlank() }?.let { "$it • ${maskAccount(merchant.bankAccountNumber.orEmpty())}" } ?: "Rekening payout belum terhubung"
+    val account = merchant?.bankName?.takeIf { it.isNotBlank() }?.let { "$it • ${maskAccount(merchant.bankAccountNumber.orEmpty())}" } ?: "Rekening pencairan belum terhubung"
     Card(modifier = Modifier.fillMaxWidth().then(if (onOpenBankSettings != null) Modifier.clickable(onClick = onOpenBankSettings) else Modifier), colors = CardDefaults.cardColors(containerColor = PrimarySoft), shape = RoundedCornerShape(16.dp)) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = CircleShape, color = Color(0xFFBCEBCF), modifier = Modifier.size(38.dp)) { Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = Primary, modifier = Modifier.padding(10.dp)) }
@@ -302,7 +302,7 @@ private fun AutomaticPayoutCard(merchant: Merchant?, onOpenBankSettings: (() -> 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(shape = RoundedCornerShape(50), color = Color.White.copy(alpha = 0.65f)) { Text(schedule, color = Primary, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)) }
                     Spacer(Modifier.size(7.dp))
-                    Text("$account. Dikelola sesuai konfigurasi settlement.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text("$account. Pencairan mengikuti pengaturan rekening Anda.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (onOpenBankSettings != null) Icon(Icons.Filled.ChevronRight, contentDescription = "Pengaturan rekening", tint = Primary)
@@ -317,17 +317,17 @@ private fun DailyFinanceCard(dailySales: SalesReportSummary?, totals: MerchantSt
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     Text("Rincian transaksi hari ini", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Pesanan delivered dan statement server", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    Text("Pesanan selesai dan ringkasan keuangan terbaru", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
-                Surface(shape = RoundedCornerShape(50), color = PrimarySoft) { Text("REAL-TIME", color = Primary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)) }
+                Surface(shape = RoundedCornerShape(50), color = PrimarySoft) { Text("TERKINI", color = Primary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)) }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Pendapatan kotor (Gross Sales)"); Text(dailySales?.let { Format.rupiah(it.gmvIdr) } ?: "Belum tersedia", fontWeight = FontWeight.Bold) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Pendapatan kotor"); Text(dailySales?.let { Format.rupiah(it.gmvIdr) } ?: "Belum tersedia", fontWeight = FontWeight.Bold) }
             Text("${dailySales?.totalOrders ?: 0} pesanan selesai", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            FinanceLine("Komisi platform", totals?.commissionMinor?.let { "-${Format.rupiah(it)}" } ?: "Belum tersedia", Accent)
+            FinanceLine("Komisi layanan", totals?.commissionMinor?.let { "-${Format.rupiah(it)}" } ?: "Belum tersedia", Accent)
             FinanceLine("Kontribusi promo merchant", totals?.promoSubsidyMinor?.let { "-${Format.rupiah(it)}" } ?: "Belum tersedia", Accent)
             FinanceLine("Pajak & biaya", totals?.let { Format.rupiah(it.taxMinor + it.feeMinor) } ?: "Belum tersedia", MaterialTheme.colorScheme.onSurfaceVariant)
-            Surface(shape = RoundedCornerShape(12.dp), color = PrimarySoft) { Row(Modifier.fillMaxWidth().padding(11.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text("Net balance statement", fontWeight = FontWeight.Bold); Text(totals?.let { Format.rupiah(it.netBalanceMinor) } ?: "Belum tersedia", color = Primary, fontWeight = FontWeight.Bold) } }
-            if (statement?.entries.isNullOrEmpty()) Text("Belum ada transaksi statement dari backend.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Surface(shape = RoundedCornerShape(12.dp), color = PrimarySoft) { Row(Modifier.fillMaxWidth().padding(11.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text("Saldo bersih", fontWeight = FontWeight.Bold); Text(totals?.let { Format.rupiah(it.netBalanceMinor) } ?: "Belum tersedia", color = Primary, fontWeight = FontWeight.Bold) } }
+            if (statement?.entries.isNullOrEmpty()) Text("Belum ada transaksi keuangan untuk ditampilkan.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -341,10 +341,10 @@ private fun FinanceLine(label: String, value: String, valueColor: Color) {
 private fun TaxCard(tax: com.tembus.merchant.data.model.MerchantTaxSummary?) {
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.Security, contentDescription = null, tint = Primary, modifier = Modifier.size(19.dp)); Spacer(Modifier.size(7.dp)); Text("Pajak & invoice", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+            Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.Security, contentDescription = null, tint = Primary, modifier = Modifier.size(19.dp)); Spacer(Modifier.size(7.dp)); Text("Pajak & tagihan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
             FinanceLine("Penjualan kena pajak", tax?.let { Format.rupiah(it.taxableSalesIdr) } ?: "Belum tersedia", MaterialTheme.colorScheme.onSurface)
             FinanceLine("PPN", tax?.let { Format.rupiah(it.ppnIdr) } ?: "Belum tersedia", MaterialTheme.colorScheme.onSurface)
-            FinanceLine("Invoice wajib / terbit", tax?.let { "${it.invoiceRequired} / ${it.invoiceIssued}" } ?: "Belum tersedia", MaterialTheme.colorScheme.onSurfaceVariant)
+            FinanceLine("Dokumen tagihan wajib / terbit", tax?.let { "${it.invoiceRequired} / ${it.invoiceIssued}" } ?: "Belum tersedia", MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -354,11 +354,11 @@ private fun WithdrawalHistoryCard(withdrawals: List<MerchantWithdrawalRecord>, s
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.ReceiptLong, contentDescription = null, tint = Primary, modifier = Modifier.size(19.dp)); Spacer(Modifier.size(7.dp)); Text("Riwayat settlement", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.ReceiptLong, contentDescription = null, tint = Primary, modifier = Modifier.size(19.dp)); Spacer(Modifier.size(7.dp)); Text("Riwayat pencairan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
                 Text("${withdrawals.size + settlements.size} transaksi", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (withdrawals.isEmpty() && settlements.isEmpty()) {
-                Text("Belum ada riwayat payout dari backend.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Belum ada riwayat pencairan.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedButton(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text("Muat ulang") }
             } else {
                 withdrawals.take(3).forEach { WithdrawalRow(it) }
@@ -383,7 +383,7 @@ private fun SettlementRow(record: SettlementRecord) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Surface(shape = CircleShape, color = PrimarySoft, modifier = Modifier.size(34.dp)) { Icon(Icons.Filled.ArrowForward, contentDescription = null, tint = Primary, modifier = Modifier.padding(8.dp)) }
         Spacer(Modifier.size(9.dp))
-        Column(Modifier.weight(1f)) { Text("Order settlement", fontWeight = FontWeight.SemiBold); Text(record.createdAt.take(10), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Column(Modifier.weight(1f)) { Text("Pencairan pesanan", fontWeight = FontWeight.SemiBold); Text(record.createdAt.take(10), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         Text(Format.rupiah(record.netPayoutIdr), color = Primary, fontWeight = FontWeight.Bold)
     }
 }
@@ -394,7 +394,7 @@ private fun DiscrepancyCard(statement: MerchantFinanceStatement) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.ErrorOutline, contentDescription = null, tint = Accent)
             Spacer(Modifier.size(8.dp))
-            Column { Text("Perlu rekonsiliasi", color = Accent, fontWeight = FontWeight.Bold); Text("${statement.discrepancies.size} transaksi sedang ditinjau oleh sistem finance.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
+            Column { Text("Perlu diperiksa", color = Accent, fontWeight = FontWeight.Bold); Text("${statement.discrepancies.size} transaksi sedang diperiksa oleh tim keuangan.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
         }
     }
 }
@@ -409,7 +409,7 @@ private fun WithdrawalDialog(maxAmount: Long, bankName: String, accountNumber: S
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("$bankName • ${maskAccount(accountNumber)} • $holder", style = MaterialTheme.typography.bodySmall)
-                Text("Payout memerlukan verifikasi keamanan sesuai kebijakan server.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Pencairan perlu konfirmasi keamanan untuk melindungi akun Anda.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(value = amount, onValueChange = { amount = it.filter(Char::isDigit).take(12) }, label = { Text("Nominal (maks. ${Format.rupiah(maxAmount)})") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
             }
         },

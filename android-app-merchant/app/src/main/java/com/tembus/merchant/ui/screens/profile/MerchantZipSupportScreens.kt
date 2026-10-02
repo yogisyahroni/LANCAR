@@ -81,7 +81,7 @@ fun OperatingHoursScreen(
                 CircularProgressIndicator(color = Primary)
             }
             state.errorMessage != null && state.hours.isEmpty() -> MerchantZipEmptyState(
-                message = state.errorMessage ?: "Jam operasional belum tersedia dari backend.",
+                message = state.errorMessage ?: "Jam operasional belum tersedia.",
                 onRetry = viewModel::load
             )
             else -> {
@@ -232,34 +232,34 @@ fun EditPublicProfileScreen(
             address = it.alamat
         }
     }
-    MerchantZipDetailScaffold(title = "Edit Public Profile", onBack = onBack) {
+    MerchantZipDetailScaffold(title = "Edit Profil Toko", onBack = onBack) {
         when {
             state.isLoading -> Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Primary)
             }
             state.merchant == null -> MerchantZipEmptyState(
-                message = state.errorMessage ?: "Profil toko belum tersedia dari backend.",
+                message = state.errorMessage ?: "Profil toko belum tersedia.",
                 onRetry = viewModel::load
             )
             else -> {
                 val merchant = state.merchant!!
                 MerchantZipInfoCard {
                     Text(
-                        "Update the information customers see on your store profile.",
+                        "Atur informasi yang dilihat pelanggan di profil toko Anda.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     OutlinedTextField(
                         value = storeName,
                         onValueChange = { storeName = it.take(150) },
-                        label = { Text("Store Name") },
+                        label = { Text("Nama Toko") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = address,
                         onValueChange = { address = it.take(500) },
-                        label = { Text("Address") },
+                        label = { Text("Alamat") },
                         minLines = 3,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -269,7 +269,7 @@ fun EditPublicProfileScreen(
                         Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
                     if (state.profileSaved) {
-                        Text("Public profile saved.", color = Color(0xFF16A34A), style = MaterialTheme.typography.bodySmall)
+                        Text("Profil toko berhasil disimpan.", color = Color(0xFF16A34A), style = MaterialTheme.typography.bodySmall)
                     }
                     Button(
                         onClick = { viewModel.updatePublicProfile(storeName, address) },
@@ -277,7 +277,7 @@ fun EditPublicProfileScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         if (state.isSavingProfile) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        else Text("SAVE PROFILE")
+                        else Text("SIMPAN PROFIL")
                     }
                 }
             }
@@ -300,7 +300,7 @@ fun CustomerReviewsScreen(
         CustomerReviewFilter.FIVE_STARS -> state.reviews.filter { it.stars == 5 }
         CustomerReviewFilter.UNREPLIED -> state.reviews.filter { it.reply == null }
     }
-    MerchantZipDetailScaffold(title = "Customer Reviews", onBack = onBack) {
+    MerchantZipDetailScaffold(title = "Ulasan Pelanggan", onBack = onBack) {
         when {
             state.isLoading -> Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Primary)
@@ -312,7 +312,7 @@ fun CustomerReviewsScreen(
             else -> {
                 val merchant = state.merchant
                 if (merchant == null) {
-                    MerchantZipEmptyState("Profil toko belum tersedia dari backend.", onRetry = viewModel::load)
+                    MerchantZipEmptyState("Profil toko belum tersedia.", onRetry = viewModel::load)
                 } else {
                     Text("Ulasan Pelanggan", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text(

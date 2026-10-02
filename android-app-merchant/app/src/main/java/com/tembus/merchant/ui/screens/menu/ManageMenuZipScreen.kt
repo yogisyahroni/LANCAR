@@ -138,7 +138,7 @@ fun ManageMenuZipScreen(
             context.contentResolver.openInputStream(uri)?.use { input ->
                 MenuImportParser.parse(BufferedReader(InputStreamReader(input)).readText())
             } ?: MenuImportParseResult(emptyList(), listOf("File tidak dapat dibaca."))
-        }.getOrElse { MenuImportParseResult(emptyList(), listOf("Gagal membaca CSV: ${it.message ?: "error tidak diketahui"}")) }
+        }.getOrElse { MenuImportParseResult(emptyList(), listOf("Gagal membaca file menu. Periksa kembali isinya.")) }
         importPreview = result
     }
 
@@ -418,7 +418,7 @@ private fun MenuFilterSheet(filters: MenuFilters, categories: List<String>, hasP
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = PrimaryPale) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text("Filter & kelola menu", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Primary); Text("Atur tampilan katalog dari data server", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Column(Modifier.weight(1f)) { Text("Filter & kelola menu", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Primary); Text("Atur tampilan katalog toko", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 TextButton(onClick = onReset) { Text("Atur ulang") }
                 IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = MerchantTextCatalog.translate("Tutup filter")) }
             }
@@ -439,7 +439,7 @@ private fun MenuFilterSheet(filters: MenuFilters, categories: List<String>, hasP
                 OutlinedTextField(value = filters.maxPrice, onValueChange = { onChange(filters.copy(maxPrice = it.filter(Char::isDigit))) }, label = { Text("Maksimum") }, prefix = { Text("Rp ") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text("Hanya menu dengan promo aktif", fontWeight = FontWeight.SemiBold); Text(if (hasPromos) "Status promo dibaca dari modul Promo" else "Belum ada promo aktif dari server", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Column(Modifier.weight(1f)) { Text("Hanya menu dengan promo aktif", fontWeight = FontWeight.SemiBold); Text(if (hasPromos) "Status promo diperbarui otomatis" else "Belum ada promo aktif", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 Switch(checked = filters.onlyPromoted, onCheckedChange = { onChange(filters.copy(onlyPromoted = it)) }, enabled = hasPromos)
             }
             Button(onClick = onApply, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Primary)) { Text("Terapkan filter ($totalFiltered menu)") }
@@ -453,7 +453,7 @@ private fun MenuFilteredEmpty(isFiltered: Boolean, onReset: () -> Unit, onAdd: (
         Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(if (isFiltered) Icons.Filled.FilterList else Icons.Filled.Inventory2, contentDescription = "", tint = Primary, modifier = Modifier.size(42.dp))
             Text(if (isFiltered) "Tidak ada menu yang cocok" else "Belum ada menu", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(if (isFiltered) "Ubah filter atau cari dengan kata kunci lain." else "Tambahkan menu dari katalog server untuk mulai menerima pesanan.", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (isFiltered) "Ubah filter atau cari dengan kata kunci lain." else "Tambahkan menu untuk mulai menerima pesanan.", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (isFiltered) OutlinedButton(onClick = onReset) { Text("Hapus filter") } else Button(onClick = onAdd) { Text("Tambah menu") }
         }
     }
@@ -475,13 +475,13 @@ private fun MenuImportPreviewDialog(result: MenuImportParseResult, isImporting: 
         Card(Modifier.fillMaxWidth().padding(24.dp), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Preview impor menu", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("${result.rows.size} baris valid akan dikirim ke server.")
+                Text("${result.rows.size} menu siap ditambahkan.")
                 result.rows.take(5).forEach { row -> Text("Baris ${row.lineNumber}: ${row.request.nama} • ${row.request.kategori} • ${Format.rupiah(row.request.harga)}", style = MaterialTheme.typography.bodySmall) }
                 if (result.rows.size > 5) Text("… dan ${result.rows.size - 5} baris lainnya", style = MaterialTheme.typography.bodySmall)
                 result.errors.take(8).forEach { error -> Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     OutlinedButton(onClick = onDismiss, enabled = !isImporting) { Text("Batal") }; Spacer(Modifier.size(8.dp))
-                    Button(onClick = onImport, enabled = result.rows.isNotEmpty() && !isImporting) { if (isImporting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("Impor ke server") }
+                    Button(onClick = onImport, enabled = result.rows.isNotEmpty() && !isImporting) { if (isImporting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("Tambahkan ke menu") }
                 }
             }
         }
