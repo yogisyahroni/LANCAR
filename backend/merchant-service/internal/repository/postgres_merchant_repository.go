@@ -365,7 +365,17 @@ func (r *postgresMerchantRepository) GetByID(ctx context.Context, id string) (*d
 }
 
 func (r *postgresMerchantRepository) GetByUserID(ctx context.Context, userID string) (*domain.Merchant, error) {
-	row := r.readDB.QueryRowContext(ctx, `SELECT `+merchantColumns+` FROM merchants m JOIN users u ON u.id = m.user_id WHERE m.user_id = $1`, userID)
+	// Legacy UAT data can contain more than one merchant row for one owner.
+	// Keep reads deterministic and aligned with the seed's canonical profile:
+	// the oldest merchant record wins until the data migration removes the
+	// duplicate and enforces the one-owner/one-merchant invariant.
+	row := r.readDB.QueryRowContext(ctx, `
+		SELECT `+merchantColumns+`
+		FROM merchants m
+		JOIN users u ON u.id = m.user_id
+		WHERE m.user_id = $1
+		ORDER BY m.created_at ASC, m.id ASC
+		LIMIT 1`, userID)
 	m, err := scanMerchant(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
