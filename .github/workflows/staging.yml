@@ -500,6 +500,7 @@ jobs:
         include:
           - { image: auth-service, context: ./backend/auth-service }
           - { image: routing-service, context: ./backend/routing-service }
+          - { image: merchant-service, context: ./backend/merchant-service }
           - { image: admin-service, context: ./backend/admin-service }
           - { image: order-service, context: ./backend/order-service }
           - { image: datalake-worker, context: ./backend/datalake-worker }
@@ -596,6 +597,17 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/routing-service:staging
             ghcr.io/${{ env.REPO_LOWER }}/routing-service:staging-${{ github.sha }}
+      - name: Build and Push Merchant Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/merchant-service
+          pull: true
+          push: true
+          cache-from: type=gha,scope=merchant-v2
+          cache-to: type=gha,mode=max,scope=merchant-v2
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/merchant-service:staging
+            ghcr.io/${{ env.REPO_LOWER }}/merchant-service:staging-${{ github.sha }}
       - name: Build and Push Admin Service
         uses: docker/build-push-action@v5
         with:
@@ -739,6 +751,7 @@ jobs:
           echo "${GHCR_TOKEN}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           docker pull ghcr.io/${REPO_LOWER_LC}/auth-service:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/routing-service:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/merchant-service:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/admin-service:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/order-service:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/datalake-worker:${SHA}
@@ -755,7 +768,7 @@ jobs:
           docker-compose up -d traefik
           export CURRENT_SHA="${SHA}"
           export REPO="${REPO_LOWER_LC}"
-          for svc in auth-service routing-service admin-service order-service datalake-worker payment-service developer-platform-service api-gateway frontend admin-dashboard; do
+          for svc in auth-service routing-service merchant-service admin-service order-service datalake-worker payment-service developer-platform-service api-gateway frontend admin-dashboard; do
             OLD_CONTAINER=\$(docker-compose ps -q \${svc} | head -n 1 || true)
             docker-compose up -d --no-deps --scale \${svc}=2 --no-recreate \${svc} || true
             sleep 30

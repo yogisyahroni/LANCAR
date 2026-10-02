@@ -773,6 +773,8 @@ services:
         condition: service_started
       routing-service:
         condition: service_started
+      merchant-service:
+        condition: service_started
       payment-service:
         condition: service_started
       developer-platform-service:

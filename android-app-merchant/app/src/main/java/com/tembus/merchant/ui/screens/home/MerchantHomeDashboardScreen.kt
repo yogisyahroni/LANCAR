@@ -126,6 +126,7 @@ fun MerchantHomeDashboardScreen(
                 StoreControlCard(
                     merchant = state.merchant,
                     isLoading = state.actionLoading,
+                    onToggleOpen = viewModel::toggleOpen,
                     onToggleAutoAccept = viewModel::toggleAutoAccept,
                     onPause = { pauseDialog = true },
                     onResume = viewModel::resume,
@@ -294,6 +295,7 @@ private fun HomeHeader(
 private fun StoreControlCard(
     merchant: com.tembus.merchant.data.model.Merchant?,
     isLoading: Boolean,
+    onToggleOpen: () -> Unit,
     onToggleAutoAccept: (Boolean) -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -308,6 +310,27 @@ private fun StoreControlCard(
         shape = RoundedCornerShape(TembusRadius.Card)
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        if (merchant?.isOpen == true) "Toko sedang menerima pesanan" else "Toko tidak menerima pesanan",
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        if (merchant?.isOpen == true) "Status tersinkron dari server" else "Aktifkan toko untuk menerima pesanan",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = merchant?.isOpen == true,
+                    onCheckedChange = { onToggleOpen() },
+                    enabled = merchant != null && !isLoading,
+                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Primary)
+                )
+            }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Surface(shape = CircleShape, color = PrimarySoft, modifier = Modifier.size(42.dp)) {
                     Box(contentAlignment = Alignment.Center) {
