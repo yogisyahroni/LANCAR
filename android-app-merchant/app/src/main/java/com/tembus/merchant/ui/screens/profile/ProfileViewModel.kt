@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.Instant
 
 data class ProfileUiState(
     val merchant: Merchant? = null,
@@ -31,7 +32,10 @@ data class ProfileUiState(
     val profileSaveError: String? = null,
     // FB-109: status update minimal order.
     val isSavingMinOrder: Boolean = false,
-    val minOrderSaveError: String? = null
+    val minOrderSaveError: String? = null,
+    // Operational controls on the profile hub stay server-authoritative.
+    val isSavingOperational: Boolean = false,
+    val operationalError: String? = null
 )
 
 class ProfileViewModel(
@@ -195,6 +199,88 @@ class ProfileViewModel(
                     )
                 }
         }
+    }
+
+    fun toggleOpen() {
+        val current = _uiState.value.merchant?.isOpen ?: return
+        _uiState.value = _uiState.value.copy(isSavingOperational = true, operationalError = null)
+        viewModelScope.launch {
+            merchantRepository.toggleOpen(!current)
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        merchant = updated,
+                        isSavingOperational = false
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSavingOperational = false,
+                        operationalError = e.message ?: "Gagal mengubah status toko"
+                    )
+                }
+        }
+    }
+
+    fun setAutoAcceptOrders(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(isSavingOperational = true, operationalError = null)
+        viewModelScope.launch {
+            merchantRepository.setAutoAcceptOrders(enabled)
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        merchant = updated,
+                        isSavingOperational = false
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSavingOperational = false,
+                        operationalError = e.message ?: "Gagal mengubah penerimaan otomatis"
+                    )
+                }
+        }
+    }
+
+    fun setBusy(durationMinutes: Int, extraPrepMinutes: Int = 15) {
+        _uiState.value = _uiState.value.copy(isSavingOperational = true, operationalError = null)
+        viewModelScope.launch {
+            val until = Instant.now().plusSeconds(durationMinutes * 60L).toString()
+            merchantRepository.busy(until, extraPrepMinutes)
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        merchant = updated,
+                        isSavingOperational = false
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSavingOperational = false,
+                        operationalError = e.message ?: "Gagal mengaktifkan mode sibuk"
+                    )
+                }
+        }
+    }
+
+    fun clearBusy() {
+        _uiState.value = _uiState.value.copy(isSavingOperational = true, operationalError = null)
+        viewModelScope.launch {
+            merchantRepository.resume()
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        merchant = updated,
+                        isSavingOperational = false
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSavingOperational = false,
+                        operationalError = e.message ?: "Gagal menonaktifkan mode sibuk"
+                    )
+                }
+        }
+    }
+
+    fun clearOperationalError() {
+        _uiState.value = _uiState.value.copy(operationalError = null)
     }
 
     fun clearError() {
