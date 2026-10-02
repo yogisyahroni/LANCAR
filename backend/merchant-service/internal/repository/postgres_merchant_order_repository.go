@@ -125,9 +125,19 @@ func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, me
 		       COALESCE(o.order_notes, ''),
 		       COALESCE(o.cancellation_reason, ''),
 		       COALESCE(o.reject_reason, ''),
-		       COALESCE(to_char(o.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '') -- FB-123
+		       COALESCE(to_char(o.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''), -- FB-123
+		       COALESCE(p.status, ''),
+		       COALESCE(p.method, ''),
+		       NOT EXISTS (
+			       SELECT 1 FROM orders prior
+			       WHERE prior.customer_id = o.customer_id
+			         AND prior.merchant_id = o.merchant_id
+			         AND prior.service_sub_type = 'food_delivery'
+			         AND prior.created_at < o.created_at
+		       ) AS is_new_customer
 		FROM orders o
 		LEFT JOIN users c ON c.id = o.customer_id
+		LEFT JOIN payments p ON p.order_id = o.id
 		WHERE o.merchant_id = $1
 		  AND o.service_sub_type = 'food_delivery'
 		  AND ($2 = '' OR o.status = $2)
@@ -146,6 +156,8 @@ func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, me
 	for rows.Next() {
 		var v domain.MerchantOrderView
 		var acceptedAt, readyAt, createdAt, orderNotes, cancellationReason, rejectReason, scheduledAt string
+		var paymentStatus, paymentMethod string
+		var isNewCustomer bool
 		if err := rows.Scan(
 			&v.ID, &v.OrderNumber, &v.Status,
 			&v.CustomerName, &v.CustomerPhone, &v.DropoffAddress,
@@ -153,12 +165,16 @@ func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, me
 			&acceptedAt, &readyAt, &createdAt,
 			&orderNotes, &cancellationReason, &rejectReason,
 			&scheduledAt, // FB-123
+			&paymentStatus, &paymentMethod, &isNewCustomer,
 		); err != nil {
 			return nil, err
 		}
 		v.OrderNotes = orderNotes // FB-121
 		v.CancellationReason = cancellationReason
 		v.RejectReason = rejectReason
+		v.PaymentStatus = paymentStatus
+		v.PaymentMethod = paymentMethod
+		v.IsNewCustomer = isNewCustomer
 		if scheduledAt != "" {
 			v.ScheduledAt = &scheduledAt // FB-123
 		}
@@ -283,6 +299,33 @@ func (r *postgresMerchantOrderRepository) CountByMerchant(ctx context.Context, m
 		WHERE merchant_id = $1 AND service_sub_type = 'food_delivery'
 		  AND ($2 = '' OR status = $2)`, merchantID, status).Scan(&n)
 	return n, err
+}
+
+func (r *postgresMerchantOrderRepository) CountOperationalByMerchant(ctx context.Context, merchantID string) (*domain.MerchantOrderCounts, error) {
+	var counts domain.MerchantOrderCounts
+	err := r.readDB.QueryRowContext(ctx, `
+		SELECT
+			COUNT(*) FILTER (WHERE o.status = 'pending_merchant'),
+			COUNT(*) FILTER (WHERE o.status = 'preparing'),
+			COUNT(*) FILTER (WHERE o.status IN ('searching', 'accepted', 'picking_up')),
+			COUNT(*) FILTER (WHERE o.status IN ('picked_up', 'delivering')),
+			COUNT(*) FILTER (WHERE o.status = 'delivered'),
+			COUNT(*) FILTER (WHERE o.status = 'cancelled_by_merchant'
+				OR (o.status = 'cancelled' AND NULLIF(o.reject_reason, '') IS NOT NULL))
+		FROM orders o
+		WHERE o.merchant_id = $1 AND o.service_sub_type = 'food_delivery'`, merchantID,
+	).Scan(
+		&counts.New,
+		&counts.Preparing,
+		&counts.ReadyForPickup,
+		&counts.Delivering,
+		&counts.Completed,
+		&counts.Rejected,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("count operational merchant orders: %w", err)
+	}
+	return &counts, nil
 }
 
 // GetOrderForStruk — ambil order food milik merchant + items untuk struk

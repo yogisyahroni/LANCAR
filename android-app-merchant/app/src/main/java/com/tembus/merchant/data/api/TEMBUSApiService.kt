@@ -194,6 +194,12 @@ interface TEMBUSApiService {
         @Query("page_size") pageSize: Int = 20
     ): Response<OrderListResponse>
 
+    @GET("api/v1/merchant/orders/counts")
+    suspend fun getOrderCounts(): Response<OrderCounts>
+
+    @GET("api/v1/merchant/integrations/pos")
+    suspend fun getPOSIntegrationStatus(): Response<MerchantPOSIntegrationStatus>
+
     @POST("api/v1/merchant/orders/{id}/accept")
     suspend fun acceptOrder(
         @Path("id") id: String

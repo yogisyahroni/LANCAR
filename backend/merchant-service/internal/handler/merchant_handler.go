@@ -1038,6 +1038,20 @@ func (h *MerchantHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetOrderCounts returns canonical tab badge counts for the merchant order board.
+func (h *MerchantHandler) GetOrderCounts(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	counts, err := h.svc.GetOrderCounts(r.Context(), userID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, counts)
+}
+
 // GetPOSIntegrationStatus returns connector health and unresolved delivery
 // reconciliation for the authenticated merchant. It is deliberately read
 // only: connector status cannot authorize a customer order acceptance.

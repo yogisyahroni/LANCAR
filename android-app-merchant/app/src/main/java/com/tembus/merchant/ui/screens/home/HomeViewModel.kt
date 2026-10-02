@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.merchant.data.model.Merchant
 import com.tembus.merchant.data.model.MerchantOrder
+import com.tembus.merchant.data.model.OrderCounts
+import com.tembus.merchant.data.model.MerchantPOSIntegrationStatus
 import com.tembus.merchant.data.model.UpdateProfileRequest
 import com.tembus.merchant.data.notifications.OrderAlertNotifier
 import com.tembus.merchant.data.repository.MerchantRepository
@@ -15,9 +17,10 @@ import kotlinx.coroutines.async
 import java.time.Instant
 
 enum class OrderFilter(val label: String, val status: String?) {
-    ALL("Semua", null),
     NEW("Baru", "pending_merchant"),
-    ACTIVE("Aktif", null), // prepared special: preparing|searching|accepted|picking_up|picked_up|delivering
+    ACTIVE("Diproses", "preparing"),
+    READY("Siap Diambil", null),
+    DELIVERING("Diantar", null),
     DONE("Selesai", "delivered"),
     // Backend menyimpan reject merchant sebagai cancelled + reject_reason.
     REJECTED("Ditolak", "cancelled")
@@ -29,6 +32,8 @@ data class HomeUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val orders: List<MerchantOrder> = emptyList(),
+    val orderCounts: OrderCounts? = null,
+    val posStatus: MerchantPOSIntegrationStatus? = null,
     val selectedFilter: OrderFilter = OrderFilter.NEW,
     val isToggleOpenLoading: Boolean = false,
     // FB-107: pause sementara — loading + sisa menit countdown (0 = tidak pause)
@@ -60,9 +65,11 @@ class HomeViewModel(
             merchantRepository.getProfile()
                 .onSuccess { profile ->
                     val report = reportDeferred.await()
+                    val posStatus = merchantRepository.getPOSIntegrationStatus().getOrNull()
                     _uiState.value = _uiState.value.copy(
                         merchant = profile,
                         report = report,
+                        posStatus = posStatus,
                         needsRegistration = false,
                         isLoading = false
                     )
@@ -89,35 +96,39 @@ class HomeViewModel(
         loadOrders(filter)
     }
 
+    fun refreshOrders() = loadOrders()
+
     private fun loadOrders(filter: OrderFilter = _uiState.value.selectedFilter) {
         val status = when (filter) {
             OrderFilter.NEW -> "pending_merchant"
-            OrderFilter.ALL -> null
             OrderFilter.DONE -> "delivered"
             // Filter status dilakukan server-side, lalu dibatasi lagi ke order
             // yang punya reject_reason agar pembatalan customer tidak ikut.
             OrderFilter.REJECTED -> "cancelled"
-            OrderFilter.ACTIVE -> null // filter manual di sisi client untuk status aktif
+            OrderFilter.ACTIVE -> "preparing"
+            OrderFilter.READY, OrderFilter.DELIVERING -> null // canonical multi-state buckets are filtered below
         }
         viewModelScope.launch {
-            merchantRepository.listOrders(status = status, pageSize = 50)
+            val counts = merchantRepository.getOrderCounts().getOrNull()
+            merchantRepository.listOrders(status = status, pageSize = 100)
                 .onSuccess { orders ->
-                    var loaded = orders
-                    // AUDIT-FIX #2: di tab "Baru", sertakan order terjadwal
-                    // (status scheduled) supaya section "Pesanan Terjadwal Hari
-                    // Ini" tampil — sebelumnya state.orders cuma berisi
-                    // pending_merchant → section selalu kosong di tab default.
-                    if (filter == OrderFilter.NEW) {
-                        val scheduled = merchantRepository.listOrders(status = "scheduled", pageSize = 50)
-                            .getOrElse { emptyList() }
-                        loaded = orders + scheduled
-                    }
+                    // Scheduled food orders are represented by the canonical
+                    // pending_merchant state plus scheduled_at. Do not issue a
+                    // made-up `status=scheduled` filter: the backend rejects
+                    // unknown order states and that used to create a noisy
+                    // 400 request every refresh.
+                    val loaded = orders
                     val filtered = when (filter) {
-                        OrderFilter.ACTIVE -> loaded.filter { it.status in activeStatuses }
+                        OrderFilter.READY -> loaded.filter { it.status in readyStatuses }
+                        OrderFilter.DELIVERING -> loaded.filter { it.status in deliveringStatuses }
                         OrderFilter.REJECTED -> loaded.filter { it.isMerchantRejected() }
                         else -> loaded
                     }
-                    _uiState.value = _uiState.value.copy(orders = filtered, isLoading = false)
+                    _uiState.value = _uiState.value.copy(
+                        orders = filtered,
+                        orderCounts = counts ?: _uiState.value.orderCounts,
+                        isLoading = false
+                    )
 
                     // FB-106: alert suara/getar untuk order baru (pending_merchant)
                     // yang belum pernah terlihat. Baseline seen diperbarui dengan
@@ -318,6 +329,8 @@ class HomeViewModel(
         val activeStatuses = setOf(
             "preparing", "searching", "accepted", "picking_up", "picked_up", "delivering"
         )
+        val readyStatuses = setOf("searching", "accepted", "picking_up")
+        val deliveringStatuses = setOf("picked_up", "delivering")
     }
 }
 

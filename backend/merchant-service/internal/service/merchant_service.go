@@ -2040,3 +2040,11 @@ func (s *merchantServiceImpl) ListOrders(ctx context.Context, userID string, sta
 	}
 	return rows, total, nil
 }
+
+func (s *merchantServiceImpl) GetOrderCounts(ctx context.Context, userID string) (*domain.MerchantOrderCounts, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return s.orderRepo.CountOperationalByMerchant(ctx, m.ID)
+}

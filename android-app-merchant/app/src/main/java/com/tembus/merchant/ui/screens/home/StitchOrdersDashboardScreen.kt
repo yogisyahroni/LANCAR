@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,17 +16,26 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -61,11 +71,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tembus.merchant.data.model.MerchantOrder
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.PrimaryPale
+import com.tembus.merchant.ui.theme.Accent
+import com.tembus.merchant.ui.theme.AccentSoft
+import com.tembus.merchant.ui.theme.Background
+import com.tembus.merchant.ui.theme.OnSurfaceSecondary
+import com.tembus.merchant.ui.theme.PrimarySoft
+import com.tembus.merchant.ui.theme.Success
 import com.tembus.merchant.ui.theme.TembusRadius
 import kotlinx.coroutines.delay
 import java.time.Instant
@@ -87,102 +105,95 @@ fun StitchOrdersDashboardScreen(
     val state by viewModel.uiState.collectAsState()
     var rejectTarget by remember { mutableStateOf<MerchantOrder?>(null) }
     var partialRejectTarget by remember { mutableStateOf<MerchantOrder?>(null) }
-    var showPauseDialog by remember { mutableStateOf(false) }
-    var showBusyDialog by remember { mutableStateOf(false) }
-    val isPaused = state.merchant?.pausedUntil?.let { value ->
-        runCatching { Instant.parse(value).isAfter(Instant.now()) }.getOrDefault(false)
-    } == true
-    val isBusy = state.merchant?.busyUntil?.let { value ->
-        runCatching { Instant.parse(value).isAfter(Instant.now()) }.getOrDefault(false)
-    } == true
+
+    // Figma order board refreshes its server snapshot without resetting the
+    // selected tab. Push/socket notifications remain hints; this is the
+    // canonical refetch path for customer/merchant/courier convergence.
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(5_000)
+            viewModel.refreshOrders()
+        }
+    }
 
     PullToRefreshBox(
         isRefreshing = state.isLoading && state.merchant != null,
         onRefresh = viewModel::load,
         modifier = Modifier.fillMaxSize()
     ) {
-    Column(modifier = Modifier.fillMaxSize().background(PrimaryPale)) {
-        TopAppBar(
-            title = {
-                Column {
-                    Text(state.merchant?.namaToko ?: "Merchant", fontWeight = FontWeight.Bold)
-                    Text("Pesanan", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            },
-            actions = {
-                IconButton(onClick = onOpenNotifications) {
-                    Icon(Icons.Filled.NotificationsNone, contentDescription = MerchantTextCatalog.translate("Notifikasi"))
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryPale)
-        )
+        Column(modifier = Modifier.fillMaxSize().background(Background)) {
+            MerchantOrdersHeader(
+                merchant = state.merchant?.namaToko ?: "Merchant",
+                address = state.merchant?.alamat.orEmpty(),
+                isOpen = state.merchant?.isOpen == true,
+                onOpenNotifications = onOpenNotifications,
+            )
 
-        if (state.isLoading && state.merchant == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-            item {
-                StoreStatusCard(
-                    name = state.merchant?.namaToko ?: "Merchant",
-                    isOpen = state.merchant?.isOpen == true,
-                    isPaused = isPaused,
-                    isBusy = isBusy,
-                    onToggle = viewModel::toggleOpen,
-                    onPause = { showPauseDialog = true },
-                    onResume = viewModel::resume,
-                    onBusy = { showBusyDialog = true },
-                )
-            }
-            item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MetricCard(
-                        modifier = Modifier.weight(1f),
-                        label = "PESANAN HARI INI",
-                        value = state.report?.totalOrders?.toString() ?: "—",
-                        trend = state.report?.let { "${Format.rupiah(it.gmvIdr)}" }
-                    )
-                    MetricCard(
-                        modifier = Modifier.weight(1f),
-                        label = "PENDAPATAN",
-                        value = state.report?.let { Format.rupiah(it.gmvIdr) } ?: "—",
-                        trend = null
-                    )
+            if (state.isLoading && state.merchant == null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
-            }
-            item { FilterTabs(state.selectedFilter, viewModel::selectFilter) }
-            if (state.actionError != null) {
-                item { ErrorPanel(state.actionError.orEmpty(), viewModel::clearActionError) }
-            }
-            if (state.errorMessage != null) {
-                item {
-                    ErrorPanel(state.errorMessage.orEmpty(), viewModel::load)
-                }
-            } else if (!state.isLoading && state.orders.isEmpty()) {
-                item { Text("Belum ada pesanan pada filter ini.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 24.dp)) }
             } else {
-                items(state.orders, key = { it.id }) { order ->
-                    StitchOrderCard(
-                        order = order,
-                        onOpen = { onOpenOrder(order.id) },
-                        onOpenChat = { onOpenChat(order.id, order.orderNumber) },
-                        onCallCustomer = { onCallCustomer(order.customerPhone.orEmpty()) },
-                        onAccept = { viewModel.acceptOrder(order.id) },
-                        onReady = { viewModel.markReady(order.id) },
-                        onReject = { rejectTarget = order },
-                        onPartialReject = { partialRejectTarget = order },
-                        isActionLoading = state.actionOrderId == order.id
-                    )
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    item {
+                        KitchenDeviceBanner(state.posStatus)
+                    }
+                    item {
+                        OrderFilterTabs(
+                            selected = state.selectedFilter,
+                            counts = state.orderCounts,
+                            onSelect = viewModel::selectFilter,
+                        )
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "${state.orderCounts?.newCount ?: state.orders.count { it.status == "pending_merchant" }} Pesanan Membutuhkan Konfirmasi Segera",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(14.dp), tint = OnSurfaceSecondary)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Auto-refresh 5s", style = MaterialTheme.typography.labelSmall, color = OnSurfaceSecondary)
+                            }
+                        }
+                    }
+                    if (state.actionError != null) {
+                        item { ErrorPanel(state.actionError.orEmpty(), viewModel::clearActionError) }
+                    }
+                    if (state.errorMessage != null) {
+                        item { ErrorPanel(state.errorMessage.orEmpty(), viewModel::load) }
+                    } else if (!state.isLoading && state.orders.isEmpty()) {
+                        item { EmptyOrdersState(state.selectedFilter) }
+                    } else {
+                        items(state.orders, key = { it.id }) { order ->
+                            StitchOrderCard(
+                                order = order,
+                                onOpen = { onOpenOrder(order.id) },
+                                onOpenChat = { onOpenChat(order.id, order.orderNumber) },
+                                onCallCustomer = { onCallCustomer(order.customerPhone.orEmpty()) },
+                                onAccept = { viewModel.acceptOrder(order.id) },
+                                onReady = { viewModel.markReady(order.id) },
+                                onReject = { rejectTarget = order },
+                                onPartialReject = { partialRejectTarget = order },
+                                isActionLoading = state.actionOrderId == order.id,
+                            )
+                        }
+                    }
                 }
-            }
             }
         }
-    }
     }
 
     rejectTarget?.let { order ->
@@ -209,27 +220,6 @@ fun StitchOrdersDashboardScreen(
         )
     }
 
-    if (showPauseDialog) {
-        PauseOrdersDialog(
-            isSubmitting = state.isPauseLoading,
-            onConfirm = { minutes ->
-                showPauseDialog = false
-                viewModel.pause(minutes)
-            },
-            onDismiss = { if (!state.isPauseLoading) showPauseDialog = false },
-        )
-    }
-
-    if (showBusyDialog) {
-        BusyOrdersDialog(
-            isSubmitting = state.isPauseLoading,
-            onConfirm = { duration, extraPrep ->
-                showBusyDialog = false
-                viewModel.busy(duration, extraPrep)
-            },
-            onDismiss = { if (!state.isPauseLoading) showBusyDialog = false },
-        )
-    }
 }
 
 @Composable
@@ -283,6 +273,101 @@ private fun StoreStatusCard(
                     OutlinedButton(onClick = onBusy, enabled = isOpen, modifier = Modifier.weight(1f)) { Text("Mode sibuk") }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MerchantOrdersHeader(
+    merchant: String,
+    address: String,
+    isOpen: Boolean,
+    onOpenNotifications: () -> Unit,
+) {
+    val initials = merchant.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+        .take(2).joinToString("") { it.first().uppercase() }.ifBlank { "M" }
+    Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.statusBarsPadding()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Surface(color = PrimaryDarkSurface, shape = RoundedCornerShape(50)) {
+                Text(initials, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(12.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(merchant, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Filled.Verified, contentDescription = "Terverifikasi", tint = PrimaryDarkSurface, modifier = Modifier.size(16.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(color = PrimarySoft, shape = RoundedCornerShape(5.dp)) {
+                        Text("MITRA JUARA", color = PrimaryDarkSurface, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Text("• ${address.ifBlank { "Lokasi toko" }}", maxLines = 1, overflow = TextOverflow.Ellipsis, color = OnSurfaceSecondary, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            Surface(color = if (isOpen) PrimarySoft else MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(50)) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                    Surface(color = if (isOpen) Success else MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(50), modifier = Modifier.size(8.dp)) {}
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (isOpen) "BUKA" else "TUTUP", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = if (isOpen) PrimaryDarkSurface else OnSurfaceSecondary)
+                }
+            }
+            IconButton(onClick = onOpenNotifications) {
+                Icon(Icons.Filled.NotificationsNone, contentDescription = MerchantTextCatalog.translate("Notifikasi"))
+            }
+        }
+    }
+}
+
+private val PrimaryDarkSurface = Color(0xFF004F2B)
+
+@Composable
+private fun KitchenDeviceBanner(posStatus: com.tembus.merchant.data.model.MerchantPOSIntegrationStatus?) {
+    val connector = posStatus?.connectors?.firstOrNull { it.enabled } ?: posStatus?.connectors?.firstOrNull()
+    val connected = connector?.enabled == true && connector.state.lowercase() in setOf("connected", "ready", "healthy", "active")
+    var testBell by remember { mutableStateOf(false) }
+    LaunchedEffect(testBell) {
+        if (testBell) {
+            delay(600)
+            testBell = false
+        }
+    }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = if (connected) PrimaryDarkSurface else MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(10.dp),
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.VolumeUp, contentDescription = null, tint = if (connected) Color.White else PrimaryDarkSurface, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Speaker Dapur ${if (connected) "Terhubung" else "Belum Terhubung"}", color = if (connected) Color.White else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    text = connector?.let { "${it.providerName.ifBlank { it.providerCode }} • ${it.state.ifBlank { "status tidak tersedia" }}" } ?: "Belum ada perangkat dapur dari server",
+                    color = if (connected) Color.White.copy(alpha = 0.80f) else OnSurfaceSecondary,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            TextButton(onClick = { testBell = true }) {
+                Text(if (testBell) "Berbunyi" else "Tes Bel", color = if (connected) Color.White else PrimaryDarkSurface, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyOrdersState(filter: OrderFilter) {
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Filled.RestaurantMenu, contentDescription = null, tint = OnSurfaceSecondary, modifier = Modifier.size(32.dp))
+            Spacer(Modifier.height(10.dp))
+            Text("Belum ada pesanan ${filter.label.lowercase()}", fontWeight = FontWeight.Bold)
+            Text("Pesanan baru dari customer akan muncul otomatis di sini.", color = OnSurfaceSecondary, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -383,17 +468,38 @@ private fun MetricCard(modifier: Modifier, label: String, value: String, trend: 
 }
 
 @Composable
-private fun FilterTabs(selected: OrderFilter, onSelect: (OrderFilter) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf(OrderFilter.NEW, OrderFilter.ACTIVE, OrderFilter.DONE, OrderFilter.REJECTED).forEach { filter ->
+private fun OrderFilterTabs(
+    selected: OrderFilter,
+    counts: com.tembus.merchant.data.model.OrderCounts?,
+    onSelect: (OrderFilter) -> Unit,
+) {
+    val filters = listOf(OrderFilter.NEW, OrderFilter.ACTIVE, OrderFilter.READY, OrderFilter.DELIVERING, OrderFilter.DONE)
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 2.dp)) {
+        items(filters) { filter ->
             val active = selected == filter
+            val count = when (filter) {
+                OrderFilter.NEW -> counts?.newCount
+                OrderFilter.ACTIVE -> counts?.preparing
+                OrderFilter.READY -> counts?.readyForPickup
+                OrderFilter.DELIVERING -> counts?.delivering
+                OrderFilter.DONE -> counts?.completed
+                OrderFilter.REJECTED -> counts?.rejected
+            }
             Surface(
                 modifier = Modifier.clickable { onSelect(filter) },
-                color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(TembusRadius.Button),
-                border = if (active) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                color = if (active) Accent else MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(50),
+                border = if (active) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             ) {
-                Text(filter.label, color = if (active) Color.White else MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), style = MaterialTheme.typography.labelMedium)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) {
+                    Text(filter.label, color = if (active) Color.White else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
+                    if (count != null) {
+                        Spacer(Modifier.width(6.dp))
+                        Surface(color = if (active) Color.White.copy(alpha = 0.20f) else AccentSoft, shape = RoundedCornerShape(50)) {
+                            Text(count.toString(), color = if (active) Color.White else Accent, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        }
+                    }
+                }
             }
         }
     }
@@ -424,80 +530,124 @@ private fun StitchOrderCard(
         readyAt = order.foodReadyAt,
     )
 
+    val customerName = order.customerName?.takeIf { it.isNotBlank() } ?: "Pelanggan"
+    val initials = customerName.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+        .take(2).joinToString("") { it.first().uppercase() }.ifBlank { "?" }
+    val paymentLabel = when (order.paymentStatus?.lowercase()) {
+        "paid", "settled" -> "LUNAS ${order.paymentMethod?.uppercase()?.takeIf { it.isNotBlank() } ?: "TEMBUS-PAY"}"
+        "pending", "created" -> "MENUNGGU PEMBAYARAN"
+        "failed", "expired" -> "PEMBAYARAN GAGAL"
+        else -> "STATUS PEMBAYARAN BELUM TERSEDIA"
+    }
+    val category = if (order.scheduledAt.isNullOrBlank()) "Instant Food" else "Food Terjadwal"
+    val locationLabel = order.dropoffAddress?.takeIf { it.isNotBlank() } ?: "Alamat customer belum tersedia"
+
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        shape = RoundedCornerShape(TembusRadius.Card)
+        shape = RoundedCornerShape(12.dp),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                StatusLabel(order)
-                Text(Format.rupiah(order.totalPriceIdr), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("#${order.orderNumber}", fontWeight = FontWeight.Bold, color = OnSurfaceSecondary)
+                    Text(category, color = Accent, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                }
+                Surface(color = PrimarySoft, shape = RoundedCornerShape(50)) {
+                    Text("${Format.time(order.createdAt)} • ${order.statusLabel()}", color = PrimaryDarkSurface, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
+                }
             }
-            Spacer(Modifier.height(8.dp))
-            Text("#${order.orderNumber}", fontWeight = FontWeight.Bold)
-            Text("${order.customerName ?: "Pelanggan"} • ${Format.time(order.createdAt)}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(color = AccentSoft, shape = RoundedCornerShape(50), modifier = Modifier.size(38.dp)) {
+                    Box(contentAlignment = Alignment.Center) { Text(initials, color = Accent, fontWeight = FontWeight.Bold) }
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(customerName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (order.isNewCustomer) {
+                            Spacer(Modifier.width(6.dp))
+                            Surface(color = PrimarySoft, shape = RoundedCornerShape(4.dp)) {
+                                Text("PELANGGAN BARU", color = PrimaryDarkSurface, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp))
+                            }
+                        }
+                    }
+                    Text("$locationLabel • ${"%.1f".format(java.util.Locale.US, order.distanceKm)} km dari resto", color = OnSurfaceSecondary, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                IconButton(onClick = onOpenChat) { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat pelanggan", tint = PrimaryDarkSurface) }
+                IconButton(onClick = onCallCustomer, enabled = !order.customerPhone.isNullOrBlank()) { Icon(Icons.Filled.Phone, contentDescription = "Telepon pelanggan", tint = PrimaryDarkSurface) }
+            }
             if (prepTimer.hasSchedule && order.status in setOf("preparing", "accepted")) {
                 PrepCountdownBanner(prepTimer)
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.TextButton(onClick = onOpenChat) {
-                    Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "", modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Chat")
+            Divider(Modifier.padding(vertical = 14.dp))
+            if (order.items.isEmpty()) {
+                Text("Detail item belum tersedia dari server", color = OnSurfaceSecondary, style = MaterialTheme.typography.bodySmall)
+            } else {
+                order.items.take(4).forEach { item ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("${item.quantity}× ${item.itemName}", modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(Format.rupiah(item.subtotal), fontWeight = FontWeight.SemiBold)
+                    }
+                    item.notes?.takeIf { it.isNotBlank() }?.let { note ->
+                        Text("Catatan: $note", color = OnSurfaceSecondary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 18.dp))
+                    }
                 }
-                androidx.compose.material3.TextButton(onClick = onCallCustomer, enabled = !order.customerPhone.isNullOrBlank()) {
-                    Icon(Icons.Filled.Phone, contentDescription = "", modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Telepon")
+                if (order.items.size > 4) Text("+${order.items.size - 4} item lainnya", color = OnSurfaceSecondary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+            }
+            order.orderNotes?.takeIf { it.isNotBlank() }?.let { note ->
+                Surface(color = PrimarySoft, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
+                    Text("“$note”", color = PrimaryDarkSurface, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(10.dp))
                 }
             }
-            Divider(Modifier.padding(vertical = 12.dp))
-            order.items.take(3).forEach { item -> Text("${item.quantity}x ${item.itemName}", style = MaterialTheme.typography.bodyMedium) }
-            if (order.items.isEmpty()) Text("Detail item belum tersedia", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                OutlinedButton(onClick = onOpen) { Text("Lihat detail") }
-                Spacer(Modifier.width(8.dp))
-                if (order.status == "pending_merchant") {
-                    OutlinedButton(onClick = onReject, enabled = !isActionLoading) {
-                        Text("Tolak", color = MaterialTheme.colorScheme.error)
-                    }
-                    Spacer(Modifier.width(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                Column {
+                    Text("Total Pembayaran", color = OnSurfaceSecondary, style = MaterialTheme.typography.labelSmall)
+                    Text(Format.rupiah(order.totalPriceIdr), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
                 }
-                if (order.status in setOf("pending_merchant", "preparing") && order.items.isNotEmpty()) {
-                    OutlinedButton(onClick = onPartialReject, enabled = !isActionLoading) {
-                        Text("Item tidak ada")
-                    }
-                    Spacer(Modifier.width(8.dp))
+                Surface(color = if (order.paymentStatus?.lowercase() in setOf("paid", "settled")) PrimarySoft else AccentSoft, shape = RoundedCornerShape(50)) {
+                    Text(paymentLabel, color = if (order.paymentStatus?.lowercase() in setOf("paid", "settled")) PrimaryDarkSurface else Accent, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp))
                 }
-                Button(
-                    onClick = when (order.status) {
-                        "pending_merchant" -> onAccept
-                        "preparing", "accepted" -> onReady
-                        else -> onOpen
-                    },
-                    enabled = !isActionLoading,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    if (isActionLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
-                    } else {
-                        Icon(if (order.status == "pending_merchant") Icons.Filled.Check else Icons.Filled.ArrowForward, contentDescription = "", modifier = Modifier.size(18.dp))
+            }
+            OutlinedButton(onClick = onOpen, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                Icon(Icons.Filled.Print, contentDescription = null, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Cetak Tiket")
+            }
+            if (order.status == "pending_merchant") {
+                Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onReject, enabled = !isActionLoading, modifier = Modifier.weight(1f)) { Text("Tolak / Habis", color = MaterialTheme.colorScheme.error) }
+                    Button(onClick = onAccept, enabled = !isActionLoading, modifier = Modifier.weight(1.25f), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
+                        if (isActionLoading) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White) else Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("Terima & Masak")
                     }
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        when (order.status) {
-                            "pending_merchant" -> "Terima"
-                            "preparing", "accepted" -> "Tandai siap"
-                            else -> "Buka"
-                        }
-                    )
+                }
+                if (order.items.isNotEmpty()) {
+                    TextButton(onClick = onPartialReject, enabled = !isActionLoading, modifier = Modifier.align(Alignment.End)) { Text("Ada item yang habis?", color = OnSurfaceSecondary) }
+                }
+            } else if (order.status == "preparing") {
+                Button(onClick = onReady, enabled = !isActionLoading, modifier = Modifier.fillMaxWidth().padding(top = 10.dp), colors = ButtonDefaults.buttonColors(containerColor = PrimaryDarkSurface)) {
+                    if (isActionLoading) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White) else Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Tandai Siap Diambil")
                 }
             }
         }
     }
+}
+
+private fun MerchantOrder.statusLabel(): String = when {
+    isMerchantRejected() -> "Ditolak"
+    status == "pending_merchant" -> "Baru"
+    status == "preparing" -> "Diproses"
+    status in HomeViewModel.readyStatuses -> "Siap Diambil"
+    status in HomeViewModel.deliveringStatuses -> "Diantar"
+    status == "delivered" -> "Selesai"
+    else -> status.replace('_', ' ').replaceFirstChar { it.uppercase() }
 }
 
 @Composable

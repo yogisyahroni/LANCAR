@@ -22,8 +22,11 @@ type MerchantOrderView struct {
 	CancellationReason string  `json:"cancellation_reason,omitempty"`
 	RejectReason       string  `json:"reject_reason,omitempty"`
 	// FB-123: order terjadwal — scheduled_at (UTC ISO). NULL = pesan langsung.
-	ScheduledAt *string             `json:"scheduled_at,omitempty"`
-	Items       []FoodOrderItemView `json:"items"`
+	ScheduledAt   *string             `json:"scheduled_at,omitempty"`
+	PaymentStatus string              `json:"payment_status,omitempty"`
+	PaymentMethod string              `json:"payment_method,omitempty"`
+	IsNewCustomer bool                `json:"is_new_customer"`
+	Items         []FoodOrderItemView `json:"items"`
 }
 
 // FoodOrderItemView — item dalam order food (dari food_order_items snapshot).
@@ -115,6 +118,8 @@ type MerchantService interface {
 	MarkReady(ctx context.Context, userID string, orderID string) error
 	// ListOrders list order food milik merchant (belum dikerjakan / riwayat).
 	ListOrders(ctx context.Context, userID string, status string, page, pageSize int) ([]*MerchantOrderView, int, error)
+	// GetOrderCounts returns canonical counts for the operational board tabs.
+	GetOrderCounts(ctx context.Context, userID string) (*MerchantOrderCounts, error)
 	// GetStruk ambil data struk pembelian + QR code untuk dicetak (FOOD-BIKE-034).
 	GetStruk(ctx context.Context, userID string, orderID string) (*StrukData, error)
 

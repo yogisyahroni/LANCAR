@@ -123,6 +123,12 @@ class MerchantRepository(
             }
     }
 
+    suspend fun getOrderCounts(): Result<OrderCounts> =
+        request { api.getOrderCounts() }
+
+    suspend fun getPOSIntegrationStatus(): Result<MerchantPOSIntegrationStatus> =
+        request { api.getPOSIntegrationStatus() }
+
     suspend fun acceptOrder(orderId: String): Result<Boolean> =
         request { api.acceptOrder(orderId) }.map { it.success }
 

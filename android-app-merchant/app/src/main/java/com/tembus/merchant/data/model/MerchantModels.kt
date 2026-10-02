@@ -64,6 +64,31 @@ data class Merchant(
     val isCorporate: Boolean get() = businessType == "perusahaan"
 }
 
+data class MerchantPOSConnectorStatus(
+    @SerializedName("provider_code") val providerCode: String = "",
+    @SerializedName("provider_name") val providerName: String = "",
+    @SerializedName("branch_id") val branchId: String? = null,
+    @SerializedName("enabled") val enabled: Boolean = false,
+    @SerializedName("state") val state: String = "",
+    @SerializedName("capabilities") val capabilities: List<String> = emptyList(),
+    @SerializedName("last_checked_at") val lastCheckedAt: String? = null,
+    @SerializedName("last_latency_ms") val lastLatencyMs: Long = 0,
+    @SerializedName("consecutive_failures") val consecutiveFailures: Int = 0,
+    @SerializedName("availability_reason") val availabilityReason: String? = null,
+    @SerializedName("open_reconciliation") val openReconciliation: Int = 0,
+    @SerializedName("failed_order_deliveries") val failedOrderDeliveries: Int = 0,
+    @SerializedName("pending_order_deliveries") val pendingOrderDeliveries: Int = 0,
+)
+
+data class MerchantPOSIntegrationStatus(
+    @SerializedName("merchant_id") val merchantId: String = "",
+    @SerializedName("canonical_owner") val canonicalOwner: String = "",
+    @SerializedName("catalog_ownership") val catalogOwnership: String = "",
+    @SerializedName("inventory_ownership") val inventoryOwnership: String = "",
+    @SerializedName("customer_acceptance_rule") val customerAcceptanceRule: String = "",
+    @SerializedName("connectors") val connectors: List<MerchantPOSConnectorStatus> = emptyList(),
+)
+
 // MERCH-2026-008: server-authoritative suspension/policy status.
 data class MerchantEnforcementAction(
     @SerializedName("id") val id: String = "",
@@ -314,6 +339,15 @@ data class OrderListResponse(
     @SerializedName("page_size") val pageSize: Int = 20
 )
 
+data class OrderCounts(
+    @SerializedName("new") val newCount: Int = 0,
+    @SerializedName("preparing") val preparing: Int = 0,
+    @SerializedName("ready_for_pickup") val readyForPickup: Int = 0,
+    @SerializedName("delivering") val delivering: Int = 0,
+    @SerializedName("completed") val completed: Int = 0,
+    @SerializedName("rejected") val rejected: Int = 0,
+)
+
 /** Order food untuk merchant (MerchantOrderView backend). */
 data class MerchantOrder(
     @SerializedName("id") val id: String = "",
@@ -331,6 +365,9 @@ data class MerchantOrder(
     @SerializedName("cancellation_reason") val cancellationReason: String? = null,
     @SerializedName("reject_reason") val rejectReason: String? = null,
     @SerializedName("scheduled_at") val scheduledAt: String? = null, // FB-123: order terjadwal
+    @SerializedName("payment_status") val paymentStatus: String? = null,
+    @SerializedName("payment_method") val paymentMethod: String? = null,
+    @SerializedName("is_new_customer") val isNewCustomer: Boolean = false,
     @SerializedName("items") val items: List<FoodOrderItem> = emptyList()
 )
 

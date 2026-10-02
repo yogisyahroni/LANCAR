@@ -17,6 +17,10 @@ type MerchantOrderRepository interface {
 	ListByMerchant(ctx context.Context, merchantID, status string, limit, offset int) ([]*MerchantOrderView, error)
 	// CountByMerchant total order merchant untuk filter status.
 	CountByMerchant(ctx context.Context, merchantID, status string) (int, error)
+	// CountOperationalByMerchant returns the server-authoritative buckets used
+	// by the merchant order board. The buckets intentionally map the canonical
+	// order states instead of counting whatever happens to be loaded in the UI.
+	CountOperationalByMerchant(ctx context.Context, merchantID string) (*MerchantOrderCounts, error)
 	// GetOrderForStruk ambil order food milik merchant + items untuk struk (FOOD-BIKE-034).
 	GetOrderForStruk(ctx context.Context, merchantID, orderID string) (*StrukData, error)
 	// RecordOrderEvent (FB-081): catat event ke order_events — dipakai saat
@@ -32,6 +36,17 @@ type MerchantOrderRepository interface {
 	// menu_item_id untuk order ini (varian yang akan di-restore saat edit) —
 	// dipakai service supaya subtotal edit menyertakan delta varian.
 	GetOrderItemVariantDeltas(ctx context.Context, orderID string) (map[string]int64, error)
+}
+
+// MerchantOrderCounts is a database projection for the merchant order tabs.
+// It keeps the tab badges consistent with customer/courier state transitions.
+type MerchantOrderCounts struct {
+	New            int `json:"new"`
+	Preparing      int `json:"preparing"`
+	ReadyForPickup int `json:"ready_for_pickup"`
+	Delivering     int `json:"delivering"`
+	Completed      int `json:"completed"`
+	Rejected       int `json:"rejected"`
 }
 
 // FoodOrderItemSnapshot — snapshot item untuk replace saat edit order (FB-087).
