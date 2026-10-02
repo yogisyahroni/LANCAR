@@ -26,6 +26,7 @@ data class MerchantHomeUiState(
     val menuItems: List<MenuItem> = emptyList(),
     val settlement: SettlementSummary? = null,
     val reviews: List<MerchantReview> = emptyList(),
+    val unreadNotificationCount: Int = 0,
     val isLoading: Boolean = false,
     val actionLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -57,6 +58,7 @@ class MerchantHomeViewModel(
             val menu = async { repository.listMenu(pageSize = 100) }
             val settlement = async { repository.getSettlements() }
             val reviews = async { repository.getCustomerReviews(pageSize = 5) }
+            val notifications = async { repository.getNotifications(limit = 50) }
 
             val profileResult = profile.await()
             val reportResult = report.await()
@@ -64,6 +66,7 @@ class MerchantHomeViewModel(
             val menuResult = menu.await()
             val settlementResult = settlement.await()
             val reviewsResult = reviews.await()
+            val notificationsResult = notifications.await()
 
             val errors = buildMap {
                 profileResult.exceptionOrNull()?.message?.let { put(HomeDataSection.PROFILE, it) }
@@ -81,6 +84,7 @@ class MerchantHomeViewModel(
                 menuItems = menuResult.getOrElse { emptyList() },
                 settlement = settlementResult.getOrNull(),
                 reviews = reviewsResult.getOrNull()?.reviews.orEmpty(),
+                unreadNotificationCount = notificationsResult.getOrNull()?.count { !it.isRead } ?: 0,
                 isLoading = false,
                 errorMessage = profileResult.exceptionOrNull()?.message,
                 sectionErrors = errors
@@ -91,6 +95,10 @@ class MerchantHomeViewModel(
     fun toggleOpen() {
         val merchant = _uiState.value.merchant ?: return
         runAction { repository.toggleOpen(!merchant.isOpen) }
+    }
+
+    fun toggleAutoAccept(enabled: Boolean) {
+        runAction { repository.setAutoAcceptOrders(enabled) }
     }
 
     fun pause(durationMinutes: Int) {

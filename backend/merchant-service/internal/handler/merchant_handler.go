@@ -291,6 +291,32 @@ func (h *MerchantHandler) ToggleOpen(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, m)
 }
 
+// SetAutoAcceptOrders godoc
+// @Summary Atur penerimaan pesanan otomatis
+// @Tags merchant
+// @Accept json
+// @Produce json
+// @Param request body domain.SetAutoAcceptOrdersRequest true "Pengaturan penerimaan order"
+// @Success 200 {object} domain.Merchant
+// @Router /merchant/order-settings/auto-accept [patch]
+func (h *MerchantHandler) SetAutoAcceptOrders(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var req domain.SetAutoAcceptOrdersRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	m, err := h.svc.SetAutoAcceptOrders(r.Context(), userID, req.AutoAcceptOrders)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, m)
+}
+
 // Pause godoc
 // @Summary Pause sementara (FB-107): merchant tidak terima order baru
 // sampai waktu tertentu. Tidak mengubah is_open / jam operasional.

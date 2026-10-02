@@ -94,6 +94,11 @@ interface TEMBUSApiService {
         @Body request: ToggleOpenRequest
     ): Response<Merchant>
 
+    @PATCH("api/v1/merchant/order-settings/auto-accept")
+    suspend fun setAutoAcceptOrders(
+        @Body request: AutoAcceptOrdersRequest
+    ): Response<Merchant>
+
     // FB-107: pause sementara + resume — tidak mengubah is_open/jam operasional.
     @POST("api/v1/merchant/pause")
     suspend fun pause(

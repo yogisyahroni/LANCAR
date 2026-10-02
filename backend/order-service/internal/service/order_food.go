@@ -754,6 +754,35 @@ func (s *orderServiceImpl) ProcessScheduledOrderActivation(ctx context.Context) 
 			log.Printf("[ScheduledOrderWorker] gagal aktivasi scheduled %s: %v", so.OrderID, errA)
 			continue
 		}
+		if merchant.AutoAcceptOrders {
+			prep := so.PrepTimeMinutes
+			if prep <= 0 {
+				prep = 15
+			}
+			if merchant.BusyUntil != nil && merchant.BusyUntil.After(now) {
+				prep += merchant.BusyExtraPrepMinutes
+			}
+			if errAA := s.foodRepo.AcceptFoodOrder(ctx, so.OrderID, prep); errAA != nil {
+				log.Printf("[ScheduledOrderWorker] auto-accept gagal %s: %v", so.OrderID, errAA)
+			} else {
+				s.publishOrderEvent(ctx, so.OrderID, domain.StatusPreparing,
+					"Pesanan terjadwal diterima otomatis — makanan sedang disiapkan")
+				if s.pushSvc != nil {
+					_ = s.pushSvc.NotifyCustomerMerchantAccepted(ctx, so.OrderID,
+						"Pesanan terjadwal diterima otomatis — makanan sedang disiapkan")
+				}
+				if s.notificationSvc != nil {
+					_ = s.notificationSvc.Send(ctx, domain.NotificationRequest{
+						UserID:  so.CustomerID,
+						Title:   "Pesanan diterima otomatis",
+						Message: "Pesanan terjadwal diterima otomatis — makanan sedang disiapkan",
+						Channel: domain.ChannelPush,
+						Data:    map[string]string{"type": "merchant_accepted", "order_id": so.OrderID, "order_no": so.OrderNumber},
+					})
+				}
+				continue
+			}
+		}
 		s.publishOrderEvent(ctx, so.OrderID, domain.StatusPendingMerchant,
 			"Pesanan terjadwal kamu mulai diproses merchant")
 		if s.pushSvc != nil {

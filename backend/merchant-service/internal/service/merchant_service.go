@@ -392,6 +392,20 @@ func (s *merchantServiceImpl) ToggleOpen(ctx context.Context, userID string, isO
 	return s.merchantRepo.GetByID(ctx, m.ID)
 }
 
+func (s *merchantServiceImpl) SetAutoAcceptOrders(ctx context.Context, userID string, enabled bool) (*domain.Merchant, error) {
+	m, err := s.requireOwnerMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !merchantOnboardingActive(m) {
+		return nil, errors.New("merchant belum disetujui")
+	}
+	if err := s.merchantRepo.SetAutoAcceptOrders(ctx, m.ID, enabled); err != nil {
+		return nil, err
+	}
+	return s.merchantRepo.GetByID(ctx, m.ID)
+}
+
 // Pause (FB-107): pause sementara — merchant tidak terima order baru sampai
 // `until`. Auto un-pause oleh order-service (cek paused_until < NOW()).
 // Tidak mengubah is_open maupun jam operasional.

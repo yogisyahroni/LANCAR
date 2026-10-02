@@ -131,7 +131,10 @@ fun MainScreen(
                         if (menuIndex >= 0) selectedTab = menuIndex else onOpenCreateMenu()
                     },
                     onOpenSettlement = onOpenSettlement,
-                    onOpenReviews = onOpenCustomerReviews
+                    onOpenReviews = onOpenCustomerReviews,
+                    onOpenProfile = {
+                        selectedTab = tabs.indexOfFirst { it.key == "profile" }.coerceAtLeast(0)
+                    }
                 )
                 "orders" -> StitchOrdersDashboardScreen(
                     onOpenOrder = onOpenStruk,

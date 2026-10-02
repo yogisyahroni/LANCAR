@@ -49,6 +49,9 @@ class MerchantRepository(
     suspend fun toggleOpen(isOpen: Boolean): Result<Merchant> =
         request { api.toggleOpen(ToggleOpenRequest(isOpen)) }
 
+    suspend fun setAutoAcceptOrders(enabled: Boolean): Result<Merchant> =
+        request { api.setAutoAcceptOrders(AutoAcceptOrdersRequest(enabled)) }
+
     // FB-107: pause sementara + resume.
     suspend fun pause(durationMinutes: Int): Result<Merchant> =
         request { api.pause(PauseRequest(durationMinutes)) }

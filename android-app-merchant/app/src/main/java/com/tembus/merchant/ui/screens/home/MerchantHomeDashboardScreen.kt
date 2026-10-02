@@ -26,9 +26,11 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.NotificationsNone
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -52,16 +54,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.RadioButton
 import coil.compose.AsyncImage
 import com.tembus.merchant.data.model.MerchantOrder
 import com.tembus.merchant.data.model.MerchantReview
 import com.tembus.merchant.data.model.MenuItem
+import com.tembus.merchant.data.model.Merchant
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.localization.MerchantText as Text
@@ -89,6 +95,7 @@ fun MerchantHomeDashboardScreen(
     onOpenMenu: () -> Unit,
     onOpenSettlement: () -> Unit,
     onOpenReviews: () -> Unit,
+    onOpenProfile: () -> Unit,
     viewModel: MerchantHomeViewModel = appViewModel { MerchantHomeViewModel(it.merchantRepository) }
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -101,25 +108,29 @@ fun MerchantHomeDashboardScreen(
         modifier = Modifier.fillMaxSize()
     ) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().background(PrimaryPale),
+            modifier = Modifier.fillMaxSize().background(PrimaryPale).statusBarsPadding(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
                 HomeHeader(
-                    storeName = state.merchant?.namaToko,
-                    address = state.merchant?.alamat,
-                    onOpenNotifications = onOpenNotifications
+                    merchant = state.merchant,
+                    unreadNotificationCount = state.unreadNotificationCount,
+                    isLoading = state.actionLoading,
+                    onToggleOpen = viewModel::toggleOpen,
+                    onOpenNotifications = onOpenNotifications,
+                    onOpenProfile = onOpenProfile
                 )
             }
             item {
                 StoreControlCard(
                     merchant = state.merchant,
                     isLoading = state.actionLoading,
-                    onToggleOpen = viewModel::toggleOpen,
+                    onToggleAutoAccept = viewModel::toggleAutoAccept,
                     onPause = { pauseDialog = true },
                     onResume = viewModel::resume,
-                    onBusy = { busyDialog = true }
+                    onBusy = { busyDialog = true },
+                    onClearBusy = viewModel::resume
                 )
             }
             state.errorMessage?.let { error ->
@@ -208,27 +219,73 @@ fun MerchantHomeDashboardScreen(
 private val homeActiveStatuses = setOf("pending_merchant", "preparing", "accepted", "searching", "picking_up", "picked_up", "delivering")
 
 @Composable
-private fun HomeHeader(storeName: String?, address: String?, onOpenNotifications: () -> Unit) {
+private fun HomeHeader(
+    merchant: Merchant?,
+    unreadNotificationCount: Int,
+    isLoading: Boolean,
+    onToggleOpen: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onOpenProfile: () -> Unit
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(shape = CircleShape, color = PrimarySoft, modifier = Modifier.size(42.dp)) {
+        Surface(shape = CircleShape, color = Primary, modifier = Modifier.size(44.dp)) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
-                    storeName?.trim()?.takeIf { it.isNotEmpty() }?.firstOrNull()?.uppercase() ?: "—",
-                    color = Primary,
+                    merchant?.namaToko?.trim()?.takeIf { it.isNotEmpty() }?.firstOrNull()?.uppercase() ?: "—",
+                    color = Color.White,
                     fontWeight = FontWeight.Bold
                 )
             }
         }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(storeName?.takeIf { it.isNotBlank() } ?: "Nama toko belum tersedia", fontWeight = FontWeight.Bold)
-            Text(address?.takeIf { it.isNotBlank() } ?: "Alamat toko belum tersedia", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(merchant?.namaToko?.takeIf { it.isNotBlank() } ?: "Nama toko belum tersedia", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (merchant?.isApproved == true) {
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Filled.Verified, contentDescription = "Terverifikasi", tint = Primary, modifier = Modifier.size(17.dp))
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(color = PrimarySoft, shape = RoundedCornerShape(50), modifier = Modifier.padding(top = 2.dp)) {
+                    Text("MITRA JUARA", color = Primary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                }
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    merchant?.alamat?.substringAfterLast(',')?.trim()?.takeIf { it.isNotBlank() } ?: "Lokasi belum tersedia",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
-        IconButton(onClick = onOpenNotifications) {
-            Icon(Icons.Filled.NotificationsNone, contentDescription = MerchantTextCatalog.translate("Notifikasi"), tint = Primary)
+        Surface(
+            color = if (merchant?.isOpen == true) PrimarySoft else HomeMutedSurface,
+            shape = RoundedCornerShape(50),
+            modifier = Modifier.clickable(enabled = merchant != null && !isLoading, onClick = onToggleOpen)
+        ) {
+            Text(
+                if (merchant?.isOpen == true) "BUKA" else "TUTUP",
+                color = if (merchant?.isOpen == true) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)
+            )
+        }
+        Box {
+            IconButton(onClick = onOpenNotifications) {
+                Icon(Icons.Filled.NotificationsNone, contentDescription = MerchantTextCatalog.translate("Notifikasi"), tint = MaterialTheme.colorScheme.onSurface)
+            }
+            if (unreadNotificationCount > 0) {
+                Surface(color = Accent, shape = CircleShape, modifier = Modifier.size(8.dp).align(Alignment.TopEnd).padding(top = 7.dp, end = 7.dp)) {}
+            }
+        }
+        IconButton(onClick = onOpenProfile) {
+            Icon(Icons.Filled.Person, contentDescription = "Akun", tint = MaterialTheme.colorScheme.onSurface)
         }
     }
 }
@@ -237,10 +294,11 @@ private fun HomeHeader(storeName: String?, address: String?, onOpenNotifications
 private fun StoreControlCard(
     merchant: com.tembus.merchant.data.model.Merchant?,
     isLoading: Boolean,
-    onToggleOpen: () -> Unit,
+    onToggleAutoAccept: (Boolean) -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onBusy: () -> Unit
+    onBusy: () -> Unit,
+    onClearBusy: () -> Unit
 ) {
     val isPaused = merchant?.pausedUntil?.let { runCatching { Instant.parse(it).isAfter(Instant.now()) }.getOrDefault(false) } == true
     val isBusy = merchant?.busyUntil?.let { runCatching { Instant.parse(it).isAfter(Instant.now()) }.getOrDefault(false) } == true
@@ -249,37 +307,76 @@ private fun StoreControlCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shape = RoundedCornerShape(TembusRadius.Card)
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Storefront, contentDescription = null, tint = Primary)
-                Spacer(Modifier.width(8.dp))
+                Surface(shape = CircleShape, color = PrimarySoft, modifier = Modifier.size(42.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Storefront, contentDescription = null, tint = Primary, modifier = Modifier.size(23.dp))
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(if (merchant?.isOpen == true) "Toko sedang menerima pesanan" else "Toko sedang tutup", fontWeight = FontWeight.Bold)
+                    Text("${merchant?.namaToko?.takeIf { it.isNotBlank() } ?: "Toko"} Outlet", fontWeight = FontWeight.Bold)
                     Text(
-                        when {
-                            isPaused -> "Pesanan baru dijeda sementara"
-                            isBusy -> "Mode sibuk aktif · waktu masak bertambah"
-                            merchant?.isOpen == true -> "Status tersinkron dari server"
-                            else -> "Aktifkan toko untuk menerima pesanan"
-                        },
+                        if (!merchant?.jamBuka.isNullOrBlank() && !merchant?.jamTutup.isNullOrBlank()) "Jam buka: ${merchant?.jamBuka} – ${merchant?.jamTutup} WIB" else "Jam operasional belum tersedia",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Switch(
-                    checked = merchant?.isOpen == true,
-                    onCheckedChange = { onToggleOpen() },
-                    enabled = merchant != null && !isLoading,
-                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Primary)
-                )
+                Surface(color = if (merchant?.isOpen == true) PrimarySoft else HomeMutedSurface, shape = RoundedCornerShape(50)) {
+                    Text(if (merchant?.isOpen == true) "BUKA" else "TUTUP", color = if (merchant?.isOpen == true) Primary else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (isPaused) {
-                    OutlinedButton(onClick = onResume, enabled = !isLoading, modifier = Modifier.weight(1f)) { Text("Lanjutkan") }
-                } else {
-                    OutlinedButton(onClick = onPause, enabled = merchant?.isOpen == true && !isBusy && !isLoading, modifier = Modifier.weight(1f)) { Text("Jeda") }
-                }
-                OutlinedButton(onClick = onBusy, enabled = merchant?.isOpen == true && !isLoading, modifier = Modifier.weight(1f)) { Text("Mode sibuk") }
+                SettingTile(
+                    title = "Terima Otomatis",
+                    subtitle = "Langsung masuk",
+                    checked = merchant?.autoAcceptOrders == true,
+                    enabled = merchant != null && merchant.isOpen && !isLoading,
+                    onCheckedChange = onToggleAutoAccept,
+                    modifier = Modifier.weight(1f)
+                )
+                SettingTile(
+                    title = "Mode sibuk",
+                    subtitle = "Jeda pesanan",
+                    checked = isBusy,
+                    enabled = merchant != null && merchant.isOpen && !isLoading,
+                    onCheckedChange = { enabled -> if (enabled) onBusy() else onClearBusy() },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            if (isPaused) {
+                OutlinedButton(onClick = onResume, enabled = !isLoading, modifier = Modifier.fillMaxWidth()) { Text("Lanjutkan menerima pesanan") }
+            } else {
+                TextButton(onClick = onPause, enabled = merchant?.isOpen == true && !isBusy && !isLoading, modifier = Modifier.fillMaxWidth()) { Text("Jeda sementara", color = Accent) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingTile(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier
+) {
+    Surface(color = HomeMutedSurface, shape = RoundedCornerShape(2.dp), modifier = modifier) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(end = 4.dp)) {
+                Text(title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
+            Box(Modifier.width(40.dp).height(32.dp), contentAlignment = Alignment.Center) {
+                Switch(
+                    checked = checked,
+                    onCheckedChange = onCheckedChange,
+                    enabled = enabled,
+                    modifier = Modifier.scale(0.78f),
+                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Primary)
+                )
             }
         }
     }

@@ -15,6 +15,7 @@ data class Merchant(
     @SerializedName("jam_buka") val jamBuka: String? = null,
     @SerializedName("jam_tutup") val jamTutup: String? = null,
     @SerializedName("is_open") val isOpen: Boolean = false,
+    @SerializedName("auto_accept_orders") val autoAcceptOrders: Boolean = false,
     // FB-109: minimum subtotal order (IDR). 0 = tanpa minimum.
     @SerializedName("min_order_idr") val minOrderIdr: Long = 0,
     // FB-107: pause sementara — ISO-8601 timestamp sampai kapan pause
@@ -235,6 +236,10 @@ data class VariantOptionRequest(
 
 data class ToggleOpenRequest(
     @SerializedName("is_open") val isOpen: Boolean
+)
+
+data class AutoAcceptOrdersRequest(
+    @SerializedName("auto_accept_orders") val autoAcceptOrders: Boolean
 )
 
 /** FB-107: body POST /merchant/pause — durasi pause dalam menit (1-180). */

@@ -34,6 +34,7 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 			nama_toko,
 			alamat,
 			is_open,
+			auto_accept_orders,
 			operating_state,
 			operating_state_reason,
 			operating_state_until,
@@ -65,7 +66,7 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 	var pausedUntil sql.NullTime
 	var busyUntil sql.NullTime
 	err := r.readDB.QueryRowContext(ctx, query, merchantID).Scan(
-		&m.ID, &m.Name, &m.Address, &m.IsOpen, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingTimezone, &m.VerificationStatus,
+		&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.AutoAcceptOrders, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingTimezone, &m.VerificationStatus,
 		&pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup, &m.LastOrderMinutesBeforeClose, &halalStatus, &m.EnforcementActive,
 	)
 	if err != nil {

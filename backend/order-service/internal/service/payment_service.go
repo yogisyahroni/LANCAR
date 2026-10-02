@@ -62,6 +62,7 @@ type DefaultPaymentService struct {
 	roadsideCollection domain.RoadsideCollectionService
 	refundSvc          domain.RefundService  // AUDIT-FIX: refund late-payment/resurrection
 	foodRepo           domain.FoodRepository // AUDIT-FIX: auto-cancel scheduled lewat jadwal
+	notificationSvc    domain.NotificationService
 }
 
 // SetRoadsideCollectionService connects the separate adjustment collection lifecycle.
@@ -85,6 +86,10 @@ func (s *DefaultPaymentService) SetRefundService(rs domain.RefundService) {
 // terjadwal yang dibayar setelah scheduled_at lewat.
 func (s *DefaultPaymentService) SetFoodRepository(fr domain.FoodRepository) {
 	s.foodRepo = fr
+}
+
+func (s *DefaultPaymentService) SetNotificationService(ns domain.NotificationService) {
+	s.notificationSvc = ns
 }
 
 func NewPaymentService(pr domain.PaymentRepository, or domain.OrderRepository, pg domain.PaymentGateway, cr domain.ConfigRepository, ts domain.TaxService) *DefaultPaymentService {
@@ -401,11 +406,21 @@ func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byt
 		}
 
 		newOrderStatus := domain.StatusPendingAssignment
+		var foodMerchant *domain.FoodMerchantInfo
 		if order != nil && order.ServiceSubType == "food_delivery" {
 			if order.IsScheduled {
 				newOrderStatus = domain.StatusScheduled
 			} else {
 				newOrderStatus = domain.StatusPendingMerchant
+				if order.MerchantID != nil && s.foodRepo != nil {
+					foodMerchant, err = s.foodRepo.GetFoodMerchant(ctx, *order.MerchantID)
+					if err != nil {
+						// The preference is fail-safe: a read failure must never
+						// auto-accept an order unexpectedly.
+						slog.WarnContext(ctx, "Failed to read merchant auto-accept preference", "order_id", orderID, "merchant_id", *order.MerchantID, "error", err)
+						foodMerchant = nil
+					}
+				}
 			}
 		}
 		if err := s.orderRepo.UpdateStatus(ctx, orderID, newOrderStatus); err != nil {
@@ -415,7 +430,40 @@ func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byt
 			}
 			return fmt.Errorf("failed to update order status: %w", err)
 		}
-		slog.InfoContext(ctx, "Payment successful, order status updated", "order_id", orderID, "new_status", newOrderStatus)
+		autoAccepted := false
+		if newOrderStatus == domain.StatusPendingMerchant && foodMerchant != nil && foodMerchant.AutoAcceptOrders && s.foodRepo != nil {
+			prep := 15
+			if order.PrepTimeMinutes != nil && *order.PrepTimeMinutes > 0 {
+				prep = *order.PrepTimeMinutes
+			}
+			if foodMerchant.BusyUntil != nil && foodMerchant.BusyUntil.After(time.Now()) {
+				prep += foodMerchant.BusyExtraPrepMinutes
+			}
+			if err := s.foodRepo.AcceptFoodOrder(ctx, orderID, prep); err != nil {
+				slog.WarnContext(ctx, "Merchant auto-accept failed; order remains pending", "order_id", orderID, "error", err)
+			} else {
+				autoAccepted = true
+				newOrderStatus = domain.StatusPreparing
+				message := "Pesanan diterima otomatis — makanan sedang disiapkan"
+				if s.pushSvc != nil {
+					if err := s.pushSvc.NotifyCustomerMerchantAccepted(ctx, orderID, message); err != nil {
+						slog.WarnContext(ctx, "customer auto-accept push failed", "order_id", orderID, "error", err)
+					}
+				}
+				if s.notificationSvc != nil && order != nil {
+					if err := s.notificationSvc.Send(ctx, domain.NotificationRequest{
+						UserID:  order.CustomerID,
+						Title:   "Pesanan diterima otomatis",
+						Message: message,
+						Channel: domain.ChannelPush,
+						Data:    map[string]string{"type": "merchant_accepted", "order_id": orderID, "order_no": order.OrderNumber},
+					}); err != nil {
+						slog.WarnContext(ctx, "customer auto-accept inbox notification failed", "order_id", orderID, "error", err)
+					}
+				}
+			}
+		}
+		slog.InfoContext(ctx, "Payment successful, order status updated", "order_id", orderID, "new_status", newOrderStatus, "auto_accepted", autoAccepted)
 
 		// FOOD-BIKE-064: order food → pending_merchant, kirim FCM ke owner
 		// merchant (SLA respon 3 menit). Non-fatal: gagal push tidak

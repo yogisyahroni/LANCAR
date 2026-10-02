@@ -154,6 +154,7 @@ type FoodMerchantInfo struct {
 	Name                 string     `json:"name"`
 	Address              string     `json:"address"`
 	IsOpen               bool       `json:"is_open"`
+	AutoAcceptOrders     bool       `json:"auto_accept_orders"`
 	OperatingState       string     `json:"operating_state"`
 	OperatingStateReason *string    `json:"operating_state_reason,omitempty"`
 	OperatingStateUntil  *time.Time `json:"operating_state_until,omitempty"`

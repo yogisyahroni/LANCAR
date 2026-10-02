@@ -65,6 +65,8 @@ type MerchantService interface {
 	UpdateProfile(ctx context.Context, userID string, req UpdateMerchantRequest) (*Merchant, error)
 	// ToggleOpen buka/tutup merchant (hanya jika onboarding ACTIVE).
 	ToggleOpen(ctx context.Context, userID string, isOpen bool) (*Merchant, error)
+	// SetAutoAcceptOrders controls whether paid food orders are accepted immediately.
+	SetAutoAcceptOrders(ctx context.Context, userID string, enabled bool) (*Merchant, error)
 	// Pause (FB-107): pause sementara sampai `until` — tidak mengubah is_open.
 	Pause(ctx context.Context, userID string, until time.Time) (*Merchant, error)
 	// Resume (FB-107): batalkan pause sementara lebih awal.

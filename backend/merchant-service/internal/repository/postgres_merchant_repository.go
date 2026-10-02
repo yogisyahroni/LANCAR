@@ -193,7 +193,7 @@ const merchantColumns = `m.id, m.user_id,
 	m.nama_toko, m.alamat,
 	ST_Y(m.lokasi::geometry), ST_X(m.lokasi::geometry),
 	to_char(m.jam_buka, 'HH24:MI'), to_char(m.jam_tutup, 'HH24:MI'),
-	m.is_open, m.operating_state, m.operating_state_reason, m.operating_state_until, m.operating_state_updated_by,
+	m.is_open, m.auto_accept_orders, m.operating_state, m.operating_state_reason, m.operating_state_until, m.operating_state_updated_by,
 	m.operating_state_source, m.operating_state_version, m.operating_timezone,
 	m.paused_until, m.busy_until, m.busy_extra_prep_minutes, m.min_order_idr, m.completion_rate_pct, m.verification_status,
 	m.avg_rating, m.rating_count,
@@ -231,7 +231,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 		&m.ID, &m.UserID, &m.OwnerEmail, &m.OwnerPhone, &m.NamaToko, &m.Alamat,
 		&lat, &lng,
 		&jamBuka, &jamTutup,
-		&m.IsOpen, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingStateUpdatedBy,
+		&m.IsOpen, &m.AutoAcceptOrders, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingStateUpdatedBy,
 		&operatingStateSource, &operatingStateVersion, &operatingTimezone,
 		&pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.CompletionRatePct, &m.VerificationStatus,
 		&avgRating, &ratingCount,
@@ -455,6 +455,15 @@ func (r *postgresMerchantRepository) ToggleOpen(ctx context.Context, id string, 
 			operating_state_version = operating_state_version + 1,
 			updated_at = NOW()
 		WHERE id = $1`, id, isOpen)
+	return err
+}
+
+func (r *postgresMerchantRepository) SetAutoAcceptOrders(ctx context.Context, id string, enabled bool) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE merchants
+		SET auto_accept_orders = $2,
+			updated_at = NOW()
+		WHERE id = $1`, id, enabled)
 	return err
 }
 

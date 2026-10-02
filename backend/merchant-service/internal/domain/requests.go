@@ -74,6 +74,10 @@ type UpdateMerchantRequest struct {
 	IdempotencyKey string  `json:"idempotency_key,omitempty"`
 }
 
+type SetAutoAcceptOrdersRequest struct {
+	AutoAcceptOrders bool `json:"auto_accept_orders"`
+}
+
 type ReplaceMerchantOperatingHoursInput struct {
 	Hours []MerchantOperatingHour `json:"hours"`
 }

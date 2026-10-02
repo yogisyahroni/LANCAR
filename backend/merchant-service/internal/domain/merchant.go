@@ -11,17 +11,18 @@ import (
 // OnboardingStatus is the canonical MERCH-2026-001 lifecycle. The legacy
 // verification_status projection remains for older consumers.
 type Merchant struct {
-	ID         string   `json:"id"`
-	UserID     string   `json:"user_id"`
-	OwnerEmail string   `json:"owner_email,omitempty"`
-	OwnerPhone string   `json:"owner_phone,omitempty"`
-	NamaToko   string   `json:"nama_toko"`
-	Alamat     string   `json:"alamat"`
-	LokasiLat  *float64 `json:"lokasi_lat,omitempty"`
-	LokasiLng  *float64 `json:"lokasi_lng,omitempty"`
-	JamBuka    *string  `json:"jam_buka,omitempty"`
-	JamTutup   *string  `json:"jam_tutup,omitempty"`
-	IsOpen     bool     `json:"is_open"`
+	ID               string   `json:"id"`
+	UserID           string   `json:"user_id"`
+	OwnerEmail       string   `json:"owner_email,omitempty"`
+	OwnerPhone       string   `json:"owner_phone,omitempty"`
+	NamaToko         string   `json:"nama_toko"`
+	Alamat           string   `json:"alamat"`
+	LokasiLat        *float64 `json:"lokasi_lat,omitempty"`
+	LokasiLng        *float64 `json:"lokasi_lng,omitempty"`
+	JamBuka          *string  `json:"jam_buka,omitempty"`
+	JamTutup         *string  `json:"jam_tutup,omitempty"`
+	IsOpen           bool     `json:"is_open"`
+	AutoAcceptOrders bool     `json:"auto_accept_orders"`
 	// MERCH-2026-004: canonical operating state. IsOpen remains a legacy
 	// projection for existing consumers; state carries busy/pause/holiday and
 	// temporary-closure semantics explicitly.
@@ -200,6 +201,8 @@ type MerchantRepository interface {
 	UpdateVerification(ctx context.Context, id, status string) error
 	// ToggleOpen buka/tutup merchant.
 	ToggleOpen(ctx context.Context, id string, isOpen bool) error
+	// SetAutoAcceptOrders changes the server-authoritative order acceptance preference.
+	SetAutoAcceptOrders(ctx context.Context, id string, enabled bool) error
 	// SetPaused (FB-107): pause sementara sampai waktu tertentu (nil = resume).
 	// Tidak mengubah is_open — pause & buka/tutup adalah dua dimensi terpisah.
 	SetPaused(ctx context.Context, id string, until *time.Time) error

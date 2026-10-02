@@ -54,6 +54,12 @@ func (r *foodDocsRepo) ToggleOpen(ctx context.Context, id string, isOpen bool) e
 	}
 	return nil
 }
+func (r *foodDocsRepo) SetAutoAcceptOrders(ctx context.Context, id string, enabled bool) error {
+	if r.merchant != nil {
+		r.merchant.AutoAcceptOrders = enabled
+	}
+	return nil
+}
 func (r *foodDocsRepo) SetPaused(ctx context.Context, id string, until *time.Time) error {
 	if r.merchant != nil {
 		r.merchant.PausedUntil = until
@@ -275,6 +281,19 @@ func TestToggleOpen_TutupToko_TetapBoleh(t *testing.T) {
 	}
 	if repo.merchant.IsOpen {
 		t.Error("toko seharusnya tertutup")
+	}
+}
+
+func TestSetAutoAcceptOrders_PersistsServerPreference(t *testing.T) {
+	repo := &foodDocsRepo{merchant: approvedMerchant()}
+	svc := newFoodDocsService(repo)
+
+	merchant, err := svc.SetAutoAcceptOrders(context.Background(), "user-1", true)
+	if err != nil {
+		t.Fatalf("set auto accept harus sukses: %v", err)
+	}
+	if !merchant.AutoAcceptOrders || !repo.merchant.AutoAcceptOrders {
+		t.Fatal("preferensi auto accept harus tersimpan pada merchant")
 	}
 }
 

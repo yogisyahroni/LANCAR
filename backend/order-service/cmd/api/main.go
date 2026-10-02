@@ -351,6 +351,7 @@ func main() {
 	deviceTokenRepo := repository.NewDeviceTokenRepository(db, readDB)
 	pushSvc := service.NewPushService(deviceTokenRepo, pgRepo, notifRepo)
 	paymentSvc.SetPushService(pushSvc)
+	paymentSvc.SetNotificationService(notificationSvc)
 	deviceTokenHandler := handler.NewDeviceTokenHandler(deviceTokenRepo)
 	aggregatorFinanceRepo := repository.NewAggregatorFinanceRepository(db)
 	aggregatorFinanceSvc := service.NewAggregatorFinanceService(aggregatorFinanceRepo, ledgerRepo)
