@@ -452,7 +452,12 @@ fun AppNavHost() {
         }
 
         composable(MerchantRoutes.SETTLEMENTS) {
-            SettlementZipScreen(onBack = { navController.popBackStack() })
+            SettlementZipScreen(
+                onBack = { navController.popBackStack() },
+                onOpenNotifications = { navController.navigate(MerchantRoutes.NOTIFICATIONS) },
+                onOpenProfile = { navController.navigate(MerchantRoutes.STORE_PROFILE) },
+                onOpenBankSettings = { navController.navigate(MerchantRoutes.PAYMENT_SETTINGS) }
+            )
         }
 
         composable(

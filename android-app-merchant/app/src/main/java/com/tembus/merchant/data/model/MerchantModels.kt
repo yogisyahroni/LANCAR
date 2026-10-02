@@ -653,6 +653,67 @@ data class SettlementSummary(
     @SerializedName("tax") val tax: MerchantTaxSummary = MerchantTaxSummary()
 )
 
+/** Immutable merchant finance statement — GET /api/v1/merchant/finance-statement. */
+data class MerchantStatementEntry(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("market_code") val marketCode: String = "",
+    @SerializedName("currency_code") val currencyCode: String = "IDR",
+    @SerializedName("currency_minor_unit") val currencyMinorUnit: Int = 0,
+    @SerializedName("entry_type") val entryType: String = "",
+    @SerializedName("direction") val direction: String = "",
+    @SerializedName("amount_minor") val amountMinor: Long = 0,
+    @SerializedName("signed_amount_minor") val signedAmountMinor: Long = 0,
+    @SerializedName("affects_balance") val affectsBalance: Boolean = false,
+    @SerializedName("source_type") val sourceType: String = "",
+    @SerializedName("source_id") val sourceId: String = "",
+    @SerializedName("order_id") val orderId: String? = null,
+    @SerializedName("settlement_id") val settlementId: String? = null,
+    @SerializedName("refund_id") val refundId: String? = null,
+    @SerializedName("withdrawal_id") val withdrawalId: String? = null,
+    @SerializedName("status") val status: String = "",
+    @SerializedName("occurred_at") val occurredAt: String = "",
+    @SerializedName("description") val description: String = ""
+)
+
+data class MerchantStatementTotals(
+    @SerializedName("market_code") val marketCode: String = "",
+    @SerializedName("currency_code") val currencyCode: String = "IDR",
+    @SerializedName("currency_minor_unit") val currencyMinorUnit: Int = 0,
+    @SerializedName("sales_minor") val salesMinor: Long = 0,
+    @SerializedName("commission_minor") val commissionMinor: Long = 0,
+    @SerializedName("tax_minor") val taxMinor: Long = 0,
+    @SerializedName("promo_subsidy_minor") val promoSubsidyMinor: Long = 0,
+    @SerializedName("refund_minor") val refundMinor: Long = 0,
+    @SerializedName("fee_minor") val feeMinor: Long = 0,
+    @SerializedName("ads_spend_minor") val adsSpendMinor: Long = 0,
+    @SerializedName("adjustment_minor") val adjustmentMinor: Long = 0,
+    @SerializedName("payout_minor") val payoutMinor: Long = 0,
+    @SerializedName("net_balance_minor") val netBalanceMinor: Long = 0
+)
+
+data class MerchantSettlementDiscrepancy(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("reference_type") val referenceType: String = "",
+    @SerializedName("reference_id") val referenceId: String = "",
+    @SerializedName("market_code") val marketCode: String = "",
+    @SerializedName("currency_code") val currencyCode: String = "IDR",
+    @SerializedName("currency_minor_unit") val currencyMinorUnit: Int = 0,
+    @SerializedName("expected_minor") val expectedMinor: Long = 0,
+    @SerializedName("actual_minor") val actualMinor: Long = 0,
+    @SerializedName("difference_minor") val differenceMinor: Long = 0,
+    @SerializedName("reason") val reason: String = "",
+    @SerializedName("status") val status: String = "",
+    @SerializedName("first_seen_at") val firstSeenAt: String = "",
+    @SerializedName("last_seen_at") val lastSeenAt: String = ""
+)
+
+data class MerchantFinanceStatement(
+    @SerializedName("entries") val entries: List<MerchantStatementEntry> = emptyList(),
+    @SerializedName("totals") val totals: List<MerchantStatementTotals> = emptyList(),
+    @SerializedName("discrepancies") val discrepancies: List<MerchantSettlementDiscrepancy> = emptyList(),
+    @SerializedName("generated_at") val generatedAt: String = ""
+)
+
 /** M7: permintaan pencairan saldo merchant. */
 data class MerchantWithdrawalRequest(
     @SerializedName("amount_idr") val amountIdr: Long,

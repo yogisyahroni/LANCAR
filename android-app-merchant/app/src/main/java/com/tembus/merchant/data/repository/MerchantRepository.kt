@@ -173,6 +173,9 @@ class MerchantRepository(
     suspend fun getSettlements(): Result<SettlementSummary> =
         request { api.getSettlements() }
 
+    suspend fun getFinanceStatement(limit: Int = 100): Result<MerchantFinanceStatement> =
+        request { api.getFinanceStatement(limit) }
+
     // M7: ajukan pencairan saldo.
     suspend fun requestWithdrawal(req: MerchantWithdrawalRequest): Result<Long> =
         request { api.requestWithdrawal(req) }.map { (it["available_idr"] as? Number)?.toLong() ?: 0L }

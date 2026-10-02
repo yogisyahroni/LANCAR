@@ -40,7 +40,7 @@ import com.tembus.merchant.ui.screens.home.MerchantHomeDashboardScreen
 import com.tembus.merchant.ui.screens.home.StitchOrdersDashboardScreen
 import com.tembus.merchant.ui.screens.menu.ManageMenuZipScreen
 import com.tembus.merchant.ui.screens.profile.StoreProfileZipScreen
-import com.tembus.merchant.ui.screens.report.BusinessInsightsZipScreen
+import com.tembus.merchant.ui.screens.settlement.SettlementZipScreen
 import com.tembus.merchant.ui.screens.staff.StaffScreen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -157,11 +157,12 @@ fun MainScreen(
                     onOpenCreatePromo = onOpenCreatePromo,
                     onOpenNotifications = onOpenNotifications
                 )
-                "report" -> BusinessInsightsZipScreen(
+                "report" -> SettlementZipScreen(
                     onOpenNotifications = onOpenNotifications,
-                    onOpenCreatePromo = onOpenCreatePromo,
-                    onOpenAds = onOpenAds,
-                    onOpenCustomerReviews = onOpenCustomerReviews
+                    onOpenProfile = {
+                        selectedTab = tabs.indexOfFirst { it.key == "profile" }.coerceAtLeast(0)
+                    },
+                    onOpenBankSettings = onOpenPaymentSettings
                 )
                 "profile" -> StoreProfileZipScreen(
                     onOpenNotifications = onOpenNotifications,

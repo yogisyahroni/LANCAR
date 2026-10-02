@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.tembus.merchant.data.model.Merchant
 import com.tembus.merchant.data.model.MerchantWithdrawalRecord
 import com.tembus.merchant.data.model.MerchantWithdrawalRequest
+import com.tembus.merchant.data.model.MerchantFinanceStatement
+import com.tembus.merchant.data.model.SalesReportSummary
 import com.tembus.merchant.data.model.SettlementSummary
 import com.tembus.merchant.data.repository.MerchantRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +17,8 @@ import java.util.UUID
 
 data class SettlementUiState(
     val summary: SettlementSummary? = null,
+    val financeStatement: MerchantFinanceStatement? = null,
+    val dailySales: SalesReportSummary? = null,
     val withdrawals: List<MerchantWithdrawalRecord> = emptyList(),
     val merchant: com.tembus.merchant.data.model.Merchant? = null,
     val isLoading: Boolean = false,
@@ -56,6 +60,18 @@ class SettlementViewModel(
                         errorMessage = e.message ?: "Gagal memuat riwayat pencairan",
                         isLoading = false
                     )
+                }
+
+            // Both endpoints are server projections. A finance screen may
+            // render even when one projection is temporarily unavailable, so
+            // failures here remain non-fatal and are surfaced as empty states.
+            merchantRepository.getFinanceStatement(limit = 100)
+                .onSuccess { statement ->
+                    _uiState.value = _uiState.value.copy(financeStatement = statement)
+                }
+            merchantRepository.getSalesReport("daily")
+                .onSuccess { report ->
+                    _uiState.value = _uiState.value.copy(dailySales = report)
                 }
         }
     }

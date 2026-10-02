@@ -267,6 +267,13 @@ interface TEMBUSApiService {
     @GET("api/v1/merchant/settlements")
     suspend fun getSettlements(): Response<SettlementSummary>
 
+    // Finance statement immutable: category-separated entries from the
+    // merchant statement projection (sales, commission, promo, payout, etc.).
+    @GET("api/v1/merchant/finance-statement")
+    suspend fun getFinanceStatement(
+        @Query("limit") limit: Int = 100
+    ): Response<MerchantFinanceStatement>
+
     // M7: ajukan pencairan saldo merchant.
     @POST("api/v1/merchant/withdraw")
     suspend fun requestWithdrawal(
