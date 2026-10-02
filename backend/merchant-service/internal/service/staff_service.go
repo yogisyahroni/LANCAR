@@ -218,17 +218,28 @@ func (s *staffServiceImpl) UpdateStaff(ctx context.Context, ownerUserID, merchan
 	if st == nil {
 		return nil, errors.New("staff tidak ditemukan di toko ini")
 	}
+	if req.Permissions != nil && !domain.ValidPermissionMask(*req.Permissions) {
+		return nil, errors.New("hak akses staff tidak valid")
+	}
 	if req.Role != nil {
 		if !domain.ValidStaffRole(*req.Role) {
 			return nil, errors.New("role staff tidak valid")
 		}
 		normalizedRole := domain.NormalizeStaffRole(*req.Role)
 		perms := domain.DefaultPermissionsForRole(normalizedRole)
+		if req.Permissions != nil {
+			perms = *req.Permissions
+		}
 		if err := s.staffRepo.UpdateRole(ctx, staffID, string(normalizedRole), perms); err != nil {
 			return nil, err
 		}
 		st.Role = string(normalizedRole)
 		st.Permissions = perms
+	} else if req.Permissions != nil {
+		if err := s.staffRepo.UpdateRole(ctx, staffID, st.Role, *req.Permissions); err != nil {
+			return nil, err
+		}
+		st.Permissions = *req.Permissions
 	}
 	if req.Status != nil {
 		if *req.Status != string(domain.StaffStatusActive) && *req.Status != string(domain.StaffStatusRevoked) {

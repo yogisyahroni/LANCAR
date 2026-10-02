@@ -72,6 +72,16 @@ const (
 	// Payout/withdraw & delete toko SELALU milik owner (tidak pernah di-bitmask).
 )
 
+const allStaffPermissions = PermViewStore | PermManageMenu | PermAcceptOrder | PermUpdatePrep |
+	PermChatCustomer | PermManageStaff | PermViewReports | PermManagePromo
+
+// ValidPermissionMask prevents a client from persisting unknown permission
+// bits that no endpoint can interpret. Owner remains the only actor for
+// payout/withdrawal and merchant deletion; those capabilities are not bits.
+func ValidPermissionMask(mask int) bool {
+	return mask >= 0 && mask&^allStaffPermissions == 0
+}
+
 // DefaultPermissionsForRole — mapping role → bitmask default.
 func DefaultPermissionsForRole(role StaffRole) int {
 	switch role {
@@ -161,10 +171,11 @@ type AcceptStaffInviteRequest struct {
 	InviteToken string `json:"invite_token"`
 }
 
-// UpdateStaffRequest — owner ubah role/status staff.
+// UpdateStaffRequest — owner ubah role/status/hak akses staff.
 type UpdateStaffRequest struct {
-	Role   *string `json:"role,omitempty"`
-	Status *string `json:"status,omitempty"` // active|revoked
+	Role        *string `json:"role,omitempty"`
+	Status      *string `json:"status,omitempty"` // active|revoked
+	Permissions *int    `json:"permissions,omitempty"`
 }
 
 // ValidateInvite — cek field undangan valid.

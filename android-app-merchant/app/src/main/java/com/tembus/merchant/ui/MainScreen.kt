@@ -31,8 +31,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tembus.merchant.R
-import com.tembus.merchant.data.model.Merchant
-import com.tembus.merchant.data.repository.MerchantRepository
 import com.tembus.merchant.data.repository.ExperienceConfigRepository
 import com.tembus.merchant.featureflag.FeatureFlagManager
 import com.tembus.merchant.ui.components.MerchantExperienceSlot
@@ -41,9 +39,6 @@ import com.tembus.merchant.ui.screens.home.StitchOrdersDashboardScreen
 import com.tembus.merchant.ui.screens.menu.ManageMenuZipScreen
 import com.tembus.merchant.ui.screens.profile.StoreProfileZipScreen
 import com.tembus.merchant.ui.screens.settlement.SettlementZipScreen
-import com.tembus.merchant.ui.screens.staff.StaffScreen
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 import com.tembus.merchant.util.MerchantNetworkRecoveryBanner
 import com.tembus.merchant.util.rememberNetworkAvailable
 
@@ -52,7 +47,6 @@ private data class MainTab(val labelRes: Int, val icon: ImageVector, val key: St
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    merchantRepository: MerchantRepository,
     experienceConfigRepository: ExperienceConfigRepository,
     onOpenStruk: (String) -> Unit,
     onOpenChat: (String, String) -> Unit, // FB-119
@@ -71,43 +65,14 @@ fun MainScreen(
     onOpenAds: () -> Unit,
     onOpenCreateMenu: () -> Unit,
     onOpenEditMenu: (String) -> Unit,
-    onGoToRegistration: () -> Unit
+    onGoToRegistration: () -> Unit,
+    onOpenStaff: () -> Unit,
+    onOpenIntegrations: () -> Unit
 ) {
-    // X1/M1: ambil profil → merchantId + isCorporate (conditional tab Staff).
-    var merchantId by rememberSaveable { mutableStateOf("") }
-    var isCorporate by rememberSaveable { mutableStateOf(false) }
-    var profileLoaded by rememberSaveable { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
     val featureFlags by FeatureFlagManager.snapshot.collectAsState()
     val menuEntryEnabled = featureFlags["merchant_menu_entry"]?.enabled ?: true
     val isOnline by rememberNetworkAvailable()
     var networkRetryNonce by rememberSaveable { mutableStateOf(0) }
-    var isRetryingNetwork by remember { mutableStateOf(false) }
-    var slowNetwork by remember { mutableStateOf(false) }
-
-    LaunchedEffect(networkRetryNonce) {
-        slowNetwork = false
-        isRetryingNetwork = networkRetryNonce > 0
-        scope.launch {
-            merchantRepository.getProfile()
-                .onSuccess { m: Merchant ->
-                    merchantId = m.id
-                    isCorporate = m.isCorporate
-                    profileLoaded = true
-                }
-                .onFailure { profileLoaded = true }
-            isRetryingNetwork = false
-        }
-    }
-
-    LaunchedEffect(profileLoaded) {
-        if (!profileLoaded) {
-            delay(5_000L)
-            slowNetwork = true
-        } else {
-            slowNetwork = false
-        }
-    }
 
     // Tab dasar mengikuti beranda merchant: Beranda, Pesanan, Menu, Keuangan, Akun.
     val baseTabs = listOf(
@@ -117,13 +82,11 @@ fun MainScreen(
         MainTab(R.string.merchant_tab_insights, Icons.Filled.Assessment, "report"),
         MainTab(R.string.merchant_tab_profile, Icons.Filled.Storefront, "profile")
     )
-    // M1: tab Staff HANYA untuk corporate (perusahaan). Individual TIDAK punya.
-    val staffTab = MainTab(R.string.merchant_tab_staff, Icons.Filled.Groups, "staff")
-    val tabs = if (isCorporate) baseTabs + staffTab else baseTabs
+    // Staff management is a Profile destination, not a sixth bottom tab.
+    // This keeps the five-item navigation identical for individual and corporate merchants.
+    val tabs = baseTabs
 
     var selectedTab by rememberSaveable { mutableStateOf(0) }
-    // Jaga agar index valid saat tab Staff hilang (berubah corporate→individual jarang,
-    // tapi amankan agar tidak out-of-range).
     val safeSelected = if (selectedTab >= tabs.size) 0 else selectedTab
 
     val renderScreen: @Composable () -> Unit = {
@@ -174,11 +137,9 @@ fun MainScreen(
                     onOpenEnforcement = onOpenEnforcement,
                     onOpenOrderHistory = onOpenOrderHistory,
                     onOpenLanguage = onOpenLanguage,
+                    onOpenStaff = onOpenStaff,
+                    onOpenIntegrations = onOpenIntegrations,
                     onGoToRegistration = onGoToRegistration
-                )
-                "staff" -> StaffScreen(
-                    merchantId = merchantId,
-                    repository = merchantRepository
                 )
             }
     }
@@ -193,8 +154,8 @@ fun MainScreen(
             }
             MerchantNetworkRecoveryBanner(
                 isOnline = isOnline,
-                isSlow = slowNetwork || isRetryingNetwork,
-                isRetrying = isRetryingNetwork,
+                isSlow = !isOnline,
+                isRetrying = false,
                 onRetry = { networkRetryNonce += 1 },
             )
             Box(Modifier.weight(1f)) {

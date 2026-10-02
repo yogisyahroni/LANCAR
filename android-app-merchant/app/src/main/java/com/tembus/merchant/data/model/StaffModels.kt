@@ -21,7 +21,8 @@ data class AcceptStaffInviteRequest(
 /** Update role/status staff — body PATCH /merchant/{id}/staff/{staffId}. */
 data class UpdateStaffRequest(
     @SerializedName("role") val role: String? = null,
-    @SerializedName("status") val status: String? = null // active | revoked
+    @SerializedName("status") val status: String? = null, // active | revoked
+    @SerializedName("permissions") val permissions: Int? = null
 )
 
 /** Satu staff (response list, tanpa invite_token). */

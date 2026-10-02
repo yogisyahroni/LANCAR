@@ -40,6 +40,7 @@ import com.tembus.merchant.ui.screens.profile.PaymentSettingsZipScreen
 import com.tembus.merchant.ui.screens.profile.StoreInformationZipScreen
 import com.tembus.merchant.ui.screens.profile.MerchantLanguageScreen
 import com.tembus.merchant.ui.screens.profile.MerchantEnforcementScreen
+import com.tembus.merchant.ui.screens.profile.MerchantIntegrationScreen
 import com.tembus.merchant.ui.screens.settlement.SettlementZipScreen
 import com.tembus.merchant.ui.screens.promo.CreatePromoZipScreen
 import com.tembus.merchant.ui.screens.ads.AdsZipScreen
@@ -47,8 +48,7 @@ import com.tembus.merchant.ui.screens.report.BusinessInsightsZipScreen
 import com.tembus.merchant.ui.screens.registration.RegistrationScreen
 import com.tembus.merchant.ui.screens.staff.StaffAcceptScreen
 import com.tembus.merchant.ui.screens.staff.StaffAcceptViewModel
-import com.tembus.merchant.ui.screens.staff.StaffScreen
-import com.tembus.merchant.ui.screens.staff.StaffViewModel
+import com.tembus.merchant.ui.screens.staff.MerchantStaffRouteScreen
 import com.tembus.merchant.data.repository.MerchantRepository
 import com.tembus.merchant.featureflag.FeatureFlagManager
 import com.tembus.merchant.ui.screens.menu.VariantEditorScreen
@@ -98,6 +98,8 @@ object MerchantRoutes {
     const val STORE_INFORMATION = "store_information"
     const val LANGUAGE = "language"
     const val ENFORCEMENT = "enforcement"
+    const val STAFF = "merchant_staff"
+    const val INTEGRATIONS = "merchant_integrations"
     const val EDIT_MENU = "edit_menu/{menuId}"
     const val ADD_MENU = "add_menu"
     const val STRUK = "struk/{orderId}"
@@ -139,6 +141,8 @@ private object MerchantZipDeepLinks {
     const val EDIT_PUBLIC_PROFILE = "tembusmerchant://merchant/profile/edit"
     const val STORE_INFORMATION = "tembusmerchant://merchant/profile/information"
     const val ENFORCEMENT = "tembusmerchant://merchant/profile/enforcement"
+    const val STAFF = "tembusmerchant://merchant/profile/staff"
+    const val INTEGRATIONS = "tembusmerchant://merchant/profile/integrations"
     const val EDIT_MENU = "tembusmerchant://merchant/menu/{menuId}/edit"
     const val ADD_MENU = "tembusmerchant://merchant/menu/add"
     const val VARIANTS = "tembusmerchant://merchant/menu/{menuItemId}/variants"
@@ -238,7 +242,6 @@ fun AppNavHost() {
         composable(MerchantRoutes.MAIN) {
             val context = LocalContext.current
             MainScreen(
-                merchantRepository = app.container.merchantRepository,
                 experienceConfigRepository = app.container.experienceConfigRepository,
                 onOpenStruk = { orderId ->
                     navController.navigate(MerchantRoutes.orderDetailMerchant(orderId))
@@ -298,6 +301,12 @@ fun AppNavHost() {
                 },
                 onGoToRegistration = {
                     navController.navigate(MerchantRoutes.REGISTRATION)
+                },
+                onOpenStaff = {
+                    navController.navigate(MerchantRoutes.STAFF)
+                },
+                onOpenIntegrations = {
+                    navController.navigate(MerchantRoutes.INTEGRATIONS)
                 }
             )
         }
@@ -366,8 +375,27 @@ fun AppNavHost() {
                 onOpenEnforcement = { navController.navigate(MerchantRoutes.ENFORCEMENT) },
                 onOpenOrderHistory = { navController.navigate(MerchantRoutes.ORDER_HISTORY) },
                 onOpenLanguage = { navController.navigate(MerchantRoutes.LANGUAGE) },
+                onOpenStaff = { navController.navigate(MerchantRoutes.STAFF) },
+                onOpenIntegrations = { navController.navigate(MerchantRoutes.INTEGRATIONS) },
                 onGoToRegistration = { navController.navigate(MerchantRoutes.REGISTRATION) }
             )
+        }
+
+        composable(
+            route = MerchantRoutes.STAFF,
+            deepLinks = listOf(navDeepLink { uriPattern = MerchantZipDeepLinks.STAFF })
+        ) {
+            MerchantStaffRouteScreen(
+                repository = app.container.merchantRepository,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = MerchantRoutes.INTEGRATIONS,
+            deepLinks = listOf(navDeepLink { uriPattern = MerchantZipDeepLinks.INTEGRATIONS })
+        ) {
+            MerchantIntegrationScreen(onBack = { navController.popBackStack() })
         }
 
         composable(
@@ -670,6 +698,8 @@ private fun Uri.toMerchantZipRoute(): String? {
         segment == listOf("profile", "hours") -> MerchantRoutes.OPERATING_HOURS
         segment == listOf("profile", "edit") -> MerchantRoutes.EDIT_PUBLIC_PROFILE
         segment == listOf("profile", "information") -> MerchantRoutes.STORE_INFORMATION
+        segment == listOf("profile", "staff") -> MerchantRoutes.STAFF
+        segment == listOf("profile", "integrations") -> MerchantRoutes.INTEGRATIONS
         segment == listOf("menu", "add") -> MerchantRoutes.ADD_MENU
         segment.size == 3 && segment[0] == "orders" && segment[2] == "cancelled" -> MerchantRoutes.orderDetailCancelled(segment[1])
         segment.size == 3 && segment[0] == "orders" && segment[2] == "rejected" -> MerchantRoutes.orderDetailRejected(segment[1])

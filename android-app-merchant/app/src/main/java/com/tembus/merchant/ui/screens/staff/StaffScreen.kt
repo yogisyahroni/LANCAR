@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.*
 import com.tembus.merchant.ui.localization.MerchantText as Text
 import com.tembus.merchant.ui.localization.MerchantTextCatalog
@@ -32,6 +33,7 @@ import com.tembus.merchant.ui.theme.TembusRadius
 fun StaffScreen(
     merchantId: String,
     repository: MerchantRepository,
+    onBack: (() -> Unit)? = null,
     viewModel: StaffViewModel = appViewModel { StaffViewModel(repository, merchantId) }
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -41,6 +43,11 @@ fun StaffScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Manajemen Staff") },
+                navigationIcon = {
+                    onBack?.let { back ->
+                        IconButton(onClick = back) { Icon(Icons.Filled.ArrowBack, contentDescription = "Kembali") }
+                    }
+                },
                 actions = {
                     if (state.canManage) {
                         IconButton(onClick = { showInvite = true }) {
@@ -95,7 +102,8 @@ fun StaffScreen(
                             staff = staff,
                             canManage = state.canManage,
                             onRevoke = { viewModel.revoke(staff.id) },
-                            onRoleChange = { viewModel.updateRole(staff.id, it) }
+                            onRoleChange = { viewModel.updateRole(staff.id, it) },
+                            onPermissionsChange = { viewModel.updatePermissions(staff.id, it) }
                         )
                     }
                 }
@@ -124,13 +132,72 @@ fun StaffScreen(
     }
 }
 
+/** Loads the merchant first so the corporate-only rule is visible in the UI
+ * and not just discovered after a rejected staff request. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MerchantStaffRouteScreen(
+    repository: MerchantRepository,
+    onBack: () -> Unit
+) {
+    var isLoading by remember { mutableStateOf(true) }
+    var merchant by remember { mutableStateOf<com.tembus.merchant.data.model.Merchant?>(null) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        repository.getProfile()
+            .onSuccess {
+                merchant = it
+                isLoading = false
+            }
+            .onFailure {
+                errorMessage = it.message ?: "Profil toko belum dapat dimuat"
+                isLoading = false
+            }
+    }
+
+    when {
+        isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        merchant?.isCorporate == true -> StaffScreen(
+            merchantId = merchant!!.id,
+            repository = repository,
+            onBack = onBack
+        )
+        else -> Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Kelola staf") },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Kembali") } }
+                )
+            }
+        ) { padding ->
+            Column(
+                Modifier.fillMaxSize().padding(padding).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    errorMessage ?: "Kelola staf hanya tersedia untuk merchant bisnis atau PT.",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Spacer(Modifier.height(12.dp))
+                Text("Akun perorangan tetap dapat mengelola toko dari akun pemilik.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
 @Composable
 private fun StaffCard(
     staff: MerchantStaff,
     canManage: Boolean,
     onRevoke: () -> Unit,
-    onRoleChange: (String) -> Unit
+    onRoleChange: (String) -> Unit,
+    onPermissionsChange: (Int) -> Unit
 ) {
+    var showPermissions by remember { mutableStateOf(false) }
     val roleLabel = when (staff.role) {
         "manager" -> "Manager"
         "kitchen" -> "Staff Dapur"
@@ -189,9 +256,78 @@ private fun StaffCard(
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) { Text("Cabut") }
                 }
+                OutlinedButton(
+                    onClick = { showPermissions = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Filled.Security, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Atur hak akses")
+                }
             }
         }
     }
+    if (showPermissions) {
+        StaffPermissionsDialog(
+            staff = staff,
+            onDismiss = { showPermissions = false },
+            onSave = { permissions ->
+                onPermissionsChange(permissions)
+                showPermissions = false
+            }
+        )
+    }
+}
+
+private data class PermissionOption(val bit: Int, val label: String)
+
+private val permissionOptions = listOf(
+    PermissionOption(MerchantStaff.PERM_VIEW_STORE, "Lihat profil dan pesanan"),
+    PermissionOption(MerchantStaff.PERM_MANAGE_MENU, "Kelola menu"),
+    PermissionOption(MerchantStaff.PERM_ACCEPT_ORDER, "Terima atau tolak pesanan"),
+    PermissionOption(MerchantStaff.PERM_UPDATE_PREP, "Perbarui status persiapan"),
+    PermissionOption(MerchantStaff.PERM_CHAT_CUSTOMER, "Chat dengan pelanggan"),
+    PermissionOption(MerchantStaff.PERM_MANAGE_STAFF, "Kelola staff lain"),
+    PermissionOption(MerchantStaff.PERM_VIEW_REPORTS, "Lihat laporan"),
+    PermissionOption(MerchantStaff.PERM_MANAGE_PROMO, "Kelola promo")
+)
+
+@Composable
+private fun StaffPermissionsDialog(
+    staff: MerchantStaff,
+    onDismiss: () -> Unit,
+    onSave: (Int) -> Unit
+) {
+    var permissions by remember(staff.permissions) { mutableStateOf(staff.permissions) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Hak akses ${staff.staffName ?: "staff"}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "Pilih pekerjaan yang boleh dilakukan staff ini. Perubahan berlaku setelah disimpan.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                permissionOptions.forEach { option ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(option.label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        Switch(
+                            checked = permissions and option.bit != 0,
+                            onCheckedChange = { enabled ->
+                                permissions = if (enabled) permissions or option.bit else permissions and option.bit.inv()
+                            }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(permissions) }) { Text("Simpan") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -97,6 +97,27 @@ class StaffViewModel(
         }
     }
 
+    fun updatePermissions(staffId: String, permissions: Int) {
+        if (!_uiState.value.canManage) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Akun ini tidak memiliki izin mengubah hak akses staff")
+            return
+        }
+        _uiState.value = _uiState.value.copy(actionLoadingId = staffId, errorMessage = null)
+        viewModelScope.launch {
+            merchantRepository.updateStaff(
+                merchantId,
+                staffId,
+                UpdateStaffRequest(permissions = permissions)
+            ).onSuccess { load() }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        actionLoadingId = null,
+                        errorMessage = e.message ?: "Gagal menyimpan hak akses staff"
+                    )
+                }
+        }
+    }
+
     fun revoke(staffId: String) {
         if (!_uiState.value.canManage) {
             _uiState.value = _uiState.value.copy(errorMessage = "Akun ini tidak memiliki izin mencabut akses staff")
