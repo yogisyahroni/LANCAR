@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.designsystem.commerce
 
 import com.tembus.customer.data.model.FoodMerchant
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -8,6 +9,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TembusCommerceModelTest {
+    @Test
+    fun `food merchant detail decodes public profile media`() {
+        val merchant = Json.decodeFromString<FoodMerchant>("""
+            {
+              "id": "m-1",
+              "name": "Warung TEMBUS",
+              "banner_url": "https://cdn.example/banner.jpg",
+              "logo_url": "https://cdn.example/logo.jpg"
+            }
+        """.trimIndent())
+
+        assertEquals("https://cdn.example/banner.jpg", merchant.bannerUrl)
+        assertEquals("https://cdn.example/logo.jpg", merchant.logoUrl)
+    }
+
     @Test
     fun `food mapper keeps authoritative facts and does not copy ad label`() {
         val merchant = FoodMerchant(

@@ -217,10 +217,12 @@ fun MerchantDetailScreen(
                                     .fillMaxWidth()
                                     .height(160.dp)
                             ) {
-                                val heroUrl = m.imageUrl ?: m.menuItems.firstOrNull()?.foto
+                                // Merchant profile banner is the canonical hero; keep the
+                                // legacy image/menu-photo fallbacks for older records.
+                                val heroUrl = m.bannerUrl ?: m.imageUrl ?: m.menuItems.firstOrNull()?.foto
                                 TembusCommerceImage(
                                     imageUrl = heroUrl,
-                                    imageDescription = "Foto ${m.name}",
+                                    imageDescription = "Banner ${m.name}",
                                     placeholderLabel = "Foto merchant belum tersedia",
                                     modifier = Modifier.fillMaxSize(),
                                 )

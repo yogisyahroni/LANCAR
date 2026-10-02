@@ -56,18 +56,21 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 				WHERE h.merchant_id = merchants.id
 			  AND h.weekday = EXTRACT(DOW FROM timezone(COALESCE(NULLIF(operating_timezone, ''), 'Asia/Jakarta'), NOW()))::smallint), 0),
 			halal_status,
+			COALESCE((SELECT NULLIF(d.banner_url, '') FROM merchant_profile_details d WHERE d.merchant_id = merchants.id), ''),
+			COALESCE((SELECT NULLIF(d.logo_url, '') FROM merchant_profile_details d WHERE d.merchant_id = merchants.id), ''),
 			merchant_enforcement_is_active(merchants.id, NULL, NULL, NULL)
 			FROM merchants
 			WHERE id = $1`
 
 	m := &domain.FoodMerchantInfo{}
 	var operatingState, operatingStateReason, operatingTimezone, jamBuka, jamTutup, halalStatus sql.NullString
+	var bannerURL, logoURL sql.NullString
 	var operatingStateUntil sql.NullTime
 	var pausedUntil sql.NullTime
 	var busyUntil sql.NullTime
 	err := r.readDB.QueryRowContext(ctx, query, merchantID).Scan(
 		&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.AutoAcceptOrders, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingTimezone, &m.VerificationStatus,
-		&pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup, &m.LastOrderMinutesBeforeClose, &halalStatus, &m.EnforcementActive,
+		&pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup, &m.LastOrderMinutesBeforeClose, &halalStatus, &bannerURL, &logoURL, &m.EnforcementActive,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -101,6 +104,12 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 	}
 	if halalStatus.Valid {
 		m.HalalStatus = halalStatus.String
+	}
+	if bannerURL.Valid {
+		m.BannerURL = bannerURL.String
+	}
+	if logoURL.Valid {
+		m.LogoURL = logoURL.String
 	}
 	m.SourceType = "organic_rank"
 	return m, nil

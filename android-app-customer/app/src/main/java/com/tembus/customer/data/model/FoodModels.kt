@@ -38,6 +38,9 @@ data class FoodMerchant(
     // billable events; campaign ids are retained only for legacy fallback.
     @SerialName("ad_delivery_token") val adDeliveryToken: String? = null,
     @SerialName("menu_items") val menuItems: List<FoodMenuItem> = emptyList(),
+    // MERCH-2026-009: public merchant media from the merchant profile.
+    @SerialName("banner_url") val bannerUrl: String? = null,
+    @SerialName("logo_url") val logoUrl: String? = null,
     // FOOD-IMG (2026-08-27): merchant cover/hero image (food photo). Backend optional;
     // UI falls back to a branded gradient placeholder when null.
     @SerialName("image_url") val imageUrl: String? = null

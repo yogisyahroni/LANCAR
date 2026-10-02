@@ -192,8 +192,12 @@ type FoodMerchantInfo struct {
 	AdDeliveryToken string `json:"ad_delivery_token,omitempty"`
 	// ADR 003 (2026-08-10): status halal merchant untuk label + filter
 	// customer — halal_certified | non_halal | unknown.
-	HalalStatus string             `json:"halal_status"`
-	MenuItems   []FoodMenuItemInfo `json:"menu_items,omitempty"`
+	HalalStatus string `json:"halal_status"`
+	// MERCH-2026-009: public profile media owned by the merchant app and
+	// consumed by the customer merchant detail page.
+	BannerURL string             `json:"banner_url,omitempty"`
+	LogoURL   string             `json:"logo_url,omitempty"`
+	MenuItems []FoodMenuItemInfo `json:"menu_items,omitempty"`
 }
 
 const (
