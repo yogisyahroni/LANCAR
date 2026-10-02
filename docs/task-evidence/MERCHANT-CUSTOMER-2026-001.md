@@ -22,7 +22,7 @@ task_scope_external_proof_required: false
 external_runtime_validation: NOT_RUN
 
 release_readiness: PARTIAL
-release_followups: "Deploy the already-pushed profile migration and rebuilt order-service to staging, then run an authenticated customer detail smoke with a real merchant banner URL."
+release_followups: "Confirm remote staging deployment, then run an authenticated customer detail smoke with a real merchant banner URL."
 
 unproven_requirements: NONE
 known_blockers: NONE
@@ -81,6 +81,12 @@ User-requested scope:
     command: docker compose build order-service; docker compose up -d --no-deps order-service
     result: PASS — image dibangun dari source perubahan dan container healthy.
 
+    command: goose -dir database/migrations postgres <service-visible local DSN> up
+    result: PASS — `20261003000001_merchant_public_profile.sql` applied dan tercatat pada database yang dipakai service melalui PgBouncer.
+
+    command: docker compose build merchant-service order-service; docker compose up -d --no-deps merchant-service order-service
+    result: PASS — kedua backend dibangun ulang dari source terbaru dan container kembali `healthy` setelah migration.
+
     command: authenticated local HTTP smoke pada GET /api/v1/food/merchants/{id}
     result: PASS — setelah fixture lokal diberi banner URL sementara, response detail mengembalikan URL tersebut; fixture dipulihkan ke NULL setelah smoke.
 
@@ -117,7 +123,7 @@ Evidence: customer debug APK terpasang dan `MainActivity` aktif di `emulator-555
 
 Status: `PASS`
 
-Evidence: tidak ada migration baru; implementasi menggunakan tabel `merchant_profile_details` yang sudah dibuat oleh `20261003000001_merchant_public_profile.sql` dan keberadaan tabel/row terverifikasi pada database lokal order-service.
+Evidence: migration `20261003000001_merchant_public_profile.sql` diterapkan dan tercatat pada database service-visible lokal; tabel dan lima row profil terverifikasi setelah apply. Tiga migration lain pada database primary langsung tidak dijalankan karena tidak terkait task ini dan tidak dipakai oleh URL service Compose.
 
 ### Observability
 
@@ -144,6 +150,6 @@ Evidence: tidak ada perubahan schema baru atau destructive migration pada task i
 
 ## Release Follow-up
 
-- Branch `staging` perlu menerima commit ini dan deployment pipeline perlu membangun order-service terbaru.
-- Migration profil publik harus sudah diterapkan pada database staging sebelum container order-service baru dijalankan.
+- Branch `staging` sudah menerima commit implementasi `e47a1c2c`; deployment remote masih perlu dikonfirmasi dari pipeline/host staging.
+- Migration profil publik sudah diterapkan pada database service-visible lokal. Database staging tetap harus menjalankan migration yang sama sebelum container backend baru dijalankan.
 - Setelah deploy, jalankan authenticated customer smoke memakai URL banner nyata dari merchant profile. Hasil staging tidak otomatis mengikuti hasil local smoke.
