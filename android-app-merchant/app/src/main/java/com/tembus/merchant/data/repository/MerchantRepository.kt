@@ -69,6 +69,9 @@ class MerchantRepository(
     suspend fun listMenu(page: Int = 1, pageSize: Int = 50): Result<List<MenuItem>> =
         request { api.listMenu(page, pageSize) }.map { it.items }
 
+    suspend fun listMenuCategories(): Result<List<MenuCategory>> =
+        request { api.listMenuCategories() }
+
     suspend fun createMenuItem(req: MenuItemRequest): Result<MenuItem> =
         request { api.createMenuItem(req) }
 

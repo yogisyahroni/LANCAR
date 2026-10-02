@@ -144,7 +144,10 @@ fun MainScreen(
                 )
                 "menu" -> ManageMenuZipScreen(
                     onOpenAddMenu = onOpenCreateMenu,
-                    onOpenEditMenu = onOpenEditMenu
+                    onOpenEditMenu = onOpenEditMenu,
+                    onOpenOperatingHours = onOpenOperatingHours,
+                    onOpenCreatePromo = onOpenCreatePromo,
+                    onOpenNotifications = onOpenNotifications
                 )
                 "report" -> BusinessInsightsZipScreen(
                     onOpenNotifications = onOpenNotifications,

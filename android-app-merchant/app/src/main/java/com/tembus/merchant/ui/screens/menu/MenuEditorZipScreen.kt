@@ -50,6 +50,7 @@ fun MenuEditorZipScreen(
         else -> {
             MenuItemEditorZipContent(
                 existing = existing,
+                categoryOptions = state.categories.filter { it.status == "active" }.map { it.name }.filter(String::isNotBlank),
                 onUploadPhoto = { file -> viewModel.uploadPhoto(file) },
                 isSaving = state.isSaving,
                 saveError = state.saveError,

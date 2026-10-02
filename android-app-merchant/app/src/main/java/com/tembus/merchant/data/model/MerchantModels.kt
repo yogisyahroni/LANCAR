@@ -186,12 +186,30 @@ data class MenuItem(
     @SerializedName("foto") val foto: String? = null,
     @SerializedName("deskripsi") val deskripsi: String? = null,
     @SerializedName("kategori") val kategori: String = "",
+    @SerializedName("category_id") val categoryId: String? = null,
     @SerializedName("prep_time_minutes") val prepTimeMinutes: Int = 15,
     @SerializedName("is_available") val isAvailable: Boolean = true,
+    @SerializedName("status") val status: String = "",
+    @SerializedName("moderation_status") val moderationStatus: String = "",
+    @SerializedName("moderation_reason") val moderationReason: String? = null,
+    @SerializedName("version") val version: Long = 0,
     @SerializedName("stock_quantity") val stockQuantity: Int? = null,
     @SerializedName("daily_sales_limit") val dailySalesLimit: Int? = null,
     @SerializedName("daily_sales_count") val dailySalesCount: Int = 0,
     @SerializedName("sales_limit_reset_at") val salesLimitResetAt: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("updated_at") val updatedAt: String? = null
+)
+
+/** Canonical category — GET /api/v1/merchant/menu-categories. */
+data class MenuCategory(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("merchant_id") val merchantId: String = "",
+    @SerializedName("name") val name: String = "",
+    @SerializedName("slug") val slug: String = "",
+    @SerializedName("sort_order") val sortOrder: Int = 0,
+    @SerializedName("status") val status: String = "active",
+    @SerializedName("version") val version: Long = 0,
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("updated_at") val updatedAt: String? = null
 )

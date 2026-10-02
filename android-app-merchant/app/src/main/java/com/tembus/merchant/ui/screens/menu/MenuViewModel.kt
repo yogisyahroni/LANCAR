@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.merchant.data.model.MenuItem
 import com.tembus.merchant.data.model.MenuItemRequest
+import com.tembus.merchant.data.model.MenuCategory
+import com.tembus.merchant.data.model.Merchant
+import com.tembus.merchant.data.model.MerchantPromo
 import com.tembus.merchant.data.repository.MerchantRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,6 +15,9 @@ import kotlinx.coroutines.launch
 
 data class MenuUiState(
     val items: List<MenuItem> = emptyList(),
+    val categories: List<MenuCategory> = emptyList(),
+    val promos: List<MerchantPromo> = emptyList(),
+    val merchant: Merchant? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val actionLoadingId: String? = null,
@@ -44,21 +50,20 @@ class MenuViewModel(
             actionLoadingId = null
         )
         viewModelScope.launch {
-            merchantRepository.listMenu(pageSize = 100)
-                .onSuccess { items ->
-                    _uiState.value = _uiState.value.copy(
-                        items = items,
-                        isLoading = false,
-                        actionLoadingId = null
-                    )
-                }
-                .onFailure { e ->
-                    _uiState.value = _uiState.value.copy(
-                        errorMessage = e.message ?: "Gagal memuat menu",
-                        isLoading = false,
-                        actionLoadingId = null
-                    )
-                }
+            val menu = merchantRepository.listMenu(pageSize = 100)
+            val categories = merchantRepository.listMenuCategories()
+            val promos = merchantRepository.listPromos(pageSize = 100)
+            val profile = merchantRepository.getProfile()
+            val menuError = menu.exceptionOrNull()
+            _uiState.value = _uiState.value.copy(
+                items = menu.getOrElse { emptyList() },
+                categories = categories.getOrElse { emptyList() },
+                promos = promos.getOrElse { emptyList() },
+                merchant = profile.getOrNull() ?: _uiState.value.merchant,
+                isLoading = false,
+                actionLoadingId = null,
+                errorMessage = menuError?.message ?: categories.exceptionOrNull()?.let { "Kategori belum dapat dimuat: ${it.message ?: "coba lagi"}" }
+            )
         }
     }
 

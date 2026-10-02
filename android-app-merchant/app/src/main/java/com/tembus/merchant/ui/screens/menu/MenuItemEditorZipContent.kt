@@ -70,6 +70,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MenuItemEditorZipContent(
     existing: MenuItem?,
+    categoryOptions: List<String> = emptyList(),
     onUploadPhoto: suspend (java.io.File) -> Result<String>,
     isSaving: Boolean,
     saveError: String?,
@@ -108,8 +109,8 @@ fun MenuItemEditorZipContent(
             }
         }
     }
-    val kategoriList = remember(existing?.id) {
-        val base = listOf("Makanan", "Minuman", "Snack", "Dessert", "Lainnya")
+    val kategoriList = remember(existing?.id, categoryOptions) {
+        val base = categoryOptions.distinct()
         val current = existing?.kategori?.trim()
         if (!current.isNullOrBlank() && current !in base) base + current else base
     }
@@ -168,10 +169,21 @@ fun MenuItemEditorZipContent(
                 uploadError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
                 OutlinedTextField(value = nama, onValueChange = { nama = it }, label = { Text("Nama menu*") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                ExposedDropdownMenuBox(expanded = kategoriExpanded, onExpandedChange = { kategoriExpanded = it }) {
-                    OutlinedTextField(value = kategori, onValueChange = {}, readOnly = true, label = { Text("Kategori") }, placeholder = { Text("Pilih kategori") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(kategoriExpanded) }, singleLine = true, modifier = Modifier.menuAnchor().fillMaxWidth())
-                    ExposedDropdownMenu(expanded = kategoriExpanded, onDismissRequest = { kategoriExpanded = false }) {
-                        kategoriList.forEach { value -> DropdownMenuItem(text = { Text(value) }, onClick = { kategori = value; kategoriExpanded = false }) }
+                if (kategoriList.isEmpty()) {
+                    OutlinedTextField(
+                        value = kategori,
+                        onValueChange = { kategori = it.take(80) },
+                        label = { Text("Kategori") },
+                        placeholder = { Text("Masukkan kategori") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    ExposedDropdownMenuBox(expanded = kategoriExpanded, onExpandedChange = { kategoriExpanded = it }) {
+                        OutlinedTextField(value = kategori, onValueChange = {}, readOnly = true, label = { Text("Kategori") }, placeholder = { Text("Pilih kategori") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(kategoriExpanded) }, singleLine = true, modifier = Modifier.menuAnchor().fillMaxWidth())
+                        ExposedDropdownMenu(expanded = kategoriExpanded, onDismissRequest = { kategoriExpanded = false }) {
+                            kategoriList.forEach { value -> DropdownMenuItem(text = { Text(value) }, onClick = { kategori = value; kategoriExpanded = false }) }
+                        }
                     }
                 }
                 OutlinedTextField(value = harga, onValueChange = { harga = it.filter(Char::isDigit) }, label = { Text("Harga") }, prefix = { Text("Rp ") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())

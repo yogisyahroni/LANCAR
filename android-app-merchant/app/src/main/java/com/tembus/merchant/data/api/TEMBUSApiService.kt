@@ -146,6 +146,9 @@ interface TEMBUSApiService {
         @Query("page_size") pageSize: Int = 50
     ): Response<MenuListResponse>
 
+    @GET("api/v1/merchant/menu-categories")
+    suspend fun listMenuCategories(): Response<List<MenuCategory>>
+
     @POST("api/v1/merchant/menu")
     suspend fun createMenuItem(
         @Body request: MenuItemRequest

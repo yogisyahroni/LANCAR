@@ -332,7 +332,10 @@ fun AppNavHost() {
             } else {
                 ManageMenuZipScreen(
                     onOpenAddMenu = { navController.navigate(MerchantRoutes.ADD_MENU) },
-                    onOpenEditMenu = { menuId -> navController.navigate(MerchantRoutes.editMenu(menuId)) }
+                    onOpenEditMenu = { menuId -> navController.navigate(MerchantRoutes.editMenu(menuId)) },
+                    onOpenOperatingHours = { navController.navigate(MerchantRoutes.OPERATING_HOURS) },
+                    onOpenCreatePromo = { navController.navigate(MerchantRoutes.CREATE_PROMO) },
+                    onOpenNotifications = { navController.navigate(MerchantRoutes.NOTIFICATIONS) }
                 )
             }
         }

@@ -75,7 +75,7 @@ fun OperatingHoursScreen(
     var closureDate by remember { mutableStateOf("") }
     var closureLabel by remember { mutableStateOf("") }
 
-    MerchantZipDetailScaffold(title = "Operating Hours", onBack = onBack) {
+    MerchantZipDetailScaffold(title = "Atur Jam Operasional", onBack = onBack) {
         when {
             state.isLoading -> Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Primary)
@@ -86,7 +86,7 @@ fun OperatingHoursScreen(
             )
             else -> {
                 Text(
-                    "Set your regular store hours. Customers will only be able to place orders when your store is open.",
+                    "Atur jadwal buka toko. Pelanggan hanya dapat membuat pesanan saat toko sedang buka.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -111,10 +111,10 @@ fun OperatingHoursScreen(
                                 OutlinedTextField(
                                     value = hour.opensAt.orEmpty(),
                                     onValueChange = { value -> draft = draft.replaceOperatingHour(hour.copy(opensAt = value.take(5))) },
-                                    label = { Text("Open") },
+                                    label = { Text("Buka") },
                                     enabled = hour.isOpen && !state.isSaving,
                                     singleLine = true,
-                                    supportingText = { Text(if (hour.isOpen) "HH:MM" else "Closed") },
+                                    supportingText = { Text(if (hour.isOpen) "JJ:MM" else "Tutup") },
                                     modifier = Modifier.weight(1f)
                                 )
                                 Spacer(Modifier.width(8.dp))
@@ -123,10 +123,10 @@ fun OperatingHoursScreen(
                                 OutlinedTextField(
                                     value = hour.closesAt.orEmpty(),
                                     onValueChange = { value -> draft = draft.replaceOperatingHour(hour.copy(closesAt = value.take(5))) },
-                                    label = { Text("Close") },
+                                    label = { Text("Tutup") },
                                     enabled = hour.isOpen && !state.isSaving,
                                     singleLine = true,
-                                    supportingText = { Text(if (hour.isOpen) "HH:MM" else "Closed") },
+                                    supportingText = { Text(if (hour.isOpen) "JJ:MM" else "Tutup") },
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -137,8 +137,8 @@ fun OperatingHoursScreen(
                                     val minutes = value.filter(Char::isDigit).take(3).toIntOrNull() ?: 0
                                     draft = draft.replaceOperatingHour(hour.copy(lastOrderMinutesBeforeClose = minutes))
                                 },
-                                label = { Text("Last order (minutes before close)") },
-                                supportingText = { Text(if (hour.isOpen) "0–180 menit; 0 = sampai jam tutup" else "Closed") },
+                                label = { Text("Batas pesanan (menit sebelum tutup)") },
+                                supportingText = { Text(if (hour.isOpen) "0–180 menit; 0 = sampai jam tutup" else "Tutup") },
                                 enabled = hour.isOpen && !state.isSaving,
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
@@ -149,11 +149,11 @@ fun OperatingHoursScreen(
                 }
                 Spacer(Modifier.height(24.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Special Closures", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    TextButton(onClick = { showClosureDialog = true }, enabled = !state.isSaving) { Text("Add Holiday") }
+                    Text("Penutupan khusus terjadwal", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    TextButton(onClick = { showClosureDialog = true }, enabled = !state.isSaving) { Text("Tambah tanggal") }
                 }
                 if (state.closures.isEmpty()) {
-                    Text("No special closures have been added.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Belum ada penutupan khusus.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     MerchantZipInfoCard {
                         state.closures.forEachIndexed { index, closure ->
@@ -162,7 +162,7 @@ fun OperatingHoursScreen(
                                     Text(closure.label, fontWeight = FontWeight.SemiBold)
                                     Text(closure.closureDate, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                TextButton(onClick = { viewModel.deleteClosure(closure.id) }, enabled = !state.isSaving) { Text("Delete") }
+                                TextButton(onClick = { viewModel.deleteClosure(closure.id) }, enabled = !state.isSaving) { Text("Hapus") }
                             }
                             if (index < state.closures.lastIndex) HorizontalDivider()
                         }
@@ -175,7 +175,7 @@ fun OperatingHoursScreen(
                     onClick = { viewModel.save(draft.normalizedOperatingHours()) },
                     enabled = !state.isSaving && draft.size == 7,
                     modifier = Modifier.fillMaxWidth()
-                ) { Text(if (state.isSaving) "Saving…" else "Save Schedule") }
+                ) { Text(if (state.isSaving) "Menyimpan…" else "Simpan jadwal") }
             }
         }
     }
@@ -183,20 +183,20 @@ fun OperatingHoursScreen(
     if (showClosureDialog) {
         AlertDialog(
             onDismissRequest = { if (!state.isSaving) showClosureDialog = false },
-            title = { Text("Add Holiday") },
+            title = { Text("Tambah penutupan khusus") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("The store will remain closed for this local date.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedTextField(value = closureLabel, onValueChange = { closureLabel = it.take(120) }, label = { Text("Holiday name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    OutlinedTextField(value = closureDate, onValueChange = { closureDate = it.take(10) }, label = { Text("Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    Text("Toko akan tutup pada tanggal lokal ini.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(value = closureLabel, onValueChange = { closureLabel = it.take(120) }, label = { Text("Nama penutupan") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    OutlinedTextField(value = closureDate, onValueChange = { closureDate = it.take(10) }, label = { Text("Tanggal (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 }
             },
-            dismissButton = { TextButton(onClick = { showClosureDialog = false }, enabled = !state.isSaving) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { showClosureDialog = false }, enabled = !state.isSaving) { Text("Batal") } },
             confirmButton = {
                 TextButton(
                     onClick = { viewModel.addClosure(closureDate.trim(), closureLabel.trim()); showClosureDialog = false },
                     enabled = !state.isSaving && closureLabel.isNotBlank() && closureDate.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))
-                ) { Text("Add") }
+                ) { Text("Tambah") }
             }
         )
     }
@@ -204,8 +204,8 @@ fun OperatingHoursScreen(
 
 private data class OperatingDay(val weekday: Int, val label: String)
 private val weeklyDays = listOf(
-    OperatingDay(1, "Monday"), OperatingDay(2, "Tuesday"), OperatingDay(3, "Wednesday"),
-    OperatingDay(4, "Thursday"), OperatingDay(5, "Friday"), OperatingDay(6, "Saturday"), OperatingDay(0, "Sunday")
+    OperatingDay(1, "Senin"), OperatingDay(2, "Selasa"), OperatingDay(3, "Rabu"),
+    OperatingDay(4, "Kamis"), OperatingDay(5, "Jumat"), OperatingDay(6, "Sabtu"), OperatingDay(0, "Minggu")
 )
 
 private fun List<MerchantOperatingHour>.replaceOperatingHour(updated: MerchantOperatingHour): List<MerchantOperatingHour> =
