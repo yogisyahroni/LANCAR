@@ -1,11 +1,17 @@
 package com.tembus.merchant.ui.screens.profile
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,9 +28,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarOutline
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -46,12 +58,16 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -60,8 +76,11 @@ import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryPale
 import com.tembus.merchant.ui.theme.Accent
+import com.tembus.merchant.ui.theme.AccentSoft
 import com.tembus.merchant.ui.theme.Success
 import com.tembus.merchant.ui.theme.TembusRadius
+import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
@@ -214,8 +233,9 @@ private fun List<MerchantOperatingHour>.replaceOperatingHour(updated: MerchantOp
 private fun List<MerchantOperatingHour>.normalizedOperatingHours(): List<MerchantOperatingHour> =
     weeklyDays.map { day -> firstOrNull { it.weekday == day.weekday } ?: MerchantOperatingHour(day.weekday, false) }
 
-/** ZIP Edit Public Profile route, using only profile fields supplied by the API. */
+/** ZIP Edit Public Profile route — visual parity with the Figma edit profile frame. */
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun EditPublicProfileScreen(
     onBack: () -> Unit,
     viewModel: ProfileViewModel = appViewModel {
@@ -223,16 +243,66 @@ fun EditPublicProfileScreen(
     }
 ) {
     val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var storeName by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
+    var outletName by remember { mutableStateOf("") }
+    var shortDescription by remember { mutableStateOf("") }
+    var categories by remember { mutableStateOf(emptyList<String>()) }
+    var bannerUrl by remember { mutableStateOf("") }
+    var logoUrl by remember { mutableStateOf("") }
+    var uploadTarget by remember { mutableStateOf<String?>(null) }
+    var uploadError by remember { mutableStateOf<String?>(null) }
+    var categoryDialogOpen by remember { mutableStateOf(false) }
+    var categoryDraft by remember { mutableStateOf("") }
 
-    androidx.compose.runtime.LaunchedEffect(state.merchant?.id) {
+    LaunchedEffect(state.merchant?.id) {
         state.merchant?.let {
             storeName = it.namaToko
             address = it.alamat
+            outletName = it.outletName.ifBlank { it.namaToko }
+            shortDescription = it.shortDescription
+            categories = it.primaryCategories
+            bannerUrl = it.bannerUrl
+            logoUrl = it.logoUrl
         }
     }
-    MerchantZipDetailScaffold(title = "Edit Profil Toko", onBack = onBack) {
+
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val target = uploadTarget
+        if (uri != null && target != null) {
+            scope.launch {
+                uploadError = null
+                val file = uri.toProfileCacheImageFile(context)
+                if (file == null) {
+                    uploadError = "Gagal membaca gambar dari galeri."
+                } else {
+                    viewModel.uploadProfileImage(file)
+                        .onSuccess { url -> if (target == "banner") bannerUrl = url else logoUrl = url }
+                        .onFailure { error -> uploadError = error.message ?: "Gagal mengunggah gambar." }
+                }
+                uploadTarget = null
+            }
+        } else {
+            uploadTarget = null
+        }
+    }
+
+    fun pickImage(target: String) {
+        uploadTarget = target
+        imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+
+    MerchantZipDetailScaffold(
+        title = "Ubah Profil Toko",
+        onBack = onBack,
+        trailing = {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Filled.Close, contentDescription = MerchantTextCatalog.translate("Tutup"))
+            }
+        }
+    ) {
         when {
             state.isLoading -> Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Primary)
@@ -243,44 +313,140 @@ fun EditPublicProfileScreen(
             )
             else -> {
                 val merchant = state.merchant!!
-                MerchantZipInfoCard {
-                    Text(
-                        "Atur informasi yang dilihat pelanggan di profil toko Anda.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value = storeName,
-                        onValueChange = { storeName = it.take(150) },
-                        label = { Text("Nama Toko") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = address,
-                        onValueChange = { address = it.take(500) },
-                        label = { Text("Alamat") },
-                        minLines = 3,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    MerchantZipReadOnlyField("Jam operasional", "${merchant.jamBuka ?: "-"} - ${merchant.jamTutup ?: "-"}")
-                    MerchantZipReadOnlyField("Status verifikasi", merchant.verificationStatus)
-                    state.profileSaveError?.let { error ->
-                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (state.profileSaved) {
-                        Text("Profil toko berhasil disimpan.", color = Color(0xFF16A34A), style = MaterialTheme.typography.bodySmall)
-                    }
-                    Button(
-                        onClick = { viewModel.updatePublicProfile(storeName, address) },
-                        enabled = storeName.isNotBlank() && address.isNotBlank() && !state.isSavingProfile,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (state.isSavingProfile) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        else Text("SIMPAN PROFIL")
+                EditProfileHero(
+                    bannerUrl = bannerUrl,
+                    logoUrl = logoUrl,
+                    merchantName = merchant.namaToko,
+                    isUploading = uploadTarget != null,
+                    onChangeBanner = { pickImage("banner") },
+                    onChangeLogo = { pickImage("logo") }
+                )
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Profil & informasi toko", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Surface(color = if (merchant.isApproved) PrimaryPale else AccentSoft, shape = RoundedCornerShape(50)) {
+                        Text(if (merchant.isApproved) "Aktif" else merchant.verificationStatus.ifBlank { "Menunggu verifikasi" }, color = if (merchant.isApproved) Primary else Accent, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
                     }
                 }
+                Text("${merchant.branchCode.ifBlank { "Cabang utama" }} • Informasi toko", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.width(5.dp).height(24.dp).background(Primary, RoundedCornerShape(4.dp)))
+                            Spacer(Modifier.width(10.dp))
+                            Text("Informasi dasar usaha", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Surface(color = PrimaryPale, shape = RoundedCornerShape(50)) {
+                                Text("WAJIB", color = Primary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp))
+                            }
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Nama resmi usaha / resto", fontWeight = FontWeight.SemiBold)
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Filled.Verified, contentDescription = "Terverifikasi", tint = Primary, modifier = Modifier.size(17.dp))
+                            }
+                            Text(if (merchant.isApproved) "Terverifikasi" else "Menunggu verifikasi", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        OutlinedTextField(
+                            value = storeName,
+                            onValueChange = { if (!merchant.isApproved) storeName = it.take(150) },
+                            readOnly = merchant.isApproved,
+                            label = { Text("Nama resmi usaha / resto") },
+                            trailingIcon = { Icon(Icons.Filled.Lock, contentDescription = "Tidak dapat diubah", tint = Primary) },
+                            supportingText = { Text("Perubahan nama utama memerlukan pengajuan verifikasi ulang melalui Pusat Bantuan.") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(focusedContainerColor = PrimaryPale, unfocusedContainerColor = PrimaryPale, disabledContainerColor = PrimaryPale)
+                        )
+                        OutlinedTextField(value = outletName, onValueChange = { outletName = it.take(120) }, label = { Text("Nama cabang / outlet") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        Text("Kategori menu utama (maks. 5)", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        if (categories.isEmpty()) {
+                            Text("Belum ada kategori utama. Tambahkan kategori yang paling mewakili menu toko.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                categories.forEach { category ->
+                                    androidx.compose.material3.InputChip(selected = true, onClick = { categories = categories - category }, label = { Text(category) }, trailingIcon = { Icon(Icons.Filled.Close, contentDescription = "Hapus $category", modifier = Modifier.size(16.dp)) })
+                                }
+                            }
+                        }
+                        OutlinedButton(onClick = { categoryDraft = ""; categoryDialogOpen = true }, enabled = categories.size < 5, modifier = Modifier.align(Alignment.Start)) {
+                            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Tambah kategori")
+                        }
+                        OutlinedTextField(value = shortDescription, onValueChange = { shortDescription = it.take(200) }, label = { Text("Deskripsi singkat restoran") }, minLines = 4, modifier = Modifier.fillMaxWidth(), supportingText = { Text("${shortDescription.length} / 200 karakter") })
+                        OutlinedTextField(value = address, onValueChange = { address = it.take(500) }, label = { Text("Alamat toko") }, minLines = 3, modifier = Modifier.fillMaxWidth(), supportingText = { Text("Alamat ini ditampilkan kepada pelanggan dan kurir.") })
+                    }
+                }
+                MerchantZipInfoCard {
+                    Text("Jam operasional", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    MerchantZipInfoRow("Jadwal saat ini", "${merchant.jamBuka ?: "-"} – ${merchant.jamTutup ?: "-"}")
+                    Text("Atur jadwal buka dan tutup dari menu Jam operasional.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                uploadError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                state.profileSaveError?.let { error -> Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                if (state.profileSaved) Text("Profil toko berhasil disimpan.", color = Success, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                Button(onClick = { viewModel.updatePublicProfile(storeName, address, outletName, shortDescription, categories, bannerUrl, logoUrl) }, enabled = storeName.isNotBlank() && address.isNotBlank() && outletName.isNotBlank() && !state.isSavingProfile && uploadTarget == null, modifier = Modifier.fillMaxWidth(), colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Accent)) {
+                    if (state.isSavingProfile) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White) else Text("Simpan perubahan")
+                }
+                Spacer(Modifier.height(12.dp))
             }
+        }
+    }
+
+    if (categoryDialogOpen) {
+        AlertDialog(
+            onDismissRequest = { categoryDialogOpen = false },
+            title = { Text("Tambah kategori utama") },
+            text = { OutlinedTextField(value = categoryDraft, onValueChange = { categoryDraft = it.take(60) }, label = { Text("Nama kategori") }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val value = categoryDraft.trim()
+                    if (value.isNotBlank() && categories.none { it.equals(value, ignoreCase = true) } && categories.size < 5) categories = categories + value
+                    categoryDialogOpen = false
+                }, enabled = categoryDraft.trim().isNotBlank()) { Text("Tambah") }
+            },
+            dismissButton = { TextButton(onClick = { categoryDialogOpen = false }) { Text("Batal") } }
+        )
+    }
+}
+
+@Composable
+private fun EditProfileHero(
+    bannerUrl: String,
+    logoUrl: String,
+    merchantName: String,
+    isUploading: Boolean,
+    onChangeBanner: () -> Unit,
+    onChangeLogo: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.fillMaxWidth().height(168.dp).clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.BottomEnd) {
+            if (bannerUrl.isNotBlank()) AsyncImage(model = bannerUrl, contentDescription = "Banner restoran", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            else Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Icon(Icons.Filled.Storefront, contentDescription = null, tint = Primary, modifier = Modifier.size(46.dp))
+                Text("Banner restoran belum diatur", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            OutlinedButton(onClick = onChangeBanner, enabled = !isUploading, modifier = Modifier.padding(12.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = .92f))) {
+                Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Ganti banner resto")
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(82.dp).clip(CircleShape).background(PrimaryPale), contentAlignment = Alignment.Center) {
+                if (logoUrl.isNotBlank()) AsyncImage(model = logoUrl, contentDescription = "Logo restoran", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                else Text(merchantName.trim().firstOrNull()?.uppercase() ?: "T", color = Primary, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                IconButton(onClick = onChangeLogo, enabled = !isUploading, modifier = Modifier.size(30.dp).align(Alignment.BottomEnd)) {
+                    Surface(shape = CircleShape, color = Accent) { Icon(Icons.Filled.CameraAlt, contentDescription = "Ganti logo restoran", tint = Color.White, modifier = Modifier.padding(7.dp)) }
+                }
+            }
+            Spacer(Modifier.width(10.dp))
+            Text("Foto profil toko • Maks. 2 MB (JPG/PNG/WebP)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -510,7 +676,12 @@ private fun String.initials(): String =
     trim().split(Regex("\\s+")).filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }.ifBlank { "C" }
 
 @Composable
-private fun MerchantZipDetailScaffold(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
+private fun MerchantZipDetailScaffold(
+    title: String,
+    onBack: () -> Unit,
+    trailing: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit
+) {
     Column(Modifier.fillMaxSize().background(PrimaryPale)) {
         Row(
             Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp),
@@ -520,6 +691,8 @@ private fun MerchantZipDetailScaffold(title: String, onBack: () -> Unit, content
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = MerchantTextCatalog.translate("Kembali"))
             }
             Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            trailing?.invoke()
         }
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp),
@@ -574,3 +747,8 @@ private fun MerchantZipEmptyState(message: String, onRetry: (() -> Unit)? = null
         }
     }
 }
+
+private fun Uri.toProfileCacheImageFile(context: Context): java.io.File? = runCatching {
+    val bytes = context.contentResolver.openInputStream(this)?.use { it.readBytes() } ?: return null
+    java.io.File(context.cacheDir, "profile_${System.currentTimeMillis()}.jpg").apply { writeBytes(bytes) }
+}.getOrNull()

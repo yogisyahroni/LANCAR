@@ -141,11 +141,30 @@ class ProfileViewModel(
         _uiState.value = _uiState.value.copy(paymentSaved = false, paymentSaveError = null)
     }
 
-    fun updatePublicProfile(name: String, address: String) {
+    suspend fun uploadProfileImage(file: java.io.File): Result<String> =
+        merchantRepository.uploadPhoto(file)
+
+    fun updatePublicProfile(
+        name: String,
+        address: String,
+        outletName: String,
+        shortDescription: String,
+        primaryCategories: List<String>,
+        bannerUrl: String,
+        logoUrl: String
+    ) {
         _uiState.value = _uiState.value.copy(isSavingProfile = true, profileSaved = false, profileSaveError = null)
         viewModelScope.launch {
             merchantRepository.updateProfile(
-                UpdateProfileRequest(namaToko = name.trim(), alamat = address.trim())
+                UpdateProfileRequest(
+                    namaToko = name.trim(),
+                    alamat = address.trim(),
+                    outletName = outletName.trim(),
+                    shortDescription = shortDescription.trim(),
+                    primaryCategories = primaryCategories,
+                    bannerUrl = bannerUrl.trim(),
+                    logoUrl = logoUrl.trim()
+                )
             ).onSuccess { updated ->
                 _uiState.value = _uiState.value.copy(
                     merchant = updated,

@@ -61,6 +61,11 @@ type UpdateFoodDocsRequest struct {
 type UpdateMerchantRequest struct {
 	NamaToko          *string  `json:"nama_toko,omitempty"`
 	Alamat            *string  `json:"alamat,omitempty"`
+	OutletName        *string  `json:"outlet_name,omitempty"`
+	ShortDescription  *string  `json:"short_description,omitempty"`
+	PrimaryCategories []string `json:"primary_categories,omitempty"`
+	BannerURL         *string  `json:"banner_url,omitempty"`
+	LogoURL           *string  `json:"logo_url,omitempty"`
 	LokasiLat         *float64 `json:"lokasi_lat,omitempty"`
 	LokasiLng         *float64 `json:"lokasi_lng,omitempty"`
 	JamBuka           *string  `json:"jam_buka,omitempty"`

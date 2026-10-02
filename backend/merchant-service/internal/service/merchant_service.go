@@ -196,10 +196,81 @@ func (s *merchantServiceImpl) UpdateProfile(ctx context.Context, userID string, 
 		}
 	}
 	if req.NamaToko != nil {
-		m.NamaToko = *req.NamaToko
+		value := strings.TrimSpace(*req.NamaToko)
+		if value == "" {
+			return nil, errors.New("nama toko wajib diisi")
+		}
+		if len([]rune(value)) > 150 {
+			return nil, errors.New("nama toko maksimal 150 karakter")
+		}
+		m.NamaToko = value
 	}
 	if req.Alamat != nil {
-		m.Alamat = *req.Alamat
+		value := strings.TrimSpace(*req.Alamat)
+		if value == "" {
+			return nil, errors.New("alamat wajib diisi")
+		}
+		if len([]rune(value)) > 500 {
+			return nil, errors.New("alamat maksimal 500 karakter")
+		}
+		m.Alamat = value
+	}
+	if req.OutletName != nil {
+		value := strings.TrimSpace(*req.OutletName)
+		if value == "" {
+			return nil, errors.New("nama cabang wajib diisi")
+		}
+		if len([]rune(value)) > 120 {
+			return nil, errors.New("nama cabang maksimal 120 karakter")
+		}
+		m.OutletName = value
+	}
+	if req.ShortDescription != nil {
+		value := strings.TrimSpace(*req.ShortDescription)
+		if len([]rune(value)) > 200 {
+			return nil, errors.New("deskripsi restoran maksimal 200 karakter")
+		}
+		m.ShortDescription = value
+	}
+	if req.PrimaryCategories != nil {
+		if len(req.PrimaryCategories) > 5 {
+			return nil, errors.New("kategori utama maksimal 5 pilihan")
+		}
+		categories := make([]string, 0, len(req.PrimaryCategories))
+		seen := make(map[string]struct{}, len(req.PrimaryCategories))
+		for _, category := range req.PrimaryCategories {
+			value := strings.TrimSpace(category)
+			if value == "" || len([]rune(value)) > 60 {
+				return nil, errors.New("nama kategori wajib diisi dan maksimal 60 karakter")
+			}
+			key := strings.ToLower(value)
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			categories = append(categories, value)
+		}
+		m.PrimaryCategories = categories
+	}
+	if req.BannerURL != nil {
+		value := strings.TrimSpace(*req.BannerURL)
+		if value != "" && !strings.HasPrefix(value, "http://") && !strings.HasPrefix(value, "https://") {
+			return nil, errors.New("alamat banner tidak valid")
+		}
+		if len(value) > 2048 {
+			return nil, errors.New("alamat banner terlalu panjang")
+		}
+		m.BannerURL = value
+	}
+	if req.LogoURL != nil {
+		value := strings.TrimSpace(*req.LogoURL)
+		if value != "" && !strings.HasPrefix(value, "http://") && !strings.HasPrefix(value, "https://") {
+			return nil, errors.New("alamat logo tidak valid")
+		}
+		if len(value) > 2048 {
+			return nil, errors.New("alamat logo terlalu panjang")
+		}
+		m.LogoURL = value
 	}
 	if req.LokasiLat != nil {
 		m.LokasiLat = req.LokasiLat

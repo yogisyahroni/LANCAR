@@ -191,6 +191,14 @@ func (r *postgresMerchantRepository) Resubmit(ctx context.Context, m *domain.Mer
 const merchantColumns = `m.id, m.user_id,
 	COALESCE(u.email, ''), COALESCE(u.phone_number, ''),
 	m.nama_toko, m.alamat,
+	COALESCE((SELECT b.id::text FROM merchant_branches b WHERE b.merchant_id = m.id AND b.code = 'MAIN' AND b.is_active ORDER BY b.created_at ASC, b.id ASC LIMIT 1), ''),
+	COALESCE((SELECT b.code FROM merchant_branches b WHERE b.merchant_id = m.id AND b.code = 'MAIN' AND b.is_active ORDER BY b.created_at ASC, b.id ASC LIMIT 1), ''),
+	COALESCE((SELECT b.name FROM merchant_branches b WHERE b.merchant_id = m.id AND b.code = 'MAIN' AND b.is_active ORDER BY b.created_at ASC, b.id ASC LIMIT 1), ''),
+	COALESCE((SELECT b.address FROM merchant_branches b WHERE b.merchant_id = m.id AND b.code = 'MAIN' AND b.is_active ORDER BY b.created_at ASC, b.id ASC LIMIT 1), ''),
+	COALESCE((SELECT d.short_description FROM merchant_profile_details d WHERE d.merchant_id = m.id), ''),
+	COALESCE((SELECT d.primary_categories FROM merchant_profile_details d WHERE d.merchant_id = m.id), '{}'::text[]),
+	COALESCE((SELECT d.banner_url FROM merchant_profile_details d WHERE d.merchant_id = m.id), ''),
+	COALESCE((SELECT d.logo_url FROM merchant_profile_details d WHERE d.merchant_id = m.id), ''),
 	ST_Y(m.lokasi::geometry), ST_X(m.lokasi::geometry),
 	to_char(m.jam_buka, 'HH24:MI'), to_char(m.jam_tutup, 'HH24:MI'),
 	m.is_open, m.auto_accept_orders, m.operating_state, m.operating_state_reason, m.operating_state_until, m.operating_state_updated_by,
@@ -212,6 +220,9 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	var m domain.Merchant
 	var lat, lng sql.NullFloat64
 	var jamBuka, jamTutup sql.NullString
+	var branchID, branchCode, outletName, branchAddress sql.NullString
+	var shortDescription, bannerURL, logoURL sql.NullString
+	var primaryCategories pq.StringArray
 	var pausedUntil sql.NullTime
 	var busyUntil sql.NullTime
 	var avgRating sql.NullFloat64
@@ -229,6 +240,8 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	var operatingStateVersion sql.NullInt64
 	err := row.Scan(
 		&m.ID, &m.UserID, &m.OwnerEmail, &m.OwnerPhone, &m.NamaToko, &m.Alamat,
+		&branchID, &branchCode, &outletName, &branchAddress,
+		&shortDescription, &primaryCategories, &bannerURL, &logoURL,
 		&lat, &lng,
 		&jamBuka, &jamTutup,
 		&m.IsOpen, &m.AutoAcceptOrders, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingStateUpdatedBy,
@@ -249,6 +262,32 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	}
 	if halalStatus.Valid {
 		m.HalalStatus = halalStatus.String
+	}
+	if branchID.Valid {
+		m.BranchID = branchID.String
+	}
+	if branchCode.Valid {
+		m.BranchCode = branchCode.String
+	}
+	if outletName.Valid {
+		m.OutletName = outletName.String
+	}
+	if branchAddress.Valid {
+		m.BranchAddress = branchAddress.String
+	}
+	if shortDescription.Valid {
+		m.ShortDescription = shortDescription.String
+	}
+	if primaryCategories != nil {
+		m.PrimaryCategories = append([]string{}, primaryCategories...)
+	} else {
+		m.PrimaryCategories = []string{}
+	}
+	if bannerURL.Valid {
+		m.BannerURL = bannerURL.String
+	}
+	if logoURL.Valid {
+		m.LogoURL = logoURL.String
 	}
 	if pausedUntil.Valid {
 		m.PausedUntil = &pausedUntil.Time
@@ -395,7 +434,12 @@ func (r *postgresMerchantRepository) Update(ctx context.Context, m *domain.Merch
 	if m.JamTutup != nil {
 		jamTutup = sql.NullString{String: *m.JamTutup, Valid: true}
 	}
-	_, err := r.db.ExecContext(ctx, `
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin merchant profile update: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err = tx.ExecContext(ctx, `
 		UPDATE merchants SET
 			nama_toko = COALESCE(NULLIF($2, ''), nama_toko),
 			alamat = COALESCE(NULLIF($3, ''), alamat),
@@ -409,8 +453,42 @@ func (r *postgresMerchantRepository) Update(ctx context.Context, m *domain.Merch
 			updated_at = NOW()
 		WHERE id = $1`,
 		m.ID, m.NamaToko, m.Alamat, lokasi, jamBuka, jamTutup, m.MinOrderIDR, m.PayoutSchedule, m.NPWP, m.OperatingTimezone,
-	)
-	return err
+	); err != nil {
+		return err
+	}
+
+	// The profile editor writes the canonical MAIN branch label in the same
+	// transaction as merchant facts, so outlet name cannot drift from the UI.
+	if m.BranchID != "" && m.OutletName != "" {
+		if _, err = tx.ExecContext(ctx, `
+			UPDATE merchant_branches
+			   SET name = $2, updated_at = NOW()
+			 WHERE id = $1 AND merchant_id = $3 AND code = 'MAIN' AND is_active`,
+			m.BranchID, m.OutletName, m.ID,
+		); err != nil {
+			return err
+		}
+	}
+
+	categories := m.PrimaryCategories
+	if categories == nil {
+		categories = []string{}
+	}
+	if _, err = tx.ExecContext(ctx, `
+		INSERT INTO merchant_profile_details (
+			merchant_id, short_description, primary_categories, banner_url, logo_url, updated_at
+		) VALUES ($1, $2, $3::text[], NULLIF($4, ''), NULLIF($5, ''), NOW())
+		ON CONFLICT (merchant_id) DO UPDATE SET
+			short_description = EXCLUDED.short_description,
+			primary_categories = EXCLUDED.primary_categories,
+			banner_url = EXCLUDED.banner_url,
+			logo_url = EXCLUDED.logo_url,
+			updated_at = NOW()`,
+		m.ID, m.ShortDescription, pq.Array(categories), m.BannerURL, m.LogoURL,
+	); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *postgresMerchantRepository) UpdateBankAccount(ctx context.Context, merchantID string, req domain.UpdateBankAccountRequest, changed bool) error {

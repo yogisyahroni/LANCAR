@@ -11,18 +11,30 @@ import (
 // OnboardingStatus is the canonical MERCH-2026-001 lifecycle. The legacy
 // verification_status projection remains for older consumers.
 type Merchant struct {
-	ID               string   `json:"id"`
-	UserID           string   `json:"user_id"`
-	OwnerEmail       string   `json:"owner_email,omitempty"`
-	OwnerPhone       string   `json:"owner_phone,omitempty"`
-	NamaToko         string   `json:"nama_toko"`
-	Alamat           string   `json:"alamat"`
-	LokasiLat        *float64 `json:"lokasi_lat,omitempty"`
-	LokasiLng        *float64 `json:"lokasi_lng,omitempty"`
-	JamBuka          *string  `json:"jam_buka,omitempty"`
-	JamTutup         *string  `json:"jam_tutup,omitempty"`
-	IsOpen           bool     `json:"is_open"`
-	AutoAcceptOrders bool     `json:"auto_accept_orders"`
+	ID         string `json:"id"`
+	UserID     string `json:"user_id"`
+	OwnerEmail string `json:"owner_email,omitempty"`
+	OwnerPhone string `json:"owner_phone,omitempty"`
+	NamaToko   string `json:"nama_toko"`
+	Alamat     string `json:"alamat"`
+	// Main branch identity is canonical in merchant_branches. These fields are
+	// projected into the profile response so the app can edit the real outlet.
+	BranchID      string `json:"branch_id,omitempty"`
+	BranchCode    string `json:"branch_code,omitempty"`
+	OutletName    string `json:"outlet_name,omitempty"`
+	BranchAddress string `json:"branch_address,omitempty"`
+	// Public profile presentation metadata, separate from KYB and operating
+	// state. Empty values are intentional and are never replaced with samples.
+	ShortDescription  string   `json:"short_description"`
+	PrimaryCategories []string `json:"primary_categories"`
+	BannerURL         string   `json:"banner_url,omitempty"`
+	LogoURL           string   `json:"logo_url,omitempty"`
+	LokasiLat         *float64 `json:"lokasi_lat,omitempty"`
+	LokasiLng         *float64 `json:"lokasi_lng,omitempty"`
+	JamBuka           *string  `json:"jam_buka,omitempty"`
+	JamTutup          *string  `json:"jam_tutup,omitempty"`
+	IsOpen            bool     `json:"is_open"`
+	AutoAcceptOrders  bool     `json:"auto_accept_orders"`
 	// MERCH-2026-004: canonical operating state. IsOpen remains a legacy
 	// projection for existing consumers; state carries busy/pause/holiday and
 	// temporary-closure semantics explicitly.
