@@ -8,9 +8,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,8 +25,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tembus.merchant.R
 import com.tembus.merchant.data.model.Merchant
@@ -177,7 +185,11 @@ fun MainScreen(
     @Composable
     fun MerchantMainContent() {
         Column {
-            MerchantExperienceSlot(experienceConfigRepository, Modifier.padding(12.dp))
+            // Experience cards belong to Beranda. Rendering this slot above
+            // every tab reserves vertical space before operational headers.
+            if (tabs[safeSelected].key == "home") {
+                MerchantExperienceSlot(experienceConfigRepository, Modifier.padding(12.dp))
+            }
             MerchantNetworkRecoveryBanner(
                 isOnline = isOnline,
                 isSlow = slowNetwork || isRetryingNetwork,
@@ -255,28 +267,54 @@ private fun SharedTransitionScope.MerchantNavigation(
                 }
             }
         } else {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                tonalElevation = 1.dp
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding(),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp
             ) {
-                tabs.forEachIndexed { index, tab ->
-                    NavigationBarItem(
-                        selected = selected == index,
-                        onClick = { onSelect(index) },
-                        icon = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(68.dp)
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    tabs.forEachIndexed { index, tab ->
+                        val isSelected = selected == index
+                        val itemColor = if (isSelected) {
+                            com.tembus.merchant.ui.theme.Accent
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(onClick = { onSelect(index) })
+                                .padding(vertical = 5.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
                             Icon(
                                 tab.icon,
                                 contentDescription = stringResource(tab.labelRes),
-                                modifier = if (selected == index) Modifier.sharedElement(
+                                tint = itemColor,
+                                modifier = (if (isSelected) Modifier.sharedElement(
                                     rememberSharedContentState("merchant-selected-tab-icon"),
                                     this@AnimatedContent
-                                ) else Modifier
+                                ) else Modifier).size(21.dp)
                             )
-                        },
-                        label = { Text(stringResource(tab.labelRes)) },
-                        colors = com.tembus.merchant.ui.theme.TembusComponentDefaults.bottomNavItemColors()
-                    )
+                            Text(
+                                stringResource(tab.labelRes),
+                                color = itemColor,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
             }
         }

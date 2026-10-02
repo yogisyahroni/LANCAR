@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -40,6 +41,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -127,6 +130,7 @@ fun ManageMenuZipScreen(
     var filters by remember { mutableStateOf(MenuFilters()) }
     var draftFilters by remember { mutableStateOf(MenuFilters()) }
     var showFilters by remember { mutableStateOf(false) }
+    var showMenuTools by remember { mutableStateOf(false) }
 
     val csvPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
@@ -165,10 +169,24 @@ fun ManageMenuZipScreen(
                 }
             }.toList()
     }
+    val categoryChips = remember(state.items, state.categories) {
+        val counts = state.items.groupingBy { it.kategori.ifBlank { "Tanpa kategori" } }.eachCount()
+        state.categories
+            .filter { it.status == "active" }
+            .map { it.name }
+            .filter(String::isNotBlank)
+            .distinct()
+            .map { it to (counts[it] ?: 0) }
+            .filter { it.second > 0 }
+            .ifEmpty { counts.entries.map { it.key to it.value }.sortedBy { it.first } }
+    }
 
     PullToRefreshBox(isRefreshing = state.isLoading && state.items.isNotEmpty(), onRefresh = viewModel::load, modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = PrimaryPale,
+            // The Menu header owns the single status-bar inset. The default
+            // Scaffold inset would otherwise be applied a second time.
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             floatingActionButton = {
                 FloatingActionButton(onClick = openAddMenu, containerColor = Accent, contentColor = Color.White) {
                     Icon(Icons.Filled.Add, contentDescription = MerchantTextCatalog.translate("Tambah Menu"))
@@ -187,28 +205,49 @@ fun ManageMenuZipScreen(
                         MenuStoreHeader(state.merchant?.namaToko.orEmpty(), state.merchant?.alamat.orEmpty(), state.merchant?.isOpen == true, onOpenNotifications)
                     }
                     item {
-                        MenuPageHeader(state.items.size, searchQuery, { searchQuery = it }, filters.activeCount()) {
-                            draftFilters = filters
-                            showFilters = true
-                        }
+                        MenuPageHeader(
+                            menuCount = state.items.size,
+                            searchQuery = searchQuery,
+                            onSearchChange = { searchQuery = it },
+                            activeFilterCount = filters.activeCount(),
+                            categories = categoryChips,
+                            selectedCategory = filters.category,
+                            onSelectCategory = { filters = filters.copy(category = it) },
+                            onOpenFilters = {
+                                draftFilters = filters
+                                showFilters = true
+                            }
+                        )
                     }
                     item {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(onClick = openAddMenu, colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White), modifier = Modifier.weight(1f)) {
-                                Icon(Icons.Filled.Add, contentDescription = "", modifier = Modifier.size(18.dp)); Spacer(Modifier.size(6.dp)); Text("Tambah menu")
+                                Icon(Icons.Filled.Add, contentDescription = "", modifier = Modifier.size(18.dp)); Spacer(Modifier.size(6.dp)); Text("Tambah Menu")
                             }
-                            OutlinedButton(onClick = { csvPicker.launch(arrayOf("text/csv", "text/comma-separated-values", "*/*")) }) {
-                                Icon(Icons.Filled.UploadFile, contentDescription = "", modifier = Modifier.size(18.dp)); Spacer(Modifier.size(6.dp)); Text("Impor")
-                            }
-                        }
-                    }
-                    item {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = onOpenOperatingHours, modifier = Modifier.weight(1f)) {
-                                Icon(Icons.Filled.AccessTime, contentDescription = "", modifier = Modifier.size(18.dp)); Spacer(Modifier.size(6.dp)); Text("Jam operasional")
-                            }
-                            OutlinedButton(onClick = onOpenCreatePromo, modifier = Modifier.weight(1f)) {
-                                Icon(Icons.Filled.Tune, contentDescription = "", modifier = Modifier.size(18.dp)); Spacer(Modifier.size(6.dp)); Text("Promo")
+                            Box(Modifier.weight(1f)) {
+                                OutlinedButton(onClick = { showMenuTools = true }, modifier = Modifier.fillMaxWidth()) {
+                                    Icon(Icons.Filled.AccessTime, contentDescription = "", modifier = Modifier.size(18.dp)); Spacer(Modifier.size(6.dp)); Text("Jam & Promo")
+                                }
+                                DropdownMenu(expanded = showMenuTools, onDismissRequest = { showMenuTools = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text("Jam operasional") },
+                                        leadingIcon = { Icon(Icons.Filled.AccessTime, contentDescription = "") },
+                                        onClick = { showMenuTools = false; onOpenOperatingHours() }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Promo") },
+                                        leadingIcon = { Icon(Icons.Filled.Tune, contentDescription = "") },
+                                        onClick = { showMenuTools = false; onOpenCreatePromo() }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Impor menu") },
+                                        leadingIcon = { Icon(Icons.Filled.UploadFile, contentDescription = "") },
+                                        onClick = {
+                                            showMenuTools = false
+                                            csvPicker.launch(arrayOf("text/csv", "text/comma-separated-values", "*/*"))
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -256,8 +295,8 @@ fun ManageMenuZipScreen(
 
 @Composable
 private fun MenuStoreHeader(merchantName: String, address: String, isOpen: Boolean, onOpenNotifications: () -> Unit) {
-    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Surface(shape = CircleShape, color = Primary, modifier = Modifier.size(44.dp)) {
+    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Surface(shape = CircleShape, color = Primary, modifier = Modifier.size(40.dp)) {
             Box(contentAlignment = Alignment.Center) { Text(merchantName.trim().firstOrNull()?.uppercase() ?: "T", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge) }
         }
         Column(Modifier.weight(1f)) {
@@ -275,20 +314,47 @@ private fun MenuStoreHeader(merchantName: String, address: String, isOpen: Boole
 }
 
 @Composable
-private fun MenuPageHeader(menuCount: Int, searchQuery: String, onSearchChange: (String) -> Unit, activeFilterCount: Int, onOpenFilters: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Menu", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Primary)
-                Text("Kelola katalog yang tampil ke pelanggan", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Text("$menuCount menu", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+private fun MenuPageHeader(
+    menuCount: Int,
+    searchQuery: String,
+    onSearchChange: (String) -> Unit,
+    activeFilterCount: Int,
+    categories: List<Pair<String, Int>>,
+    selectedCategory: String?,
+    onSelectCategory: (String?) -> Unit,
+    onOpenFilters: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(value = searchQuery, onValueChange = onSearchChange, modifier = Modifier.weight(1f), singleLine = true, leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "") }, placeholder = { Text("Cari nama atau kategori menu") }, shape = RoundedCornerShape(TembusRadius.Input))
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchChange,
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                maxLines = 1,
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "") },
+                placeholder = { Text("Cari nama atau kategori menu", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                shape = RoundedCornerShape(24.dp)
+            )
             Box(contentAlignment = Alignment.TopEnd) {
                 IconButton(onClick = onOpenFilters) { Icon(Icons.Filled.FilterList, contentDescription = MerchantTextCatalog.translate("Filter menu"), tint = Primary) }
                 if (activeFilterCount > 0) Surface(color = Accent, shape = CircleShape, modifier = Modifier.size(16.dp)) { Box(contentAlignment = Alignment.Center) { Text("$activeFilterCount", color = Color.White, style = MaterialTheme.typography.labelSmall) } }
+            }
+        }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FilterChip(
+                selected = selectedCategory == null,
+                onClick = { onSelectCategory(null) },
+                label = { Text("Semua ($menuCount)", maxLines = 1) },
+                shape = RoundedCornerShape(18.dp)
+            )
+            categories.forEach { (category, count) ->
+                FilterChip(
+                    selected = selectedCategory == category,
+                    onClick = { onSelectCategory(category) },
+                    label = { Text("$category ($count)", maxLines = 1) },
+                    shape = RoundedCornerShape(18.dp)
+                )
             }
         }
     }
