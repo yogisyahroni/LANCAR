@@ -12,7 +12,10 @@ class OnboardingPreferences @Inject constructor(
     private val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun isCompleted(): Boolean {
-        return preferences.getBoolean(KEY_COMPLETED, com.tembus.customer.BuildConfig.DEBUG)
+        // A fresh install must always show onboarding, including debug builds.
+        // UAT deep links can still authenticate after the user completes or
+        // skips onboarding; debug mode must not hide the first-run experience.
+        return preferences.getBoolean(KEY_COMPLETED, false)
     }
 
     fun markCompleted() {
