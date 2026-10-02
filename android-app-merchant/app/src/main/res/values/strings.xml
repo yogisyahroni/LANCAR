@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">TEMBUS Merchant</string>
+    <string name="merchant_tab_home">Beranda</string>
     <string name="merchant_tab_orders">Pesanan</string>
     <string name="merchant_tab_menu">Menu</string>
-    <string name="merchant_tab_insights">Wawasan</string>
+    <string name="merchant_tab_insights">Keuangan</string>
     <string name="merchant_tab_profile">Profil</string>
     <string name="merchant_tab_staff">Staf</string>
     <string name="merchant_store_profile">Profil Toko</string>

@@ -28,6 +28,7 @@ import com.tembus.merchant.data.repository.MerchantRepository
 import com.tembus.merchant.data.repository.ExperienceConfigRepository
 import com.tembus.merchant.featureflag.FeatureFlagManager
 import com.tembus.merchant.ui.components.MerchantExperienceSlot
+import com.tembus.merchant.ui.screens.home.MerchantHomeDashboardScreen
 import com.tembus.merchant.ui.screens.home.StitchOrdersDashboardScreen
 import com.tembus.merchant.ui.screens.menu.ManageMenuZipScreen
 import com.tembus.merchant.ui.screens.profile.StoreProfileZipScreen
@@ -40,7 +41,7 @@ import com.tembus.merchant.util.rememberNetworkAvailable
 
 private data class MainTab(val labelRes: Int, val icon: ImageVector, val key: String)
 
-@OptIn(ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     merchantRepository: MerchantRepository,
@@ -49,6 +50,7 @@ fun MainScreen(
     onOpenChat: (String, String) -> Unit, // FB-119
     onCallCustomer: (String) -> Unit, // FB-124: telepon pelanggan
     onOpenNotifications: () -> Unit,
+    onOpenSettlement: () -> Unit,
     onOpenStoreInformation: () -> Unit,
     onOpenPaymentSettings: () -> Unit,
     onOpenOperatingHours: () -> Unit,
@@ -99,8 +101,9 @@ fun MainScreen(
         }
     }
 
-    // Tab dasar sesuai desain Stitch (4 tab utama)
+    // Tab dasar mengikuti beranda merchant: Beranda, Pesanan, Menu, Keuangan, Akun.
     val baseTabs = listOf(
+        MainTab(R.string.merchant_tab_home, Icons.Filled.Home, "home"),
         MainTab(R.string.merchant_tab_orders, Icons.Filled.ReceiptLong, "orders"),
         *if (menuEntryEnabled) arrayOf(MainTab(R.string.merchant_tab_menu, Icons.Filled.RestaurantMenu, "menu")) else emptyArray(),
         MainTab(R.string.merchant_tab_insights, Icons.Filled.Assessment, "report"),
@@ -117,6 +120,19 @@ fun MainScreen(
 
     val renderScreen: @Composable () -> Unit = {
         when (tabs[safeSelected].key) {
+                "home" -> MerchantHomeDashboardScreen(
+                    onOpenOrders = {
+                        selectedTab = tabs.indexOfFirst { it.key == "orders" }.coerceAtLeast(0)
+                    },
+                    onOpenOrder = onOpenStruk,
+                    onOpenNotifications = onOpenNotifications,
+                    onOpenMenu = {
+                        val menuIndex = tabs.indexOfFirst { it.key == "menu" }
+                        if (menuIndex >= 0) selectedTab = menuIndex else onOpenCreateMenu()
+                    },
+                    onOpenSettlement = onOpenSettlement,
+                    onOpenReviews = onOpenCustomerReviews
+                )
                 "orders" -> StitchOrdersDashboardScreen(
                     onOpenOrder = onOpenStruk,
                     onOpenNotifications = onOpenNotifications,

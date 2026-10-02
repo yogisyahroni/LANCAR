@@ -502,6 +502,13 @@ data class SalesPerformance(
     @SerializedName("rating_count") val ratingCount: Int = 0
 )
 
+data class SalesAdvancedAnalytics(
+    @SerializedName("repeat_customer_count") val repeatCustomerCount: Int = 0,
+    @SerializedName("repeat_customer_rate_pct") val repeatCustomerRatePct: Double = 0.0,
+    @SerializedName("peak_order_hour") val peakOrderHour: Int? = null,
+    @SerializedName("avg_accepted_ready_minutes") val avgAcceptedReadyMinutes: Double? = null
+)
+
 data class SalesReportSummary(
     @SerializedName("period") val period: String = "daily",
     @SerializedName("total_orders") val totalOrders: Int = 0,
@@ -509,7 +516,8 @@ data class SalesReportSummary(
     @SerializedName("avg_order_value_idr") val avgOrderValueIdr: Long = 0,
     @SerializedName("top_items") val topItems: List<TopSellingItem> = emptyList(),
     @SerializedName("daily_breakdown") val dailyBreakdown: List<SalesReportPoint> = emptyList(),
-    @SerializedName("performance") val performance: SalesPerformance = SalesPerformance()
+    @SerializedName("performance") val performance: SalesPerformance = SalesPerformance(),
+    @SerializedName("advanced") val advanced: SalesAdvancedAnalytics = SalesAdvancedAnalytics()
 )
 
 /** Review customer merchant — GET /api/v1/merchant/reviews. */

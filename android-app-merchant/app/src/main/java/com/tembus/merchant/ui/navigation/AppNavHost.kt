@@ -246,6 +246,9 @@ fun AppNavHost() {
                 onOpenNotifications = {
                     navController.navigate(MerchantRoutes.NOTIFICATIONS)
                 },
+                onOpenSettlement = {
+                    navController.navigate(MerchantRoutes.SETTLEMENTS)
+                },
                 onOpenStoreInformation = {
                     navController.navigate(MerchantRoutes.STORE_INFORMATION)
                 },
