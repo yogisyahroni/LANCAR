@@ -116,8 +116,6 @@ import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentSoft
 import com.tembus.customer.ui.theme.CustomerCanvas
 import com.tembus.customer.ui.theme.Error
-import com.tembus.customer.ui.theme.OnSurface
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.OutlineStrong
 import com.tembus.customer.ui.theme.Primary
@@ -138,9 +136,9 @@ import java.text.NumberFormat
 import java.util.Calendar
 import java.util.Locale
 
-private val Ink = OnSurface
-private val Muted = OnSurfaceVariant
-private val FieldBg = CustomerCanvas
+private val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
+private val Muted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
+private val FieldBg @Composable get() = MaterialTheme.colorScheme.surfaceVariant
 private val LcGreen = Primary
 private val SoftGreen = PrimarySoft
 private val SoftBlue = SecondaryLight

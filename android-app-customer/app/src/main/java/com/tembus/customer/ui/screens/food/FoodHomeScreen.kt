@@ -143,7 +143,7 @@ fun FoodHomeScreen(
         }
     }
 
-    Scaffold(containerColor = Color(0xFFF7F8F6)) { padding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         PullToRefreshBox(
             isRefreshing = loading && merchants.isNotEmpty(),
             onRefresh = {
@@ -247,7 +247,7 @@ private fun FoodFigmaHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -265,7 +265,7 @@ private fun FoodFigmaHeader(
             Text("Food", color = Accent, fontSize = 16.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.width(7.dp))
             Surface(
-                color = Color(0xFFF2FCF3),
+                color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(999.dp),
                 border = BorderStroke(1.dp, Color(0xFFDCEBE0)),
             ) {
@@ -315,7 +315,7 @@ private fun FoodFigmaHeader(
             )
         }
         Row(
-            modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFFF7F8F6)).padding(horizontal = 12.dp),
+            modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF60736B), modifier = Modifier.size(16.dp))
@@ -359,7 +359,7 @@ private fun FoodCategoryRow(onCategoryClick: (String) -> Unit) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     row.forEach { category ->
                         Column(
-                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(Color.White)
+                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)
                                 .clickable { onCategoryClick(category.label) }.padding(vertical = 8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
@@ -599,7 +599,7 @@ private fun FoodMerchantMiniCard(merchant: FoodMerchant, onClick: () -> Unit, on
     Card(
         modifier = Modifier.width(216.dp).clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, Color(0xFFE0E8E3)),
     ) {
         Column {
@@ -667,7 +667,7 @@ private fun FoodMerchantList(
                     onMerchantClick(merchant.id)
                 },
                 shape = RoundedCornerShape(13.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, Color(0xFFE0E8E3)),
             ) {
                 Row(Modifier.padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -696,7 +696,7 @@ private fun FoodMerchantList(
 
 @Composable
 private fun FoodErrorState(message: String, onRetry: () -> Unit) {
-    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, Color(0xFFF0C9BB))) {
+    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Food belum bisa dimuat", fontSize = 14.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.error)
             Text(message, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -711,7 +711,7 @@ private fun FoodErrorState(message: String, onRetry: () -> Unit) {
 
 @Composable
 private fun FoodEmptyState() {
-    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, Color(0xFFE0E8E3))) {
+    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Default.Store, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(42.dp))
             Text("Belum ada merchant di sekitar lokasi ini", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)

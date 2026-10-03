@@ -41,7 +41,7 @@ fun TipDialog(
     if (isSubmitted) {
         AlertDialog(
             onDismissRequest = onDismiss,
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(24.dp),
             confirmButton = {
                 Button(
@@ -83,7 +83,7 @@ fun TipDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isSubmitting) onDismiss() },
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(24.dp),
         confirmButton = {},
         dismissButton = {},

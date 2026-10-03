@@ -173,12 +173,12 @@ fun TambalBanHomeScreen(
         ?.let { "Estimasi ${it.etaMinutes} menit" }
 
     Scaffold(
-        containerColor = Color(0xFFF2FCF3),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Layanan Darurat", fontWeight = FontWeight.Bold) },
                 colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFF2FCF3),
+                    containerColor = MaterialTheme.colorScheme.background,
                 ),
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
@@ -326,7 +326,7 @@ fun TambalBanHomeScreen(
                                 selectedIssues = if (selected) selectedIssues - option.label else selectedIssues + option.label
                             },
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = if (selected) PrimarySoft else Color(0xFFF7F8F6)),
+                            colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant),
                             border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent),
                         ) {
                             Row(
@@ -412,12 +412,12 @@ fun TambalBanHomeScreen(
 
 @Composable
 private fun RoadsideSafetyBanner() {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2E8)), border = BorderStroke(1.dp, OrangeCta.copy(alpha = 0.22f))) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer), border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f))) {
         Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(Icons.Default.Warning, contentDescription = null, tint = OrangeCta, modifier = Modifier.size(22.dp))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("BANTUAN CEPAT SIAGA 24 JAM", fontSize = 11.sp, fontWeight = FontWeight.Black, color = OrangeCta)
-                Text("Utamakan keselamatan. Menjauh ke area aman dan nyalakan lampu hazard jika kendaraan berhenti di bahu jalan.", fontSize = 12.sp, lineHeight = 17.sp)
+                Text("BANTUAN CEPAT SIAGA 24 JAM", fontSize = 11.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                Text("Utamakan keselamatan. Menjauh ke area aman dan nyalakan lampu hazard jika kendaraan berhenti di bahu jalan.", fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onTertiaryContainer)
             }
         }
     }
@@ -438,8 +438,8 @@ private fun LocationPanel(latitude: Double, longitude: Double, error: String?, o
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(112.dp)
-                    .background(Color(0xFFE7F1EA), RoundedCornerShape(14.dp))
-                    .border(1.dp, Color(0xFFD2E4D8), RoundedCornerShape(14.dp)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -474,7 +474,7 @@ private fun LocationPanel(latitude: Double, longitude: Double, error: String?, o
 
 @Composable
 private fun ServiceModeChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.clickable(onClick = onClick), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.primary else Color.White), border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
+    Card(modifier = modifier.clickable(onClick = onClick), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
         Text(label, color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 13.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
@@ -490,7 +490,7 @@ private fun SectionTitle(title: String, action: String) {
 @Composable
 private fun VehicleOptionCard(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, available: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-    Card(modifier = modifier.clickable(enabled = available, onClick = onClick), shape = RoundedCornerShape(15.dp), colors = CardDefaults.cardColors(containerColor = if (selected) PrimarySoft else Color.White), border = BorderStroke(if (selected) 2.dp else 1.dp, borderColor)) {
+    Card(modifier = modifier.clickable(enabled = available, onClick = onClick), shape = RoundedCornerShape(15.dp), colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface), border = BorderStroke(if (selected) 2.dp else 1.dp, borderColor)) {
         Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Box(modifier = Modifier.size(42.dp).background(if (selected) MaterialTheme.colorScheme.primary else PrimarySoft, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                 Icon(icon, contentDescription = title, tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary)

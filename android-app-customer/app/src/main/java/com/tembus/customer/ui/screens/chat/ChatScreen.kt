@@ -46,7 +46,7 @@ import com.tembus.customer.BuildConfig
 import java.text.SimpleDateFormat
 import java.util.*
 
-private val ChatCanvas = Color(0xFFF2FCF3) // Figma: TEMBUS - Obrolan Kurir
+private val ChatCanvas @Composable get() = MaterialTheme.colorScheme.background // Figma: TEMBUS - Obrolan Kurir
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -413,8 +413,8 @@ fun ChatScreen(
                                             .height(36.dp)
                                             .padding(horizontal = 8.dp),
                                         colors = ButtonDefaults.textButtonColors(
-                                            containerColor = Color(0xFFF3F4F6),
-                                            contentColor = Color(0xFF374151)
+                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                            contentColor = MaterialTheme.colorScheme.onSurface
                                         ),
                                         shape = RoundedCornerShape(18.dp)
                                     ) {
@@ -466,16 +466,16 @@ fun ChatScreen(
                             shape = RoundedCornerShape(24.dp),
                             maxLines = 4,
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color(0xFF111827),
-                                unfocusedTextColor = Color(0xFF111827),
-                                disabledTextColor = Color(0xFF6B7280),
-                                focusedContainerColor = Color.White,
-                                unfocusedContainerColor = Color.White,
-                                disabledContainerColor = Color(0xFFF5F7FA),
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                                 focusedBorderColor = Primary,
-                                unfocusedBorderColor = Color.LightGray,
-                                focusedPlaceholderColor = Color(0xFF6B7280),
-                                unfocusedPlaceholderColor = Color(0xFF6B7280),
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 cursorColor = Primary
                             )
                         )
@@ -489,8 +489,8 @@ fun ChatScreen(
                                     textInput = ""
                                 }
                             },
-                            containerColor = if (textInput.isBlank() || uiState.isSending) Color(0xFF9CA3AF) else Primary,
-                            contentColor = Color.White,
+                            containerColor = if (textInput.isBlank() || uiState.isSending) MaterialTheme.colorScheme.surfaceVariant else Primary,
+                            contentColor = if (textInput.isBlank() || uiState.isSending) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimary,
                             shape = CircleShape,
                             modifier = Modifier.size(48.dp),
                             elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp)
@@ -543,7 +543,7 @@ private fun DeliveryGroupContextBanner(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(Color.White),
+                    .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -620,8 +620,8 @@ fun ChatBubble(
     }
 
     val alignment = if (isCurrentUser) Alignment.End else Alignment.Start
-    val bubbleColor = if (isCurrentUser) Primary else Color.White
-    val contentColor = if (isCurrentUser) Color.White else Color.Black
+    val bubbleColor = if (isCurrentUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
+    val contentColor = if (isCurrentUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     
     val bubbleShape = if (isCurrentUser) {
         RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 2.dp)
@@ -820,7 +820,7 @@ private fun FoodOrderSummaryCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -921,8 +921,8 @@ private fun FoodOrderSummaryCard(
                         .padding(horizontal = 12.dp)
                         .align(Alignment.Top),
                     colors = ButtonDefaults.textButtonColors(
-                        containerColor = Color(0xFFF3F4F6),
-                        contentColor = Color(0xFF374151)
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 ) {
                     Text(
@@ -947,7 +947,7 @@ private fun FoodOrderSummaryCardSkeleton() {
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {

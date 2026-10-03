@@ -145,12 +145,12 @@ fun ServiceCategoryScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFFF2FCF3),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Tembus Derek Towing Darurat", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
                 colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFF2FCF3),
+                    containerColor = MaterialTheme.colorScheme.background,
                 ),
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
@@ -335,14 +335,14 @@ private fun TowingSafetyBanner() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2E8)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
         border = BorderStroke(1.dp, OrangeCta.copy(alpha = 0.22f))
     ) {
         Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(Icons.Default.Warning, contentDescription = null, tint = OrangeCta, modifier = Modifier.size(22.dp))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("PROTOKOL KESELAMATAN TOWING", fontSize = 11.sp, fontWeight = FontWeight.Black, color = OrangeCta)
-                Text("Nyalakan hazard dan pasang segitiga pengaman minimal 30 meter dari kendaraan. Jangan berdiri di jalur lalu lintas.", fontSize = 12.sp, lineHeight = 17.sp)
+                Text("PROTOKOL KESELAMATAN TOWING", fontSize = 11.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                Text("Nyalakan hazard dan pasang segitiga pengaman minimal 30 meter dari kendaraan. Jangan berdiri di jalur lalu lintas.", fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onTertiaryContainer)
             }
         }
     }
@@ -527,8 +527,8 @@ private fun TowingRouteMap(
     } else {
         Box(
             modifier = modifier
-                .background(Color(0xFFE7F1EA), RoundedCornerShape(14.dp))
-                .border(1.dp, Color(0xFFD2E4D8), RoundedCornerShape(14.dp)),
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -549,7 +549,7 @@ private fun TowingVehicleCard(title: String, subtitle: String, icon: androidx.co
     Card(
         modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(15.dp),
-        colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.primary else Color.White),
+        colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface),
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {

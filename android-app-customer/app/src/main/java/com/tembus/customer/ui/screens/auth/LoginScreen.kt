@@ -68,8 +68,6 @@ import com.tembus.customer.R
 import com.tembus.customer.config.AppConfig
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentLight
-import com.tembus.customer.ui.theme.OnSurface
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryDark

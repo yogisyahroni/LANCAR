@@ -23,8 +23,6 @@ import com.tembus.customer.data.model.FoodOrderItem
 import com.tembus.customer.data.model.Order
 import com.tembus.customer.ui.localization.CustomerText as Text
 import com.tembus.customer.ui.theme.Accent
-import com.tembus.customer.ui.theme.OnSurface
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.TembusRadius
@@ -74,11 +72,11 @@ private fun FoodOrderSection(items: List<FoodOrderItem>, orderNotes: String?) {
             ) {
                 Text("${item.quantity}×", fontWeight = FontWeight.Black, color = Accent)
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(item.name, fontWeight = FontWeight.SemiBold, color = OnSurface)
+                    Text(item.name, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                     if (item.variants.isNotEmpty()) {
-                        Text(item.variants.joinToString(" · ") { variant -> "${variant.variantName}: ${variant.optionName}" }, fontSize = 12.sp, color = OnSurfaceVariant)
+                        Text(item.variants.joinToString(" · ") { variant -> "${variant.variantName}: ${variant.optionName}" }, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    if (!item.notes.isNullOrBlank()) Text("Catatan: ${item.notes}", fontSize = 12.sp, color = OnSurfaceVariant)
+                    if (!item.notes.isNullOrBlank()) Text("Catatan: ${item.notes}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (item.subtotal > 0) Text("Rp ${item.subtotal}", fontWeight = FontWeight.Bold, color = Primary)
             }
@@ -86,8 +84,8 @@ private fun FoodOrderSection(items: List<FoodOrderItem>, orderNotes: String?) {
         }
         if (!orderNotes.isNullOrBlank()) {
             Spacer(Modifier.height(10.dp))
-            Text("Catatan untuk merchant:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = OnSurfaceVariant)
-            Text(orderNotes, fontSize = 14.sp, color = OnSurface, modifier = Modifier.padding(top = 2.dp))
+            Text("Catatan untuk merchant:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(orderNotes, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 2.dp))
         }
     }
 }
@@ -96,8 +94,8 @@ private fun FoodOrderSection(items: List<FoodOrderItem>, orderNotes: String?) {
 private fun RoadsideOrderSection(orderId: String, serviceSubType: String) {
     val label = serviceSubType.replace('_', ' ').replaceFirstChar { it.uppercase() }
     OrderSectionCard(title = "Detail Layanan") {
-        Text(label, fontWeight = FontWeight.Bold, color = OnSurface)
-        Text("Layanan bantuan kendaraan. Status, teknisi, dan bukti layanan mengikuti data server.", fontSize = 13.sp, color = OnSurfaceVariant)
+        Text(label, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        Text("Layanan bantuan kendaraan. Status, teknisi, dan bukti layanan mengikuti data server.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     if (orderId.isNotBlank()) {
         RoadsideAdjustmentSection(orderId = orderId)
@@ -108,19 +106,19 @@ private fun RoadsideOrderSection(orderId: String, serviceSubType: String) {
 @Composable
 private fun PackageOrderSection(serviceSubType: String?) {
     OrderSectionCard(title = "Detail Layanan") {
-        Text(serviceSubType?.takeIf { it.isNotBlank() } ?: "Layanan belum teridentifikasi", fontWeight = FontWeight.Bold, color = OnSurface)
-        Text("Detail layanan akan ditampilkan setelah server mengirimkan metadata order.", fontSize = 13.sp, color = OnSurfaceVariant)
+        Text(serviceSubType?.takeIf { it.isNotBlank() } ?: "Layanan belum teridentifikasi", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        Text("Detail layanan akan ditampilkan setelah server mengirimkan metadata order.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun UnknownOrderSection() {
     OrderSectionCard(title = "Detail Layanan") {
-        Text("Layanan belum teridentifikasi", fontWeight = FontWeight.Bold, color = OnSurface)
+            Text("Layanan belum teridentifikasi", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         Text(
             "Detail layanan belum dikirim server. Hubungi bantuan jika status order perlu diperiksa.",
             fontSize = 13.sp,
-            color = OnSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -130,11 +128,11 @@ private fun OrderSectionCard(title: String, content: @Composable () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(TembusRadius.Card),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, Outline)
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OnSurface)
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
             content()
         }
     }

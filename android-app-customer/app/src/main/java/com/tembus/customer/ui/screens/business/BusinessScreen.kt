@@ -46,7 +46,7 @@ import coil.compose.AsyncImage
 import com.tembus.customer.ui.components.createCameraCaptureUri
 import com.tembus.customer.ui.theme.Primary
 
-private val BusinessCanvas = Color(0xFFF2FCF3) // Figma: TEMBUS - Profil Bisnis & E-Faktur
+private val BusinessCanvas @Composable get() = MaterialTheme.colorScheme.background // Figma: TEMBUS - Profil Bisnis & E-Faktur
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -175,7 +175,7 @@ fun BusinessScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 ) {
                     Row(
@@ -212,8 +212,8 @@ fun BusinessScreen(
                             .fillMaxWidth()
                             .height(150.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(Color.Black.copy(alpha = 0.05f))
-                            .border(1.dp, Color.Black.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f), RoundedCornerShape(16.dp))
                             .clickable { launchCamera() },
                         contentAlignment = Alignment.Center
                     ) {
@@ -354,8 +354,8 @@ fun BusinessScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(Color.White, RoundedCornerShape(12.dp))
-                                    .border(1.dp, Color.Black.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
                                     .padding(16.dp)
                             ) {
                                 Text(url, color = Color.DarkGray, fontSize = 14.sp)

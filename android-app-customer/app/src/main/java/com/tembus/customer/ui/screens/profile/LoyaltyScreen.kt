@@ -45,13 +45,13 @@ fun LoyaltyScreen(
     LaunchedEffect(Unit) { viewModel.loadLoyaltyInfo(); viewModel.loadFoodMembership() }
 
     Scaffold(
-        containerColor = Color(0xFFF7F8FA),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -144,7 +144,7 @@ private fun LoyaltyContent(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(1.dp)
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
@@ -162,7 +162,7 @@ private fun LoyaltyContent(
                         progress = info.progressPct / 100f,
                         modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)),
                         color = tierColor,
-                        trackColor = Color(0xFFE5E7EB)
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                     Spacer(Modifier.height(6.dp))
                     Text("${info.progressPct}%", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
@@ -172,13 +172,13 @@ private fun LoyaltyContent(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CheckCircle, contentDescription = "", tint = Color(0xFF16A34A), modifier = Modifier.size(22.dp))
                     Spacer(Modifier.width(10.dp))
-                    Text("Kamu sudah di tier tertinggi! Nikmati semua benefit.", fontSize = 14.sp, color = Color(0xFF166534), fontWeight = FontWeight.SemiBold)
+                    Text("Kamu sudah di tier tertinggi! Nikmati semua benefit.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -201,14 +201,14 @@ private fun LoyaltyContent(
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Food Member", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Primary)
                 when {
-                    membership?.status == "active" -> Text("Aktif • sisa subsidi ongkir Rp ${membership.freeDeliveryRemainingIdr}", color = Color(0xFF166534))
-                    membership?.status == "pending_payment" -> Text("Menunggu konfirmasi pembayaran membership", color = Color(0xFF92400E))
+                    membership?.status == "active" -> Text("Aktif • sisa subsidi ongkir Rp ${membership.freeDeliveryRemainingIdr}", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    membership?.status == "pending_payment" -> Text("Menunggu konfirmasi pembayaran membership", color = MaterialTheme.colorScheme.onTertiaryContainer)
                     membershipPlans.isEmpty() -> Text("Paket membership belum tersedia", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     else -> {
                         val plan = membershipPlans.first()

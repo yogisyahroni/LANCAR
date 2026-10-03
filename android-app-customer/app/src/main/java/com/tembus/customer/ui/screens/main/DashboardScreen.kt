@@ -117,12 +117,9 @@ import com.tembus.customer.ui.navigation.RemoteDeepLinkTarget
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentLight
 import com.tembus.customer.ui.theme.Background
-import com.tembus.customer.ui.theme.CustomerHomeCanvas
 import com.tembus.customer.ui.theme.CustomerHeroEnd
 import com.tembus.customer.ui.theme.CustomerHeroStart
 import com.tembus.customer.ui.theme.Error
-import com.tembus.customer.ui.theme.OnSurface
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.ui.theme.Primary
@@ -148,12 +145,11 @@ internal val SurfaceLine @Composable get() = MaterialTheme.colorScheme.outline
 @Composable
 private fun HomeStatusBarIcons() {
     val view = LocalView.current
+    val darkTheme = isSystemInDarkTheme()
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
-            // Home uses the light Figma shell; keep status-bar glyphs readable
-            // instead of inheriting the old dark hero treatment.
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
 }
@@ -270,7 +266,7 @@ fun DashboardScreen(
         val useNavigationRail = maxWidth >= 600.dp
         SharedTransitionLayout(Modifier.fillMaxSize()) {
             Scaffold(
-                containerColor = CustomerHomeCanvas,
+                containerColor = MaterialTheme.colorScheme.background,
                 bottomBar = {
                     if (!useNavigationRail) {
                         CustomerNavigation(
@@ -312,7 +308,7 @@ fun DashboardScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(CustomerHomeCanvas),
+                        .background(MaterialTheme.colorScheme.background),
                     contentPadding = PaddingValues(bottom = 30.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -533,7 +529,7 @@ private fun SharedTransitionScope.CustomerNavigation(
                 // Customer Home Figma uses a neutral bar with a small orange
                 // active state; other destinations keep the shared green
                 // navigation treatment.
-                containerColor = CustomerHomeCanvas,
+                containerColor = MaterialTheme.colorScheme.background,
                 selectedColor = OrangeCta,
                 indicatorColor = Color.Transparent,
             )

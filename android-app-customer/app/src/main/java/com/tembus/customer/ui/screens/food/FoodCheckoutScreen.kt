@@ -295,7 +295,7 @@ fun FoodCheckoutScreen(
                                 "Rp ${formatRupiah(foodQuote?.totalPriceIdr ?: cartTotal)}",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFF10241D),
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
                         }
                         Text("${cart.size} item", fontSize = 11.sp, color = Color(0xFF6B7A73))
@@ -338,7 +338,7 @@ fun FoodCheckoutScreen(
                 "Rincian Pesanan",
                 fontSize = 17.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF10241D),
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 "Pesanan dari ${cartMerchantName ?: "merchant pilihanmu"}",
@@ -350,7 +350,7 @@ fun FoodCheckoutScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(TembusRadius.Card))
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(TembusRadius.Card))
                     .padding(14.dp)
             ) {
                 cart.forEach { item ->
@@ -406,7 +406,7 @@ fun FoodCheckoutScreen(
                     )
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Alamat Pengantaran", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10241D))
+                        Text("Alamat Pengantaran", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         Text(
                             address.ifBlank { "Pilih alamat pengantaran" },
                             fontSize = 13.sp,

@@ -57,15 +57,13 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryDark
-import com.tembus.customer.ui.theme.OnSurface
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Secondary
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.SurfaceVariant
 import com.tembus.customer.ui.theme.TextDisabled
 
-private val Ink = OnSurface
-private val Muted = OnSurfaceVariant
+private val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
+private val Muted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 
 /**
  * OtpVerifyScreen — digunakan untuk:
@@ -124,7 +122,7 @@ fun OtpVerifyScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = Color.White
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Box(
             modifier = Modifier

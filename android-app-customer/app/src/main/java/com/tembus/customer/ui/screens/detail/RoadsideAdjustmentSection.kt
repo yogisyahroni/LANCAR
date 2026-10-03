@@ -184,7 +184,7 @@ fun RoadsideAdjustmentSection(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(TembusRadius.Card),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, Outline)
             ) {
                 Column(

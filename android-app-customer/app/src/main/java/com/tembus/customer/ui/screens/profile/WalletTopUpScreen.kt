@@ -74,10 +74,10 @@ fun WalletTopUpScreen(
     val session = state.session
     val amount = state.amountText.toLongOrNull()
     val isAmountValid = amount != null && amount >= WalletTopUpViewModel.MIN_TOP_UP_IDR
-    val orange = Color(0xFFFF7800)
-    val ink = Color(0xFF10231C)
+    val orange = MaterialTheme.colorScheme.tertiary
+    val ink = MaterialTheme.colorScheme.onSurface
     // Figma `TEMBUS - Top Up Saldo TEMBUS-Pay` uses the neutral wallet canvas.
-    val softBackground = Color(0xFFF7F8F6)
+    val softBackground = MaterialTheme.colorScheme.background
 
     fun openInvoice() {
         val invoiceUrl = session?.invoiceUrl ?: return
@@ -226,8 +226,8 @@ fun WalletTopUpScreen(
                 colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
                 )
             )
 
@@ -245,7 +245,7 @@ fun WalletTopUpScreen(
                                     contentPadding = PaddingValues(horizontal = 2.dp),
                                     border = BorderStroke(1.dp, if (amount == quickAmount) orange else MaterialTheme.colorScheme.outlineVariant),
                                     colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                                        containerColor = if (amount == quickAmount) orange.copy(alpha = 0.08f) else Color.White,
+                                        containerColor = if (amount == quickAmount) orange.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
                                         contentColor = if (amount == quickAmount) orange else ink
                                     )
                                 ) {
@@ -260,7 +260,7 @@ fun WalletTopUpScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
@@ -297,8 +297,8 @@ fun WalletTopUpScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF7F0)),
-                    border = BorderStroke(1.dp, Color(0xFFB9DEC9)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -355,7 +355,7 @@ private fun PaymentProviderRow(
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, color = Color(0xFF10231C), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         if (selected) Icon(Icons.Default.CheckCircle, contentDescription = "Metode dipilih", tint = Primary, modifier = Modifier.size(20.dp))
@@ -366,6 +366,6 @@ private fun PaymentProviderRow(
 private fun SessionDetailRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-        Text(value, color = Color(0xFF10231C), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, color = MaterialTheme.colorScheme.onSurface, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

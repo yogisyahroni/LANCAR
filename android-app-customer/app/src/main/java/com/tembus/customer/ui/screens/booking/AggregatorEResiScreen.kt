@@ -38,6 +38,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TextButton
@@ -73,9 +74,6 @@ import com.tembus.customer.data.model.TrackingOrder
 import com.tembus.customer.data.model.TrackingProof
 import com.tembus.customer.ui.designsystem.TembusAppBar
 import com.tembus.customer.ui.localization.CustomerText as Text
-import com.tembus.customer.ui.theme.CustomerHomeCanvas
-import com.tembus.customer.ui.theme.OnSurface
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Primary
 import java.text.NumberFormat
 import java.util.Locale
@@ -104,7 +102,7 @@ fun AggregatorEResiScreen(
     }
 
     Scaffold(
-        containerColor = CustomerHomeCanvas,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TembusAppBar(
                 title = "Status Pick Up Ekspedisi",
@@ -113,7 +111,7 @@ fun AggregatorEResiScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Kembali",
-                            tint = OnSurface
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -132,7 +130,7 @@ fun AggregatorEResiScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -164,7 +162,7 @@ fun AggregatorEResiScreen(
                         .height(48.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1B5E20),
+                        containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = Color.White
                     )
                 ) {
@@ -189,7 +187,7 @@ fun AggregatorEResiScreen(
                 ) {
                     Text(
                         text = "Kembali ke Beranda TEMBUS",
-                        color = OnSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 13.sp
                     )
@@ -217,7 +215,7 @@ fun AggregatorEResiScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = errorMessage ?: "Terjadi kesalahan",
-                        color = Color(0xFFD32F2F),
+                        color = MaterialTheme.colorScheme.error,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(16.dp))
@@ -287,7 +285,7 @@ fun AggregatorEResiScreen(
         Dialog(onDismissRequest = { selectedProofPhotoUrl = null }) {
             Card(
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
@@ -300,7 +298,7 @@ fun AggregatorEResiScreen(
                         text = "Foto Bukti Penerimaan (ePOD 3PL)",
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
-                        color = OnSurface
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     AsyncImage(
@@ -356,12 +354,12 @@ private fun StatusHeaderSection(order: TrackingOrder?) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .clip(RoundedCornerShape(999.dp))
-                .background(Color(0xFFE8F5E9))
+                .background(MaterialTheme.colorScheme.primaryContainer)
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text(
                 text = badgeText,
-                color = Color(0xFF2E7D32),
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp
             )
@@ -373,14 +371,14 @@ private fun StatusHeaderSection(order: TrackingOrder?) {
             text = heading,
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp,
-            color = OnSurface
+            color = MaterialTheme.colorScheme.onSurface
         )
 
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
             text = subtitle,
-            color = OnSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp,
             lineHeight = 18.sp
         )
@@ -398,8 +396,8 @@ private fun EResiBarcodeCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE0E0E0))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -414,7 +412,7 @@ private fun EResiBarcodeCard(
                     Icon(
                         imageVector = Icons.Filled.QrCode,
                         contentDescription = null,
-                        tint = Color(0xFF1B5E20),
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -422,31 +420,31 @@ private fun EResiBarcodeCard(
                         text = "E-Resi Resmi Ekspedisi",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
-                        color = OnSurface
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFFE8F5E9))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = "BEBAS CETAK",
-                        color = Color(0xFF2E7D32),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontWeight = FontWeight.Bold,
                         fontSize = 10.sp
                     )
                 }
             }
 
-            HorizontalDivider(color = Color(0xFFEEEEEE))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             Column {
                 Text(
                     text = "NO. RESI OTOMATIS",
-                    color = OnSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 0.5.sp
@@ -461,28 +459,28 @@ private fun EResiBarcodeCard(
                         text = awb,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = OnSurface,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontFamily = FontFamily.Monospace
                     )
                     OutlinedButton(
                         onClick = { onCopy(awb) },
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                         shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, Color(0xFFBDBDBD)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier.height(32.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Filled.ContentCopy,
                             contentDescription = null,
                             modifier = Modifier.size(14.dp),
-                            tint = Color(0xFF424242)
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "Salin",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF424242)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -499,13 +497,13 @@ private fun EResiBarcodeCard(
                 Text(
                     text = "Kode Booking TEMBUS:",
                     fontSize = 12.sp,
-                    color = OnSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = "#TB-$bookingCode",
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
-                    color = Color(0xFF1B5E20),
+                    color = MaterialTheme.colorScheme.primary,
                     fontFamily = FontFamily.Monospace
                 )
             }
@@ -515,13 +513,13 @@ private fun EResiBarcodeCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFFFF8E1))
+                    .background(MaterialTheme.colorScheme.tertiaryContainer)
                     .padding(10.dp)
             ) {
                 Text(
                     text = "Tunjukkan barcode di atas ke kurir saat serah terima, pastikan juga bahwa resi tersebut sudah terhubung dengan data paket Anda.",
                     fontSize = 11.sp,
-                    color = Color(0xFFE65100),
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
                     lineHeight = 15.sp
                 )
             }
@@ -531,11 +529,12 @@ private fun EResiBarcodeCard(
 
 @Composable
 private fun BarcodeCanvas(text: String) {
+    val barcodeInk = MaterialTheme.colorScheme.onSurface
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFFFAFAFA))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(vertical = 12.dp, horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -554,7 +553,7 @@ private fun BarcodeCanvas(text: String) {
                 val barWidth = (pattern[i % pattern.size] * 1.3f).coerceAtMost(step * 0.85f)
                 val x = i * step + (step - barWidth) / 2
                 drawLine(
-                    color = Color(0xFF212121),
+                    color = barcodeInk,
                     start = Offset(x, 0f),
                     end = Offset(x, size.height),
                     strokeWidth = barWidth
@@ -569,7 +568,7 @@ private fun BarcodeCanvas(text: String) {
             fontFamily = FontFamily.Monospace,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF616161),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             letterSpacing = 2.sp
         )
     }
@@ -585,8 +584,8 @@ private fun OrderShipmentSummaryCard(order: TrackingOrder?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE0E0E0))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -602,12 +601,12 @@ private fun OrderShipmentSummaryCard(order: TrackingOrder?) {
                         modifier = Modifier
                             .size(32.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFE53935)),
+                            .background(MaterialTheme.colorScheme.error),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = carrier.take(3),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onError,
                             fontWeight = FontWeight.Bold,
                             fontSize = 10.sp
                         )
@@ -618,12 +617,12 @@ private fun OrderShipmentSummaryCard(order: TrackingOrder?) {
                             text = "$carrier $subtype",
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = OnSurface
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "Estimasi Tiba: 2-3 Hari Kerja",
                             fontSize = 11.sp,
-                            color = OnSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -632,17 +631,17 @@ private fun OrderShipmentSummaryCard(order: TrackingOrder?) {
                     text = "Rp $formattedPrice",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = Color(0xFF1B5E20)
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
-            HorizontalDivider(color = Color(0xFFF0F0F0))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = "Muatan:", fontSize = 12.sp, color = OnSurfaceVariant)
+                Text(text = "Muatan:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(text = "Paket Logistik (1 Koli)", fontSize = 12.sp, fontWeight = FontWeight.Medium)
             }
 
@@ -650,12 +649,12 @@ private fun OrderShipmentSummaryCard(order: TrackingOrder?) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = "Proteksi Asuransi:", fontSize = 12.sp, color = OnSurfaceVariant)
+                Text(text = "Proteksi Asuransi:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     text = "Aktif (Maks. Rp 10.000.000)",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF2E7D32)
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
 
@@ -663,12 +662,12 @@ private fun OrderShipmentSummaryCard(order: TrackingOrder?) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = "Pembayaran:", fontSize = 12.sp, color = OnSurfaceVariant)
+                Text(text = "Pembayaran:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     text = "Lunas (TEMBUS-Pay)",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1B5E20)
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -684,8 +683,8 @@ private fun ShipmentRouteTimelineSection(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE0E0E0))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -700,7 +699,7 @@ private fun ShipmentRouteTimelineSection(
                     text = "Rute Alur Pengiriman",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = OnSurface
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -710,19 +709,19 @@ private fun ShipmentRouteTimelineSection(
                         text = "Update 3PL",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1B5E20)
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(
                         imageVector = Icons.Filled.Refresh,
                         contentDescription = "Refresh",
-                        tint = Color(0xFF1B5E20),
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(14.dp)
                     )
                 }
             }
 
-            HorizontalDivider(color = Color(0xFFF0F0F0))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             // Check if there are real carrier_events from 3PL in DB
             if (carrierEvents.isNotEmpty()) {
@@ -785,14 +784,14 @@ private fun TimelineItem(
                 modifier = Modifier
                     .size(16.dp)
                     .clip(CircleShape)
-                    .background(if (isActive) Color(0xFF2E7D32) else Color(0xFFBDBDBD)),
+                    .background(if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
                 contentAlignment = Alignment.Center
             ) {
                 Box(
                     modifier = Modifier
                         .size(6.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(MaterialTheme.colorScheme.surface)
                 )
             }
             if (!isLast) {
@@ -800,7 +799,7 @@ private fun TimelineItem(
                     modifier = Modifier
                         .width(2.dp)
                         .height(44.dp)
-                        .background(Color(0xFFE0E0E0))
+                        .background(MaterialTheme.colorScheme.outlineVariant)
                 )
             }
         }
@@ -817,13 +816,13 @@ private fun TimelineItem(
                     text = title,
                     fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
                     fontSize = 13.sp,
-                    color = if (isActive) Color(0xFF1B5E20) else OnSurface
+                    color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                 )
                 if (time.isNotBlank()) {
                     Text(
                         text = time.take(16).replace("T", " "),
                         fontSize = 10.sp,
-                        color = OnSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -831,7 +830,7 @@ private fun TimelineItem(
             Text(
                 text = subtitle,
                 fontSize = 11.sp,
-                color = OnSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 15.sp
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -852,8 +851,8 @@ private fun ProofOfDeliverySection(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE0E0E0))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -868,7 +867,7 @@ private fun ProofOfDeliverySection(
                     Icon(
                         imageVector = Icons.Filled.Image,
                         contentDescription = null,
-                        tint = if (deliveredProof != null) Color(0xFF1B5E20) else OnSurfaceVariant,
+                        tint = if (deliveredProof != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -876,7 +875,7 @@ private fun ProofOfDeliverySection(
                         text = "Foto Bukti Penerimaan (POD)",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
-                        color = OnSurface
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -884,12 +883,12 @@ private fun ProofOfDeliverySection(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFFE8F5E9))
+                            .background(MaterialTheme.colorScheme.primaryContainer)
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
                             text = "TERVERIFIKASI 3PL",
-                            color = Color(0xFF2E7D32),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                             fontWeight = FontWeight.Bold,
                             fontSize = 10.sp
                         )
@@ -897,7 +896,7 @@ private fun ProofOfDeliverySection(
                 }
             }
 
-            HorizontalDivider(color = Color(0xFFF0F0F0))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             if (deliveredProof?.photoUrl != null) {
                 val photoUrl = deliveredProof.photoUrl
@@ -920,12 +919,12 @@ private fun ProofOfDeliverySection(
                             text = "Penerima: ${order?.recipientName ?: "Sesuai Alamat"}",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            color = OnSurface
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = (deliveredProof.recordedAt ?: "").take(16).replace("T", " "),
                             fontSize = 10.sp,
-                            color = OnSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -934,14 +933,14 @@ private fun ProofOfDeliverySection(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFF5F5F5))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .padding(14.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "Paket telah diterima di tujuan akhir. Menunggu sinkronisasi foto dari kurir 3PL.",
                         fontSize = 12.sp,
-                        color = OnSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
@@ -949,13 +948,13 @@ private fun ProofOfDeliverySection(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFF9F9F9))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .padding(12.dp)
                 ) {
                     Text(
                         text = "Foto bukti serah terima akan otomatis diperbarui di sini setelah kurir 3PL menyelesaikan pengantaran ke tujuan akhir.",
                         fontSize = 11.sp,
-                        color = OnSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 16.sp
                     )
                 }
@@ -971,8 +970,8 @@ private fun HandoverGuidelinesCard(order: TrackingOrder?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE0E0E0))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -982,10 +981,10 @@ private fun HandoverGuidelinesCard(order: TrackingOrder?) {
                 text = "Panduan Penyerahan Paket",
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
-                color = OnSurface
+                color = MaterialTheme.colorScheme.onSurface
             )
 
-            HorizontalDivider(color = Color(0xFFF0F0F0))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             GuidelineStepItem(
                 number = "1",
@@ -1015,12 +1014,12 @@ private fun GuidelineStepItem(number: String, text: String) {
             modifier = Modifier
                 .size(20.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFE8F5E9)),
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = number,
-                color = Color(0xFF2E7D32),
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
                 fontWeight = FontWeight.Bold,
                 fontSize = 11.sp
             )
@@ -1029,7 +1028,7 @@ private fun GuidelineStepItem(number: String, text: String) {
         Text(
             text = text,
             fontSize = 12.sp,
-            color = OnSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             lineHeight = 16.sp,
             modifier = Modifier.weight(1f)
         )

@@ -110,7 +110,7 @@ fun PaymentScreen(
     Scaffold(
         // Figma `TEMBUS - Metode Pembayaran & Dompet` uses the neutral
         // payment canvas (#F7F8F6), distinct from the green Home/parcel shell.
-        containerColor = Color(0xFFF7F8F6),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Pembayaran", fontWeight = FontWeight.Bold) },
@@ -126,7 +126,7 @@ fun PaymentScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color(0xFFF7F8F6))
+                .background(MaterialTheme.colorScheme.background)
         ) {
             if (!isOnline) {
                 CustomerNetworkRecoveryBanner(

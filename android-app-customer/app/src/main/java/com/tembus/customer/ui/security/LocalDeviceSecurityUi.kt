@@ -57,21 +57,21 @@ private val SecureGreen = Color(0xFF07884A)
 
 @Composable
 private fun secureTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color(0xFF17202A),
-    unfocusedTextColor = Color(0xFF17202A),
-    disabledTextColor = Color(0xFF667085),
-    focusedContainerColor = Color.White,
-    unfocusedContainerColor = Color.White,
-    disabledContainerColor = Color(0xFFF5F7FA),
+    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+    disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    focusedContainerColor = MaterialTheme.colorScheme.surface,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
     cursorColor = SecureGreen,
     focusedBorderColor = SecureGreen,
-    unfocusedBorderColor = Color(0xFFDCE3EE),
-    disabledBorderColor = Color(0xFFE5EAF2),
+    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+    disabledBorderColor = MaterialTheme.colorScheme.outlineVariant,
     focusedLabelColor = SecureGreen,
-    unfocusedLabelColor = Color(0xFF667085),
-    disabledLabelColor = Color(0xFF667085),
-    focusedPlaceholderColor = Color(0xFF667085),
-    unfocusedPlaceholderColor = Color(0xFF667085)
+    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
 )
 
 @Composable
@@ -87,7 +87,7 @@ fun LocalSecuritySettingsPanel(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFF)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -112,7 +112,7 @@ fun LocalSecuritySettingsPanel(
                     Text(
                         "PIN dan biometrik diproses lokal di HP ini.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF5D6B82)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Switch(
@@ -130,7 +130,7 @@ fun LocalSecuritySettingsPanel(
                 )
             }
 
-            Divider(color = Color(0xFFE1E7F0))
+            Divider(color = MaterialTheme.colorScheme.outlineVariant)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -143,7 +143,7 @@ fun LocalSecuritySettingsPanel(
                     Text(
                         "Dipakai sebagai fallback saat biometrik tidak tersedia.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF5D6B82)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 OutlinedButton(onClick = { showPinSetup = true }) {
@@ -162,7 +162,7 @@ fun LocalSecuritySettingsPanel(
                     Text(
                         if (settings.biometricSupported) "Sidik jari atau Face Unlock sesuai dukungan perangkat." else "Tambahkan biometric di pengaturan HP untuk mengaktifkan.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF5D6B82)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Switch(

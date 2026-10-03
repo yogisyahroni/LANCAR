@@ -24,10 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.ui.theme.Accent
-import com.tembus.customer.ui.theme.Background
 import com.tembus.customer.ui.theme.Error
-import com.tembus.customer.ui.theme.OnSurface
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.Secondary
@@ -145,7 +142,7 @@ fun OrderDetailScreen(
     }
 
     Scaffold(
-        containerColor = Background,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Detail Pengiriman", fontWeight = FontWeight.Bold) },
@@ -174,7 +171,7 @@ fun OrderDetailScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .background(Background)
+                    .background(MaterialTheme.colorScheme.background)
             ) {
             when (val res = state) {
                 is OrderDetailUiState.Loading -> {
@@ -192,7 +189,7 @@ fun OrderDetailScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text("Detail pesanan belum tersedia", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                        Text(res.message, color = OnSurfaceVariant)
+                            Text(res.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Button(onClick = { viewModel.fetchOrderDetail(orderId) }) { Text("Coba lagi") }
                     }
                 }
@@ -227,11 +224,11 @@ fun OrderDetailScreen(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(TembusRadius.Card),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                             border = BorderStroke(1.dp, Outline)
                         ) {
                             Column(Modifier.padding(20.dp)) {
-                                Text("Rute Pengiriman", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OnSurface)
+                                Text("Rute Pengiriman", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
                                 Spacer(Modifier.height(16.dp))
                                 
                                 RoutePoint(icon = Icons.Default.LocationOn, color = Primary, label = "Penjemputan", value = order.pickupAddress)
@@ -254,20 +251,20 @@ fun OrderDetailScreen(
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(TembusRadius.Card),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF7EF)),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                                 border = BorderStroke(1.dp, Primary.copy(alpha = 0.25f))
                             ) {
                                 Column(Modifier.padding(16.dp)) {
                                     Text("Pickup terjadwal", fontWeight = FontWeight.Bold, color = Primary)
                                     Text(
                                         order.pickupTime.replace('T', ' ').removeSuffix("Z"),
-                                        color = OnSurface,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 14.sp,
                                         modifier = Modifier.padding(top = 4.dp)
                                     )
                                     Text(
                                         "Kurir baru akan dicari saat jadwal pickup dimulai.",
-                                        color = OnSurfaceVariant,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 12.sp,
                                         modifier = Modifier.padding(top = 4.dp)
                                     )
@@ -292,14 +289,14 @@ fun OrderDetailScreen(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(TembusRadius.Card),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                             border = BorderStroke(1.dp, Outline)
                         ) {
                             Column(Modifier.padding(20.dp)) {
-                                Text("Rincian Pembayaran", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OnSurface)
+                                Text("Rincian Pembayaran", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
                                 Spacer(Modifier.height(12.dp))
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Ongkos Kirim", color = OnSurfaceVariant)
+                                    Text("Ongkos Kirim", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text("Rp ${order.fee}", fontWeight = FontWeight.Bold, color = Primary)
                                 }
                             }
@@ -543,8 +540,8 @@ fun RoutePoint(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Col
         }
         Spacer(Modifier.width(16.dp))
         Column {
-            Text(label, color = OnSurfaceVariant, fontSize = 12.sp)
-            Text(value, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = OnSurface)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            Text(value, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }

@@ -69,8 +69,6 @@ import com.tembus.customer.ui.theme.TembusRadius
 import com.tembus.customer.ui.theme.Background
 import com.tembus.customer.ui.theme.CustomerCanvas
 import com.tembus.customer.ui.theme.Error
-import com.tembus.customer.ui.theme.OnSurface
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryLight
@@ -130,7 +128,7 @@ fun OrderHistoryScreen(
     }
 
     Scaffold(
-        containerColor = CustomerCanvas,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             TembusBottomNavigation(
                 items = listOf(
@@ -154,7 +152,7 @@ fun OrderHistoryScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(CustomerCanvas),
+                    .background(MaterialTheme.colorScheme.background),
                 contentPadding = PaddingValues(bottom = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
@@ -209,10 +207,10 @@ fun OrderHistoryScreen(
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = Primary,
                                             selectedLabelColor = Color.White,
-                                            containerColor = Color.White,
+                                            containerColor = MaterialTheme.colorScheme.surface,
                                         ),
                                         border = FilterChipDefaults.filterChipBorder(
-                                            borderColor = Color(0xFFDCE7DF),
+                                            borderColor = MaterialTheme.colorScheme.outlineVariant,
                                             selectedBorderColor = Primary,
                                             enabled = true,
                                             selected = selected,
@@ -341,13 +339,13 @@ private fun ActivityTitleBlock(modifier: Modifier = Modifier) {
             "Aktivitas",
             fontSize = 22.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = OnSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(2.dp))
         Text(
             "Lacak dan kelola pesananmu",
             fontSize = 12.sp,
-            color = OnSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -368,7 +366,7 @@ private fun ActivitySectionHeader(
             fontSize = 13.sp,
             fontWeight = FontWeight.ExtraBold,
             letterSpacing = 0.3.sp,
-            color = OnSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             trailing,
@@ -383,17 +381,17 @@ private fun ActivitySectionHeader(
 private fun ActivityEmptyState(message: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, Color(0xFFE1EAE3)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(Icons.Default.History, contentDescription = null, tint = OnSurfaceVariant, modifier = Modifier.size(30.dp))
+            Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(30.dp))
             Spacer(Modifier.height(8.dp))
-            Text(message, fontSize = 12.sp, color = OnSurfaceVariant)
+            Text(message, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -421,8 +419,8 @@ private fun ActiveActivityCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFDCE7DF)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Box(
@@ -454,7 +452,7 @@ private fun ActiveActivityCard(
             }
             Surface(
                 modifier = Modifier.padding(10.dp),
-                color = Color.White.copy(alpha = 0.94f),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.94f),
                 shape = RoundedCornerShape(999.dp),
             ) {
                 Row(
@@ -474,23 +472,23 @@ private fun ActiveActivityCard(
                         activityServiceLabel(order),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = OnSurface,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         "#${order.orderNumber.ifBlank { order.orderId.takeLast(6) }}",
                         fontSize = 11.sp,
-                        color = OnSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Surface(
-                    color = Color(0xFFE7F5ED),
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     shape = RoundedCornerShape(999.dp),
                 ) {
                     Text(
                         OrderActionPolicy.statusLabel(order.status, order.serviceSubType),
-                        color = Primary,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
@@ -517,7 +515,7 @@ private fun ActiveActivityCard(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFEAF5EE)),
+                        .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center,
                 ) {
                     val courierPhoto = trackingOrder?.courierPhotoUrl
@@ -543,7 +541,7 @@ private fun ActiveActivityCard(
                         courierName ?: "Mencari kurir",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = OnSurface,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -553,7 +551,7 @@ private fun ActiveActivityCard(
                             courierVehicle,
                         ).joinToString("  •  ").ifBlank { "Menunggu penugasan dari mitra" },
                         fontSize = 10.sp,
-                        color = OnSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -566,8 +564,8 @@ private fun ActiveActivityCard(
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Text(order.pickupAddress.ifBlank { "Lokasi penjemputan belum tersedia" }, fontSize = 12.sp, color = OnSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("→ ${order.dropAddress.ifBlank { "Tujuan belum tersedia" }}", fontSize = 12.sp, color = OnSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(order.pickupAddress.ifBlank { "Lokasi penjemputan belum tersedia" }, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("→ ${order.dropAddress.ifBlank { "Tujuan belum tersedia" }}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Button(
@@ -580,10 +578,10 @@ private fun ActiveActivityCard(
                     Text("Lacak Pesanan", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
                 if (canShowContactActions) {
-                    IconButton(onClick = onChatClick, modifier = Modifier.size(40.dp).background(Color(0xFFEAF5EE), CircleShape)) {
+                    IconButton(onClick = onChatClick, modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape)) {
                         Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Buka chat", tint = Primary, modifier = Modifier.size(19.dp))
                     }
-                    IconButton(onClick = onCallClick, modifier = Modifier.size(40.dp).background(Color(0xFFEAF5EE), CircleShape)) {
+                    IconButton(onClick = onCallClick, modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape)) {
                         Icon(Icons.Default.Phone, contentDescription = "Hubungi kurir", tint = Primary, modifier = Modifier.size(19.dp))
                     }
                 }
@@ -595,14 +593,14 @@ private fun ActiveActivityCard(
 @Composable
 private fun ActivityMapUnavailable(modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier.background(Color(0xFFEAF2F0)),
+        modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
             Icon(Icons.Default.LocationOn, contentDescription = null, tint = Primary, modifier = Modifier.size(30.dp))
             Spacer(Modifier.height(5.dp))
-            Text("Lokasi kurir belum tersedia", color = OnSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Text("Menunggu snapshot dari server", color = OnSurfaceVariant, fontSize = 10.sp)
+            Text("Lokasi kurir belum tersedia", color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text("Menunggu snapshot dari server", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
         }
     }
 }
@@ -623,8 +621,8 @@ private fun ActivityHistoryCard(
     Card(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFF0F2EF)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -642,7 +640,7 @@ private fun ActivityHistoryCard(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(if (isFood) Color(0xFFFFF0E9) else Color(0xFFEAF5EE)),
+                            .background(if (isFood) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(serviceIconSpec.icon, contentDescription = serviceIconSpec.label, tint = if (isFood) Color(0xFFE85D04) else Primary, modifier = Modifier.size(24.dp))
@@ -651,14 +649,14 @@ private fun ActivityHistoryCard(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(activityServiceLabel(order), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = OnSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        Text(activityServiceLabel(order), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                         Spacer(Modifier.width(6.dp))
-                        Surface(color = Color(0xFFE8F3EA), shape = RoundedCornerShape(999.dp)) {
-                            Text("#${order.orderNumber.ifBlank { order.orderId.takeLast(6) }}", fontSize = 10.sp, color = Primary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(999.dp)) {
+                            Text("#${order.orderNumber.ifBlank { order.orderId.takeLast(6) }}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
                         }
                     }
                     Spacer(Modifier.height(3.dp))
-                    Text(LocaleFormatters.dateTime(order.createdAt, Locale.getDefault().toLanguageTag()), fontSize = 12.sp, color = OnSurfaceVariant)
+                    Text(LocaleFormatters.dateTime(order.createdAt, Locale.getDefault().toLanguageTag()), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.width(6.dp))
                 Surface(color = statusColor.copy(alpha = 0.10f), shape = RoundedCornerShape(999.dp)) {
@@ -670,17 +668,17 @@ private fun ActivityHistoryCard(
                 }
             }
             Spacer(Modifier.height(14.dp))
-                Surface(color = CustomerCanvas, shape = RoundedCornerShape(20.dp)) {
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(20.dp)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(serviceIconSpec.icon, contentDescription = null, tint = OnSurfaceVariant, modifier = Modifier.size(24.dp))
+                    Icon(serviceIconSpec.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
                         if (isFood && !order.merchantName.isNullOrBlank()) {
-                            Text(order.merchantName!!, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = OnSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(foodSummary(order), fontSize = 12.sp, color = OnSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(order.merchantName!!, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(foodSummary(order), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         } else {
-                            Text(order.pickupAddress.ifBlank { "Lokasi penjemputan belum tersedia" }, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = OnSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${order.dropAddress.ifBlank { "Tujuan belum tersedia" }}", fontSize = 12.sp, color = OnSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(order.pickupAddress.ifBlank { "Lokasi penjemputan belum tersedia" }, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${order.dropAddress.ifBlank { "Tujuan belum tersedia" }}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -688,8 +686,8 @@ private fun ActivityHistoryCard(
             Spacer(Modifier.height(13.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Total Biaya", fontSize = 11.sp, color = OnSurfaceVariant, fontWeight = FontWeight.SemiBold)
-                    Text(formatFee(order.fee), fontSize = 16.sp, color = OnSurface, fontWeight = FontWeight.ExtraBold)
+                    Text("Total Biaya", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+                    Text(formatFee(order.fee), fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.ExtraBold)
                 }
                 if (isFood) {
                     OutlinedButton(onClick = onClick, shape = RoundedCornerShape(999.dp), contentPadding = PaddingValues(horizontal = 14.dp), modifier = Modifier.height(38.dp)) {
@@ -778,19 +776,19 @@ fun OrderCardItem(
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(1.dp),
         border = BorderStroke(1.dp, Outline),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("No. Resi ${order.orderNumber}", fontSize = 12.sp, color = OnSurfaceVariant)
+                Text("No. Resi ${order.orderNumber}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         serviceIconSpec.icon,
                         contentDescription = serviceIconSpec.label,
-                        tint = if (isFood) Primary else OnSurfaceVariant,
+                        tint = if (isFood) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp).padding(end = 2.dp),
                     )
                     Card(
@@ -822,7 +820,7 @@ fun OrderCardItem(
             }
             Spacer(Modifier.height(8.dp))
             if (isFood && order.merchantName != null) {
-                Text(order.merchantName!!, fontWeight = FontWeight.Bold, maxLines = 1, fontSize = 15.sp, color = OnSurface)
+                Text(order.merchantName!!, fontWeight = FontWeight.Bold, maxLines = 1, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                 if (order.foodItems.isNotEmpty()) {
                     val foodSummary = buildString {
                         order.foodItems.take(2).forEachIndexed { index, item ->
@@ -833,7 +831,7 @@ fun OrderCardItem(
                     }
                     Text(
                         foodSummary,
-                        color = OnSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -846,10 +844,10 @@ fun OrderCardItem(
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 fontSize = 15.sp,
-                color = OnSurface
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(2.dp))
-            Text("Tujuan: " + order.dropAddress, color = OnSurfaceVariant, fontSize = 14.sp, maxLines = 1)
+            Text("Tujuan: " + order.dropAddress, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, maxLines = 1)
             
             Divider(Modifier.padding(vertical = 12.dp), thickness = 0.5.dp, color = Outline)
             
@@ -858,7 +856,7 @@ fun OrderCardItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(dateString, fontSize = 12.sp, color = OnSurfaceVariant)
+                Text(dateString, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(formatFee(order.fee), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Primary)
             }
 
@@ -894,7 +892,7 @@ private fun ReorderConfirmDialog(
                 Text(
                     info.merchantName,
                     fontSize = 13.sp,
-                    color = OnSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -932,11 +930,11 @@ private fun ReorderConfirmDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Total saat itu", fontSize = 13.sp, color = OnSurfaceVariant)
+                        Text("Total saat itu", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
                             formatRupiah(info.totalOld),
                             fontSize = 13.sp,
-                            color = OnSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textDecoration = TextDecoration.LineThrough
                         )
                     }
@@ -961,7 +959,7 @@ private fun ReorderConfirmDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = OnSurfaceVariant)
+                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -978,7 +976,7 @@ private fun ReorderItemRow(item: ReorderItem) {
                 "${item.quantity}× ${item.itemName}",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = if (item.available) OnSurface else OnSurfaceVariant,
+                color = if (item.available) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -989,7 +987,7 @@ private fun ReorderItemRow(item: ReorderItem) {
                     Text(
                         formatRupiah(item.oldPrice),
                         fontSize = 12.sp,
-                        color = OnSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textDecoration = TextDecoration.LineThrough
                     )
                     Spacer(Modifier.width(6.dp))
@@ -1001,7 +999,7 @@ private fun ReorderItemRow(item: ReorderItem) {
                     )
                 }
             } else {
-                Text(formatRupiah(item.newPrice), fontSize = 12.sp, color = OnSurfaceVariant)
+                Text(formatRupiah(item.newPrice), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -1020,7 +1018,7 @@ fun EmptyHistoryState(modifier: Modifier) {
     ) {
         Icon(Icons.Default.History, contentDescription = "", modifier = Modifier.size(64.dp), tint = PrimaryLight)
         Spacer(Modifier.height(16.dp))
-        Text("Belum Ada Riwayat", fontWeight = FontWeight.Bold, color = OnSurface)
-        Text("Semua order Anda akan muncul di sini", fontSize = 14.sp, color = OnSurfaceVariant)
+        Text("Belum Ada Riwayat", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        Text("Semua order Anda akan muncul di sini", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

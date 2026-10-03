@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import com.tembus.customer.ui.localization.CustomerText as Text
 import com.tembus.customer.ui.designsystem.service.TembusParcelIdentity
 import com.tembus.customer.ui.designsystem.service.TembusServiceIdentityCard
@@ -25,15 +26,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
-import com.tembus.customer.ui.theme.OnSurface
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryPale
 import com.tembus.customer.ui.theme.TembusRadius
 
-private val Ink = OnSurface
-private val Muted = OnSurfaceVariant
+private val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
+private val Muted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 
 @Composable
 internal fun BookingStepContent(

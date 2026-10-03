@@ -53,7 +53,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.ui.components.CourierPriceCard
 import com.tembus.customer.ui.components.RadarPulseIndicator
 import androidx.compose.ui.graphics.Color
-import com.tembus.customer.ui.theme.CustomerHomeCanvas
 import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.ui.theme.OnBrandHeader
 import com.tembus.customer.ui.theme.PrimarySoft
@@ -110,11 +109,11 @@ fun NearbyCouriersScreen(
 
     val isTowing = serviceSubType.startsWith("towing")
     Scaffold(
-        containerColor = CustomerHomeCanvas,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-                    containerColor = CustomerHomeCanvas,
+                    containerColor = MaterialTheme.colorScheme.background,
                 ),
                 title = {
                     Text("Pilih penawaran", fontWeight = FontWeight.Bold)
@@ -166,7 +165,7 @@ fun NearbyCouriersScreen(
                                 Text("Penawaran terdekat", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                                 Text("Pilih petugas yang paling sesuai untukmu", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
+                            Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(12.dp)) {
                                 Text("${uiState.couriers.size} opsi", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BrandHeader, modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp))
                             }
                         }
@@ -222,7 +221,7 @@ fun NearbyCouriersScreen(
                         }
                     }
                     item {
-                        Surface(color = Color.White, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                        Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                 Text("Penawaran transparan", fontWeight = FontWeight.Bold, color = BrandHeader)
                                 Text("Harga jasa, jarak per km, tol, dan biaya platform berasal dari tarif provider yang dipilih dan dikunci server sebelum pembayaran.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -294,7 +293,7 @@ private fun OfferHero(
 
 @Composable
 private fun StateCard(message: String, isError: Boolean = false) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Text(message, modifier = Modifier.padding(18.dp), color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
     }
 }

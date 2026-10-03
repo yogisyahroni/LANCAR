@@ -81,13 +81,13 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.ui.theme.Primary
 
-private val CallCanvas = Color(0xFFF2FCF3)
-private val CallSurface = Color.White
+private val CallCanvas @Composable get() = MaterialTheme.colorScheme.background
+private val CallSurface @Composable get() = MaterialTheme.colorScheme.surface
 private val CallGreen = Color(0xFF075C2F)
 private val CallGreenSoft = Color(0xFFE8F5EC)
 private val CallOrange = Color(0xFFFF6B00)
-private val CallText = Color(0xFF18231D)
-private val CallMuted = Color(0xFF66736B)
+private val CallText @Composable get() = MaterialTheme.colorScheme.onSurface
+private val CallMuted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 private val CallBorder = Color(0xFFD7E8DC)
 
 enum class InAppCallState {

@@ -51,7 +51,7 @@ import com.tembus.customer.ui.designsystem.TembusBadge
 import com.tembus.customer.ui.designsystem.TembusBadgeTone
 import com.tembus.customer.ui.theme.OrangeCta
 
-private val PaymentCanvas = Color(0xFFF7F8F6)
+private val PaymentCanvas @Composable get() = MaterialTheme.colorScheme.background
 private val WalletGreen = Color(0xFF006640)
 
 /**
@@ -146,7 +146,7 @@ fun PaymentMethodsScreen(
                 Card(
                     onClick = onSecurity,
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(14.dp),
@@ -166,7 +166,7 @@ fun PaymentMethodsScreen(
             item {
                 Card(
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF6EE)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(14.dp),
@@ -175,7 +175,7 @@ fun PaymentMethodsScreen(
                     ) {
                         Icon(Icons.Default.Security, contentDescription = null, tint = WalletGreen, modifier = Modifier.size(22.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text("Pembayaran lebih aman", fontWeight = FontWeight.Bold, color = WalletGreen)
+                            Text("Pembayaran lebih aman", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                             Text(
                                 "Detail saldo dan metode pembayaran mengikuti data server. TEMBUS tidak menyimpan PIN di perangkat.",
                                 fontSize = 12.sp,
@@ -233,13 +233,13 @@ private fun PaymentMethodCard(
     subtitle: String,
     trailing: @Composable () -> Unit,
 ) {
-    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFEAF6EE)) {
+            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer) {
                 Icon(icon, contentDescription = null, tint = WalletGreen, modifier = Modifier.padding(10.dp).size(24.dp))
             }
             Column(Modifier.weight(1f)) {
@@ -257,7 +257,7 @@ private fun EmptyPaymentMethodCard(
     title: String,
     subtitle: String,
 ) {
-    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -279,7 +279,7 @@ private fun PaymentMethodRow(
     title: String,
     status: String,
 ) {
-    Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,

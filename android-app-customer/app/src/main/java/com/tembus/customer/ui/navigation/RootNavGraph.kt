@@ -1164,7 +1164,7 @@ private fun ForegroundNotificationBanner(
                 .fillMaxWidth()
                 .clickable { onOpen(event) },
             shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
         ) {

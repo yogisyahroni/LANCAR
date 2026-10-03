@@ -41,10 +41,12 @@ import com.google.android.gms.location.LocationServices
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.data.model.CustomerAddress
 import com.tembus.customer.data.model.LocationPayload
+import com.tembus.customer.ui.theme.OnOrangeCta
+import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryLight
 
-private val AddressCanvas = Color(0xFFF7F8F6) // Figma: TEMBUS - Alamat Tersimpan
+private val AddressCanvas @Composable get() = MaterialTheme.colorScheme.background // Figma: TEMBUS - Alamat Tersimpan
 
 // C5: Address book multi-alamat (tambah/pilih/edit/hapus)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -106,7 +108,7 @@ fun AddressBookScreen(
                     onClick = { showAddDialog = true },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                     shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7800), contentColor = Color.White),
+                    colors = ButtonDefaults.buttonColors(containerColor = OrangeCta, contentColor = OnOrangeCta),
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
@@ -130,10 +132,10 @@ fun AddressBookScreen(
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 shape = RoundedCornerShape(22.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                     focusedBorderColor = Primary,
-                    unfocusedBorderColor = Color(0xFFDCE7DF),
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                 ),
             )
             Row(
@@ -148,7 +150,7 @@ fun AddressBookScreen(
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Primary,
                             selectedLabelColor = Color.White,
-                            containerColor = Color.White,
+                            containerColor = MaterialTheme.colorScheme.surface,
                         ),
                     )
                 }
@@ -254,7 +256,7 @@ private fun AddressCard(
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {

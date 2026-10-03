@@ -105,7 +105,7 @@ import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 
-private val AccountCanvas = Color(0xFFF2FCF3) // Figma: TEMBUS - Akun Pengguna
+private val AccountCanvas @Composable get() = MaterialTheme.colorScheme.background // Figma: TEMBUS - Akun Pengguna
 
 
 @Composable
@@ -472,9 +472,9 @@ private fun MembershipSummaryCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8EA)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, Color(0xFFF0D9A7)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.45f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
@@ -485,26 +485,26 @@ private fun MembershipSummaryCard(
                 modifier = Modifier
                     .size(34.dp)
                     .clip(RoundedCornerShape(11.dp))
-                    .background(Color(0xFFFFE8B3)),
+                    .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f)),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFB7791F), modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, fontSize = 12.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
-                Text(detail, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, fontSize = 12.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                Text(detail, fontSize = 9.sp, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.82f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (info != null && info.nextTier != null) {
                     LinearProgressIndicator(
                         progress = { info.progressPct.coerceIn(0, 100) / 100f },
                         modifier = Modifier.fillMaxWidth().height(5.dp).clip(CircleShape),
-                        color = Color(0xFFD39B2A),
-                        trackColor = Color(0xFFF2E2BE),
+                        color = MaterialTheme.colorScheme.tertiary,
+                        trackColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f),
                     )
                 }
             }
             Spacer(Modifier.width(8.dp))
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF9A7428), modifier = Modifier.size(19.dp))
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(19.dp))
         }
     }
 }
@@ -595,16 +595,16 @@ private fun AccountChromeHeader() {
     ) {
         Text(
             text = "TEMBUS",
-            color = Color(0xFF005E3D),
+            color = MaterialTheme.colorScheme.primary,
             fontSize = 16.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 0.3.sp,
         )
         Spacer(Modifier.width(8.dp))
         Surface(
-            color = Color(0xFFFFF7F1),
+            color = MaterialTheme.colorScheme.tertiaryContainer,
             shape = RoundedCornerShape(999.dp),
-            border = BorderStroke(1.dp, Color(0xFFFF7800).copy(alpha = 0.28f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f)),
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -613,11 +613,11 @@ private fun AccountChromeHeader() {
                 Icon(
                     Icons.Default.LocationOn,
                     contentDescription = null,
-                    tint = Color(0xFFFF7800),
+                    tint = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.size(12.dp),
                 )
                 Spacer(Modifier.width(3.dp))
-                Text("Pilih area", color = MaterialTheme.colorScheme.onSurface, fontSize = 10.sp)
+                Text("Pilih area", color = MaterialTheme.colorScheme.onTertiaryContainer, fontSize = 10.sp)
             }
         }
     }

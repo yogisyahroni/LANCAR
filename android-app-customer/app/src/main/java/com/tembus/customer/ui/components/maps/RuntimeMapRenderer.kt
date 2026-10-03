@@ -431,7 +431,7 @@ private fun OpenStreetMapTileRenderer(
             text = attribution,
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .background(Color.White.copy(alpha = 0.82f))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.90f))
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.labelSmall
@@ -519,7 +519,7 @@ private fun BoxScope.MapStatusCard(statusMessage: String) {
             .padding(14.dp)
             .fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Text(
@@ -527,7 +527,7 @@ private fun BoxScope.MapStatusCard(statusMessage: String) {
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF0B3D2E)
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -541,7 +541,7 @@ private fun RuntimeMapFallback(
 ) {
     val context = LocalContext.current
     Box(
-        modifier = modifier.background(Color(0xFFEFF6FF)),
+        modifier = modifier.background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         Card(
@@ -549,10 +549,10 @@ private fun RuntimeMapFallback(
                 .padding(20.dp)
                 .fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
-                Text(title, fontWeight = FontWeight.Bold, color = Color(0xFF0B3D2E))
+                Text(title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(12.dp))
@@ -581,16 +581,16 @@ private fun RuntimeMapUnavailable(
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier.background(Color(0xFFEFF6FF)),
+        modifier = modifier.background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center,
     ) {
         Card(
             modifier = Modifier.padding(20.dp).fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
-                Text(title, fontWeight = FontWeight.Bold, color = Color(0xFF0B3D2E))
+                Text(title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
             }

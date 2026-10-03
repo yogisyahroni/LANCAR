@@ -52,7 +52,7 @@ private fun RuntimeMapFallback(
 ) {
     Box(
         modifier = modifier
-            .background(Color(0xFFEFF6FF)),
+            .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center
     ) {
         Card(
@@ -60,7 +60,7 @@ private fun RuntimeMapFallback(
                 .padding(24.dp)
                 .fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
                 modifier = Modifier.padding(22.dp),
@@ -70,7 +70,7 @@ private fun RuntimeMapFallback(
                     text = if (provider == "openstreetmap") "Peta OpenStreetMap aktif" else "Mode peta teks aktif",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = Color(0xFF0B3D2E)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -95,12 +95,12 @@ private fun RuntimeMapFallback(
                 if (!reason.isNullOrBlank()) {
                     Text(
                         text = reason.replace("_", " "),
-                        color = Color(0xFF92400E),
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
                         fontSize = 12.sp,
                         modifier = Modifier
                             .padding(top = 14.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFFFFFBEB))
+                            .background(MaterialTheme.colorScheme.tertiaryContainer)
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }
@@ -131,7 +131,7 @@ fun CourierStatusCard(
             .fillMaxWidth()
             .shadow(24.dp, RoundedCornerShape(24.dp)),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -220,7 +220,7 @@ fun CourierStatusCard(
                             modifier = Modifier
                                 .size(46.dp)
                                 .clip(CircleShape)
-                                .background(Color.White.copy(alpha = .72f)),
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = .72f)),
                             contentAlignment = Alignment.Center,
                         ) {
                             RadarPulseIndicator(
@@ -262,13 +262,13 @@ fun CourierStatusCard(
             staleTrackingReason?.let { reason ->
                 Text(
                     text = "${trackingFreshnessLabel(lastLiveTrackingAt)}. $reason",
-                    color = Color(0xFF92400E),
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
                         .padding(top = 10.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFFFFBEB))
+                        .background(MaterialTheme.colorScheme.tertiaryContainer)
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 )
             }
@@ -285,7 +285,7 @@ fun CourierStatusCard(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFE0E0E0)),
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!order?.courierPhotoUrl.isNullOrBlank() && authToken != null) {
@@ -309,7 +309,7 @@ fun CourierStatusCard(
                                 name.take(2).uppercase()
                             }
                         }
-                        Text(initials, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+                        Text(initials, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
@@ -334,7 +334,7 @@ fun CourierStatusCard(
                         } else {
                             "Menunggu petugas menerima order"
                         },
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
                     )
                 }
@@ -349,13 +349,13 @@ fun CourierStatusCard(
                             modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).criticalAction("Telepon kurir"),
                             shape = CircleShape,
                             colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = Color(0xFFF2F2F7)
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
                             )
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Call,
                                 contentDescription = CustomerTextCatalog.translate("Panggil"),
-                                tint = Color.DarkGray,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -400,7 +400,10 @@ fun CourierStatusCard(
                         .height(48.dp)
                         .criticalAction("Beri tip kurir"),
                     shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFF4E5))
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
                 ) {
                     Icon(
                         imageVector = Icons.Default.VolunteerActivism,
@@ -452,7 +455,7 @@ private fun PackageSection(detail: OrderTrackingDetail) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFF7FAFC))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(14.dp)
     ) {
         Text("Rincian paket", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
@@ -467,7 +470,7 @@ private fun PackageSection(detail: OrderTrackingDetail) {
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = if (podDone) Primary.copy(alpha = 0.12f) else Color.White
+                    color = if (podDone) Primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
                 ) {
                     Text(
                         text = "${item.packageIndex ?: index + 1}",
@@ -491,7 +494,7 @@ private fun PackageSection(detail: OrderTrackingDetail) {
                         item.weightKg?.takeIf { it > 0.0 }?.let { add("${it} kg") }
                     }.joinToString(" • ")
                     if (meta.isNotBlank()) {
-                        Text(meta, color = Color.Gray, fontSize = 12.sp)
+                        Text(meta, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     }
                     Text(
                         text = buildList {
@@ -499,14 +502,14 @@ private fun PackageSection(detail: OrderTrackingDetail) {
                             add(if (photoDone) "Foto pickup OK" else "Foto pickup belum")
                             add(if (podDone) "POD OK" else "POD belum")
                         }.joinToString(" • "),
-                        color = if (podDone) Primary else Color.Gray,
+                        color = if (podDone) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                 }
             }
             if (index != detail.packages.lastIndex) {
                 Spacer(modifier = Modifier.height(10.dp))
-                HorizontalDivider(color = Color(0xFFE8ECEF))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(modifier = Modifier.height(10.dp))
             }
         }
@@ -571,7 +574,7 @@ private fun TrackingTimeline(detail: OrderTrackingDetail) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFF7FAFC))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(14.dp)
     ) {
         Text(copy.timelineTitle, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
@@ -581,15 +584,15 @@ private fun TrackingTimeline(detail: OrderTrackingDetail) {
                 Icon(
                     imageVector = if (step.done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                     contentDescription = "",
-                    tint = if (step.done) Primary else Color.Gray,
+                    tint = if (step.done) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(step.label, fontWeight = FontWeight.SemiBold, color = if (step.done) Color(0xFF0B3D2E) else Color.Gray)
+                    Text(step.label, fontWeight = FontWeight.SemiBold, color = if (step.done) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
                     val event = detail.events.lastOrNull { event -> eventMatchesStep(event.eventType, step.key) }
                     if (event?.createdAt != null) {
-                        Text(formatTrackingDate(event.createdAt), color = Color.Gray, fontSize = 12.sp)
+                        Text(formatTrackingDate(event.createdAt), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     }
                 }
             }
@@ -645,13 +648,13 @@ private fun ProofSection(detail: OrderTrackingDetail) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFFFFBF5))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Image, contentDescription = "", tint = Color(0xFFFF6B00), modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.Image, contentDescription = "", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(copy.proofSectionTitle, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0B3D2E))
+            Text(copy.proofSectionTitle, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
         }
         Spacer(modifier = Modifier.height(12.dp))
         val context = LocalContext.current
@@ -689,12 +692,12 @@ private fun CancellationProofCard(proof: com.tembus.customer.data.model.Tracking
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFFFFF1F1))
+            .background(MaterialTheme.colorScheme.errorContainer)
             .padding(12.dp)
     ) {
-        Text(title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFFB42318))
+        Text(title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onErrorContainer)
         Spacer(modifier = Modifier.height(4.dp))
-        Text(reasonText, fontSize = 13.sp, color = Color(0xFF5F1D1B))
+        Text(reasonText, fontSize = 13.sp, color = MaterialTheme.colorScheme.onErrorContainer)
         Spacer(modifier = Modifier.height(10.dp))
         ProofImage(title = "Foto bukti pembatalan", url = absoluteUploadUrl(proof.photoUrl), authToken = authToken)
     }
@@ -720,7 +723,7 @@ private fun ProofImage(title: String, url: String, authToken: String?) {
                 .fillMaxWidth()
                 .height(150.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFFEDEFF2))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         )
     }
 }
@@ -765,7 +768,7 @@ internal fun SearchTimeoutSheet(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(
@@ -779,7 +782,7 @@ internal fun SearchTimeoutSheet(
             }
             Text(
                 "Kami belum menemukan kurir di sekitar lokasi kamu. Pilih opsi di bawah:",
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp
             )
 

@@ -72,15 +72,13 @@ import com.tembus.customer.ui.components.maps.RuntimeMapMarker
 import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 import com.tembus.customer.ui.theme.BrandHeader
-import com.tembus.customer.ui.theme.CustomerHomeCanvas
 import com.tembus.customer.ui.theme.OnBrandHeader
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.OrangeCta
 
-private val TrackingCanvas = CustomerHomeCanvas
+private val TrackingCanvas @Composable get() = MaterialTheme.colorScheme.background
 private val TrackingGreen = BrandHeader
-private val TrackingSoftGreen = Color(0xFFEAF4ED)
-private val TrackingOrangeSoft = Color(0xFFFFF0E4)
+private val TrackingSoftGreen @Composable get() = MaterialTheme.colorScheme.primaryContainer
+private val TrackingOrangeSoft @Composable get() = MaterialTheme.colorScheme.tertiaryContainer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,7 +136,7 @@ fun ServiceTrackingScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Text(formatServiceName(serviceSubType), fontSize = 11.sp, color = OnSurfaceVariant)
+                        Text(formatServiceName(serviceSubType), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 navigationIcon = {
@@ -239,10 +237,10 @@ fun ServiceTrackingScreen(
                 }
 
                 if (uiState.noSupply) {
-                    Surface(color = Color.White, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                         Text(
                             "Belum ada petugas yang dapat menerima layanan di lokasi ini. Coba lagi setelah kondisi berubah atau kembali untuk memilih layanan lain.",
-                            color = OnSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp,
                             modifier = Modifier.padding(14.dp),
                         )
@@ -250,7 +248,7 @@ fun ServiceTrackingScreen(
                 }
 
                 uiState.error?.let { error ->
-                    Surface(color = Color(0xFFFFECEB), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                    Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(error, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                             OutlinedButton(onClick = { viewModel.startTracking(orderId, serviceSubType) }, shape = RoundedCornerShape(12.dp)) {
@@ -295,7 +293,7 @@ private fun SearchingServiceCard(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.76f)),
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.76f)),
                 contentAlignment = Alignment.Center,
             ) {
                 RadarPulseIndicator(active = true, size = 30.dp, dotSize = 8.dp)
@@ -310,12 +308,12 @@ private fun SearchingServiceCard(
                 )
                 Text(
                     "Radar aktif — petugas akan tampil setelah menerima order.",
-                    color = OnSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                 )
                 Text(
                     searchTimeoutLabel(remainingSeconds, timeoutMinutes),
-                    color = OnSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
                 )
             }
@@ -334,7 +332,7 @@ private fun ServiceMapCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -346,7 +344,7 @@ private fun ServiceMapCard(
                     modifier = Modifier.weight(1f),
                 )
                 if (!hasAssignedProvider) {
-                    Text("Menunggu petugas", fontSize = 10.sp, color = OnSurfaceVariant)
+                    Text("Menunggu petugas", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Box(
@@ -422,7 +420,7 @@ private fun TrackingHero(
                     Text("${if (isTowing) "Towing" else "Tambal ban"} sedang diproses", color = OnBrandHeader, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
                 }
                 Surface(color = if (isStale) TrackingOrangeSoft else Color(0xFF1B6548), shape = RoundedCornerShape(20.dp)) {
-                    Text(if (isStale) "TERAKHIR" else "LIVE", color = if (isStale) Color(0xFF8A4300) else Color(0xFFDBF6DF), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp))
+                    Text(if (isStale) "TERAKHIR" else "LIVE", color = if (isStale) MaterialTheme.colorScheme.onTertiaryContainer else Color(0xFFDBF6DF), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp))
                 }
             }
             Text(displayStatusText ?: if (isLoading) "Mengambil status terbaru…" else "Status layanan belum tersedia", color = OnBrandHeader.copy(alpha = .82f), fontSize = 13.sp)
@@ -448,24 +446,24 @@ private fun TrackingHero(
 
 @Composable
 private fun LoadingCard() {
-    Surface(color = Color.White, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp, color = TrackingGreen)
             Spacer(Modifier.width(10.dp))
-            Text("Mengambil status terbaru…", fontSize = 13.sp, color = OnSurfaceVariant)
+            Text("Mengambil status terbaru…", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
 private fun ProgressCard(steps: List<String>, currentStep: Int) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Route, contentDescription = null, tint = TrackingGreen, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Perjalanan layanan", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text("${(currentStep + 1).coerceIn(1, steps.size)}/${steps.size}", fontSize = 11.sp, color = OnSurfaceVariant)
+                Text("${(currentStep + 1).coerceIn(1, steps.size)}/${steps.size}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             ServiceProgressBar(steps = steps, currentStep = currentStep)
         }
@@ -481,15 +479,15 @@ private fun CourierTrackingCard(
     onChatClick: () -> Unit,
     onCallClick: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Petugas terpilih", fontSize = 12.sp, color = OnSurfaceVariant)
+            Text("Petugas terpilih", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Avatar(photoUrl = photoUrl, name = name, size = 56.dp)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(name, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Text(vehicle?.takeIf { it.isNotBlank() } ?: "Kendaraan belum terisi", fontSize = 12.sp, color = OnSurfaceVariant)
+                    Text(vehicle?.takeIf { it.isNotBlank() } ?: "Kendaraan belum terisi", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     plate?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 12.sp, color = TrackingGreen, fontWeight = FontWeight.Bold) }
                 }
                 Icon(Icons.Default.CheckCircle, contentDescription = null, tint = TrackingGreen, modifier = Modifier.size(22.dp))
@@ -518,7 +516,7 @@ private fun RouteCard(
     distanceMeters: Int?,
     durationSeconds: Int?,
 ) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.LocationOn, contentDescription = null, tint = TrackingGreen, modifier = Modifier.size(20.dp))
@@ -528,7 +526,7 @@ private fun RouteCard(
                     distanceMeters?.takeIf { it > 0 }?.let { formatDistance(it) },
                     durationSeconds?.takeIf { it > 0 }?.let { formatDuration(it) },
                 ).joinToString(" • ")
-                if (routeMeta.isNotBlank()) Text(routeMeta, fontSize = 11.sp, color = OnSurfaceVariant)
+                if (routeMeta.isNotBlank()) Text(routeMeta, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             AddressRow(label = "Lokasi kendaraan", value = pickupAddress, isStart = true)
             AddressRow(label = "Tujuan layanan", value = dropoffAddress, isStart = false)
@@ -545,8 +543,8 @@ private fun AddressRow(label: String, value: String?, isStart: Boolean) {
         }
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
-            Text(label, fontSize = 10.sp, color = OnSurfaceVariant)
-            Text(value?.takeIf { it.isNotBlank() } ?: "Alamat belum tersedia dari server", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (value.isNullOrBlank()) OnSurfaceVariant else MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value?.takeIf { it.isNotBlank() } ?: "Alamat belum tersedia dari server", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (value.isNullOrBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -562,15 +560,16 @@ private fun PaymentCard(
     if (!visible) return
     val hasPaymentData = totalPriceIdr != null || !paymentStatus.isNullOrBlank() || !paymentMethod.isNullOrBlank()
     if (!hasPaymentData) return
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Wallet, contentDescription = null, tint = TrackingGreen, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Pembayaran", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 paymentStatus?.takeIf { it.isNotBlank() }?.let { status ->
-                    Surface(color = if (status.equals("paid", true) || status.equals("success", true)) Color(0xFFEAF4ED) else TrackingOrangeSoft, shape = RoundedCornerShape(10.dp)) {
-                        Text(status.replace('_', ' '), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TrackingGreen, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
+                    val statusIsPaid = status.equals("paid", true) || status.equals("success", true)
+                    Surface(color = if (statusIsPaid) MaterialTheme.colorScheme.primaryContainer else TrackingOrangeSoft, shape = RoundedCornerShape(10.dp)) {
+                        Text(status.replace('_', ' '), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (statusIsPaid) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
                     }
                 }
             }
@@ -586,10 +585,10 @@ private fun PaymentCard(
                 if (breakdown.tollCostIdr > 0) PriceLine("Tol", breakdown.tollCostIdr)
                 PriceLine("Biaya layanan platform", platformFee)
             }
-            paymentMethod?.takeIf { it.isNotBlank() }?.let { Text("Metode: ${it.replace('_', ' ')}", fontSize = 12.sp, color = OnSurfaceVariant) }
+            paymentMethod?.takeIf { it.isNotBlank() }?.let { Text("Metode: ${it.replace('_', ' ')}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Security, contentDescription = null, tint = TrackingGreen, modifier = Modifier.size(15.dp))
-                Text("Rincian mengikuti invoice dan status pembayaran dari server", fontSize = 11.sp, color = OnSurfaceVariant)
+                Text("Rincian mengikuti invoice dan status pembayaran dari server", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -602,7 +601,7 @@ private fun PriceLine(label: String, amount: Long) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, fontSize = 12.sp, color = OnSurfaceVariant)
+        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("Rp ${formatRupiah(amount)}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
 }

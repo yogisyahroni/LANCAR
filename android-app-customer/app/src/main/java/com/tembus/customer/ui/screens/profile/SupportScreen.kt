@@ -43,6 +43,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -59,7 +60,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -68,14 +68,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.data.model.Order
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 
-private val SupportCanvas = Color(0xFFF7F8F6)
-private val SupportSurface = Color.White
-private val SupportGreen = Color(0xFF075C2F)
-private val SupportGreenSoft = Color(0xFFE8F5EC)
-private val SupportOrange = Color(0xFFFF6B00)
-private val SupportText = Color(0xFF18231D)
-private val SupportMuted = Color(0xFF66736B)
-private val SupportBorder = Color(0xFFD7E8DC)
+private val SupportCanvas @Composable get() = MaterialTheme.colorScheme.background
+private val SupportSurface @Composable get() = MaterialTheme.colorScheme.surface
+private val SupportGreen @Composable get() = MaterialTheme.colorScheme.primary
+private val SupportGreenSoft @Composable get() = MaterialTheme.colorScheme.primaryContainer
+private val SupportOrange @Composable get() = MaterialTheme.colorScheme.tertiary
+private val SupportText @Composable get() = MaterialTheme.colorScheme.onSurface
+private val SupportMuted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
+private val SupportBorder @Composable get() = MaterialTheme.colorScheme.outline
 
 private data class SupportTopic(
     val title: String,
@@ -267,18 +267,18 @@ private fun SupportEscalationCard(context: Context) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(color = SupportOrange, shape = RoundedCornerShape(9.dp)) {
-                    Text("SIAGA 24 JAM", color = Color.White, fontWeight = FontWeight.Black, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp))
+                Text("SIAGA 24 JAM", color = MaterialTheme.colorScheme.onTertiary, fontWeight = FontWeight.Black, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp))
                 }
                 Spacer(Modifier.weight(1f))
-                Icon(Icons.Default.SupportAgent, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.SupportAgent, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(22.dp))
             }
-            Text("Butuh bantuan sekarang?", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 19.sp, modifier = Modifier.padding(top = 12.dp))
-            Text("Gunakan kanal resmi agar konteks bantuan tetap tercatat dan nomor pribadi tidak dibagikan.", color = Color.White.copy(alpha = 0.82f), fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
-            Button(onClick = { openSupportChannel(context, "Live Chat CS") }, modifier = Modifier.fillMaxWidth().padding(top = 13.dp), colors = ButtonDefaults.buttonColors(containerColor = SupportOrange, contentColor = Color.White), shape = RoundedCornerShape(13.dp)) {
+            Text("Butuh bantuan sekarang?", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, fontSize = 19.sp, modifier = Modifier.padding(top = 12.dp))
+            Text("Gunakan kanal resmi agar konteks bantuan tetap tercatat dan nomor pribadi tidak dibagikan.", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f), fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
+            Button(onClick = { openSupportChannel(context, "Live Chat CS") }, modifier = Modifier.fillMaxWidth().padding(top = 13.dp), colors = ButtonDefaults.buttonColors(containerColor = SupportOrange, contentColor = MaterialTheme.colorScheme.onTertiary), shape = RoundedCornerShape(13.dp)) {
                 Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(18.dp))
                 Text("Live Chat CS", fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 7.dp))
             }
-            OutlinedButton(onClick = { openEmail(context) }, modifier = Modifier.fillMaxWidth().padding(top = 7.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)), shape = RoundedCornerShape(13.dp)) {
+            OutlinedButton(onClick = { openEmail(context) }, modifier = Modifier.fillMaxWidth().padding(top = 7.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onPrimary), border = BorderStroke(1.dp, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.5f)), shape = RoundedCornerShape(13.dp)) {
                 Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(18.dp))
                 Text("Kirim Email", fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 7.dp))
             }

@@ -71,15 +71,13 @@ import com.tembus.customer.data.model.NotificationData
 import com.tembus.customer.ui.components.getTembusServiceIconSpec
 import com.tembus.customer.ui.designsystem.TembusBottomNavigation
 import com.tembus.customer.ui.designsystem.TembusNavigationItem
-import com.tembus.customer.ui.theme.OnSurface
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryDark
 import com.tembus.customer.ui.theme.Secondary
 
 private val PromoOrange = Color(0xFFF97316) // palet TEMBUS 2026
-private val NotificationCanvas = Color(0xFFF2FCF3) // Figma: TEMBUS - Notifikasi
+private val NotificationCanvas @Composable get() = MaterialTheme.colorScheme.background // Figma: TEMBUS - Notifikasi
 
 private data class NotificationCategoryTab(
     val key: String?,
@@ -127,11 +125,11 @@ fun NotificationCenterScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("Notifikasi", fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, color = OnSurface)
+                    Text("Notifikasi", fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, color = MaterialTheme.colorScheme.onSurface)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"), tint = OnSurface)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"), tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
                 actions = {
@@ -310,7 +308,7 @@ private fun NotificationRow(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             notification.title,
-                            color = OnSurface,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.ExtraBold,
                             maxLines = 1,
@@ -329,7 +327,7 @@ private fun NotificationRow(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         notification.body,
-                        color = OnSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
                         lineHeight = 15.sp,
                         maxLines = 2,
@@ -353,10 +351,10 @@ private fun NotificationRow(
                     NotificationPill(label = "Chat", color = Secondary, icon = Icons.Default.ChatBubbleOutline)
                     Spacer(Modifier.width(8.dp))
                 }
-                Text(formatNotificationDate(notification.createdAt), color = OnSurfaceVariant, fontSize = 11.sp)
+                Text(formatNotificationDate(notification.createdAt), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = onArchive, modifier = Modifier.sizeIn(minWidth = 40.dp, minHeight = 40.dp)) {
-                    Icon(Icons.Default.DeleteOutline, contentDescription = CustomerTextCatalog.translate("Arsipkan"), tint = OnSurfaceVariant, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.DeleteOutline, contentDescription = CustomerTextCatalog.translate("Arsipkan"), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -460,9 +458,9 @@ private fun NotificationErrorState(message: String, onRetry: () -> Unit) {
             modifier = Modifier.padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Notifikasi belum tersinkron", color = OnSurface, fontWeight = FontWeight.Black, fontSize = 20.sp)
+            Text("Notifikasi belum tersinkron", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black, fontSize = 20.sp)
             Spacer(Modifier.height(6.dp))
-            Text(message, color = OnSurfaceVariant, fontSize = 13.sp)
+            Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
             Spacer(Modifier.height(16.dp))
             Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = Primary)) {
                 Text("Coba Lagi", fontWeight = FontWeight.ExtraBold)

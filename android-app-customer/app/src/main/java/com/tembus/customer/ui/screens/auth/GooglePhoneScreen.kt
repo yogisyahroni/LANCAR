@@ -45,16 +45,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentLight
-import com.tembus.customer.ui.theme.OnSurface
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryDark
 import com.tembus.customer.ui.theme.SurfaceVariant
 import com.tembus.customer.ui.theme.TextDisabled
 
-private val InkG = OnSurface
-private val MutedG = OnSurfaceVariant
+private val InkG @Composable get() = MaterialTheme.colorScheme.onSurface
+private val MutedG @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 private val LineG = Outline
 
 /**
@@ -99,7 +97,7 @@ fun GooglePhoneScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = Color.White
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -218,8 +216,8 @@ fun GooglePhoneScreen(
                                 focusedTextColor = InkG,
                                 unfocusedTextColor = InkG,
                                 cursorColor = Primary,
-                                focusedContainerColor = Color.White,
-                                unfocusedContainerColor = Color.White
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
                             )
                         )
                     }

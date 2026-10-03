@@ -77,7 +77,7 @@ fun CompleteProfileScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = Color(0xFFF4F8FB)
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -91,7 +91,7 @@ fun CompleteProfileScreen(
                     text = "Lengkapi profil",
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Black,
-                    color = Color(0xFF17212B)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "Satu langkah lagi sebelum kamu mulai membuat pengiriman.",
@@ -104,7 +104,7 @@ fun CompleteProfileScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
@@ -112,7 +112,7 @@ fun CompleteProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Surface(
-                        color = Color(0xFFEAF4FF),
+                        color = MaterialTheme.colorScheme.primaryContainer,
                         shape = RoundedCornerShape(18.dp)
                     ) {
                         Row(
@@ -133,7 +133,7 @@ fun CompleteProfileScreen(
                                     text = "Akun baru terdeteksi",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Black,
-                                    color = Color(0xFF17212B)
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = "Nama ini akan tampil di pesanan dan riwayat transaksi.",
@@ -160,18 +160,18 @@ fun CompleteProfileScreen(
                         ),
                         shape = RoundedCornerShape(16.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color(0xFF111827),
-                            unfocusedTextColor = Color(0xFF111827),
-                            disabledTextColor = Color(0xFF667085),
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            disabledContainerColor = Color(0xFFF5F7FA),
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                             focusedBorderColor = Primary,
-                            unfocusedBorderColor = Color(0xFFE1E7EF),
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                             focusedLabelColor = Primary,
-                            unfocusedLabelColor = Color(0xFF667085),
-                            focusedPlaceholderColor = Color(0xFF667085),
-                            unfocusedPlaceholderColor = Color(0xFF667085),
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             cursorColor = Primary
                         )
                     )
@@ -204,8 +204,8 @@ fun CompleteProfileScreen(
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Primary,
-                            disabledContainerColor = Color(0xFFE2E8F0),
-                            disabledContentColor = Color(0xFF94A3B8)
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     ) {
                         if (isLoading) {
@@ -230,9 +230,9 @@ fun CompleteProfileScreen(
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, Color(0xFFE1E7EF))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -261,7 +261,7 @@ private fun TrustRow(text: String) {
         )
         Text(
             text = text,
-            color = Color(0xFF475467),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp,
             lineHeight = 18.sp
         )

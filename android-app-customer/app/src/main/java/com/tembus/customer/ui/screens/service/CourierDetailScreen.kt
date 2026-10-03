@@ -62,11 +62,11 @@ import com.tembus.customer.ui.localization.CustomerTextCatalog
 import com.tembus.customer.ui.theme.OnOrangeCta
 import com.tembus.customer.ui.theme.OrangeCta
 
-private val ProfileCanvas = Color(0xFFF7F8F6)
-private val ProfileGreen = Color(0xFF003A20)
-private val ProfileGreenText = Color(0xFF07522F)
-private val ProfileSoft = Color(0xFFECF6ED)
-private val ProfileMuted = Color(0xFF69736C)
+private val ProfileCanvas @Composable get() = MaterialTheme.colorScheme.background
+private val ProfileGreen @Composable get() = MaterialTheme.colorScheme.primary
+private val ProfileGreenText @Composable get() = MaterialTheme.colorScheme.primary
+private val ProfileSoft @Composable get() = MaterialTheme.colorScheme.primaryContainer
+private val ProfileMuted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -155,7 +155,7 @@ private fun CourierProfileContent(
             }
         }
 
-        Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(32.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+        Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(32.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Top) {
                     CourierAvatar(detail.courierName, detail.photoUrl)
@@ -205,7 +205,7 @@ private fun CourierProfileContent(
         }
 
         Text("Peralatan & kapabilitas layanan", fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
-        Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(24.dp)) {
+        Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(24.dp)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 CapabilityRow(Icons.Default.Bolt, serviceLabel(serviceSubType), "Harga dan ketersediaan berasal dari server")
                 CapabilityRow(Icons.Default.LocationOn, "Radius layanan ${detail.radiusMaxKm.coerceAtLeast(0)} km", if (detail.distanceKm > 0) "${formatOneDecimal(detail.distanceKm)} km dari lokasi Anda" else "Jarak belum tersedia")
@@ -215,14 +215,14 @@ private fun CourierProfileContent(
 
         Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), colors = CardDefaults.cardColors(containerColor = ProfileGreen), shape = RoundedCornerShape(24.dp)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Tarif dari server", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                Text(if (detail.courierServicePrice > 0) "Rp ${formatRupiah(detail.courierServicePrice)}" else "Menunggu quote server", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                Text("Harga jasa, jarak per km, tol, dan biaya platform tampil dari tarif provider sebelum penawaran dikunci.", color = Color(0xFFD7E8DB), fontSize = 11.sp)
+                Text("Tarif layanan", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                Text(if (detail.courierServicePrice > 0) "Rp ${formatRupiah(detail.courierServicePrice)}" else "Menunggu tarif", color = MaterialTheme.colorScheme.onPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text("Harga jasa, jarak per km, tol, dan biaya platform tampil sebelum penawaran dikunci.", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f), fontSize = 11.sp)
             }
         }
 
         if (detail.ratingCount == 0) {
-            Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp), color = Color.White, shape = RoundedCornerShape(24.dp), shadowElevation = 1.dp) {
+            Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(24.dp), shadowElevation = 1.dp) {
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Star, contentDescription = null, tint = OrangeCta, modifier = Modifier.size(22.dp))
                     Column(Modifier.weight(1f)) {
@@ -234,7 +234,7 @@ private fun CourierProfileContent(
         }
     }
 
-    Surface(color = Color.White.copy(alpha = 0.96f), shadowElevation = 10.dp, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+    Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f), shadowElevation = 10.dp, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Column(Modifier.padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SmallAction(Icons.Default.ChatBubbleOutline, "Chat", Modifier.weight(1f))

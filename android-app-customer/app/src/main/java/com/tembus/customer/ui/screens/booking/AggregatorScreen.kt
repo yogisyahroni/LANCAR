@@ -100,10 +100,7 @@ import com.tembus.customer.ui.designsystem.TembusAppBar
 import com.tembus.customer.ui.localization.CustomerText as Text
 import com.tembus.customer.ui.theme.AccentSoft
 import com.tembus.customer.ui.theme.Background
-import com.tembus.customer.ui.theme.CustomerHomeCanvas
 import com.tembus.customer.ui.theme.OnOrangeCta
-import com.tembus.customer.ui.theme.OnSurface
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.OutlineStrong
@@ -114,8 +111,8 @@ import com.tembus.customer.ui.theme.TembusRadius
 import kotlinx.coroutines.flow.collectLatest
 import java.util.Locale
 
-private val AggregatorInk = OnSurface
-private val AggregatorMuted = OnSurfaceVariant
+private val AggregatorInk @Composable get() = MaterialTheme.colorScheme.onSurface
+private val AggregatorMuted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 private val AggregatorStepAccent = Color(0xFFF36B21)
 
 @OptIn(ExperimentalPermissionsApi::class)
@@ -184,7 +181,7 @@ fun AggregatorScreen(
     }
 
     Scaffold(
-        containerColor = CustomerHomeCanvas,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TembusAppBar(
                 title = "Kirim Paket & Pilihan Ekspedisi",
@@ -346,7 +343,7 @@ private fun AggregatorPickupLocationCard(
                 Text("Ubah Peta", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
-        Surface(color = CustomerHomeCanvas, shape = RoundedCornerShape(28.dp)) {
+        Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(28.dp)) {
             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 AggregatorAddressValue(
                     label = pickupPoint?.label ?: state.pickupAddress.ifBlank { "Pilih titik penjemputan" },
@@ -364,7 +361,7 @@ private fun AggregatorPickupLocationCard(
         }
         pickupPoint?.instruction?.takeIf { it.isNotBlank() }?.let { instruction ->
             Text("Catatan Driver / Patokan", color = AggregatorMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Surface(color = CustomerHomeCanvas, shape = RoundedCornerShape(28.dp)) {
+            Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(28.dp)) {
                 Text(instruction, color = AggregatorInk, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), maxLines = 2)
             }
         }

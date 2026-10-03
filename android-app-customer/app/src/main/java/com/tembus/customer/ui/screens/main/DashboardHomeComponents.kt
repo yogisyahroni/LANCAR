@@ -94,7 +94,6 @@ import com.tembus.customer.data.model.CustomerEligiblePromo
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.BrandHeader
-import com.tembus.customer.ui.theme.CustomerHomeCanvas
 import com.tembus.customer.ui.theme.OnOrangeCta
 import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.ui.theme.Error
@@ -227,7 +226,7 @@ internal fun TembusHomeTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 16.dp)
             ) {
-                Icon(Icons.Default.Search, contentDescription = CustomerTextCatalog.translate("Search"), tint = Primary, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Search, contentDescription = CustomerTextCatalog.translate("Search"), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Cari layanan, makanan...", color = Muted, fontSize = 14.sp)
             }
@@ -844,7 +843,7 @@ internal fun FigmaHomeHeader(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(CustomerHomeCanvas)
+            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 6.dp),
     ) {
@@ -854,14 +853,14 @@ internal fun FigmaHomeHeader(
         ) {
             Text(
                 text = TembusCopy.BrandName,
-                color = Color(0xFF005E3D),
+                color = MaterialTheme.colorScheme.primary,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 0.3.sp,
             )
             Spacer(Modifier.width(8.dp))
             Surface(
-                color = Color(0xFFFFF7F1),
+                color = MaterialTheme.colorScheme.tertiaryContainer,
                 shape = RoundedCornerShape(999.dp),
                 border = BorderStroke(1.dp, OrangeCta.copy(alpha = 0.28f)),
             ) {
@@ -869,9 +868,9 @@ internal fun FigmaHomeHeader(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = OrangeCta, modifier = Modifier.size(12.dp))
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(12.dp))
                     Spacer(Modifier.width(3.dp))
-                    Text(areaLabel, color = Ink, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(areaLabel, color = MaterialTheme.colorScheme.onTertiaryContainer, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -904,19 +903,19 @@ internal fun FigmaHomeHeader(
                         contentDescription = "$customerName. Cari layanan, makanan, atau lokasi"
                         role = Role.Button
                     },
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(22.dp),
-                border = BorderStroke(1.dp, Color(0xFFE2EAE5)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 13.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF507267), modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Cari layanan, makanan, atau lokasi...", color = Muted, fontSize = 11.sp)
                     Spacer(Modifier.weight(1f))
-                    Icon(Icons.Default.GridView, contentDescription = null, tint = Color(0xFF006A45), modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.GridView, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
                 }
             }
         }
@@ -1087,8 +1086,8 @@ internal fun TembusHomeServiceTile(
         modifier = modifier
             .height(90.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
-            .border(1.dp, Color(0xFFE6EEE9), RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
             .padding(vertical = 6.dp)
             .semantics {
                 contentDescription = if (emergency) "$label, layanan darurat" else label
@@ -1180,7 +1179,7 @@ internal fun DashboardDataErrorCard(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Data sedang disinkronkan", color = Ink, fontWeight = FontWeight.Black, fontSize = 15.sp)
-                Text(message, color = PrimaryDark, fontSize = 12.sp, lineHeight = 17.sp)
+                Text(message, color = MaterialTheme.colorScheme.onTertiaryContainer, fontSize = 12.sp, lineHeight = 17.sp)
             }
             TextButton(onClick = onRetry) {
                 Text("Coba Lagi", fontWeight = FontWeight.ExtraBold)

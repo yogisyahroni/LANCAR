@@ -32,7 +32,7 @@ fun LanguageScreen(
     val currentCode by viewModel.currentCode.collectAsState()
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Row(
                 modifier = Modifier
@@ -72,7 +72,7 @@ private fun LanguageRow(label: String, selected: Boolean, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = if (selected) Primary.copy(alpha = 0.08f) else Color.White,
+                    color = if (selected) Primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
         border = if (selected) androidx.compose.foundation.BorderStroke(1.dp, Primary) else null
     ) {
         Row(

@@ -216,12 +216,12 @@ fun ServiceBookingScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFFF2FCF3),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text(formatServiceName(serviceSubType), fontWeight = FontWeight.Bold) },
                 colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFF2FCF3),
+                    containerColor = MaterialTheme.colorScheme.background,
                 ),
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
@@ -690,7 +690,7 @@ private fun RoadsideRequestReviewCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(
@@ -749,7 +749,7 @@ private fun TowingRoutePreviewCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
@@ -761,8 +761,8 @@ private fun TowingRoutePreviewCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(116.dp)
-                    .background(androidx.compose.ui.graphics.Color(0xFFE7F1EA), RoundedCornerShape(14.dp))
-                    .border(1.dp, androidx.compose.ui.graphics.Color(0xFFD2E4D8), RoundedCornerShape(14.dp)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(3.dp)) {

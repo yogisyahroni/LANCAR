@@ -42,7 +42,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.BuildConfig
 import com.tembus.customer.data.model.MarketLegalDocument
 
-private val LegalCanvas = androidx.compose.ui.graphics.Color(0xFFF7F8F6) // Figma legal-document shell
+private val LegalCanvas @Composable get() = MaterialTheme.colorScheme.background // Figma legal-document shell
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

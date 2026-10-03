@@ -52,7 +52,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,10 +66,8 @@ import com.tembus.customer.ui.designsystem.TembusNavigationItem
 import com.tembus.customer.ui.screens.detail.OrderActionPolicy
 import com.tembus.customer.ui.screens.history.HistoryUiState
 import com.tembus.customer.ui.screens.history.OrderHistoryViewModel
-import com.tembus.customer.ui.theme.OnSurfaceVariant
-import com.tembus.customer.ui.theme.Primary
 
-private val MessagesCanvas = Color(0xFFF2FCF3) // Figma: TEMBUS - Pesan & Obrolan
+private val MessagesCanvas @Composable get() = MaterialTheme.colorScheme.background
 
 /**
  * Figma's Pesan tab is an order-scoped inbox. Conversations remain owned by
@@ -114,7 +111,7 @@ fun MessagesScreen(
                 title = {
                     Column {
                         Text("Pesan", fontWeight = FontWeight.ExtraBold)
-                        Text("Hubungi kurir, merchant, & bantuan", fontSize = 12.sp, color = OnSurfaceVariant)
+                        Text("Hubungi kurir, merchant, & bantuan", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 navigationIcon = {
@@ -196,7 +193,7 @@ fun MessagesScreen(
                                 ) {
                                     Text("Semua Percakapan", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                                     Spacer(Modifier.weight(1f))
-                                    Text("${filteredConversations.size} Riwayat", color = Primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("${filteredConversations.size} Riwayat", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             if (filteredConversations.isEmpty()) {
@@ -242,16 +239,16 @@ private fun MessageFilters(
                 label = { Text(filter, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
                 shape = RoundedCornerShape(999.dp),
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = Primary,
-                    selectedLabelColor = Color.White,
-                    containerColor = Color.White,
-                    labelColor = OnSurfaceVariant,
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true,
                     selected = selected == filter,
-                    borderColor = Primary.copy(alpha = 0.18f),
-                    selectedBorderColor = Primary,
+                    borderColor = MaterialTheme.colorScheme.outline,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary,
                 ),
             )
         }
@@ -269,39 +266,39 @@ private fun ActiveConversationCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("SEDANG BERJALAN", color = Primary, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                Text("SEDANG BERJALAN", color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
                 Text(
                     OrderActionPolicy.statusLabel(order.status, order.serviceSubType),
-                    color = Color(0xFFE75B19),
+                    color = MaterialTheme.colorScheme.tertiary,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier.size(42.dp).clip(CircleShape).background(Primary.copy(alpha = 0.10f)),
+                    modifier = Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
                     contentAlignment = Alignment.Center,
-                ) { Icon(serviceSpec.icon, contentDescription = serviceSpec.label, tint = Primary) }
+                ) { Icon(serviceSpec.icon, contentDescription = serviceSpec.label, tint = MaterialTheme.colorScheme.primary) }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(participant, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(serviceSpec.label, fontSize = 11.sp, color = OnSurfaceVariant)
-                    Text("Order ${order.orderNumber.ifBlank { order.orderId }}", fontSize = 11.sp, color = OnSurfaceVariant)
+                    Text(serviceSpec.label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Order ${order.orderNumber.ifBlank { order.orderId }}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 IconButton(onClick = onOpenOrder) {
-                    Icon(Icons.Default.ChevronRight, contentDescription = "Detail order", tint = OnSurfaceVariant)
+                    Icon(Icons.Default.ChevronRight, contentDescription = "Detail order", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            HorizontalDivider(color = MessagesCanvas.copy(alpha = 0.9f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Text(
                 "Kontak tersedia untuk koordinasi order ini.",
                 fontSize = 11.sp,
-                color = OnSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             TextButton(onClick = onOpenChat, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(17.dp))
@@ -317,11 +314,11 @@ private fun FilteredMessagesEmptyState(filter: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Text(
             "Belum ada percakapan $filter yang tersedia.",
-            color = OnSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
             modifier = Modifier.padding(16.dp),
         )
@@ -346,7 +343,7 @@ private fun MessageOrderCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
@@ -359,10 +356,10 @@ private fun MessageOrderCard(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(Primary.copy(alpha = 0.10f)),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(serviceSpec.icon, contentDescription = serviceSpec.label, tint = Primary)
+                Icon(serviceSpec.icon, contentDescription = serviceSpec.label, tint = MaterialTheme.colorScheme.primary)
             }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -370,14 +367,14 @@ private fun MessageOrderCard(
                 Text(
                     "${serviceSpec.label} • ${OrderActionPolicy.statusLabel(order.status, order.serviceSubType)}",
                     fontSize = 12.sp,
-                    color = OnSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     "Order ${order.orderNumber.ifBlank { order.orderId }}",
                     fontSize = 12.sp,
-                    color = OnSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -404,7 +401,7 @@ private fun EmptyMessagesState() {
         Icon(
             Icons.Default.ChatBubbleOutline,
             contentDescription = null,
-            tint = Primary.copy(alpha = 0.65f),
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
             modifier = Modifier.size(64.dp)
         )
         Spacer(Modifier.size(16.dp))
@@ -412,7 +409,7 @@ private fun EmptyMessagesState() {
         Spacer(Modifier.size(6.dp))
         Text(
             "Percakapan dengan kurir atau merchant akan muncul setelah order memiliki kontak yang tersedia.",
-            color = OnSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp
         )
     }

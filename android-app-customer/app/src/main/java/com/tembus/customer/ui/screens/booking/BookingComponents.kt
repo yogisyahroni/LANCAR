@@ -114,9 +114,7 @@ import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentSoft
 import com.tembus.customer.ui.theme.CustomerCanvas
 import com.tembus.customer.ui.theme.Error
-import com.tembus.customer.ui.theme.OnSurface
 import com.tembus.customer.ui.theme.OnOrangeCta
-import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.OutlineStrong
@@ -142,9 +140,9 @@ import java.util.Currency
 import java.util.Date
 import java.util.Locale
 
-private val Ink = OnSurface
-private val Muted = OnSurfaceVariant
-private val FieldBg = CustomerCanvas
+private val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
+private val Muted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
+private val FieldBg @Composable get() = MaterialTheme.colorScheme.surfaceVariant
 private val LcGreen = Primary
 private val SoftGreen = PrimarySoft
 private val SoftBlue = SecondaryLight
@@ -179,7 +177,7 @@ internal fun PreselectedPromoCard(
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Promo disiapkan", color = OnSurface, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                Text("Promo disiapkan", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                 Text(
                     promoCode,
                     color = Accent,
@@ -232,7 +230,7 @@ internal fun VoucherCard(
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Kode Voucher", color = OnSurface, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                    Text("Kode Voucher", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                     Text(
                         if (applied) "${state.voucherName} (${state.voucherCode})" else "Diskon tambahan di luar promo",
                         color = if (applied) Success else Muted,
