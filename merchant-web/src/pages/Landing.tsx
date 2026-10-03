@@ -10,6 +10,7 @@ import {
   ClipboardList,
   ExternalLink,
   FileCheck2,
+  Mail,
   Menu,
   ShieldCheck,
   Store,
@@ -20,6 +21,17 @@ import {
 } from 'lucide-react'
 
 const MERCHANT_ANDROID_RELEASE_URL = 'https://github.com/yogisyahroni/LANCAR/releases/latest'
+const PUBLIC_INFORMATION_URL = 'https://bawain.my.id'
+
+const publicTrustLinks = [
+  { href: `${PUBLIC_INFORMATION_URL}/bantuan/kebijakan-privasi`, label: 'Kebijakan Privasi' },
+  { href: `${PUBLIC_INFORMATION_URL}/bantuan/syarat-dan-ketentuan`, label: 'Syarat dan Ketentuan' },
+  { href: `${PUBLIC_INFORMATION_URL}/bantuan/pusat-bantuan`, label: 'Pusat Bantuan' },
+]
+
+// Social proof is intentionally data-driven. Nothing is rendered until a partner
+// or testimonial has a verified source and approval for public publication.
+const verifiedProofItems: Array<{ kind: 'partner' | 'testimonial'; label: string; value: string }> = []
 
 const navigation = [
   { href: '#untuk-bisnis', label: 'Untuk bisnis' },
@@ -100,6 +112,68 @@ function WorkspacePreview() {
         <span><ArrowRight size={15} /></span>
       </div>
     </div>
+  )
+}
+
+function TrustLayer() {
+  return (
+    <section className="trust-layer section-wrap" aria-labelledby="trust-layer-heading">
+      <div className="trust-layer__intro">
+        <div>
+          <p className="section-overline">Kepercayaan & transparansi</p>
+          <h2 id="trust-layer-heading">Kenali siapa yang mengelola ruang kerja merchant Anda.</h2>
+        </div>
+        <p>Informasi yang penting untuk menilai layanan tersedia sebelum Anda mengirim pengajuan bisnis.</p>
+      </div>
+
+      <div className="trust-layer__grid">
+        <article className="trust-card trust-card--identity">
+          <div className="trust-card__icon"><Building2 size={21} /></div>
+          <div>
+            <p className="trust-card__label">Badan usaha penyelenggara</p>
+            <h3>PT TEMBUS LINTAS TEKNOLOGI</h3>
+            <p>Nama badan usaha yang digunakan pada kebijakan layanan TEMBUS.</p>
+          </div>
+          <a href={`${PUBLIC_INFORMATION_URL}/bantuan/syarat-dan-ketentuan`} target="_blank" rel="noreferrer" className="trust-card__link">
+            Baca ketentuan layanan <ExternalLink size={14} />
+          </a>
+        </article>
+
+        <article className="trust-card">
+          <div className="trust-card__icon"><Mail size={21} /></div>
+          <div>
+            <p className="trust-card__label">Kontak dukungan merchant</p>
+            <h3>support@tembus.id</h3>
+            <p>Gunakan kanal ini untuk pertanyaan pendaftaran dan bantuan penggunaan layanan.</p>
+          </div>
+          <a href="mailto:support@tembus.id" className="trust-card__link">
+            Hubungi dukungan <ArrowRight size={14} />
+          </a>
+        </article>
+
+        <article className="trust-card trust-card--wide">
+          <div className="trust-card__icon"><ShieldCheck size={21} /></div>
+          <div className="trust-card__wide-copy">
+            <p className="trust-card__label">Cara data usaha digunakan</p>
+            <h3>Data usaha diperiksa sebelum toko menerima pesanan.</h3>
+            <p>Informasi yang Anda kirim digunakan untuk memeriksa pengajuan, menyiapkan profil usaha, dan menjalankan kebutuhan merchant. Kami meminta data yang relevan pada tahap pendaftaran dan menjelaskan penggunaannya di kebijakan publik.</p>
+            <div className="trust-card__links" aria-label="Informasi legal dan bantuan">
+              {publicTrustLinks.map((item) => (
+                <a key={item.href} href={item.href} target="_blank" rel="noreferrer">
+                  {item.label} <ExternalLink size={13} />
+                </a>
+              ))}
+            </div>
+          </div>
+        </article>
+      </div>
+
+      {verifiedProofItems.length > 0 && (
+        <div className="verified-proof" aria-label="Mitra dan testimonial terverifikasi">
+          {verifiedProofItems.map((item) => <span key={`${item.kind}-${item.label}`}>{item.label}: {item.value}</span>)}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -192,6 +266,8 @@ export default function Landing() {
             <p className="trust-statement">TEMBUS membantu tim merchant memahami apa yang perlu dilakukan, siapa yang mengerjakan, dan apa yang terjadi berikutnya.</p>
           </div>
         </section>
+
+        <TrustLayer />
 
         <section className="capability-section section-wrap" id="ruang-kerja">
           <div className="section-intro">
@@ -315,7 +391,7 @@ export default function Landing() {
         <div className="site-footer__inner">
           <div><BrandMark compact /><p>Ruang kerja untuk merchant food dan bisnis yang ingin beroperasi lebih tertata.</p></div>
           <div className="footer-links"><span className="footer-heading">Merchant</span><Link to="/daftar">Daftar bisnis</Link><Link to="/masuk">Masuk</Link><Link to="/status">Cek status</Link></div>
-          <div className="footer-links"><span className="footer-heading">Informasi</span><a href="#untuk-bisnis">Untuk bisnis</a><a href="#cara-bergabung">Cara bergabung</a><a href="#bantuan">Bantuan</a></div>
+          <div className="footer-links"><span className="footer-heading">Informasi</span><a href="#untuk-bisnis">Untuk bisnis</a><a href="#cara-bergabung">Cara bergabung</a><a href="#bantuan">Bantuan</a><a href={publicTrustLinks[0].href} target="_blank" rel="noreferrer">Kebijakan Privasi</a></div>
         </div>
         <div className="site-footer__bottom"><span>© {new Date().getFullYear()} TEMBUS</span><span>Lebih Dekat, Lebih Cepat</span></div>
       </footer>
