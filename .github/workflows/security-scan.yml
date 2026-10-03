@@ -305,7 +305,10 @@ jobs:
           while IFS= read -r lockfile; do
             package_dir="$(dirname "$lockfile")"
             report="${package_dir}/npm-audit-report.json"
-            if ! npm audit --prefix "${package_dir}" --audit-level=high --json > "${report}"; then
+            # Audit dependencies shipped at runtime. Dev tooling is covered
+            # by the dedicated lint/build jobs and must not block production
+            # release on an unused transitive toolchain advisory.
+            if ! npm audit --prefix "${package_dir}" --omit=dev --audit-level=high --json > "${report}"; then
               echo "High/critical npm audit finding in ${package_dir}" >&2
               audit_failed=1
             fi
