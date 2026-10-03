@@ -241,7 +241,12 @@ export default function LoginPage() {
       >
         <div className="bg-card/40 backdrop-blur-xl border border-border/40 rounded-2xl p-8 shadow-2xl relative z-10">
           <div className="flex flex-col items-center mb-6">
-            <img src="/tembusweb.svg" alt="Tembus Logo" className="h-12 object-contain mb-4 drop-shadow-md" />
+            <img
+              data-testid="tembus-login-logo"
+              src="/tembus-login-logo.webp"
+              alt="TEMBUS"
+              className="h-12 w-auto object-contain mb-4"
+            />
             <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('auth.loginTitle')}</h1>
             <p className="text-sm text-muted-foreground mt-2 text-center">
               {t('auth.loginSubtitle')}
