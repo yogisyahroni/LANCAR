@@ -368,6 +368,338 @@ Bangun struktur konten seperti:
 
 ---
 
+## Portal Mitra authenticated — F&B Global Operations Standard
+
+Bagian ini adalah backlog lanjutan untuk **setelah merchant berhasil masuk Portal Mitra**. Fokusnya bukan sekadar menambah halaman, tetapi memastikan portal menjadi pusat operasi bisnis F&B yang konsisten dengan Merchant Android dan terhubung end to end dengan Customer, Courier, Admin, database, ledger/settlement, notifikasi, dan provider yang memang sudah diaktifkan.
+
+### Prinsip scope dan kontrak wajib
+
+- Portal mendukung merchant perorangan dan bisnis/PT, tetapi capability ditentukan oleh `business_type`, verifikasi, outlet scope, role, dan feature flag dari server; UI tidak boleh menganggap user sebagai owner hanya karena route dapat dibuka.
+- Semua nominal, status order, status outlet, menu availability, promo redemption, settlement, payout, refund, review, dan permission harus berasal dari sumber otoritatif. Tidak boleh ada angka, status sukses, saldo, atau data pelanggan yang di-hardcode pada production path.
+- Semua command yang dapat diulang harus idempotent dan memiliki correlation/request ID: terima/tolak order, ubah item, pause outlet, ubah availability, publish menu, aktifkan promo, withdrawal, invite staff, dan reply review.
+- Waktu disimpan dan dibandingkan secara timezone-aware; tampilan portal menggunakan timezone outlet. Mata uang, pajak, komisi, promo funding, refund, dan settlement tidak boleh dihitung ulang hanya di frontend.
+- Data pelanggan dan kurir menerapkan least privilege, masking PII, retention, audit trail, dan larangan menampilkan nomor kontak langsung bila komunikasi in-app sudah tersedia.
+- Satu kontrak status dibagikan ke Admin, Merchant Web, Merchant Android, Customer Android, Courier Android, webhook, dan event bus. Label UI boleh berbeda untuk bahasa pengguna, tetapi mapping state dan transition tetap satu.
+- Bila capability belum benar-benar tersedia di backend/provider, tampilkan `Segera hadir` atau sembunyikan berdasarkan capability matrix; jangan membuat kartu yang tampak aktif tetapi tidak dapat dieksekusi.
+
+### Benchmark minimum standar global
+
+Baseline ini disusun dari pola resmi portal merchant yang saat ini tersedia: GrabMerchant mendukung multi-outlet, laporan/keuangan, menu, campaign, dan akses staff berbasis peran; Uber Eats Manager mencakup order, status toko, menu, feedback, pembayaran, dan marketing; DoorDash Merchant Portal mencakup order aktif, komunikasi penyelesaian masalah, menu, jam toko, dan ketersediaan item. Rujukan primer dicantumkan agar setiap klaim dapat diperbarui saat produk berkembang:
+
+- [GrabMerchant Portal — kelola bisnis, multi-outlet, laporan, menu, campaign, dan staff](https://merchant.grab.com/id-id/guides/all/kemudahan-kelola-bisnis-dengan-grabmerchant-portal)
+- [GrabMerchant — atur akses karyawan berdasarkan peran](https://merchant.grab.com/id-id/guides/pengaturan-toko/atur-akses-dengan-mudah-untuk-setiap-peran-karyawan)
+- [Uber Eats Manager — overview operasi merchant](https://merchants.ubereats.com/us/en/technology/simplify-operations/overview/)
+- [Uber Eats Manager — menu, payout, notifikasi, status toko, dan campaign](https://merchants.ubereats.com/ca/en/resources/articles/product-highlights/uber-eats-manager-updates-june-2025/)
+- [Uber Eats Orders — menerima order, pause, jam operasi, dan tracking delivery person](https://merchants.ubereats.com/gb/en/technology/manage-orders/uber-eats-orders-app/)
+- [DoorDash Merchant Portal — order, menu, jam toko, issue resolution, dan ketersediaan item](https://merchants.doordash.com/en-us/products/merchant-portal)
+
+Benchmark tersebut adalah referensi capability, bukan izin untuk menyalin merek/UI pihak lain. Implementasi tetap harus memakai design system TEMBUS, kontrak backend LANCAR, kebijakan privasi, serta provider yang benar-benar tersedia.
+
+## P0 — Core operations yang wajib layak dipakai merchant F&B
+
+### MWEB-PORTAL-P0-001 — Portal shell, tenant scope, dan capability-aware navigation
+
+**Tujuan:** setelah login, merchant selalu berada pada konteks bisnis, outlet, role, dan capability yang benar.
+
+**Cakupan:**
+
+- App shell responsif: header, outlet switcher, notification center, help, account menu, breadcrumb, global search, command feedback, loading/error/empty state, dan session-expiry recovery.
+- `merchant_id`, `business_id`, `outlet_id`, role, permission, verification state, country/market, currency, dan timezone dimuat dari server session/token; jangan dipercaya dari query parameter.
+- Menu navigasi berbasis capability: Beranda, Pesanan, Menu, Promo, Laporan, Keuangan, Staff, Integrasi, Bantuan, dan Pengaturan.
+- Route guard, object-level authorization, tenant isolation, CSRF/session protection, audit event, dan deep link kembali ke halaman tujuan setelah login.
+- Support desktop, tablet, dan browser mobile tanpa mengorbankan operasi order yang mendesak.
+
+**Acceptance criteria:**
+
+- User perorangan, owner PT, manager outlet, kasir, kitchen, finance, dan support melihat navigasi serta data yang berbeda sesuai server policy.
+- User tidak dapat mengganti `merchant_id`, `outlet_id`, atau object ID di URL untuk membaca/menulis data tenant lain.
+- Semua aksi sensitif menghasilkan audit event berisi actor, role, tenant/outlet, action, object, result, timestamp, correlation ID, dan reason bila gagal.
+- Refresh, membuka deep link, multi-tab, expired session, dan koneksi putus tidak menghilangkan konteks atau membuat aksi ganda.
+- Kontrak permission diuji melalui API dan browser E2E; bukan hanya dengan menyembunyikan tombol.
+
+### MWEB-PORTAL-P0-002 — Beranda operational control center
+
+**Tujuan:** owner/manager dapat memahami kondisi toko dan mengambil tindakan penting dalam satu layar.
+
+**Cakupan:**
+
+- Kartu status outlet: buka, tutup, jeda sementara, mode sibuk, jam operasi, jam khusus/libur, alasan perubahan, dan siapa yang mengubah.
+- Terima otomatis dengan guardrail: hanya aktif bila outlet, menu, device/notification, dan capability order siap; tampilkan konsekuensi dan audit perubahan.
+- Ringkasan order: baru, perlu tindakan, disiapkan, menunggu kurir, berjalan, selesai, batal, refund/dispute, SLA terlewati, dan error sinkronisasi.
+- Ringkasan bisnis: penjualan kotor/net, order selesai, average order value, komisi, diskon, pajak/biaya, payout berikutnya, dan alert bila data belum tersedia.
+- Alert operasional: menu habis, dokumen kedaluwarsa, bank belum terverifikasi, printer/POS putus, payout tertahan, kualitas turun, atau provider sedang gangguan.
+
+**Acceptance criteria:**
+
+- Data beranda dapat ditelusuri ke endpoint/database/event yang sama dengan halaman detail; tidak ada angka mock atau copy yang menyatakan real-time tanpa freshness timestamp.
+- Toggle buka/jeda/mode sibuk/terima otomatis memiliki optimistic state yang aman, rollback saat gagal, retry, idempotency, dan notifikasi ke channel yang relevan.
+- Perubahan jam operasi dan status outlet langsung tercermin pada Customer, Courier, Merchant Android, dan Admin sesuai cache invalidation/event contract.
+- Dashboard multi-outlet menunjukkan agregasi dan outlet detail secara jelas; tidak mencampur currency, timezone, settlement window, atau role scope.
+
+### MWEB-PORTAL-P0-003 — Order operations center dan lifecycle F&B end to end
+
+**Tujuan:** portal menangani seluruh alur order food dari customer membuat pesanan sampai order selesai, dibatalkan, direfund, atau masuk dispute.
+
+**Cakupan lifecycle minimum:**
+
+1. Customer membuat order dan payment/authorization tercatat.
+2. Merchant menerima notifikasi, melihat countdown/SLA, lalu menerima atau menolak dengan reason.
+3. Merchant memproses item, mengusulkan penggantian/penghapusan item bila tersedia, dan customer mendapat kesempatan menyetujui sesuai policy.
+4. Kitchen/merchant menandai menyiapkan, siap diambil, dan order diserahkan ke kurir.
+5. Courier mendapat assignment, navigasi pickup, konfirmasi pickup, lalu delivery/customer confirmation.
+6. Merchant melihat timeline dan bukti setiap transition; state terminal menjadi delivered, cancelled, refunded, partially refunded, disputed, atau failed sesuai kontrak.
+
+**Cakupan UI/operasi:**
+
+- Queue baru/aktif/terjadwal/selesai/batal dengan filter outlet, channel, payment, SLA, status courier, dan search order ID.
+- Detail order: item, modifier, catatan/alergi bila tersedia, harga sebelum/sesudah promo, pajak/biaya, payment state, customer privacy-safe, courier state, timeline, receipt, dan audit.
+- Aksi terima/tolak/siapkan/ready/unavailable/cancel/issue/refund/reprint hanya tampil jika transition diizinkan server.
+- Substitusi, item habis, partial acceptance, customer approval, partial refund, cancellation fee, dan dispute escalation.
+- Realtime via websocket/SSE dengan fallback polling; sound/browser notification yang dapat diatur per role/device.
+
+**Acceptance criteria:**
+
+- Browser E2E membuktikan customer → database/order service → merchant portal → courier → customer, termasuk success, timeout, reconnect, reject, item unavailable, cancel, refund, dan duplicate click.
+- Merchant tidak dapat menandai ready/delivered atau mengubah total pembayaran dari frontend tanpa transition/authorization server.
+- Timer, status, dan notifikasi tetap benar setelah refresh, multi-tab, background tab, reconnect, dan event out-of-order.
+- Komunikasi customer/kurir tercatat, privacy-safe, rate-limited, dan memiliki escalation path; tidak bergantung pada nomor telepon mentah.
+- Receipt yang diunduh atau dicetak berasal dari order authoritative dan menampilkan status pembayaran/pajak yang benar.
+
+### MWEB-PORTAL-P0-004 — Catalog/menu, modifier, availability, dan kesiapan publikasi
+
+**Tujuan:** merchant dapat mengelola catalog food yang tampil konsisten di Customer dan dapat dieksekusi oleh order service.
+
+**Cakupan:**
+
+- Kategori, item, foto, nama/deskripsi, harga, tax class, prep time, serving option, label diet/alergen, SKU/internal code, visibility, jam tersedia, stok, dan sold-out.
+- Variant/modifier/add-on, pilihan wajib/opsional, minimum/maksimum, price delta, dependency, dan konflik item.
+- Bulk import/export dengan schema validation, preview, dry-run, rollback/versioning, duplicate detection, image constraints, dan audit perubahan.
+- Draft → review → publish → rollback; perbedaan catalog pusat vs outlet lokal untuk multi-outlet.
+- Availability real-time dari outlet; konflik perubahan dan stale cache harus terlihat.
+
+**Acceptance criteria:**
+
+- Perubahan harga/availability/menu publish memiliki actor, version, timestamp, outlet scope, dan dapat ditelusuri ke Customer catalog.
+- Customer hanya dapat memilih kombinasi modifier yang valid; order lama tetap mempertahankan snapshot nama/harga/item saat checkout.
+- Item sold-out di portal tercermin ke Customer dan tidak bisa dipesan lewat race condition/cache lama.
+- Upload tidak menyimpan file berbahaya; ukuran, MIME, dimensi, virus scan/CDN policy, alt text, dan fallback ditangani.
+- Tidak ada field semu yang tampak tersimpan tetapi hilang ketika halaman direfresh.
+
+### MWEB-PORTAL-P0-005 — Multi-outlet, organization profile, dan outlet switching
+
+**Tujuan:** bisnis PT/F&B dapat mengelola beberapa outlet tanpa kebocoran data atau konfigurasi.
+
+**Cakupan:**
+
+- Business profile, legal entity, brand, outlet address/map, contact, timezone, currency, operating/holiday hours, delivery radius/capability, tax identity, payout account, dan verification state.
+- Switcher outlet dengan last-used context yang aman, view semua outlet untuk role yang berhak, dan filter eksplisit pada setiap laporan/order/menu.
+- Central catalog, outlet override, outlet-specific price/availability/promo, bulk action dengan confirmation, preview affected outlets, dan rollback.
+- Outlet lifecycle: draft, pending review, active, paused, suspended, closed; alasan dan approver.
+
+**Acceptance criteria:**
+
+- Query, export, cache, notification, dan audit selalu menyertakan outlet/tenant scope.
+- Staff hanya melihat outlet yang ditugaskan; owner/manager dapat melihat agregat sesuai permission.
+- Tidak ada tindakan bulk irreversible tanpa preview, idempotency key, progress, partial failure report, dan rollback/retry path.
+- Customer melihat outlet aktif yang benar untuk area dan jam yang benar; Courier menerima pickup address dan order scope yang benar.
+
+### MWEB-PORTAL-P0-006 — Identity, staff, RBAC/ABAC, dan audit pengguna
+
+**Tujuan:** bisnis dapat mengelola owner, manager, kasir, kitchen, finance, dan role custom tanpa berbagi password.
+
+**Cakupan:**
+
+- Invite by email/phone, acceptance, MFA/step-up untuk finance dan data sensitif, login/session/device management, suspend/revoke, reset, dan recovery.
+- Role minimum: owner, business admin, outlet manager, cashier/order operator, kitchen, finance, analyst, support-read-only; custom role harus berbasis capability yang terdaftar.
+- Scope business/outlet dan permission read/write/approve/export/refund/payout/staff/integration.
+- Separation of duties: orang yang membuat payout account/refund besar tidak otomatis menjadi approver tunggal.
+- Audit viewer, export audit yang terkontrol, retention, reason code, dan alert aktivitas berisiko.
+
+**Acceptance criteria:**
+
+- Backend menolak akses yang tidak diizinkan walaupun request dibuat manual; UI permission test dan API authorization test sama-sama lulus.
+- Invite token sekali pakai, expiry, revoke, anti-enumeration, rate limit, dan email/phone verification aman.
+- Semua aksi staff sensitif dapat ditelusuri; perubahan permission tidak menghapus history.
+- Portal menampilkan siapa yang mengubah order/menu/finance, bukan hanya "sistem".
+
+### MWEB-PORTAL-P0-007 — Finance, settlement, payout, invoice, dan rekonsiliasi
+
+**Tujuan:** merchant dapat memahami dan mengendalikan uang tanpa angka yang berbeda dari ledger atau payment provider.
+
+**Cakupan:**
+
+- Gross sales, item subtotal, delivery/service fee, commission, promo merchant/platform, tax, adjustment, refund, chargeback/dispute, net payable, holding, available, payout schedule, dan bank status.
+- Order detail → transaction/ledger → settlement batch → payout/withdrawal → bank/provider reference.
+- Statements harian/mingguan/bulanan, invoice/tax document, CSV/XLS export, filter outlet/payment/settlement status, dan timezone.
+- Bank account onboarding/change dengan verification, maker-checker/step-up, cooldown, masking, dan fraud/risk alert.
+- Reconciliation worker, mismatch queue, retry, provider webhook/polling, UNKNOWN state, manual review, dan immutable history.
+
+**Acceptance criteria:**
+
+- Portal tidak menampilkan `berhasil` untuk payout/payment hanya karena request HTTP 200; status provider dan ledger harus authoritative.
+- Setiap nominal dapat direkonsiliasi ke order IDs dan settlement IDs; total halaman, export, dan API konsisten.
+- Refund, partial refund, adjustment, tax, commission, dan promo funding terpisah jelas serta tidak menduplikasi ledger entry.
+- Payout account dan invoice sensitif dimasking; export membutuhkan permission dan audit.
+- Mismatch menghasilkan alert/ticket dan tidak diam-diam dikoreksi oleh frontend.
+
+### MWEB-PORTAL-P0-008 — Customer/courier communication, issues, refund, review, dan quality
+
+**Tujuan:** merchant dapat menyelesaikan masalah order dengan customer dan kurir melalui alur yang tercatat.
+
+**Cakupan:**
+
+- Order issue center: item hilang/salah/rusak, keterlambatan, customer tidak menerima, courier gagal pickup, payment mismatch, suspected fraud, dan safety incident.
+- Template dan in-app messaging yang privacy-safe; lampiran/bukti dengan expiry, content validation, moderation, dan PII redaction.
+- Request customer approval untuk perubahan; refund/credit/compensation sesuai threshold dan permission; escalation ke Admin/support.
+- Review/rating, reply merchant, appeal quality score, response SLA, dan link feedback ke order tanpa membocorkan identitas.
+- Policy engine untuk siapa yang boleh membatalkan, refund, reply, atau menutup issue.
+
+**Acceptance criteria:**
+
+- Setiap issue memiliki owner, status, SLA, evidence, audit, resolution code, dan escalation state.
+- Customer dan courier menerima update yang konsisten; tidak ada channel yang menyatakan delivered ketika order belum authoritative.
+- Refund/compensation tidak dapat dibuat dua kali untuk issue yang sama dan masuk ke settlement/reconciliation.
+- Rating/review tidak dapat dihapus merchant; reply dapat dimoderasi dan tetap diaudit.
+
+### MWEB-PORTAL-P0-009 — Realtime, notification, resilience, observability, dan recovery
+
+**Tujuan:** operasi toko tetap aman ketika koneksi, tab, browser, worker, atau provider bermasalah.
+
+**Cakupan:**
+
+- Event contract/order notification, websocket/SSE, polling fallback, deduplication, sequence/version, dead-letter/replay policy, dan stale-data banner.
+- Browser permission, notification preference per role/outlet, sound policy, quiet hours, escalation untuk order SLA, dan delivery receipt.
+- Offline/read-only mode yang tidak mengklaim write success; retry queue hanya untuk command idempotent.
+- Structured logs, metric latency/error/stale/event lag, trace correlation, alert, runbook, dan PII/secret redaction.
+- Incident banner/status, graceful degradation, replay/backfill, and rollback path.
+
+**Acceptance criteria:**
+
+- Simulasi disconnect, duplicate event, event terlambat, refresh, multiple tabs, worker restart, dan provider timeout menghasilkan state akhir yang benar.
+- Merchant tahu apakah data live, stale, atau sedang disinkronkan; UI tidak menampilkan angka yang tampak live tanpa freshness.
+- SLO/SLA order notification, accept latency, command error, and data freshness dicatat dan memiliki alert.
+- Recovery test membuktikan order tidak hilang, tidak terima dua kali, dan tidak membuat settlement ganda.
+
+### MWEB-PORTAL-P0-010 — Cross-system production readiness gate
+
+**Tujuan:** menyatakan Portal Mitra siap digunakan bisnis hanya setelah capability dan risiko utama terbukti.
+
+**Gates minimum:**
+
+- Browser E2E: login/MFA, role restriction, multi-outlet, open/pause/auto-accept, order food lengkap, item unavailable/substitution, courier handoff, cancel/refund, review/issue, menu publish, promo, report, settlement, staff, export, dan logout/session expiry.
+- Cross-app E2E: Customer order → backend/database → Merchant Web/Android → Courier → Customer; Admin dapat melihat/audit status tanpa menjadi source of truth kedua.
+- Data correctness: DB constraints, migration/backfill, ledger/settlement reconciliation, event replay, idempotency, timezone/currency, PII masking, dan retention.
+- Security: tenant isolation, RBAC/ABAC, CSRF/XSS/upload controls, rate limit, MFA/step-up, secret scanning, dependency/container scan, audit immutability, dan abuse cases.
+- Quality: responsive desktop/tablet/mobile, keyboard/focus/contrast/zoom/reduced motion, Indonesian copy, loading/empty/error/retry, performance budget, and real browser compatibility.
+- Operations: observability dashboard, on-call owner, runbook, backup/restore, rollback, feature flag kill switch, staged rollout, support readiness, and incident communication.
+
+**Acceptance criteria:**
+
+- Tidak ada checklist P0 yang berstatus `NOT_RUN`, `PARTIAL`, atau hanya dibuktikan mock sebelum release gate.
+- Semua evidence disimpan per TASK-ID; hasil staging dibedakan dari public production dan tidak disebut production-ready tanpa runtime proof.
+- Owner produk, backend, mobile, web, security, finance, support, dan operations menandatangani capability matrix yang benar-benar diuji.
+
+## P1 — Scale operasi, growth, dan efisiensi merchant
+
+### MWEB-PORTAL-P1-001 — Promo, campaign, ads, dan funding transparency
+
+- Buat promo fixed/percentage/free item/free delivery/bundle sesuai provider dan market; eligibility, period, quota, budget, outlet, menu, funding owner, stacking/exclusion, approval, pause/stop, dan abuse limit.
+- Tampilkan preview harga customer, merchant contribution, platform contribution, redemption, incremental order/revenue, biaya campaign, dan settlement impact.
+- Sinkronkan campaign ke Customer catalog dan order pricing; rollback/expiry harus deterministik.
+
+**Acceptance criteria:** promo tidak boleh tampil aktif di portal bila tidak ada eligibility/price calculation authoritative; laporan promo dapat direkonsiliasi ke order dan settlement. Rujukan pola: [GrabMerchant — mengatur promosi](https://merchant.grab.com/id-id/guides/tingkatkan-penjualan/mengatur-promosi-di-aplikasi-grabmerchant).
+
+### MWEB-PORTAL-P1-002 — Reports, analytics, customer insight, dan export governance
+
+- Laporan sales/order/payment/promo/customer/menu/outlet/staff; gross-to-net, AOV, repeat rate, peak hour, prep time, acceptance/cancel, out-of-stock, delivery performance, rating, dan payout.
+- Filter date/outlet/channel/status/payment dengan timezone; drill-down sampai order/settlement ID; compare periods; saved view; CSV/XLS export; scheduled report bila tersedia.
+- Customer insight harus aggregate dan privacy-safe: cohort, repeat, favorite category, churn risk hanya bila ada dasar data dan policy.
+- Data freshness, last calculated time, late event, restatement, export permission, watermark, dan audit.
+
+**Acceptance criteria:** angka dashboard, detail, export, dan finance statement memiliki definisi metric yang sama; tidak ada insight dari sample/mock. Rujukan pola laporan: [GoFood Merchant — membaca laporan dashboard](https://gofoodmerchant.co.id/biztips/topics/manajemen-operasional/operasional-semua-wajib-tahu/begini-cara-membaca-laporan-dashboard-gofood-merchant-dengan-mudah).
+
+### MWEB-PORTAL-P1-003 — POS/KDS/printer, payment, webhook, dan integration center
+
+- Daftar integrasi dengan status supported/beta/planned/deprecated, capability, market, owner, setup guide, health, last sync, version, dan revoke.
+- POS/KDS/printer: menu/order sync, printer test, routing kitchen, retry, duplicate protection, conflict resolution, offline queue, and reconciliation.
+- Webhook/API: signing, timestamp/replay protection, idempotency, versioning, delivery attempts, dead-letter, rotate secret, scope, and event replay.
+- Payment/provider integration tidak boleh menyamarkan `pending`, `unknown`, atau `failed` menjadi paid.
+
+**Acceptance criteria:** integrasi dapat di-connect, diuji, diputus, dan dipulihkan dengan audit; setiap klaim di landing/portal memiliki adapter nyata atau label planned.
+
+### MWEB-PORTAL-P1-004 — Food compliance, quality, safety, dan document center
+
+- Legal/business document, food permit, halal/food safety, tax/NPWP, bank verification, owner identity, expiry, reviewer, rejection reason, resubmission, and audit.
+- Quality score dari order/review/cancel/prep/refund/safety signal; threshold, warning, appeal, enforcement, and support handoff.
+- Document storage secure: encryption/access scope, virus scan, size/MIME check, retention, delete/revoke, and no raw URL leakage.
+
+**Acceptance criteria:** merchant memahami alasan status pending/rejected/suspended; Admin dan Merchant melihat state yang sama; expired document tidak diam-diam tetap dianggap valid.
+
+### MWEB-PORTAL-P1-005 — Help center, training, support, dan escalation
+
+- Contextual help dari setiap feature, onboarding checklist, merchant academy, release notes, status page, chat/ticket, SLA, attachment, internal note separation, and escalation to Admin.
+- Support agent hanya mendapat data yang dibutuhkan; merchant dapat melihat ticket state, owner, next action, dan expected response tanpa janji palsu.
+- Incident/maintenance announcement per market/outlet/capability dan in-app acknowledgement.
+
+**Acceptance criteria:** setiap P0 failure punya jalur self-service dan escalation; ticket dapat ditelusuri ke correlation ID/order/settlement tanpa mengekspos secret atau PII berlebihan.
+
+### MWEB-PORTAL-P1-006 — Merchant growth, CRM, retention, dan controlled experimentation
+
+- Insight untuk menu pricing, opening hours, prep capacity, repeat customer, promo efficiency, and out-of-stock; rekomendasi selalu diberi sumber data dan confidence/context.
+- Segmentasi hanya memakai consent/policy dan data aggregate; campaign audience, suppression, frequency cap, opt-out, dan audit.
+- Experiments dengan feature flag, stable assignment, guardrail metrics, kill switch, and no impact to financial/order truth.
+
+**Acceptance criteria:** rekomendasi tidak tampil sebagai fakta tanpa data; opt-out dihormati; eksperimen tidak merusak pricing, permission, order, atau settlement.
+
+## P2 — Enterprise F&B dan ecosystem maturity
+
+### MWEB-PORTAL-P2-001 — Enterprise multi-brand/multi-region control plane
+
+- Hierarchy group → brand → legal entity → outlet, cross-brand role scope, central catalog, market/currency/tax/timezone policy, regional admin, and approval workflow.
+- Bulk operations dengan dry-run, affected-object preview, progress, partial failure, rollback, change window, and approval.
+- Data residency, retention, export/delete request, and tenant boundary tests per region.
+
+**Acceptance criteria:** satu user dapat bekerja lintas brand hanya dengan scope yang disetujui; agregat tidak mencampur legal entity/market; setiap bulk change dapat direplay dan diaudit.
+
+### MWEB-PORTAL-P2-002 — Inventory, waste, procurement, dan kitchen capacity
+
+- Ingredient/menu mapping, stock count, low-stock, waste reason, prep capacity, kitchen throttling, sold-out forecast, purchasing handoff, and audit.
+- Stock/availability harus mencegah oversell dengan concurrency control; customer-facing availability harus memiliki freshness.
+
+**Acceptance criteria:** inventory hanya dipromosikan menjadi capability bila ada authoritative inventory source, reservation/adjustment rules, reconciliation, dan outlet-level audit; jika belum, jangan tampilkan sebagai fitur aktif.
+
+### MWEB-PORTAL-P2-003 — Advanced finance, tax, and accounting ecosystem
+
+- Accounting export/API, tax reports per market, invoice lifecycle, credit/chargeback, payout forecasting, multi-bank, approval matrix, and period close.
+- Immutable period close, restatement policy, reconciliation exception queue, and audit package untuk finance.
+
+**Acceptance criteria:** export accounting memiliki schema/version, totals reconcile ke ledger, retry aman, dan kegagalan integrasi tidak mengubah financial truth.
+
+### MWEB-PORTAL-P2-004 — Public API, partner ecosystem, and deprecation discipline
+
+- Developer portal, scoped API keys/OAuth, sandbox/fixtures yang jelas bukan production proof, rate limit/quotas, webhook subscriptions, versioning, changelog, support, and revoke.
+- Partner certification, security review, data-processing boundary, incident contact, and deprecation/migration window.
+
+**Acceptance criteria:** tidak ada partner yang dapat membaca tenant lain; secret tidak muncul di UI/log; API version dan webhook replay dapat diuji; partner capability matrix selalu up to date.
+
+### Ketergantungan dan urutan eksekusi portal
+
+`MWEB-P0-006` + `MWEB-P0-007` → `MWEB-PORTAL-P0-001` → `MWEB-PORTAL-P0-002..P0-009` → `MWEB-PORTAL-P0-010` → `MWEB-PORTAL-P1-001..P1-006` → `MWEB-PORTAL-P2-001..P2-004`.
+
+P0 tidak boleh dianggap selesai hanya karena route sudah ada. Sebelum task dianggap complete, mapping harus menunjukkan: route/UI, API contract, service ownership, table/event/ledger source, migration/seed bila ada, authorization, observability, tests, browser E2E, cross-app E2E, staging evidence, rollback, dan owner operasional.
+
+### Benchmark dan pemeliharaan standar
+
+Review benchmark minimal tiap kuartal atau ketika provider utama mengubah capability. Rujukan tambahan untuk order modification, campaign, dan promo reporting:
+
+- [GrabMerchant — ubah pesanan](https://merchant.grab.com/id-id/guides/getting-started/fitur-ubah-pesanan-di-aplikasi-grabmerchant)
+- [GrabMerchant — promo](https://merchant.grab.com/id-id/guides/tingkatkan-penjualan/mengatur-promosi-di-aplikasi-grabmerchant)
+- [GoFood Merchant — laporan iklan dan diskon](https://gofoodmerchant.co.id/biztips/topics/manajemen-operasional/evaluasi-agar-resto-berkembang/kini-laporan-iklan-and-diskon-di-portal-go-food-merchant)
+
+Rujukan eksternal membantu menetapkan baseline capability, tetapi bukan bukti implementasi LANCAR. Bukti completion tetap harus berasal dari repository, database, runtime staging, contract test, dan E2E cross-app yang benar-benar dijalankan.
+
+---
+
 ## Definition of Done program
 
 - Semua task P0 selesai dan diverifikasi sebelum P1 dianggap eligible.
@@ -375,5 +707,6 @@ Bangun struktur konten seperti:
 - Tidak ada mock, angka hardcode, testimonial palsu, atau status sukses palsu pada production path.
 - Web, portal, Android Merchant, dan backend menggunakan istilah status yang konsisten.
 - Verification mencakup build/lint/test, browser E2E, accessibility, responsive, security/privacy, Docker rebuild, dan staging smoke test.
+- Untuk portal authenticated, verification juga wajib mencakup tenant isolation, RBAC/ABAC, order lifecycle customer–merchant–courier, catalog propagation, ledger-to-payout reconciliation, staff audit, realtime recovery, provider UNKNOWN state, dan production release gate `MWEB-PORTAL-P0-010`.
 - Setiap deployment staging dibedakan jelas dari bukti runtime public/staging yang benar-benar terverifikasi.
 - Task evidence dicatat setelah implementasi; dokumen ini sendiri hanya merupakan rencana dan belum menjadi bukti capability selesai.
