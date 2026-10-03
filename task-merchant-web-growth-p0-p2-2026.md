@@ -5,6 +5,7 @@ Created: 2026-10-03
 Baseline: `staging`
 Target: `merchant-web` pada `https://merchant.bawain.my.id/`
 Audience: perusahaan/PT dan merchant bisnis; pendaftaran perorangan diarahkan ke Merchant Android
+Product requirements: [`docs/product/merchant-portal-prd-2026.md`](docs/product/merchant-portal-prd-2026.md)
 
 ## Tujuan
 
