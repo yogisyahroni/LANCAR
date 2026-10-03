@@ -79,11 +79,10 @@ button:focus-visible {
   letter-spacing: -0.04em;
 }
 
-.brand-mark img { width: 34px; height: 34px; border-radius: 9px; }
-.brand-mark span { font-size: 21px; font-weight: 800; }
-.brand-mark small { align-self: flex-end; margin: 0 0 5px -4px; color: var(--tembus-accent); font-size: 8px; font-weight: 800; letter-spacing: 0.15em; }
-.brand-mark--compact img { width: 28px; height: 28px; }
-.brand-mark--compact span { font-size: 18px; }
+.merchant-brand-image { display: block; width: 145px; height: auto; object-fit: contain; }
+.merchant-brand-image--sidebar { width: 134px; }
+.merchant-brand-image--auth { width: 145px; }
+.brand-mark--compact .merchant-brand-image { width: 126px; }
 
 .site-nav,
 .site-nav__links,
@@ -188,7 +187,7 @@ button:focus-visible {
 .preview-footer span:last-child { color: var(--tembus-primary); }
 .visual-rail { position: absolute; z-index: 3; display: flex; align-items: center; gap: 9px; padding: 11px 13px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; background: #0b4c2e; color: #b8d5c2; font-size: 9px; line-height: 1.35; box-shadow: 8px 12px 0 rgba(0, 31, 18, 0.17); }
 .visual-rail strong { color: #fff; font-size: 11px; }
-.visual-rail--top { top: 75px; left: -6px; }
+.visual-rail--top { top: 18px; left: -6px; }
 .visual-rail--bottom { right: 0; bottom: 11px; }
 .visual-rail--top svg { color: #ff9a59; }
 .rail-pulse { margin-left: 2px; box-shadow: 0 0 0 4px rgba(78, 193, 119, 0.14); }
@@ -332,7 +331,9 @@ button:focus-visible {
   .hero-section__inner,
   .hero-baseline { width: min(100% - 32px, 620px); }
   .site-header__inner { min-height: 68px; }
-  .brand-mark small { display: none; }
+  .merchant-brand-image { width: 128px; }
+  .merchant-brand-image--sidebar,
+  .merchant-brand-image--auth { width: 122px; }
   .menu-button { display: flex; }
   .site-nav { position: absolute; top: calc(100% + 1px); right: 16px; left: 16px; display: none; flex-direction: column; align-items: stretch; gap: 20px; padding: 20px; border: 1px solid var(--tembus-border); border-radius: 16px; background: #fbfdf9; box-shadow: 0 16px 30px rgba(0, 31, 18, 0.12); }
   .site-nav--open { display: flex; }

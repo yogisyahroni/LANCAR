@@ -57,8 +57,8 @@ export default function StatusCheck() {
       <header className="border-b border-zinc-100 bg-white">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-5 py-4">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/favicon.svg" alt="TEMBUS" className="h-8 w-8" />
-            <span className="font-black text-zinc-900">TEMBUS Mitra</span>
+            <img src="/tembus-login-logo.webp" alt="TEMBUS" className="merchant-brand-image merchant-brand-image--auth" />
+            <span className="font-black text-emerald-900">Mitra</span>
           </Link>
           <Link to="/daftar" className="text-sm font-bold text-[#F97316] hover:underline">Daftar Merchant</Link>
         </div>

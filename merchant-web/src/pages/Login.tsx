@@ -191,8 +191,8 @@ function Shell({ children }: { children: React.ReactNode }) {
       <div className="grid w-full max-w-4xl overflow-hidden rounded-[2rem] border border-zinc-100 bg-white shadow-sm md:grid-cols-[1fr_0.9fr]">
         <div className="px-6 py-12 sm:px-12">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/favicon.svg" alt="TEMBUS" className="h-9 w-9" />
-            <span className="text-lg font-black tracking-tight text-zinc-900">TEMBUS <span className="text-emerald-900">Mitra</span></span>
+            <img src="/tembus-login-logo.webp" alt="TEMBUS" className="merchant-brand-image merchant-brand-image--auth" />
+            <span className="text-lg font-black tracking-tight text-emerald-900">Mitra</span>
           </Link>
           <div className="mt-2">{children}</div>
         </div>

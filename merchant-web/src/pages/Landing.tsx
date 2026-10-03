@@ -44,9 +44,7 @@ const faqItems = [
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <Link to="/" className={`brand-mark${compact ? ' brand-mark--compact' : ''}`} aria-label="TEMBUS Merchant beranda">
-      <img src="/favicon.svg" alt="" aria-hidden="true" />
-      <span>TEMBUS</span>
-      {!compact && <small>MERCHANT</small>}
+      <img src="/tembus-login-logo.webp" alt="TEMBUS" className="merchant-brand-image" />
     </Link>
   )
 }

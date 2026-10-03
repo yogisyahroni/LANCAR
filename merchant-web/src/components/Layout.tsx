@@ -28,8 +28,8 @@ export default function Layout({ merchantName }: { merchantName?: string }) {
   const sidebar = (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 px-5 py-5">
-        <img src="/favicon.svg" alt="TEMBUS" className="h-8 w-8" />
-        <span className="font-black text-zinc-900">TEMBUS <span className="text-emerald-900">Mitra</span></span>
+        <img src="/tembus-login-logo.webp" alt="TEMBUS" className="merchant-brand-image merchant-brand-image--sidebar" />
+        <span className="font-black text-emerald-900">Mitra</span>
       </div>
       <nav className="mt-2 flex-1 space-y-1 px-3">
         {NAV.map(({ to, label, icon: Icon }) => (
