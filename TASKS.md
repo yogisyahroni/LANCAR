@@ -2,7 +2,7 @@
 
 ## Active
 
-- [ ] **Merchant Web Growth, Trust & Operational Readiness P0–P2** — backlog rinci untuk merombak `merchant.bawain.my.id` agar siap menarik perusahaan/PT, tetap mengarahkan perorangan ke aplikasi Merchant Android, dan memiliki trust, onboarding, product proof, content hub, serta growth measurement yang dapat diverifikasi. Detail task dan acceptance criteria: [task-merchant-web-growth-p0-p2-2026.md](task-merchant-web-growth-p0-p2-2026.md).
+- [ ] **Merchant Web Growth, Trust & Operational Readiness P0–P2** — backlog rinci untuk merombak `merchant.bawain.my.id` agar siap menarik perusahaan/PT, tetap mengarahkan perorangan ke aplikasi Merchant Android, dan memiliki trust, onboarding, product proof, content hub, serta growth measurement yang dapat diverifikasi. Keputusan readiness saat ini: **belum untuk public production; hanya staging/closed UAT** sampai task `MWEB-P0-006` s.d. `MWEB-P0-010` selesai. Detail task dan acceptance criteria: [task-merchant-web-growth-p0-p2-2026.md](task-merchant-web-growth-p0-p2-2026.md).
 
 - [ ] **Customer App Figma ↔ Code Parity & Flow Execution 2026** — blueprint eksekusi baru untuk menyatukan file Figma `ALL TEMBUS CUSTOMER` dengan route/screen Android customer yang sudah ada. Flow dipecah menjadi foundation/global shell, home, aktivitas/order, parcel, food, payment/wallet, tambal ban, towing, komunikasi/support, dan akun/privacy/security. Detail mapping, gap, dependency, dan gate implementasi: [task-customer-figma-code-parity-2026.md](task-customer-figma-code-parity-2026.md).
 

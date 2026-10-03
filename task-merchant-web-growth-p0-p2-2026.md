@@ -23,7 +23,147 @@ Benchmark digunakan untuk pola kemampuan dan ekspektasi merchant, bukan untuk me
 
 ## Urutan dependensi
 
-`P0-001 audience & funnel` → `P0-002 trust/legal` → `P0-003 onboarding readiness` → `P0-004 support/status` → `P1 product proof/content` → `P1 visual/performance` → `P2 growth ecosystem`.
+`P0-001 audience & funnel` → `P0-002 trust/legal` → `P0-003 onboarding readiness` → `P0-004 support/status` → `MWEB-P0-006 status contract` + `MWEB-P0-007 web auth` + `MWEB-P0-009 status security` → `MWEB-P0-008 full E2E` → `MWEB-P0-010 production release gate` → `P1 product proof/content` → `P1 visual/performance` → `P2 growth ecosystem`.
+
+## Keputusan readiness saat ini — 2026-10-04
+
+**Status: NOT READY untuk public production.** Portal Mitra sudah memiliki jalur inti Web → API Gateway → database → Admin → database → status Web, tetapi belum boleh dipakai terbuka oleh merchant bisnis sebelum task P0 tambahan di bawah selesai dan dibuktikan dengan evidence.
+
+Batas penggunaan saat ini:
+
+- boleh untuk development, staging, dan closed UAT dengan akun test terisolasi;
+- belum boleh menjadi kanal onboarding merchant umum atau dijadikan dasar klaim bahwa portal sudah production-ready;
+- link approved harus kembali ke Merchant Web (`/masuk`), bukan mengarahkan user ke aplikasi Android.
+
+Dasar keputusan yang perlu ditutup:
+
+- halaman status hanya memetakan `pending`, `approved`, dan `rejected`, sementara database memiliki lifecycle `DRAFT`, `SUBMITTED`, `VERIFYING`, `ACTIVE`, `REJECTED`, dan `SUSPENDED`;
+- alur Web belum memiliki continuation UI ketika registrasi/login memerlukan OTP; implementasi saat ini menganggap tidak adanya `access_token` sebagai kegagalan;
+- access token dan refresh token Portal Mitra masih disimpan di `localStorage`, sehingga perlu security review dan hardening sesi browser;
+- full flow disposable account dari daftar sampai approval/rejection/suspend dan cek status ulang belum dibuktikan sebagai browser E2E;
+- data lokal saat ini memiliki onboarding profile dan dokumen, tetapi riwayat `merchant_onboarding_reviews` belum berisi data untuk merchant lama.
+
+---
+
+## P0 — Blocker tambahan sebelum Portal Mitra public production
+
+### MWEB-P0-006 — Canonical onboarding status contract dan handoff portal
+
+**Tujuan:** status yang dilihat calon merchant, Admin, database, dan Portal Mitra selalu memakai lifecycle yang sama.
+
+**Ruang lingkup:**
+
+- Ubah endpoint status publik agar mengembalikan `onboarding_status` canonical, `verification_status` legacy hanya sebagai compatibility field, nama toko, waktu submit/update, alasan penolakan/suspend yang aman, dan next action.
+- Map seluruh state `DRAFT`, `SUBMITTED`, `VERIFYING`, `ACTIVE`, `REJECTED`, `SUSPENDED`, `no_merchant`, dan `not_found` ke state UI yang jelas.
+- Status `ACTIVE`/approved mengarahkan ke `/masuk` Merchant Web; jangan lagi mengarahkan ke aplikasi Android.
+- Status `REJECTED` menyediakan jalur perbaikan/resubmit; `SUSPENDED` menampilkan instruksi bantuan, bukan “sedang diproses”.
+- Pastikan halaman login dan route protected memakai lifecycle canonical yang sama dengan halaman status.
+
+**Acceptance criteria:**
+
+- Setiap state database punya response contract, label UI, warna/icon, copy, dan aksi yang teruji.
+- `no_merchant` selalu terlihat oleh user dan tidak hilang karena lookup status UI tidak punya metadata.
+- Perubahan Admin dari `SUBMITTED`/`VERIFYING`/`ACTIVE`/`REJECTED`/`SUSPENDED` tercermin di Portal Mitra setelah refresh sesuai aturan konsistensi baca.
+- Tidak ada teks internal seperti backend, service, atau nama tabel pada UI publik.
+
+### MWEB-P0-007 — Production-grade web authentication, OTP continuation, dan session hardening
+
+**Tujuan:** pendaftaran dan login Portal Mitra tetap berjalan ketika kontrol keamanan production diaktifkan.
+
+**Ruang lingkup:**
+
+- Buat continuation flow OTP untuk registrasi baru dan login perangkat baru; jangan menganggap response tanpa `access_token` sebagai error generik.
+- Pastikan `customer_auth_otp_required`/provider OTP yang aktif di production tidak memutus onboarding merchant Web.
+- Validasi role, ownership merchant, session expiry, refresh rotation, logout, multi-tab, dan device binding.
+- Pindahkan access/refresh token dari `localStorage` ke mekanisme browser yang disetujui security, idealnya secure HttpOnly SameSite cookie atau equivalent yang dibuktikan aman.
+- Tambahkan copy/error state untuk OTP expired, rate limit, provider unavailable, session expired, dan akun belum memiliki toko.
+
+**Acceptance criteria:**
+
+- Dengan OTP flag aktif, registrasi → verifikasi OTP → submit merchant berhasil.
+- Login pertama/perangkat baru dapat menyelesaikan OTP lalu membuka dashboard; login trusted device tetap terkontrol.
+- Token tidak lagi tersedia sebagai credential persisten di `localStorage`.
+- Logout, refresh, expired session, dan revoke session terverifikasi lewat browser E2E.
+- Tidak ada akun customer biasa yang dapat membuka data merchant milik akun lain.
+
+### MWEB-P0-008 — Disposable-account full E2E onboarding proof
+
+**Tujuan:** membuktikan Admin → DB → Merchant Web benar-benar bekerja, bukan hanya tersambung secara kode.
+
+**Skenario wajib:**
+
+- daftar perusahaan dari Merchant Web;
+- upload KTP, foto tempat usaha, rekening, dan NIB;
+- verifikasi bahwa row masuk ke `merchants`, `merchant_documents`, `merchant_legal_profiles`, dan `merchant_onboarding_reviews`;
+- Admin memulai verifikasi lalu approve; Portal status berubah menjadi aktif dan login membuka dashboard;
+- Admin reject dengan alasan; Portal menampilkan alasan dan jalur perbaikan;
+- resubmit lalu approve;
+- suspend merchant aktif; Portal menampilkan status suspend dan tidak memberi akses operasional aktif.
+
+**Acceptance criteria:**
+
+- Skenario memakai akun dan dokumen test disposable, bukan data merchant nyata.
+- Setiap transition diverifikasi di database dan response API, bukan hanya screenshot UI.
+- Browser E2E mencakup loading, retry, error, refresh, dan read-after-write.
+- Evidence mencatat commit, image Docker, migration state, API response yang sudah disanitasi, dan database invariant tanpa PII/credential.
+
+### MWEB-P0-009 — Public status lookup security dan consistency
+
+**Tujuan:** halaman cek status aman untuk publik dan tidak menampilkan status yang salah atau bocor.
+
+**Ruang lingkup:**
+
+- Jika email dan nomor HP dikirim bersamaan, keduanya harus cocok pada akun yang sama; jangan memakai pencocokan `OR` yang dapat mengambil akun berbeda.
+- Pertahankan rate limit, generic not-found response, audit/metric request, dan redaksi PII.
+- Tentukan strategi read-after-write setelah Admin transition: primary read, bounded retry, atau version/timestamp contract yang jelas.
+- Pastikan alasan penolakan/suspend hanya tampil setelah identity lookup memenuhi kebijakan yang disetujui.
+
+**Acceptance criteria:**
+
+- Test mismatch email/phone tidak mengembalikan status akun lain.
+- Test enumeration/rate limit dan generic error lulus.
+- Status setelah transition Admin memiliki batas stale yang terdokumentasi dan diuji.
+- Public endpoint tidak pernah mengembalikan token, dokumen URL privat, rekening, atau data internal.
+
+### MWEB-P0-010 — Portal Mitra production release gate
+
+**Tujuan:** memastikan portal yang dipromosikan benar-benar memakai konfigurasi production dan memiliki baseline operasional.
+
+**Ruang lingkup:**
+
+- Build web gagal tertutup bila `VITE_API_URL` masih localhost atau domain staging yang salah.
+- Tetapkan domain API resmi per environment secara eksplisit; jangan mengandalkan default `http://localhost:8080/api/v1`.
+- Tambahkan security headers Nginx/CDN yang relevan: HSTS, CSP, frame protection, nosniff, referrer policy, dan permissions policy setelah diuji terhadap asset yang sah.
+- Jalankan dependency/security scan untuk merchant-web image dan lockfile.
+- Sediakan health check, error monitoring, rollback image, migration compatibility, support escalation, dan release checklist.
+- Verifikasi public domain, API origin, CORS, TLS, cache asset, dan route fallback `/masuk`, `/daftar`, `/status`, `/dashboard`.
+
+**Acceptance criteria:**
+
+- Build staging/production tidak mungkin menghasilkan bundle yang memanggil localhost.
+- CI lulus build, lint, typecheck, security/container scan, browser E2E, accessibility, dan Docker smoke test.
+- Rollback ke image sebelumnya teruji tanpa merusak data onboarding.
+- Public production readiness sign-off memiliki evidence terpisah dari health check tunnel lokal.
+
+---
+
+## P1 — Kelengkapan operasional setelah blocker P0 selesai
+
+### MWEB-P1-006 — Historical onboarding audit baseline
+
+**Tujuan:** merchant lama tidak tampak seolah-olah kehilangan histori hanya karena dibuat sebelum lifecycle audit tersedia.
+
+**Ruang lingkup:**
+
+- Audit merchant lama yang sudah memiliki legal profile/dokumen tetapi belum memiliki `merchant_onboarding_reviews`.
+- Buat baseline event yang ditandai sebagai `legacy_import` hanya bila sumber dan waktunya dapat dibuktikan; jangan membuat histori approval palsu.
+- Tampilkan empty state yang jujur jika histori memang tidak tersedia.
+
+**Acceptance criteria:**
+
+- Tidak ada review/audit fiktif.
+- Admin dapat membedakan histori native dan baseline legacy.
+- Data lama tetap dapat di-review, suspend, atau re-verify melalui lifecycle canonical.
 
 ---
 
