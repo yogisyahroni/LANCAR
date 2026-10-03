@@ -26,8 +26,9 @@ const PROTECTED_PREFIXES = [
   '/notifikasi',
 ];
 
-// PUBLIC ROUTES (no session required): '/', '/cek-resi', '/track/*' and the
-// auth pages listed in the matcher below. Do NOT add them to PROTECTED_PREFIXES.
+// PUBLIC ROUTES (no session required): '/login', '/daftar', '/cek-resi',
+// '/track/*' and the auth pages listed in the matcher below. The customer root
+// '/' is handled by the server page redirect to '/login'.
 
 
 // These were mistakenly added to customer portal — redirect them away

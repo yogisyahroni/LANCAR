@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import * as axe from 'axe-core';
 
-const PUBLIC_ROUTES = ['/', '/login', '/daftar', '/cek-resi', '/track/invalid'] as const;
+const PUBLIC_ROUTES = ['/login', '/daftar', '/cek-resi', '/track/invalid'] as const;
 const AUTHENTICATED_ROUTES = [
   '/dashboard',
   '/orders',
@@ -494,6 +494,14 @@ test.describe('WCAG 2.1 AA public surfaces', () => {
   }
 });
 
+test.describe('Customer root entry contract', () => {
+  test('redirects the customer application root to login', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await expect(page).toHaveURL(/\/login(?:\?.*)?$/);
+    await expect(page.locator('input[name="email"]')).toBeVisible();
+  });
+});
+
 test.describe('WCAG 2.1 AA theme matrix', () => {
   for (const themeCase of THEME_CASES) {
     for (const route of PUBLIC_ROUTES) {
@@ -518,7 +526,7 @@ test.describe('TEMBUS brand artwork contrast', () => {
       await page.addInitScript((selectedTheme) => {
         window.localStorage.setItem('tembus-theme', selectedTheme);
       }, themeCase.mode);
-      await gotoAccessibilityRoute(page, '/');
+      await gotoAccessibilityRoute(page, '/login');
 
       await assertTembusLogoContrast(page);
     });
@@ -527,14 +535,14 @@ test.describe('TEMBUS brand artwork contrast', () => {
 
 test.describe('WCAG 2.4.7 public keyboard focus', () => {
   for (const themeCase of THEME_CASES.slice(0, 2)) {
-    test(`keeps the landing tracking input visibly focused in ${themeCase.mode} mode @a11y`, async ({ page }) => {
+    test(`keeps the login email visibly focused in ${themeCase.mode} mode @a11y`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: themeCase.colorScheme });
       await page.addInitScript((selectedTheme) => {
         window.localStorage.setItem('tembus-theme', selectedTheme);
       }, themeCase.mode);
-      await page.goto('/', { waitUntil: 'networkidle' });
+      await page.goto('/login', { waitUntil: 'networkidle' });
 
-      const input = page.locator('#landing-resi-input');
+      const input = page.locator('#customer-login-email');
       await input.focus();
       await page.keyboard.press('Tab');
       await page.keyboard.press('Shift+Tab');
@@ -547,7 +555,7 @@ test.describe('WCAG 2.4.7 public keyboard focus', () => {
       });
       expect(
         focusStyles.outline !== 'none' || focusStyles.boxShadow !== 'none',
-        `landing tracking input has no visible focus indicator: ${JSON.stringify(focusStyles)}`,
+        `login email has no visible focus indicator: ${JSON.stringify(focusStyles)}`,
       ).toBeTruthy();
     });
   }

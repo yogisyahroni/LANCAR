@@ -1,11 +1,9 @@
-import type { Metadata } from 'next';
-import LandingPageContent from './LandingPageContent';
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = {
-  title: 'TEMBUS — On-demand logistics',
-  description: 'Parcels, food, roadside assistance, and towing in one TEMBUS application.',
-};
-
-export default function LandingPage() {
-  return <LandingPageContent />;
+/**
+ * The public company landing page is served by bawain.my.id.
+ * The customer application host must enter through its authenticated portal.
+ */
+export default function CustomerRootRedirect() {
+  redirect('/login');
 }

@@ -4,7 +4,7 @@ Status: automated checks implemented; manual audit items remain `NOT_RUN` until 
 
 ## Automated gates
 
-- Customer public routes (`/`, `/login`, `/daftar`, `/cek-resi`) are scanned with axe-core in explicit light/dark and System-resolved light/dark modes by `frontend/e2e/accessibility.spec.ts`.
+- Customer public routes (`/login`, `/daftar`, `/cek-resi`, `/track/*`) are scanned with axe-core in explicit light/dark and System-resolved light/dark modes by `frontend/e2e/accessibility.spec.ts`; the customer root redirect to `/login` has a separate route contract test.
 - Admin login plus representative high-risk operational/App Experience routes are scanned with axe-core in explicit light/dark and System-resolved light/dark modes by `admin-dashboard/e2e/accessibility.spec.ts`.
 - Admin Light/Dark login and empty-dashboard reference surfaces are checked with Playwright screenshot baselines by `admin-dashboard/e2e/visual-regression.spec.ts`; the production Admin build job runs this visual gate.
 - Customer reflow checks cover the full registered 31-route inventory at 320px and 640px CSS (200%-equivalent); Admin covers the full registered 70-route inventory at both widths. Full Customer 31-route and Admin 70-route text-spacing inventories also run at 320px. These automated checks still do not replace manual modal/sticky, assistive-technology, actual browser zoom, 400% zoom or long-localized-string review.

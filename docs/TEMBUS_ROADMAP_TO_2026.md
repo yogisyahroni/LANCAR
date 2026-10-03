@@ -91,7 +91,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 11.6 | RBAC multi-role | 🟡 |
 | 11.1 | Voucher page web (`/voucher`) | ✅ **VERIFIED 2026-08-26** — `frontend/src/app/(portal)/voucher/page.tsx` exists + `frontend build` EXIT 0 |
 | 11.1 | Cek resi publik endpoint + page | ✅ DONE — `/api/v1/tracking/public` + `publicTracking.controller.ts` + `/cek-resi`; route regression fixed and tests pass |
-| 11.1 | Landing page publik utuh | ✅ DONE — active frontend `/` route owns the public landing flow; legacy separate `landing-page/` is not the deployed route |
+| 11.1 | Customer app entry + marketing landing | ✅ UPDATED 2026-10-03 — `app.bawain.my.id/` redirects to `/login`; the marketing landing remains served by the separate `bawain.my.id` surface |
 
 ### Verifikasi Build & Test — 2026-08-26 (Hermes Agent)
 Semua claim ✅ di atas diverifikasi dengan build/test nyata (bukan asumsi):
