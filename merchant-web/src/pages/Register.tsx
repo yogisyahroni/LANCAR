@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import {
-  ArrowLeft, ArrowRight, Building2, Check, FileUp, Loader2, ShieldCheck, Store, User,
+  ArrowLeft, ArrowRight, Building2, Check, FileUp, Loader2, ShieldCheck, Store,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from 'sonner'
@@ -10,7 +10,7 @@ import LocationPicker from '../components/LocationPicker'
 // ─── Types ────────────────────────────────────────────────
 type FormData = {
   // jenis usaha
-  businessType: 'perorangan' | 'perusahaan'
+  businessType: 'perusahaan'
   // akun
   fullName: string
   email: string
@@ -31,19 +31,19 @@ type FormData = {
 }
 
 const emptyForm: FormData = {
-  businessType: 'perorangan',
+  businessType: 'perusahaan',
   fullName: '', email: '', phoneNumber: '', password: '',
   storeName: '', address: '', openHour: '08:00', closeHour: '22:00', latitude: null, longitude: null,
   ktpPemilikUrl: '', fotoTempatUsahaUrl: '', rekeningBankUrl: '', nibUrl: '',
 }
 
-const STEPS = ['Jenis Usaha', 'Akun', 'Data Toko', 'Dokumen', 'Review'] as const
+const STEPS = ['Akun', 'Data Bisnis', 'Dokumen', 'Review'] as const
 
 const DOC_FIELDS = [
   { key: 'ktpPemilikUrl', label: 'KTP Pemilik', required: true, hint: 'Foto KTP asli (JPG/PNG/PDF, maks 10MB)' },
   { key: 'fotoTempatUsahaUrl', label: 'Foto Tempat Usaha', required: true, hint: 'Foto tampak depan toko / dapur' },
   { key: 'rekeningBankUrl', label: 'Rekening Bank', required: true, hint: 'Buku tabungan / screenshot rekening' },
-  { key: 'nibUrl', label: 'NIB / Izin Usaha', required: false, hint: 'Opsional untuk perorangan, wajib untuk perusahaan' },
+  { key: 'nibUrl', label: 'NIB / Izin Usaha', required: true, hint: 'Dokumen legal badan usaha (JPG/PNG/PDF, maks 10MB)' },
 ] as const
 
 const requiredDocsFor = (businessType: string) =>
@@ -99,21 +99,20 @@ export default function Register() {
   const update = (key: keyof FormData) => (v: string) => setForm((f) => ({ ...f, [key]: v }))
 
   const validateStep = (): string => {
-    if (step === 0) return ''
-    if (step === 1) {
+    if (step === 0) {
       if (form.fullName.trim().length < 2) return 'Nama lengkap minimal 2 karakter.'
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return 'Email tidak valid.'
       if (form.phoneNumber.replace(/\D/g, '').length < 9) return 'Nomor HP tidak valid (minimal 9 digit).'
       if (form.password.length < 8) return 'Password minimal 8 karakter.'
       return ''
     }
-    if (step === 2) {
+    if (step === 1) {
       if (form.storeName.trim().length < 3) return 'Nama toko minimal 3 karakter.'
       if (form.address.trim().length < 10) return 'Alamat terlalu pendek.'
       if (form.latitude === null || form.longitude === null) return 'Tandai lokasi toko di peta (wajib).'
       return ''
     }
-    if (step === 3) {
+    if (step === 2) {
       const missing = requiredDocsFor(form.businessType).filter((d) => !form[d.key])
       if (missing.length > 0) return `Lengkapi dokumen: ${missing.map((d) => d.label).join(', ')}.`
       return ''
@@ -141,7 +140,7 @@ export default function Register() {
       })
       setForm((f) => ({ ...f, [key]: res.data.data.file_url }))
       setUploadingNames((n) => ({ ...n, [key]: file.name }))
-      // Preview via objectURL lokal — /uploads private (auth), jangan fetch server.
+      // Preview via objectURL lokal. Upload server bersifat private dan memakai auth.
       setPreviewUrls((p) => {
         const prev = p[key]
         if (prev) URL.revokeObjectURL(prev)
@@ -269,49 +268,23 @@ export default function Register() {
         </ol>
 
         <div className="mt-6 rounded-[1.75rem] border border-zinc-100 bg-white p-6 shadow-sm md:p-8">
-          {/* Step 0: Jenis Usaha */}
+          {/* Step 0: Akun */}
           {step === 0 && (
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-zinc-900">Daftar sebagai apa?</h1>
-              <p className="mt-1 text-sm text-zinc-500">Pilih jenis badan usaha tokomu. Mayoritas UMKM kuliner memilih perorangan.</p>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                {([
-                  { type: 'perorangan', icon: User, title: 'Perorangan', desc: 'Untuk usaha pribadi / UMKM. Cukup KTP & foto toko.', badge: 'Paling umum' },
-                  { type: 'perusahaan', icon: Building2, title: 'Perusahaan', desc: 'Untuk PT / CV. Perlu NIB & dokumen perusahaan.', badge: 'Badan usaha' },
-                ] as const).map(({ type, icon: Icon, title, desc, badge }) => (
-                  <button
-                    key={type}
-                    onClick={() => { setForm((f) => ({ ...f, businessType: type })); setError('') }}
-                    className={`rounded-2xl border-2 p-5 text-left transition ${form.businessType === type ? 'border-[#003A20] bg-emerald-900/5' : 'border-zinc-100 hover:border-zinc-200'}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-900/10">
-                        <Icon className="h-5 w-5 text-emerald-900" />
-                      </div>
-                      <span className="rounded-full bg-[#F97316]/10 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-[#F97316]">{badge}</span>
-                    </div>
-                    <p className="mt-3 font-bold text-zinc-900">{title}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-zinc-500">{desc}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Step 1: Akun */}
-          {step === 1 && (
             <div className="space-y-4">
-              <h1 className="text-2xl font-black tracking-tight text-zinc-900">Buat akun merchant</h1>
-              <p className="text-sm text-zinc-500">Email & password ini dipakai untuk login di aplikasi TEMBUS Merchant nantinya.</p>
-              <Field label="Nama lengkap pemilik" required value={form.fullName} onChange={update('fullName')} placeholder="Nama sesuai KTP" />
-              <Field label="Email" required type="email" value={form.email} onChange={update('email')} placeholder="nama@email.com" />
-              <Field label="Nomor HP" required type="tel" value={form.phoneNumber} onChange={update('phoneNumber')} placeholder="08xxxxxxxxxx" />
+              <h1 className="text-2xl font-black tracking-tight text-zinc-900">Buat akun bisnis</h1>
+              <div className="flex items-start gap-3 rounded-2xl bg-emerald-900/5 p-4">
+                <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-900" />
+                <p className="text-sm leading-relaxed text-zinc-600">Pendaftaran web ini khusus untuk PT atau badan usaha. Usaha perorangan dapat mendaftar melalui aplikasi TEMBUS Merchant.</p>
+              </div>
+              <Field label="Nama lengkap penanggung jawab" required value={form.fullName} onChange={update('fullName')} placeholder="Nama sesuai dokumen resmi" />
+              <Field label="Email bisnis" required type="email" value={form.email} onChange={update('email')} placeholder="nama@perusahaan.com" />
+              <Field label="Nomor HP penanggung jawab" required type="tel" value={form.phoneNumber} onChange={update('phoneNumber')} placeholder="08xxxxxxxxxx" />
               <Field label="Password" required type="password" value={form.password} onChange={update('password')} placeholder="Minimal 8 karakter" />
             </div>
           )}
 
-          {/* Step 2: Toko */}
-          {step === 2 && (
+          {/* Step 1: Data bisnis */}
+          {step === 1 && (
             <div className="space-y-4">
               <h1 className="text-2xl font-black tracking-tight text-zinc-900">Data tokomu</h1>
               <p className="text-sm text-zinc-500">Info ini yang tampil ke pelanggan & dipakai driver untuk antar order.</p>
@@ -338,24 +311,24 @@ export default function Register() {
             </div>
           )}
 
-          {/* Step 3: Dokumen */}
-          {step === 3 && (
+          {/* Step 2: Dokumen */}
+          {step === 2 && (
             <div className="space-y-4">
               <h1 className="text-2xl font-black tracking-tight text-zinc-900">Upload dokumen</h1>
-              <p className="text-sm text-zinc-500">Dokumen diverifikasi admin dalam 1×24 jam kerja. Data kamu aman & terenkripsi.</p>
+              <p className="text-sm text-zinc-500">Dokumen akan diperiksa setelah pengajuan dikirim. Data diproses melalui alur verifikasi merchant.</p>
               {requiredDocsFor(form.businessType).map(docUrlInput)}
             </div>
           )}
 
-          {/* Step 4: Review */}
-          {step === 4 && (
+          {/* Step 3: Review */}
+          {step === 3 && (
             <div>
               <h1 className="text-2xl font-black tracking-tight text-zinc-900">Periksa kembali</h1>
               <p className="mt-1 text-sm text-zinc-500">Pastikan semua data benar sebelum dikirim.</p>
               <div className="mt-6 overflow-hidden rounded-2xl border border-zinc-100">
                 {[
-                  ['Jenis usaha', form.businessType === 'perorangan' ? 'Perorangan' : 'Perusahaan'],
-                  ['Nama pemilik', form.fullName],
+                  ['Jenis usaha', 'PT atau badan usaha'],
+                  ['Penanggung jawab', form.fullName],
                   ['Email', form.email],
                   ['Nomor HP', form.phoneNumber],
                   ['Nama toko', form.storeName],
@@ -381,7 +354,7 @@ export default function Register() {
                 <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-900" />
                 <p className="text-xs leading-relaxed text-zinc-600">
                   Dengan mengirim, kamu setuju data & dokumen diperiksa admin TEMBUS untuk verifikasi.
-                  Pendaftaran gratis tanpa komitmen apa pun.
+                  Pengajuan akan masuk ke alur verifikasi merchant setelah dikirim. Pastikan data dan dokumen yang diunggah sudah benar.
                 </p>
               </div>
             </div>
