@@ -5,7 +5,7 @@ status: COMPLETE
 reality_2026_003: PASS
 reality_2026_011: PASS
 
-implementation_ref: 748e0a44
+implementation_ref: PENDING — refreshed Canva asset commit
 
 tests: PASS
 integration: PASS
@@ -87,8 +87,11 @@ These are the task requirements. Staging deployment and CI are tracked below as 
     tool: adb install -r -d + emulator-5554
     result: PASS — debug APK installed and MainActivity resumed.
 
-    tool: Canva browser export via the supplied `canva.link` design
-    result: PASS — eight PNG pages downloaded and inspected before import.
+    tool: Canva browser export via the supplied Canva design
+    result: PASS — the refreshed eight-page export from `C:\Users\yogis\Downloads\onboarding customer terbaru` was inspected before import; dark pages no longer contain a page-level mock status bar or white canvas margins.
+
+    tool: adb install -r -d + emulator-5554 + dark-mode onboarding flow
+    result: PASS — updated APK installed, dark onboarding page 1 and page 4 rendered, and UIAutomator exposed `Lanjut` then `Mulai sekarang`.
 
 ## Task-Local Verification
 
@@ -108,7 +111,7 @@ Evidence: Android resource qualifiers selected the light set with `cmd uimode ni
 
 Status: PASS
 
-Evidence: On `emulator-5554`, fresh install opened Canva page 1; tapping the transparent `Lanjut` target advanced through pages 2–4; the `Mulai sekarang` target completed onboarding and routed into the existing app flow. UIAutomator exposed the semantic controls and their clickable bounds. No `AndroidRuntime:E` fatal exception was present in the inspected logcat output.
+Evidence: On `emulator-5554`, the refreshed APK opened the new dark Canva page 1; the screen has only the device status bar and no embedded `9:41` mock status bar. Tapping the transparent `Lanjut` target advanced through pages 2–4, and UIAutomator exposed `Mulai sekarang` on page 4. The final page has no white top margin. No `AndroidRuntime:E` fatal exception was present in the inspected logcat output.
 
 ### Migration
 
@@ -158,7 +161,7 @@ Evidence: The implementation is committed locally. Push to `origin/staging` and 
 
 - Push commit `748e0a44` to `origin/staging`.
 - Check the customer Android CI/release pipeline after the push.
-- If the dark source design is revised, re-export the four dark PNGs from Canva; the current export includes a mock status bar and a white top margin, intentionally preserved because the request required direct Canva assets.
+    - The refreshed Canva export is now imported locally; push this asset update to `origin/staging` and check the resulting customer Android CI/release pipeline.
 
 ## Locally Actionable Remaining
 
