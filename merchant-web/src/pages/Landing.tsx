@@ -3,18 +3,23 @@ import { Link } from 'react-router'
 import {
   ArrowRight,
   BarChart3,
+  Building2,
   Check,
   ChevronDown,
   CircleHelp,
   ClipboardList,
+  ExternalLink,
   FileCheck2,
   Menu,
   ShieldCheck,
   Store,
+  Smartphone,
   UsersRound,
   WalletCards,
   X,
 } from 'lucide-react'
+
+const MERCHANT_ANDROID_RELEASE_URL = 'https://github.com/yogisyahroni/LANCAR/releases/latest'
 
 const navigation = [
   { href: '#untuk-bisnis', label: 'Untuk bisnis' },
@@ -143,8 +148,30 @@ export default function Landing() {
               <h1>Bisnis yang tertata membuat pelanggan lebih mudah datang kembali.</h1>
               <p className="hero-lead">Kelola pesanan food, menu, tim, outlet, dan pencairan dari ruang kerja merchant TEMBUS yang dibuat untuk operasional harian.</p>
               <div className="hero-actions">
-                <Link to="/daftar" className="button button--orange button--large">Daftar sebagai bisnis <ArrowRight size={18} /></Link>
-                <a href="#cara-bergabung" className="button button--ghost-light button--large">Lihat cara bergabung</a>
+                <Link to="/daftar" className="button button--orange button--large">Daftar sebagai perusahaan <ArrowRight size={18} /></Link>
+                <a
+                  href={MERCHANT_ANDROID_RELEASE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="button button--ghost-light button--large"
+                >
+                  Daftar perorangan lewat aplikasi <ExternalLink size={16} />
+                </a>
+              </div>
+              <div className="hero-route-note" aria-label="Pilihan jalur pendaftaran">
+                <span className="hero-route-note__item">
+                  <Building2 size={16} />
+                  <span><strong>PT atau badan usaha</strong><small>Isi pengajuan di web ini</small></span>
+                </span>
+                <span className="hero-route-note__item">
+                  <Smartphone size={16} />
+                  <span><strong>Usaha perorangan</strong><small>Gunakan aplikasi Merchant Android</small></span>
+                </span>
+              </div>
+              <a href="#cara-bergabung" className="hero-how-link">Lihat cara bergabung <ArrowRight size={15} /></a>
+              <div className="hero-quick-links" aria-label="Akses akun dan status pendaftaran">
+                <Link to="/masuk">Sudah punya akun? Masuk</Link>
+                <Link to="/status">Cek status pendaftaran</Link>
               </div>
               <div className="hero-note"><ShieldCheck size={16} /> Data usaha diperiksa melalui proses verifikasi sebelum toko menerima pesanan.</div>
             </div>
