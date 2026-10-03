@@ -187,7 +187,7 @@ button:focus-visible {
 .preview-footer span:last-child { color: var(--tembus-primary); }
 .visual-rail { position: absolute; z-index: 3; display: flex; align-items: center; gap: 9px; padding: 11px 13px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; background: #0b4c2e; color: #b8d5c2; font-size: 9px; line-height: 1.35; box-shadow: 8px 12px 0 rgba(0, 31, 18, 0.17); }
 .visual-rail strong { color: #fff; font-size: 11px; }
-.visual-rail--top { top: 18px; left: -6px; }
+.visual-rail--top { top: -42px; left: -6px; }
 .visual-rail--bottom { right: 0; bottom: 11px; }
 .visual-rail--top svg { color: #ff9a59; }
 .rail-pulse { margin-left: 2px; box-shadow: 0 0 0 4px rgba(78, 193, 119, 0.14); }
