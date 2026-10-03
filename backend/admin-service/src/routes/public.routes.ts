@@ -38,6 +38,12 @@ publicRoutes.post('/api/v1/mobile/orders/:id/calls/:callId/join', requireMobileO
 publicRoutes.post('/api/v1/mobile/orders/:id/calls/:callId/end', requireMobileOrWebAuth, communicationCallRateLimiter, (req, res) => controllers.customerOrder.endOrderCall(req, res));
 publicRoutes.get('/api/v1/customer/profile', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerProfile(req, res));
 publicRoutes.put('/api/v1/customer/profile', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.updateMobileCustomerProfile(req, res));
+publicRoutes.post(
+  '/api/v1/customer/profile/photo',
+  requireMobileOrWebAuth,
+  ...secureUploadSingle('photo', 'profileImage'),
+  (req, res) => controllers.customerOrder.uploadMobileCustomerProfilePhoto(req, res),
+);
 publicRoutes.get('/api/v1/customer/incoming-packages', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerIncomingPackages(req, res));
 publicRoutes.get('/api/v1/customer/delivery-services', (req, res) => controllers.deliveryServices.listCustomerDeliveryServices(req, res));
 publicRoutes.get('/api/v1/customer/addresses', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.listCustomerAddresses(req, res));

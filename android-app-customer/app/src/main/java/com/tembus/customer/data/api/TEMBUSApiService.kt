@@ -403,6 +403,12 @@ interface TEMBUSApiService {
         @Body request: UpdateProfileRequest
     ): Response<ApiResponse<ProfileResponse>>
 
+    @Multipart
+    @POST("api/v1/customer/profile/photo")
+    suspend fun uploadProfilePhoto(
+        @Part photo: okhttp3.MultipartBody.Part
+    ): Response<ApiResponse<ProfileResponse>>
+
     // Real-Time In-App Chat Sync (Mobile API Bridge)
     @GET("api/v1/mobile/chats/orders/{id}/chats")
     suspend fun getOrderChats(

@@ -1,8 +1,11 @@
 package com.tembus.customer.ui.screens.profile
 
 import android.content.ActivityNotFoundException
+import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -25,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
@@ -101,7 +106,12 @@ import com.tembus.customer.ui.designsystem.TembusNavigationItem
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.OrangeCta
 import com.tembus.customer.BuildConfig
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -158,6 +168,24 @@ fun ProfileScreen(
         LocalDeviceSecurityManager(context.applicationContext)
     }
     var activeDialog by remember { mutableStateOf<ProfileDialog?>(null) }
+
+    val profilePhotoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val partResult = withContext(Dispatchers.IO) {
+                context.contentResolver.createProfilePhotoPart(uri)
+            }
+            partResult
+                .onSuccess(viewModel::uploadProfilePhoto)
+                .onFailure { error ->
+                    snackbarHostState.showSnackbar(
+                        error.message ?: "Foto profil belum dapat diproses."
+                    )
+                }
+        }
+    }
 
     LaunchedEffect(Unit) {
         loyaltyViewModel.loadLoyaltyInfo()
@@ -240,6 +268,7 @@ fun ProfileScreen(
                 profile = currentProfile,
                 isUpdating = (state as? ProfileUiState.Success)?.isUpdating == true,
                 onDismiss = { activeDialog = null },
+                onPickPhoto = { profilePhotoPicker.launch("image/*") },
                 onSubmit = { name, phone ->
                     viewModel.updateProfile(name, phone)
                     activeDialog = null
@@ -525,7 +554,7 @@ private fun AvatarBadge(
     ) {
         if (!imageUrl.isNullOrBlank()) {
             AsyncImage(
-                model = imageUrl,
+                model = absoluteProfileImageUrl(imageUrl),
                 contentDescription = "Foto profil",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
@@ -728,6 +757,7 @@ private fun EditProfileDialog(
     profile: ProfileResponse,
     isUpdating: Boolean,
     onDismiss: () -> Unit,
+    onPickPhoto: () -> Unit,
     onSubmit: (String, String) -> Unit
 ) {
     var name by remember(profile.id) { mutableStateOf(profile.name) }
@@ -735,10 +765,70 @@ private fun EditProfileDialog(
     val canSubmit = name.trim().length >= 2 && !isUpdating
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isUpdating) onDismiss() },
         title = { Text("Ubah Profil", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(96.dp)
+                            .clip(CircleShape)
+                            .clickable(enabled = !isUpdating, onClick = onPickPhoto),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AvatarBadge(
+                            name = profile.name,
+                            imageUrl = profile.profileImageUrl,
+                            size = 96.dp
+                        )
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(32.dp),
+                            shape = CircleShape,
+                            color = Primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            shadowElevation = 2.dp
+                        ) {
+                            IconButton(
+                                onClick = onPickPhoto,
+                                enabled = !isUpdating,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.CameraAlt,
+                                    contentDescription = "Pilih foto profil",
+                                    modifier = Modifier.size(17.dp)
+                                )
+                            }
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = onPickPhoto,
+                        enabled = !isUpdating,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                            contentColor = Primary
+                        )
+                    ) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Pilih foto profil")
+                    }
+                    Text(
+                        text = "JPG, PNG, atau WebP • maksimal 2 MB",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -781,7 +871,7 @@ private fun EditProfileDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, enabled = !isUpdating) {
                 Text("Batal")
             }
         }
@@ -1074,6 +1164,34 @@ private fun formatRupiah(value: Long): String {
 private fun String.asPhoneDisplay(): String {
     val normalized = trim()
     return if (normalized.isBlank() || normalized.contains("@")) "Perlu dilengkapi" else normalized
+}
+
+private const val MAX_PROFILE_PHOTO_BYTES = 2 * 1024 * 1024
+
+private fun ContentResolver.createProfilePhotoPart(uri: Uri): Result<MultipartBody.Part> = runCatching {
+    val mimeType = getType(uri)?.lowercase()?.takeIf {
+        it == "image/jpeg" || it == "image/png" || it == "image/webp"
+    } ?: error("Format foto tidak didukung. Gunakan JPG, PNG, atau WebP.")
+    val bytes = openInputStream(uri)?.use { it.readBytes() }
+        ?: error("Foto tidak dapat dibaca. Silakan pilih foto lain.")
+    require(bytes.isNotEmpty()) { "Foto yang dipilih kosong." }
+    require(bytes.size <= MAX_PROFILE_PHOTO_BYTES) { "Ukuran foto maksimal 2 MB." }
+
+    val extension = when (mimeType) {
+        "image/png" -> "png"
+        "image/webp" -> "webp"
+        else -> "jpg"
+    }
+    val body = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+    MultipartBody.Part.createFormData("photo", "profile-photo.$extension", body)
+}
+
+private fun absoluteProfileImageUrl(path: String?): String? {
+    if (path.isNullOrBlank()) return null
+    val normalized = path.trim()
+    if (normalized.startsWith("http://") || normalized.startsWith("https://")) return normalized
+    val gatewayBase = BuildConfig.BASE_URL.substringBefore("/api/v1").trimEnd('/')
+    return "$gatewayBase/${normalized.trimStart('/')}"
 }
 
 private enum class ProfileDialog {

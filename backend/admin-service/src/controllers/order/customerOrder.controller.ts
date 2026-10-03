@@ -82,6 +82,15 @@ import { evaluatePickupLocationQuality } from '../../services/pickupLocationQual
 import { isExperienceKillSwitchActive } from '../../services/experienceKillSwitches';
 import { formatCustomerOrderNumber } from '../../services/orderNumber';
 
+// Customer profile endpoints share the customer-order auth surface so mobile
+// clients can keep one authenticated API contract for profile reads, edits,
+// and the secure avatar upload.
+export {
+  getMobileCustomerProfile,
+  updateMobileCustomerProfile,
+  uploadMobileCustomerProfilePhoto,
+} from './customerOrderProfile.controller';
+
 export const createCustomerOrder = async (req: Request, res: Response): Promise<void> => {
   // Keep the pool connection free while validating the request and calculating
   // the trusted quote. The transaction client is acquired only immediately

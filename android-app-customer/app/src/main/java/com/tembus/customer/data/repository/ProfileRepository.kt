@@ -5,6 +5,7 @@ import com.tembus.customer.data.api.withRequestReference
 import com.tembus.customer.data.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import okhttp3.MultipartBody
 import org.json.JSONObject
 import retrofit2.Response
 import java.util.UUID
@@ -37,6 +38,20 @@ class ProfileRepository @Inject constructor(
                 emit(Result.success(data))
             } else {
                 emit(Result.failure(Exception(response.readErrorMessage("Gagal mengupdate profil"))))
+            }
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }
+
+    fun uploadProfilePhoto(photo: MultipartBody.Part): Flow<Result<ProfileResponse>> = flow {
+        try {
+            val response = apiService.uploadProfilePhoto(photo)
+            val data = response.body()?.data
+            if (response.isSuccessful && response.body()?.success == true && data != null) {
+                emit(Result.success(data))
+            } else {
+                emit(Result.failure(Exception(response.readErrorMessage("Gagal mengunggah foto profil"))))
             }
         } catch (e: Exception) {
             emit(Result.failure(e))

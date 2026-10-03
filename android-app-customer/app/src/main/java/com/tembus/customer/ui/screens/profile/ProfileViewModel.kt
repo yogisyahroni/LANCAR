@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import okhttp3.MultipartBody
 import javax.inject.Inject
 
 sealed class ProfileUiState {
@@ -94,6 +95,28 @@ class ProfileViewModel @Inject constructor(
                     _uiState.value = currentState.copy(
                         isUpdating = false,
                         error = error.localizedMessage ?: "Gagal memperbarui profil."
+                    )
+                }
+            }
+        }
+    }
+
+    fun uploadProfilePhoto(photo: MultipartBody.Part) {
+        val currentState = _uiState.value as? ProfileUiState.Success ?: return
+
+        viewModelScope.launch {
+            _uiState.value = currentState.copy(isUpdating = true, message = null, error = null)
+            repository.uploadProfilePhoto(photo).collectLatest { result ->
+                result.onSuccess { profile ->
+                    _uiState.value = ProfileUiState.Success(
+                        profile = profile,
+                        message = "Foto profil berhasil diperbarui."
+                    )
+                }
+                result.onFailure { error ->
+                    _uiState.value = currentState.copy(
+                        isUpdating = false,
+                        error = error.localizedMessage ?: "Gagal mengunggah foto profil."
                     )
                 }
             }
