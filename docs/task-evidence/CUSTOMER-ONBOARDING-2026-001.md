@@ -5,7 +5,7 @@ status: COMPLETE
 reality_2026_003: PASS
 reality_2026_011: PASS
 
-implementation_ref: PENDING — refreshed Canva asset commit
+implementation_ref: 8759de1f
 
 tests: PASS
 integration: PASS
