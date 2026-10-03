@@ -510,6 +510,7 @@ jobs:
           - { image: payment-service, context: ./backend/payment-service }
           - { image: developer-platform-service, context: ./backend/developer-platform-service }
           - { image: api-gateway, context: ./backend/api-gateway }
+          - { image: merchant-web, context: ./merchant-web }
           - { image: frontend, context: ./frontend }
           - { image: admin-dashboard, context: ./admin-dashboard }
     steps:
@@ -677,6 +678,19 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/api-gateway:staging
             ghcr.io/${{ env.REPO_LOWER }}/api-gateway:staging-${{ github.sha }}
+      - name: Build and Push Merchant Web
+        uses: docker/build-push-action@v5
+        with:
+          context: ./merchant-web
+          pull: true
+          push: true
+          cache-from: type=gha,scope=merchant-web-v1
+          cache-to: type=gha,mode=max,scope=merchant-web-v1
+          build-args: |
+            VITE_API_URL=${{ env.STAGING_ADMIN_API_URL }}
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/merchant-web:staging
+            ghcr.io/${{ env.REPO_LOWER }}/merchant-web:staging-${{ github.sha }}
       - name: Build and Push Frontend
         uses: docker/build-push-action@v5
         with:
@@ -761,6 +775,7 @@ jobs:
           docker pull ghcr.io/${REPO_LOWER_LC}/payment-service:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/developer-platform-service:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/api-gateway:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/merchant-web:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/frontend:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/admin-dashboard:${SHA}
           # Reconcile stale courier legs for orders that are already cancelled
@@ -771,7 +786,8 @@ jobs:
           docker-compose up -d traefik
           export CURRENT_SHA="${SHA}"
           export REPO="${REPO_LOWER_LC}"
-          for svc in auth-service routing-service merchant-service admin-service order-service datalake-worker payment-service developer-platform-service api-gateway frontend admin-dashboard; do
+          export MERCHANT_WEB_IMAGE="ghcr.io/${REPO}/merchant-web:${CURRENT_SHA}"
+          for svc in auth-service routing-service merchant-service admin-service order-service datalake-worker payment-service developer-platform-service api-gateway merchant-web frontend admin-dashboard; do
             OLD_CONTAINER=\$(docker-compose ps -q \${svc} | head -n 1 || true)
             docker-compose up -d --no-deps --scale \${svc}=2 --no-recreate \${svc} || true
             sleep 30

@@ -848,6 +848,7 @@ services:
   # Tunnel domain target: https://merchant.bawain.my.id
   # ─────────────────────────────────────────────
   merchant-web:
+    image: ${MERCHANT_WEB_IMAGE:-ghcr.io/yogisyahroni/lancar/merchant-web:staging}
     build:
       context: ./merchant-web
       dockerfile: Dockerfile
