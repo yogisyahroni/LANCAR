@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import com.tembus.merchant.R
 import com.tembus.merchant.data.repository.ExperienceConfigRepository
 import com.tembus.merchant.featureflag.FeatureFlagManager
@@ -73,6 +74,17 @@ fun MainScreen(
     val menuEntryEnabled = featureFlags["merchant_menu_entry"]?.enabled ?: true
     val isOnline by rememberNetworkAvailable()
     var networkRetryNonce by rememberSaveable { mutableStateOf(0) }
+    var slowNetwork by rememberSaveable { mutableStateOf(false) }
+    var isRetrying by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(networkRetryNonce) {
+        if (networkRetryNonce == 0) return@LaunchedEffect
+        isRetrying = true
+        slowNetwork = false
+        delay(5_000L)
+        slowNetwork = isOnline
+        isRetrying = false
+    }
 
     // Tab dasar mengikuti beranda merchant: Beranda, Pesanan, Menu, Keuangan, Akun.
     val baseTabs = listOf(
@@ -154,8 +166,8 @@ fun MainScreen(
             }
             MerchantNetworkRecoveryBanner(
                 isOnline = isOnline,
-                isSlow = !isOnline,
-                isRetrying = false,
+                isSlow = !isOnline || slowNetwork,
+                isRetrying = isRetrying,
                 onRetry = { networkRetryNonce += 1 },
             )
             Box(Modifier.weight(1f)) {
