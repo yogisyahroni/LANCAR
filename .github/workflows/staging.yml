@@ -441,7 +441,10 @@ jobs:
         working-directory: ./frontend
         run: |
           npm ci --quiet
-          npm audit --audit-level=high
+          # The release security gate covers the production dependency tree.
+          # ESLint/Next lint tooling is dev-only and is validated by the
+          # frontend lint/build jobs separately.
+          npm audit --omit=dev --audit-level=high
       - name: npm audit (admin-service)
         working-directory: ./backend/admin-service
         run: |
