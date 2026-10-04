@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router'
-import { Banknote, Bell, Check, ClipboardList, LayoutDashboard, LogOut, Menu as MenuIcon, Percent, Settings, Store, Users, UtensilsCrossed, X, BarChart3 } from 'lucide-react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { Banknote, Bell, Check, ChevronDown, CircleHelp, ClipboardList, LayoutDashboard, LogOut, Menu as MenuIcon, Percent, Settings, Store, Users, UtensilsCrossed, X, BarChart3 } from 'lucide-react'
 import { toast } from 'sonner'
-import { clearSession } from '../lib/auth'
+import { clearSession, getStoredUser } from '../lib/auth'
 import { api } from '../lib/api'
 import type { Merchant, MerchantNotification, MerchantPortalContext } from '../lib/types'
 import { loadMerchantPortalContext } from '../lib/portal-context'
@@ -20,11 +20,13 @@ const NAV = [
 
 export default function Layout() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [portalContext, setPortalContext] = useState<MerchantPortalContext | null>(null)
   const [notifications, setNotifications] = useState<MerchantNotification[]>([])
   const [notificationOpen, setNotificationOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -62,6 +64,8 @@ export default function Layout() {
   }
 
   const unreadCount = notifications.filter((notification) => !notification.is_read).length
+  const currentUser = getStoredUser()
+  const pageTitle = NAV.find((item) => item.to === location.pathname)?.label || 'Portal Mitra'
 
   const sidebar = (
     <div className="flex h-full flex-col">
@@ -119,8 +123,15 @@ export default function Layout() {
                 <span className="max-w-[260px] truncate font-bold text-zinc-800">{outletName}</span>
                 {outletAddress && <span className="hidden max-w-[180px] truncate text-xs text-zinc-400 xl:inline">{outletAddress}</span>}
               </div>
+              <div className="hidden items-center gap-2 text-xs text-zinc-400 lg:flex">
+                <span>/</span>
+                <span className="font-bold text-zinc-700">{pageTitle}</span>
+              </div>
             </div>
             <div className="relative flex items-center gap-2">
+              <a href="https://bawain.my.id/bantuan/pusat-bantuan" target="_blank" rel="noreferrer" className="hidden items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold text-zinc-500 transition hover:bg-emerald-50 hover:text-emerald-900 sm:inline-flex">
+                <CircleHelp className="h-4 w-4" /> Bantuan
+              </a>
               <button
                 onClick={() => setNotificationOpen((open) => !open)}
                 aria-label="Buka notifikasi"
@@ -151,9 +162,22 @@ export default function Layout() {
                   </div>
                 </div>
               )}
-              <button onClick={logout} className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-4 py-2 text-xs font-bold text-zinc-600 transition hover:border-red-200 hover:text-red-600">
-                <LogOut className="h-3.5 w-3.5" /> Keluar
-              </button>
+              <div className="relative">
+                <button onClick={() => setAccountOpen((open) => !open)} aria-label="Buka menu akun" className="inline-flex items-center gap-2 rounded-full border border-zinc-200 px-3 py-2 text-xs font-bold text-zinc-700 transition hover:border-emerald-200 hover:text-emerald-900">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-900 text-[10px] font-black text-white">{(currentUser?.name || currentUser?.email || 'M').slice(0, 1).toUpperCase()}</span>
+                  <span className="hidden max-w-28 truncate md:inline">{currentUser?.name || currentUser?.email || 'Akun mitra'}</span>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+                {accountOpen && <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-zinc-100 bg-white p-2 shadow-xl">
+                  <div className="border-b border-zinc-100 px-3 py-2">
+                    <p className="text-xs font-bold text-zinc-900">Akun aktif</p>
+                    <p className="mt-0.5 truncate text-xs text-zinc-500">{currentUser?.email || 'Pengguna portal'}</p>
+                  </div>
+                  <button onClick={logout} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-red-600 transition hover:bg-red-50">
+                    <LogOut className="h-3.5 w-3.5" /> Keluar dari portal
+                  </button>
+                </div>}
+              </div>
             </div>
           </div>
         </header>
