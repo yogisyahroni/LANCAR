@@ -15,6 +15,9 @@ const runId = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`
 const testEmail = `mweb-browser-${runId}@example.test`
 const testPhone = `0812${runId.replace(/\D/g, '').slice(-8)}`
 const testPassword = `E2e-${runId}-merchant!`
+const probeCustomerEmail = `mweb-browser-customer-${runId}@example.test`
+const probeCustomerPhone = `0813${runId.replace(/\D/g, '').slice(-8)}`
+const probeCustomerPassword = `E2e-${runId}-customer!`
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const documentPath = path.join(repoRoot, 'extracted_logo.png')
 
@@ -40,9 +43,12 @@ const runDb = (sql) => {
 }
 
 const escapedEmail = testEmail.replaceAll("'", "''")
+const escapedProbeCustomerEmail = probeCustomerEmail.replaceAll("'", "''")
 let merchantId = null
 let previousAdmin2fa = null
 let customerApi = null
+let probeCustomerApi = null
+let customerDiscoveryApi = null
 let adminApi = null
 let browser = null
 let browserPage = null
@@ -150,6 +156,54 @@ try {
   await adminMutation(`/admin/merchants/${merchantId}/start-verification`, 'start-verification')
   await adminMutation(`/admin/merchants/${merchantId}/approve`, 'approve')
 
+  await json(await customerApi.post('merchant/toggle-open', {
+    data: { is_open: true },
+  }), 'merchant open for cross-app probe')
+
+  probeCustomerApi = await request.newContext({
+    baseURL: requestBaseUrl,
+    extraHTTPHeaders: { Origin: webOrigin, 'X-Portal': 'customer' },
+  })
+  const probeRegistration = await json(await probeCustomerApi.post('auth/customer/register/start', {
+    data: {
+      full_name: 'Merchant Browser Customer Probe',
+      email: probeCustomerEmail,
+      phone_number: probeCustomerPhone,
+      password: probeCustomerPassword,
+      device_id: `merchant-browser-customer-${runId}`,
+      device_info: { platform: 'web', app: 'merchant-web-browser-e2e' },
+    },
+  }), 'customer discovery probe registration')
+  if (probeRegistration.require_otp === true) throw new Error('Customer discovery probe requires OTP; local fixture is not available.')
+  if (!probeRegistration.access_token) throw new Error('Customer discovery probe did not return an access token.')
+  customerDiscoveryApi = await request.newContext({
+    baseURL: requestBaseUrl,
+    extraHTTPHeaders: {
+      Origin: webOrigin,
+      'X-Portal': 'customer',
+      Authorization: `Bearer ${probeRegistration.access_token}`,
+    },
+  })
+  const openDiscovery = await json(await customerDiscoveryApi.get('food/merchants?lat=-6.2615&lng=106.8106&search=Merchant%20Browser%20E2E'), 'customer discovery while open')
+  if (!openDiscovery.merchants?.some((item) => String(item.id) === merchantId)) {
+    throw new Error('Customer discovery did not expose the approved/open disposable merchant.')
+  }
+  const adminOpenProjection = await json(await adminApi.get(`admin/merchants/${merchantId}`), 'admin open status projection')
+  if (!(adminOpenProjection.merchant || adminOpenProjection.data)?.is_open) {
+    throw new Error('Admin projection did not observe the canonical open merchant state.')
+  }
+  await json(await customerApi.post('merchant/toggle-open', {
+    data: { is_open: false },
+  }), 'merchant close for cross-app probe')
+  const closedDiscovery = await json(await customerDiscoveryApi.get('food/merchants?lat=-6.2615&lng=106.8106&search=Merchant%20Browser%20E2E'), 'customer discovery while closed')
+  if (closedDiscovery.merchants?.some((item) => String(item.id) === merchantId)) {
+    throw new Error('Customer discovery still exposed the disposable merchant after close.')
+  }
+  const adminClosedProjection = await json(await adminApi.get(`admin/merchants/${merchantId}`), 'admin closed status projection')
+  if ((adminClosedProjection.merchant || adminClosedProjection.data)?.is_open) {
+    throw new Error('Admin projection still reported the disposable merchant as open after close.')
+  }
+
   browser = await chromium.launch({ headless: true, ...(chromePath ? { executablePath: chromePath } : {}) })
   const browserContext = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
   const page = await browserContext.newPage()
@@ -189,7 +243,7 @@ try {
   console.log(JSON.stringify({
     task_id: 'MWEB-PORTAL-P0-002',
     status: 'PASS',
-    checks: ['admin_approval', 'browser_login', 'dashboard_freshness', 'external_operating_state_mutation', 'socket_event_dashboard_refetch'],
+    checks: ['admin_approval', 'customer_discovery_open_state', 'customer_discovery_closed_state', 'admin_state_projection', 'browser_login', 'dashboard_freshness', 'external_operating_state_mutation', 'socket_event_dashboard_refetch'],
     dashboard_refetch_count: dashboardRequests.length,
     page_errors: pageErrors,
   }))
@@ -206,13 +260,15 @@ try {
   throw error
 } finally {
   await browser?.close().catch(() => undefined)
+  await customerDiscoveryApi?.dispose().catch(() => undefined)
+  await probeCustomerApi?.dispose().catch(() => undefined)
   await customerApi?.dispose().catch(() => undefined)
   await adminApi?.dispose().catch(() => undefined)
   try {
     const merchantCleanup = merchantId
       ? `DELETE FROM merchant_onboarding_reviews WHERE merchant_id = '${merchantId}'; DELETE FROM merchant_legal_profiles WHERE owner_user_id IN (SELECT user_id FROM merchants WHERE id = '${merchantId}');`
       : ''
-    runDb(`${merchantCleanup} DELETE FROM users WHERE email = '${escapedEmail}';`)
+    runDb(`${merchantCleanup} DELETE FROM users WHERE email IN ('${escapedEmail}', '${escapedProbeCustomerEmail}');`)
   } catch (error) {
     console.error(`Disposable merchant cleanup failed: ${error.message}`)
   }
