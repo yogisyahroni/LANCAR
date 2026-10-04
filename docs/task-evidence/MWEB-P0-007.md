@@ -5,31 +5,31 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 0cd646f6
+implementation_ref: 54123c9d
 
 tests: PASS
 integration: PASS
-e2e: PARTIAL
+e2e: PASS
 
 migration: N/A
 migration_na_reason: "The flow reuses the existing web_sessions table and existing OTP/session tables; no schema change was made."
 
 observability: PARTIAL
-security_privacy: PARTIAL
+security_privacy: PASS
 rollback_recovery: PASS
 
 task_scope_external_proof_required: false
 external_runtime_validation: NOT_RUN
 
 release_readiness: PARTIAL
-release_followups: "Run OTP-enabled staging browser E2E with the configured provider, plus same-origin multi-tab and device-revoke scenarios against the deployed image."
+release_followups: "Run OTP-enabled staging browser E2E with the configured provider, including registration, expiry/rate-limit, and provider-unavailable states."
 
-unproven_requirements: "OTP-enabled registration/submit, live OTP provider behavior, same-origin multi-tab browser behavior, device revoke, and OTP expiry/rate-limit/provider-unavailable scenarios remain unproven."
+unproven_requirements: "OTP-enabled registration/submit, live OTP provider behavior, and OTP expiry/rate-limit/provider-unavailable scenarios remain unproven."
 known_blockers: NONE
 
-locally_actionable_remaining: "Add/run deterministic registration and OTP error-state tests, then add browser coverage for same-origin multi-tab logout/refresh and device revoke."
+locally_actionable_remaining: "Add/run deterministic registration and OTP error-state tests; staging provider verification remains a release follow-up."
 
-blocker_resolution_attempts: "Rebuilt merchant-service after detecting a stale image missing the portal context route; ran API and browser smoke against the local Docker stack."
+blocker_resolution_attempts: "Rebuilt merchant-service after detecting a stale image missing the portal context route; fixed the gateway CORS allowlist after browser preflight exposed missing merchant scope headers; ran API and browser smoke against the local Docker stack."
 unblock_condition: NONE
 
 owner_action_required: false
@@ -60,7 +60,7 @@ Original acceptance evidence status:
 - `[ ]` OTP-enabled registration/submit and live provider behavior are not yet proven; new-device login was proven with the local OTP path.
 - `[x]` Server-side merchant ownership and role context are resolved before merchant API access.
 - `[x]` Refresh rotation, logout, expiry/revocation behavior, and legacy token rejection are proven in local API E2E.
-- `[ ]` Multi-tab and device-binding browser scenarios are not yet proven end to end.
+- `[x]` Same-origin multi-tab logout propagation and device revoke are proven locally; staging provider behavior remains a release follow-up.
 - `[x]` Persistent access/refresh credentials are not stored in `localStorage`; the web session is an HttpOnly cookie and only non-secret session markers/events are client-side.
 - `[x]` Login, OTP, session-expired, account-without-store, and generic provider/error states have user-facing handling in the web flow.
 
@@ -72,6 +72,8 @@ Original acceptance evidence status:
 - Removed the merchant web session decision cache so logout, refresh rotation, and revocation take effect on the next request.
 - Rotated the opaque `web_sessions.session_token` on refresh using a conditional update, preventing reuse of the previous cookie during a revoke/refresh race.
 - Added cross-tab logout propagation using BroadcastChannel with a storage-event marker fallback; the event contains no credential.
+- Added a merchant Settings panel that lists active web sessions, identifies the current device, refreshes the list, and revokes all other sessions through the existing server endpoint.
+- Added the merchant session and branch scope headers to the gateway's public browser CORS allowlist, with a contract test, so outlet-scoped portal requests pass preflight without weakening internal-header protections.
 - Kept the non-secret web-session marker in `localStorage` so normal tabs on the same origin can recognize the shared HttpOnly session; `sessionStorage` remains only as a compatibility read path.
 - Added refresh read-after-refresh recovery for the case where another tab rotates the shared cookie first.
 - Rebuilt and restarted merchant-service so the server-owned merchant context route is present in the runtime image.
@@ -89,8 +91,10 @@ Original acceptance evidence status:
 - `backend/order-service/internal/repository/notification_repo_test.go` — prove the current notification projection scans without schema drift.
 - `merchant-web/src/lib/auth.ts` — in-memory/session-marker auth state and cross-tab auth events.
 - `merchant-web/src/lib/api.ts` — cookie-authenticated API, refresh recovery, and logout propagation.
-- `merchant-web/src/components/Layout.tsx` and `merchant-web/src/pages/Settings.tsx` — logout event handling.
+- `merchant-web/src/components/Layout.tsx` — logout event handling.
 - `merchant-web/src/pages/Login.tsx` and `merchant-web/src/pages/Register.tsx` — OTP continuation and server-session exchange.
+- `merchant-web/src/pages/Settings.tsx` — logout event handling plus display and revoke merchant web sessions.
+- `backend/api-gateway/src/corsPolicy.ts` and `backend/api-gateway/scripts/corsPolicy.test.js` — allow merchant scope headers in browser preflight while keeping internal identity headers private.
 - `merchant-web/src/pages/Reports.tsx` — use the cookie-authenticated API for report export.
 - `merchant-web/src/lib/types.ts` — auth response/session types.
 - `docs/task-evidence/MWEB-P0-007.md` — this evidence record.
@@ -101,7 +105,7 @@ Original acceptance evidence status:
     result: PASS — Vite production build completed after cross-tab marker hardening.
 
     command: npm run lint (merchant-web)
-    result: PASS — 0 errors; 14 existing warnings remain.
+    result: PASS — 0 errors; 15 non-blocking warnings remain, including the Settings initial-load effect warning.
 
     command: npx jest src/controllers/customerAuth.controller.test.ts --runInBand --forceExit (backend/admin-service)
     result: PASS — 5 tests passed.
@@ -112,14 +116,20 @@ Original acceptance evidence status:
     command: npm run test:auth-matrix (backend/api-gateway)
     result: PASS — route auth matrix tests passed.
 
+    command: npm run test:cors (backend/api-gateway)
+    result: PASS — gateway build and CORS policy contract passed, including merchant scope headers.
+
     command: go test ./internal/repository (backend/order-service)
     result: PASS — repository tests passed, including the current notification inbox projection test.
 
     command: git diff --check
     result: PASS.
 
-    command: docker compose build merchant-web api-gateway admin-service
-    result: PASS — relevant web, gateway, and admin images built.
+    command: docker compose build --build-arg VITE_API_URL=https://api.bawain.my.id/api/v1 merchant-web
+    result: PASS — deployment-configured merchant web image built.
+
+    command: docker compose build api-gateway
+    result: PASS — gateway image rebuilt with the merchant CORS policy.
 
     command: docker compose build merchant-service
     result: PASS — refreshed image includes the portal context route.
@@ -139,19 +149,19 @@ Original acceptance evidence status:
 
 Status: PASS
 
-Evidence: Focused admin-service refresh tests passed 5/5, including successful rotation and conditional-update failure/revoke-race behavior. Gateway auth-matrix tests also passed.
+Evidence: Focused admin-service refresh tests passed 5/5, gateway auth-matrix and CORS policy tests passed, and merchant web lint/build completed with 0 errors. Existing non-blocking lint warnings remain in unrelated pages plus the Settings initial-load effect.
 
 ### Integration
 
 Status: PASS
 
-Evidence: Local Docker gateway, admin-service, merchant-service, and order-service were rebuilt/restarted. The seeded merchant session reached `/auth/web/me`, `/merchant/context`, `/merchant/profile`, `/merchant/orders`, `/merchant/reports`, `/notifications`, and `/notifications/read` successfully.
+Evidence: Local Docker gateway, admin-service, merchant-service, and order-service were rebuilt/restarted. The seeded merchant session reached the existing portal routes; gateway preflight for `http://localhost:3004` with `x-merchant-branch-id` returned 204 and included the header in `Access-Control-Allow-Headers`.
 
 ### E2E
 
 Status: PASS
 
-Evidence: Local API E2E passed with compact result: `login=200, exchange=200, me=200, context=200, profile=200, refresh=200, rotated=200, old=401, logout=200, revoked=401`. A follow-up cookie E2E returned `200` for merchant context/profile/orders/reports, notification inbox, and mark-as-read after rebuilding order-service. Browser E2E with `customer_auth_otp_required=true` showed the OTP challenge, accepted the database-issued local test code, opened `/dashboard`, logged out, and then logged in again on the trusted device without showing OTP. The CUA harness uses isolated storage contexts for separate tabs, so full same-origin multi-tab browser proof is not claimed.
+Evidence: Local session E2E created two web sessions (`login=200`, `exchange=200` for both), listed sessions with `200`, revoked other sessions with `200`, rejected the second session's `/auth/web/me` with `401`, and left one current session. Browser automation against the local merchant web/API showed the Settings session panel, current-device badge, successful “Keluarkan perangkat lain” action, and no console errors. A same-origin two-page browser context also proved logout in one page redirected the other page to `/masuk`.
 
 ### Migration
 
@@ -167,9 +177,9 @@ Evidence: Existing structured auth/gateway/service logs were observed during con
 
 ### Security / Privacy
 
-Status: PARTIAL
+Status: PASS
 
-Evidence: HttpOnly cookie session exchange, secure/SameSite production cookie settings, conditional refresh rotation, old-token rejection, logout revocation, CSRF scope alignment, no persistent bearer token storage, OTP-on new-device login, and trusted-device behavior were verified. Same-origin multi-tab storage/event proof and live provider behavior remain.
+Evidence: HttpOnly cookie session exchange, secure/SameSite production cookie settings, conditional refresh rotation, old-token rejection, logout revocation, CSRF scope alignment, no persistent bearer token storage, merchant scope CORS preflight, device revoke, same-origin logout propagation, OTP-on new-device login, and trusted-device behavior were verified. Live provider behavior and OTP error-state coverage remain release follow-ups.
 
 ### Rollback / Recovery
 
@@ -201,13 +211,13 @@ Evidence: Local Docker and browser smoke are useful task evidence, but the task 
 
 - Run staging browser E2E with `customer_auth_otp_required` enabled and the configured OTP provider.
 - Prove registration OTP, OTP expiry/rate limit/provider-unavailable states.
-- Prove same-origin multi-tab logout/refresh race and device revoke through browser automation.
+- Prove same-origin refresh race through browser automation and run the configured OTP provider scenarios.
 
 ## Locally Actionable Remaining
 
-- Add/run deterministic OTP-enabled provider tests for registration, OTP expiry/rate limit/provider-unavailable, and device revoke.
-- Add/run browser coverage for same-origin multi-tab logout/refresh race.
-- Run a full authenticated browser smoke after the notification projection fix and record any remaining secondary API errors.
+- Add/run deterministic OTP-enabled provider/error-state tests for registration, OTP expiry, rate limit, and provider-unavailable paths.
+- Add browser coverage for the same-origin refresh race; logout propagation and device revoke are now proven locally.
+- Run staging browser smoke with the configured OTP provider.
 
 ## External Blockers
 
@@ -219,12 +229,12 @@ false — none.
 
 ## Reality Gate Evaluation
 
-- `REALITY-2026-003`: PARTIAL — implementation and core local session E2E are proven, but original OTP/device/multi-tab browser requirements remain.
+- `REALITY-2026-003`: PARTIAL — implementation, session security, device revoke, and local browser flows are proven, but OTP provider/error-state requirements remain.
 - `REALITY-2026-011`: PASS — no CI, staging, provider, or production result is fabricated; unproven scenarios are explicitly recorded.
 
 ## Unproven / Remaining
 
-OTP-enabled registration/submit, live provider and OTP error-state proof, same-origin multi-tab/device-revoke browser proof, any remaining secondary dashboard API behavior, and staging runtime validation remain open.
+OTP-enabled registration/submit, live provider and OTP error-state proof, same-origin refresh-race proof, and staging runtime validation remain open.
 
 ## Next Eligible Task
 
