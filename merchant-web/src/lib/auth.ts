@@ -1,9 +1,18 @@
-const TOKEN_KEY = 'merchant_web_access_token'
-const REFRESH_KEY = 'merchant_web_refresh_token'
 const USER_KEY = 'merchant_web_user'
 const DEVICE_KEY = 'merchant_web_device_id'
 const MERCHANT_SESSION_KEY = 'merchant_web_session'
 const MERCHANT_BRANCH_KEY = 'merchant_web_branch'
+const WEB_SESSION_KEY = 'merchant_web_session_established'
+const AUTH_EVENT_KEY = 'merchant_web_auth_event'
+
+// Access tokens are only held for the short token-to-cookie exchange. The
+// portal uses an HttpOnly server session afterwards, so a browser reload or
+// XSS cannot recover a persistent bearer credential from localStorage.
+let memoryAccessToken: string | null = null
+
+// One-time cleanup for tokens written by previous portal builds.
+localStorage.removeItem('merchant_web_access_token')
+localStorage.removeItem('merchant_web_refresh_token')
 
 export interface StoredUser {
   id?: string
@@ -23,17 +32,67 @@ export interface MerchantBranchSelection {
 }
 
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
+  return memoryAccessToken
 }
 
 export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_KEY)
+  return null
 }
 
 export function setSession(accessToken: string, refreshToken: string | null, user: StoredUser | null) {
-  localStorage.setItem(TOKEN_KEY, accessToken)
-  if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken)
+  memoryAccessToken = accessToken || null
   if (user) localStorage.setItem(USER_KEY, JSON.stringify(user))
+}
+
+export function clearAccessToken() {
+  memoryAccessToken = null
+}
+
+export function markWebSessionEstablished(user: StoredUser | null = null) {
+  sessionStorage.setItem(WEB_SESSION_KEY, '1')
+  if (user) localStorage.setItem(USER_KEY, JSON.stringify(user))
+}
+
+export type WebAuthEvent = 'logout'
+
+type WebAuthEventPayload = { type: WebAuthEvent; at: number }
+
+export function publishWebAuthEvent(type: WebAuthEvent) {
+  if (typeof window === 'undefined') return
+  const payload: WebAuthEventPayload = { type, at: Date.now() }
+  try {
+    const channel = 'BroadcastChannel' in window ? new BroadcastChannel(AUTH_EVENT_KEY) : null
+    channel?.postMessage(payload)
+    channel?.close()
+  } catch {
+    // Storage remains the fallback for browsers that do not expose
+    // BroadcastChannel or block it in a private context.
+  }
+  try {
+    window.localStorage.setItem(AUTH_EVENT_KEY, JSON.stringify(payload))
+    window.localStorage.removeItem(AUTH_EVENT_KEY)
+  } catch {
+    // A tab without storage access still has its own authenticated session.
+  }
+}
+
+export function subscribeToWebAuthEvents(listener: (type: WebAuthEvent) => void) {
+  if (typeof window === 'undefined') return () => undefined
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== AUTH_EVENT_KEY || !event.newValue) return
+    try {
+      const payload = JSON.parse(event.newValue) as WebAuthEventPayload
+      if (payload.type === 'logout') listener(payload.type)
+    } catch {
+      // Ignore malformed cross-tab notifications.
+    }
+  }
+  window.addEventListener('storage', onStorage)
+  return () => window.removeEventListener('storage', onStorage)
+}
+
+export function hasWebSession(): boolean {
+  return sessionStorage.getItem(WEB_SESSION_KEY) === '1'
 }
 
 export function getStoredUser(): StoredUser | null {
@@ -46,15 +105,18 @@ export function getStoredUser(): StoredUser | null {
 }
 
 export function clearSession() {
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(REFRESH_KEY)
+  memoryAccessToken = null
+  // Remove legacy bearer storage left by older portal builds during migration.
+  localStorage.removeItem('merchant_web_access_token')
+  localStorage.removeItem('merchant_web_refresh_token')
   localStorage.removeItem(USER_KEY)
+  sessionStorage.removeItem(WEB_SESSION_KEY)
   sessionStorage.removeItem(MERCHANT_SESSION_KEY)
   sessionStorage.removeItem(MERCHANT_BRANCH_KEY)
 }
 
 export function isLoggedIn(): boolean {
-  return !!getToken()
+  return !!getToken() || hasWebSession()
 }
 
 export function deviceId(): string {

@@ -286,17 +286,29 @@ export const refreshToken = async (req: Request, res: Response) => {
     const isAdmin = ['super_admin', 'admin', 'manager', 'finance', 'ops_security', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'].includes(user.role);
     const cookieName = isAdmin ? 'admin_session' : 'customer_session';
 
-    // Refresh expiry: Add another 7 days from now
+    // Rotate the opaque web-session token on every refresh. The old token is
+    // invalid immediately, so a stolen session cookie cannot be replayed after
+    // a legitimate refresh. The conditional update also makes refresh
+    // idempotent with respect to expiry: a revoked/expired token cannot rotate.
+    const rotatedSessionToken = crypto.randomBytes(32).toString('hex');
     const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await db.query(
-      `UPDATE ${sessionTable} SET expires_at = $1 WHERE session_token = $2`,
-      [newExpiresAt, sessionToken]
+    const rotated = await db.query(
+      `UPDATE ${sessionTable}
+       SET session_token = $1, expires_at = $2
+       WHERE session_token = $3 AND expires_at > NOW()
+       RETURNING user_id`,
+      [rotatedSessionToken, newExpiresAt, sessionToken]
     );
 
-    console.log(`\x1b[36m[Auth Refresh]\x1b[0m User: ${user.email}, Refreshing cookie: ${cookieName}`);
+    if (rotated.rowCount !== 1) {
+      res.status(401).json({ error: 'Unauthorized: Session expired' });
+      return;
+    }
 
-    res.cookie(cookieName, sessionToken, customerCookieOptions(newExpiresAt));
-    issueCsrfTokenCookie(res, sessionToken, newExpiresAt);
+    console.log(`\x1b[36m[Auth Refresh]\x1b[0m User: ${user.email}, Rotating cookie: ${cookieName}`);
+
+    res.cookie(cookieName, rotatedSessionToken, customerCookieOptions(newExpiresAt));
+    issueCsrfTokenCookie(res, rotatedSessionToken, newExpiresAt);
 
     res.json({ message: 'Session refreshed' });
   } catch (error) {
@@ -317,8 +329,13 @@ export const logoutWeb = async (req: Request, res: Response) => {
     }
   }
 
-  res.clearCookie('admin_session');
-  res.clearCookie('customer_session');
+  const clearCookieOptions = {
+    domain: process.env.COOKIE_DOMAIN || undefined,
+    path: '/',
+  };
+  res.clearCookie('admin_session', clearCookieOptions);
+  res.clearCookie('customer_session', clearCookieOptions);
+  res.clearCookie('web_session', clearCookieOptions);
   clearCsrfTokenCookie(res);
   res.json({ message: 'Logout successful' });
 };

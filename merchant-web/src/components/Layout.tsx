@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { Banknote, Bell, Check, ChevronDown, CircleHelp, ClipboardList, LayoutDashboard, LogOut, Menu as MenuIcon, Percent, Search, Settings, Store, Users, UtensilsCrossed, X, BarChart3, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
-import { clearMerchantDeviceSession, clearSession, getStoredUser, setMerchantBranchSelection } from '../lib/auth'
+import { clearMerchantDeviceSession, clearSession, getStoredUser, publishWebAuthEvent, setMerchantBranchSelection, subscribeToWebAuthEvents } from '../lib/auth'
 import { api } from '../lib/api'
 import type { Merchant, MerchantNotification, MerchantPortalContext } from '../lib/types'
 import { loadMerchantPortalContext } from '../lib/portal-context'
@@ -31,6 +31,12 @@ export default function Layout() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [switchingBranch, setSwitchingBranch] = useState(false)
+
+  useEffect(() => subscribeToWebAuthEvents((type) => {
+    if (type !== 'logout') return
+    clearSession()
+    navigate('/masuk', { replace: true })
+  }), [navigate])
 
   useEffect(() => {
     let mounted = true
@@ -74,9 +80,12 @@ export default function Layout() {
   }, [])
 
   const logout = () => {
-    clearSession()
-    toast.success('Berhasil keluar')
-    navigate('/masuk', { replace: true })
+    void api.post('/auth/web/logout').catch(() => undefined).finally(() => {
+      publishWebAuthEvent('logout')
+      clearSession()
+      toast.success('Berhasil keluar')
+      navigate('/masuk', { replace: true })
+    })
   }
 
   const markNotificationRead = async (notification: MerchantNotification) => {

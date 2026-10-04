@@ -35,6 +35,8 @@ assertPolicy('POST', '/api/v1/auth/web/orders', 'web-session-or-jwt', 'web-sessi
 assertPolicy('GET', '/api/v1/customer/orders', 'web-session-or-jwt', 'customer-portal-api');
 assertPolicy('POST', '/api/v1/device-tokens', 'web-session-or-jwt', 'device-token-api');
 assertPolicy('DELETE', '/api/v1/device-tokens/unregister', 'web-session-or-jwt', 'device-token-api');
+assertPolicy('GET', '/api/v1/merchant/context', 'web-session-or-jwt', 'merchant-portal-api');
+assertPolicy('POST', '/api/v1/merchant/order-settings/auto-accept', 'web-session-or-jwt', 'merchant-portal-api');
 assertPolicy('GET', '/api/v1/admin/orders', 'admin-session-or-jwt', 'admin-management');
 assertPolicy('GET', '/api/v1/admin/ads/inventory', 'admin-session-or-jwt', 'commerce-ads-admin-api');
 assertPolicy('GET', '/api/v1/admin/ads/campaigns', 'admin-session-or-jwt', 'commerce-ads-admin-api');
@@ -116,6 +118,20 @@ assert.strictEqual(result.response.body.route_policy, 'web-session-routes');
 result = invokeGuard({
   method: 'GET',
   path: '/api/v1/auth/web/orders',
+  headers: { cookie: 'customer_session=session-token' },
+});
+assert.strictEqual(result.jwtCalled, false);
+assert.strictEqual(result.nextCalled, true);
+
+result = invokeGuard({ method: 'GET', path: '/api/v1/merchant/context' });
+assert.strictEqual(result.jwtCalled, false);
+assert.strictEqual(result.nextCalled, false);
+assert.strictEqual(result.response.statusCode, 401);
+assert.strictEqual(result.response.body.route_policy, 'merchant-portal-api');
+
+result = invokeGuard({
+  method: 'GET',
+  path: '/api/v1/merchant/context',
   headers: { cookie: 'customer_session=session-token' },
 });
 assert.strictEqual(result.jwtCalled, false);

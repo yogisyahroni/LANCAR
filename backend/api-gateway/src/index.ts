@@ -1838,6 +1838,73 @@ app.use(createProxyMiddleware({
   },
 }));
 
+const customerSessionTokenFromRequest = (req: Request): string | null => {
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) return null;
+  const cookies = Array.isArray(cookieHeader) ? cookieHeader.join(';') : cookieHeader;
+  const match = cookies.match(/(?:^|;\s*)customer_session=([^;]+)/);
+  return match ? match[1].trim() : null;
+};
+
+// Merchant Web uses the server-backed session created by
+// /auth/web/session/exchange. Cookie presence alone is never trusted: the
+// gateway asks admin-service to validate the session, then signs the resolved
+// identity context before forwarding to merchant-service.
+const authenticateMerchantWebSession = async (req: Request, res: Response, next: NextFunction) => {
+  if (req.headers['x-user-id']) return next();
+
+  const sessionToken = customerSessionTokenFromRequest(req);
+  if (!sessionToken) {
+    return res.status(401).json({
+      status: 'error',
+      code: 'ERR_UNAUTHORIZED',
+      message: 'Merchant session required',
+    });
+  }
+
+  try {
+    const response = await fetch(new URL('/auth/web/me', ADMIN_SERVICE_URL), {
+      method: 'GET',
+      headers: {
+        cookie: `customer_session=${sessionToken}`,
+        'x-portal': 'customer',
+      },
+      signal: AbortSignal.timeout(3000),
+    });
+
+    if (!response.ok) {
+      return res.status(401).json({
+        status: 'error',
+        code: 'ERR_UNAUTHORIZED',
+        message: 'Merchant session is invalid or expired',
+      });
+    }
+
+    const payload: any = await response.json();
+    const user = payload?.user;
+    if (!user?.id || !user?.role) {
+      return res.status(401).json({
+        status: 'error',
+        code: 'ERR_UNAUTHORIZED',
+        message: 'Merchant identity could not be resolved',
+      });
+    }
+
+    req.headers['x-user-id'] = user.id;
+    req.headers['x-user-role'] = user.role;
+    if (user.name) req.headers['x-user-full-name'] = user.name;
+    req.headers['x-totp-verified'] = 'false';
+    return next();
+  } catch (error: any) {
+    logger.logger.error({ error_name: error?.name, path: req.path }, 'Failed to resolve merchant web session');
+    return res.status(503).json({
+      status: 'error',
+      code: 'ERR_AUTH_SERVICE_UNAVAILABLE',
+      message: 'Merchant session verification is temporarily unavailable',
+    });
+  }
+};
+
 // Admin Agreement Routes — owned by auth-service, NOT admin-service.
 // auth-service handles: GET /api/v1/admin/agreements, GET /api/v1/admin/agreements/{id},
 // GET /api/v1/admin/agreements/{id}/pdf.
@@ -2061,7 +2128,7 @@ app.use(createProxyMiddleware({
 }));
 
 
-app.use('/api/v1/merchant', authenticateJWT);
+app.use('/api/v1/merchant', authenticateMerchantWebSession);
 // NOTE: pakai pathFilter (BUKAN express app.use prefix) supaya full path
 // /api/v1/merchant/... diteruskan utuh — app.use prefix strip req.url jadi
 // '/register' → merchant-service 404 "404 page not found" tanpa log.

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { clearSession, deviceId, getMerchantBranchSelection, getMerchantDeviceSession, getRefreshToken, getToken, setSession } from './auth'
+import { clearAccessToken, clearSession, getMerchantBranchSelection, getMerchantDeviceSession, getToken, hasWebSession, publishWebAuthEvent } from './auth'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
 
@@ -8,6 +8,7 @@ export const apiBaseUrl = API_BASE.replace(/\/+$/, '')
 export const api = axios.create({
   baseURL: apiBaseUrl,
   timeout: 30000,
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -28,22 +29,29 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-let refreshing: Promise<string | null> | null = null
+let refreshing: Promise<boolean> | null = null
 
-async function tryRefresh(): Promise<string | null> {
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) return null
+async function tryRefresh(): Promise<boolean> {
+  if (!hasWebSession()) return false
   try {
-    const res = await axios.post(`${apiBaseUrl}/auth/refresh`, {
-      refresh_token: refreshToken,
-      device_id: deviceId(),
+    await axios.post(`${apiBaseUrl}/auth/web/refresh-token`, null, {
+      withCredentials: true,
+      headers: { 'X-Portal': 'customer' },
     })
-    const newToken: string | undefined = res.data?.access_token || res.data?.data?.token
-    if (!newToken) return null
-    setSession(newToken, res.data?.refresh_token ?? refreshToken, null)
-    return newToken
+    return true
   } catch {
-    return null
+    // Another browser tab may have rotated the shared cookie first. A
+    // read-after-refresh check avoids logging this tab out on that benign
+    // race, while still rejecting a genuinely revoked session.
+    try {
+      await axios.get(`${apiBaseUrl}/auth/web/me`, {
+        withCredentials: true,
+        headers: { 'X-Portal': 'customer' },
+      })
+      return true
+    } catch {
+      return false
+    }
   }
 }
 
@@ -53,13 +61,15 @@ api.interceptors.response.use(
     const original = error.config
     if (error.response?.status === 401 && original && !original._retried) {
       original._retried = true
+      clearAccessToken()
       refreshing = refreshing ?? tryRefresh()
-      const token = await refreshing
+      const refreshed = await refreshing
       refreshing = null
-      if (token) {
-        original.headers.Authorization = `Bearer ${token}`
+      if (refreshed) {
+        if (original.headers) delete original.headers.Authorization
         return api(original)
       }
+      publishWebAuthEvent('logout')
       clearSession()
       const returnTo = `${window.location.pathname}${window.location.search}`
       window.location.href = `/masuk?returnTo=${encodeURIComponent(returnTo)}`

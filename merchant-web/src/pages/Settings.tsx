@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { Loader2, LockKeyhole, LogOut, PauseCircle, PlayCircle, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
-import { clearSession } from '../lib/auth'
+import { clearSession, publishWebAuthEvent } from '../lib/auth'
 import { merchantOnboardingStatus, merchantStatusLabel } from '../lib/merchant-status'
 import type { Merchant } from '../lib/types'
 import { rupiah } from '../lib/types'
@@ -173,7 +173,13 @@ export default function Settings() {
             <p className="text-xs text-red-400/80">Sesi login akan dihapus dari browser ini.</p>
           </div>
           <button
-            onClick={() => { clearSession(); navigate('/masuk', { replace: true }) }}
+            onClick={() => {
+              void api.post('/auth/web/logout').catch(() => undefined).finally(() => {
+                publishWebAuthEvent('logout')
+                clearSession()
+                navigate('/masuk', { replace: true })
+              })
+            }}
             className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-red-700"
           >
             <LogOut className="h-4 w-4" /> Keluar

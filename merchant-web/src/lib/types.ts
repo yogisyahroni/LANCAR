@@ -10,6 +10,10 @@ export interface AuthResponse {
   message?: string
   access_token?: string
   refresh_token?: string
+  require_otp?: boolean
+  otp_reason?: 'registration' | 'new_device' | string
+  require_2fa?: boolean
+  mfa_user_id?: string
   user?: AuthUser
   data?: {
     token?: string

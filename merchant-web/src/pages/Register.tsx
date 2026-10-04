@@ -4,6 +4,7 @@ import {
   ArrowLeft, ArrowRight, Building2, Check, FileUp, Loader2, ShieldCheck, Store,
 } from 'lucide-react'
 import { api } from '../lib/api'
+import { clearAccessToken, deviceId, markWebSessionEstablished } from '../lib/auth'
 import { toast } from 'sonner'
 import LocationPicker from '../components/LocationPicker'
 
@@ -49,16 +50,6 @@ const DOC_FIELDS = [
 const requiredDocsFor = (businessType: string) =>
   DOC_FIELDS.filter((d) => d.required || businessType === 'perusahaan')
 
-// ─── Helpers ──────────────────────────────────────────────
-const deviceId = () => {
-  let id = localStorage.getItem('merchant_web_device_id')
-  if (!id) {
-    id = `web-${crypto.randomUUID()}`
-    localStorage.setItem('merchant_web_device_id', id)
-  }
-  return id
-}
-
 // Map field form (camelCase) → doc_type backend (snake_case).
 const DOC_TYPE_MAP: Record<string, string> = {
   ktpPemilikUrl: 'ktp_pemilik',
@@ -95,6 +86,9 @@ export default function Register() {
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [otpRequired, setOtpRequired] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [otpSubmitting, setOtpSubmitting] = useState(false)
 
   const update = (key: keyof FormData) => (v: string) => setForm((f) => ({ ...f, [key]: v }))
 
@@ -155,24 +149,17 @@ export default function Register() {
     }
   }
 
-  const submit = async () => {
-    setSubmitting(true)
-    setError('')
-    try {
-      // 1. Buat akun user (public register/start → langsung dapat JWT, OTP off di staging)
-      const regRes = await api.post('/auth/customer/register/start', {
-        full_name: form.fullName.trim(),
-        email: form.email.trim(),
-        phone_number: form.phoneNumber.trim(),
-        password: form.password,
-        device_id: deviceId(),
-      })
-      const token = regRes.data.access_token
-      if (!token) {
-        throw new Error('Registrasi akun belum selesai (membutuhkan verifikasi OTP). Hubungi support.')
-      }
+  const submitMerchant = async (token: string, user?: { id?: string; name?: string; full_name?: string; email?: string }) => {
+    await api.post('/auth/web/session/exchange', { access_token: token })
+    clearAccessToken()
+    markWebSessionEstablished({
+      id: user?.id,
+      name: user?.name || user?.full_name || form.fullName.trim(),
+      email: user?.email || form.email.trim(),
+    })
 
-      // 2. Daftar merchant dengan JWT
+    // Merchant registration is now authorized by the server-backed web
+    // session; the temporary bearer token is not retained in browser storage.
       const payload: Record<string, any> = {
         nama_toko: form.storeName.trim(),
         alamat: form.address.trim(),
@@ -189,18 +176,123 @@ export default function Register() {
       }
       if (form.nibUrl) payload.nib_url = form.nibUrl
 
-      await api.post('/merchant/register', payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+    await api.post('/merchant/register', payload)
 
-      toast.success('Pendaftaran berhasil dikirim!')
-      navigate('/sukses', { state: { email: form.email.trim() } })
+    toast.success('Pendaftaran berhasil dikirim!')
+    navigate('/sukses', { state: { email: form.email.trim() } })
+  }
+
+  const submit = async () => {
+    setSubmitting(true)
+    setError('')
+    try {
+      const regRes = await api.post('/auth/customer/register/start', {
+        full_name: form.fullName.trim(),
+        email: form.email.trim(),
+        phone_number: form.phoneNumber.trim(),
+        password: form.password,
+        device_id: deviceId(),
+        device_info: { platform: 'web', app: 'merchant-web' },
+      })
+      if (regRes.data?.require_otp) {
+        setOtpCode('')
+        setOtpRequired(true)
+        toast.success('Kode verifikasi sudah dikirim')
+        return
+      }
+      const token = regRes.data?.access_token
+      if (!token) throw new Error('Registrasi akun belum selesai. Coba lagi atau hubungi bantuan TEMBUS.')
+      await submitMerchant(token, regRes.data?.user)
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Pendaftaran gagal. Coba lagi.')
       toast.error('Pendaftaran gagal')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const verifyRegistrationOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!/^\d{6}$/.test(otpCode)) {
+      setError('Masukkan 6 digit kode verifikasi.')
+      return
+    }
+    setOtpSubmitting(true)
+    setError('')
+    try {
+      const res = await api.post('/auth/otp/verify', {
+        phone_number: form.email.trim(),
+        code: otpCode,
+        device_id: deviceId(),
+        device_info: { platform: 'web', app: 'merchant-web' },
+      })
+      if (res.data?.require_2fa) throw new Error('Akun memerlukan verifikasi keamanan tambahan. Hubungi bantuan TEMBUS.')
+      const token = res.data?.access_token
+      if (!token) throw new Error('Kode verifikasi belum dapat menyelesaikan pendaftaran.')
+      await submitMerchant(token, res.data?.user)
+      setOtpRequired(false)
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Kode verifikasi salah atau sudah kedaluwarsa.')
+    } finally {
+      setOtpSubmitting(false)
+    }
+  }
+
+  const resendRegistrationOtp = async () => {
+    setOtpSubmitting(true)
+    setError('')
+    try {
+      await api.post('/auth/otp/send', { phone_number: form.email.trim() })
+      toast.success('Kode verifikasi baru sudah dikirim')
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Kode belum dapat dikirim ulang. Coba beberapa saat lagi.')
+    } finally {
+      setOtpSubmitting(false)
+    }
+  }
+
+  if (otpRequired) {
+    return (
+      <div className="min-h-screen bg-zinc-50">
+        <header className="border-b border-zinc-100 bg-white">
+          <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
+            <Link to="/" className="flex items-center gap-2">
+              <img src="/tembus-login-logo.webp" alt="TEMBUS" className="merchant-brand-image merchant-brand-image--auth" />
+              <span className="font-black text-emerald-900">Mitra</span>
+            </Link>
+            <span className="text-xs font-bold text-zinc-400">Verifikasi akun</span>
+          </div>
+        </header>
+        <main className="mx-auto max-w-xl px-5 py-14">
+          <div className="rounded-[1.75rem] border border-zinc-100 bg-white p-6 shadow-sm md:p-8">
+            <h1 className="text-2xl font-black tracking-tight text-zinc-900">Verifikasi pendaftaran</h1>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-500">Masukkan 6 digit kode yang dikirim ke {form.email}. Kode berlaku selama 5 menit.</p>
+            <form onSubmit={verifyRegistrationOtp} className="mt-8 space-y-4">
+              <label className="block">
+                <span className="text-sm font-bold text-zinc-700">Kode verifikasi</span>
+                <input
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="000000"
+                  className="mt-1.5 w-full rounded-xl border border-zinc-200 px-4 py-3 text-center text-xl font-black tracking-[0.35em] outline-none transition focus:border-emerald-900 focus:ring-2 focus:ring-emerald-900/10"
+                />
+              </label>
+              {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p>}
+              <button type="submit" disabled={otpSubmitting} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#003A20] px-7 py-3.5 font-bold text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-950 disabled:opacity-60">
+                {otpSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+                {otpSubmitting ? 'Memverifikasi…' : 'Verifikasi dan kirim pendaftaran'}
+              </button>
+              <div className="flex items-center justify-between text-sm">
+                <button type="button" onClick={() => { setOtpRequired(false); setError('') }} className="font-semibold text-zinc-500 hover:text-zinc-900">Kembali</button>
+                <button type="button" onClick={resendRegistrationOtp} disabled={otpSubmitting} className="font-bold text-emerald-900 hover:underline disabled:opacity-50">Kirim ulang kode</button>
+              </div>
+            </form>
+          </div>
+        </main>
+      </div>
+    )
   }
 
   const docUrlInput = (d: (typeof DOC_FIELDS)[number]) => (

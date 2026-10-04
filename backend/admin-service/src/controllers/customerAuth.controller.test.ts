@@ -13,12 +13,15 @@ const {
   getCustomerSessions,
   logoutOtherCustomerSessions,
   changeCustomerPin,
+  refreshToken,
 } = require('./customerAuth.controller');
 
 const makeRes = () => {
   const res: any = { statusCode: 200, body: undefined };
   res.status = (code: number) => { res.statusCode = code; return res; };
   res.json = (body: unknown) => { res.body = body; return res; };
+  res.cookie = jest.fn();
+  res.clearCookie = jest.fn();
   return res;
 };
 
@@ -79,5 +82,44 @@ describe('customer web security controllers', () => {
     expect(res.statusCode).toBe(400);
     expect(res.body.error).toMatch(/6 digits/);
     expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('rotates the customer web session token instead of reusing it', async () => {
+    (db.query as jest.Mock)
+      .mockResolvedValueOnce({ rows: [{ user_id: 'customer-1', email: 'merchant@example.test', role: 'customer' }] })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ user_id: 'customer-1' }] });
+    const res = makeRes();
+
+    await refreshToken({
+      headers: { 'x-portal': 'customer' },
+      cookies: { customer_session: 'current-token' },
+    }, res);
+
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('SET session_token = $1, expires_at = $2'),
+      [expect.any(String), expect.any(Date), 'current-token'],
+    );
+    expect(res.cookie).toHaveBeenCalledWith(
+      'customer_session',
+      expect.not.stringMatching(/^current-token$/),
+      expect.objectContaining({ httpOnly: true, path: '/' }),
+    );
+    expect(res.body).toEqual({ message: 'Session refreshed' });
+  });
+
+  it('rejects a refresh when the conditional session rotation loses a revoke race', async () => {
+    (db.query as jest.Mock)
+      .mockResolvedValueOnce({ rows: [{ user_id: 'customer-1', email: 'merchant@example.test', role: 'customer' }] })
+      .mockResolvedValueOnce({ rowCount: 0, rows: [] });
+    const res = makeRes();
+
+    await refreshToken({
+      headers: { 'x-portal': 'customer' },
+      cookies: { customer_session: 'revoked-token' },
+    }, res);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body.error).toMatch(/expired/);
+    expect(res.cookie).not.toHaveBeenCalled();
   });
 });

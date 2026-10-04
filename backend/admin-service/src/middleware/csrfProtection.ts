@@ -87,7 +87,10 @@ export const issueCsrfTokenCookie = (res: Response, sessionToken: string, expire
 };
 
 export const clearCsrfTokenCookie = (res: Response) => {
-  res.clearCookie(CSRF_COOKIE_NAME);
+  res.clearCookie(CSRF_COOKIE_NAME, {
+    domain: process.env.COOKIE_DOMAIN || undefined,
+    path: '/',
+  });
 };
 
 export const verifyCsrfHeaderForSessions = (req: Request): boolean => {

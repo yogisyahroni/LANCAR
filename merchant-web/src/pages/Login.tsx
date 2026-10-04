@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router'
 import { ArrowRight, Clock3, Loader2, Lock, Mail, Store, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
-import { clearMerchantBranchSelection, clearMerchantDeviceSession, deviceId, setSession } from '../lib/auth'
+import { clearAccessToken, clearMerchantBranchSelection, clearMerchantDeviceSession, deviceId, markWebSessionEstablished } from '../lib/auth'
 import { merchantOnboardingStatus } from '../lib/merchant-status'
 import { loadMerchantPortalContext } from '../lib/portal-context'
 import type { AuthResponse } from '../lib/types'
@@ -36,6 +36,60 @@ export default function Login() {
   const [error, setError] = useState('')
   const [gate, setGate] = useState<Gate>('none')
   const [merchantName, setMerchantName] = useState('')
+  const [otpRequired, setOtpRequired] = useState(false)
+  const [otpIdentifier, setOtpIdentifier] = useState('')
+  const [otpCode, setOtpCode] = useState('')
+  const [otpSubmitting, setOtpSubmitting] = useState(false)
+
+  const finishLogin = async (token: string, user: AuthResponse['user']) => {
+    // Exchange the short-lived bearer token for an HttpOnly web session before
+    // any merchant request. The token is never persisted in browser storage.
+    await api.post('/auth/web/session/exchange', { access_token: token })
+    clearAccessToken()
+    markWebSessionEstablished({
+      id: user?.id,
+      name: user?.name || user?.full_name,
+      email: user?.email || email.trim(),
+    })
+
+    clearMerchantBranchSelection()
+    clearMerchantDeviceSession()
+    toast.success('Login berhasil')
+
+    let merchant
+    try {
+      merchant = (await loadMerchantPortalContext()).merchant
+    } catch (profileErr) {
+      const status = (profileErr as { response?: { status?: number } })?.response?.status
+      if (status === 404 || status === 400 || status === 403) {
+        setGate('not_registered')
+        return
+      }
+      console.warn('Gagal memuat profil merchant:', apiErrorMessage(profileErr))
+      navigate('/dashboard', { replace: true })
+      return
+    }
+
+    setMerchantName(merchant.nama_toko)
+    const onboardingStatus = merchantOnboardingStatus(merchant.onboarding_status, merchant.verification_status)
+    if (onboardingStatus === 'REJECTED') {
+      setGate('rejected')
+      return
+    }
+    if (onboardingStatus === 'SUSPENDED') {
+      setGate('suspended')
+      return
+    }
+    if (onboardingStatus !== 'ACTIVE') {
+      setGate('pending')
+      return
+    }
+    const statePath = (location.state as { from?: string } | null)?.from
+    const queryPath = new URLSearchParams(location.search).get('returnTo')
+    const requestedPath = statePath || queryPath
+    const destination = requestedPath && requestedPath.startsWith('/') && !requestedPath.startsWith('//') && !requestedPath.startsWith('/masuk') ? requestedPath : '/dashboard'
+    navigate(destination, { replace: true })
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -50,56 +104,92 @@ export default function Login() {
         device_id: deviceId(),
         device_info: { platform: 'web', app: 'merchant-web' },
       })
+      if (res.data?.require_otp) {
+        setOtpIdentifier(email.trim())
+        setOtpCode('')
+        setOtpRequired(true)
+        toast.success('Kode verifikasi sudah dikirim')
+        return
+      }
       const token = res.data?.access_token || res.data?.data?.token
       if (!token) throw new Error(res.data?.message || 'Login gagal. Coba lagi.')
-
-      clearMerchantBranchSelection()
-      clearMerchantDeviceSession()
-      setSession(token, res.data?.refresh_token ?? null, {
-        id: res.data?.user?.id,
-        name: res.data?.user?.name || res.data?.user?.full_name,
-        email: res.data?.user?.email || email.trim(),
-      })
-      toast.success('Login berhasil')
-
-      let merchant
-      try {
-        merchant = (await loadMerchantPortalContext()).merchant
-      } catch (profileErr) {
-        const status = (profileErr as { response?: { status?: number } })?.response?.status
-        if (status === 404 || status === 400 || status === 403) {
-          setGate('not_registered')
-          return
-        }
-        console.warn('Gagal memuat profil merchant:', apiErrorMessage(profileErr))
-        navigate('/dashboard', { replace: true })
-        return
-      }
-
-      setMerchantName(merchant.nama_toko)
-      const onboardingStatus = merchantOnboardingStatus(merchant.onboarding_status, merchant.verification_status)
-      if (onboardingStatus === 'REJECTED') {
-        setGate('rejected')
-        return
-      }
-      if (onboardingStatus === 'SUSPENDED') {
-        setGate('suspended')
-        return
-      }
-      if (onboardingStatus !== 'ACTIVE') {
-        setGate('pending')
-        return
-      }
-      const statePath = (location.state as { from?: string } | null)?.from
-      const queryPath = new URLSearchParams(location.search).get('returnTo')
-      const requestedPath = statePath || queryPath
-      const destination = requestedPath && requestedPath.startsWith('/') && !requestedPath.startsWith('//') && !requestedPath.startsWith('/masuk') ? requestedPath : '/dashboard'
-      navigate(destination, { replace: true })
+      await finishLogin(token, res.data.user)
     } catch (err) {
       setError(apiErrorMessage(err, 'Login gagal. Periksa email & password.'))
     } finally {
       setLoading(false)
     }
+  }
+
+  const verifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!/^\d{6}$/.test(otpCode)) {
+      setError('Masukkan 6 digit kode verifikasi.')
+      return
+    }
+    setOtpSubmitting(true)
+    setError('')
+    try {
+      const res = await api.post<AuthResponse>('/auth/otp/verify', {
+        phone_number: otpIdentifier,
+        code: otpCode,
+        device_id: deviceId(),
+        device_info: { platform: 'web', app: 'merchant-web' },
+      })
+      if (res.data?.require_2fa) throw new Error('Akun memerlukan verifikasi keamanan tambahan. Hubungi bantuan TEMBUS.')
+      const token = res.data?.access_token || res.data?.data?.token
+      if (!token) throw new Error('Kode verifikasi belum dapat menyelesaikan login.')
+      await finishLogin(token, res.data.user)
+      setOtpRequired(false)
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Kode verifikasi salah atau sudah kedaluwarsa.'))
+    } finally {
+      setOtpSubmitting(false)
+    }
+  }
+
+  const resendOtp = async () => {
+    setOtpSubmitting(true)
+    setError('')
+    try {
+      await api.post('/auth/otp/send', { phone_number: otpIdentifier })
+      toast.success('Kode verifikasi baru sudah dikirim')
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Kode belum dapat dikirim ulang. Coba beberapa saat lagi.'))
+    } finally {
+      setOtpSubmitting(false)
+    }
+  }
+
+  if (otpRequired) {
+    return (
+      <Shell>
+        <h1 className="mt-10 text-3xl font-black tracking-tight text-zinc-900">Verifikasi login</h1>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-500">Masukkan 6 digit kode yang dikirim ke {otpIdentifier}. Kode berlaku selama 5 menit.</p>
+        <form onSubmit={verifyOtp} className="mt-8 space-y-4">
+          <label className="block">
+            <span className="text-sm font-bold text-zinc-700">Kode verifikasi</span>
+            <input
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              className="mt-1.5 w-full rounded-xl border border-zinc-200 px-4 py-3 text-center text-xl font-black tracking-[0.35em] outline-none transition focus:border-emerald-900 focus:ring-2 focus:ring-emerald-900/10"
+            />
+          </label>
+          {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p>}
+          <button type="submit" disabled={otpSubmitting} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#003A20] px-7 py-3.5 font-bold text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-950 disabled:opacity-60">
+            {otpSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+            {otpSubmitting ? 'Memverifikasi…' : 'Verifikasi dan masuk'}
+          </button>
+          <div className="flex items-center justify-between text-sm">
+            <button type="button" onClick={() => { setOtpRequired(false); setError('') }} className="font-semibold text-zinc-500 hover:text-zinc-900">Kembali</button>
+            <button type="button" onClick={resendOtp} disabled={otpSubmitting} className="font-bold text-emerald-900 hover:underline disabled:opacity-50">Kirim ulang kode</button>
+          </div>
+        </form>
+      </Shell>
+    )
   }
 
   if (gate === 'pending') {
