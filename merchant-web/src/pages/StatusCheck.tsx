@@ -8,6 +8,7 @@ import { merchantOnboardingStatus, merchantStatusLabel } from '../lib/merchant-s
 type StatusResult = {
   status: string
   onboarding_status?: string | null
+  next_action?: string | null
   verification_status?: string | null
   nama_toko?: string
   rejection_reason?: string | null
@@ -126,7 +127,10 @@ export default function StatusCheck() {
               <p className="text-lg font-black">{displayStatus === 'NO_MERCHANT' ? 'Belum ada pendaftaran toko' : merchantStatusLabel(normalizedStatus)}</p>
               {result.nama_toko && <p className="mt-1 font-semibold">Toko: {result.nama_toko}</p>}
               {displayStatus === 'NO_MERCHANT' && (
-                <p className="mt-1 text-sm opacity-90">Akun ditemukan, tetapi belum memiliki data toko. Daftarkan bisnis untuk melanjutkan.</p>
+                <p className="mt-1 text-sm opacity-90">
+                  Akun ditemukan, tetapi belum memiliki data toko.{' '}
+                  <Link to="/daftar" className="font-bold underline">Daftarkan bisnis untuk melanjutkan.</Link>
+                </p>
               )}
               {normalizedStatus === 'ACTIVE' && (
                 <p className="mt-1 text-sm opacity-90">
@@ -138,7 +142,7 @@ export default function StatusCheck() {
                 <p className="mt-1 text-sm opacity-90">Alasan: {result.rejection_reason}</p>
               )}
               {normalizedStatus === 'REJECTED' && (
-                <Link to="/daftar" className="mt-2 inline-block text-sm font-bold underline">Perbaiki dan daftar ulang</Link>
+                <Link to="/masuk?returnTo=%2Fdaftar%3Fmode%3Dresubmit" className="mt-2 inline-block text-sm font-bold underline">Masuk untuk memperbaiki pengajuan</Link>
               )}
               {normalizedStatus === 'SUSPENDED' && (
                 <>

@@ -5,7 +5,7 @@ status: COMPLETE
 reality_2026_003: PASS
 reality_2026_011: PASS
 
-implementation_ref: 093ca34e
+implementation_ref: 093ca34e, 5637722b
 
 tests: PASS
 integration: PASS
@@ -71,7 +71,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 ## Commands / Checks Run
 
     command: npm test -- --runInBand src/controllers/merchants-public.controller.test.ts src/merchantOnboardingLifecycleContract.test.ts src/rateLimit.test.ts (backend/admin-service)
-    result: PASS — 3 suites, 13 tests passed.
+    result: PASS — 3 suites, 20 tests passed.
 
     command: npm run build (backend/admin-service)
     result: PASS — TypeScript compilation completed.
@@ -115,7 +115,7 @@ Evidence: Matched, not-found, and no-merchant outcomes emit a structured lookup 
 
 Status: PASS
 
-Evidence: Both identifiers are bound to the same user row; generic not-found behavior is preserved; the public limiter uses a shared IP scope; public error responses do not expose database/provider details; the response projection excludes account status internals, tokens, private document URLs, and bank information.
+Evidence: Both identifiers are bound to the same user row; generic not-found behavior is preserved; the public limiter uses a shared IP scope; public error responses do not expose database/provider details; the response projection excludes account status internals, tokens, private document URLs, and bank information. Matched lifecycle reasons are normalized and technical wording is replaced with a safe support instruction; the additive `next_action` field is non-sensitive.
 
 ### Rollback / Recovery
 

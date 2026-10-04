@@ -211,8 +211,8 @@ export default function Login() {
       <Shell>
         <GateCard tone="red" icon={<XCircle className="h-6 w-6" />} title="Pendaftaran ditolak">
           <p>Toko <span className="font-bold text-zinc-900">{merchantName}</span> belum lolos verifikasi.</p>
-          <p>Silakan hubungi support TEMBUS atau daftar ulang dengan dokumen yang lengkap & jelas terbaca.</p>
-          <Link to="/daftar" className="mt-3 inline-block rounded-xl bg-[#003A20] px-5 py-3 font-bold text-white transition hover:bg-emerald-950">Daftar Ulang</Link>
+          <p>Perbaiki data atau dokumen yang diminta, lalu kirim ulang pengajuan pada akun yang sama.</p>
+          <Link to="/daftar?mode=resubmit" className="mt-3 inline-block rounded-xl bg-[#003A20] px-5 py-3 font-bold text-white transition hover:bg-emerald-950">Perbaiki pengajuan</Link>
         </GateCard>
       </Shell>
     )

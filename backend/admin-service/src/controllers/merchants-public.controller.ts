@@ -34,6 +34,24 @@ const publicLifecycleReason = (value: unknown): string | null => {
   return normalized.slice(0, 500);
 };
 
+const nextActionForStatus = (status: string): string => {
+  switch (status) {
+    case 'DRAFT':
+      return 'complete_submission';
+    case 'SUBMITTED':
+    case 'VERIFYING':
+      return 'wait_for_review';
+    case 'ACTIVE':
+      return 'open_portal';
+    case 'REJECTED':
+      return 'resubmit';
+    case 'SUSPENDED':
+      return 'contact_support';
+    default:
+      return 'contact_support';
+  }
+};
+
 export const uploadMerchantPublicDocument = async (req: Request, res: Response): Promise<void> => {
   try {
     const docType = String(req.body?.doc_type || '').trim();
@@ -128,7 +146,12 @@ export const getMerchantRegistrationStatus = async (req: Request, res: Response)
         outcome: 'no_merchant',
         duration_ms: Date.now() - startedAt,
       });
-      res.status(200).json({ status: 'no_merchant', onboarding_status: null, message: 'Akun ditemukan, tetapi belum ada data toko.' });
+      res.status(200).json({
+        status: 'no_merchant',
+        onboarding_status: null,
+        next_action: 'start_registration',
+        message: 'Akun ditemukan, tetapi belum ada data toko.',
+      });
       return;
     }
 
@@ -151,6 +174,7 @@ export const getMerchantRegistrationStatus = async (req: Request, res: Response)
     res.status(200).json({
       status: canonicalStatus,
       onboarding_status: canonicalStatus,
+      next_action: nextActionForStatus(canonicalStatus),
       verification_status: row.verification_status,
       nama_toko: row.nama_toko,
       rejection_reason: publicLifecycleReason(row.rejection_reason),

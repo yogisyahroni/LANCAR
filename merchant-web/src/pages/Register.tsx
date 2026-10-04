@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import {
   ArrowLeft, ArrowRight, Building2, Check, FileUp, Loader2, ShieldCheck, Store,
 } from 'lucide-react'
 import { api, apiErrorMessage } from '../lib/api'
-import { clearAccessToken, deviceId, markWebSessionEstablished } from '../lib/auth'
+import { clearAccessToken, deviceId, getStoredUser, isLoggedIn, markWebSessionEstablished } from '../lib/auth'
 import { toast } from 'sonner'
 import LocationPicker from '../components/LocationPicker'
 
@@ -78,9 +78,18 @@ function Field({ label, value, onChange, type = 'text', placeholder, required }:
 }
 
 export default function Register() {
+  const location = useLocation()
   const navigate = useNavigate()
-  const [step, setStep] = useState(0)
-  const [form, setForm] = useState<FormData>(emptyForm)
+  const isResubmit = new URLSearchParams(location.search).get('mode') === 'resubmit'
+  const [step, setStep] = useState(isResubmit ? 1 : 0)
+  const [form, setForm] = useState<FormData>(() => {
+    const storedUser = getStoredUser()
+    return {
+      ...emptyForm,
+      fullName: storedUser?.name || '',
+      email: storedUser?.email || '',
+    }
+  })
   const [uploading, setUploading] = useState<string | null>(null)
   const [uploadingNames, setUploadingNames] = useState<Record<string, string>>({})
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({})
@@ -149,14 +158,18 @@ export default function Register() {
     }
   }
 
-  const submitMerchant = async (token: string, user?: { id?: string; name?: string; full_name?: string; email?: string }) => {
-    await api.post('/auth/web/session/exchange', { access_token: token })
-    clearAccessToken()
-    markWebSessionEstablished({
-      id: user?.id,
-      name: user?.name || user?.full_name || form.fullName.trim(),
-      email: user?.email || form.email.trim(),
-    })
+  const submitMerchant = async (token: string | null, user?: { id?: string; name?: string; full_name?: string; email?: string }) => {
+    if (token) {
+      await api.post('/auth/web/session/exchange', { access_token: token })
+      clearAccessToken()
+      markWebSessionEstablished({
+        id: user?.id,
+        name: user?.name || user?.full_name || form.fullName.trim(),
+        email: user?.email || form.email.trim(),
+      })
+    } else if (!isLoggedIn()) {
+      throw new Error('Masuk terlebih dahulu untuk memperbaiki pengajuan sebelumnya.')
+    }
 
     // Merchant registration is now authorized by the server-backed web
     // session; the temporary bearer token is not retained in browser storage.
@@ -179,13 +192,17 @@ export default function Register() {
     await api.post('/merchant/register', payload)
 
     toast.success('Pendaftaran berhasil dikirim!')
-    navigate('/sukses', { state: { email: form.email.trim() } })
+    navigate('/sukses', { state: { email: form.email.trim() || getStoredUser()?.email || '' } })
   }
 
   const submit = async () => {
     setSubmitting(true)
     setError('')
     try {
+      if (isResubmit) {
+        await submitMerchant(null)
+        return
+      }
       const regRes = await api.post('/auth/customer/register/start', {
         full_name: form.fullName.trim(),
         email: form.email.trim(),
@@ -360,6 +377,20 @@ export default function Register() {
         </ol>
 
         <div className="mt-6 rounded-[1.75rem] border border-zinc-100 bg-white p-6 shadow-sm md:p-8">
+          {isResubmit && (
+            <div className="mb-6 rounded-2xl border border-orange-200 bg-orange-50 p-4">
+              <p className="font-bold text-orange-950">Perbaiki pengajuan sebelumnya</p>
+              <p className="mt-1 text-sm leading-relaxed text-orange-900/80">
+                Lengkapi kembali data toko dan dokumen yang diminta, lalu kirim ulang untuk diperiksa tim TEMBUS.
+              </p>
+              {!isLoggedIn() && (
+                <p className="mt-2 text-sm font-semibold text-orange-950">
+                  Masuk terlebih dahulu agar perbaikan tersimpan pada pengajuan yang sama.{' '}
+                  <Link to="/masuk?returnTo=%2Fdaftar%3Fmode%3Dresubmit" className="underline">Masuk ke Portal Mitra</Link>
+                </p>
+              )}
+            </div>
+          )}
           {/* Step 0: Akun */}
           {step === 0 && (
             <div className="space-y-4">
@@ -456,7 +487,7 @@ export default function Register() {
 
           {/* Nav buttons */}
           <div className="mt-8 flex items-center justify-between gap-4">
-            {step > 0 ? (
+            {step > (isResubmit ? 1 : 0) ? (
               <button onClick={() => { setStep((s) => s - 1); setError('') }} className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 px-5 py-3 font-bold text-zinc-700 transition hover:border-zinc-300">
                 <ArrowLeft className="h-4 w-4" /> Kembali
               </button>
@@ -470,7 +501,7 @@ export default function Register() {
                 className="inline-flex items-center gap-2 rounded-xl bg-[#F97316] px-7 py-3.5 font-bold text-white shadow-lg shadow-orange-500/25 transition hover:bg-orange-600 disabled:opacity-60"
               >
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Store className="h-5 w-5" />}
-                {submitting ? 'Mengirim...' : 'Kirim Pendaftaran'}
+                {submitting ? 'Mengirim...' : isResubmit ? 'Kirim ulang pengajuan' : 'Kirim Pendaftaran'}
               </button>
             ) : (
               <button onClick={next} className="inline-flex items-center gap-2 rounded-xl bg-[#003A20] px-7 py-3.5 font-bold text-white transition hover:bg-emerald-950">

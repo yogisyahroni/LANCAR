@@ -60,6 +60,7 @@ describe('public merchant registration status contract', () => {
     expect(response.body).toEqual(expect.objectContaining({
       status: 'ACTIVE',
       onboarding_status: 'ACTIVE',
+      next_action: 'open_portal',
       updated_at: '2026-10-04T09:00:00.000Z',
     }));
     expect(response.body.user_status).toBeUndefined();
@@ -89,6 +90,32 @@ describe('public merchant registration status contract', () => {
     }));
   });
 
+  it.each([
+    ['DRAFT', 'complete_submission'],
+    ['SUBMITTED', 'wait_for_review'],
+    ['VERIFYING', 'wait_for_review'],
+    ['ACTIVE', 'open_portal'],
+    ['REJECTED', 'resubmit'],
+    ['SUSPENDED', 'contact_support'],
+  ])('returns the canonical next action for %s', async (status, nextAction) => {
+    (db.query as jest.Mock).mockResolvedValue({ rows: [{
+      merchant_id: 'merchant-state',
+      nama_toko: 'Toko State',
+      onboarding_status: status,
+      verification_status: null,
+      rejection_reason: null,
+      onboarding_suspension_reason: null,
+      created_at: '2026-10-04T08:00:00.000Z',
+      updated_at: '2026-10-04T09:00:00.000Z',
+    }] });
+    const response = makeResponse();
+
+    await getMerchantRegistrationStatus({ query: { email: 'owner@example.test' } } as any, response);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual(expect.objectContaining({ status, next_action: nextAction }));
+  });
+
   it('keeps the no-merchant state explicit without exposing account internals', async () => {
     (db.query as jest.Mock).mockResolvedValue({ rows: [{ merchant_id: null, user_status: 'active' }] });
     const response = makeResponse();
@@ -99,6 +126,7 @@ describe('public merchant registration status contract', () => {
     expect(response.body).toEqual({
       status: 'no_merchant',
       onboarding_status: null,
+      next_action: 'start_registration',
       message: 'Akun ditemukan, tetapi belum ada data toko.',
     });
     expect(response.body.user_status).toBeUndefined();
@@ -122,6 +150,7 @@ describe('public merchant registration status contract', () => {
     expect(response.statusCode).toBe(200);
     expect(response.body).toEqual(expect.objectContaining({
       status: 'SUSPENDED',
+      next_action: 'contact_support',
       suspension_reason: 'Ada data yang perlu diperbaiki. Hubungi bantuan TEMBUS untuk detail.',
     }));
     expect(JSON.stringify(response.body)).not.toMatch(/database|query/i);
