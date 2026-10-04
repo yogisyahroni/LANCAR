@@ -102,13 +102,23 @@ type MerchantSessionAuthorization struct {
 // the Merchant Portal shell. The UI may use it for navigation and display,
 // but every protected operation still performs its own server-side check.
 type MerchantPortalContext struct {
-	Merchant              *Merchant         `json:"merchant"`
-	Branches              []*MerchantBranch `json:"branches"`
-	CurrentBranchID       string            `json:"current_branch_id,omitempty"`
-	EffectiveRole         string            `json:"effective_role"`
-	GrantedPermissions    int               `json:"granted_permissions"`
-	Capabilities          []string          `json:"capabilities"`
-	DeviceSessionRequired bool              `json:"device_session_required"`
+	Merchant              *Merchant                 `json:"merchant"`
+	BusinessID            string                    `json:"business_id"`
+	Branches              []*MerchantBranch         `json:"branches"`
+	CurrentBranchID       string                    `json:"current_branch_id,omitempty"`
+	EffectiveRole         string                    `json:"effective_role"`
+	GrantedPermissions    int                       `json:"granted_permissions"`
+	Capabilities          []string                  `json:"capabilities"`
+	DeviceSessionRequired bool                      `json:"device_session_required"`
+	FinancialContext      *MerchantFinancialContext `json:"financial_context"`
+}
+
+type MerchantFinancialContext struct {
+	MarketCode        string `json:"market_code"`
+	CurrencyCode      string `json:"currency_code"`
+	CurrencyMinorUnit int    `json:"currency_minor_unit"`
+	Timezone          string `json:"timezone"`
+	DisplayLocale     string `json:"display_locale"`
 }
 
 type MerchantAccessContext struct {
@@ -168,6 +178,7 @@ type ApproveSecurityApprovalRequest struct {
 
 type MerchantAccessRepository interface {
 	ListBranches(ctx context.Context, merchantID string) ([]*MerchantBranch, error)
+	GetFinancialContext(ctx context.Context, merchantID string) (*MerchantFinancialContext, error)
 	GetBranch(ctx context.Context, merchantID, branchID string) (*MerchantBranch, error)
 	CreateBranch(ctx context.Context, branch *MerchantBranch) error
 	UpdateBranch(ctx context.Context, merchantID, branchID string, req UpdateMerchantBranchRequest) error

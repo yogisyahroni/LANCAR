@@ -150,6 +150,10 @@ func (s *merchantAccessService) GetPortalContext(ctx context.Context, requesterU
 		permissions = staff.Permissions
 		deviceSessionRequired = true
 	}
+	financialContext, err := s.accessRepo.GetFinancialContext(ctx, merchant.ID)
+	if err != nil {
+		return nil, err
+	}
 
 	var branches []*domain.MerchantBranch
 	if owner {
@@ -202,12 +206,14 @@ func (s *merchantAccessService) GetPortalContext(ctx context.Context, requesterU
 
 	return &domain.MerchantPortalContext{
 		Merchant:              merchant,
+		BusinessID:            merchant.ID,
 		Branches:              branches,
 		CurrentBranchID:       currentBranchID,
 		EffectiveRole:         role,
 		GrantedPermissions:    permissions,
 		Capabilities:          portalCapabilities(permissions, owner),
 		DeviceSessionRequired: deviceSessionRequired,
+		FinancialContext:      financialContext,
 	}, nil
 }
 

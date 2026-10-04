@@ -51,6 +51,22 @@ func (r *postgresMerchantAccessRepository) ListBranches(ctx context.Context, mer
 	return out, rows.Err()
 }
 
+func (r *postgresMerchantAccessRepository) GetFinancialContext(ctx context.Context, merchantID string) (*domain.MerchantFinancialContext, error) {
+	var financialContext domain.MerchantFinancialContext
+	if err := r.readDB.QueryRowContext(ctx, `
+		SELECT market_code, currency_code, currency_minor_unit, timezone, display_locale
+		FROM merchant_financial_context($1)`, merchantID).Scan(
+		&financialContext.MarketCode,
+		&financialContext.CurrencyCode,
+		&financialContext.CurrencyMinorUnit,
+		&financialContext.Timezone,
+		&financialContext.DisplayLocale,
+	); err != nil {
+		return nil, fmt.Errorf("merchant financial context: %w", err)
+	}
+	return &financialContext, nil
+}
+
 func (r *postgresMerchantAccessRepository) GetBranch(ctx context.Context, merchantID, branchID string) (*domain.MerchantBranch, error) {
 	branch, err := scanBranch(r.readDB.QueryRowContext(ctx, `
 		SELECT id, merchant_id, code, name, address, is_active, created_at, updated_at

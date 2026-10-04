@@ -64,12 +64,20 @@ export interface Merchant {
 
 export interface MerchantPortalContext {
   merchant: Merchant
+  business_id: string
   branches: MerchantBranch[]
   current_branch_id?: string
   effective_role: string
   granted_permissions: number
   capabilities: string[]
   device_session_required: boolean
+  financial_context: {
+    market_code: string
+    currency_code: string
+    currency_minor_unit: number
+    timezone: string
+    display_locale: string
+  }
 }
 
 export interface MerchantNotification {
