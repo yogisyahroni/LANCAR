@@ -17,6 +17,8 @@ import {
 import { Skeleton } from '@/components/ui/Skeleton';
 import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
 import { customerApiUrl } from '@/lib/runtimeConfig';
+import { formatDateTime } from '@/i18n/format';
+import { useI18n } from '@/components/i18n/I18nProvider';
 
 const RESI_PATTERN = /^[A-Za-z0-9-]{1,40}$/;
 
@@ -54,15 +56,9 @@ const STEPS = [
   { key: 'delivered', label: 'Terkirim' },
 ] as const;
 
-const formatTime = (value: string | null | undefined) => {
+const formatTrackingTime = (value: string | null | undefined, locale: string) => {
   if (!value) return '-';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return '-';
-  return new Intl.DateTimeFormat('id-ID', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Asia/Jakarta',
-  }).format(parsed);
+  return formatDateTime(value, locale, 'Asia/Jakarta');
 };
 
 function sanitizeResiInput(raw: string): string {
@@ -187,6 +183,7 @@ function ResiSkeleton() {
 function CekResiContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { locale } = useI18n();
   const initialResi = sanitizeResiInput(searchParams.get('resi') ?? '');
 
   const [inputValue, setInputValue] = useState(initialResi);
@@ -362,7 +359,7 @@ function CekResiContent() {
                     <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-foreground-muted">
                         <Clock aria-hidden="true" className="h-3.5 w-3.5" /> Estimasi tiba
                     </p>
-                    <p className="mt-1.5 text-sm font-semibold">{formatTime(state.data.estimated_delivery_at)}</p>
+                    <p className="mt-1.5 text-sm font-semibold">{formatTrackingTime(state.data.estimated_delivery_at, locale)}</p>
                   </div>
                   {state.data.courier_first_name && (
                     <div className="rounded-2xl bg-surface p-4">
@@ -399,7 +396,7 @@ function CekResiContent() {
                             <p className={`text-sm ${isFirst ? 'font-bold text-success' : 'font-semibold text-foreground-muted'}`}>
                               {entry.label || entry.status}
                             </p>
-                            <p className="text-xs text-foreground-muted">{formatTime(entry.at)}</p>
+                            <p className="text-xs text-foreground-muted">{formatTrackingTime(entry.at, locale)}</p>
                           </div>
                         </li>
                       );

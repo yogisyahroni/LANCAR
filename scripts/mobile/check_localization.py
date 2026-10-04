@@ -76,15 +76,21 @@ def main() -> int:
             f"only-en={sorted(en_keys - id_keys)}"
         )
 
+    # Keep this list aligned with the current App Router layout. These files
+    # replaced the old landing/resi widget split; stale paths must not make the
+    # release contract crash with an unhandled FileNotFoundError.
     core_files = (
-        ROOT / "frontend" / "src" / "app" / "LandingPageContent.tsx",
-        ROOT / "frontend" / "src" / "components" / "landing" / "ResiCheckWidget.tsx",
+        ROOT / "frontend" / "src" / "app" / "page.tsx",
+        ROOT / "frontend" / "src" / "app" / "cek-resi" / "page.tsx",
         ROOT / "frontend" / "src" / "components" / "orders" / "OrderSummary.tsx",
         ROOT / "frontend" / "src" / "app" / "(auth)" / "login" / "page.tsx",
         ROOT / "frontend" / "src" / "app" / "(portal)" / "layout.tsx",
     )
     forbidden_locale_literals = re.compile(r"(?:toLocale(?:String|DateString|TimeString)|Intl\.(?:NumberFormat|DateTimeFormat))[^\n]*id-ID")
     for path in core_files:
+        if not path.exists():
+            failures.append(f"{path.relative_to(ROOT)}: required localization contract file is missing")
+            continue
         text = path.read_text(encoding="utf-8")
         if forbidden_locale_literals.search(text):
             failures.append(f"{path.relative_to(ROOT)}: core UI contains a hardcoded id-ID formatter")
