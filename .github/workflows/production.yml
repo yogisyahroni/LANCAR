@@ -565,6 +565,8 @@ jobs:
             context: ./backend/payment-service
           - image: api-gateway
             context: ./backend/api-gateway
+          - image: merchant-web
+            context: ./merchant-web
           - image: frontend
             context: ./frontend
           - image: admin-dashboard
@@ -592,6 +594,8 @@ jobs:
             VITE_API_URL=${{ vars.VITE_API_URL || 'https://api.bawain.my.id/api/v1' }}
             VITE_WS_URL=${{ vars.VITE_WS_URL || 'wss://api.bawain.my.id' }}
             VITE_SOCKET_URL=${{ vars.VITE_SOCKET_URL || 'https://api.bawain.my.id' }}
+            MERCHANT_BUILD_ENV=production
+            MERCHANT_EXPECTED_API_URL=${{ vars.VITE_API_URL || 'https://api.bawain.my.id/api/v1' }}
           cache-from: type=gha,scope=${{ matrix.image }}-prod
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}-prod
 
@@ -613,6 +617,42 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
           format: table
+      - name: Docker smoke test (merchant-web)
+        if: matrix.image == 'merchant-web'
+        run: |
+          set -euo pipefail
+          container="merchant-web-smoke-${GITHUB_RUN_ID}"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          docker run -d --name "$container" -p 4173:80 "tembus-local/${{ matrix.image }}:${{ github.sha }}" >/dev/null
+          for attempt in $(seq 1 30); do
+            health="$(docker inspect --format='{{.State.Health.Status}}' "$container")"
+            if [ "$health" = "healthy" ]; then break; fi
+            if [ "$health" = "unhealthy" ] || [ "$(docker inspect --format='{{.State.Status}}' "$container")" = "exited" ]; then
+              docker logs "$container"
+              exit 1
+            fi
+            sleep 1
+          done
+          test "$(docker inspect --format='{{.State.Health.Status}}' "$container")" = "healthy"
+          node scripts/e2e/merchant-web-docker-smoke.mjs http://127.0.0.1:4173
+      - name: Set up Node.js for merchant web accessibility
+        if: matrix.image == 'merchant-web'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install merchant web accessibility dependencies
+        if: matrix.image == 'merchant-web'
+        working-directory: frontend
+        run: npm ci
+      - name: Install Chromium for merchant web accessibility
+        if: matrix.image == 'merchant-web'
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Accessibility smoke test (merchant-web)
+        if: matrix.image == 'merchant-web'
+        run: node scripts/e2e/merchant-web-a11y.mjs http://127.0.0.1:4173
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
@@ -727,6 +767,21 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/api-gateway:${{ github.sha }}
 
+      - name: Build and Push Merchant Web
+        uses: docker/build-push-action@v5
+        with:
+          context: ./merchant-web
+          pull: true
+          push: true
+          cache-from: type=gha,scope=merchant-web-prod
+          cache-to: type=gha,mode=max,scope=merchant-web-prod
+          build-args: |
+            MERCHANT_BUILD_ENV=production
+            MERCHANT_EXPECTED_API_URL=${{ vars.VITE_API_URL || 'https://api.bawain.my.id/api/v1' }}
+            VITE_API_URL=${{ vars.VITE_API_URL || 'https://api.bawain.my.id/api/v1' }}
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/merchant-web:${{ github.sha }}
+
       - name: Build and Push Frontend
         uses: docker/build-push-action@v5
         with:
@@ -811,7 +866,7 @@ jobs:
         run: |
           set -euo pipefail
           repo="${REPO_LOWER,,}"
-          for image in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway frontend admin-dashboard; do
+          for image in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway merchant-web frontend admin-dashboard; do
             cosign sign --yes "ghcr.io/${repo}/${image}:${SHA}"
           done
 
@@ -844,7 +899,7 @@ jobs:
           set -euo pipefail
           repo="${REPO_LOWER,,}"
           identity="https://github.com/${REPO_LOWER}/.github/workflows/production.yml@refs/heads/main"
-          for image in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway frontend admin-dashboard; do
+          for image in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway merchant-web frontend admin-dashboard; do
             cosign verify \
               --certificate-identity-regexp "${identity}" \
               --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
@@ -920,6 +975,7 @@ jobs:
           docker pull ghcr.io/${REPO_LOWER_LC}/datalake-worker:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/payment-service:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/api-gateway:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/merchant-web:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/frontend:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/admin-dashboard:${SHA}
 
@@ -955,10 +1011,11 @@ jobs:
            export ORDER_SERVICE_IMAGE="ghcr.io/${REPO_LOWER_LC}/order-service:${SHA}"
            export PAYMENT_SERVICE_IMAGE="ghcr.io/${REPO_LOWER_LC}/payment-service:${SHA}"
            export API_GATEWAY_IMAGE="ghcr.io/${REPO_LOWER_LC}/api-gateway:${SHA}"
+           export MERCHANT_WEB_IMAGE="ghcr.io/${REPO_LOWER_LC}/merchant-web:${SHA}"
            export FRONTEND_IMAGE="ghcr.io/${REPO_LOWER_LC}/frontend:${SHA}"
            export ADMIN_DASHBOARD_IMAGE="ghcr.io/${REPO_LOWER_LC}/admin-dashboard:${SHA}"
 
-          for svc in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway frontend admin-dashboard; do
+          for svc in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway merchant-web frontend admin-dashboard; do
             echo "  ↻ Rolling update for \${svc}..."
             
             # Find the old container ID

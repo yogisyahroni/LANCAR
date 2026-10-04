@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 3004",
+    "prebuild": "node scripts/validate-build-config.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test:config": "node --test scripts/validate-build-config.test.mjs",
     "preview": "vite preview --port 3004"
   },
   "dependencies": {

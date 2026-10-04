@@ -534,6 +534,8 @@ jobs:
             VITE_API_URL=${{ env.STAGING_ADMIN_API_URL }}
             VITE_WS_URL=${{ env.STAGING_ADMIN_WS_URL }}
             VITE_SOCKET_URL=${{ env.STAGING_ADMIN_SOCKET_URL }}
+            MERCHANT_BUILD_ENV=staging
+            MERCHANT_EXPECTED_API_URL=${{ env.STAGING_ADMIN_API_URL }}
       - name: Generate CycloneDX SBOM
         uses: aquasecurity/trivy-action@0.35.0
         with:
@@ -551,6 +553,42 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
           format: table
+      - name: Docker smoke test (merchant-web)
+        if: matrix.image == 'merchant-web'
+        run: |
+          set -euo pipefail
+          container="merchant-web-smoke-${GITHUB_RUN_ID}"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          docker run -d --name "$container" -p 4173:80 "tembus-local/${{ matrix.image }}:${{ github.sha }}" >/dev/null
+          for attempt in $(seq 1 30); do
+            health="$(docker inspect --format='{{.State.Health.Status}}' "$container")"
+            if [ "$health" = "healthy" ]; then break; fi
+            if [ "$health" = "unhealthy" ] || [ "$(docker inspect --format='{{.State.Status}}' "$container")" = "exited" ]; then
+              docker logs "$container"
+              exit 1
+            fi
+            sleep 1
+          done
+          test "$(docker inspect --format='{{.State.Health.Status}}' "$container")" = "healthy"
+          node scripts/e2e/merchant-web-docker-smoke.mjs http://127.0.0.1:4173
+      - name: Set up Node.js for merchant web accessibility
+        if: matrix.image == 'merchant-web'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install merchant web accessibility dependencies
+        if: matrix.image == 'merchant-web'
+        working-directory: frontend
+        run: npm ci
+      - name: Install Chromium for merchant web accessibility
+        if: matrix.image == 'merchant-web'
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Accessibility smoke test (merchant-web)
+        if: matrix.image == 'merchant-web'
+        run: node scripts/e2e/merchant-web-a11y.mjs http://127.0.0.1:4173
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
         with:
@@ -687,6 +725,8 @@ jobs:
           cache-from: type=gha,scope=merchant-web-v1
           cache-to: type=gha,mode=max,scope=merchant-web-v1
           build-args: |
+            MERCHANT_BUILD_ENV=staging
+            MERCHANT_EXPECTED_API_URL=${{ env.STAGING_ADMIN_API_URL }}
             VITE_API_URL=${{ env.STAGING_ADMIN_API_URL }}
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/merchant-web:staging

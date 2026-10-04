@@ -706,6 +706,8 @@ services:
       context: ./merchant-web
       dockerfile: Dockerfile
       args:
+        MERCHANT_BUILD_ENV: production
+        MERCHANT_EXPECTED_API_URL: ${VITE_API_URL:?VITE_API_URL is required}
         VITE_API_URL: ${VITE_API_URL:?VITE_API_URL is required}
     restart: unless-stopped
     depends_on:

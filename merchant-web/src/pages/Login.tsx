@@ -307,13 +307,15 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-5">
       <div className="grid w-full max-w-4xl overflow-hidden rounded-[2rem] border border-zinc-100 bg-white shadow-sm md:grid-cols-[1fr_0.9fr]">
         <div className="px-6 py-12 sm:px-12">
-          <Link to="/" className="flex items-center gap-2">
-            <img src="/tembus-login-logo.webp" alt="TEMBUS" className="merchant-brand-image merchant-brand-image--auth" />
-            <span className="text-lg font-black tracking-tight text-emerald-900">Mitra</span>
-          </Link>
-          <div className="mt-2">{children}</div>
+          <header>
+            <Link to="/" className="flex items-center gap-2">
+              <img src="/tembus-login-logo.webp" alt="TEMBUS" className="merchant-brand-image merchant-brand-image--auth" />
+              <span className="text-lg font-black tracking-tight text-emerald-900">Mitra</span>
+            </Link>
+          </header>
+          <main className="mt-2">{children}</main>
         </div>
-        <div className="hidden flex-col justify-between bg-gradient-to-br from-emerald-900 to-emerald-950 p-10 text-white md:flex">
+        <aside aria-label="Fitur merchant" className="hidden flex-col justify-between bg-gradient-to-br from-emerald-900 to-emerald-950 p-10 text-white md:flex">
           <Store className="h-9 w-9 text-[#F97316]" />
           <div>
             <p className="text-2xl font-black leading-snug">Satu dashboard untuk semua pesanan tokomu.</p>
@@ -323,7 +325,7 @@ function Shell({ children }: { children: React.ReactNode }) {
               <li>• Buka/tutup toko sekali klik</li>
             </ul>
           </div>
-        </div>
+        </aside>
       </div>
     </div>
   )

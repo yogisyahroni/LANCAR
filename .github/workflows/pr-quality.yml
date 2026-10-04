@@ -320,6 +320,8 @@ jobs:
           VITE_API_URL: https://ci-api.tembus.invalid/api/v1
           VITE_WS_URL: wss://ci-api.tembus.invalid
           VITE_SOCKET_URL: https://ci-api.tembus.invalid
+          MERCHANT_BUILD_ENV: ci
+          MERCHANT_EXPECTED_API_URL: https://ci-api.tembus.invalid/api/v1
 
       - name: Set up Go
         if: matrix.ecosystem == 'go'

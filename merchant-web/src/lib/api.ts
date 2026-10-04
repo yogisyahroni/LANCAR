@@ -1,7 +1,11 @@
 import axios from 'axios'
 import { clearAccessToken, clearSession, getMerchantBranchSelection, getMerchantDeviceSession, getToken, hasWebSession, publishWebAuthEvent } from './auth'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
+const API_BASE = import.meta.env.VITE_API_URL || ''
+
+if (!API_BASE && import.meta.env.PROD) {
+  throw new Error('VITE_API_URL is required for a production Merchant Web build')
+}
 
 export const apiBaseUrl = API_BASE.replace(/\/+$/, '')
 
