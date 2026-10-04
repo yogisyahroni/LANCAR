@@ -23,12 +23,12 @@ external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Complete remaining shell route/deep-link/responsive permutations, durable audit coverage for every sensitive shell action, and staging smoke after deployment."
 
-unproven_requirements: "Full shell parity, durable audit coverage for every sensitive shell action, authenticated browser proof for every route/deep-link/responsive permutation, and staging release proof remain unproven. The merchant-to-Admin Support case intake, Admin case detail, timeline, and status transition are proven locally through API and browser evidence."
+unproven_requirements: "Full shell parity, durable audit coverage for every sensitive shell action, authenticated browser proof for every role's responsive permutation, support/admin browser permutations, and staging release proof remain unproven. The merchant-to-Admin Support case intake, Admin case detail, timeline, and status transition are proven locally through API and browser evidence."
 known_blockers: NONE
 
-locally_actionable_remaining: "Cover outlet switching, every capability route/deep-link, every sensitive mutation audit, and staging smoke."
+locally_actionable_remaining: "Cover every sensitive mutation audit, remaining role-specific responsive/support/admin browser permutations, and staging smoke."
 
-blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing, the order-service merchant_session boundary for notifications, shared support-case auth/CSRF handling, duplicate device-session bootstrap, cross-tab logout delivery, capability-unsafe report loading, and structured error rendering; rebuilt Docker admin-service; executed owner/staff authenticated API flows, merchant-to-support intake, Admin case list/detail/status transition, tenant tamper, session rotation/logout, device-session revoke, browser role matrix, multi-tab logout, degraded network recovery state, and reversible structured audit-log checks."
+blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing, the order-service merchant_session boundary for notifications, shared support-case auth/CSRF handling, duplicate device-session bootstrap, cross-tab logout delivery, capability-unsafe report loading, structured error rendering, inactive outlet switching, and durable merchant mutation audit persistence; rebuilt Docker admin-service and merchant-service; executed owner/staff authenticated API flows, merchant-to-support intake, Admin case list/detail/status transition, tenant tamper, session rotation/logout, device-session revoke, browser role matrix, multi-tab logout, degraded network recovery state, outlet switching, and success/failure audit-log checks."
 unblock_condition: NONE
 
 owner_action_required: false
@@ -130,9 +130,18 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
 - `merchant-web/src/lib/portal-context.ts` — context and staff-session bootstrap.
 - `merchant-web/src/lib/auth.ts` and `merchant-web/src/lib/api.ts` — scoped session storage, cross-tab auth events, request headers, and safe error text normalization.
 - `merchant-web/src/pages/Dashboard.tsx` — capability-gated report loading for non-finance operational roles.
+- `merchant-web/src/components/Layout.tsx` — active-outlet-only switching and branch scope selection.
 - `merchant-web/src/lib/types.ts` — branch/context types.
 - `merchant-web/src/pages/Integrations.tsx` and `merchant-web/src/App.tsx` —
   capability-gated Integrasi route backed by the read-only POS health API.
+- `backend/merchant-service/internal/middleware/audit.go` — durable,
+  tenant/outlet-aware mutation audit recorder backed by the canonical
+  append-only `audit_logs` table.
+- `backend/merchant-service/internal/middleware/base_middleware.go` and
+  `backend/merchant-service/internal/middleware/base_middleware_test.go` —
+  success/failure mutation audit middleware and unit coverage.
+- `backend/merchant-service/cmd/api/main.go` — wires the audit recorder into
+  every merchant-service route chain.
 - `merchant-web/src/components/ProtectedRoute.tsx`, `Layout.tsx`, `pages/Login.tsx`, `Dashboard.tsx`, `Settings.tsx`, `Staff.tsx` — server-context consumption.
 - `merchant-web/src/lib/network.ts` — shell network-failure event boundary.
 
@@ -193,6 +202,38 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
     result: PASS — after the active manager device session was revoked in the
     local PostgreSQL fixture, reload created exactly one replacement session and
     preserved the dashboard at `/dashboard`.
+
+    command: Playwright authenticated portal route and capability-guard smoke
+    result: PASS — owner opened `/dashboard`, `/pesanan`, `/menu`, `/promo`,
+    `/laporan`, `/settlement`, `/staff`, `/integrasi`, and `/pengaturan` with
+    no browser console errors or API failures; kitchen received the explicit
+    capability-denied state for `/promo`, `/laporan`, `/settlement`, and
+    `/staff` without probing forbidden APIs.
+
+    command: Playwright outlet-switch smoke with temporary local branch fixture
+    result: PASS — inactive test branches were hidden, one active branch option
+    was displayed, selection changed the server scope stored in session storage,
+    and returning to the MAIN branch restored the original scope. Test branches
+    were deactivated after verification.
+
+    command: docker compose build merchant-web && docker compose up -d merchant-web
+    result: PASS — rebuilt the local Merchant Web image after the active-branch
+    guard and served HTTP 200 from `http://localhost:3086/`.
+
+    command: go test ./... (backend/merchant-service after durable audit wiring)
+    result: PASS — all merchant-service packages passed, including middleware
+    coverage for successful mutations, failed mutations with an HTTP reason,
+    and no audit for read requests.
+
+    command: docker compose up -d --build merchant-service && direct local
+    authenticated mutation probe plus PostgreSQL audit query
+    result: PASS — toggle-open success and restoration returned 200; malformed
+    mutation returned 400; each produced a durable `audit_logs` row. The
+    payload contained effective role, tenant/business ID, outlet ID, object ID,
+    result, failure reason, correlation ID, request ID, and status. Owner scope
+    was resolved from the supplied outlet rather than an arbitrary duplicate
+    merchant owned by the same local fixture user; a manager staff fixture also
+    persisted effective role `manager`.
 
     command: git push origin staging
     result: PASS — the previous merchant portal auth/session implementation is synchronized to origin/staging; this follow-up is recorded in the next scoped commit.
@@ -267,7 +308,7 @@ Evidence: Docker gateway → auth/admin → merchant-service/order-service → P
 
 Status: PARTIAL
 
-Evidence: Authenticated API E2E was run against local Docker for owner and staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, 390px responsive layout, credential storage boundary, expired-session redirect, owner/manager/cashier/kitchen/finance capability matrix, exactly-once staff device-session bootstrap, multi-tab logout propagation, degraded network recovery state, revoked device-session recovery, random branch tamper rejection, and the live Admin Support Console case detail/status flow. Browser coverage for outlet switching, every capability route/deep-link, and all required support/admin role permutations remains required.
+Evidence: Authenticated API E2E was run against local Docker for owner and staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, 390px responsive layout, credential storage boundary, expired-session redirect, owner/manager/cashier/kitchen/finance capability matrix, exactly-once staff device-session bootstrap, multi-tab logout propagation, degraded network recovery state, revoked device-session recovery, random branch tamper rejection, owner route smoke, kitchen capability-denied routes, outlet switching, and the live Admin Support Console case detail/status flow. Browser coverage for every role's responsive permutation and all required support/admin role permutations remains required.
 
 ### Migration
 
@@ -279,7 +320,12 @@ Evidence: Existing tables and migrations are reused; no schema change.
 
 Status: PARTIAL
 
-Evidence: Structured merchant-service audit records were observed for device-session create and reversible toggle-open mutation with actor, role, action, resource, result, timestamp, request ID, and correlation ID. Full sensitive-action coverage, durable audit persistence, and dedicated portal metrics remain unverified.
+Evidence: Durable merchant mutation audit records were verified in the local
+`audit_logs` table for owner success/restoration, owner failure, and manager
+failure. The generic route middleware records authenticated POST/PUT/PATCH/
+DELETE outcomes without request bodies, and resolves tenant/outlet/object scope
+server-side. Full semantic coverage for every sensitive action and dedicated
+portal metrics remain unverified.
 
 ### Security / Privacy
 

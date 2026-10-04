@@ -11,6 +11,8 @@ import (
 	"runtime/debug"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type contextKey string
@@ -150,27 +152,89 @@ func RequestLoggerMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func MutationAuditMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		rw := newResponseWriter(w)
-		next.ServeHTTP(rw, r)
-		if rw.statusCode >= 400 {
-			return
+	return MutationAuditMiddlewareWithRecorder(nil)(next)
+}
+
+func MutationAuditMiddlewareWithRecorder(recorder MutationAuditRecorder) func(http.HandlerFunc) http.HandlerFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			rw := newResponseWriter(w)
+			next.ServeHTTP(rw, r)
+			if r.Method != http.MethodPost && r.Method != http.MethodPut && r.Method != http.MethodPatch && r.Method != http.MethodDelete {
+				return
+			}
+
+			result := "success"
+			failureReason := ""
+			logLevel := "info"
+			if rw.statusCode >= 400 {
+				result = "failure"
+				failureReason = fmt.Sprintf("http_status_%d", rw.statusCode)
+				logLevel = "warn"
+			}
+			objectID := mutationObjectID(r.URL.Path)
+			fields := map[string]interface{}{
+				"event":          "audit_trail",
+				"actor_id":       r.Header.Get("X-User-ID"),
+				"actor_role":     r.Header.Get("X-User-Role"),
+				"action":         fmt.Sprintf("http.%s.%s", strings.ToLower(r.Method), strings.TrimPrefix(r.URL.Path, "/")),
+				"resource":       r.URL.Path,
+				"outlet_id":      r.Header.Get("X-Merchant-Branch-ID"),
+				"object_id":      objectID,
+				"result":         result,
+				"failure_reason": failureReason,
+				"status":         rw.statusCode,
+				"correlation_id": GetCorrelationID(r.Context()),
+				"request_id":     GetRequestID(r.Context()),
+				"ip":             realIP(r),
+			}
+			LogJSON(logLevel, "merchant mutation audit", fields)
+
+			if recorder != nil && strings.TrimSpace(r.Header.Get("X-User-ID")) != "" {
+				event := MutationAuditEvent{
+					ActorID:       r.Header.Get("X-User-ID"),
+					ActorRole:     r.Header.Get("X-User-Role"),
+					OutletID:      r.Header.Get("X-Merchant-Branch-ID"),
+					Action:        fields["action"].(string),
+					Resource:      r.URL.Path,
+					ObjectID:      objectID,
+					Result:        result,
+					FailureReason: failureReason,
+					Status:        rw.statusCode,
+					CorrelationID: GetCorrelationID(r.Context()),
+					RequestID:     GetRequestID(r.Context()),
+					IP:            realIP(r),
+				}
+				if err := recorder.RecordMutation(r.Context(), event); err != nil {
+					// The mutation response has already been written. Keep the user
+					// flow stable but make audit persistence failure observable.
+					LogJSON("error", "merchant mutation audit persistence failed", map[string]interface{}{
+						"error":          err.Error(),
+						"action":         event.Action,
+						"correlation_id": event.CorrelationID,
+						"request_id":     event.RequestID,
+					})
+				}
+			}
 		}
-		if r.Method != http.MethodPost && r.Method != http.MethodPut && r.Method != http.MethodPatch && r.Method != http.MethodDelete {
-			return
-		}
-		LogJSON("info", "payment mutation audit", map[string]interface{}{
-			"event":          "audit_trail",
-			"actor_id":       r.Header.Get("X-User-ID"),
-			"actor_role":     r.Header.Get("X-User-Role"),
-			"action":         fmt.Sprintf("http.%s.%s", strings.ToLower(r.Method), strings.TrimPrefix(r.URL.Path, "/")),
-			"resource":       r.URL.Path,
-			"status":         rw.statusCode,
-			"correlation_id": GetCorrelationID(r.Context()),
-			"request_id":     GetRequestID(r.Context()),
-			"ip":             realIP(r),
-		})
 	}
+}
+
+func mutationObjectID(path string) string {
+	for _, segment := range reversePathSegments(path) {
+		if _, err := uuid.Parse(segment); err == nil {
+			return segment
+		}
+	}
+	return ""
+}
+
+func reversePathSegments(path string) []string {
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	for left, right := 0, len(segments)-1; left < right; left, right = left+1, right-1 {
+		segments[left], segments[right] = segments[right], segments[left]
+	}
+	return segments
 }
 
 func RecoveryMiddleware(next http.HandlerFunc) http.HandlerFunc {
@@ -198,5 +262,9 @@ func Chain(h http.HandlerFunc, middlewares ...func(http.HandlerFunc) http.Handle
 }
 
 func BaseChain(h http.HandlerFunc) http.HandlerFunc {
-	return Chain(h, CorrelationIDMiddleware, RequestLoggerMiddleware, MutationAuditMiddleware, RecoveryMiddleware)
+	return BaseChainWithAudit(nil, h)
+}
+
+func BaseChainWithAudit(recorder MutationAuditRecorder, h http.HandlerFunc) http.HandlerFunc {
+	return Chain(h, CorrelationIDMiddleware, RequestLoggerMiddleware, MutationAuditMiddlewareWithRecorder(recorder), RecoveryMiddleware)
 }

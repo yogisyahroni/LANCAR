@@ -78,6 +78,10 @@ func main() {
 		log.Fatal("Database is unreachable:", err)
 	}
 	middleware.LogJSON("info", "database connection established", map[string]interface{}{})
+	auditRecorder := middleware.NewSQLMutationAuditRecorder(db)
+	withAudit := func(h http.HandlerFunc) http.HandlerFunc {
+		return middleware.BaseChainWithAudit(auditRecorder, h)
+	}
 
 	// Feature Flag Reader (pola service lain)
 	_ = featureflags.NewFlagReader(db)
@@ -139,14 +143,14 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Serve foto menu (GET publik, cache immutable)
-	mux.Handle("/merchant-uploads/", middleware.BaseChain(service.StaticUploadHandler(uploadDir)))
+	mux.Handle("/merchant-uploads/", withAudit(service.StaticUploadHandler(uploadDir)))
 
 	// Pendaftaran & profil (FOOD-BIKE-045/018)
-	mux.HandleFunc("/api/v1/merchant/register", middleware.BaseChain(h.RegisterMerchant))
+	mux.HandleFunc("/api/v1/merchant/register", withAudit(h.RegisterMerchant))
 	// MERCH-2026-002: server-authoritative portal tenant and branch context.
-	mux.HandleFunc("/api/v1/merchant/context", middleware.BaseChain(accessH.GetPortalContext))
-	mux.HandleFunc("/api/v1/merchant/search", middleware.BaseChain(searchH.Search))
-	mux.HandleFunc("/api/v1/merchant/profile", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/context", withAudit(accessH.GetPortalContext))
+	mux.HandleFunc("/api/v1/merchant/search", withAudit(searchH.Search))
+	mux.HandleFunc("/api/v1/merchant/profile", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			h.GetProfile(w, r)
@@ -157,16 +161,16 @@ func main() {
 		}
 	}))
 	// FB-114: update rekening bank untuk payout.
-	mux.HandleFunc("/api/v1/merchant/bank-account", middleware.BaseChain(h.UpdateBankAccount))
-	mux.HandleFunc("/api/v1/merchant/toggle-open", middleware.BaseChain(h.ToggleOpen))
-	mux.HandleFunc("/api/v1/merchant/order-settings/auto-accept", middleware.BaseChain(h.SetAutoAcceptOrders))
+	mux.HandleFunc("/api/v1/merchant/bank-account", withAudit(h.UpdateBankAccount))
+	mux.HandleFunc("/api/v1/merchant/toggle-open", withAudit(h.ToggleOpen))
+	mux.HandleFunc("/api/v1/merchant/order-settings/auto-accept", withAudit(h.SetAutoAcceptOrders))
 	// FB-107: pause sementara + resume — tidak mengubah is_open/jam operasional.
-	mux.HandleFunc("/api/v1/merchant/pause", middleware.BaseChain(h.Pause))
-	mux.HandleFunc("/api/v1/merchant/resume", middleware.BaseChain(h.Resume))
-	mux.HandleFunc("/api/v1/merchant/busy", middleware.BaseChain(h.Busy))
-	mux.HandleFunc("/api/v1/merchant/operating-state/{id}/override", middleware.BaseChain(h.OverrideOperatingState))
-	mux.HandleFunc("/api/v1/merchant/food-docs", middleware.BaseChain(h.UpdateFoodDocs))
-	mux.HandleFunc("/api/v1/merchant/operating-hours", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/pause", withAudit(h.Pause))
+	mux.HandleFunc("/api/v1/merchant/resume", withAudit(h.Resume))
+	mux.HandleFunc("/api/v1/merchant/busy", withAudit(h.Busy))
+	mux.HandleFunc("/api/v1/merchant/operating-state/{id}/override", withAudit(h.OverrideOperatingState))
+	mux.HandleFunc("/api/v1/merchant/food-docs", withAudit(h.UpdateFoodDocs))
+	mux.HandleFunc("/api/v1/merchant/operating-hours", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			h.GetOperatingHours(w, r)
@@ -176,16 +180,16 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
-	mux.HandleFunc("/api/v1/merchant/operating-hours/closures", middleware.BaseChain(h.CreateSpecialClosure))
-	mux.HandleFunc("/api/v1/merchant/operating-hours/closures/{id}", middleware.BaseChain(h.DeleteSpecialClosure))
+	mux.HandleFunc("/api/v1/merchant/operating-hours/closures", withAudit(h.CreateSpecialClosure))
+	mux.HandleFunc("/api/v1/merchant/operating-hours/closures/{id}", withAudit(h.DeleteSpecialClosure))
 
 	// FB-110: upload foto menu (multipart → URL publik)
-	mux.HandleFunc("/api/v1/merchant/menu/upload", middleware.BaseChain(h.UploadMenuItemPhoto))
+	mux.HandleFunc("/api/v1/merchant/menu/upload", withAudit(h.UploadMenuItemPhoto))
 	// FB-045: upload dokumen registrasi generic (KTP/foto toko/rekening)
-	mux.HandleFunc("/api/v1/merchant/upload", middleware.BaseChain(h.UploadMerchantDoc))
+	mux.HandleFunc("/api/v1/merchant/upload", withAudit(h.UploadMerchantDoc))
 
 	// Menu CRUD (FOOD-BIKE-018)
-	mux.HandleFunc("/api/v1/merchant/menu-categories", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/menu-categories", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			h.CreateMenuCategory(w, r)
@@ -195,9 +199,9 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
-	mux.HandleFunc("/api/v1/merchant/menu-categories/{id}", middleware.BaseChain(h.UpdateMenuCategory))
-	mux.HandleFunc("/api/v1/merchant/menu/import", middleware.BaseChain(h.ImportMenuCSV))
-	mux.HandleFunc("/api/v1/merchant/menu", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/menu-categories/{id}", withAudit(h.UpdateMenuCategory))
+	mux.HandleFunc("/api/v1/merchant/menu/import", withAudit(h.ImportMenuCSV))
+	mux.HandleFunc("/api/v1/merchant/menu", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			h.CreateMenuItem(w, r)
@@ -207,7 +211,7 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
-	mux.HandleFunc("/api/v1/merchant/menu/{id}", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/menu/{id}", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPatch:
 			h.UpdateMenuItem(w, r)
@@ -217,11 +221,11 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
-	mux.HandleFunc("/api/v1/merchant/menu/{id}/availability", middleware.BaseChain(h.SetMenuItemAvailability))
-	mux.HandleFunc("/api/v1/merchant/menu/{id}/inventory", middleware.BaseChain(h.UpdateMenuInventory))
+	mux.HandleFunc("/api/v1/merchant/menu/{id}/availability", withAudit(h.SetMenuItemAvailability))
+	mux.HandleFunc("/api/v1/merchant/menu/{id}/inventory", withAudit(h.UpdateMenuInventory))
 
 	// FB-108: varian menu — GET lihat, PUT replace atomik (hapus+insert).
-	mux.HandleFunc("/api/v1/merchant/menu/{id}/variants", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/menu/{id}/variants", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			h.GetMenuItemVariants(w, r)
@@ -231,10 +235,10 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
-	mux.HandleFunc("/api/v1/merchant/menu/{id}/moderation", middleware.BaseChain(h.ModerateMenuItem))
+	mux.HandleFunc("/api/v1/merchant/menu/{id}/moderation", withAudit(h.ModerateMenuItem))
 
 	// Promo merchant (FB-099): CRUD self-serve, tanpa approval admin
-	mux.HandleFunc("/api/v1/merchant/promos", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/promos", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			promoH.Create(w, r)
@@ -244,7 +248,7 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
-	mux.HandleFunc("/api/v1/merchant/promos/{id}", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/promos/{id}", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPatch:
 			promoH.Update(w, r)
@@ -254,31 +258,31 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
-	mux.HandleFunc("/api/v1/merchant/promos/{id}/active", middleware.BaseChain(promoH.SetActive))
+	mux.HandleFunc("/api/v1/merchant/promos/{id}/active", withAudit(promoH.SetActive))
 
 	// Order action (FOOD-BIKE-017/021)
-	mux.HandleFunc("/api/v1/merchant/orders", middleware.BaseChain(h.ListOrders))
-	mux.HandleFunc("/api/v1/merchant/orders/counts", middleware.BaseChain(h.GetOrderCounts))
-	mux.HandleFunc("/api/v1/merchant/orders/{id}/accept", middleware.BaseChain(h.AcceptOrder))
-	mux.HandleFunc("/api/v1/merchant/orders/{id}/ready", middleware.BaseChain(h.MarkReady))
-	mux.HandleFunc("/api/v1/merchant/orders/{id}/reject", middleware.BaseChain(h.RejectOrder))
-	mux.HandleFunc("/api/v1/merchant/orders/{id}/struk", middleware.BaseChain(h.GetStruk))
-	mux.HandleFunc("/api/v1/merchant/orders/{id}/items/unavailable", middleware.BaseChain(h.PartialRejectOrder))
-	mux.HandleFunc("/api/v1/merchant/orders/{id}/items", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/orders", withAudit(h.ListOrders))
+	mux.HandleFunc("/api/v1/merchant/orders/counts", withAudit(h.GetOrderCounts))
+	mux.HandleFunc("/api/v1/merchant/orders/{id}/accept", withAudit(h.AcceptOrder))
+	mux.HandleFunc("/api/v1/merchant/orders/{id}/ready", withAudit(h.MarkReady))
+	mux.HandleFunc("/api/v1/merchant/orders/{id}/reject", withAudit(h.RejectOrder))
+	mux.HandleFunc("/api/v1/merchant/orders/{id}/struk", withAudit(h.GetStruk))
+	mux.HandleFunc("/api/v1/merchant/orders/{id}/items/unavailable", withAudit(h.PartialRejectOrder))
+	mux.HandleFunc("/api/v1/merchant/orders/{id}/items", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			h.GetOrderEdit(w, r)
 			return
 		}
 		h.EditOrderItems(w, r)
 	}))
-	mux.HandleFunc("/api/v1/merchant/integrations/pos", middleware.BaseChain(h.GetPOSIntegrationStatus))
+	mux.HandleFunc("/api/v1/merchant/integrations/pos", withAudit(h.GetPOSIntegrationStatus))
 
 	// Report penjualan (FB-086)
-	mux.HandleFunc("/api/v1/merchant/reports", middleware.BaseChain(h.GetSalesReport))
-	mux.HandleFunc("/api/v1/merchant/reports/export", middleware.BaseChain(h.ExportSalesReport))
-	mux.HandleFunc("/api/v1/merchant/settlements", middleware.BaseChain(h.GetSettlements))
-	mux.HandleFunc("/api/v1/merchant/finance-statement", middleware.BaseChain(h.GetFinanceStatement))
-	mux.HandleFunc("/api/v1/merchant/ads", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/reports", withAudit(h.GetSalesReport))
+	mux.HandleFunc("/api/v1/merchant/reports/export", withAudit(h.ExportSalesReport))
+	mux.HandleFunc("/api/v1/merchant/settlements", withAudit(h.GetSettlements))
+	mux.HandleFunc("/api/v1/merchant/finance-statement", withAudit(h.GetFinanceStatement))
+	mux.HandleFunc("/api/v1/merchant/ads", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			adsH.Create(w, r)
@@ -288,22 +292,22 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
-	mux.HandleFunc("/api/v1/merchant/ads/performance", middleware.BaseChain(adsH.Performance))
-	mux.HandleFunc("/api/v1/merchant/ads/{id}/active", middleware.BaseChain(adsH.SetActive))
+	mux.HandleFunc("/api/v1/merchant/ads/performance", withAudit(adsH.Performance))
+	mux.HandleFunc("/api/v1/merchant/ads/{id}/active", withAudit(adsH.SetActive))
 	// MERCH-2026-006: versioned operational quality score and appeal/review path.
-	mux.HandleFunc("/api/v1/merchant/quality-score", middleware.BaseChain(h.GetQualityScore))
-	mux.HandleFunc("/api/v1/merchant/quality-score/appeals", middleware.BaseChain(h.SubmitQualityAppeal))
-	mux.HandleFunc("/api/v1/merchant/quality-score/appeals/{id}/review", middleware.BaseChain(h.ReviewQualityAppeal))
+	mux.HandleFunc("/api/v1/merchant/quality-score", withAudit(h.GetQualityScore))
+	mux.HandleFunc("/api/v1/merchant/quality-score/appeals", withAudit(h.SubmitQualityAppeal))
+	mux.HandleFunc("/api/v1/merchant/quality-score/appeals/{id}/review", withAudit(h.ReviewQualityAppeal))
 	// MERCH-2026-008: suspension policy visibility and merchant appeal path.
-	mux.HandleFunc("/api/v1/merchant/enforcement", middleware.BaseChain(h.GetEnforcementStatus))
-	mux.HandleFunc("/api/v1/merchant/enforcement/appeals", middleware.BaseChain(h.SubmitEnforcementAppeal))
-	mux.HandleFunc("/api/v1/merchant/reviews", middleware.BaseChain(h.GetCustomerReviews))
-	mux.HandleFunc("/api/v1/merchant/reviews/{id}/reply", middleware.BaseChain(h.ReplyToCustomerReview))
-	mux.HandleFunc("/api/v1/merchant/withdraw", middleware.BaseChain(h.RequestWithdrawal))
-	mux.HandleFunc("/api/v1/merchant/withdrawals", middleware.BaseChain(h.ListWithdrawals))
+	mux.HandleFunc("/api/v1/merchant/enforcement", withAudit(h.GetEnforcementStatus))
+	mux.HandleFunc("/api/v1/merchant/enforcement/appeals", withAudit(h.SubmitEnforcementAppeal))
+	mux.HandleFunc("/api/v1/merchant/reviews", withAudit(h.GetCustomerReviews))
+	mux.HandleFunc("/api/v1/merchant/reviews/{id}/reply", withAudit(h.ReplyToCustomerReview))
+	mux.HandleFunc("/api/v1/merchant/withdraw", withAudit(h.RequestWithdrawal))
+	mux.HandleFunc("/api/v1/merchant/withdrawals", withAudit(h.ListWithdrawals))
 
 	// MERCH-2026-002: branch ownership, scoped staff access and device sessions.
-	mux.HandleFunc("/api/v1/merchant/branches/{id}", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/branches/{id}", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			accessH.CreateBranch(w, r)
@@ -313,8 +317,8 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
-	mux.HandleFunc("/api/v1/merchant/branches/{id}/{branchId}", middleware.BaseChain(accessH.UpdateBranch))
-	mux.HandleFunc("/api/v1/merchant/branches/{id}/staff/{staffId}", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/branches/{id}/{branchId}", withAudit(accessH.UpdateBranch))
+	mux.HandleFunc("/api/v1/merchant/branches/{id}/staff/{staffId}", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPut:
 			accessH.AssignStaffBranches(w, r)
@@ -324,17 +328,17 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
-	mux.HandleFunc("/api/v1/merchant/device-sessions/{id}", middleware.BaseChain(accessH.CreateDeviceSession))
-	mux.HandleFunc("/api/v1/merchant/device-sessions/{id}/{sessionId}", middleware.BaseChain(accessH.RevokeDeviceSession))
-	mux.HandleFunc("/api/v1/merchant/security-approvals/{id}", middleware.BaseChain(accessH.CreateSecurityApproval))
-	mux.HandleFunc("/api/v1/merchant/security-approvals/{id}/{approvalId}/approve", middleware.BaseChain(accessH.ApproveSecurityApproval))
+	mux.HandleFunc("/api/v1/merchant/device-sessions/{id}", withAudit(accessH.CreateDeviceSession))
+	mux.HandleFunc("/api/v1/merchant/device-sessions/{id}/{sessionId}", withAudit(accessH.RevokeDeviceSession))
+	mux.HandleFunc("/api/v1/merchant/security-approvals/{id}", withAudit(accessH.CreateSecurityApproval))
+	mux.HandleFunc("/api/v1/merchant/security-approvals/{id}/{approvalId}/approve", withAudit(accessH.ApproveSecurityApproval))
 
 	// ── Staff Management (M1, CORPORATE ONLY) ──
 	// NOTE: route di-namespaced ke /merchant/staff/{id} (bukan /merchant/{id}/staff)
 	// karena Go 1.22+ ServeMux panic: /merchant/{id}/staff bentrok dg /merchant/menu/{id}
 	// (path /merchant/menu/staff ambigu). Handler tetap baca PathValue("id")/"staffId".
 	// Owner invite / list: /merchant/staff/{id}
-	mux.HandleFunc("/api/v1/merchant/staff/{id}", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/staff/{id}", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			staffH.Invite(w, r)
@@ -345,9 +349,9 @@ func main() {
 		}
 	}))
 	// Staff accept invite (token): /merchant/staff/accept
-	mux.HandleFunc("/api/v1/merchant/staff/accept", middleware.BaseChain(staffH.AcceptInvite))
+	mux.HandleFunc("/api/v1/merchant/staff/accept", withAudit(staffH.AcceptInvite))
 	// Owner update role/status: /merchant/staff/{id}/{staffId}
-	mux.HandleFunc("/api/v1/merchant/staff/{id}/{staffId}", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/merchant/staff/{id}/{staffId}", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPatch:
 			staffH.Update(w, r)

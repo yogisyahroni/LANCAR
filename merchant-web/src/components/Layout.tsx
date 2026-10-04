@@ -90,6 +90,7 @@ export default function Layout() {
   }, [])
 
   const visibleNav = NAV.filter(({ capability }) => !portalContext || portalContext.capabilities.includes(capability))
+  const selectableBranches = portalContext?.branches.filter((branch) => branch.is_active || branch.id === portalContext.current_branch_id) || []
   const outletName = merchant?.outlet_name || merchant?.nama_toko || 'Toko Mitra'
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase('id-ID')
@@ -164,7 +165,7 @@ export default function Layout() {
   const switchBranch = (branchID: string) => {
     if (!portalContext || switchingBranch || branchID === portalContext.current_branch_id) return
     const branch = portalContext.branches.find((item) => item.id === branchID)
-    if (!branch) return
+    if (!branch || !branch.is_active) return
     setSwitchingBranch(true)
     setMerchantBranchSelection({ merchant_id: portalContext.merchant.id, branch_id: branch.id })
     // Staff sessions are branch-bound. The next context bootstrap will open a
@@ -259,7 +260,7 @@ export default function Layout() {
                       <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">Data halaman akan mengikuti outlet yang dipilih.</p>
                     </div>
                     <div className="max-h-72 overflow-y-auto p-2">
-                      {portalContext.branches.map((branch) => {
+                      {selectableBranches.map((branch) => {
                         const active = branch.id === portalContext.current_branch_id
                         return (
                           <button
