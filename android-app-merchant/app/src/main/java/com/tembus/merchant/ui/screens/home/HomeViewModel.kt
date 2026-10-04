@@ -98,6 +98,21 @@ class HomeViewModel(
 
     fun refreshOrders() = loadOrders()
 
+    /**
+     * Refreshes the canonical outlet profile without resetting the order board.
+     * Merchant Web is the primary realtime surface; Android keeps a bounded
+     * authoritative fallback so a status changed in another client is not
+     * hidden behind stale local UI state.
+     */
+    fun refreshMerchant() {
+        viewModelScope.launch {
+            merchantRepository.getProfile()
+                .onSuccess { profile ->
+                    _uiState.value = _uiState.value.copy(merchant = profile)
+                }
+        }
+    }
+
     private fun loadOrders(filter: OrderFilter = _uiState.value.selectedFilter) {
         val status = when (filter) {
             OrderFilter.NEW -> "pending_merchant"

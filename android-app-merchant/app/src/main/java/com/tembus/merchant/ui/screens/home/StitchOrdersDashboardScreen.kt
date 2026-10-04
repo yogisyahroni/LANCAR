@@ -116,6 +116,16 @@ fun StitchOrdersDashboardScreen(
         }
     }
 
+    // The profile endpoint is the canonical fallback for an outlet state
+    // changed by Merchant Web/Admin while this app is in the foreground.
+    // Keep this slower than order polling so it does not add unnecessary load.
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000)
+            viewModel.refreshMerchant()
+        }
+    }
+
     PullToRefreshBox(
         isRefreshing = state.isLoading && state.merchant != null,
         onRefresh = viewModel::load,

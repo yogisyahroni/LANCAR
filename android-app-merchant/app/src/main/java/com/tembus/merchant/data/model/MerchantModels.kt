@@ -23,6 +23,12 @@ data class Merchant(
     @SerializedName("jam_buka") val jamBuka: String? = null,
     @SerializedName("jam_tutup") val jamTutup: String? = null,
     @SerializedName("is_open") val isOpen: Boolean = false,
+    // Canonical operating state shared with Merchant Web, Customer, Courier,
+    // and Admin. The legacy is_open flag remains for older API responses.
+    @SerializedName("operating_state") val operatingState: String? = null,
+    @SerializedName("operating_state_reason") val operatingStateReason: String? = null,
+    @SerializedName("operating_state_until") val operatingStateUntil: String? = null,
+    @SerializedName("operating_state_version") val operatingStateVersion: Long = 0L,
     @SerializedName("auto_accept_orders") val autoAcceptOrders: Boolean = false,
     // FB-109: minimum subtotal order (IDR). 0 = tanpa minimum.
     @SerializedName("min_order_idr") val minOrderIdr: Long = 0,
