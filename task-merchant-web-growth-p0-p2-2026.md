@@ -412,7 +412,7 @@ Benchmark tersebut adalah referensi capability, bukan izin untuk menyalin merek/
 
 **Acceptance criteria:**
 
-- User perorangan, owner PT, manager outlet, kasir, kitchen, finance, dan support melihat navigasi serta data yang berbeda sesuai server policy.
+- User perorangan, owner PT, manager outlet, kasir, kitchen, dan finance melihat navigasi serta data Merchant Web yang berbeda sesuai server policy. Support/admin diuji sebagai boundary terpisah melalui Admin Support Console dengan akses case-scoped, read-only, redacted, dan audited; support tidak membuat `merchant_session`, tidak membuka `/merchant/context`, dan tidak melakukan impersonasi umum.
 - User tidak dapat mengganti `merchant_id`, `outlet_id`, atau object ID di URL untuk membaca/menulis data tenant lain.
 - Semua aksi sensitif menghasilkan audit event berisi actor, role, tenant/outlet, action, object, result, timestamp, correlation ID, dan reason bila gagal.
 - Refresh, membuka deep link, multi-tab, expired session, dan koneksi putus tidak menghilangkan konteks atau membuat aksi ganda.

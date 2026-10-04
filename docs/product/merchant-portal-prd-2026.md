@@ -90,6 +90,14 @@ memberikan pengecualian baru:
 7. **Pengerjaan mengikuti PRD lalu TASK-ID.** PRD menjelaskan keputusan dan
    behavior produk; backlog memecahnya menjadi unit implementasi, dependency,
    acceptance criteria, verification, evidence, dan release gate.
+8. **Batas akses support dikunci.** Role Admin/support seperti `cs_agent`,
+   `ops_admin`, dan `super_admin` bukan user Merchant Web biasa dan tidak boleh
+   membuat `merchant_session` atau membuka `/merchant/context`. Support bekerja
+   dari Admin Support Console melalui case yang terukur, read-only secara
+   default, ter-redaksi, tenant/outlet-scoped, dan seluruh aksesnya diaudit.
+   Jika di masa depan diperlukan tampilan konteks merchant dari portal, akses
+   itu harus berupa token singkat, case-scoped, read-only, dan tidak boleh
+   menjadi impersonasi umum.
 
 ## 4. Goals dan success outcomes
 
@@ -194,9 +202,16 @@ masking data, dan audit export.
 
 ### 6.6 Admin/support TEMBUS
 
-Bukan pengguna merchant portal biasa. Admin mempunyai console dan privilege
-terpisah untuk verifikasi, moderation, enforcement, support override, appeal,
-dan investigation sesuai policy.
+Bukan pengguna Merchant Web biasa. Admin/support menggunakan Admin Support
+Console dan privilege terpisah untuk verifikasi, moderation, enforcement,
+support override, appeal, dan investigation sesuai policy. Merchant Web hanya
+menampilkan status tiket atau hasil bantuan yang memang ditujukan kepada
+merchant; ia tidak memberikan akses umum kepada data atau aksi internal Admin.
+
+Support read-only yang membutuhkan konteks merchant harus dibatasi oleh case,
+business/outlet scope, kebutuhan kerja, redaction, expiry, dan audit. Support
+tidak boleh mengubah order, menu, permission, bank, payout, atau ledger secara
+langsung.
 
 ## 7. Scope dan requirements
 
@@ -221,8 +236,9 @@ session state dari server.
 
 **PRD-P0-002 — Role, staff, dan permission**
 
-Portal harus mendukung owner, manager, cashier/order operator, kitchen,
-finance, analyst, dan support-read-only sesuai role/capability yang disetujui.
+Portal harus mendukung owner, manager, cashier/order operator, kitchen, finance,
+dan analyst sesuai role/capability yang disetujui. Support-read-only adalah
+akses Admin Support Console yang case-scoped, bukan role login Merchant Web.
 Invite, revoke, branch assignment, device/session, MFA/step-up, dan high-risk
 approval mengikuti contract RBAC.
 
@@ -505,21 +521,23 @@ version, compatibility, dan deprecation tercatat.
 
 `—` berarti tidak boleh, bukan berarti tombol sekadar disembunyikan.
 
-| Capability | Owner | Manager | Cashier | Kitchen | Finance | Read-only support |
+| Capability | Owner | Manager | Cashier | Kitchen | Finance | Support (Admin Console) |
 |---|---:|---:|---:|---:|---:|---:|
-| Lihat dashboard outlet | Semua scope | Outlet assigned | Outlet assigned | Outlet assigned | Scope assigned | Read |
-| Buka/jeda/busy outlet | Ya | Ya, assigned | Policy-limited | — | — | Override terpisah |
-| Terima/tolak order | Ya | Ya | Ya | Policy-limited | — | Read |
-| Ubah item unavailable | Ya | Ya | Ya | Ya | — | Read |
-| Publish/menu moderation | Owner/approved | Policy-limited | — | — | — | Read |
+| Lihat dashboard outlet | Semua scope | Outlet assigned | Outlet assigned | Outlet assigned | Scope assigned | Case-scoped read |
+| Buka/jeda/busy outlet | Ya | Ya, assigned | Policy-limited | — | — | Admin policy only |
+| Terima/tolak order | Ya | Ya | Ya | Policy-limited | — | Case-scoped read |
+| Ubah item unavailable | Ya | Ya | Ya | Ya | — | Case-scoped read |
+| Publish/menu moderation | Owner/approved | Policy-limited | — | — | — | Case-scoped read |
 | Kelola staff/permission | Ya | Scope-limited | — | — | — | — |
-| Lihat finance/settlement | Ya | Policy-limited | — | — | Ya | Masked read |
-| Refund/compensation | Threshold/approval | Threshold/approval | Policy-limited | — | Policy-limited | Escalate |
+| Lihat finance/settlement | Ya | Policy-limited | — | — | Ya | Masked case read |
+| Refund/compensation | Threshold/approval | Threshold/approval | Policy-limited | — | Policy-limited | Escalate; no direct mutation |
 | Ubah bank/payout | Step-up + approval | — | — | — | Step-up + approval | — |
-| Export data | Ya | Scope-limited | Policy-limited | — | Ya | Masked/approved |
+| Export data | Ya | Scope-limited | Policy-limited | — | Ya | Admin policy; no portal export |
 
 Matrix final harus mengikuti permission server dan market policy. Role baru
-tidak boleh dibuat hanya untuk menyelesaikan kebutuhan satu halaman.
+tidak boleh dibuat hanya untuk menyelesaikan kebutuhan satu halaman. Support
+session, Admin session, dan Merchant Web session tetap merupakan boundary yang
+berbeda.
 
 ## 10. UX dan state requirements
 
