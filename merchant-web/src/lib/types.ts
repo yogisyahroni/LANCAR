@@ -101,6 +101,31 @@ export interface MerchantSearchResult {
   path: string
 }
 
+export interface MerchantPOSConnectorStatus {
+  provider_code: string
+  provider_name: string
+  branch_id?: string
+  enabled: boolean
+  state: string
+  capabilities: string[]
+  last_checked_at?: string
+  last_latency_ms?: number
+  consecutive_failures: number
+  availability_reason?: string
+  open_reconciliation: number
+  failed_order_deliveries: number
+  pending_order_deliveries: number
+}
+
+export interface MerchantPOSIntegrationStatus {
+  merchant_id: string
+  canonical_owner: string
+  catalog_ownership: string
+  inventory_ownership: string
+  customer_acceptance_rule: string
+  connectors: MerchantPOSConnectorStatus[]
+}
+
 export interface MenuItem {
   id: string
   merchant_id: string

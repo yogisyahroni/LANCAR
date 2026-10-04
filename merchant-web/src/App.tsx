@@ -12,6 +12,7 @@ import Promo from './pages/Promo'
 import Reports from './pages/Reports'
 import Settlements from './pages/Settlements'
 import Staff from './pages/Staff'
+import Integrations from './pages/Integrations'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/laporan" element={<Reports />} />
         <Route path="/settlement" element={<Settlements />} />
         <Route path="/staff" element={<Staff />} />
+        <Route path="/integrasi" element={<Integrations />} />
         <Route path="/pengaturan" element={<Settings />} />
       </Route>
 
