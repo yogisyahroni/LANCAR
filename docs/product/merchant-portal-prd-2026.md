@@ -589,7 +589,37 @@ Setelah PRD disetujui, implementasi tetap berjalan per TASK-ID dan tidak boleh
 menandai task complete hanya karena route, endpoint, migration, atau mock sudah
 ada.
 
-## 18. Referensi internal
+## 18. Cara menggunakan PRD dan backlog
+
+PRD ini menjadi konteks produk; backlog menjadi unit eksekusi. Instruksi kerja
+berikut berlaku untuk setiap pengerjaan berikutnya:
+
+1. Sebutkan `TASK-ID` yang ingin dikerjakan, atau sebutkan area PRD bila task
+   baru belum ada.
+2. Sebelum coding, agent wajib membaca requirement PRD terkait, dependency,
+   contract lintas service, dan bukti task sebelumnya yang relevan.
+3. Implementasi harus memakai source of truth yang sudah ada. Data, status,
+   nominal, permission, dan keberhasilan tidak boleh dibuat dari mock atau
+   hardcode pada flow nyata.
+4. Setiap task dikerjakan sampai semua pekerjaan lokal yang masih actionable
+   selesai. Status `PARTIAL` bukan alasan untuk pindah ke task dependan.
+5. Setiap task harus memiliki evidence di `docs/task-evidence/` yang mencatat
+   implementasi, command/tool verifikasi, hasil aktual, batasan, dan sisa
+   requirement.
+6. Perubahan implementation maupun dokumentasi yang diminta untuk staging
+   harus di-commit dan di-push ke branch `staging`. Push branch tidak otomatis
+   berarti deployment, migrasi, CI, atau UAT staging sudah berhasil.
+7. Task hanya boleh disebut `COMPLETE` setelah implementation, integration,
+   tests, security/privacy, observability, rollback/recovery, dan bukti runtime
+   yang relevan lulus. Jika ada dependency eksternal, tuliskan blocker dan
+   langkah unblock yang spesifik.
+
+Format instruksi yang direkomendasikan:
+
+> Kerjakan `MWEB-PORTAL-P0-003` sesuai PRD Portal Mitra. Fokus pada [scope],
+> verifikasi [scenario], lalu push ke `staging` dan laporkan evidence.
+
+## 19. Referensi internal
 
 - [Merchant Web Growth, Trust & Operational Readiness P0–P2](../../task-merchant-web-growth-p0-p2-2026.md)
 - [Merchant onboarding contract](../contracts/merchant-onboarding-2026.md)
