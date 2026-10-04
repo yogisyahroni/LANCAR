@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { clearAccessToken, clearSession, getMerchantBranchSelection, getMerchantDeviceSession, getToken, hasWebSession, publishWebAuthEvent } from './auth'
+import { reportNetworkFailure } from './network'
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
@@ -63,6 +64,11 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config
+    if (!error.response && error.code !== 'ERR_CANCELED') {
+      // Network failures never trigger an automatic command retry. The shell
+      // surfaces a recoverable state while preserving the current context.
+      reportNetworkFailure()
+    }
     if (error.response?.status === 401 && original && !original._retried) {
       original._retried = true
       clearAccessToken()

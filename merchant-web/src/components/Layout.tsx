@@ -6,6 +6,7 @@ import { clearMerchantDeviceSession, clearSession, getStoredUser, publishWebAuth
 import { api } from '../lib/api'
 import type { Merchant, MerchantNotification, MerchantPortalContext, MerchantSearchResult } from '../lib/types'
 import { loadMerchantPortalContext } from '../lib/portal-context'
+import { subscribeToNetworkFailures } from '../lib/network'
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, capability: 'view_store' },
@@ -41,6 +42,31 @@ export default function Layout() {
   const [entitySearchResults, setEntitySearchResults] = useState<MerchantSearchResult[]>([])
   const [entitySearchLoading, setEntitySearchLoading] = useState(false)
   const [switchingBranch, setSwitchingBranch] = useState(false)
+  const [connectionState, setConnectionState] = useState<'online' | 'offline' | 'degraded'>(() => (
+    typeof navigator === 'undefined' || navigator.onLine ? 'online' : 'offline'
+  ))
+
+  useEffect(() => {
+    let recoveryTimer: number | undefined
+    const markOffline = () => setConnectionState('offline')
+    const markOnline = () => setConnectionState('online')
+    const markDegraded = () => {
+      setConnectionState(navigator.onLine ? 'degraded' : 'offline')
+      window.clearTimeout(recoveryTimer)
+      recoveryTimer = window.setTimeout(() => {
+        if (navigator.onLine) setConnectionState('online')
+      }, 8000)
+    }
+    window.addEventListener('offline', markOffline)
+    window.addEventListener('online', markOnline)
+    const unsubscribe = subscribeToNetworkFailures(markDegraded)
+    return () => {
+      window.removeEventListener('offline', markOffline)
+      window.removeEventListener('online', markOnline)
+      window.clearTimeout(recoveryTimer)
+      unsubscribe()
+    }
+  }, [])
 
   useEffect(() => subscribeToWebAuthEvents((type) => {
     if (type !== 'logout') return
@@ -398,6 +424,24 @@ export default function Layout() {
             </div>
           </div>
         </header>
+        {connectionState !== 'online' && (
+          <div className="border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-sm text-amber-950" role="status" aria-live="polite">
+            <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2">
+              <span>
+                {connectionState === 'offline' ? 'Koneksi internet terputus.' : 'Koneksi sedang tidak stabil.'}
+                {' '}Data yang sudah tampil tetap dipertahankan dan aksi baru tidak diulang otomatis.
+              </span>
+              <button
+                type="button"
+                disabled={connectionState === 'offline'}
+                onClick={() => window.location.reload()}
+                className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-black text-amber-900 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {connectionState === 'offline' ? 'Menunggu koneksi' : 'Muat ulang'}
+              </button>
+            </div>
+          </div>
+        )}
         <main className="mx-auto max-w-6xl px-5 py-8">
           <Outlet context={{}} />
         </main>

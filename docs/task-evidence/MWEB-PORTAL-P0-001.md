@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: HEAD (feat(merchant-portal): isolate merchant web sessions)
+implementation_ref: HEAD (merchant-portal shell capability and resilience follow-up)
 
 tests: PASS
 integration: PASS
@@ -23,10 +23,10 @@ external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Run authenticated browser E2E, complete all required role/capability permutations, and staging smoke after deployment."
 
-unproven_requirements: "Full shell parity, all required role permutations (manager, kitchen, finance, support), durable audit coverage for every sensitive shell action, authenticated browser/deep-link/responsive proof, and staging release proof remain unproven."
+unproven_requirements: "Full shell parity, support access mode, durable audit coverage for every sensitive shell action, authenticated browser/deep-link/responsive proof for every required role, and staging release proof remain unproven."
 known_blockers: NONE
 
-locally_actionable_remaining: "Complete manager/kitchen/finance/support capability fixtures and browser E2E for responsive, deep-link, multi-tab, reconnect, and every sensitive shell action; then run staging smoke."
+locally_actionable_remaining: "Complete support access-mode decision/implementation and browser E2E for manager, kitchen, finance, and support; then cover multi-tab, reconnect, every sensitive shell action, and staging smoke."
 
 blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing; rebuilt Docker services; executed owner/staff authenticated API flows, tenant tamper, session rotation/logout, device-session revoke, and structured audit-log checks."
 unblock_condition: NONE
@@ -76,6 +76,10 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
 - Added scoped browser session bootstrap for staff. The opaque device-session token is kept in `sessionStorage`, attached to subsequent API calls, validated during context bootstrap, and recreated once when expired/revoked.
 - Updated protected portal screens and login to consume the portal context instead of assuming `/merchant/profile` is available for staff users.
 - Added server-capability filtering to navigation and a direct-route capability guard.
+- Removed `manage_staff` from the server capability projection for merchant
+  perorangan, so the shell cannot advertise corporate-only staff management.
+- Added service-level role matrix coverage for owner perusahaan, owner
+  perorangan, manager, cashier, kitchen, marketing, and finance permissions.
 - Added an authenticated notification center backed by the existing order-service inbox and read endpoint.
 - Added a server-scoped outlet switcher. The selected branch is kept in
   session storage, sent as a branch scope header, and cannot expand the branch
@@ -89,6 +93,9 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
   ownership, and omit customer PII.
 - Connected the desktop and mobile shell search to the entity endpoint with a
   debounced query and explicit loading/empty state.
+- Added an online/offline/degraded connection banner. Network failures do not
+  automatically replay commands or clear the current shell context; recovery
+  is explicit after the browser reports connectivity again.
 
 ## Files Changed
 
@@ -110,11 +117,21 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
 - `merchant-web/src/pages/Integrations.tsx` and `merchant-web/src/App.tsx` —
   capability-gated Integrasi route backed by the read-only POS health API.
 - `merchant-web/src/components/ProtectedRoute.tsx`, `Layout.tsx`, `pages/Login.tsx`, `Dashboard.tsx`, `Settings.tsx`, `Staff.tsx` — server-context consumption.
+- `merchant-web/src/lib/network.ts` — shell network-failure event boundary.
 
 ## Commands / Checks Run
 
     command: go test ./...
     result: PASS — merchant-service packages and repository tests.
+
+    command: go test ./... (backend/merchant-service after individual-owner capability guard)
+    result: PASS — owner perusahaan, owner perorangan, manager, cashier, kitchen, marketing, and finance capability matrix tests passed.
+
+    command: docker compose build merchant-service merchant-web && docker compose up -d merchant-service merchant-web
+    result: PASS — affected images rebuilt; merchant-service and merchant-web health endpoints returned HTTP 200.
+
+    command: npm run build (merchant-web, VITE_API_URL=http://localhost:8080/api/v1)
+    result: PASS — explicit local API configuration; network resilience banner included in the production bundle.
 
     command: npm run build
     result: PASS — merchant-web TypeScript/Vite production build.
@@ -135,7 +152,7 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
     result: PASS — 5 configuration contract tests passed.
 
     command: git push origin staging
-    result: PASS — the scoped auth/session fix is committed locally; staging push is pending.
+    result: PASS — the previous merchant portal auth/session implementation is synchronized to origin/staging; this follow-up is recorded in the next scoped commit.
 
     command: docker compose build auth-service admin-service api-gateway merchant-web
     result: PASS — all four images rebuilt locally.
@@ -167,7 +184,8 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
 
 Status: PASS
 
-Evidence: `go test ./...` passed, including owner/staff capability mapping tests.
+Evidence: `go test ./...` passed, including the owner/staff capability matrix and
+the corporate-only `manage_staff` guard for individual merchants.
 
 ### Integration
 
@@ -179,7 +197,7 @@ Evidence: Docker gateway → auth/admin → merchant-service → PostgreSQL was 
 
 Status: PARTIAL
 
-Evidence: Authenticated API E2E was run against local Docker for owner and cashier staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, 390px responsive layout, credential storage boundary, and expired-session redirect. Browser coverage for all required PT staff roles, outlet switching, multi-tab, reconnect, and expired device sessions remains required.
+Evidence: Authenticated API E2E was run against local Docker for owner and cashier staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, 390px responsive layout, credential storage boundary, and expired-session redirect. The shell now has an explicit connection-loss state, but browser coverage for all required PT staff roles, outlet switching, multi-tab, reconnect, and expired device sessions remains required.
 
 ### Migration
 

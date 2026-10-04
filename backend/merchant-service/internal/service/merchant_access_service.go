@@ -88,7 +88,7 @@ func (s *merchantAccessService) ListBranches(ctx context.Context, requesterUserI
 	return []*domain.MerchantBranch{branch}, nil
 }
 
-func portalCapabilities(permissions int, owner bool) []string {
+func portalCapabilities(permissions int, owner bool, corporate bool) []string {
 	capabilities := make([]string, 0, 10)
 	appendIf := func(permission int, name string) {
 		if permissions&permission == permission {
@@ -100,7 +100,14 @@ func portalCapabilities(permissions int, owner bool) []string {
 	appendIf(domain.PermAcceptOrder, "accept_order")
 	appendIf(domain.PermUpdatePrep, "update_prep")
 	appendIf(domain.PermChatCustomer, "chat_customer")
-	appendIf(domain.PermManageStaff, "manage_staff")
+	// Staff management is a business/PT capability. Do not expose it to an
+	// individual merchant even when the owner permission mask is the full
+	// owner mask, and fail closed for stale staff rows on an individual
+	// merchant. The Staff service enforces the same rule for writes; this
+	// prevents the portal shell from advertising an unavailable capability.
+	if corporate {
+		appendIf(domain.PermManageStaff, "manage_staff")
+	}
 	appendIf(domain.PermViewReports, "view_reports")
 	appendIf(domain.PermManagePromo, "manage_promo")
 	if owner {
@@ -211,7 +218,7 @@ func (s *merchantAccessService) GetPortalContext(ctx context.Context, requesterU
 		CurrentBranchID:       currentBranchID,
 		EffectiveRole:         role,
 		GrantedPermissions:    permissions,
-		Capabilities:          portalCapabilities(permissions, owner),
+		Capabilities:          portalCapabilities(permissions, owner, merchant.IsCorporate()),
 		DeviceSessionRequired: deviceSessionRequired,
 		FinancialContext:      financialContext,
 	}, nil
