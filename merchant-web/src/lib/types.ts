@@ -72,6 +72,15 @@ export interface MerchantPortalContext {
   device_session_required: boolean
 }
 
+export interface MerchantNotification {
+  id: string
+  title: string
+  body: string
+  is_read: boolean
+  deep_link?: string | null
+  created_at: string
+}
+
 export interface MenuItem {
   id: string
   merchant_id: string

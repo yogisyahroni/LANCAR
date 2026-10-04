@@ -69,6 +69,8 @@ Acceptance criteria remain unproven until role and browser E2E evidence exists:
 - Added staff branch scoping and owner/staff capability separation in the merchant access service.
 - Added scoped browser session bootstrap for staff. The opaque device-session token is kept in `sessionStorage`, attached to subsequent API calls, validated during context bootstrap, and recreated once when expired/revoked.
 - Updated protected portal screens and login to consume the portal context instead of assuming `/merchant/profile` is available for staff users.
+- Added server-capability filtering to navigation and a direct-route capability guard.
+- Added an authenticated notification center backed by the existing order-service inbox and read endpoint.
 
 ## Files Changed
 

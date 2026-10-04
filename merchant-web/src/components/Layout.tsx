@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
-import { Banknote, ClipboardList, LayoutDashboard, LogOut, Menu as MenuIcon, Percent, Settings, Store, Users, UtensilsCrossed, X, BarChart3 } from 'lucide-react'
+import { Banknote, Bell, Check, ClipboardList, LayoutDashboard, LogOut, Menu as MenuIcon, Percent, Settings, Store, Users, UtensilsCrossed, X, BarChart3 } from 'lucide-react'
 import { toast } from 'sonner'
 import { clearSession } from '../lib/auth'
-import type { Merchant, MerchantPortalContext } from '../lib/types'
+import { api } from '../lib/api'
+import type { Merchant, MerchantNotification, MerchantPortalContext } from '../lib/types'
 import { loadMerchantPortalContext } from '../lib/portal-context'
 
 const NAV = [
@@ -22,6 +23,8 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [portalContext, setPortalContext] = useState<MerchantPortalContext | null>(null)
+  const [notifications, setNotifications] = useState<MerchantNotification[]>([])
+  const [notificationOpen, setNotificationOpen] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -30,6 +33,9 @@ export default function Layout() {
         if (!mounted) return
         setMerchant(context.merchant)
         setPortalContext(context)
+        api.get<{ data: MerchantNotification[] }>('/notifications?limit=8')
+          .then((response) => { if (mounted) setNotifications(response.data?.data || []) })
+          .catch(() => { /* Notification center is optional to the operational shell. */ })
       })
       .catch(() => { /* ProtectedRoute owns the user-facing recovery state. */ })
     return () => { mounted = false }
@@ -44,6 +50,18 @@ export default function Layout() {
     toast.success('Berhasil keluar')
     navigate('/masuk', { replace: true })
   }
+
+  const markNotificationRead = async (notification: MerchantNotification) => {
+    if (notification.is_read) return
+    try {
+      await api.patch('/notifications/read', { notification_id: notification.id })
+      setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, is_read: true } : item))
+    } catch {
+      toast.error('Notifikasi belum dapat ditandai sudah dibaca')
+    }
+  }
+
+  const unreadCount = notifications.filter((notification) => !notification.is_read).length
 
   const sidebar = (
     <div className="flex h-full flex-col">
@@ -102,9 +120,41 @@ export default function Layout() {
                 {outletAddress && <span className="hidden max-w-[180px] truncate text-xs text-zinc-400 xl:inline">{outletAddress}</span>}
               </div>
             </div>
-            <button onClick={logout} className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-4 py-2 text-xs font-bold text-zinc-600 transition hover:border-red-200 hover:text-red-600">
-              <LogOut className="h-3.5 w-3.5" /> Keluar
-            </button>
+            <div className="relative flex items-center gap-2">
+              <button
+                onClick={() => setNotificationOpen((open) => !open)}
+                aria-label="Buka notifikasi"
+                className="relative rounded-full border border-zinc-200 p-2.5 text-zinc-600 transition hover:border-emerald-200 hover:text-emerald-900"
+              >
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-[#F97316] px-1 text-center text-[10px] font-black leading-4 text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+              </button>
+              {notificationOpen && (
+                <div className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl">
+                  <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
+                    <p className="text-sm font-black text-zinc-900">Notifikasi</p>
+                    {unreadCount > 0 && <span className="text-xs font-bold text-emerald-800">{unreadCount} belum dibaca</span>}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {!notifications.length ? <p className="px-4 py-8 text-center text-sm text-zinc-500">Belum ada notifikasi.</p> : notifications.map((notification) => (
+                      <button key={notification.id} onClick={() => markNotificationRead(notification)} className={`flex w-full gap-3 border-b border-zinc-50 px-4 py-3 text-left transition hover:bg-emerald-50 ${notification.is_read ? 'bg-white' : 'bg-emerald-50/50'}`}>
+                        <span className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${notification.is_read ? 'bg-zinc-100 text-zinc-400' : 'bg-emerald-100 text-emerald-800'}`}>
+                          {notification.is_read ? <Check className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-bold text-zinc-900">{notification.title}</span>
+                          <span className="mt-0.5 block text-xs leading-relaxed text-zinc-500">{notification.body}</span>
+                          <span className="mt-1 block text-[11px] text-zinc-400">{new Date(notification.created_at).toLocaleString('id-ID')}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <button onClick={logout} className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-4 py-2 text-xs font-bold text-zinc-600 transition hover:border-red-200 hover:text-red-600">
+                <LogOut className="h-3.5 w-3.5" /> Keluar
+              </button>
+            </div>
           </div>
         </header>
         <main className="mx-auto max-w-6xl px-5 py-8">
