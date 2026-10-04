@@ -1,6 +1,6 @@
 # PRD — Portal Mitra TEMBUS untuk Bisnis F&B
 
-**Status:** Draft v1.0 — baseline implementasi, menunggu persetujuan lintas fungsi
+**Status:** Draft v1.1 — baseline implementasi dan traceability backlog, menunggu persetujuan lintas fungsi
 **Tanggal:** 2026-10-04  
 **Target product:** Merchant Web / Portal Mitra pada `merchant.bawain.my.id`  
 **Target pengguna:** bisnis F&B, PT/badan usaha, owner, manager outlet, kasir, kitchen, dan finance  
@@ -690,7 +690,7 @@ terkait dianggap locked.
 
 | ID | Pertanyaan | Owner | Blocking |
 |---|---|---|---|
-| OQ-001 | Apakah merchant perorangan boleh login Portal Mitra atau selalu ke Android? | Product | P0 access |
+| OQ-001 | Untuk launch pertama, jalur default merchant perorangan adalah Merchant Android. Apakah Product menyetujui exception Portal Mitra untuk capability tertentu yang secara eksplisit diizinkan server? | Product | P0 access exception |
 | OQ-002 | Role final dan permission threshold untuk refund/payout/export seperti apa? | Product + Security + Finance | P0 RBAC/finance |
 | OQ-003 | Provider payment/payout mana yang dianggap live untuk market pertama? | Finance + Engineering | P0 finance |
 | OQ-004 | Settlement cadence, tax/invoice policy, timezone, dan currency per market? | Finance + Legal | P0 finance |
@@ -708,16 +708,30 @@ tersebut dan tidak boleh mengarang policy di frontend.
 
 | PRD area | Backlog | Contract utama |
 |---|---|---|
-| Access/onboarding | `MWEB-P0-006`, `MWEB-P0-007`, `MWEB-PORTAL-P0-001` | onboarding, RBAC |
-| Dashboard/outlet state | `MWEB-PORTAL-P0-002`, `MWEB-PORTAL-P0-005` | operating state |
-| Order/issue/refund | `MWEB-PORTAL-P0-003`, `MWEB-PORTAL-P0-008` | order state, payment/ledger |
-| Catalog/menu | `MWEB-PORTAL-P0-004` | catalog governance |
-| Staff | `MWEB-PORTAL-P0-006` | branch/staff RBAC |
-| Finance/payout | `MWEB-PORTAL-P0-007` | payment ledger + settlement contract to be completed |
-| Realtime/recovery | `MWEB-PORTAL-P0-009` | notification/realtime contract to be completed |
-| Release proof | `MWEB-PORTAL-P0-010` | all applicable contracts |
-| Growth/integration | `MWEB-PORTAL-P1-001..P1-006` | promo, quality, integration contracts to be mapped |
-| Enterprise | `MWEB-PORTAL-P2-001..P2-004` | market, accounting, API partner contracts to be defined |
+| Public acquisition, trust, dan conversion | `MWEB-P0-001..MWEB-P0-005`, `MWEB-P1-001..MWEB-P1-005`, `MWEB-P2-001..MWEB-P2-005` | landing/content, onboarding, status, support, analytics, design, growth |
+| Onboarding status, auth, security, dan public release | `MWEB-P0-006..MWEB-P0-010` | onboarding, session, OTP, security, Docker/CI, release gate |
+| Portal shell, tenant, dan navigation | `MWEB-PORTAL-P0-001` | merchant branch/staff RBAC, session, capability matrix |
+| Dashboard dan outlet state | `MWEB-PORTAL-P0-002`, `MWEB-PORTAL-P0-005` | operating state, schedule, event/outbox |
+| Order, issue, refund, dan komunikasi | `MWEB-PORTAL-P0-003`, `MWEB-PORTAL-P0-008` | order state, payment/ledger, privacy-safe communication |
+| Catalog, menu, modifier, dan availability | `MWEB-PORTAL-P0-004` | catalog governance, moderation, availability |
+| Staff, RBAC/ABAC, dan audit | `MWEB-PORTAL-P0-006` | branch/staff RBAC, auth/session, audit |
+| Finance, settlement, payout, dan invoice | `MWEB-PORTAL-P0-007` | payment ledger, settlement, payout; contract detail wajib sebelum live payout |
+| Realtime, notification, resilience, dan recovery | `MWEB-PORTAL-P0-009` | event/outbox, notification delivery; contract detail wajib sebelum P0 release |
+| Portal production readiness | `MWEB-PORTAL-P0-010` | seluruh contract, security, accessibility, observability, rollback |
+| Portal P1 growth dan integration | `MWEB-PORTAL-P1-001..MWEB-PORTAL-P1-006` | promo, analytics, POS/KDS, compliance, support, CRM |
+| Portal P2 enterprise dan ecosystem | `MWEB-PORTAL-P2-001..MWEB-PORTAL-P2-004` | multi-brand/region, inventory, accounting, public API |
+
+Traceability ini sengaja memisahkan prefix `MWEB-P0/P1/P2` untuk website publik,
+onboarding, dan release gate dari `MWEB-PORTAL-P0/P1/P2` untuk workspace
+authenticated. Setiap TASK-ID di backlog harus muncul tepat pada salah satu
+kelompok di atas. Jika task baru menambah capability, PRD dan tabel ini harus
+diperbarui sebelum implementation task dimulai.
+
+Requirement IDs internal `PRD-P0-001..PRD-P0-010` dipetakan berurutan ke
+`MWEB-PORTAL-P0-001..MWEB-PORTAL-P0-010`; requirement P1 dan P2 pada bagian
+7 dipetakan ke kelompok Portal P1/P2 pada tabel yang sama. Dengan demikian
+developer dapat memulai dari PRD area maupun langsung dari TASK-ID tanpa
+kehilangan acceptance criteria, contract, atau evidence path.
 
 ## 17. Definition of Done PRD
 
@@ -766,6 +780,24 @@ berikut berlaku untuk setiap pengerjaan berikutnya:
    tests, security/privacy, observability, rollback/recovery, dan bukti runtime
    yang relevan lulus. Jika ada dependency eksternal, tuliskan blocker dan
    langkah unblock yang spesifik.
+
+### Format execution packet untuk pengerjaan berikutnya
+
+Saat user meminta pengerjaan berdasarkan dokumen ini, agent harus mengembalikan
+dan mengikuti packet berikut sebelum coding:
+
+1. `TASK-ID` dan requirement PRD yang tepat.
+2. Dependency dan contract lintas service yang harus dibaca.
+3. Source of truth: service, tabel/projection, event, ledger, atau provider.
+4. Perubahan UI/API/DB/event/auth/observability yang diperlukan.
+5. Skenario happy path, negative authorization, failure/recovery, dan cross-app.
+6. Command/tool verifikasi serta lokasi evidence.
+7. Status nyata: `NOT_RUN`, `PASS`, `FAIL`, `PARTIAL`, atau `BLOCKED`.
+
+Task dependent tidak boleh dimulai bila prerequisite masih `PARTIAL` atau
+belum memiliki evidence yang cukup. Push ke `staging` hanya membuktikan
+perubahan branch; deployment, migration staging, dan UAT harus dilaporkan
+terpisah.
 
 Format instruksi yang direkomendasikan:
 

@@ -1,6 +1,6 @@
 # Merchant Web — P0–P2 Growth, Trust & Operational Readiness
 
-Status: Planned
+Status: Ready for scoped execution — PRD v1.1; implementation and production readiness remain incomplete
 Created: 2026-10-03
 Baseline: `staging`
 Target: `merchant-web` pada `https://merchant.bawain.my.id/`
