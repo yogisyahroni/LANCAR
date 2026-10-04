@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 54123c9d
+implementation_ref: 4af99409
 
 tests: PASS
 integration: PASS
@@ -74,6 +74,7 @@ Original acceptance evidence status:
 - Added cross-tab logout propagation using BroadcastChannel with a storage-event marker fallback; the event contains no credential.
 - Added a merchant Settings panel that lists active web sessions, identifies the current device, refreshes the list, and revokes all other sessions through the existing server endpoint.
 - Added the merchant session and branch scope headers to the gateway's public browser CORS allowlist, with a contract test, so outlet-scoped portal requests pass preflight without weakening internal-header protections.
+- Mapped OTP rate-limit, send-failure, and invalid/expired-code responses to user-facing Indonesian copy; registration now uses the shared safe error mapper instead of rendering internal error codes.
 - Kept the non-secret web-session marker in `localStorage` so normal tabs on the same origin can recognize the shared HttpOnly session; `sessionStorage` remains only as a compatibility read path.
 - Added refresh read-after-refresh recovery for the case where another tab rotates the shared cookie first.
 - Rebuilt and restarted merchant-service so the server-owned merchant context route is present in the runtime image.
@@ -94,6 +95,7 @@ Original acceptance evidence status:
 - `merchant-web/src/components/Layout.tsx` — logout event handling.
 - `merchant-web/src/pages/Login.tsx` and `merchant-web/src/pages/Register.tsx` — OTP continuation and server-session exchange.
 - `merchant-web/src/pages/Settings.tsx` — logout event handling plus display and revoke merchant web sessions.
+- `merchant-web/src/lib/api.ts` and `merchant-web/src/pages/Register.tsx` — safe OTP error copy across login/registration flows.
 - `backend/api-gateway/src/corsPolicy.ts` and `backend/api-gateway/scripts/corsPolicy.test.js` — allow merchant scope headers in browser preflight while keeping internal identity headers private.
 - `merchant-web/src/pages/Reports.tsx` — use the cookie-authenticated API for report export.
 - `merchant-web/src/lib/types.ts` — auth response/session types.
@@ -105,7 +107,7 @@ Original acceptance evidence status:
     result: PASS — Vite production build completed after cross-tab marker hardening.
 
     command: npm run lint (merchant-web)
-    result: PASS — 0 errors; 15 non-blocking warnings remain, including the Settings initial-load effect warning.
+    result: PASS — 0 errors; 11 non-blocking warnings remain, with the previous Register `any` warnings removed.
 
     command: npx jest src/controllers/customerAuth.controller.test.ts --runInBand --forceExit (backend/admin-service)
     result: PASS — 5 tests passed.
@@ -121,6 +123,9 @@ Original acceptance evidence status:
 
     command: go test ./internal/repository (backend/order-service)
     result: PASS — repository tests passed, including the current notification inbox projection test.
+
+    command: go test ./internal/middleware (backend/auth-service)
+    result: PASS — authentication abuse protection and OTP rate-limit tests passed.
 
     command: git diff --check
     result: PASS.
