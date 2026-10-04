@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 958b4843
+implementation_ref: 61fa97b4
 
 tests: PASS
 integration: PARTIAL
@@ -24,10 +24,10 @@ external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Run authenticated browser E2E, cross-role tenant-isolation checks, and staging smoke after deployment."
 
-unproven_requirements: "Full shell parity, capability-aware navigation for every role, outlet switcher UX, notification/help/search, audit-event proof, deep-link/session-expiry browser flows, responsive proof, and API/browser permission E2E remain unproven."
+unproven_requirements: "Full shell parity, capability-aware navigation for every role, entity-level global search, audit-event proof, deep-link/session-expiry authenticated browser flows, responsive proof, and API/browser permission E2E remain unproven."
 known_blockers: NONE
 
-locally_actionable_remaining: "Add/verify the remaining shell capabilities and execute API, browser, responsive, tenant-isolation, and expired-session verification."
+locally_actionable_remaining: "Complete entity-level search and remaining shell states, then execute API, authenticated browser, responsive, tenant-isolation, audit, and expired-session verification."
 
 blocker_resolution_attempts: NONE
 unblock_condition: NONE
@@ -71,6 +71,13 @@ Acceptance criteria remain unproven until role and browser E2E evidence exists:
 - Updated protected portal screens and login to consume the portal context instead of assuming `/merchant/profile` is available for staff users.
 - Added server-capability filtering to navigation and a direct-route capability guard.
 - Added an authenticated notification center backed by the existing order-service inbox and read endpoint.
+- Added a server-scoped outlet switcher. The selected branch is kept in
+  session storage, sent as a branch scope header, and cannot expand the branch
+  set returned by the server. Staff device sessions are reopened for the new
+  branch before protected screens reload.
+- Added capability-aware shell search for portal pages, with keyboard shortcut
+  support and a mobile layout. It searches only server-authorized navigation;
+  entity-level order/menu search remains a separate requirement.
 
 ## Files Changed
 
@@ -98,6 +105,12 @@ Acceptance criteria remain unproven until role and browser E2E evidence exists:
     command: git diff --check
     result: PASS.
 
+    command: npm run build
+    result: PASS — merchant-web production build after outlet and shell-search changes.
+
+    command: npm run lint
+    result: PASS — 0 errors; 12 existing warnings remain.
+
 ## Task-Local Verification
 
 ### Tests
@@ -116,7 +129,7 @@ Evidence: Merchant-service compiles and the route is registered through the exis
 
 Status: NOT_RUN
 
-Evidence: Authenticated browser E2E for owner, PT staff roles, deep links, and expired device sessions is still required.
+Evidence: Local unauthenticated deep-link smoke was run against `http://localhost:3004/dashboard` and redirected to `/masuk`. Authenticated browser E2E for owner, PT staff roles, outlet switching, deep links, and expired device sessions is still required.
 
 ### Migration
 
