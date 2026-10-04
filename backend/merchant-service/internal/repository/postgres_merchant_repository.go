@@ -542,7 +542,16 @@ func (r *postgresMerchantRepository) ToggleOpen(ctx context.Context, id string, 
 			operating_state_source = 'merchant',
 			operating_state_version = operating_state_version + 1,
 			updated_at = NOW()
-		WHERE id = $1`, id, isOpen)
+		WHERE id = $1
+		  AND (
+			is_open IS DISTINCT FROM $2
+			OR paused_until IS NOT NULL
+			OR busy_until IS NOT NULL
+			OR operating_state IS DISTINCT FROM CASE WHEN $2 THEN 'open' ELSE 'closed' END
+			OR operating_state_reason IS NOT NULL
+			OR operating_state_until IS NOT NULL
+			OR operating_state_updated_by IS NOT NULL
+		  )`, id, isOpen)
 	return err
 }
 
@@ -551,8 +560,45 @@ func (r *postgresMerchantRepository) SetAutoAcceptOrders(ctx context.Context, id
 		UPDATE merchants
 		SET auto_accept_orders = $2,
 			updated_at = NOW()
-		WHERE id = $1`, id, enabled)
+		WHERE id = $1
+		  AND auto_accept_orders IS DISTINCT FROM $2`, id, enabled)
 	return err
+}
+
+// GetAutoAcceptReadiness reads every server-side prerequisite for automatic
+// order acceptance in one query. A merchant must have an approved, usable
+// catalog and an active merchant-app notification channel; otherwise an
+// accidentally enabled switch could accept orders nobody can prepare.
+func (r *postgresMerchantRepository) GetAutoAcceptReadiness(ctx context.Context, merchantID, userID string) (*domain.MerchantAutoAcceptReadiness, error) {
+	readiness := &domain.MerchantAutoAcceptReadiness{CheckedAt: time.Now().UTC()}
+	err := r.readDB.QueryRowContext(ctx, `
+		SELECT
+			EXISTS (
+				SELECT 1
+				FROM merchant_menu_items item
+				WHERE item.merchant_id = $1
+				  AND item.is_available = TRUE
+				  AND COALESCE(item.status, 'active') IN ('active', 'scheduled')
+				  AND COALESCE(item.moderation_status, 'approved') = 'approved'
+			),
+		EXISTS (
+				SELECT 1
+				FROM user_device_tokens token
+				WHERE token.user_id = $2
+				  AND token.app_name = 'tembus-merchant'
+				  AND BTRIM(token.token) <> ''
+			)
+			AND COALESCE((
+				SELECT preferences.new_order_alerts
+				FROM merchant_notification_preferences preferences
+				WHERE preferences.user_id = $2
+			), TRUE)`, merchantID, userID,
+	).Scan(&readiness.MenuReady, &readiness.NotificationsReady)
+	if err != nil {
+		return nil, fmt.Errorf("read auto-accept readiness: %w", err)
+	}
+	readiness.Ready = readiness.MenuReady && readiness.NotificationsReady
+	return readiness, nil
 }
 
 // SetPaused (FB-107): pause sementara sampai waktu tertentu (nil = resume).
@@ -574,7 +620,14 @@ func (r *postgresMerchantRepository) SetPaused(ctx context.Context, id string, u
 			operating_state_source = 'merchant',
 			operating_state_version = operating_state_version + 1,
 			updated_at = NOW()
-		WHERE id = $1`,
+		WHERE id = $1
+		  AND (
+			paused_until IS DISTINCT FROM $2
+			OR busy_until IS NOT NULL
+			OR operating_state IS DISTINCT FROM CASE WHEN $2::timestamptz IS NULL THEN CASE WHEN is_open THEN 'open' ELSE 'closed' END ELSE 'paused' END
+			OR operating_state_reason IS DISTINCT FROM CASE WHEN $2::timestamptz IS NULL THEN NULL ELSE 'merchant_pause' END
+			OR operating_state_until IS DISTINCT FROM $2
+		  )`,
 		id, until)
 	return err
 }
@@ -596,7 +649,15 @@ func (r *postgresMerchantRepository) SetBusy(ctx context.Context, id string, unt
 			operating_state_source = 'merchant',
 			operating_state_version = operating_state_version + 1,
 			updated_at = NOW()
-		WHERE id = $1`, id, until, extraPrepMinutes)
+		WHERE id = $1
+		  AND (
+			busy_until IS DISTINCT FROM $2
+			OR busy_extra_prep_minutes IS DISTINCT FROM $3
+			OR paused_until IS NOT NULL
+			OR operating_state IS DISTINCT FROM CASE WHEN $2::timestamptz IS NULL THEN CASE WHEN is_open THEN 'open' ELSE 'closed' END ELSE 'busy' END
+			OR operating_state_reason IS DISTINCT FROM CASE WHEN $2::timestamptz IS NULL THEN NULL ELSE 'merchant_busy' END
+			OR operating_state_until IS DISTINCT FROM $2
+		  )`, id, until, extraPrepMinutes)
 	return err
 }
 

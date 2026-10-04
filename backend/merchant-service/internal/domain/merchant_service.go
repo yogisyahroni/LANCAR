@@ -70,6 +70,8 @@ type MerchantService interface {
 	ToggleOpen(ctx context.Context, userID string, isOpen bool) (*Merchant, error)
 	// SetAutoAcceptOrders controls whether paid food orders are accepted immediately.
 	SetAutoAcceptOrders(ctx context.Context, userID string, enabled bool) (*Merchant, error)
+	// GetDashboard returns the server-authoritative operational home read model.
+	GetDashboard(ctx context.Context, userID string) (*MerchantDashboard, error)
 	// Pause (FB-107): pause sementara sampai `until` — tidak mengubah is_open.
 	Pause(ctx context.Context, userID string, until time.Time) (*Merchant, error)
 	// Resume (FB-107): batalkan pause sementara lebih awal.

@@ -58,6 +58,8 @@ export interface Merchant {
   operating_state_until?: string | null
   operating_state_version?: number
   operating_timezone?: string
+  busy_until?: string | null
+  busy_extra_prep_minutes?: number
   auto_accept_orders?: boolean
   avg_rating?: number
   rating_count?: number
@@ -268,6 +270,69 @@ export interface SalesReportSummary {
     peak_order_hour?: number
     avg_accepted_ready_minutes?: number
   }
+}
+
+export interface MerchantDashboardReadiness {
+  outlet_ready: boolean
+  menu_ready: boolean
+  notifications_ready: boolean
+  ready: boolean
+  blocking_reasons: string[]
+  checked_at: string
+}
+
+export interface MerchantFinanceStatement {
+  entries: unknown[]
+  totals: {
+    market_code: string
+    currency_code: string
+    currency_minor_unit: number
+    sales_minor: number
+    commission_minor: number
+    tax_minor: number
+    promo_subsidy_minor: number
+    refund_minor: number
+    fee_minor: number
+    ads_spend_minor: number
+    adjustment_minor: number
+    payout_minor: number
+    net_balance_minor: number
+  }[]
+  discrepancies: unknown[]
+  generated_at: string
+}
+
+export interface MerchantDashboard {
+  merchant: Merchant
+  scope: {
+    level: string
+    merchant_id: string
+    selected_branch_id?: string
+    branch_count: number
+    branch_scoped: boolean
+    note?: string
+  }
+  orders: {
+    new: number
+    preparing: number
+    ready_for_pickup: number
+    delivering: number
+    completed: number
+    rejected: number
+  }
+  recent_orders: MerchantOrder[]
+  sales?: SalesReportSummary
+  finance?: MerchantFinanceStatement
+  auto_accept: MerchantDashboardReadiness
+  alerts: {
+    code: string
+    severity: string
+    title: string
+    description: string
+    action_path?: string
+  }[]
+  warnings: string[]
+  data_as_of: string
 }
 
 export interface MerchantPromo {

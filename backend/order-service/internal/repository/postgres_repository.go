@@ -261,6 +261,11 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 	if err != nil {
 		return err
 	}
+	if o.BranchID != nil && strings.TrimSpace(*o.BranchID) != "" {
+		if _, err := q.ExecContext(ctx, `UPDATE orders SET branch_id = $1 WHERE id = $2`, *o.BranchID, o.ID); err != nil {
+			return fmt.Errorf("persist order branch: %w", err)
+		}
+	}
 	// FOOD-2026-016: keep checkout options in the same transaction as the
 	// order insert. Separate UPDATE avoids changing the legacy positional
 	// insert contract used by other order types.

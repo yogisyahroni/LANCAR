@@ -110,12 +110,12 @@ func main() {
 	reportRepo := repository.NewPostgresReportRepository(db, db)
 	staffRepo := repository.NewPostgresMerchantStaffRepository(db, db)
 	accessRepo := repository.NewPostgresMerchantAccessRepository(db, db)
-	svc := service.NewMerchantServiceWithGovernance(merchantRepo, menuRepo, orderRepo, reportRepo, accessRepo, menuRepo)
+	integrationRepo := repository.NewPostgresMerchantIntegrationRepository(db)
+	svc := service.NewMerchantServiceWithGovernance(merchantRepo, menuRepo, orderRepo, reportRepo, accessRepo, menuRepo, integrationRepo)
 	staffSvc := service.NewStaffService(merchantRepo, staffRepo, infrastructure.NewStaffNotifier(), accessRepo)
 	accessSvc := service.NewMerchantAccessService(merchantRepo, staffRepo, accessRepo)
 	searchRepo := repository.NewPostgresMerchantSearchRepository(db)
 	searchSvc := service.NewMerchantSearchService(accessSvc, searchRepo)
-	integrationRepo := repository.NewPostgresMerchantIntegrationRepository(db)
 	h := handler.NewMerchantHandler(svc, uploadSvc, integrationRepo)
 	staffH := handler.NewStaffHandler(h, staffSvc)
 	accessH := handler.NewMerchantAccessHandler(h, accessSvc)
@@ -149,6 +149,7 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/register", withAudit(h.RegisterMerchant))
 	// MERCH-2026-002: server-authoritative portal tenant and branch context.
 	mux.HandleFunc("/api/v1/merchant/context", withAudit(accessH.GetPortalContext))
+	mux.HandleFunc("/api/v1/merchant/dashboard", withAudit(h.GetDashboard))
 	mux.HandleFunc("/api/v1/merchant/search", withAudit(searchH.Search))
 	mux.HandleFunc("/api/v1/merchant/profile", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {

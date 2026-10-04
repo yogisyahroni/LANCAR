@@ -60,6 +60,9 @@ func (r *foodDocsRepo) SetAutoAcceptOrders(ctx context.Context, id string, enabl
 	}
 	return nil
 }
+func (r *foodDocsRepo) GetAutoAcceptReadiness(ctx context.Context, merchantID, userID string) (*domain.MerchantAutoAcceptReadiness, error) {
+	return &domain.MerchantAutoAcceptReadiness{MenuReady: true, NotificationsReady: true, Ready: true, CheckedAt: time.Now().UTC()}, nil
+}
 func (r *foodDocsRepo) SetPaused(ctx context.Context, id string, until *time.Time) error {
 	if r.merchant != nil {
 		r.merchant.PausedUntil = until
@@ -137,6 +140,7 @@ func approvedMerchant() *domain.Merchant {
 		UserID:             "user-1",
 		NamaToko:           "Warung Test",
 		VerificationStatus: "approved",
+		IsOpen:             true,
 	}
 }
 

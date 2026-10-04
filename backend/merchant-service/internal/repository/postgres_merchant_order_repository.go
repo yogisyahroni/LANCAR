@@ -112,6 +112,14 @@ func (r *postgresMerchantOrderRepository) RecordOrderEvent(ctx context.Context, 
 }
 
 func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, merchantID, status string, limit, offset int) ([]*domain.MerchantOrderView, error) {
+	return r.listByMerchantScope(ctx, merchantID, "", status, limit, offset)
+}
+
+func (r *postgresMerchantOrderRepository) ListByMerchantBranch(ctx context.Context, merchantID, branchID, status string, limit, offset int) ([]*domain.MerchantOrderView, error) {
+	return r.listByMerchantScope(ctx, merchantID, branchID, status, limit, offset)
+}
+
+func (r *postgresMerchantOrderRepository) listByMerchantScope(ctx context.Context, merchantID, branchID, status string, limit, offset int) ([]*domain.MerchantOrderView, error) {
 	query := `
 		SELECT o.id, o.order_number, o.status,
 		       COALESCE(c.full_name, '') AS customer_name,
@@ -139,12 +147,13 @@ func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, me
 		LEFT JOIN users c ON c.id = o.customer_id
 		LEFT JOIN payments p ON p.order_id = o.id
 		WHERE o.merchant_id = $1
+		  AND ($2 = '' OR o.branch_id = NULLIF($2, '')::uuid)
 		  AND o.service_sub_type = 'food_delivery'
-		  AND ($2 = '' OR o.status = $2)
+		  AND ($3 = '' OR o.status = $3)
 		ORDER BY o.created_at DESC
-		LIMIT $3 OFFSET $4`
+		LIMIT $4 OFFSET $5`
 
-	rows, err := r.readDB.QueryContext(ctx, query, merchantID, status, limit, offset)
+	rows, err := r.readDB.QueryContext(ctx, query, merchantID, branchID, status, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -302,6 +311,14 @@ func (r *postgresMerchantOrderRepository) CountByMerchant(ctx context.Context, m
 }
 
 func (r *postgresMerchantOrderRepository) CountOperationalByMerchant(ctx context.Context, merchantID string) (*domain.MerchantOrderCounts, error) {
+	return r.countOperationalByMerchantScope(ctx, merchantID, "")
+}
+
+func (r *postgresMerchantOrderRepository) CountOperationalByMerchantBranch(ctx context.Context, merchantID, branchID string) (*domain.MerchantOrderCounts, error) {
+	return r.countOperationalByMerchantScope(ctx, merchantID, branchID)
+}
+
+func (r *postgresMerchantOrderRepository) countOperationalByMerchantScope(ctx context.Context, merchantID, branchID string) (*domain.MerchantOrderCounts, error) {
 	var counts domain.MerchantOrderCounts
 	err := r.readDB.QueryRowContext(ctx, `
 		SELECT
@@ -313,7 +330,9 @@ func (r *postgresMerchantOrderRepository) CountOperationalByMerchant(ctx context
 			COUNT(*) FILTER (WHERE o.status = 'cancelled_by_merchant'
 				OR (o.status = 'cancelled' AND NULLIF(o.reject_reason, '') IS NOT NULL))
 		FROM orders o
-		WHERE o.merchant_id = $1 AND o.service_sub_type = 'food_delivery'`, merchantID,
+		WHERE o.merchant_id = $1
+		  AND ($2 = '' OR o.branch_id = NULLIF($2, '')::uuid)
+		  AND o.service_sub_type = 'food_delivery'`, merchantID, branchID,
 	).Scan(
 		&counts.New,
 		&counts.Preparing,

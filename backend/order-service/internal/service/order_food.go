@@ -90,6 +90,10 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	for _, mi := range menuItems {
 		menuByID[mi.ID] = mi
 	}
+	// A food order is fulfilled by exactly one operational outlet. Derive the
+	// branch from the authoritative menu rows so the customer cannot choose a
+	// different branch by submitting an arbitrary branch identifier.
+	branchID := ""
 
 	// 3. Validasi: semua item ketemu, available, milik merchant ini
 	for _, it := range req.Items {
@@ -99,6 +103,13 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		}
 		if mi.MerchantID != req.MerchantID {
 			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item bukan milik merchant ini: %s", it.MenuID))
+		}
+		if mi.BranchID != "" {
+			if branchID == "" {
+				branchID = mi.BranchID
+			} else if branchID != mi.BranchID {
+				return nil, domain.NewUserFacingError("pesanan harus berasal dari satu outlet")
+			}
 		}
 		if !mi.IsAvailable {
 			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item tidak tersedia: %s", mi.Name))
@@ -345,6 +356,10 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 
 	prepMin := maxPrep
 	merchantID := merchant.ID
+	var orderBranchID *string
+	if branchID != "" {
+		orderBranchID = &branchID
+	}
 	// FOOD-2026-010: Customer Pickup/self-pickup — dinamis berdasarkan DeliveryMethod
 	var serviceSubType string
 	if req.DeliveryMethod == "pickup" {
@@ -424,6 +439,7 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		ReceiverPrivacy:      receiverPrivacy,
 		GroupOrderID:         req.GroupOrderID,
 		MerchantID:           &merchantID,
+		BranchID:             orderBranchID,
 		PrepTimeMinutes:      &prepMin,
 		FoodETAPredictedAt:   &foodETAPredictedAt,
 		ScheduledAt:          scheduledAt, // FB-123: NULL = pesan langsung

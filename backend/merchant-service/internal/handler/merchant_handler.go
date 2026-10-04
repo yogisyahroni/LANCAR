@@ -59,6 +59,9 @@ func (h *MerchantHandler) parseUserID(w http.ResponseWriter, r *http.Request) (s
 
 func merchantPermissionForRequest(r *http.Request) int {
 	path := strings.ToLower(r.URL.Path)
+	if strings.HasSuffix(path, "/dashboard") {
+		return domain.PermViewStore
+	}
 	if strings.Contains(path, "/promo") || strings.Contains(path, "/ads") {
 		if r.Method == http.MethodGet {
 			return domain.PermViewStore
@@ -160,6 +163,31 @@ func (h *MerchantHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.respondJSON(w, http.StatusOK, m)
+}
+
+// GetDashboard returns one server-authoritative read model for the merchant
+// home screen. Nullable report/finance sections are intentionally omitted when
+// their source is unavailable; the handler never manufactures zero values.
+// @Summary Dashboard operasional merchant
+// @Tags merchant
+// @Produce json
+// @Success 200 {object} domain.MerchantDashboard
+// @Router /merchant/dashboard [get]
+func (h *MerchantHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	dashboard, err := h.svc.GetDashboard(r.Context(), userID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, dashboard)
 }
 
 // UpdateProfile godoc

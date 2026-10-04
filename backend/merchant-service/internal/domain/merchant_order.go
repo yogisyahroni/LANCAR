@@ -38,6 +38,15 @@ type MerchantOrderRepository interface {
 	GetOrderItemVariantDeltas(ctx context.Context, orderID string) (map[string]int64, error)
 }
 
+// MerchantBranchScopedOrderRepository is an optional capability for tenants
+// whose order rows carry an authoritative branch_id. Keeping it optional
+// preserves compatibility with legacy repositories while preventing the
+// dashboard from pretending an aggregate query is outlet-scoped.
+type MerchantBranchScopedOrderRepository interface {
+	ListByMerchantBranch(ctx context.Context, merchantID, branchID, status string, limit, offset int) ([]*MerchantOrderView, error)
+	CountOperationalByMerchantBranch(ctx context.Context, merchantID, branchID string) (*MerchantOrderCounts, error)
+}
+
 // MerchantOrderCounts is a database projection for the merchant order tabs.
 // It keeps the tab badges consistent with customer/courier state transitions.
 type MerchantOrderCounts struct {

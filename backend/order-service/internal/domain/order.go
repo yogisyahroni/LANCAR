@@ -131,25 +131,29 @@ type Order struct {
 	RatingReminderCount    int          `json:"rating_reminder_count,omitempty"`   // Sudah berapa kali diingatkan
 	LastRatingReminderAt   *time.Time   `json:"last_rating_reminder_at,omitempty"` // Kapan terakhir diingatkan
 	// Food delivery (FOOD-BIKE-006): service_sub_type + merchant fields
-	ServiceSubType       string                   `json:"service_sub_type,omitempty" db:"service_sub_type"`
-	ServiceCode          string                   `json:"service_code,omitempty" db:"service_code"`
-	ServiceCategory      CanonicalServiceCategory `json:"service_category,omitempty" db:"service_category"`
-	ContractVersion      string                   `json:"contract_version" db:"contract_version"`
-	QuoteID              string                   `json:"quote_id,omitempty" db:"quote_id"`
-	StateVersion         int64                    `json:"state_version" db:"state_version"`
-	CorrelationID        string                   `json:"correlation_id,omitempty" db:"correlation_id"`
-	PaymentStatus        string                   `json:"payment_status,omitempty" db:"payment_status"`
-	ActorOwnership       OrderActorOwnership      `json:"actor_ownership" db:"-"`
-	ServiceMetadata      OrderServiceMetadata     `json:"service_metadata" db:"-"`
-	MerchantID           *string                  `json:"merchant_id,omitempty" db:"merchant_id"`
-	MerchantName         *string                  `json:"merchant_name,omitempty" db:"merchant_name"` // LEFT JOIN merchants (FOOD-BIKE-060)
-	MerchantAcceptedAt   *time.Time               `json:"merchant_accepted_at,omitempty" db:"merchant_accepted_at"`
-	PrepTimeMinutes      *int                     `json:"prep_time_minutes,omitempty" db:"prep_time_minutes"`
-	FoodReadyAt          *time.Time               `json:"food_ready_at,omitempty" db:"food_ready_at"`
-	FoodETAPredictedAt   *time.Time               `json:"food_eta_predicted_at,omitempty" db:"food_eta_predicted_at"`
-	FoodETAActualReadyAt *time.Time               `json:"food_eta_actual_ready_at,omitempty" db:"food_eta_actual_ready_at"`
-	PickedUpAt           *time.Time               `json:"picked_up_at,omitempty" db:"picked_up_at"`
-	DeliveredAt          *time.Time               `json:"delivered_at,omitempty" db:"delivered_at"`
+	ServiceSubType  string                   `json:"service_sub_type,omitempty" db:"service_sub_type"`
+	ServiceCode     string                   `json:"service_code,omitempty" db:"service_code"`
+	ServiceCategory CanonicalServiceCategory `json:"service_category,omitempty" db:"service_category"`
+	ContractVersion string                   `json:"contract_version" db:"contract_version"`
+	QuoteID         string                   `json:"quote_id,omitempty" db:"quote_id"`
+	StateVersion    int64                    `json:"state_version" db:"state_version"`
+	CorrelationID   string                   `json:"correlation_id,omitempty" db:"correlation_id"`
+	PaymentStatus   string                   `json:"payment_status,omitempty" db:"payment_status"`
+	ActorOwnership  OrderActorOwnership      `json:"actor_ownership" db:"-"`
+	ServiceMetadata OrderServiceMetadata     `json:"service_metadata" db:"-"`
+	MerchantID      *string                  `json:"merchant_id,omitempty" db:"merchant_id"`
+	// BranchID is derived server-side from the selected merchant menu items.
+	// It scopes food orders to one operational outlet without trusting a client
+	// supplied branch identifier.
+	BranchID             *string    `json:"branch_id,omitempty" db:"branch_id"`
+	MerchantName         *string    `json:"merchant_name,omitempty" db:"merchant_name"` // LEFT JOIN merchants (FOOD-BIKE-060)
+	MerchantAcceptedAt   *time.Time `json:"merchant_accepted_at,omitempty" db:"merchant_accepted_at"`
+	PrepTimeMinutes      *int       `json:"prep_time_minutes,omitempty" db:"prep_time_minutes"`
+	FoodReadyAt          *time.Time `json:"food_ready_at,omitempty" db:"food_ready_at"`
+	FoodETAPredictedAt   *time.Time `json:"food_eta_predicted_at,omitempty" db:"food_eta_predicted_at"`
+	FoodETAActualReadyAt *time.Time `json:"food_eta_actual_ready_at,omitempty" db:"food_eta_actual_ready_at"`
+	PickedUpAt           *time.Time `json:"picked_up_at,omitempty" db:"picked_up_at"`
+	DeliveredAt          *time.Time `json:"delivered_at,omitempty" db:"delivered_at"`
 	// FB-089: contactless delivery — antar tanpa kontak fisik, POD tetap wajib.
 	Contactless bool `json:"contactless,omitempty" db:"contactless"`
 

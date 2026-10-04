@@ -249,6 +249,14 @@ type MerchantRepository interface {
 	DeleteSpecialClosure(ctx context.Context, merchantID, closureID string) error
 }
 
+// MerchantAutoAcceptReadinessRepository is an optional production capability
+// implemented by the PostgreSQL repository. It keeps device/menu readiness
+// checks next to the canonical merchant data without forcing old test doubles
+// to implement the extension.
+type MerchantAutoAcceptReadinessRepository interface {
+	GetAutoAcceptReadiness(ctx context.Context, merchantID, userID string) (*MerchantAutoAcceptReadiness, error)
+}
+
 // Ensure sql import is used (tx helper di repository).
 var _ = sql.ErrNoRows
 

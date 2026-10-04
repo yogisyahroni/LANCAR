@@ -28,6 +28,7 @@ type merchantServiceImpl struct {
 	menuRepo        domain.MenuItemRepository
 	orderRepo       domain.MerchantOrderRepository
 	reportRepo      domain.MerchantReportRepository
+	integrationRepo domain.MerchantIntegrationRepository
 	accessRepo      domain.MerchantAccessRepository
 	governanceRepo  domain.MenuGovernanceRepository
 	enforcementRepo domain.MerchantEnforcementRepository
@@ -45,12 +46,16 @@ func NewMerchantService(mr domain.MerchantRepository, mi domain.MenuItemReposito
 	return &merchantServiceImpl{merchantRepo: mr, menuRepo: mi, orderRepo: or, reportRepo: rr, accessRepo: ar, enforcementRepo: er}
 }
 
-func NewMerchantServiceWithGovernance(mr domain.MerchantRepository, mi domain.MenuItemRepository, or domain.MerchantOrderRepository, rr domain.MerchantReportRepository, accessRepo domain.MerchantAccessRepository, governanceRepo domain.MenuGovernanceRepository) domain.MerchantService {
+func NewMerchantServiceWithGovernance(mr domain.MerchantRepository, mi domain.MenuItemRepository, or domain.MerchantOrderRepository, rr domain.MerchantReportRepository, accessRepo domain.MerchantAccessRepository, governanceRepo domain.MenuGovernanceRepository, integrationRepos ...domain.MerchantIntegrationRepository) domain.MerchantService {
 	var er domain.MerchantEnforcementRepository
 	if candidate, ok := mr.(domain.MerchantEnforcementRepository); ok {
 		er = candidate
 	}
-	return &merchantServiceImpl{merchantRepo: mr, menuRepo: mi, orderRepo: or, reportRepo: rr, accessRepo: accessRepo, governanceRepo: governanceRepo, enforcementRepo: er}
+	var integrationRepo domain.MerchantIntegrationRepository
+	if len(integrationRepos) > 0 {
+		integrationRepo = integrationRepos[0]
+	}
+	return &merchantServiceImpl{merchantRepo: mr, menuRepo: mi, orderRepo: or, reportRepo: rr, integrationRepo: integrationRepo, accessRepo: accessRepo, governanceRepo: governanceRepo, enforcementRepo: er}
 }
 
 // ─────────────────────────────────────────────
@@ -470,6 +475,21 @@ func (s *merchantServiceImpl) SetAutoAcceptOrders(ctx context.Context, userID st
 	}
 	if !merchantOnboardingActive(m) {
 		return nil, errors.New("merchant belum disetujui")
+	}
+	if enabled {
+		provider, ok := s.merchantRepo.(domain.MerchantAutoAcceptReadinessRepository)
+		if !ok {
+			return nil, errors.New("terima otomatis belum dapat diaktifkan karena kesiapan server belum tersedia")
+		}
+		readiness, readinessErr := provider.GetAutoAcceptReadiness(ctx, m.ID, userID)
+		if readinessErr != nil {
+			return nil, fmt.Errorf("gagal memeriksa kesiapan terima otomatis: %w", readinessErr)
+		}
+		readiness.OutletReady = m.IsOpen && m.OperatingState != domain.OperatingStatePaused && m.OperatingState != domain.OperatingStateTempClosed && m.OperatingState != domain.OperatingStateHoliday && (m.PausedUntil == nil || !m.PausedUntil.After(time.Now().UTC()))
+		readiness.Ready = readiness.OutletReady && readiness.MenuReady && readiness.NotificationsReady
+		if !readiness.Ready {
+			return nil, fmt.Errorf("terima otomatis belum dapat diaktifkan: %s", strings.Join(uniqueDashboardStrings(append(readiness.BlockingReasons, autoAcceptBlockingReasons(*readiness)...)), " "))
+		}
 	}
 	if err := s.merchantRepo.SetAutoAcceptOrders(ctx, m.ID, enabled); err != nil {
 		return nil, err
