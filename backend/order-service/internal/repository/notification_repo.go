@@ -13,6 +13,12 @@ type PostgresNotificationRepo struct {
 	db *sqlx.DB
 }
 
+const notificationColumns = `
+	id, user_id, title, body, type, icon, image_url, deep_link,
+	channel, category, priority, is_read, read_at, archived_at, expires_at,
+	push_status, push_error, sent_at, order_id, conversation_id, promo_id,
+	metadata, created_at`
+
 func NewPostgresNotificationRepo(db *sqlx.DB) *PostgresNotificationRepo {
 	return &PostgresNotificationRepo{db: db}
 }
@@ -39,7 +45,7 @@ func (r *PostgresNotificationRepo) UpdatePushStatus(ctx context.Context, id uuid
 
 func (r *PostgresNotificationRepo) GetNotificationByID(ctx context.Context, id uuid.UUID) (*domain.Notification, error) {
 	var notif domain.Notification
-	query := `SELECT * FROM notifications WHERE id = $1 LIMIT 1`
+	query := `SELECT ` + notificationColumns + ` FROM notifications WHERE id = $1 LIMIT 1`
 	if err := r.db.GetContext(ctx, &notif, query, id); err != nil {
 		return nil, err
 	}
@@ -48,7 +54,7 @@ func (r *PostgresNotificationRepo) GetNotificationByID(ctx context.Context, id u
 
 func (r *PostgresNotificationRepo) GetNotificationsByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]domain.Notification, error) {
 	var notifs []domain.Notification
-	query := `SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+	query := `SELECT ` + notificationColumns + ` FROM notifications WHERE user_id = $1 AND archived_at IS NULL AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY created_at DESC LIMIT $2 OFFSET $3`
 	err := r.db.SelectContext(ctx, &notifs, query, userID, limit, offset)
 	return notifs, err
 }

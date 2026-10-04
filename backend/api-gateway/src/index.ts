@@ -2114,7 +2114,19 @@ app.use(createProxyMiddleware({
   changeOrigin: true,
   on: { proxyReq: (proxyReq: any, req: any) => { logProxyForward('device_tokens', req, ORDER_SERVICE_URL); prepareProxyRequest(proxyReq, req); } },
 }));
-app.use('/api/v1/notifications', authenticateJWT);
+// Notification inbox is shared by mobile clients (Bearer JWT) and the
+// merchant portal (HttpOnly customer_session). The route matrix already
+// treats it as a merchant-portal API; keep the runtime middleware aligned so
+// a portal cookie is not rejected with a misleading 401/refresh loop.
+const authenticateNotificationRequest = (req: Request, res: Response, next: NextFunction) => {
+  const authorization = String(req.headers.authorization || '').trim();
+  if (authorization.toLowerCase().startsWith('bearer ')) {
+    return authenticateJWT(req, res, next);
+  }
+  return authenticateMerchantWebSession(req, res, next);
+};
+
+app.use('/api/v1/notifications', authenticateNotificationRequest);
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/notifications',
   target: ORDER_SERVICE_URL,

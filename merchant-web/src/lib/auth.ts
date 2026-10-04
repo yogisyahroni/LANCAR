@@ -49,7 +49,10 @@ export function clearAccessToken() {
 }
 
 export function markWebSessionEstablished(user: StoredUser | null = null) {
-  sessionStorage.setItem(WEB_SESSION_KEY, '1')
+  // The marker is not a credential; the authoritative session remains the
+  // HttpOnly cookie. Keep only this non-secret marker in localStorage so a
+  // newly opened tab can use the shared cookie without forcing a second login.
+  localStorage.setItem(WEB_SESSION_KEY, '1')
   if (user) localStorage.setItem(USER_KEY, JSON.stringify(user))
 }
 
@@ -92,7 +95,7 @@ export function subscribeToWebAuthEvents(listener: (type: WebAuthEvent) => void)
 }
 
 export function hasWebSession(): boolean {
-  return sessionStorage.getItem(WEB_SESSION_KEY) === '1'
+  return localStorage.getItem(WEB_SESSION_KEY) === '1' || sessionStorage.getItem(WEB_SESSION_KEY) === '1'
 }
 
 export function getStoredUser(): StoredUser | null {
@@ -110,6 +113,7 @@ export function clearSession() {
   localStorage.removeItem('merchant_web_access_token')
   localStorage.removeItem('merchant_web_refresh_token')
   localStorage.removeItem(USER_KEY)
+  localStorage.removeItem(WEB_SESSION_KEY)
   sessionStorage.removeItem(WEB_SESSION_KEY)
   sessionStorage.removeItem(MERCHANT_SESSION_KEY)
   sessionStorage.removeItem(MERCHANT_BRANCH_KEY)

@@ -291,8 +291,12 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
       prefix('/api/v1/couriers')(method, path) ||
       prefix('/api/v1/tracking')(method, path) ||
       prefix('/api/v1/meeting-points')(method, path) ||
-      prefix('/api/v1/notifications')(method, path) ||
       prefix('/api/v1/insurance')(method, path),
+  },
+  {
+    id: 'notification-api',
+    requirement: 'web-session-or-jwt',
+    matches: prefix('/api/v1/notifications'),
   },
   {
     id: 'experiment-assignment-api',

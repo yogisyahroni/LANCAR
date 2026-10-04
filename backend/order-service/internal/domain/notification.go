@@ -27,23 +27,29 @@ type NotificationRequest struct {
 }
 
 type Notification struct {
-	ID         uuid.UUID           `json:"id" db:"id"`
-	UserID     uuid.UUID           `json:"user_id" db:"user_id"`
-	Title      string              `json:"title" db:"title"`
-	Body       string              `json:"body" db:"body"`
-	Type       string              `json:"type" db:"type"`
-	Icon       *string             `json:"icon" db:"icon"`
-	ImageURL   *string             `json:"image_url" db:"image_url"`
-	DeepLink   *string             `json:"deep_link" db:"deep_link"`
-	Channel    NotificationChannel `json:"channel" db:"channel"`
-	IsRead     bool                `json:"is_read" db:"is_read"`
-	ReadAt     *time.Time          `json:"read_at" db:"read_at"`
-	PushStatus *string             `json:"push_status" db:"push_status"`
-	PushError  *string             `json:"push_error" db:"push_error"`
-	SentAt     *time.Time          `json:"sent_at" db:"sent_at"`
-	OrderID    *uuid.UUID          `json:"order_id" db:"order_id"`
-	Metadata   *string             `json:"metadata" db:"metadata"` // JSON string
-	CreatedAt  time.Time           `json:"created_at" db:"created_at"`
+	ID             uuid.UUID           `json:"id" db:"id"`
+	UserID         uuid.UUID           `json:"user_id" db:"user_id"`
+	Title          string              `json:"title" db:"title"`
+	Body           string              `json:"body" db:"body"`
+	Type           string              `json:"type" db:"type"`
+	Icon           *string             `json:"icon" db:"icon"`
+	ImageURL       *string             `json:"image_url" db:"image_url"`
+	DeepLink       *string             `json:"deep_link" db:"deep_link"`
+	Channel        NotificationChannel `json:"channel" db:"channel"`
+	Category       string              `json:"category" db:"category"`
+	Priority       string              `json:"priority" db:"priority"`
+	IsRead         bool                `json:"is_read" db:"is_read"`
+	ReadAt         *time.Time          `json:"read_at" db:"read_at"`
+	ArchivedAt     *time.Time          `json:"archived_at" db:"archived_at"`
+	ExpiresAt      *time.Time          `json:"expires_at" db:"expires_at"`
+	PushStatus     *string             `json:"push_status" db:"push_status"`
+	PushError      *string             `json:"push_error" db:"push_error"`
+	SentAt         *time.Time          `json:"sent_at" db:"sent_at"`
+	OrderID        *uuid.UUID          `json:"order_id" db:"order_id"`
+	ConversationID *uuid.UUID          `json:"conversation_id" db:"conversation_id"`
+	PromoID        *uuid.UUID          `json:"promo_id" db:"promo_id"`
+	Metadata       *string             `json:"metadata" db:"metadata"` // JSON string
+	CreatedAt      time.Time           `json:"created_at" db:"created_at"`
 }
 
 type NotificationTemplate struct {
