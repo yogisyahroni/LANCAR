@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 5eff8d09
+implementation_ref: a187792d
 
 tests: PASS
 integration: PARTIAL
@@ -24,10 +24,10 @@ external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Authenticated staging smoke, cross-app event propagation, and release gates remain required before production rollout."
 
-unproven_requirements: "Live event fan-out/cache invalidation across Customer, Courier, Merchant Android and Admin read models; product policy for business-level payout allocation in an outlet view."
+unproven_requirements: "Live event fan-out/cache invalidation across Customer, Courier, Merchant Android and Admin read models; Merchant Android device/runtime propagation; product policy for business-level payout allocation in an outlet view."
 known_blockers: NONE
 
-locally_actionable_remaining: "Continue the same task with event/cache propagation and role/recovery verification across the remaining consumers, then resolve the finance policy gap before marking COMPLETE."
+locally_actionable_remaining: "Continue the same task with event/cache propagation, Merchant Android device/runtime proof, and role/recovery verification across the remaining consumers, then resolve the finance policy gap before marking COMPLETE."
 
 blocker_resolution_attempts: "Rebuilt merchant-service, order-service, and merchant-web; applied the three new migration up paths to the Docker PostgreSQL instance after the goose image registry denied access; verified schema, triggers, service health, unauthenticated route denial, and executed the expanded order-count SQL directly against the active Docker PostgreSQL instance; then ran the three migration Down paths in reverse and Up paths forward on a schema-only disposable PostgreSQL database and removed that database after validation."
 unblock_condition: NONE
@@ -73,6 +73,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Added an admin RabbitMQ consumer for `merchant.operating_state.changed` with a durable queue, DLQ, bounded prefetch, invalid-contract rejection, duplicate suppression, retry on delivery failure, and structured delivery metrics.
 - Extended the authenticated Socket.IO handshake to accept the HttpOnly `merchant_session` cookie for merchant owners/staff and join only the server-resolved merchant room.
 - Added Merchant Web Socket.IO invalidation with authoritative dashboard refetch; the event payload is never treated as the source of truth and the existing 30-second poll remains the recovery fallback.
+- Added Merchant Android canonical outlet-profile decoding and a bounded 30-second foreground refresh fallback so a status changed by Merchant Web/Admin is not hidden behind stale profile state; the API remains authoritative and order polling is unchanged.
 - Enabled RabbitMQ outbox publishing and the operating-state consumer in the local Compose runtime, and passed the socket URL into the Merchant Web build.
 - Kept the local socket build argument empty by default so the browser derives the socket origin from the configured API origin; this avoids baking `localhost` into an image accessed through a tunnel/domain.
 
@@ -100,6 +101,9 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - `backend/admin-service/src/websocket.ts` — merchant session-cookie authentication and scoped room join.
 - `merchant-web/src/lib/realtime.ts` — authenticated Socket.IO invalidation client.
 - `merchant-web/src/pages/Dashboard.tsx` — authoritative dashboard refetch on operating-state event.
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/data/model/MerchantModels.kt` — canonical operating-state fields retained alongside legacy `is_open`.
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/HomeViewModel.kt` and `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/StitchOrdersDashboardScreen.kt` — bounded authoritative profile refresh fallback.
+- `android-app-merchant/app/src/test/java/com/tembus/merchant/data/model/MerchantOperatingStateContractTest.kt` — Android profile contract proof.
 - `merchant-web/Dockerfile` and `docker-compose.yml` — socket build configuration and local outbox/consumer runtime defaults.
 - `backend/merchant-service/internal/service/merchant_access_service.go` — guarantees an empty branch collection serializes as `[]` for older merchants without a backfilled outlet.
 - `merchant-web/src/components/Layout.tsx` and `merchant-web/src/lib/portal-context.ts` — defensive collection handling for legacy/null portal payloads.
@@ -191,6 +195,14 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     command: docker compose build merchant-service merchant-web; docker compose up -d --no-deps merchant-service api-gateway admin-service merchant-web; node scripts/e2e/merchant-web-dashboard-browser.mjs
     result: PASS — disposable local flow completed Admin approval → canonical merchant open/closed mutation → Customer food discovery exposure/removal → Admin detail projection → Merchant Web login → dashboard render → external operating-state mutation → Socket.IO-triggered dashboard refetch. Customer discovery exposed the disposable merchant only while open, Admin reported the same canonical state in both directions, browser reported no page errors, and one authoritative dashboard refetch was observed. Disposable owner and customer probe users were deleted. The local image was built with loopback CSP sources only for the explicit local build and the Docker stack was restored afterward.
 
+    command: .\\gradlew.bat :app:testDebugUnitTest --no-daemon
+    location: android-app-merchant
+    result: PASS — Merchant Android unit tests passed, including canonical operating-state JSON contract coverage; existing deprecation warnings remain.
+
+    command: .\\gradlew.bat :app:assembleDebug --no-daemon
+    location: android-app-merchant
+    result: PASS — Merchant Android debug APK assembled from the current working tree. `adb devices` returned no connected device, so installation/runtime propagation was not claimed.
+
 ## Task-Local Verification
 
 ### Tests
@@ -203,13 +215,13 @@ Evidence: `go test ./internal/service -run 'TestGetDashboard_' -count=1 -v` pass
 
 Status: PARTIAL
 
-Evidence: Docker services connected to the shared PostgreSQL instance and the schema/trigger contract was verified. The read-only branch sales/finance integration test passed against a real PostgreSQL fixture. The rebuilt admin runtime consumed a broker event through the durable queue and DLQ contract. The authenticated local browser flow proved Customer discovery and Admin detail read the same canonical open/closed state as Merchant Web, and proved the Merchant Web dashboard refetch after an external status mutation. Live event/cache propagation to Courier and Merchant Android, plus consumed-event propagation across all product clients, remains unproven.
+Evidence: Docker services connected to the shared PostgreSQL instance and the schema/trigger contract was verified. The read-only branch sales/finance integration test passed against a real PostgreSQL fixture. The rebuilt admin runtime consumed a broker event through the durable queue and DLQ contract. The authenticated local browser flow proved Customer discovery and Admin detail read the same canonical open/closed state as Merchant Web, and proved the Merchant Web dashboard refetch after an external status mutation. Merchant Android now has a tested authoritative profile-refresh fallback, but live event/cache propagation to Courier and Merchant Android device/runtime, plus consumed-event propagation across all product clients, remains unproven.
 
 ### E2E
 
 Status: PARTIAL
 
-Evidence: The HTTPS disposable harness completed registration → document upload → Admin reject/resubmit/approve → ACTIVE status → authenticated `GET /merchant/dashboard` → suspend → SUSPENDED status. Sanitized dashboard proof: `data_as_of_present=true`, `merchant_scope_matches=true`, `scope_level=merchant_aggregate`, `order_fields_present=true`, `auto_accept_present=true`, `alert_count=1`. The local Playwright/Chrome harness additionally completed Admin approval → canonical open state → Customer discovery present → Admin detail open → canonical closed state → Customer discovery absent → Admin detail closed → Merchant Web browser login → dashboard render → external operating-state mutation → Socket.IO-triggered dashboard refetch with `page_errors=[]` and `dashboard_refetch_count=1`. Outlet-scoped sales/finance API attribution passed against local PostgreSQL. Live Customer/Courier/Merchant Android/Admin event/cache propagation remains unproven.
+Evidence: The HTTPS disposable harness completed registration → document upload → Admin reject/resubmit/approve → ACTIVE status → authenticated `GET /merchant/dashboard` → suspend → SUSPENDED status. Sanitized dashboard proof: `data_as_of_present=true`, `merchant_scope_matches=true`, `scope_level=merchant_aggregate`, `order_fields_present=true`, `auto_accept_present=true`, `alert_count=1`. The local Playwright/Chrome harness additionally completed Admin approval → canonical open state → Customer discovery present → Admin detail open → canonical closed state → Customer discovery absent → Admin detail closed → Merchant Web browser login → dashboard render → external operating-state mutation → Socket.IO-triggered dashboard refetch with `page_errors=[]` and `dashboard_refetch_count=1`. Outlet-scoped sales/finance API attribution passed against local PostgreSQL. Merchant Android unit/build proof passed, but no Android device was connected for install/runtime verification; live Customer/Courier/Merchant Android/Admin event/cache propagation remains unproven.
 
 ### Migration
 
@@ -270,14 +282,14 @@ The portal remains unsuitable for a production-complete claim until the unproven
 ## Unproven Requirements
 
 - Authenticated browser E2E for owner, manager, cashier, and finance roles, including retry/duplicate-click behavior.
-- Live operating-state event fan-out and cache invalidation to Customer, Courier, Merchant Android, Merchant Web, and Admin through the published event contract; direct Customer discovery and Admin projection reads are proven, but consumed-event refresh is not.
+- Live operating-state event fan-out and cache invalidation to Customer, Courier, Merchant Android, Merchant Web, and Admin through the published event contract; direct Customer discovery and Admin projection reads are proven, Merchant Android has a tested polling fallback, but consumed-event/device refresh is not.
 - Business-level withdrawal/payout allocation into a selected outlet is intentionally not performed; Finance/Product must define an auditable allocation policy before that capability is added.
 - Live replay/observability verification and browser/cross-app event propagation.
 
 ## Locally Actionable Remaining
 
 - Execute authenticated browser E2E for owner, manager, cashier, and finance roles, including duplicate-click, retry, refresh, and reconnect behavior.
-- Prove Customer, Courier, Merchant Android, Merchant Web, and Admin consumers refresh their authoritative views from the same operating-state event contract, including replay, duplicate, stale, and reconnect behavior.
+- Prove Customer, Courier, Merchant Android, Merchant Web, and Admin consumers refresh their authoritative views from the same operating-state event contract, including Android device/runtime, replay, duplicate, stale, and reconnect behavior.
 - Resolve the product decision for how business-level withdrawals/payouts are allocated, or keep them explicitly business-scoped and excluded from outlet totals.
 
 ## External Blockers
