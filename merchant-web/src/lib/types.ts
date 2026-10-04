@@ -23,6 +23,10 @@ export interface Merchant {
   user_id: string
   nama_toko: string
   alamat: string
+  branch_id?: string
+  branch_code?: string
+  outlet_name?: string
+  branch_address?: string
   lokasi_lat?: number | null
   lokasi_lng?: number | null
   jam_buka?: string | null

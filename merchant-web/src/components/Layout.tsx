@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { Banknote, ClipboardList, LayoutDashboard, LogOut, Menu as MenuIcon, Percent, Settings, Store, Users, UtensilsCrossed, X, BarChart3 } from 'lucide-react'
 import { toast } from 'sonner'
 import { clearSession } from '../lib/auth'
+import { api } from '../lib/api'
+import type { Merchant } from '../lib/types'
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -15,9 +17,22 @@ const NAV = [
   { to: '/pengaturan', label: 'Pengaturan', icon: Settings },
 ]
 
-export default function Layout({ merchantName }: { merchantName?: string }) {
+export default function Layout() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [merchant, setMerchant] = useState<Merchant | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    api.get<Merchant>('/merchant/profile')
+      .then((response) => { if (mounted) setMerchant(response.data) })
+      .catch(() => { /* ProtectedRoute owns the user-facing recovery state. */ })
+    return () => { mounted = false }
+  }, [])
+
+  const visibleNav = NAV.filter(({ to }) => to !== '/staff' || merchant?.business_type === 'perusahaan')
+  const outletName = merchant?.outlet_name || merchant?.nama_toko || 'Toko Mitra'
+  const outletAddress = merchant?.branch_address || merchant?.alamat || ''
 
   const logout = () => {
     clearSession()
@@ -32,7 +47,7 @@ export default function Layout({ merchantName }: { merchantName?: string }) {
         <span className="font-black text-emerald-900">Mitra</span>
       </div>
       <nav className="mt-2 flex-1 space-y-1 px-3">
-        {NAV.map(({ to, label, icon: Icon }) => (
+        {visibleNav.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
@@ -78,7 +93,8 @@ export default function Layout({ merchantName }: { merchantName?: string }) {
               </button>
               <div className="hidden items-center gap-1.5 text-sm text-zinc-400 sm:flex">
                 <Store className="h-4 w-4 text-emerald-900" />
-                <span className="max-w-[240px] truncate font-bold text-zinc-800">{merchantName || 'Toko Mitra'}</span>
+                <span className="max-w-[260px] truncate font-bold text-zinc-800">{outletName}</span>
+                {outletAddress && <span className="hidden max-w-[180px] truncate text-xs text-zinc-400 xl:inline">{outletAddress}</span>}
               </div>
             </div>
             <button onClick={logout} className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-4 py-2 text-xs font-bold text-zinc-600 transition hover:border-red-200 hover:text-red-600">
