@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: "Working tree for staging change; commit pending"
+implementation_ref: 958b4843
 
 tests: PASS
 integration: PARTIAL
