@@ -857,7 +857,10 @@ services:
         MERCHANT_BUILD_ENV: ${MERCHANT_BUILD_ENV:-local}
         MERCHANT_EXPECTED_API_URL: ${MERCHANT_EXPECTED_API_URL:-}
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api/v1}
-        VITE_SOCKET_URL: ${VITE_SOCKET_URL:-http://localhost:8080}
+        # Leave empty by default so Merchant Web derives the socket origin from
+        # VITE_API_URL. An explicit value is still available for split-origin
+        # staging/production deployments.
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL:-}
     container_name: tembus-merchant-web
     restart: unless-stopped
     ports:
