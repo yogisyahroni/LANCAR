@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router'
 import { ArrowRight, Clock3, Loader2, Lock, Mail, Store, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
-import { clearMerchantDeviceSession, deviceId, setSession } from '../lib/auth'
+import { clearMerchantBranchSelection, clearMerchantDeviceSession, deviceId, setSession } from '../lib/auth'
 import { merchantOnboardingStatus } from '../lib/merchant-status'
 import { loadMerchantPortalContext } from '../lib/portal-context'
 import type { AuthResponse } from '../lib/types'
@@ -53,6 +53,7 @@ export default function Login() {
       const token = res.data?.access_token || res.data?.data?.token
       if (!token) throw new Error(res.data?.message || 'Login gagal. Coba lagi.')
 
+      clearMerchantBranchSelection()
       clearMerchantDeviceSession()
       setSession(token, res.data?.refresh_token ?? null, {
         id: res.data?.user?.id,

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { Banknote, Bell, Check, ChevronDown, CircleHelp, ClipboardList, LayoutDashboard, LogOut, Menu as MenuIcon, Percent, Settings, Store, Users, UtensilsCrossed, X, BarChart3 } from 'lucide-react'
+import { Banknote, Bell, Check, ChevronDown, CircleHelp, ClipboardList, LayoutDashboard, LogOut, Menu as MenuIcon, Percent, Search, Settings, Store, Users, UtensilsCrossed, X, BarChart3, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
-import { clearSession, getStoredUser } from '../lib/auth'
+import { clearMerchantDeviceSession, clearSession, getStoredUser, setMerchantBranchSelection } from '../lib/auth'
 import { api } from '../lib/api'
 import type { Merchant, MerchantNotification, MerchantPortalContext } from '../lib/types'
 import { loadMerchantPortalContext } from '../lib/portal-context'
@@ -27,6 +27,10 @@ export default function Layout() {
   const [notifications, setNotifications] = useState<MerchantNotification[]>([])
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
+  const [branchOpen, setBranchOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [switchingBranch, setSwitchingBranch] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -45,7 +49,29 @@ export default function Layout() {
 
   const visibleNav = NAV.filter(({ capability }) => !portalContext || portalContext.capabilities.includes(capability))
   const outletName = merchant?.outlet_name || merchant?.nama_toko || 'Toko Mitra'
-  const outletAddress = merchant?.branch_address || merchant?.alamat || ''
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase('id-ID')
+    if (!query) return visibleNav.slice(0, 5)
+    return visibleNav.filter((item) => `${item.label} ${item.to}`.toLocaleLowerCase('id-ID').includes(query)).slice(0, 6)
+  }, [searchQuery, visibleNav])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setSearchOpen(true)
+        window.requestAnimationFrame(() => document.getElementById('portal-global-search')?.focus())
+      }
+      if (event.key === 'Escape') {
+        setSearchOpen(false)
+        setBranchOpen(false)
+        setNotificationOpen(false)
+        setAccountOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   const logout = () => {
     clearSession()
@@ -61,6 +87,26 @@ export default function Layout() {
     } catch {
       toast.error('Notifikasi belum dapat ditandai sudah dibaca')
     }
+  }
+
+  const switchBranch = (branchID: string) => {
+    if (!portalContext || switchingBranch || branchID === portalContext.current_branch_id) return
+    const branch = portalContext.branches.find((item) => item.id === branchID)
+    if (!branch) return
+    setSwitchingBranch(true)
+    setMerchantBranchSelection({ merchant_id: portalContext.merchant.id, branch_id: branch.id })
+    // Staff sessions are branch-bound. The next context bootstrap will open a
+    // new server-authorized session for the selected outlet.
+    clearMerchantDeviceSession()
+    setBranchOpen(false)
+    toast.info(`Memuat data ${branch.name}...`)
+    window.location.assign(`${location.pathname}${location.search}`)
+  }
+
+  const openSearchResult = (to: string) => {
+    setSearchOpen(false)
+    setSearchQuery('')
+    navigate(to)
   }
 
   const unreadCount = notifications.filter((notification) => !notification.is_read).length
@@ -114,21 +160,122 @@ export default function Layout() {
       <div className="lg:pl-64">
         <header className="sticky top-0 z-30 border-b border-zinc-100 bg-white/90 backdrop-blur">
           <div className="flex items-center justify-between px-5 py-3.5">
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <button onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 lg:hidden">
                 <MenuIcon className="h-5 w-5" />
               </button>
-              <div className="hidden items-center gap-1.5 text-sm text-zinc-400 sm:flex">
-                <Store className="h-4 w-4 text-emerald-900" />
-                <span className="max-w-[260px] truncate font-bold text-zinc-800">{outletName}</span>
-                {outletAddress && <span className="hidden max-w-[180px] truncate text-xs text-zinc-400 xl:inline">{outletAddress}</span>}
+              <div className="relative min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setBranchOpen((open) => !open)}
+                  aria-label="Pilih outlet aktif"
+                  aria-expanded={branchOpen}
+                  disabled={switchingBranch}
+                  className="flex min-w-0 max-w-[15rem] items-center gap-2 rounded-xl px-2 py-1.5 text-left transition hover:bg-emerald-50 disabled:cursor-wait disabled:opacity-60 sm:max-w-[23rem]"
+                >
+                  <Store className="h-4 w-4 shrink-0 text-emerald-900" />
+                  <span className="min-w-0">
+                    <span className="hidden text-[10px] font-bold uppercase tracking-wide text-zinc-400 sm:block">Outlet aktif</span>
+                    <span className="block truncate text-sm font-bold text-zinc-800">{outletName}</span>
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                </button>
+                {branchOpen && portalContext && (
+                  <div className="absolute left-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl">
+                    <div className="border-b border-zinc-100 px-4 py-3">
+                      <p className="text-xs font-black text-zinc-900">Pilih outlet</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">Data halaman akan mengikuti outlet yang dipilih.</p>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto p-2">
+                      {portalContext.branches.map((branch) => {
+                        const active = branch.id === portalContext.current_branch_id
+                        return (
+                          <button
+                            key={branch.id}
+                            type="button"
+                            onClick={() => switchBranch(branch.id)}
+                            className={`flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition ${active ? 'bg-emerald-50 text-emerald-950' : 'hover:bg-zinc-50'}`}
+                          >
+                            <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${active ? 'bg-emerald-900 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
+                              <Store className="h-4 w-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center gap-2 text-sm font-bold text-zinc-900">
+                                <span className="truncate">{branch.name}</span>
+                                {active && <Check className="h-4 w-4 shrink-0 text-emerald-700" />}
+                              </span>
+                              <span className="mt-1 block truncate text-xs text-zinc-500">{branch.address || branch.code}</span>
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="hidden items-center gap-2 text-xs text-zinc-400 lg:flex">
                 <span>/</span>
                 <span className="font-bold text-zinc-700">{pageTitle}</span>
               </div>
             </div>
+            <div className="relative mx-3 hidden min-w-0 flex-1 justify-center sm:flex">
+              <div className="flex w-full max-w-md items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 transition focus-within:border-emerald-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-900/10">
+                <Search className="h-4 w-4 shrink-0 text-zinc-400" />
+                <input
+                  id="portal-global-search"
+                  value={searchQuery}
+                  onChange={(event) => { setSearchQuery(event.target.value); setSearchOpen(true) }}
+                  onFocus={() => setSearchOpen(true)}
+                  placeholder="Cari halaman atau tindakan"
+                  aria-label="Cari halaman atau tindakan"
+                  className="min-w-0 flex-1 bg-transparent text-sm text-zinc-800 outline-none placeholder:text-zinc-400"
+                />
+                <kbd className="hidden rounded-md border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-zinc-400 lg:inline">Ctrl K</kbd>
+              </div>
+              {searchOpen && (
+                <div className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl">
+                  <div className="border-b border-zinc-100 px-4 py-3 text-[11px] text-zinc-500">Hasil dari akses akun ini</div>
+                  {searchResults.length ? searchResults.map(({ to, label, icon: Icon }) => (
+                    <button key={to} type="button" onClick={() => openSearchResult(to)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-emerald-50">
+                      <Icon className="h-4 w-4 text-emerald-800" />
+                      <span className="min-w-0 flex-1 text-sm font-bold text-zinc-800">{label}</span>
+                      <ArrowRight className="h-4 w-4 text-zinc-300" />
+                    </button>
+                  )) : <p className="px-4 py-6 text-center text-sm text-zinc-500">Tidak ada halaman yang cocok.</p>}
+                </div>
+              )}
+            </div>
             <div className="relative flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSearchOpen((open) => !open)}
+                aria-label="Cari halaman atau tindakan"
+                className="rounded-full border border-zinc-200 p-2.5 text-zinc-600 transition hover:border-emerald-200 hover:text-emerald-900 sm:hidden"
+              >
+                <Search className="h-4 w-4" />
+              </button>
+              {searchOpen && (
+                <div className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl sm:hidden">
+                  <div className="flex items-center gap-2 border-b border-zinc-100 px-3 py-2">
+                    <Search className="h-4 w-4 shrink-0 text-zinc-400" />
+                    <input
+                      autoFocus
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Cari halaman atau tindakan"
+                      aria-label="Cari halaman atau tindakan"
+                      className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-zinc-800 outline-none placeholder:text-zinc-400"
+                    />
+                  </div>
+                  {searchResults.length ? searchResults.map(({ to, label, icon: Icon }) => (
+                    <button key={to} type="button" onClick={() => openSearchResult(to)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-emerald-50">
+                      <Icon className="h-4 w-4 text-emerald-800" />
+                      <span className="min-w-0 flex-1 text-sm font-bold text-zinc-800">{label}</span>
+                      <ArrowRight className="h-4 w-4 text-zinc-300" />
+                    </button>
+                  )) : <p className="px-4 py-6 text-center text-sm text-zinc-500">Tidak ada halaman yang cocok.</p>}
+                </div>
+              )}
               <a href="https://bawain.my.id/bantuan/pusat-bantuan" target="_blank" rel="noreferrer" className="hidden items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold text-zinc-500 transition hover:bg-emerald-50 hover:text-emerald-900 sm:inline-flex">
                 <CircleHelp className="h-4 w-4" /> Bantuan
               </a>

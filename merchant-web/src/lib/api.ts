@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { clearSession, deviceId, getMerchantDeviceSession, getRefreshToken, getToken, setSession } from './auth'
+import { clearSession, deviceId, getMerchantBranchSelection, getMerchantDeviceSession, getRefreshToken, getToken, setSession } from './auth'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
 
@@ -15,10 +15,15 @@ api.interceptors.request.use((config) => {
   const token = getToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
   const merchantSession = getMerchantDeviceSession()
+  const branchSelection = getMerchantBranchSelection()
   if (merchantSession) {
     config.headers['X-Merchant-Session-Token'] = merchantSession.session_token
-    config.headers['X-Merchant-Branch-ID'] = merchantSession.branch_id
+    config.headers['X-Merchant-Branch-ID'] = branchSelection?.branch_id || merchantSession.branch_id
     config.headers['X-Device-ID'] = merchantSession.device_id
+  } else if (branchSelection?.branch_id) {
+    // Owners do not need a device session, but the server still receives the
+    // selected branch so every subsequent query is scoped to that outlet.
+    config.headers['X-Merchant-Branch-ID'] = branchSelection.branch_id
   }
   return config
 })

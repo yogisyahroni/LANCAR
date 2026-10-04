@@ -3,6 +3,7 @@ const REFRESH_KEY = 'merchant_web_refresh_token'
 const USER_KEY = 'merchant_web_user'
 const DEVICE_KEY = 'merchant_web_device_id'
 const MERCHANT_SESSION_KEY = 'merchant_web_session'
+const MERCHANT_BRANCH_KEY = 'merchant_web_branch'
 
 export interface StoredUser {
   id?: string
@@ -14,6 +15,11 @@ export interface MerchantDeviceSession {
   session_token: string
   branch_id: string
   device_id: string
+}
+
+export interface MerchantBranchSelection {
+  merchant_id: string
+  branch_id: string
 }
 
 export function getToken(): string | null {
@@ -44,6 +50,7 @@ export function clearSession() {
   localStorage.removeItem(REFRESH_KEY)
   localStorage.removeItem(USER_KEY)
   sessionStorage.removeItem(MERCHANT_SESSION_KEY)
+  sessionStorage.removeItem(MERCHANT_BRANCH_KEY)
 }
 
 export function isLoggedIn(): boolean {
@@ -74,4 +81,21 @@ export function setMerchantDeviceSession(session: MerchantDeviceSession) {
 
 export function clearMerchantDeviceSession() {
   sessionStorage.removeItem(MERCHANT_SESSION_KEY)
+}
+
+export function getMerchantBranchSelection(): MerchantBranchSelection | null {
+  try {
+    const raw = sessionStorage.getItem(MERCHANT_BRANCH_KEY)
+    return raw ? (JSON.parse(raw) as MerchantBranchSelection) : null
+  } catch {
+    return null
+  }
+}
+
+export function setMerchantBranchSelection(selection: MerchantBranchSelection) {
+  sessionStorage.setItem(MERCHANT_BRANCH_KEY, JSON.stringify(selection))
+}
+
+export function clearMerchantBranchSelection() {
+  sessionStorage.removeItem(MERCHANT_BRANCH_KEY)
 }

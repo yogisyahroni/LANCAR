@@ -1,5 +1,13 @@
 import { api } from './api'
-import { clearMerchantDeviceSession, deviceId, getMerchantDeviceSession, setMerchantDeviceSession } from './auth'
+import {
+  clearMerchantBranchSelection,
+  clearMerchantDeviceSession,
+  deviceId,
+  getMerchantBranchSelection,
+  getMerchantDeviceSession,
+  setMerchantBranchSelection,
+  setMerchantDeviceSession,
+} from './auth'
 import type { MerchantPortalContext } from './types'
 
 interface PortalContextResponse {
@@ -25,16 +33,26 @@ function unwrap(response: { data: PortalContextResponse }): MerchantPortalContex
 // required for staff before any protected portal screen is rendered.
 export async function loadMerchantPortalContext(): Promise<MerchantPortalContext> {
   const existingSession = getMerchantDeviceSession()
+  const existingBranchSelection = getMerchantBranchSelection()
   let context: MerchantPortalContext
   try {
     context = unwrap(await api.get<PortalContextResponse>('/merchant/context'))
   } catch (error) {
-    // A session can expire between tabs. Remove only the scoped outlet
-    // session and retry the context discovery once; the JWT remains intact.
-    if (!existingSession) throw error
-    clearMerchantDeviceSession()
+    // A scoped outlet or staff device session can become stale between tabs.
+    // Clear only those scoped values and retry once; the JWT remains intact.
+    if (!existingSession && !existingBranchSelection) throw error
+    if (existingBranchSelection) clearMerchantBranchSelection()
+    if (existingSession) clearMerchantDeviceSession()
     context = unwrap(await api.get<PortalContextResponse>('/merchant/context'))
   }
+
+  if (context.current_branch_id) {
+    setMerchantBranchSelection({
+      merchant_id: context.merchant.id,
+      branch_id: context.current_branch_id,
+    })
+  }
+
   if (!context.device_session_required || getMerchantDeviceSession()) return context
 
   const branchID = context.current_branch_id || context.branches.find((branch) => branch.is_active)?.id
@@ -55,5 +73,11 @@ export async function loadMerchantPortalContext(): Promise<MerchantPortalContext
   })
 
   context = unwrap(await api.get<PortalContextResponse>('/merchant/context'))
+  if (context.current_branch_id) {
+    setMerchantBranchSelection({
+      merchant_id: context.merchant.id,
+      branch_id: context.current_branch_id,
+    })
+  }
   return context
 }
