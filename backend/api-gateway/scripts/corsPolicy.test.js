@@ -103,4 +103,12 @@ for (const clientMetadataHeader of [
   );
 }
 
+for (const merchantScopeHeader of ['x-merchant-session-token', 'x-merchant-branch-id']) {
+  assert.strictEqual(
+    PUBLIC_ALLOWED_HEADERS.map((header) => header.toLowerCase()).includes(merchantScopeHeader),
+    true,
+    `${merchantScopeHeader} must be allowed for merchant portal browser preflight`,
+  );
+}
+
 console.log('CORS policy tests passed');

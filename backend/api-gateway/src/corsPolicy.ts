@@ -35,6 +35,11 @@ export const PUBLIC_ALLOWED_HEADERS = [
   'x-portal',
   'x-idempotency-key',
   'x-device-id',
+  // Merchant portal scope headers are client-provided selectors only. The
+  // gateway and downstream services still authenticate and authorize them;
+  // allowing them here only makes the browser preflight explicit.
+  'x-merchant-session-token',
+  'x-merchant-branch-id',
   'x-csrf-token',
   'x-request-id',
   'traceparent',

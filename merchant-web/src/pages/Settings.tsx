@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Loader2, LockKeyhole, LogOut, PauseCircle, PlayCircle, Save } from 'lucide-react'
+import { Loader2, LockKeyhole, LogOut, MonitorSmartphone, PauseCircle, PlayCircle, RefreshCw, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
 import { clearSession, publishWebAuthEvent } from '../lib/auth'
@@ -9,6 +9,30 @@ import type { Merchant } from '../lib/types'
 import { rupiah } from '../lib/types'
 import { MerchantPageSkeleton } from '../components/Skeleton'
 import { loadMerchantPortalContext } from '../lib/portal-context'
+
+type WebSession = {
+  id: string
+  device: string
+  ip: string
+  location?: string
+  timestamp: string
+  is_current: boolean
+}
+
+const sessionDeviceLabel = (session: WebSession) => {
+  const device = session.device?.trim()
+  if (!device) return 'Perangkat tidak dikenal'
+  return device.length > 100 ? `${device.slice(0, 97)}...` : device
+}
+
+const sessionTimeLabel = (timestamp: string) => {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return 'Waktu tidak tersedia'
+  return date.toLocaleString('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -19,6 +43,24 @@ export default function Settings() {
   const [jamBuka, setJamBuka] = useState('')
   const [jamTutup, setJamTutup] = useState('')
   const [minOrder, setMinOrder] = useState('')
+  const [sessions, setSessions] = useState<WebSession[]>([])
+  const [sessionsLoading, setSessionsLoading] = useState(true)
+  const [revokingSessions, setRevokingSessions] = useState(false)
+
+  const loadSessions = useCallback(async () => {
+    setSessionsLoading(true)
+    try {
+      const res = await api.get<{ sessions?: WebSession[]; data?: { sessions?: WebSession[] } }>('/auth/web/sessions')
+      setSessions(res.data?.sessions || res.data?.data?.sessions || [])
+    } catch (err) {
+      // Session management is helpful but must not prevent the merchant from
+      // using the rest of the settings page when the list is temporarily down.
+      setSessions([])
+      console.warn('Daftar perangkat belum dapat dimuat:', apiErrorMessage(err))
+    } finally {
+      setSessionsLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     loadMerchantPortalContext()
@@ -31,7 +73,23 @@ export default function Settings() {
       })
       .catch((err) => toast.error(apiErrorMessage(err, 'Gagal memuat profil')))
       .finally(() => setLoading(false))
-  }, [])
+    void loadSessions()
+  }, [loadSessions])
+
+  const revokeOtherSessions = async () => {
+    if (!sessions.some((session) => !session.is_current)) return
+    if (!window.confirm('Keluar dari semua perangkat lain? Perangkat ini tetap masuk.')) return
+    setRevokingSessions(true)
+    try {
+      await api.post('/auth/web/sessions/logout-others')
+      await loadSessions()
+      toast.success('Perangkat lain sudah dikeluarkan')
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Perangkat lain belum dapat dikeluarkan'))
+    } finally {
+      setRevokingSessions(false)
+    }
+  }
 
   const saveHours = async () => {
     setSavingHours(true)
@@ -151,6 +209,58 @@ export default function Settings() {
             {merchant.paused_until ? <PlayCircle className="h-4 w-4" /> : <PauseCircle className="h-4 w-4" />}
             {merchant.paused_until ? 'Lanjutkan Toko' : 'Pause 30 Menit'}
           </button>
+        </div>
+
+        <div className="rounded-xl bg-zinc-50 px-4 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-900/10 text-emerald-900">
+                <MonitorSmartphone className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-zinc-800">Perangkat dan sesi</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">Lihat perangkat yang sedang masuk ke Portal Mitra dan keluarkan perangkat lain bila perlu.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => void loadSessions()}
+              disabled={sessionsLoading || revokingSessions}
+              aria-label="Muat ulang daftar perangkat"
+              className="rounded-lg border border-zinc-200 p-2 text-zinc-500 transition hover:border-emerald-900/30 hover:text-emerald-900 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${sessionsLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
+          {sessionsLoading ? (
+            <div className="mt-4 flex items-center gap-2 text-xs text-zinc-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat daftar perangkat…</div>
+          ) : sessions.length === 0 ? (
+            <p className="mt-4 rounded-lg border border-dashed border-zinc-200 px-3 py-3 text-xs text-zinc-500">Belum ada informasi perangkat yang dapat ditampilkan.</p>
+          ) : (
+            <>
+              <ul className="mt-4 space-y-2">
+                {sessions.map((session) => (
+                  <li key={session.id} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-zinc-800">{sessionDeviceLabel(session)}</p>
+                      <p className="mt-1 text-[11px] text-zinc-500">{session.ip || 'Alamat jaringan tidak tersedia'} · {sessionTimeLabel(session.timestamp)}</p>
+                    </div>
+                    {session.is_current && <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-800">Perangkat ini</span>}
+                  </li>
+                ))}
+              </ul>
+              {sessions.some((session) => !session.is_current) && (
+                <button
+                  onClick={() => void revokeOtherSessions()}
+                  disabled={revokingSessions}
+                  className="mt-3 inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-bold text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+                >
+                  {revokingSessions ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+                  {revokingSessions ? 'Mengeluarkan perangkat…' : 'Keluarkan perangkat lain'}
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-zinc-50 px-4 py-3.5 opacity-60">
