@@ -29,9 +29,11 @@ function unwrap(response: { data: PortalContextResponse }): MerchantPortalContex
   return response.data.data
 }
 
+let contextLoadInFlight: Promise<MerchantPortalContext> | null = null
+
 // Loads the server-owned tenant context and opens the scoped device session
 // required for staff before any protected portal screen is rendered.
-export async function loadMerchantPortalContext(): Promise<MerchantPortalContext> {
+async function loadMerchantPortalContextInternal(): Promise<MerchantPortalContext> {
   const existingSession = getMerchantDeviceSession()
   const existingBranchSelection = getMerchantBranchSelection()
   let context: MerchantPortalContext
@@ -80,4 +82,17 @@ export async function loadMerchantPortalContext(): Promise<MerchantPortalContext
     })
   }
   return context
+}
+
+// ProtectedRoute, Layout, and page-level loaders can mount together (and
+// React StrictMode intentionally mounts effects twice in development). Share
+// one bootstrap promise per tab so a single navigation cannot create duplicate
+// device sessions or issue duplicate context commands.
+export function loadMerchantPortalContext(): Promise<MerchantPortalContext> {
+  if (!contextLoadInFlight) {
+    contextLoadInFlight = loadMerchantPortalContextInternal().finally(() => {
+      contextLoadInFlight = null
+    })
+  }
+  return contextLoadInFlight
 }

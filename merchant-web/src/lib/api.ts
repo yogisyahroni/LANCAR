@@ -89,8 +89,12 @@ api.interceptors.response.use(
 )
 
 export function apiErrorMessage(err: unknown, fallback = 'Terjadi kesalahan. Coba lagi.'): string {
-  const e = err as { response?: { data?: { error?: string; code?: string; message?: string } }; message?: string }
-  const errorCode = e?.response?.data?.error || e?.response?.data?.code
+  const e = err as { response?: { data?: { error?: unknown; code?: unknown; message?: unknown } }; message?: unknown }
+  const data = e?.response?.data
+  const rawError = data?.error
+  const rawCode = data?.code
+  const rawMessage = data?.message
+  const errorCode = typeof rawError === 'string' ? rawError : typeof rawCode === 'string' ? rawCode : undefined
   const friendlyMessages: Record<string, string> = {
     ERR_OTP_RATE_LIMIT: 'Terlalu banyak permintaan kode. Coba lagi setelah beberapa saat.',
     ERR_OTP_VERIFY_RATE_LIMIT: 'Terlalu banyak percobaan kode. Coba lagi setelah beberapa saat.',
@@ -99,5 +103,13 @@ export function apiErrorMessage(err: unknown, fallback = 'Terjadi kesalahan. Cob
     otp_send_failed: 'Kode verifikasi belum dapat dikirim. Coba lagi beberapa saat.',
     otp_invalid: 'Kode verifikasi salah atau sudah kedaluwarsa.',
   }
-  return (errorCode && friendlyMessages[errorCode]) || e?.response?.data?.message || errorCode || e?.message || fallback
+  if (errorCode && friendlyMessages[errorCode]) return friendlyMessages[errorCode]
+  if (typeof rawMessage === 'string' && rawMessage.trim()) return rawMessage
+  if (typeof rawMessage === 'object' && rawMessage !== null && 'message' in rawMessage) {
+    const nestedMessage = (rawMessage as { message?: unknown }).message
+    if (typeof nestedMessage === 'string' && nestedMessage.trim()) return nestedMessage
+  }
+  if (errorCode) return errorCode
+  if (typeof e?.message === 'string' && e.message.trim()) return e.message
+  return fallback
 }

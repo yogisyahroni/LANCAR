@@ -39,11 +39,17 @@ export default function Dashboard() {
       setJamBuka((context.merchant.jam_buka || '08:00').slice(0, 5))
       setJamTutup((context.merchant.jam_tutup || '22:00').slice(0, 5))
       setOrders(ordersRes.data?.orders || [])
-      try {
-        const rep = await api.get<SalesReportSummary>('/merchant/reports?period=daily')
-        setReport(rep.data)
-      } catch {
-        console.warn('GET /merchant/reports tidak tersedia — statistik harian dihitung dari daftar pesanan')
+      if (context.capabilities.includes('view_reports')) {
+        try {
+          const rep = await api.get<SalesReportSummary>('/merchant/reports?period=daily')
+          setReport(rep.data)
+        } catch {
+          console.warn('GET /merchant/reports tidak tersedia — statistik harian dihitung dari daftar pesanan')
+          setReport(null)
+        }
+      } else {
+        // Do not probe a capability-gated endpoint for operational roles that
+        // are intentionally not allowed to see financial reporting.
         setReport(null)
       }
     } catch (err) {

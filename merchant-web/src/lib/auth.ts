@@ -60,6 +60,8 @@ export type WebAuthEvent = 'logout'
 
 type WebAuthEventPayload = { type: WebAuthEvent; at: number }
 
+const authEventKey = (payload: WebAuthEventPayload) => `${payload.type}:${payload.at}`
+
 export function publishWebAuthEvent(type: WebAuthEvent) {
   if (typeof window === 'undefined') return
   const payload: WebAuthEventPayload = { type, at: Date.now() }
@@ -81,17 +83,42 @@ export function publishWebAuthEvent(type: WebAuthEvent) {
 
 export function subscribeToWebAuthEvents(listener: (type: WebAuthEvent) => void) {
   if (typeof window === 'undefined') return () => undefined
+  const seen = new Set<string>()
+  const notify = (payload: WebAuthEventPayload) => {
+    if (payload.type !== 'logout') return
+    const key = authEventKey(payload)
+    if (seen.has(key)) return
+    seen.add(key)
+    // Keep this bounded in long-lived portal tabs. The timestamp makes the
+    // key unique across publishes without retaining an unbounded event log.
+    if (seen.size > 32) seen.delete(seen.values().next().value as string)
+    listener(payload.type)
+  }
   const onStorage = (event: StorageEvent) => {
     if (event.key !== AUTH_EVENT_KEY || !event.newValue) return
     try {
-      const payload = JSON.parse(event.newValue) as WebAuthEventPayload
-      if (payload.type === 'logout') listener(payload.type)
+      notify(JSON.parse(event.newValue) as WebAuthEventPayload)
     } catch {
       // Ignore malformed cross-tab notifications.
     }
   }
+  let channel: BroadcastChannel | null = null
+  try {
+    if ('BroadcastChannel' in window) {
+      channel = new BroadcastChannel(AUTH_EVENT_KEY)
+      channel.addEventListener('message', (event: MessageEvent<WebAuthEventPayload>) => {
+        if (!event.data || typeof event.data !== 'object') return
+        notify(event.data)
+      })
+    }
+  } catch {
+    // Storage remains the fallback for browsers without BroadcastChannel.
+  }
   window.addEventListener('storage', onStorage)
-  return () => window.removeEventListener('storage', onStorage)
+  return () => {
+    window.removeEventListener('storage', onStorage)
+    channel?.close()
+  }
 }
 
 export function hasWebSession(): boolean {
