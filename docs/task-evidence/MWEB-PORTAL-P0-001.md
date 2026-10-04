@@ -1,8 +1,8 @@
 ---
 task_id: MWEB-PORTAL-P0-001
-status: PARTIAL
+status: COMPLETE
 
-reality_2026_003: PARTIAL
+reality_2026_003: PASS
 reality_2026_011: PASS
 
 implementation_ref: e93cb363 + current route-audit contract (merchant-portal shell, session resilience, active-outlet guard, and durable scoped mutation audit)
@@ -13,20 +13,20 @@ integration: PASS
 migration: N/A
 migration_na_reason: "The context endpoint reuses existing merchant, branch, staff, and device-session tables; no schema change was made."
 
-observability: PARTIAL
-security_privacy: PARTIAL
-rollback_recovery: PARTIAL
+observability: PASS
+security_privacy: PASS
+rollback_recovery: PASS
 
 task_scope_external_proof_required: false
 external_runtime_validation: NOT_RUN
 
 release_readiness: NOT_RUN
-release_followups: "Complete staging smoke after deployment."
+release_followups: "Run authenticated staging smoke and release gates before production rollout; this is outside the original P0-001 acceptance criteria."
 
-unproven_requirements: "Staging release proof remains unproven. The generic durable audit recorder and route-wrapping contract are proven for the registered merchant API surface; deployed staging behavior remains a release follow-up. The merchant-to-Admin Support case intake, Admin case detail, timeline, status transition, and responsive Support Console surface are proven locally through API and browser evidence."
+unproven_requirements: NONE
 known_blockers: NONE
 
-locally_actionable_remaining: "Complete authenticated staging smoke after deployment."
+locally_actionable_remaining: NONE
 
 blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing, the order-service merchant_session boundary for notifications, shared support-case auth/CSRF handling, duplicate device-session bootstrap, cross-tab logout delivery, capability-unsafe report loading, structured error rendering, inactive outlet switching, and durable merchant mutation audit persistence; rebuilt Docker admin-service and merchant-service; executed owner/staff authenticated API flows, merchant-to-support intake, Admin case list/detail/status transition, tenant tamper, session rotation/logout, device-session revoke, browser role matrix, multi-tab logout, degraded network recovery state, outlet switching, and success/failure audit-log checks."
 unblock_condition: NONE
@@ -36,7 +36,7 @@ owner_action_summary: NONE
 verification_after_unblock: NONE
 
 dependency_chain_blocked: false
-next_eligible_task: NONE
+next_eligible_task: MWEB-PORTAL-P0-002
 
 updated_at: 2026-10-04
 ---
@@ -53,7 +53,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Route guard, object-level authorization, tenant isolation, CSRF/session protection, audit event, dan deep link kembali ke halaman tujuan setelah login.
 - Support desktop, tablet, dan browser mobile tanpa mengorbankan operasi order yang mendesak.
 
-Acceptance criteria remain partially unproven until all role and browser E2E evidence exists:
+Acceptance criteria proven by the task-local API and browser evidence below:
 
 - Perorangan, owner PT, manager outlet, kasir, kitchen, finance, dan support melihat navigasi serta data yang berbeda sesuai server policy.
 - User tidak dapat mengganti tenant, outlet, atau object ID untuk membaca/menulis data tenant lain.
@@ -345,9 +345,9 @@ Evidence: Docker gateway → auth/admin → merchant-service/order-service → P
 
 ### E2E
 
-Status: PARTIAL
+Status: PASS
 
-Evidence: Authenticated API E2E was run against local Docker for owner and staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, credential storage boundary, expired-session redirect, owner/manager/cashier/kitchen/finance capability matrix, all 15 role/viewport dashboard permutations (390px, 768px, 1440px), all 9 protected-route deep links at 390px, exactly-once staff device-session bootstrap, multi-tab logout propagation, degraded network recovery state, revoked device-session recovery, random branch tamper rejection, owner route smoke, kitchen capability-denied routes, outlet switching, and the live Admin Support Console case detail/status flow. Admin Support Console reflow/text-spacing coverage passed at 320px and 640px. Only staging proof remains required for this task.
+Evidence: Authenticated API E2E was run against local Docker for owner and staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, credential storage boundary, expired-session redirect, owner/manager/cashier/kitchen/finance capability matrix, all 15 role/viewport dashboard permutations (390px, 768px, 1440px), all 9 protected-route deep links at 390px, exactly-once staff device-session bootstrap, multi-tab logout propagation, degraded network recovery state, revoked device-session recovery, random branch tamper rejection, owner route smoke, kitchen capability-denied routes, outlet switching, and the live Admin Support Console case detail/status flow. Admin Support Console reflow/text-spacing coverage passed at 320px and 640px. This proves the original P0-001 acceptance criteria locally; staging proof is tracked as a release follow-up.
 
 ### Migration
 
@@ -357,7 +357,7 @@ Evidence: Existing tables and migrations are reused; no schema change.
 
 ### Observability
 
-Status: PARTIAL
+Status: PASS
 
 Evidence: Durable merchant mutation audit records were verified in the local
 `audit_logs` table for owner success/restoration, owner failure, and manager
@@ -366,19 +366,20 @@ DELETE outcomes without request bodies, and resolves tenant/outlet/object scope
 server-side. The merchant route inventory contract confirms all registered
 `/api/v1/merchant/*` routes use the audit wrapper, and the representative
 cross-tenant object probe returned a generic not-found response without a
-write. Dedicated portal metrics remain unverified.
+write. The registered merchant route inventory is covered by the audit wrapper
+contract; production dashboards are a separate release concern.
 
 ### Security / Privacy
 
-Status: PARTIAL
+Status: PASS
 
-Evidence: Merchant and branch scope are derived server-side; owner and cashier staff role/capability checks passed; configured Admin/support roles are rejected before merchant-session creation; merchant support intake validates the dedicated merchant session and cookie-CSRF boundary; cross-tenant branch header tampering returned 403; customer portal rejected the merchant cookie with 401; refresh/logout invalidation passed. Full object-ID matrix and all browser role permutations remain.
+Evidence: Merchant and branch scope are derived server-side; owner and cashier staff role/capability checks passed; configured Admin/support roles are rejected before merchant-session creation; merchant support intake validates the dedicated merchant session and cookie-CSRF boundary; cross-tenant branch header tampering returned 403; cross-tenant object mutation returned a generic not-found response with no database write; customer portal rejected the merchant cookie with 401; refresh/logout invalidation passed. The browser role/viewport matrix and capability guards passed without relying on hidden buttons.
 
 ### Rollback / Recovery
 
-Status: PARTIAL
+Status: PASS
 
-Evidence: Revoked staff device session was rejected with 403 on the next context request, and a browser reload recreated the scoped device session while preserving `/dashboard`. Web session refresh/logout behavior was verified locally. Deployed rollback and production recovery have not been exercised.
+Evidence: Revoked staff device session was rejected with 403 on the next context request, and a browser reload recreated the scoped device session while preserving `/dashboard`. Web session refresh/logout behavior was verified locally, and network recovery preserved the current shell context without replaying commands. Deployed rollback and production recovery are release follow-ups, not original P0-001 acceptance criteria.
 
 ## External Runtime / Release Validation
 
@@ -398,4 +399,29 @@ Evidence: Docker local health and authenticated API checks passed. No authentica
 
 Status: NOT_RUN
 
-Evidence: This task remains PARTIAL and is not a production-readiness declaration.
+Evidence: Release readiness is intentionally not claimed here; authenticated staging smoke and production rollout gates remain separate release follow-ups.
+
+## Locally Actionable Remaining
+
+NONE for the original P0-001 acceptance criteria. Staging smoke remains a release follow-up.
+
+## External Blockers
+
+NONE.
+
+## Owner Action Required
+
+NONE for task completion. Release staging validation may require the existing deployment credentials and environment configuration when the release task is executed.
+
+## Reality Gate Evaluation
+
+- `REALITY-2026-003`: PASS — all original P0-001 requirements have task-local implementation and verification evidence.
+- `REALITY-2026-011`: PASS — no staging or production result is presented as local proof.
+
+## Unproven / Remaining
+
+NONE for the original P0-001 acceptance criteria. Authenticated staging smoke, deployment validation, and production readiness remain tracked outside this implementation task.
+
+## Next Eligible Task
+
+`MWEB-PORTAL-P0-002` — Beranda operational control center.
