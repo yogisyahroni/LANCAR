@@ -60,7 +60,7 @@ describe('MERCH-2026-001 onboarding lifecycle contract', () => {
   it('uses the canonical status for public lookup and requires both identifiers when both are supplied', () => {
     expect(publicStatusController).toContain('m.onboarding_status');
     expect(publicStatusController).toContain('onboarding_status: canonicalStatus');
-    expect(publicStatusController).toContain('LOWER(u.email) = $1 AND u.phone_number = $2');
+    expect(publicStatusController).toContain('LOWER(u.email) = $1 AND u.phone_number = ANY($2::text[])');
     expect(publicStatusController).not.toContain('LOWER(u.email) = $1 OR u.phone_number = $2');
   });
 });

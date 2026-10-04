@@ -52,8 +52,8 @@ describe('public merchant registration status contract', () => {
     } as any, response);
 
     expect(db.query).toHaveBeenCalledWith(
-      expect.stringContaining('LOWER(u.email) = $1 AND u.phone_number = $2'),
-      ['owner@example.test', '081234567890'],
+      expect.stringContaining('LOWER(u.email) = $1 AND u.phone_number = ANY($2::text[])'),
+      ['owner@example.test', ['081234567890', '+6281234567890']],
     );
     expect(readDb.query).not.toHaveBeenCalled();
     expect(response.statusCode).toBe(200);
@@ -70,6 +70,21 @@ describe('public merchant registration status contract', () => {
       has_email: true,
       has_phone: true,
     }));
+  });
+
+  it('accepts the domestic phone format used by the merchant web form', async () => {
+    (db.query as jest.Mock).mockResolvedValue({ rows: [] });
+    const response = makeResponse();
+
+    await getMerchantRegistrationStatus({
+      query: { phone: '081234567890' },
+    } as any, response);
+
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('u.phone_number = ANY($1::text[])'),
+      [['081234567890', '+6281234567890']],
+    );
+    expect(response.statusCode).toBe(404);
   });
 
   it('returns a generic not-found response for a mismatched email and phone', async () => {

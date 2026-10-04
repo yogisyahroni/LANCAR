@@ -34,6 +34,16 @@ const publicLifecycleReason = (value: unknown): string | null => {
   return normalized.slice(0, 500);
 };
 
+const merchantStatusPhoneVariants = (value: string): string[] => {
+  const raw = value.trim();
+  const digits = raw.replace(/\D/g, '');
+  const variants = new Set<string>([raw]);
+  if (digits.startsWith('0')) variants.add(`+62${digits.slice(1)}`);
+  if (digits.startsWith('62')) variants.add(`+${digits}`);
+  if (digits.startsWith('8')) variants.add(`+62${digits}`);
+  return [...variants].filter(Boolean);
+};
+
 const nextActionForStatus = (status: string): string => {
   switch (status) {
     case 'DRAFT':
@@ -91,6 +101,7 @@ export const uploadMerchantPublicDocument = async (req: Request, res: Response):
 export const getMerchantRegistrationStatus = async (req: Request, res: Response): Promise<void> => {
   const email = String(req.query.email || '').trim().toLowerCase();
   const phone = String(req.query.phone || '').trim();
+  const phoneVariants = phone ? merchantStatusPhoneVariants(phone) : [];
   const startedAt = Date.now();
   const lookupMeta = {
     has_email: Boolean(email),
@@ -115,14 +126,14 @@ export const getMerchantRegistrationStatus = async (req: Request, res: Response)
       WHERE `;
     const params: any[] = [];
     if (email && phone) {
-      params.push(email, phone);
-      sql += `(LOWER(u.email) = $1 AND u.phone_number = $2)`;
+      params.push(email, phoneVariants);
+      sql += `(LOWER(u.email) = $1 AND u.phone_number = ANY($2::text[]))`;
     } else if (email) {
       params.push(email);
       sql += `LOWER(u.email) = $1`;
     } else {
-      params.push(phone);
-      sql += `u.phone_number = $1`;
+      params.push(phoneVariants);
+      sql += `u.phone_number = ANY($1::text[])`;
     }
     sql += ` LIMIT 1`;
 
