@@ -8,6 +8,7 @@ object OrderSyncSignalBus {
     const val REASON_PUSH_ORDER = "push_order"
     const val REASON_MANUAL = "manual"
     const val REASON_FOREGROUND = "foreground"
+    const val REASON_MERCHANT_OPERATING_STATE = "merchant_operating_state"
 
     private val _events = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val events: SharedFlow<String> = _events.asSharedFlow()

@@ -4,6 +4,7 @@ import android.util.Log
 import com.tembus.courier.BuildConfig
 import com.tembus.courier.data.model.CallSignalEvent
 import com.tembus.courier.data.model.ChatMessage
+import com.tembus.courier.data.model.MerchantOperatingStateEvent
 import com.tembus.courier.data.session.AuthSessionManager
 import io.socket.client.IO
 import io.socket.client.Socket
@@ -29,6 +30,7 @@ class SocketManager @Inject constructor(
     private val okHttpClient: OkHttpClient
 ) {
     private var mSocket: Socket? = null
+    private var mainScreenKeepsConnection = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _incomingMessages = MutableSharedFlow<ChatMessage>(replay = 0)
@@ -40,6 +42,13 @@ class SocketManager @Inject constructor(
     private val _callSignals = MutableSharedFlow<CallSignalEvent>(replay = 0)
     val callSignals: SharedFlow<CallSignalEvent> = _callSignals.asSharedFlow()
 
+    private val _merchantOperatingStateEvents = MutableSharedFlow<MerchantOperatingStateEvent>(replay = 0)
+    val merchantOperatingStateEvents: SharedFlow<MerchantOperatingStateEvent> =
+        _merchantOperatingStateEvents.asSharedFlow()
+
+    private val lastMerchantStateVersion = mutableMapOf<String, Long>()
+    private val seenMerchantEventIds = ConcurrentHashMap.newKeySet<String>()
+
     // CORE-2026-007: last-seen event version keyed by order_id for dedupe.
     private val lastEventVersion: MutableMap<String, Long> = ConcurrentHashMap()
 
@@ -47,6 +56,7 @@ class SocketManager @Inject constructor(
         private const val TAG = "SocketManager"
         private const val EVENT_NEW_MESSAGE = "new_chat_message"
         private const val EVENT_ORDER_TRACKING_UPDATED = "order_tracking_updated"
+        private const val EVENT_MERCHANT_OPERATING_STATE_CHANGED = "merchant_operating_state_changed"
         private val CALL_EVENTS = listOf(
             "call:incoming",
             "call:offer",
@@ -102,6 +112,13 @@ class SocketManager @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected socket initialization failure", e)
         }
+    }
+
+    /** Keeps the authenticated socket alive while the courier dashboard is foreground. */
+    @Synchronized
+    fun connectForMainScreen() {
+        mainScreenKeepsConnection = true
+        connect()
     }
 
     private fun setupListeners() {
@@ -171,6 +188,33 @@ class SocketManager @Inject constructor(
             }
         }
 
+        socket.on(EVENT_MERCHANT_OPERATING_STATE_CHANGED) { args ->
+            val data = args.getOrNull(0) as? JSONObject ?: return@on
+            val merchantId = data.optString("merchant_id", "").trim()
+            val state = data.optString("state", "").trim().lowercase()
+            val eventId = data.optString("event_id", "").trim()
+            if (merchantId.isBlank() || state.isBlank() || eventId.isBlank()) return@on
+            if (!seenMerchantEventIds.add(eventId)) return@on
+            if (seenMerchantEventIds.size > 10_000) seenMerchantEventIds.clear()
+            val stateVersion = data.optLong("state_version", 0L).takeIf { it > 0L }
+            if (stateVersion != null) {
+                val previous = lastMerchantStateVersion[merchantId] ?: 0L
+                if (stateVersion <= previous) return@on
+                lastMerchantStateVersion[merchantId] = stateVersion
+            }
+            val event = MerchantOperatingStateEvent(
+                eventId = eventId,
+                merchantId = merchantId,
+                state = state,
+                isOpen = if (data.has("is_open") && !data.isNull("is_open")) data.optBoolean("is_open") else null,
+                stateVersion = stateVersion,
+            )
+            scope.launch {
+                _merchantOperatingStateEvents.emit(event)
+                OrderSyncSignalBus.signal(OrderSyncSignalBus.REASON_MERCHANT_OPERATING_STATE)
+            }
+        }
+
         CALL_EVENTS.forEach { eventName ->
             socket.on(eventName) { args ->
                 val data = args.getOrNull(0) as? JSONObject ?: return@on
@@ -218,6 +262,17 @@ class SocketManager @Inject constructor(
 
     @Synchronized
     fun disconnect() {
+        if (mainScreenKeepsConnection) return
+        disconnectNow()
+    }
+
+    @Synchronized
+    fun releaseMainScreenConnection() {
+        mainScreenKeepsConnection = false
+        disconnectNow()
+    }
+
+    private fun disconnectNow() {
         mSocket?.let {
             Log.d(TAG, "Disconnecting Socket.IO connection actively.")
             it.disconnect()

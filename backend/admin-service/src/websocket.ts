@@ -5,6 +5,7 @@ import { db } from './db';
 import { redis } from './redis';
 import { authorizeCallSocketRoom, getConversationAccess } from './services/orderCommunication';
 import { recordRealtimeMetric, realtimeStructuredLog } from './services/realtimeObservability';
+import { MERCHANT_AVAILABILITY_ROOM } from './realtimeRooms';
 
 let io: SocketIOServer;
 let socketRedisPubClient: ReturnType<typeof redis.duplicate> | undefined;
@@ -328,6 +329,13 @@ export const initWebSocket = (server: HttpServer) => {
     if (role) {
       socket.join(String(role));
       realtimeStructuredLog('info', 'socket_role_room_joined', { role });
+    }
+
+    // Customer/courier clients may receive public availability invalidations,
+    // but only after their role was verified by the handshake middleware.
+    if (role === 'customer' || role === 'courier') {
+      socket.join(MERCHANT_AVAILABILITY_ROOM);
+      void recordRealtimeMetric('merchant_availability_room_joined', { role });
     }
 
     if (isMerchantPortalSession || role === 'merchant' || role === 'merchant_staff') {

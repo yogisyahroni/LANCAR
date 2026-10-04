@@ -187,6 +187,7 @@ internal fun MainScreenRuntime(
     // Real ViewModel backed by Hilt/Room DB
     val orderViewModel: OrderViewModel = hiltViewModel()
     val callEventsViewModel: CallEventsViewModel = hiltViewModel()
+    val courierRealtimeViewModel: CourierRealtimeViewModel = hiltViewModel()
 
     val allOrders by orderViewModel.allOrders.collectAsState()
     val pendingOrders by orderViewModel.pendingOrders.collectAsState()

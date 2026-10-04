@@ -16,12 +16,14 @@ import com.tembus.customer.data.repository.OrderRepository
 import com.tembus.customer.data.repository.ProfileRepository
 import com.tembus.customer.data.session.AuthSessionManager
 import com.tembus.customer.domain.config.ExperienceConfigManager
+import com.tembus.customer.util.SocketManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -35,6 +37,7 @@ class DashboardViewModel @Inject constructor(
     private val experienceConfigManager: ExperienceConfigManager,
     private val experienceBannerAnalytics: ExperienceBannerAnalytics,
     private val apiService: TEMBUSApiService,
+    private val socketManager: SocketManager,
 ) : ViewModel() {
     private val technicalErrorMarkers = listOf("HTTP ", "Exception", "java.", "kotlin.", "retrofit", "okhttp", "timeout")
 
@@ -111,10 +114,32 @@ class DashboardViewModel @Inject constructor(
     // Dimuat sekali per lokasi GPS; gagal diam-diam agar Home tidak diblokir.
     private val _recommendedMerchants = MutableStateFlow<List<FoodMerchant>>(emptyList())
     val recommendedMerchants = _recommendedMerchants.asStateFlow()
+    private var recommendationLatitude: Double? = null
+    private var recommendationLongitude: Double? = null
 
     init {
         refreshData()
         refreshNotificationCount()
+        observeMerchantAvailability()
+    }
+
+    private fun observeMerchantAvailability() {
+        viewModelScope.launch {
+            socketManager.merchantOperatingStateEvents.collect { event ->
+                val unavailable = event.state !in setOf("open", "busy") || event.isOpen == false
+                if (unavailable) {
+                    _recommendedMerchants.update { merchants ->
+                        merchants.filterNot { it.id == event.merchantId }
+                    }
+                } else {
+                    val lat = recommendationLatitude
+                    val lng = recommendationLongitude
+                    if (lat != null && lng != null && _recommendedMerchants.value.none { it.id == event.merchantId }) {
+                        refreshFoodRecommendations(lat, lng)
+                    }
+                }
+            }
+        }
     }
 
     fun refreshData() {
@@ -238,7 +263,13 @@ class DashboardViewModel @Inject constructor(
      * dari layar (bukan init) supaya tidak menembak API tanpa posisi.
      */
     fun loadFoodRecommendations(lat: Double, lng: Double) {
+        recommendationLatitude = lat
+        recommendationLongitude = lng
         if (_recommendedMerchants.value.isNotEmpty()) return
+        refreshFoodRecommendations(lat, lng)
+    }
+
+    private fun refreshFoodRecommendations(lat: Double, lng: Double) {
         viewModelScope.launch {
             runCatching {
                 apiService.listFoodMerchants(lat, lng, null, null, null, null, 6, 0)

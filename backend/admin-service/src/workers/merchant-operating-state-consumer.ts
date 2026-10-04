@@ -1,6 +1,7 @@
 import amqp, { Channel, ChannelModel, ConsumeMessage } from 'amqplib';
 import { getIO } from '../websocket';
 import { recordRealtimeMetric, realtimeStructuredLog } from '../services/realtimeObservability';
+import { MERCHANT_AVAILABILITY_ROOM } from '../realtimeRooms';
 
 const EXCHANGE = process.env.OUTBOX_RABBITMQ_EXCHANGE || 'tembus.events';
 const QUEUE = process.env.MERCHANT_OPERATING_STATE_QUEUE || 'queue.admin.merchant-operating-state';
@@ -30,6 +31,13 @@ export type MerchantOperatingStateRealtimePayload = {
   state_version: number | null;
   updated_at: string | null;
   occurred_at: string | null;
+};
+
+export type MerchantAvailabilityRealtimePayload = Pick<
+  MerchantOperatingStateRealtimePayload,
+  'event_id' | 'event_type' | 'merchant_id' | 'state' | 'is_open' | 'state_version' | 'occurred_at'
+> & {
+  received_at: string;
 };
 
 const boundedString = (value: unknown, max = 160) =>
@@ -112,12 +120,26 @@ const closeConnection = async () => {
   await currentConnection?.close().catch(() => undefined);
 };
 
-const emitOperatingState = (payload: MerchantOperatingStateRealtimePayload) => {
+export const emitOperatingState = (payload: MerchantOperatingStateRealtimePayload) => {
   const io = getIO();
-  const event = { ...payload, received_at: new Date().toISOString() };
+  const receivedAt = new Date().toISOString();
+  const event = { ...payload, received_at: receivedAt };
+  const availabilityEvent: MerchantAvailabilityRealtimePayload = {
+    event_id: payload.event_id,
+    event_type: payload.event_type,
+    merchant_id: payload.merchant_id,
+    state: payload.state,
+    is_open: payload.is_open,
+    state_version: payload.state_version,
+    occurred_at: payload.occurred_at,
+    received_at: receivedAt,
+  };
   const merchantRoom = `merchant:${payload.merchant_id}`;
   io.to(merchantRoom).emit('merchant_operating_state_changed', event);
   io.to(merchantRoom).emit('merchant_operating_state_update', event);
+  // Mobile clients use this only as an invalidation signal. They still
+  // refetch authoritative data from the API/database.
+  io.to(MERCHANT_AVAILABILITY_ROOM).emit('merchant_operating_state_changed', availabilityEvent);
   ADMIN_REALTIME_ROOMS.forEach((room) => {
     io.to(room).emit('merchant_operating_state_changed', event);
   });
