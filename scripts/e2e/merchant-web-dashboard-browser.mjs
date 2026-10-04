@@ -240,11 +240,101 @@ try {
   }
   await page.getByRole('button', { name: nextOpen ? /Toko BUKA/ : /Toko TUTUP/ }).first().waitFor()
 
+  // A failed command must roll back the optimistic label so the operator can
+  // retry. The route is only intercepted for this one browser click; the
+  // subsequent retry goes through the real API and changes canonical state.
+  const labelBeforeFailure = await openButton.innerText()
+  const retryOpen = !labelBeforeFailure.includes('BUKA')
+  let forcedFailure = true
+  await page.route('**/merchant/toggle-open', async (route) => {
+    if (!forcedFailure) {
+      await route.continue()
+      return
+    }
+    forcedFailure = false
+    await route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'browser E2E forced transient failure' }),
+    })
+  })
+  await openButton.click()
+  const rollbackDeadline = Date.now() + 5_000
+  let rollbackLabel = ''
+  while (Date.now() < rollbackDeadline) {
+    rollbackLabel = await openButton.innerText()
+    if (rollbackLabel === labelBeforeFailure) break
+    await page.waitForTimeout(100)
+  }
+  await page.unroute('**/merchant/toggle-open')
+  if (rollbackLabel !== labelBeforeFailure) {
+    throw new Error(`Merchant Web did not roll back after toggle failure: ${rollbackLabel}`)
+  }
+
+  await openButton.click()
+  const retryDeadline = Date.now() + 10_000
+  let retryLabel = ''
+  while (Date.now() < retryDeadline) {
+    retryLabel = await openButton.innerText()
+    if (retryLabel.includes(retryOpen ? 'BUKA' : 'TUTUP')) break
+    await page.waitForTimeout(100)
+  }
+  if (!retryLabel.includes(retryOpen ? 'BUKA' : 'TUTUP')) {
+    throw new Error(`Merchant Web retry did not reach the requested state: ${retryLabel}`)
+  }
+
+  // Two concurrent commands asking for the same state must converge to one
+  // versioned state change. This exercises the repository's conditional UPDATE
+  // and the database trigger rather than relying on a UI debounce.
+  const duplicateState = !retryOpen
+  const duplicateSnapshot = runDb(`
+    SELECT operating_state_version::text || '|' || (
+      SELECT COUNT(*)::text
+      FROM event_outbox
+      WHERE aggregate_type = 'merchant_operating_state'
+        AND aggregate_id = '${merchantId}'
+        AND event_type = 'merchant.operating_state.changed'
+    )
+    FROM merchants
+    WHERE id = '${merchantId}';
+  `)
+  const duplicateBefore = duplicateSnapshot.split('|').map(Number)
+  if (duplicateBefore.length !== 2 || duplicateBefore.some((value) => !Number.isFinite(value))) {
+    throw new Error(`Could not read duplicate-toggle baseline: ${duplicateSnapshot}`)
+  }
+  await Promise.all([
+    browserContext.request.post(`${apiBaseUrl}/merchant/toggle-open`, {
+      data: { is_open: duplicateState },
+      headers: { Origin: webOrigin, 'X-Portal': 'merchant' },
+    }).then((response) => assertOk(response, 'duplicate toggle request 1')),
+    browserContext.request.post(`${apiBaseUrl}/merchant/toggle-open`, {
+      data: { is_open: duplicateState },
+      headers: { Origin: webOrigin, 'X-Portal': 'merchant' },
+    }).then((response) => assertOk(response, 'duplicate toggle request 2')),
+  ])
+  const duplicateAfterSnapshot = runDb(`
+    SELECT operating_state_version::text || '|' || (
+      SELECT COUNT(*)::text
+      FROM event_outbox
+      WHERE aggregate_type = 'merchant_operating_state'
+        AND aggregate_id = '${merchantId}'
+        AND event_type = 'merchant.operating_state.changed'
+    )
+    FROM merchants
+    WHERE id = '${merchantId}';
+  `)
+  const duplicateAfter = duplicateAfterSnapshot.split('|').map(Number)
+  if (duplicateAfter[0] - duplicateBefore[0] !== 1 || duplicateAfter[1] - duplicateBefore[1] !== 1) {
+    throw new Error(`Duplicate toggle was not idempotent: before=${duplicateSnapshot} after=${duplicateAfterSnapshot}`)
+  }
+
   console.log(JSON.stringify({
     task_id: 'MWEB-PORTAL-P0-002',
     status: 'PASS',
-    checks: ['admin_approval', 'customer_discovery_open_state', 'customer_discovery_closed_state', 'admin_state_projection', 'browser_login', 'dashboard_freshness', 'external_operating_state_mutation', 'socket_event_dashboard_refetch'],
+    checks: ['admin_approval', 'customer_discovery_open_state', 'customer_discovery_closed_state', 'admin_state_projection', 'browser_login', 'dashboard_freshness', 'external_operating_state_mutation', 'socket_event_dashboard_refetch', 'optimistic_toggle_rollback', 'toggle_retry', 'concurrent_toggle_idempotency'],
     dashboard_refetch_count: dashboardRequests.length,
+    duplicate_toggle_version_delta: duplicateAfter[0] - duplicateBefore[0],
+    duplicate_toggle_event_delta: duplicateAfter[1] - duplicateBefore[1],
     page_errors: pageErrors,
   }))
   await browserContext.close()
