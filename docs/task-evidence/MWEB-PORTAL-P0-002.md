@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: dd37dfe3
+implementation_ref: 196c8221
 
 tests: PASS
 integration: PARTIAL
@@ -74,6 +74,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Extended the authenticated Socket.IO handshake to accept the HttpOnly `merchant_session` cookie for merchant owners/staff and join only the server-resolved merchant room.
 - Added Merchant Web Socket.IO invalidation with authoritative dashboard refetch; the event payload is never treated as the source of truth and the existing 30-second poll remains the recovery fallback.
 - Enabled RabbitMQ outbox publishing and the operating-state consumer in the local Compose runtime, and passed the socket URL into the Merchant Web build.
+- Kept the local socket build argument empty by default so the browser derives the socket origin from the configured API origin; this avoids baking `localhost` into an image accessed through a tunnel/domain.
 
 ## Files Changed
 
@@ -177,6 +178,9 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 
     command: docker exec tembus-rabbitmq rabbitmqctl list_queues/list_bindings; rabbitmqadmin publish merchant.operating_state.changed; docker logs --since 30s tembus-admin
     result: PASS — durable admin queue and DLQ were bound to `tembus.events`; a valid synthetic event was acknowledged by the consumer and emitted `merchant_operating_state_event_emitted`. An invalid synthetic contract was rejected into the DLQ. No application state was mutated by this broker-only proof.
+
+    command: docker compose config --quiet; docker compose build merchant-web; docker compose up -d --no-deps merchant-web; Invoke-WebRequest http://127.0.0.1:3086/
+    result: PASS — socket-origin fallback configuration rebuilt successfully; Merchant Web container reported healthy and returned HTTP 200.
 
     command: disposable PostgreSQL schema-only clone; apply Down for 20261004000003, 20261004000002, 20261004000001; apply Up for 20261004000001, 20261004000002, 20261004000003; validate schema/functions/triggers; drop disposable database
     result: PASS — reverse rollback and forward recovery completed on an isolated database; `orders.branch_id`, auto-accept function, branch-sync function, and operating-state consumer set were restored. The disposable database was removed; the active database was not used for the destructive drill.
