@@ -56,7 +56,8 @@ api.interceptors.response.use(
         return api(original)
       }
       clearSession()
-      window.location.href = '/masuk'
+      const returnTo = `${window.location.pathname}${window.location.search}`
+      window.location.href = `/masuk?returnTo=${encodeURIComponent(returnTo)}`
     }
     return Promise.reject(error)
   },

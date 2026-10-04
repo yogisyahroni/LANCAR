@@ -37,7 +37,7 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
   }, [])
 
   if (!isLoggedIn()) {
-    return <Navigate to="/masuk" state={{ from: location.pathname }} replace />
+    return <Navigate to="/masuk" state={{ from: `${location.pathname}${location.search}` }} replace />
   }
 
   if (loading) return <MerchantPageSkeleton />

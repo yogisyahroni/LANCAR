@@ -89,8 +89,10 @@ export default function Login() {
         setGate('pending')
         return
       }
-      const requestedPath = (location.state as { from?: string } | null)?.from
-      const destination = requestedPath && requestedPath.startsWith('/') && requestedPath !== '/masuk' ? requestedPath : '/dashboard'
+      const statePath = (location.state as { from?: string } | null)?.from
+      const queryPath = new URLSearchParams(location.search).get('returnTo')
+      const requestedPath = statePath || queryPath
+      const destination = requestedPath && requestedPath.startsWith('/') && !requestedPath.startsWith('//') && !requestedPath.startsWith('/masuk') ? requestedPath : '/dashboard'
       navigate(destination, { replace: true })
     } catch (err) {
       setError(apiErrorMessage(err, 'Login gagal. Periksa email & password.'))
