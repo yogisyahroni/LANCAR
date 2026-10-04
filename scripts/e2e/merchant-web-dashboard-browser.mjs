@@ -18,6 +18,12 @@ const testPassword = `E2e-${runId}-merchant!`
 const probeCustomerEmail = `mweb-browser-customer-${runId}@example.test`
 const probeCustomerPhone = `0813${runId.replace(/\D/g, '').slice(-8)}`
 const probeCustomerPassword = `E2e-${runId}-customer!`
+const roleProbeDefinitions = [
+  { role: 'manager', permissions: 255, canOperate: true },
+  { role: 'cashier', permissions: 85, canOperate: false },
+  { role: 'kitchen', permissions: 9, canOperate: false },
+  { role: 'finance', permissions: 65, canOperate: false },
+]
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const documentPath = path.join(repoRoot, 'extracted_logo.png')
 
@@ -52,6 +58,9 @@ let customerDiscoveryApi = null
 let adminApi = null
 let browser = null
 let browserPage = null
+const roleProbeEmails = []
+const roleBrowserContexts = []
+const roleProbeCredentials = []
 const pageErrors = []
 const failedRequests = []
 
@@ -156,6 +165,47 @@ try {
   await adminMutation(`/admin/merchants/${merchantId}/start-verification`, 'start-verification')
   await adminMutation(`/admin/merchants/${merchantId}/approve`, 'approve')
 
+  const ownerUserId = runDb(`SELECT user_id FROM merchants WHERE id = '${merchantId}';`)
+  let branchId = runDb(`SELECT id FROM merchant_branches WHERE merchant_id = '${merchantId}' AND is_active = true ORDER BY created_at LIMIT 1;`)
+  if (!branchId && ownerUserId) {
+    branchId = crypto.randomUUID()
+    runDb(`INSERT INTO merchant_branches (id, merchant_id, code, name, address, is_active) VALUES ('${branchId}', '${merchantId}', 'MAIN', 'Merchant Browser E2E', 'Jl. Uji Browser No. 1, Jakarta Selatan', true);`)
+  }
+  if (!ownerUserId || !branchId) throw new Error('Disposable merchant owner/branch fixture was not created.')
+  for (const definition of roleProbeDefinitions) {
+    const email = `mweb-browser-${definition.role}-${runId}@example.test`
+    const password = `E2e-${runId}-${definition.role}!`
+    roleProbeEmails.push(email)
+    const roleRegistration = await json(await customerApi.post('auth/customer/register/start', {
+      data: {
+        full_name: `Merchant Browser ${definition.role}`,
+        email,
+        phone_number: `0814${crypto.randomBytes(4).toString('hex')}`,
+        password,
+        device_id: `merchant-browser-${definition.role}-${runId}`,
+        device_info: { platform: 'web', app: 'merchant-web-browser-e2e' },
+      },
+    }), `${definition.role} registration`)
+    if (roleRegistration.require_otp === true || !roleRegistration.access_token) {
+      throw new Error(`${definition.role} disposable account could not be created without OTP.`)
+    }
+    const roleUserId = runDb(`SELECT id FROM users WHERE email = '${email.replaceAll("'", "''")}';`)
+    if (!roleUserId) throw new Error(`${definition.role} disposable user was not persisted.`)
+    const staffId = crypto.randomUUID()
+    const inviteToken = crypto.randomBytes(32).toString('hex')
+    const sqlEmail = email.replaceAll("'", "''")
+    runDb(`
+      UPDATE users SET role = 'merchant_staff', status = 'active', is_verified = true
+      WHERE id = '${roleUserId}';
+      INSERT INTO merchant_staff (id, merchant_id, user_id, role, invite_token, invited_by, status, permissions)
+      VALUES ('${staffId}', '${merchantId}', '${roleUserId}', '${definition.role}', '${inviteToken}', '${ownerUserId}', 'active', ${definition.permissions});
+      INSERT INTO merchant_staff_branch_access (staff_id, branch_id)
+      VALUES ('${staffId}', '${branchId}');
+    `)
+    // Keep the credential only in memory for the browser role loop below.
+    roleProbeCredentials.push({ email: sqlEmail, password, role: definition.role, canOperate: definition.canOperate })
+  }
+
   await json(await customerApi.post('merchant/toggle-open', {
     data: { is_open: true },
   }), 'merchant open for cross-app probe')
@@ -221,6 +271,56 @@ try {
   page.on('request', (req) => {
     if (req.method() === 'GET' && req.url().includes('/merchant/dashboard')) dashboardRequests.push(Date.now())
   })
+
+  const roleChecks = []
+  for (const probe of roleProbeCredentials) {
+    const roleContext = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
+    roleBrowserContexts.push(roleContext)
+    const rolePage = await roleContext.newPage()
+    const contextResponsePromise = rolePage.waitForResponse(
+      (response) => response.request().method() === 'GET' && response.url().includes('/merchant/context'),
+      { timeout: 15_000 },
+    )
+    await rolePage.goto(`${webOrigin}/masuk`, { waitUntil: 'networkidle' })
+    await rolePage.getByLabel('Email').fill(probe.email)
+    await rolePage.getByLabel('Password').fill(probe.password)
+    await rolePage.getByRole('button', { name: /Masuk/ }).click()
+    await rolePage.waitForURL(/\/dashboard(?:$|[?#])/, { timeout: 15_000 })
+    await rolePage.getByText('Data server diperbarui').waitFor({ timeout: 15_000 })
+    const contextResponse = await contextResponsePromise
+    if (!contextResponse.ok()) throw new Error(`${probe.role} portal context failed HTTP ${contextResponse.status()}`)
+    const contextPayload = await contextResponse.json()
+    const resolvedRole = contextPayload?.data?.effective_role
+    if (resolvedRole !== probe.role) {
+      throw new Error(`${probe.role} resolved as ${resolvedRole || 'unknown'} in portal context`)
+    }
+
+    const roleOpenButton = rolePage.getByRole('button', { name: /Toko (BUKA|TUTUP)/ }).first()
+    const roleLabel = await roleOpenButton.innerText()
+    const requestedOpen = !roleLabel.includes('BUKA')
+    const toggleResponsePromise = rolePage.waitForResponse(
+      (response) => response.request().method() === 'POST' && response.url().includes('/merchant/toggle-open'),
+      { timeout: 10_000 },
+    )
+    await roleOpenButton.click()
+    const toggleResponse = await toggleResponsePromise
+    if (probe.canOperate) {
+      if (!toggleResponse.ok()) {
+        throw new Error(`${probe.role} manager toggle failed HTTP ${toggleResponse.status()}`)
+      }
+      await rolePage.getByRole('button', { name: requestedOpen ? /Toko BUKA/ : /Toko TUTUP/ }).first().waitFor()
+      await roleContext.close()
+      roleBrowserContexts.pop()
+    } else {
+      if (toggleResponse.status() < 400) {
+        throw new Error(`${probe.role} unexpectedly changed outlet state`)
+      }
+      await rolePage.getByRole('button', { name: roleLabel.includes('BUKA') ? /Toko BUKA/ : /Toko TUTUP/ }).first().waitFor()
+      await roleContext.close()
+      roleBrowserContexts.pop()
+    }
+    roleChecks.push(`${probe.role}_scope_and_operating_authorization`)
+  }
   const openButton = page.getByRole('button', { name: /Toko (BUKA|TUTUP)/ }).first()
   const currentLabel = await openButton.innerText()
   const nextOpen = !currentLabel.includes('BUKA')
@@ -331,7 +431,7 @@ try {
   console.log(JSON.stringify({
     task_id: 'MWEB-PORTAL-P0-002',
     status: 'PASS',
-    checks: ['admin_approval', 'customer_discovery_open_state', 'customer_discovery_closed_state', 'admin_state_projection', 'browser_login', 'dashboard_freshness', 'external_operating_state_mutation', 'socket_event_dashboard_refetch', 'optimistic_toggle_rollback', 'toggle_retry', 'concurrent_toggle_idempotency'],
+    checks: ['admin_approval', 'customer_discovery_open_state', 'customer_discovery_closed_state', 'admin_state_projection', 'browser_login', 'dashboard_freshness', ...roleChecks, 'external_operating_state_mutation', 'socket_event_dashboard_refetch', 'optimistic_toggle_rollback', 'toggle_retry', 'concurrent_toggle_idempotency'],
     dashboard_refetch_count: dashboardRequests.length,
     duplicate_toggle_version_delta: duplicateAfter[0] - duplicateBefore[0],
     duplicate_toggle_event_delta: duplicateAfter[1] - duplicateBefore[1],
@@ -350,6 +450,7 @@ try {
   throw error
 } finally {
   await browser?.close().catch(() => undefined)
+  for (const roleContext of roleBrowserContexts) await roleContext.close().catch(() => undefined)
   await customerDiscoveryApi?.dispose().catch(() => undefined)
   await probeCustomerApi?.dispose().catch(() => undefined)
   await customerApi?.dispose().catch(() => undefined)
@@ -358,7 +459,10 @@ try {
     const merchantCleanup = merchantId
       ? `DELETE FROM merchant_onboarding_reviews WHERE merchant_id = '${merchantId}'; DELETE FROM merchant_legal_profiles WHERE owner_user_id IN (SELECT user_id FROM merchants WHERE id = '${merchantId}');`
       : ''
-    runDb(`${merchantCleanup} DELETE FROM users WHERE email IN ('${escapedEmail}', '${escapedProbeCustomerEmail}');`)
+    const roleCleanup = roleProbeEmails.length > 0
+      ? ` DELETE FROM users WHERE email IN (${roleProbeEmails.map((email) => `'${email.replaceAll("'", "''")}'`).join(', ')});`
+      : ''
+    runDb(`${merchantCleanup} DELETE FROM users WHERE email IN ('${escapedEmail}', '${escapedProbeCustomerEmail}');${roleCleanup}`)
   } catch (error) {
     console.error(`Disposable merchant cleanup failed: ${error.message}`)
   }

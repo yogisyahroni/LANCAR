@@ -453,7 +453,7 @@ func merchantOnboardingActive(m *domain.Merchant) bool {
 }
 
 func (s *merchantServiceImpl) ToggleOpen(ctx context.Context, userID string, isOpen bool) (*domain.Merchant, error) {
-	m, err := s.requireOwnerMerchant(ctx, userID)
+	m, err := s.requireOperationalManager(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -475,7 +475,7 @@ func (s *merchantServiceImpl) ToggleOpen(ctx context.Context, userID string, isO
 }
 
 func (s *merchantServiceImpl) SetAutoAcceptOrders(ctx context.Context, userID string, enabled bool) (*domain.Merchant, error) {
-	m, err := s.requireOwnerMerchant(ctx, userID)
+	m, err := s.requireOperationalManager(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -507,7 +507,7 @@ func (s *merchantServiceImpl) SetAutoAcceptOrders(ctx context.Context, userID st
 // `until`. Auto un-pause oleh order-service (cek paused_until < NOW()).
 // Tidak mengubah is_open maupun jam operasional.
 func (s *merchantServiceImpl) Pause(ctx context.Context, userID string, until time.Time) (*domain.Merchant, error) {
-	m, err := s.requireOwnerMerchant(ctx, userID)
+	m, err := s.requireOperationalManager(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -529,7 +529,7 @@ func (s *merchantServiceImpl) Pause(ctx context.Context, userID string, until ti
 
 // Resume (FB-107): batalkan pause sementara lebih awal.
 func (s *merchantServiceImpl) Resume(ctx context.Context, userID string) (*domain.Merchant, error) {
-	m, err := s.requireOwnerMerchant(ctx, userID)
+	m, err := s.requireOperationalManager(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -546,7 +546,7 @@ func (s *merchantServiceImpl) Resume(ctx context.Context, userID string) (*domai
 // Busy (FOOD-2026-011): merchant tetap menerima order, tetapi quote Food
 // memasukkan tambahan prep yang tersimpan sampai `until`.
 func (s *merchantServiceImpl) Busy(ctx context.Context, userID string, until time.Time, extraPrepMinutes int) (*domain.Merchant, error) {
-	m, err := s.requireOwnerMerchant(ctx, userID)
+	m, err := s.requireOperationalManager(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -977,6 +977,49 @@ func (s *merchantServiceImpl) requireOwnerMerchant(ctx context.Context, userID s
 		return nil, errors.New("merchant tidak ditemukan — daftar dulu")
 	}
 	return m, nil
+}
+
+// requireOperationalManager allows the business owner or an active manager
+// staff member with a valid branch/device session to control outlet state.
+// Cashier, kitchen, finance and marketing users may still read the portal or
+// perform their own scoped capabilities, but cannot silently change whether an
+// outlet accepts work.
+func (s *merchantServiceImpl) requireOperationalManager(ctx context.Context, userID string) (*domain.Merchant, error) {
+	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if m != nil {
+		return m, nil
+	}
+	if s.accessRepo == nil {
+		return nil, errors.New("merchant access repository not wired")
+	}
+	access := domain.MerchantAccessFromContext(ctx)
+	if strings.TrimSpace(access.SessionToken) == "" || strings.TrimSpace(access.BranchID) == "" || strings.TrimSpace(access.DeviceID) == "" {
+		return nil, errors.New("merchant session, branch, dan device wajib diisi untuk staff")
+	}
+	session, err := s.accessRepo.AuthorizeDeviceSession(ctx, domain.MerchantSessionAuthorization{
+		UserID:             userID,
+		BranchID:           access.BranchID,
+		DeviceID:           access.DeviceID,
+		SessionToken:       access.SessionToken,
+		RequiredPermission: domain.PermViewStore,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if domain.NormalizeStaffRole(session.EffectiveRole) != domain.StaffRoleManager {
+		return nil, errors.New("hanya owner atau manager outlet yang boleh mengubah status operasional")
+	}
+	merchant, err := s.merchantRepo.GetByID(ctx, session.MerchantID)
+	if err != nil {
+		return nil, err
+	}
+	if merchant == nil {
+		return nil, errors.New("merchant tidak ditemukan")
+	}
+	return merchant, nil
 }
 
 func (s *merchantServiceImpl) requireApprovedHighRisk(ctx context.Context, userID, merchantID, approvalID, changeType string) error {
