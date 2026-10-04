@@ -38,6 +38,7 @@ describe('public merchant registration status contract', () => {
         onboarding_status: 'ACTIVE',
         verification_status: 'approved',
         rejection_reason: null,
+        onboarding_suspension_reason: null,
         created_at: '2026-10-04T08:00:00.000Z',
         updated_at: '2026-10-04T09:00:00.000Z',
         user_status: 'active',
@@ -101,6 +102,29 @@ describe('public merchant registration status contract', () => {
       message: 'Akun ditemukan, tetapi belum ada data toko.',
     });
     expect(response.body.user_status).toBeUndefined();
+  });
+
+  it('returns a safe suspension reason only after the matched identity lookup', async () => {
+    (db.query as jest.Mock).mockResolvedValue({ rows: [{
+      merchant_id: 'merchant-2',
+      nama_toko: 'Toko Ditangguhkan',
+      onboarding_status: 'SUSPENDED',
+      verification_status: 'pending',
+      rejection_reason: null,
+      onboarding_suspension_reason: 'database query detail tidak boleh tampil',
+      created_at: '2026-10-04T08:00:00.000Z',
+      updated_at: '2026-10-04T09:00:00.000Z',
+    }] });
+    const response = makeResponse();
+
+    await getMerchantRegistrationStatus({ query: { email: 'owner@example.test' } } as any, response);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual(expect.objectContaining({
+      status: 'SUSPENDED',
+      suspension_reason: 'Ada data yang perlu diperbaiki. Hubungi bantuan TEMBUS untuk detail.',
+    }));
+    expect(JSON.stringify(response.body)).not.toMatch(/database|query/i);
   });
 
   it('returns a safe unavailable response and logs only redacted lookup metadata', async () => {

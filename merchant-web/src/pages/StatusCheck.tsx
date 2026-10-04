@@ -10,9 +10,10 @@ type StatusResult = {
   onboarding_status?: string | null
   verification_status?: string | null
   nama_toko?: string
-  user_status?: string
   rejection_reason?: string | null
+  suspension_reason?: string | null
   created_at?: string
+  updated_at?: string
 }
 
 const statusMeta: Record<string, { icon: LucideIcon; cls: string }> = {
@@ -49,8 +50,12 @@ export default function StatusCheck() {
     } catch (err: any) {
       if (err.response?.status === 404) {
         setError('Pendaftaran tidak ditemukan. Pastikan email/nomor HP yang kamu isi sama dengan saat mendaftar.')
+      } else if (err.response?.status === 429) {
+        setError('Terlalu banyak percobaan. Coba lagi beberapa saat.')
       } else {
-        setError(err.response?.data?.error || 'Gagal memeriksa status. Coba lagi.')
+        setError(err.response?.data?.code === 'ERR_STATUS_LOOKUP_UNAVAILABLE'
+          ? 'Status sedang tidak dapat diperiksa. Coba lagi beberapa saat.'
+          : 'Gagal memeriksa status. Coba lagi.')
       }
     } finally {
       setLoading(false)
@@ -136,7 +141,10 @@ export default function StatusCheck() {
                 <Link to="/daftar" className="mt-2 inline-block text-sm font-bold underline">Perbaiki dan daftar ulang</Link>
               )}
               {normalizedStatus === 'SUSPENDED' && (
-                <p className="mt-1 text-sm opacity-90">Akses operasional sedang ditangguhkan. Hubungi bantuan TEMBUS untuk langkah pemulihan.</p>
+                <>
+                  <p className="mt-1 text-sm opacity-90">Akses operasional sedang ditangguhkan. Hubungi bantuan TEMBUS untuk langkah pemulihan.</p>
+                  {result.suspension_reason && <p className="mt-1 text-sm opacity-90">Keterangan: {result.suspension_reason}</p>}
+                </>
               )}
               {['DRAFT', 'SUBMITTED', 'VERIFYING'].includes(normalizedStatus || '') && (
                 <p className="mt-1 text-sm opacity-90">Tim TEMBUS sedang memproses data kamu. Status ini akan berubah setelah ada keputusan verifikasi.</p>

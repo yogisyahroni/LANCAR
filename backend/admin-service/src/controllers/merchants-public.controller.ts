@@ -23,6 +23,17 @@ const MERCHANT_DOC_TYPES = [
   'izin_edar_bpom',
 ] as const;
 
+const INTERNAL_REASON_PATTERN = /\b(backend|service|database|table|sql|token|jwt|secret|stack\s+trace|exception|query)\b/i;
+
+const publicLifecycleReason = (value: unknown): string | null => {
+  const normalized = String(value ?? '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return null;
+  if (INTERNAL_REASON_PATTERN.test(normalized)) {
+    return 'Ada data yang perlu diperbaiki. Hubungi bantuan TEMBUS untuk detail.';
+  }
+  return normalized.slice(0, 500);
+};
+
 export const uploadMerchantPublicDocument = async (req: Request, res: Response): Promise<void> => {
   try {
     const docType = String(req.body?.doc_type || '').trim();
@@ -79,7 +90,8 @@ export const getMerchantRegistrationStatus = async (req: Request, res: Response)
       SELECT u.id AS user_id, u.status AS user_status,
              m.id AS merchant_id, m.nama_toko, m.onboarding_status,
              m.verification_status,
-             m.rejection_reason, m.created_at, m.updated_at
+             m.rejection_reason, m.onboarding_suspension_reason,
+             m.created_at, m.updated_at
       FROM users u
       LEFT JOIN merchants m ON m.user_id = u.id
       WHERE `;
@@ -141,7 +153,8 @@ export const getMerchantRegistrationStatus = async (req: Request, res: Response)
       onboarding_status: canonicalStatus,
       verification_status: row.verification_status,
       nama_toko: row.nama_toko,
-      rejection_reason: row.rejection_reason || null,
+      rejection_reason: publicLifecycleReason(row.rejection_reason),
+      suspension_reason: publicLifecycleReason(row.onboarding_suspension_reason),
       created_at: row.created_at,
       updated_at: row.updated_at,
     });
