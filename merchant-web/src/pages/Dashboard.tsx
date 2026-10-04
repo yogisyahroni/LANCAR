@@ -9,6 +9,7 @@ import { MerchantPageSkeleton } from '../components/Skeleton'
 import { merchantOnboardingStatus } from '../lib/merchant-status'
 import type { Merchant, MerchantOrder, OrderListResponse, SalesReportSummary } from '../lib/types'
 import { rupiah } from '../lib/types'
+import { loadMerchantPortalContext } from '../lib/portal-context'
 
 const isToday = (iso?: string | null) => {
   if (!iso) return false
@@ -30,13 +31,13 @@ export default function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      const [profileRes, ordersRes] = await Promise.all([
-        api.get<Merchant>('/merchant/profile'),
+      const [context, ordersRes] = await Promise.all([
+        loadMerchantPortalContext(),
         api.get<OrderListResponse>('/merchant/orders?page=1&page_size=50'),
       ])
-      setMerchant(profileRes.data)
-      setJamBuka((profileRes.data.jam_buka || '08:00').slice(0, 5))
-      setJamTutup((profileRes.data.jam_tutup || '22:00').slice(0, 5))
+      setMerchant(context.merchant)
+      setJamBuka((context.merchant.jam_buka || '08:00').slice(0, 5))
+      setJamTutup((context.merchant.jam_tutup || '22:00').slice(0, 5))
       setOrders(ordersRes.data?.orders || [])
       try {
         const rep = await api.get<SalesReportSummary>('/merchant/reports?period=daily')

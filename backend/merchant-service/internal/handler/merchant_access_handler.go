@@ -17,6 +17,37 @@ func NewMerchantAccessHandler(mh *MerchantHandler, svc domain.MerchantAccessServ
 	return &MerchantAccessHandler{MerchantHandler: mh, accessSvc: svc}
 }
 
+// GetPortalContext returns the authenticated user's server-resolved merchant,
+// outlet scope and capabilities. No merchant id is accepted from the client.
+func (h *MerchantAccessHandler) GetPortalContext(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	portalContext, err := h.accessSvc.GetPortalContext(r.Context(), userID, r.Header.Get("X-Merchant-Branch-ID"))
+	if err != nil {
+		h.respondError(w, http.StatusForbidden, err.Error())
+		return
+	}
+	// When a staff browser already has a device session, validate it during
+	// bootstrap so an expired/revoked session cannot appear healthy to the UI.
+	access := domain.MerchantAccessFromContext(r.Context())
+	if portalContext.DeviceSessionRequired && access.SessionToken != "" {
+		if _, err := h.accessSvc.AuthorizeDeviceSession(r.Context(), domain.MerchantSessionAuthorization{
+			UserID:             userID,
+			MerchantID:         portalContext.Merchant.ID,
+			BranchID:           portalContext.CurrentBranchID,
+			DeviceID:           access.DeviceID,
+			SessionToken:       access.SessionToken,
+			RequiredPermission: domain.PermViewStore,
+		}); err != nil {
+			h.respondError(w, http.StatusForbidden, err.Error())
+			return
+		}
+	}
+	h.respondJSON(w, http.StatusOK, map[string]any{"success": true, "data": portalContext})
+}
+
 func (h *MerchantAccessHandler) CreateBranch(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.parseUserID(w, r)
 	if !ok {

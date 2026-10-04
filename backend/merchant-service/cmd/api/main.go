@@ -140,6 +140,8 @@ func main() {
 
 	// Pendaftaran & profil (FOOD-BIKE-045/018)
 	mux.HandleFunc("/api/v1/merchant/register", middleware.BaseChain(h.RegisterMerchant))
+	// MERCH-2026-002: server-authoritative portal tenant and branch context.
+	mux.HandleFunc("/api/v1/merchant/context", middleware.BaseChain(accessH.GetPortalContext))
 	mux.HandleFunc("/api/v1/merchant/profile", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:

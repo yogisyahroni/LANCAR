@@ -18,6 +18,17 @@ export interface AuthResponse {
 
 export type MerchantOnboardingStatus = 'DRAFT' | 'SUBMITTED' | 'VERIFYING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED'
 
+export interface MerchantBranch {
+  id: string
+  merchant_id: string
+  code: string
+  name: string
+  address: string
+  is_active: boolean
+  created_at?: string
+  updated_at?: string
+}
+
 export interface Merchant {
   id: string
   user_id: string
@@ -49,6 +60,16 @@ export interface Merchant {
   business_type?: string
   created_at?: string
   updated_at?: string
+}
+
+export interface MerchantPortalContext {
+  merchant: Merchant
+  branches: MerchantBranch[]
+  current_branch_id?: string
+  effective_role: string
+  granted_permissions: number
+  capabilities: string[]
+  device_session_required: boolean
 }
 
 export interface MenuItem {

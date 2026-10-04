@@ -88,6 +88,129 @@ func (s *merchantAccessService) ListBranches(ctx context.Context, requesterUserI
 	return []*domain.MerchantBranch{branch}, nil
 }
 
+func portalCapabilities(permissions int, owner bool) []string {
+	capabilities := make([]string, 0, 10)
+	appendIf := func(permission int, name string) {
+		if permissions&permission == permission {
+			capabilities = append(capabilities, name)
+		}
+	}
+	appendIf(domain.PermViewStore, "view_store")
+	appendIf(domain.PermManageMenu, "manage_menu")
+	appendIf(domain.PermAcceptOrder, "accept_order")
+	appendIf(domain.PermUpdatePrep, "update_prep")
+	appendIf(domain.PermChatCustomer, "chat_customer")
+	appendIf(domain.PermManageStaff, "manage_staff")
+	appendIf(domain.PermViewReports, "view_reports")
+	appendIf(domain.PermManagePromo, "manage_promo")
+	if owner {
+		capabilities = append(capabilities, "manage_branch", "manage_payout", "manage_withdrawal")
+	}
+	return capabilities
+}
+
+// GetPortalContext resolves the authenticated user's merchant and branch
+// scope before the web shell renders. A branch header can narrow the scope,
+// but it can never expand it because membership is checked against the
+// server-side owner/staff assignment.
+func (s *merchantAccessService) GetPortalContext(ctx context.Context, requesterUserID, requestedBranchID string) (*domain.MerchantPortalContext, error) {
+	if s.merchantRepo == nil || s.accessRepo == nil {
+		return nil, errors.New("merchant portal context repository not wired")
+	}
+
+	merchant, err := s.merchantRepo.GetByUserID(ctx, requesterUserID)
+	if err != nil {
+		return nil, err
+	}
+	owner := merchant != nil
+	role := "owner"
+	permissions := 255
+	deviceSessionRequired := false
+	var staff *domain.MerchantStaff
+
+	if merchant == nil {
+		if s.staffRepo == nil {
+			return nil, errors.New("akun belum terdaftar sebagai mitra")
+		}
+		staff, err = s.staffRepo.GetActiveByUser(ctx, requesterUserID)
+		if err != nil {
+			return nil, err
+		}
+		if staff == nil {
+			return nil, errors.New("akun belum terdaftar sebagai mitra")
+		}
+		merchant, err = s.merchantRepo.GetByID(ctx, staff.MerchantID)
+		if err != nil {
+			return nil, err
+		}
+		if merchant == nil {
+			return nil, errors.New("merchant tidak ditemukan")
+		}
+		role = string(domain.NormalizeStaffRole(staff.Role))
+		permissions = staff.Permissions
+		deviceSessionRequired = true
+	}
+
+	var branches []*domain.MerchantBranch
+	if owner {
+		branches, err = s.accessRepo.ListBranches(ctx, merchant.ID)
+	} else {
+		branchIDs, branchErr := s.accessRepo.ListStaffBranches(ctx, merchant.ID, staff.ID)
+		if branchErr != nil {
+			return nil, branchErr
+		}
+		for _, branchID := range branchIDs {
+			branch, branchErr := s.accessRepo.GetBranch(ctx, merchant.ID, branchID)
+			if branchErr != nil {
+				return nil, branchErr
+			}
+			if branch != nil && branch.IsActive {
+				branches = append(branches, branch)
+			}
+		}
+		if len(branches) == 0 {
+			return nil, errors.New("akun staff belum memiliki branch aktif")
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	requestedBranchID = strings.TrimSpace(requestedBranchID)
+	currentBranchID := ""
+	if requestedBranchID != "" {
+		for _, branch := range branches {
+			if branch.ID == requestedBranchID && branch.IsActive {
+				currentBranchID = branch.ID
+				break
+			}
+		}
+		if currentBranchID == "" {
+			return nil, errors.New("branch tidak memiliki akses atau sudah tidak aktif")
+		}
+	} else if merchant.BranchID != "" {
+		for _, branch := range branches {
+			if branch.ID == merchant.BranchID && branch.IsActive {
+				currentBranchID = branch.ID
+				break
+			}
+		}
+	}
+	if currentBranchID == "" && len(branches) > 0 {
+		currentBranchID = branches[0].ID
+	}
+
+	return &domain.MerchantPortalContext{
+		Merchant:              merchant,
+		Branches:              branches,
+		CurrentBranchID:       currentBranchID,
+		EffectiveRole:         role,
+		GrantedPermissions:    permissions,
+		Capabilities:          portalCapabilities(permissions, owner),
+		DeviceSessionRequired: deviceSessionRequired,
+	}, nil
+}
+
 func (s *merchantAccessService) UpdateBranch(ctx context.Context, ownerUserID, merchantID, branchID string, req domain.UpdateMerchantBranchRequest) (*domain.MerchantBranch, error) {
 	if s.accessRepo == nil {
 		return nil, errors.New("merchant access repository not wired")

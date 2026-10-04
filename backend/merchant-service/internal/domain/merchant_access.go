@@ -98,6 +98,19 @@ type MerchantSessionAuthorization struct {
 	RequiredPermission int
 }
 
+// MerchantPortalContext is the server-authoritative tenant context used by
+// the Merchant Portal shell. The UI may use it for navigation and display,
+// but every protected operation still performs its own server-side check.
+type MerchantPortalContext struct {
+	Merchant              *Merchant         `json:"merchant"`
+	Branches              []*MerchantBranch `json:"branches"`
+	CurrentBranchID       string            `json:"current_branch_id,omitempty"`
+	EffectiveRole         string            `json:"effective_role"`
+	GrantedPermissions    int               `json:"granted_permissions"`
+	Capabilities          []string          `json:"capabilities"`
+	DeviceSessionRequired bool              `json:"device_session_required"`
+}
+
 type MerchantAccessContext struct {
 	SessionToken       string
 	BranchID           string
@@ -174,6 +187,9 @@ type MerchantAccessRepository interface {
 type MerchantAccessService interface {
 	CreateBranch(ctx context.Context, ownerUserID, merchantID string, req CreateMerchantBranchRequest) (*MerchantBranch, error)
 	ListBranches(ctx context.Context, requesterUserID, merchantID string) ([]*MerchantBranch, error)
+	// GetPortalContext resolves the merchant, branch scope and effective role
+	// from the authenticated user. It never accepts a client-selected merchant.
+	GetPortalContext(ctx context.Context, requesterUserID, requestedBranchID string) (*MerchantPortalContext, error)
 	UpdateBranch(ctx context.Context, ownerUserID, merchantID, branchID string, req UpdateMerchantBranchRequest) (*MerchantBranch, error)
 	AssignStaffBranches(ctx context.Context, ownerUserID, merchantID, staffID string, assignment MerchantStaffBranchAssignment) error
 	ListStaffBranches(ctx context.Context, requesterUserID, merchantID, staffID string) ([]string, error)

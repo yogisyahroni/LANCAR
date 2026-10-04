@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { clearSession, deviceId, getRefreshToken, getToken, setSession } from './auth'
+import { clearSession, deviceId, getMerchantDeviceSession, getRefreshToken, getToken, setSession } from './auth'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
 
@@ -14,6 +14,12 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = getToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
+  const merchantSession = getMerchantDeviceSession()
+  if (merchantSession) {
+    config.headers['X-Merchant-Session-Token'] = merchantSession.session_token
+    config.headers['X-Merchant-Branch-ID'] = merchantSession.branch_id
+    config.headers['X-Device-ID'] = merchantSession.device_id
+  }
   return config
 })
 

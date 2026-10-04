@@ -8,6 +8,7 @@ import { merchantOnboardingStatus, merchantStatusLabel } from '../lib/merchant-s
 import type { Merchant } from '../lib/types'
 import { rupiah } from '../lib/types'
 import { MerchantPageSkeleton } from '../components/Skeleton'
+import { loadMerchantPortalContext } from '../lib/portal-context'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -20,13 +21,13 @@ export default function Settings() {
   const [minOrder, setMinOrder] = useState('')
 
   useEffect(() => {
-    api
-      .get<Merchant>('/merchant/profile')
-      .then((res) => {
-        setMerchant(res.data)
-        setJamBuka((res.data.jam_buka || '08:00').slice(0, 5))
-        setJamTutup((res.data.jam_tutup || '22:00').slice(0, 5))
-        setMinOrder(String(res.data.min_order_idr ?? 0))
+    loadMerchantPortalContext()
+      .then((context) => {
+        const merchant = context.merchant
+        setMerchant(merchant)
+        setJamBuka((merchant.jam_buka || '08:00').slice(0, 5))
+        setJamTutup((merchant.jam_tutup || '22:00').slice(0, 5))
+        setMinOrder(String(merchant.min_order_idr ?? 0))
       })
       .catch((err) => toast.error(apiErrorMessage(err, 'Gagal memuat profil')))
       .finally(() => setLoading(false))

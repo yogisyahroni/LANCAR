@@ -3,34 +3,39 @@ import { NavLink, Outlet, useNavigate } from 'react-router'
 import { Banknote, ClipboardList, LayoutDashboard, LogOut, Menu as MenuIcon, Percent, Settings, Store, Users, UtensilsCrossed, X, BarChart3 } from 'lucide-react'
 import { toast } from 'sonner'
 import { clearSession } from '../lib/auth'
-import { api } from '../lib/api'
-import type { Merchant } from '../lib/types'
+import type { Merchant, MerchantPortalContext } from '../lib/types'
+import { loadMerchantPortalContext } from '../lib/portal-context'
 
 const NAV = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/pesanan', label: 'Pesanan', icon: ClipboardList },
-  { to: '/menu', label: 'Menu', icon: UtensilsCrossed },
-  { to: '/promo', label: 'Promo', icon: Percent },
-  { to: '/laporan', label: 'Laporan', icon: BarChart3 },
-  { to: '/settlement', label: 'Settlement', icon: Banknote },
-  { to: '/staff', label: 'Staff', icon: Users },
-  { to: '/pengaturan', label: 'Pengaturan', icon: Settings },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, capability: 'view_store' },
+  { to: '/pesanan', label: 'Pesanan', icon: ClipboardList, capability: 'view_store' },
+  { to: '/menu', label: 'Menu', icon: UtensilsCrossed, capability: 'view_store' },
+  { to: '/promo', label: 'Promo', icon: Percent, capability: 'manage_promo' },
+  { to: '/laporan', label: 'Laporan', icon: BarChart3, capability: 'view_reports' },
+  { to: '/settlement', label: 'Settlement', icon: Banknote, capability: 'view_reports' },
+  { to: '/staff', label: 'Staff', icon: Users, capability: 'manage_staff' },
+  { to: '/pengaturan', label: 'Pengaturan', icon: Settings, capability: 'view_store' },
 ]
 
 export default function Layout() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [merchant, setMerchant] = useState<Merchant | null>(null)
+  const [portalContext, setPortalContext] = useState<MerchantPortalContext | null>(null)
 
   useEffect(() => {
     let mounted = true
-    api.get<Merchant>('/merchant/profile')
-      .then((response) => { if (mounted) setMerchant(response.data) })
+    loadMerchantPortalContext()
+      .then((context) => {
+        if (!mounted) return
+        setMerchant(context.merchant)
+        setPortalContext(context)
+      })
       .catch(() => { /* ProtectedRoute owns the user-facing recovery state. */ })
     return () => { mounted = false }
   }, [])
 
-  const visibleNav = NAV.filter(({ to }) => to !== '/staff' || merchant?.business_type === 'perusahaan')
+  const visibleNav = NAV.filter(({ capability }) => !portalContext || portalContext.capabilities.includes(capability))
   const outletName = merchant?.outlet_name || merchant?.nama_toko || 'Toko Mitra'
   const outletAddress = merchant?.branch_address || merchant?.alamat || ''
 

@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { ArrowRight, Clock3, Loader2, Lock, Mail, Store, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
-import { deviceId, setSession } from '../lib/auth'
+import { clearMerchantDeviceSession, deviceId, setSession } from '../lib/auth'
 import { merchantOnboardingStatus } from '../lib/merchant-status'
-import type { AuthResponse, Merchant } from '../lib/types'
+import { loadMerchantPortalContext } from '../lib/portal-context'
+import type { AuthResponse } from '../lib/types'
 
 type Gate = 'none' | 'pending' | 'rejected' | 'suspended' | 'not_registered'
 
@@ -28,6 +29,7 @@ function GateCard({ tone, icon, title, children }: {
 
 export default function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -51,6 +53,7 @@ export default function Login() {
       const token = res.data?.access_token || res.data?.data?.token
       if (!token) throw new Error(res.data?.message || 'Login gagal. Coba lagi.')
 
+      clearMerchantDeviceSession()
       setSession(token, res.data?.refresh_token ?? null, {
         id: res.data?.user?.id,
         name: res.data?.user?.name || res.data?.user?.full_name,
@@ -58,10 +61,9 @@ export default function Login() {
       })
       toast.success('Login berhasil')
 
-      let merchant: Merchant
+      let merchant
       try {
-        const p = await api.get<Merchant>('/merchant/profile')
-        merchant = p.data
+        merchant = (await loadMerchantPortalContext()).merchant
       } catch (profileErr) {
         const status = (profileErr as { response?: { status?: number } })?.response?.status
         if (status === 404 || status === 400 || status === 403) {
@@ -87,7 +89,9 @@ export default function Login() {
         setGate('pending')
         return
       }
-      navigate('/dashboard', { replace: true })
+      const requestedPath = (location.state as { from?: string } | null)?.from
+      const destination = requestedPath && requestedPath.startsWith('/') && requestedPath !== '/masuk' ? requestedPath : '/dashboard'
+      navigate(destination, { replace: true })
     } catch (err) {
       setError(apiErrorMessage(err, 'Login gagal. Periksa email & password.'))
     } finally {

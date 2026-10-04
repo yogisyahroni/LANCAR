@@ -2,11 +2,18 @@ const TOKEN_KEY = 'merchant_web_access_token'
 const REFRESH_KEY = 'merchant_web_refresh_token'
 const USER_KEY = 'merchant_web_user'
 const DEVICE_KEY = 'merchant_web_device_id'
+const MERCHANT_SESSION_KEY = 'merchant_web_session'
 
 export interface StoredUser {
   id?: string
   name?: string
   email?: string
+}
+
+export interface MerchantDeviceSession {
+  session_token: string
+  branch_id: string
+  device_id: string
 }
 
 export function getToken(): string | null {
@@ -36,6 +43,7 @@ export function clearSession() {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(REFRESH_KEY)
   localStorage.removeItem(USER_KEY)
+  sessionStorage.removeItem(MERCHANT_SESSION_KEY)
 }
 
 export function isLoggedIn(): boolean {
@@ -49,4 +57,21 @@ export function deviceId(): string {
     localStorage.setItem(DEVICE_KEY, id)
   }
   return id
+}
+
+export function getMerchantDeviceSession(): MerchantDeviceSession | null {
+  try {
+    const raw = sessionStorage.getItem(MERCHANT_SESSION_KEY)
+    return raw ? (JSON.parse(raw) as MerchantDeviceSession) : null
+  } catch {
+    return null
+  }
+}
+
+export function setMerchantDeviceSession(session: MerchantDeviceSession) {
+  sessionStorage.setItem(MERCHANT_SESSION_KEY, JSON.stringify(session))
+}
+
+export function clearMerchantDeviceSession() {
+  sessionStorage.removeItem(MERCHANT_SESSION_KEY)
 }

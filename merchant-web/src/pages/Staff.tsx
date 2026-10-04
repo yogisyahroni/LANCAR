@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
 import type { Merchant, MerchantStaff } from '../lib/types'
 import { MerchantPageSkeleton } from '../components/Skeleton'
+import { loadMerchantPortalContext } from '../lib/portal-context'
 
 export default function Staff() {
   const [merchant, setMerchant] = useState<Merchant | null>(null)
@@ -11,7 +12,7 @@ export default function Staff() {
   const [loading, setLoading] = useState(true)
   const [invite, setInvite] = useState({ email: '', role: 'kasir' })
   const [saving, setSaving] = useState(false)
-  const load = async () => { try { const p = await api.get<Merchant>('/merchant/profile'); setMerchant(p.data); if (p.data.business_type === 'perusahaan') { const s = await api.get<{ data: MerchantStaff[] }>(`/merchant/staff/${p.data.id}`); setStaff(s.data?.data || []) } } catch (err) { toast.error(apiErrorMessage(err, 'Gagal memuat staff')) } finally { setLoading(false) } }
+  const load = async () => { try { const context = await loadMerchantPortalContext(); const merchant = context.merchant; setMerchant(merchant); if (merchant.business_type === 'perusahaan') { const s = await api.get<{ data: MerchantStaff[] }>(`/merchant/staff/${merchant.id}`); setStaff(s.data?.data || []) } } catch (err) { toast.error(apiErrorMessage(err, 'Gagal memuat staff')) } finally { setLoading(false) } }
   useEffect(() => { load() }, [])
   const sendInvite = async (event: React.FormEvent) => { event.preventDefault(); if (!merchant) return; setSaving(true); try { await api.post(`/merchant/staff/${merchant.id}`, { email: invite.email, role: invite.role }); toast.success('Undangan staff dikirim'); setInvite({ email: '', role: 'kasir' }); await load() } catch (err) { toast.error(apiErrorMessage(err, 'Gagal mengirim undangan')) } finally { setSaving(false) } }
   const update = async (person: MerchantStaff, status: 'active' | 'revoked') => { if (!merchant) return; try { await api.patch(`/merchant/staff/${merchant.id}/${person.id}`, { status }); await load() } catch (err) { toast.error(apiErrorMessage(err, 'Gagal mengubah akses staff')) } }
