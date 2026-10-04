@@ -160,7 +160,7 @@ export default function Register() {
 
   const submitMerchant = async (token: string | null, user?: { id?: string; name?: string; full_name?: string; email?: string }) => {
     if (token) {
-      await api.post('/auth/web/session/exchange', { access_token: token })
+      await api.post('/auth/web/session/exchange', { access_token: token }, { headers: { 'X-Portal': 'merchant' } })
       clearAccessToken()
       markWebSessionEstablished({
         id: user?.id,

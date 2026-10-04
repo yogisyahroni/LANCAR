@@ -50,6 +50,7 @@ const authServicePublic = (method: string, path: string) => {
     { method: 'POST', path: '/api/v1/auth/otp/send' },
     { method: 'POST', path: '/api/v1/auth/otp/verify' },
     { method: 'POST', path: '/api/v1/auth/customer/login/start' },
+    { method: 'POST', path: '/api/v1/auth/merchant-portal/login/start' },
     { method: 'POST', path: '/api/v1/auth/customer/register/start' },
     { method: 'POST', path: '/api/v1/auth/customer/google/start' },
     { method: 'POST', path: '/api/v1/auth/customer/google/complete' },
@@ -375,7 +376,7 @@ const hasCookie = (req: Request, cookieName: string) => {
 };
 
 const hasWebSessionCookie = (req: Request) =>
-  hasCookie(req, 'customer_session') || hasCookie(req, 'admin_session') || hasCookie(req, 'web_session');
+  hasCookie(req, 'customer_session') || hasCookie(req, 'merchant_session') || hasCookie(req, 'admin_session') || hasCookie(req, 'web_session');
 
 const hasAdminSessionCookie = (req: Request) => hasCookie(req, 'admin_session');
 

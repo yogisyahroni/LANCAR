@@ -48,14 +48,14 @@ const getDevAdminLoginPasswords = () => {
   );
 };
 
-const createCustomerWebSession = async (req: Request, customerId: string) => {
+const createWebSession = async (req: Request, userId: string) => {
   const sessionToken = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   await db.query(
     `INSERT INTO web_sessions (user_id, session_token, expires_at, ip_address, user_agent)
      VALUES ($1, $2, $3, $4, $5)`,
-    [customerId, sessionToken, expiresAt, req.ip, req.headers['user-agent']]
+    [userId, sessionToken, expiresAt, req.ip, req.headers['user-agent']]
   );
 
   return { sessionToken, expiresAt };
@@ -196,20 +196,27 @@ export const exchangeCustomerJwtForWebSession = async (req: Request, res: Respon
       algorithms: ['HS256'],
       issuer: process.env.JWT_ISSUER || 'tembus-auth-service',
     }) as CustomerJwtPayload;
-    const customerId = decoded.user_id || decoded.id;
+    const portal = typeof req.headers['x-portal'] === 'string' ? req.headers['x-portal'] : '';
+    const isMerchantPortal = portal === 'merchant';
+    const userId = decoded.user_id || decoded.id;
+    const merchantRoles = ['customer', 'merchant', 'merchant_staff'];
+    const tokenAllowed = isMerchantPortal
+      ? merchantRoles.includes(String(decoded.role || ''))
+      : decoded.role === 'customer';
 
-    if (!customerId || decoded.role !== 'customer') {
-      res.status(403).json({ error: 'Only customer tokens can create customer web sessions' });
+    if (!userId || !tokenAllowed) {
+      res.status(403).json({ error: isMerchantPortal ? 'Only merchant portal roles can create merchant web sessions' : 'Only customer tokens can create customer web sessions' });
       return;
     }
 
+    const roleFilter = isMerchantPortal ? merchantRoles : ['customer'];
     const result = await db.query(
       `SELECT id, full_name as name, email, role, status, store_name
        FROM users
        WHERE id = $1
-         AND role = 'customer'
+         AND role = ANY($2::text[])
          AND deleted_at IS NULL`,
-      [customerId]
+      [userId, roleFilter]
     );
 
     if (result.rows.length === 0) {
@@ -223,10 +230,10 @@ export const exchangeCustomerJwtForWebSession = async (req: Request, res: Respon
       return;
     }
 
-    const { sessionToken, expiresAt } = await createCustomerWebSession(req, user.id);
-    res.cookie('customer_session', sessionToken, customerCookieOptions(expiresAt));
+    const { sessionToken, expiresAt } = await createWebSession(req, user.id);
+    res.cookie(isMerchantPortal ? 'merchant_session' : 'customer_session', sessionToken, customerCookieOptions(expiresAt));
     issueCsrfTokenCookie(res, sessionToken, expiresAt);
-    res.json({ message: 'Customer web session created', user });
+    res.json({ message: isMerchantPortal ? 'Merchant web session created' : 'Customer web session created', user });
   } catch (error) {
     securityLog.error('Customer JWT exchange error:', error);
     res.status(401).json({ error: 'Invalid or expired customer token' });
@@ -237,11 +244,14 @@ export const refreshToken = async (req: Request, res: Response) => {
   const portal = typeof req.headers['x-portal'] === 'string' ? req.headers['x-portal'] : '';
   const adminSessionToken = req.cookies?.admin_session;
   const customerSessionToken = req.cookies?.customer_session;
-  const sessionToken = portal === 'customer'
-    ? customerSessionToken
-    : portal === 'admin'
-      ? adminSessionToken
-      : adminSessionToken || customerSessionToken || req.cookies?.web_session;
+  const merchantSessionToken = req.cookies?.merchant_session;
+  const sessionToken = portal === 'merchant'
+    ? merchantSessionToken || customerSessionToken
+    : portal === 'customer'
+      ? customerSessionToken
+      : portal === 'admin'
+        ? adminSessionToken
+        : adminSessionToken || customerSessionToken || merchantSessionToken || req.cookies?.web_session;
 
   if (!sessionToken) {
     res.status(401).json({ error: 'Unauthorized: No session' });
@@ -271,9 +281,9 @@ export const refreshToken = async (req: Request, res: Response) => {
          JOIN users u ON s.user_id = u.id
          WHERE s.session_token = $1
            AND s.expires_at > NOW()
-           AND u.role = 'customer'
+           AND u.role = ANY($2::text[])
            AND u.deleted_at IS NULL`,
-        [sessionToken]
+        [sessionToken, portal === 'merchant' ? ['customer', 'merchant', 'merchant_staff'] : ['customer']]
       );
 
     const user = adminResult.rows[0] || customerResult.rows[0];
@@ -284,7 +294,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       return;
     }
     const isAdmin = ['super_admin', 'admin', 'manager', 'finance', 'ops_security', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'].includes(user.role);
-    const cookieName = isAdmin ? 'admin_session' : 'customer_session';
+    const cookieName = portal === 'merchant' ? 'merchant_session' : isAdmin ? 'admin_session' : 'customer_session';
 
     // Rotate the opaque web-session token on every refresh. The old token is
     // invalid immediately, so a stolen session cookie cannot be replayed after
@@ -318,7 +328,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 };
 
 export const logoutWeb = async (req: Request, res: Response) => {
-  const sessionToken = req.cookies?.admin_session || req.cookies?.customer_session || req.cookies?.web_session;
+  const sessionToken = req.cookies?.admin_session || req.cookies?.merchant_session || req.cookies?.customer_session || req.cookies?.web_session;
 
   if (sessionToken) {
     try {
@@ -334,6 +344,7 @@ export const logoutWeb = async (req: Request, res: Response) => {
     path: '/',
   };
   res.clearCookie('admin_session', clearCookieOptions);
+  res.clearCookie('merchant_session', clearCookieOptions);
   res.clearCookie('customer_session', clearCookieOptions);
   res.clearCookie('web_session', clearCookieOptions);
   clearCsrfTokenCookie(res);
@@ -341,7 +352,7 @@ export const logoutWeb = async (req: Request, res: Response) => {
 };
 
 export const getCustomerSessions = async (req: Request, res: Response) => {
-  const sessionToken = req.cookies?.customer_session;
+  const sessionToken = req.cookies?.merchant_session || req.cookies?.customer_session;
   if (!req.user?.id || !sessionToken) {
     res.status(401).json({ error: 'Unauthorized: No customer session token provided' });
     return;
@@ -374,7 +385,7 @@ export const getCustomerSessions = async (req: Request, res: Response) => {
 };
 
 export const logoutOtherCustomerSessions = async (req: Request, res: Response) => {
-  const sessionToken = req.cookies?.customer_session;
+  const sessionToken = req.cookies?.merchant_session || req.cookies?.customer_session;
   if (!req.user?.id || !sessionToken) {
     res.status(401).json({ error: 'Unauthorized: No customer session token provided' });
     return;

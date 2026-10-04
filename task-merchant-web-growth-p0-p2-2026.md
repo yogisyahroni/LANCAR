@@ -76,7 +76,7 @@ Dasar keputusan yang perlu ditutup:
 - Buat continuation flow OTP untuk registrasi baru dan login perangkat baru; jangan menganggap response tanpa `access_token` sebagai error generik.
 - Pastikan `customer_auth_otp_required`/provider OTP yang aktif di production tidak memutus onboarding merchant Web.
 - Validasi role, ownership merchant, session expiry, refresh rotation, logout, multi-tab, dan device binding.
-- Pindahkan access/refresh token dari `localStorage` ke mekanisme browser yang disetujui security, idealnya secure HttpOnly SameSite cookie atau equivalent yang dibuktikan aman.
+- Gunakan namespace sesi web merchant yang terisolasi dari customer web/API: `merchant_session` secure HttpOnly SameSite cookie dengan refresh rotation; staff tetap melewati validasi tenant/outlet/capability dan device session.
 - Tambahkan copy/error state untuk OTP expired, rate limit, provider unavailable, session expired, dan akun belum memiliki toko.
 
 **Acceptance criteria:**

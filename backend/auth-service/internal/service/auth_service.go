@@ -293,7 +293,23 @@ func (s *AuthService) ConfirmCustomerPasswordReset(ctx context.Context, email, c
 }
 
 func (s *AuthService) StartCustomerPasswordLogin(ctx context.Context, email, password, deviceID string, deviceInfo []byte) (*AuthResponse, error) {
-	ctx, span := authTracer.Start(ctx, "auth.customer_login.start")
+	return s.startPasswordLogin(ctx, email, password, deviceID, deviceInfo, "customer_password_login", []domain.UserRole{domain.RoleCustomer})
+}
+
+// StartMerchantPasswordLogin authenticates a merchant owner or an invited
+// merchant staff member. Merchant membership, outlet scope, and capabilities
+// are resolved later by merchant-service from merchant_staff; this endpoint
+// only establishes the short-lived auth session.
+func (s *AuthService) StartMerchantPasswordLogin(ctx context.Context, email, password, deviceID string, deviceInfo []byte) (*AuthResponse, error) {
+	return s.startPasswordLogin(ctx, email, password, deviceID, deviceInfo, "merchant_password_login", []domain.UserRole{
+		domain.RoleCustomer,
+		domain.RoleMerchant,
+		domain.RoleMerchantStaff,
+	})
+}
+
+func (s *AuthService) startPasswordLogin(ctx context.Context, email, password, deviceID string, deviceInfo []byte, flow string, allowedRoles []domain.UserRole) (*AuthResponse, error) {
+	ctx, span := authTracer.Start(ctx, "auth."+flow+".start")
 	result := "unknown"
 	failed := false
 	defer func() {
@@ -303,7 +319,7 @@ func (s *AuthService) StartCustomerPasswordLogin(ctx context.Context, email, pas
 
 	email = strings.TrimSpace(strings.ToLower(email))
 	span.SetAttributes(
-		attribute.String("auth.flow", "customer_password_login"),
+		attribute.String("auth.flow", flow),
 		attribute.String("auth.identifier_type", identifierType(email)),
 		attribute.Bool("auth.device_id_present", strings.TrimSpace(deviceID) != ""),
 	)
@@ -321,12 +337,21 @@ func (s *AuthService) StartCustomerPasswordLogin(ctx context.Context, email, pas
 		return nil, errors.New("device_id is required")
 	}
 
-	lookupCtx, lookupSpan := authTracer.Start(ctx, "auth.customer_credential_lookup")
+	lookupCtx, lookupSpan := authTracer.Start(ctx, "auth.credential_lookup")
 	lookupSpan.SetAttributes(attribute.String("auth.identifier_type", identifierType(email)))
 	user, err := s.userRepo.GetByPhoneNumber(lookupCtx, email)
 	lookupSpan.SetAttributes(attribute.Bool("auth.record_found", err == nil && user != nil && user.ID != ""))
 	lookupSpan.End()
-	if err != nil || user == nil || user.Role != domain.RoleCustomer {
+	roleAllowed := false
+	if user != nil {
+		for _, allowedRole := range allowedRoles {
+			if user.Role == allowedRole {
+				roleAllowed = true
+				break
+			}
+		}
+	}
+	if err != nil || user == nil || !roleAllowed {
 		result = "invalid_credentials"
 		failed = true
 		return nil, errors.New("invalid email or password")

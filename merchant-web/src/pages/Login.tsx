@@ -44,7 +44,7 @@ export default function Login() {
   const finishLogin = async (token: string, user: AuthResponse['user']) => {
     // Exchange the short-lived bearer token for an HttpOnly web session before
     // any merchant request. The token is never persisted in browser storage.
-    await api.post('/auth/web/session/exchange', { access_token: token })
+    await api.post('/auth/web/session/exchange', { access_token: token }, { headers: { 'X-Portal': 'merchant' } })
     clearAccessToken()
     markWebSessionEstablished({
       id: user?.id,
@@ -98,7 +98,7 @@ export default function Login() {
     setLoading(true)
     setError('')
     try {
-      const res = await api.post<AuthResponse>('/auth/customer/login/start', {
+      const res = await api.post<AuthResponse>('/auth/merchant-portal/login/start', {
         email: email.trim(),
         password,
         device_id: deviceId(),

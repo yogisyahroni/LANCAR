@@ -13,7 +13,7 @@ export const api = axios.create({
   baseURL: apiBaseUrl,
   timeout: 30000,
   withCredentials: true,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', 'X-Portal': 'merchant' },
 })
 
 api.interceptors.request.use((config) => {
@@ -40,7 +40,7 @@ async function tryRefresh(): Promise<boolean> {
   try {
     await axios.post(`${apiBaseUrl}/auth/web/refresh-token`, null, {
       withCredentials: true,
-      headers: { 'X-Portal': 'customer' },
+      headers: { 'X-Portal': 'merchant' },
     })
     return true
   } catch {
@@ -50,7 +50,7 @@ async function tryRefresh(): Promise<boolean> {
     try {
       await axios.get(`${apiBaseUrl}/auth/web/me`, {
         withCredentials: true,
-        headers: { 'X-Portal': 'customer' },
+        headers: { 'X-Portal': 'merchant' },
       })
       return true
     } catch {

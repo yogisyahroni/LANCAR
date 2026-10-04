@@ -19,10 +19,14 @@ const (
 	RoleCustomer UserRole = "customer"
 	RoleCourier  UserRole = "courier"
 	// FOOD-BIKE-002 + FB-119: merchant food — chat customer↔merchant.
-	RoleMerchant   UserRole = "merchant"
-	RoleAdmin      UserRole = "admin"
-	RoleSuperAdmin UserRole = "super_admin"
-	RoleFinance    UserRole = "finance"
+	RoleMerchant UserRole = "merchant"
+	// Merchant Portal staff authenticate through the merchant-specific web
+	// session flow. Their outlet role and capabilities remain canonical in
+	// merchant_staff; this role only identifies the account class at auth time.
+	RoleMerchantStaff UserRole = "merchant_staff"
+	RoleAdmin         UserRole = "admin"
+	RoleSuperAdmin    UserRole = "super_admin"
+	RoleFinance       UserRole = "finance"
 )
 
 type User struct {

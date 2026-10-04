@@ -18,6 +18,7 @@ type AuthAbuseScope string
 
 const (
 	ScopeCustomerPasswordLogin AuthAbuseScope = "customer_password_login"
+	ScopeMerchantPasswordLogin AuthAbuseScope = "merchant_password_login"
 	ScopeCustomerRegistration  AuthAbuseScope = "customer_registration"
 	ScopeCustomerOTPSend       AuthAbuseScope = "customer_otp_send"
 	ScopeCustomerOTPVerify     AuthAbuseScope = "customer_otp_verify"

@@ -28,6 +28,7 @@ type AuthHandler struct {
 		RequestCustomerPasswordReset(ctx context.Context, email string) error
 		ConfirmCustomerPasswordReset(ctx context.Context, email, code, newPassword string) error
 		StartCustomerPasswordLogin(ctx context.Context, email, password, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
+		StartMerchantPasswordLogin(ctx context.Context, email, password, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
 		StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password, deviceID string, deviceInfo []byte, awbSenderName string) (*service.AuthResponse, error)
 		VerifyOTP(ctx context.Context, phoneNumber, code, deviceID string, deviceInfo []byte, ipAddress string) (*service.AuthResponse, error)
 		RefreshToken(ctx context.Context, oldRefreshToken, deviceID string) (*service.AuthResponse, error)
@@ -96,6 +97,14 @@ func (h *AuthHandler) recordAuthSuccess(r *http.Request, scope middleware.AuthAb
 }
 
 func (h *AuthHandler) StartCustomerPasswordLogin(w http.ResponseWriter, r *http.Request) {
+	h.startPasswordLogin(w, r, middleware.ScopeCustomerPasswordLogin, "invalid_customer_password_login", h.svc.StartCustomerPasswordLogin)
+}
+
+func (h *AuthHandler) StartMerchantPasswordLogin(w http.ResponseWriter, r *http.Request) {
+	h.startPasswordLogin(w, r, middleware.ScopeMerchantPasswordLogin, "invalid_merchant_password_login", h.svc.StartMerchantPasswordLogin)
+}
+
+func (h *AuthHandler) startPasswordLogin(w http.ResponseWriter, r *http.Request, scope middleware.AuthAbuseScope, failureReason string, login func(context.Context, string, string, string, []byte) (*service.AuthResponse, error)) {
 	var req struct {
 		Email      string          `json:"email"`
 		Password   string          `json:"password"`
@@ -119,17 +128,17 @@ func (h *AuthHandler) StartCustomerPasswordLogin(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if h.rejectIfAuthAbuseBlocked(w, r, middleware.ScopeCustomerPasswordLogin, normalizedEmail) {
+	if h.rejectIfAuthAbuseBlocked(w, r, scope, normalizedEmail) {
 		return
 	}
 
-	res, err := h.svc.StartCustomerPasswordLogin(r.Context(), req.Email, req.Password, deviceID, req.DeviceInfo)
+	res, err := login(r.Context(), req.Email, req.Password, deviceID, req.DeviceInfo)
 	if err != nil {
-		h.recordAuthFailure(r, middleware.ScopeCustomerPasswordLogin, normalizedEmail, "invalid_customer_password_login")
+		h.recordAuthFailure(r, scope, normalizedEmail, failureReason)
 		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Authentication required", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
-	h.recordAuthSuccess(r, middleware.ScopeCustomerPasswordLogin, normalizedEmail)
+	h.recordAuthSuccess(r, scope, normalizedEmail)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(res)

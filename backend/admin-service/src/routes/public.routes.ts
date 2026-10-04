@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as controllers from '../controllers';
-import { requireAuth, requireRole, requireTotp, verifyWebSession, verifySession, requireMobileOrWebAuth } from '../middlewares';
+import { requireAuth, requireRole, requireTotp, verifyWebSession, verifyPortalWebSession, verifySession, requireMobileOrWebAuth } from '../middlewares';
 import {
   communicationCallRateLimiter, communicationMessageRateLimiter, communicationReadRateLimiter,
   courierFaceRateLimiter, courierOfferRateLimiter, courierProofRateLimiter,
@@ -16,8 +16,8 @@ publicRoutes.post('/auth/web/session/exchange', (req, res) => controllers.exchan
 publicRoutes.post('/auth/web/logout', (req, res) => controllers.logoutWeb(req, res));
 publicRoutes.post('/auth/web/refresh-token', (req, res) => controllers.refreshToken(req, res));
 publicRoutes.get('/auth/web/me', verifySession, (req, res) => controllers.me(req, res));
-publicRoutes.get('/auth/web/sessions', verifyWebSession, (req, res) => controllers.getCustomerSessions(req, res));
-publicRoutes.post('/auth/web/sessions/logout-others', verifyWebSession, (req, res) => controllers.logoutOtherCustomerSessions(req, res));
+publicRoutes.get('/auth/web/sessions', verifyPortalWebSession, (req, res) => controllers.getCustomerSessions(req, res));
+publicRoutes.post('/auth/web/sessions/logout-others', verifyPortalWebSession, (req, res) => controllers.logoutOtherCustomerSessions(req, res));
 publicRoutes.post('/api/v1/customer/security/pin', requireMobileOrWebAuth, (req, res) => controllers.changeCustomerPin(req, res));
 publicRoutes.get('/auth/web/wallet/balance', verifyWebSession, (req, res) => controllers.getWalletBalance(req, res));
 publicRoutes.post('/auth/web/wallet/topup', verifyWebSession, (req, res) => controllers.createTopUp(req, res));

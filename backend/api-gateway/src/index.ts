@@ -842,6 +842,17 @@ app.post(
   proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
+// Merchant web password login must be declared before the broader
+// /api/v1/auth/merchant registration proxy below. Without this explicit
+// route, Express treats /merchant-portal as that prefix and forwards the
+// login request to admin-service instead of auth-service.
+app.post(
+  '/api/v1/auth/merchant-portal/login/start',
+  authLimiter,
+  jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
+);
+
 // Route eksplisit (bukan via app.use mount) — http-proxy-middleware v3 di Express 5
 // tidak meneruskan app.use(path, proxy) untuk path ini (regresi; test 2026-08-10).
 app.post(
@@ -1838,23 +1849,25 @@ app.use(createProxyMiddleware({
   },
 }));
 
-const customerSessionTokenFromRequest = (req: Request): string | null => {
+const merchantSessionTokenFromRequest = (req: Request): { name: 'merchant_session' | 'customer_session'; token: string } | null => {
   const cookieHeader = req.headers.cookie;
   if (!cookieHeader) return null;
   const cookies = Array.isArray(cookieHeader) ? cookieHeader.join(';') : cookieHeader;
-  const match = cookies.match(/(?:^|;\s*)customer_session=([^;]+)/);
-  return match ? match[1].trim() : null;
+  const merchantMatch = cookies.match(/(?:^|;\s*)merchant_session=([^;]+)/);
+  if (merchantMatch) return { name: 'merchant_session', token: merchantMatch[1].trim() };
+  const legacyCustomerMatch = cookies.match(/(?:^|;\s*)customer_session=([^;]+)/);
+  return legacyCustomerMatch ? { name: 'customer_session', token: legacyCustomerMatch[1].trim() } : null;
 };
 
-// Merchant Web uses the server-backed session created by
-// /auth/web/session/exchange. Cookie presence alone is never trusted: the
+// Merchant Web uses the server-backed merchant_session created by
+// /auth/web/session/exchange with X-Portal: merchant. Cookie presence alone is never trusted: the
 // gateway asks admin-service to validate the session, then signs the resolved
 // identity context before forwarding to merchant-service.
 const authenticateMerchantWebSession = async (req: Request, res: Response, next: NextFunction) => {
   if (req.headers['x-user-id']) return next();
 
-  const sessionToken = customerSessionTokenFromRequest(req);
-  if (!sessionToken) {
+  const session = merchantSessionTokenFromRequest(req);
+  if (!session) {
     return res.status(401).json({
       status: 'error',
       code: 'ERR_UNAUTHORIZED',
@@ -1866,8 +1879,8 @@ const authenticateMerchantWebSession = async (req: Request, res: Response, next:
     const response = await fetch(new URL('/auth/web/me', ADMIN_SERVICE_URL), {
       method: 'GET',
       headers: {
-        cookie: `customer_session=${sessionToken}`,
-        'x-portal': 'customer',
+        cookie: `${session.name}=${session.token}`,
+        'x-portal': 'merchant',
       },
       signal: AbortSignal.timeout(3000),
     });
@@ -2115,7 +2128,7 @@ app.use(createProxyMiddleware({
   on: { proxyReq: (proxyReq: any, req: any) => { logProxyForward('device_tokens', req, ORDER_SERVICE_URL); prepareProxyRequest(proxyReq, req); } },
 }));
 // Notification inbox is shared by mobile clients (Bearer JWT) and the
-// merchant portal (HttpOnly customer_session). The route matrix already
+// merchant portal (HttpOnly merchant_session). The route matrix already
 // treats it as a merchant-portal API; keep the runtime middleware aligned so
 // a portal cookie is not rejected with a misleading 401/refresh loop.
 const authenticateNotificationRequest = (req: Request, res: Response, next: NextFunction) => {

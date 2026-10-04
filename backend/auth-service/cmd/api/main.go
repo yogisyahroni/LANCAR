@@ -340,6 +340,9 @@ func main() {
 	mux.HandleFunc("/api/v1/auth/customer/login/start",
 		middleware.AuthRateLimitedChain(rdb, h.StartCustomerPasswordLogin))
 
+	mux.HandleFunc("/api/v1/auth/merchant-portal/login/start",
+		middleware.AuthRateLimitedChain(rdb, h.StartMerchantPasswordLogin))
+
 	mux.HandleFunc("/api/v1/auth/customer/register/start",
 		middleware.AuthRateLimitedChain(rdb, h.StartCustomerPasswordRegistration))
 

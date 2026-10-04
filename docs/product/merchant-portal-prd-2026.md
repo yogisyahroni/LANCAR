@@ -579,6 +579,10 @@ aggregation window, privacy class, dan target/threshold yang disetujui.
 - Auth/session: secure cookie atau mekanisme equivalent yang disetujui security,
   refresh rotation, revoke, device/session visibility, OTP/MFA, CSRF defense,
   rate limit, anti-enumeration, dan secure logout.
+- Portal Mitra memakai namespace sesi web terisolasi dari customer web/API. Cookie
+  `merchant_session` hanya dapat dipakai setelah validasi role merchant/merchant
+  staff, tenant, outlet, dan capability oleh gateway serta merchant-service;
+  session customer tidak boleh menjadi jalur akses staff ke data merchant.
 - Authorization: tenant/outlet object-level authorization pada setiap read dan
   write; frontend hide bukan security control.
 - Financial: maker-checker/step-up untuk rekening, payout, refund, dan export

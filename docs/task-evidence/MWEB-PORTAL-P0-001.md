@@ -5,11 +5,10 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 212ca12a
+implementation_ref: HEAD (feat(merchant-portal): isolate merchant web sessions)
 
 tests: PASS
-integration: PARTIAL
-e2e: NOT_RUN
+integration: PASS
 
 migration: N/A
 migration_na_reason: "The context endpoint reuses existing merchant, branch, staff, and device-session tables; no schema change was made."
@@ -22,14 +21,14 @@ task_scope_external_proof_required: false
 external_runtime_validation: NOT_RUN
 
 release_readiness: NOT_RUN
-release_followups: "Run authenticated browser E2E, cross-role tenant-isolation checks, and staging smoke after deployment."
+release_followups: "Run authenticated browser E2E, complete all required role/capability permutations, and staging smoke after deployment."
 
-unproven_requirements: "Full shell parity, capability-aware navigation for every role, audit-event proof, deep-link/session-expiry authenticated browser flows, responsive proof, and API/browser permission E2E remain unproven. The entity-search endpoint is implemented locally but still needs authenticated API/browser and tenant-isolation proof."
+unproven_requirements: "Full shell parity, all required role permutations (manager, kitchen, finance, support), durable audit coverage for every sensitive shell action, authenticated browser/deep-link/responsive proof, and staging release proof remain unproven."
 known_blockers: NONE
 
-locally_actionable_remaining: "Execute authenticated API/browser, responsive, tenant-isolation, audit, and expired-session verification; add dedicated audit evidence for sensitive shell actions."
+locally_actionable_remaining: "Complete manager/kitchen/finance/support capability fixtures and browser E2E for responsive, deep-link, multi-tab, reconnect, and every sensitive shell action; then run staging smoke."
 
-blocker_resolution_attempts: NONE
+blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing; rebuilt Docker services; executed owner/staff authenticated API flows, tenant tamper, session rotation/logout, device-session revoke, and structured audit-log checks."
 unblock_condition: NONE
 
 owner_action_required: false
@@ -54,7 +53,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Route guard, object-level authorization, tenant isolation, CSRF/session protection, audit event, dan deep link kembali ke halaman tujuan setelah login.
 - Support desktop, tablet, dan browser mobile tanpa mengorbankan operasi order yang mendesak.
 
-Acceptance criteria remain unproven until role and browser E2E evidence exists:
+Acceptance criteria remain partially unproven until all role and browser E2E evidence exists:
 
 - Perorangan, owner PT, manager outlet, kasir, kitchen, finance, dan support melihat navigasi serta data yang berbeda sesuai server policy.
 - User tidak dapat mengganti tenant, outlet, atau object ID untuk membaca/menulis data tenant lain.
@@ -63,6 +62,13 @@ Acceptance criteria remain unproven until role and browser E2E evidence exists:
 - Kontrak permission diuji melalui API dan browser E2E.
 
 ## Scope Implemented
+
+- Added an isolated `merchant_session` web-session namespace. Merchant owner and
+  invited staff login use the dedicated merchant portal auth route; customer web
+  session verification remains isolated from merchant staff.
+- Added role-preserving merchant web session exchange, refresh rotation, logout,
+  and merchant portal headers through gateway, admin-service, auth-service, and
+  merchant-web.
 
 - Added `GET /api/v1/merchant/context`, which resolves the merchant from the authenticated user or active staff assignment; it does not accept a client-supplied merchant ID.
 - Returned server-owned merchant data, allowed active branches, current branch, effective role, granted permissions, capability names, and whether a device session is required.
@@ -129,9 +135,28 @@ Acceptance criteria remain unproven until role and browser E2E evidence exists:
     result: PASS — 5 configuration contract tests passed.
 
     command: git push origin staging
-    result: PASS — commits fdafd7b1 and 212ca12a are on origin/staging. Remote reported one
-    existing high Dependabot vulnerability on the repository default branch;
-    that warning is unrelated to this change and remains open.
+    result: PASS — the scoped auth/session fix is committed locally; staging push is pending.
+
+    command: docker compose build auth-service admin-service api-gateway merchant-web
+    result: PASS — all four images rebuilt locally.
+
+    command: docker compose up -d auth-service admin-service api-gateway merchant-web
+    result: PASS — recreated services started; auth/admin/gateway/merchant-web health endpoints returned HTTP 200.
+
+    command: go test ./... (backend/auth-service)
+    result: PASS.
+
+    command: npm test -- --runInBand src/controllers/customerAuth.controller.test.ts (backend/admin-service)
+    result: PASS — 5 tests passed.
+
+    command: npm run test:auth-matrix && npm run test:compliance-boundary (backend/api-gateway)
+    result: PASS — route auth matrix and compliance boundary tests passed.
+
+    command: authenticated local API E2E against Docker gateway
+    result: PASS for owner and cashier staff paths: merchant login/exchange, HttpOnly merchant cookie, server-owned context, role/capability filtering, cross-tenant branch rejection (403), device-session create/revoke, refresh rotation, customer-session isolation (401), logout invalidation (401), and entity search.
+
+    command: docker logs --since 15m tembus-merchant
+    result: PASS for exercised device-session mutations — structured audit records contained actor role, action, resource, result, request/correlation IDs, and timestamp. This does not prove every sensitive action has audit coverage.
 
 ## Task-Local Verification
 
@@ -143,15 +168,15 @@ Evidence: `go test ./...` passed, including owner/staff capability mapping tests
 
 ### Integration
 
-Status: PARTIAL
+Status: PASS for the exercised local integration path
 
-Evidence: Merchant-service compiles and the route is registered through the existing API gateway merchant proxy. Live gateway/database context calls have not yet been executed in this turn.
+Evidence: Docker gateway → auth/admin → merchant-service → PostgreSQL was exercised with owner and cashier staff fixtures. The context/search responses were server-scoped, and the gateway route ordering defect for merchant portal login was fixed and re-tested.
 
 ### E2E
 
-Status: NOT_RUN
+Status: PARTIAL
 
-Evidence: Local unauthenticated deep-link smoke was run against `http://localhost:3004/dashboard` and redirected to `/masuk`. Authenticated browser E2E for owner, PT staff roles, outlet switching, deep links, and expired device sessions is still required.
+Evidence: Authenticated API E2E was run against local Docker. Browser UI E2E for owner, all required PT staff roles, outlet switching, deep links, responsive layout, and expired device sessions remains required; no browser automation result is claimed here.
 
 ### Migration
 
@@ -163,19 +188,19 @@ Evidence: Existing tables and migrations are reused; no schema change.
 
 Status: PARTIAL
 
-Evidence: Existing API/service error handling remains active. A dedicated context/bootstrap metric and audit proof are not yet verified.
+Evidence: Structured merchant-service audit records were observed for device-session create/revoke with actor, role, action, resource, result, timestamp, request ID, and correlation ID. Full sensitive-action audit coverage and dedicated portal metrics remain unverified.
 
 ### Security / Privacy
 
 Status: PARTIAL
 
-Evidence: Merchant and branch scope are derived server-side; staff branch access uses existing database assignment and device-session authorization. Tenant-isolation and object-ID negative tests remain.
+Evidence: Merchant and branch scope are derived server-side; owner and cashier staff role/capability checks passed; cross-tenant branch header tampering returned 403; customer portal rejected the merchant cookie with 401; refresh/logout invalidation passed. Full object-ID matrix and all role permutations remain.
 
 ### Rollback / Recovery
 
-Status: NOT_RUN
+Status: PARTIAL
 
-Evidence: Client retries context discovery after an expired/revoked staff session, but deployed rollback/recovery has not been exercised.
+Evidence: Revoked staff device session was rejected with 403 on the next context request, and web session refresh/logout behavior was verified locally. Deployed rollback and full client recovery/browser proof have not been exercised.
 
 ## External Runtime / Release Validation
 
@@ -189,7 +214,7 @@ Reason: The original task can be implemented and tested locally; staging proof i
 
 Status: NOT_RUN
 
-Evidence: No authenticated staging smoke was claimed.
+Evidence: Docker local health and authenticated API checks passed. No authenticated staging smoke was claimed.
 
 ### Release Readiness
 

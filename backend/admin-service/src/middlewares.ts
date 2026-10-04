@@ -233,6 +233,57 @@ export const verifyWebSession = async (req: Request, res: Response, next: NextFu
   }
 };
 
+// Merchant Portal session verification is deliberately separate from the
+// customer web session. A merchant_session may represent an owner or staff;
+// it must never be accepted by customer-only routes.
+export const verifyMerchantWebSession = async (req: Request, res: Response, next: NextFunction) => {
+  const sessionToken = req.cookies?.merchant_session || req.cookies?.customer_session;
+  const merchantRoles = ['customer', 'merchant', 'merchant_staff'];
+  securityLog.info('Verifying merchant web session', requestLogMeta(req, { hasSessionToken: Boolean(sessionToken) }));
+
+  if (!sessionToken) {
+    res.status(401).json({ error: 'Unauthorized: No merchant session token provided' });
+    return;
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT s.user_id, u.role, u.full_name, u.is_2fa_enabled
+       FROM web_sessions s
+       JOIN users u ON s.user_id = u.id
+       WHERE s.session_token = $1
+         AND s.expires_at > NOW()
+         AND u.role = ANY($2::text[])
+         AND u.deleted_at IS NULL`,
+      [sessionToken, merchantRoles]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(401).json({ error: 'Unauthorized: Invalid or expired merchant session' });
+      return;
+    }
+
+    const user = result.rows[0];
+    req.user = {
+      id: user.user_id,
+      role: user.role,
+      full_name: user.full_name,
+      totp_verified: Boolean(user.is_2fa_enabled),
+    };
+    next();
+  } catch (error) {
+    securityLog.error('Merchant session verification failed', requestLogMeta(req, { error }));
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+// Session-management endpoints are shared by the customer and merchant web
+// clients. The explicit portal header selects the isolated cookie contract.
+export const verifyPortalWebSession = (req: Request, res: Response, next: NextFunction) => {
+  if (req.headers['x-portal'] === 'merchant') return verifyMerchantWebSession(req, res, next);
+  return verifyWebSession(req, res, next);
+};
+
 // Specifically for Admin Dashboard
 export const verifyAdminSession = async (req: Request, res: Response, next: NextFunction) => {
   const sessionToken = req.cookies?.admin_session;
@@ -286,8 +337,9 @@ export const verifySession = async (req: Request, res: Response, next: NextFunct
   const portal = req.headers['x-portal'] as string;
   const adminToken = req.cookies?.admin_session;
   const customerToken = req.cookies?.customer_session;
+  const merchantToken = req.cookies?.merchant_session || customerToken;
 
-  securityLog.info('Verifying shared web session', requestLogMeta(req, { hasAdminSession: Boolean(adminToken), hasCustomerSession: Boolean(customerToken) }));
+  securityLog.info('Verifying shared web session', requestLogMeta(req, { hasAdminSession: Boolean(adminToken), hasCustomerSession: Boolean(customerToken), hasMerchantSession: Boolean(req.cookies?.merchant_session) }));
 
   try {
     // 1. If Portal is explicitly Admin
@@ -337,7 +389,32 @@ export const verifySession = async (req: Request, res: Response, next: NextFunct
       return res.status(401).json({ error: 'Unauthorized: Invalid customer session' });
     }
 
-    // 3. Reject if no valid portal header is provided or no session matched
+    // 3. If Portal is explicitly Merchant. A legacy customer_session is
+    // accepted only for migration; new logins receive merchant_session.
+    if (portal === 'merchant') {
+      if (!merchantToken) {
+        return res.status(401).json({ error: 'Unauthorized: No merchant session' });
+      }
+      const merchantRoles = ['customer', 'merchant', 'merchant_staff'];
+      const merchantResult = await db.query(
+        `SELECT s.user_id, u.role, u.full_name, u.is_2fa_enabled
+         FROM web_sessions s
+         JOIN users u ON s.user_id = u.id
+         WHERE s.session_token = $1
+           AND s.expires_at > NOW()
+           AND u.role = ANY($2::text[])
+           AND u.deleted_at IS NULL`,
+        [merchantToken, merchantRoles]
+      );
+      if (merchantResult.rows.length > 0) {
+        const user = merchantResult.rows[0];
+        req.user = { id: user.user_id, role: user.role, full_name: user.full_name, totp_verified: Boolean(user.is_2fa_enabled) };
+        return next();
+      }
+      return res.status(401).json({ error: 'Unauthorized: Invalid merchant session' });
+    }
+
+    // 4. Reject if no valid portal header is provided or no session matched
     securityLog.warn('Blocked shared session request without valid portal header or session', requestLogMeta(req));
     res.status(401).json({ error: 'Unauthorized: Valid portal header and session required' });
   } catch (error) {
