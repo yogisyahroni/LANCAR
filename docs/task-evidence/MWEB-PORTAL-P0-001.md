@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: HEAD (merchant-portal shell, session resilience, and capability-safe dashboard)
+implementation_ref: 7f82e0cc (merchant-portal shell, session resilience, and capability-safe dashboard)
 
 tests: PASS
 integration: PASS
@@ -15,7 +15,7 @@ migration_na_reason: "The context endpoint reuses existing merchant, branch, sta
 
 observability: PARTIAL
 security_privacy: PARTIAL
-rollback_recovery: NOT_RUN
+rollback_recovery: PARTIAL
 
 task_scope_external_proof_required: false
 external_runtime_validation: NOT_RUN
@@ -26,7 +26,7 @@ release_followups: "Complete remaining shell route/deep-link/responsive permutat
 unproven_requirements: "Full shell parity, durable audit coverage for every sensitive shell action, authenticated browser proof for every route/deep-link/responsive permutation, and staging release proof remain unproven. The merchant-to-Admin Support case intake, Admin case detail, timeline, and status transition are proven locally through API and browser evidence."
 known_blockers: NONE
 
-locally_actionable_remaining: "Cover outlet switching, every capability route/deep-link, expired device-session recovery, every sensitive mutation audit, and staging smoke."
+locally_actionable_remaining: "Cover outlet switching, every capability route/deep-link, every sensitive mutation audit, and staging smoke."
 
 blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing, the order-service merchant_session boundary for notifications, shared support-case auth/CSRF handling, duplicate device-session bootstrap, cross-tab logout delivery, capability-unsafe report loading, and structured error rendering; rebuilt Docker admin-service; executed owner/staff authenticated API flows, merchant-to-support intake, Admin case list/detail/status transition, tenant tamper, session rotation/logout, device-session revoke, browser role matrix, multi-tab logout, degraded network recovery state, and reversible structured audit-log checks."
 unblock_condition: NONE
@@ -189,6 +189,11 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
     resource, result status, timestamp, request ID, and correlation ID. The log
     path is not evidence of durable audit storage for every sensitive action.
 
+    command: Playwright manager device-session recovery E2E with local fixture revocation
+    result: PASS — after the active manager device session was revoked in the
+    local PostgreSQL fixture, reload created exactly one replacement session and
+    preserved the dashboard at `/dashboard`.
+
     command: git push origin staging
     result: PASS — the previous merchant portal auth/session implementation is synchronized to origin/staging; this follow-up is recorded in the next scoped commit.
 
@@ -262,7 +267,7 @@ Evidence: Docker gateway → auth/admin → merchant-service/order-service → P
 
 Status: PARTIAL
 
-Evidence: Authenticated API E2E was run against local Docker for owner and staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, 390px responsive layout, credential storage boundary, expired-session redirect, owner/manager/cashier/kitchen/finance capability matrix, exactly-once staff device-session bootstrap, multi-tab logout propagation, degraded network recovery state, random branch tamper rejection, and the live Admin Support Console case detail/status flow. Browser coverage for outlet switching, every capability route/deep-link, expired device-session recovery, and all required support/admin role permutations remains required.
+Evidence: Authenticated API E2E was run against local Docker for owner and staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, 390px responsive layout, credential storage boundary, expired-session redirect, owner/manager/cashier/kitchen/finance capability matrix, exactly-once staff device-session bootstrap, multi-tab logout propagation, degraded network recovery state, revoked device-session recovery, random branch tamper rejection, and the live Admin Support Console case detail/status flow. Browser coverage for outlet switching, every capability route/deep-link, and all required support/admin role permutations remains required.
 
 ### Migration
 
@@ -286,7 +291,7 @@ Evidence: Merchant and branch scope are derived server-side; owner and cashier s
 
 Status: PARTIAL
 
-Evidence: Revoked staff device session was rejected with 403 on the next context request, and web session refresh/logout behavior was verified locally. Deployed rollback and full client recovery/browser proof have not been exercised.
+Evidence: Revoked staff device session was rejected with 403 on the next context request, and a browser reload recreated the scoped device session while preserving `/dashboard`. Web session refresh/logout behavior was verified locally. Deployed rollback and production recovery have not been exercised.
 
 ## External Runtime / Release Validation
 
