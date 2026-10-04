@@ -11,7 +11,7 @@ tests: PASS
 integration: PARTIAL
 e2e: PARTIAL
 
-migration: PARTIAL
+migration: PASS
 migration_na_reason: "N/A — three persistent schema/event changes were introduced."
 
 observability: PARTIAL
@@ -24,12 +24,12 @@ external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Authenticated staging smoke, cross-app event propagation, and release gates remain required before production rollout."
 
-unproven_requirements: "Authenticated browser/cross-app E2E; live consumer/cache propagation; product policy for business-level payout allocation in an outlet view; migration down/recovery drill."
+unproven_requirements: "Authenticated browser/cross-app E2E; live consumer/cache propagation; product policy for business-level payout allocation in an outlet view."
 known_blockers: NONE
 
-locally_actionable_remaining: "Continue the same task with authenticated browser and cross-app verification, then close remaining finance-window and recovery gaps before marking COMPLETE."
+locally_actionable_remaining: "Continue the same task with authenticated browser and cross-app verification, then resolve the remaining finance policy and live consumer propagation gaps before marking COMPLETE."
 
-blocker_resolution_attempts: "Rebuilt merchant-service, order-service, and merchant-web; applied the three new migration up paths to the Docker PostgreSQL instance after the goose image registry denied access; verified schema, triggers, service health, unauthenticated route denial, and executed the expanded order-count SQL directly against the active Docker PostgreSQL instance."
+blocker_resolution_attempts: "Rebuilt merchant-service, order-service, and merchant-web; applied the three new migration up paths to the Docker PostgreSQL instance after the goose image registry denied access; verified schema, triggers, service health, unauthenticated route denial, and executed the expanded order-count SQL directly against the active Docker PostgreSQL instance; then ran the three migration Down paths in reverse and Up paths forward on a schema-only disposable PostgreSQL database and removed that database after validation."
 unblock_condition: NONE
 
 owner_action_required: false
@@ -150,6 +150,9 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     command: docker compose build merchant-service merchant-web; docker compose up -d --no-deps merchant-service merchant-web; Invoke-WebRequest http://127.0.0.1:3086/; Invoke-WebRequest http://127.0.0.1:8080/health
     result: PASS — affected images built successfully, containers reported healthy, Merchant Web returned HTTP 200, and gateway health returned HTTP 200.
 
+    command: disposable PostgreSQL schema-only clone; apply Down for 20261004000003, 20261004000002, 20261004000001; apply Up for 20261004000001, 20261004000002, 20261004000003; validate schema/functions/triggers; drop disposable database
+    result: PASS — reverse rollback and forward recovery completed on an isolated database; `orders.branch_id`, auto-accept function, branch-sync function, and operating-state consumer set were restored. The disposable database was removed; the active database was not used for the destructive drill.
+
 ## Task-Local Verification
 
 ### Tests
@@ -172,9 +175,9 @@ Evidence: The HTTPS disposable harness completed registration → document uploa
 
 ### Migration
 
-Status: PARTIAL
+Status: PASS
 
-Evidence: Up-path schema, trigger, function, index, and migration-version presence were verified in `tembus-db`. Down migration and recovery drill were not run against the active Docker database.
+Evidence: Up-path schema, trigger, function, index, and migration-version presence were verified in `tembus-db`. A schema-only PostgreSQL clone completed Down reverse-order and Up forward-order for all three dashboard migrations, followed by explicit validation of `orders.branch_id`, auto-accept function, branch-sync function, and operating-state consumer metadata. The isolated database was removed after the drill; no destructive operation was run against the active database.
 
 ### Observability
 
@@ -232,6 +235,6 @@ The portal remains unsuitable for a production-complete claim until the unproven
 - Cross-app propagation to Customer, Courier, Merchant Android, and Admin through consumed outbox/cache contracts.
 - Live consumer/cache propagation to Customer, Courier, Merchant Android, Merchant Web, and Admin through the published event contract.
 - Business-level withdrawal/payout allocation into a selected outlet is intentionally not performed; Finance/Product must define an auditable allocation policy before that capability is added.
-- Migration down/recovery and live replay/observability verification.
+- Live replay/observability verification and browser/cross-app propagation.
 
 This task remains active and must not advance to dependent portal tasks until these requirements are proven or the original scope is explicitly revised.
