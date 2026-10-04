@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 3a2b15ce
+implementation_ref: dd37dfe3
 
 tests: PASS
 integration: PARTIAL
@@ -14,7 +14,7 @@ e2e: PARTIAL
 migration: PASS
 migration_na_reason: "N/A — three persistent schema/event changes were introduced."
 
-observability: PARTIAL
+observability: PASS
 security_privacy: PASS
 rollback_recovery: PARTIAL
 
@@ -24,10 +24,10 @@ external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Authenticated staging smoke, cross-app event propagation, and release gates remain required before production rollout."
 
-unproven_requirements: "Authenticated browser/cross-app E2E; live consumer/cache propagation; product policy for business-level payout allocation in an outlet view."
+unproven_requirements: "Authenticated browser/cross-app E2E; live event fan-out across Customer, Courier, Merchant Android and Admin read models; product policy for business-level payout allocation in an outlet view."
 known_blockers: NONE
 
-locally_actionable_remaining: "Continue the same task with authenticated browser and cross-app verification, then resolve the remaining finance policy and live consumer propagation gaps before marking COMPLETE."
+locally_actionable_remaining: "Continue the same task with authenticated browser and cross-app verification, then resolve the remaining finance policy and product-consumer propagation gaps before marking COMPLETE."
 
 blocker_resolution_attempts: "Rebuilt merchant-service, order-service, and merchant-web; applied the three new migration up paths to the Docker PostgreSQL instance after the goose image registry denied access; verified schema, triggers, service health, unauthenticated route denial, and executed the expanded order-count SQL directly against the active Docker PostgreSQL instance; then ran the three migration Down paths in reverse and Up paths forward on a schema-only disposable PostgreSQL database and removed that database after validation."
 unblock_condition: NONE
@@ -70,6 +70,10 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Made self-service open/close, pause/resume, and busy mutations persist the authenticated actor and expose a safe display name for the portal; technical reason codes and raw actor UUIDs are no longer rendered as merchant-facing copy.
 - Added authoritative branch-scoped sales and finance repository capabilities. Sales metrics filter `orders.branch_id`; statement entries, reconciliation exceptions, and held settlements are filtered through their order relation. Business-level withdrawals are excluded rather than assigned to an arbitrary outlet, and the response exposes `scope_level`, `branch_id`, and a merchant-facing scope note.
 - Updated the dashboard UI to label outlet summaries correctly and explain that business-level payouts are not allocated to an outlet; the previous copy that incorrectly claimed outlet summaries followed the business level was removed.
+- Added an admin RabbitMQ consumer for `merchant.operating_state.changed` with a durable queue, DLQ, bounded prefetch, invalid-contract rejection, duplicate suppression, retry on delivery failure, and structured delivery metrics.
+- Extended the authenticated Socket.IO handshake to accept the HttpOnly `merchant_session` cookie for merchant owners/staff and join only the server-resolved merchant room.
+- Added Merchant Web Socket.IO invalidation with authoritative dashboard refetch; the event payload is never treated as the source of truth and the existing 30-second poll remains the recovery fallback.
+- Enabled RabbitMQ outbox publishing and the operating-state consumer in the local Compose runtime, and passed the socket URL into the Merchant Web build.
 
 ## Files Changed
 
@@ -90,6 +94,12 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - `database/migrations/20261004000001_merchant_auto_accept_events.sql` — auto-accept outbox event trigger.
 - `database/migrations/20261004000002_food_order_branch_scope.sql` — order branch ownership, legacy backfill, constraint trigger, and index.
 - `database/migrations/20261004000003_merchant_operating_state_consumers.sql` — operating-state event consumer contract.
+- `backend/admin-service/src/workers/merchant-operating-state-consumer.ts` — durable RabbitMQ consumer, DLQ, retry, dedupe, room fan-out, and metrics.
+- `backend/admin-service/src/workers/merchant-operating-state-consumer.test.ts` — canonical/legacy envelope and rejection contract tests.
+- `backend/admin-service/src/websocket.ts` — merchant session-cookie authentication and scoped room join.
+- `merchant-web/src/lib/realtime.ts` — authenticated Socket.IO invalidation client.
+- `merchant-web/src/pages/Dashboard.tsx` — authoritative dashboard refetch on operating-state event.
+- `merchant-web/Dockerfile` and `docker-compose.yml` — socket build configuration and local outbox/consumer runtime defaults.
 
 ## Commands / Checks Run
 
@@ -150,6 +160,24 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     command: docker compose build merchant-service merchant-web; docker compose up -d --no-deps merchant-service merchant-web; Invoke-WebRequest http://127.0.0.1:3086/; Invoke-WebRequest http://127.0.0.1:8080/health
     result: PASS — affected images built successfully, containers reported healthy, Merchant Web returned HTTP 200, and gateway health returned HTTP 200.
 
+    command: npm test -- --runInBand
+    location: backend/admin-service
+    result: PASS — 139 test suites and 669 tests passed. Jest reported an existing force-exit warning for leaked worker teardown after the successful run.
+
+    command: npm test -- --runInBand src/workers/merchant-operating-state-consumer.test.ts
+    location: backend/admin-service
+    result: PASS — canonical envelope allowlisting, legacy payload compatibility, and invalid-contract rejection passed.
+
+    command: npm run build
+    location: backend/admin-service
+    result: PASS — TypeScript production build completed.
+
+    command: docker compose config --quiet; docker compose build admin-service merchant-web; docker compose up -d rabbitmq admin-service merchant-web
+    result: PASS — Compose configuration validated; both affected images rebuilt; admin, Merchant Web, RabbitMQ, PostgreSQL dependencies reported healthy.
+
+    command: docker exec tembus-rabbitmq rabbitmqctl list_queues/list_bindings; rabbitmqadmin publish merchant.operating_state.changed; docker logs --since 30s tembus-admin
+    result: PASS — durable admin queue and DLQ were bound to `tembus.events`; a valid synthetic event was acknowledged by the consumer and emitted `merchant_operating_state_event_emitted`. An invalid synthetic contract was rejected into the DLQ. No application state was mutated by this broker-only proof.
+
     command: disposable PostgreSQL schema-only clone; apply Down for 20261004000003, 20261004000002, 20261004000001; apply Up for 20261004000001, 20261004000002, 20261004000003; validate schema/functions/triggers; drop disposable database
     result: PASS — reverse rollback and forward recovery completed on an isolated database; `orders.branch_id`, auto-accept function, branch-sync function, and operating-state consumer set were restored. The disposable database was removed; the active database was not used for the destructive drill.
 
@@ -165,7 +193,7 @@ Evidence: `go test ./internal/service -run 'TestGetDashboard_' -count=1 -v` pass
 
 Status: PARTIAL
 
-Evidence: Docker services connected to the shared PostgreSQL instance and the schema/trigger contract was verified. The read-only branch sales/finance integration test passed against a real PostgreSQL fixture. Authenticated mutation and event-consumer integration were not exercised in this run.
+Evidence: Docker services connected to the shared PostgreSQL instance and the schema/trigger contract was verified. The read-only branch sales/finance integration test passed against a real PostgreSQL fixture. The rebuilt admin runtime consumed a broker event through the durable queue and DLQ contract. Authenticated mutation and end-to-end browser event propagation remain unproven.
 
 ### E2E
 
@@ -183,7 +211,7 @@ Evidence: Up-path schema, trigger, function, index, and migration-version presen
 
 Status: PARTIAL
 
-Evidence: Dashboard responses include `data_as_of`, warnings, readiness check time, operating-hours data, persisted quality status, settlement-derived payout fields, and alert codes; operating-state/auto-accept outbox event wiring is present. Live event delivery, product consumer lag, and alert routing were not verified.
+Evidence: Dashboard responses include `data_as_of`, warnings, readiness check time, operating-hours data, persisted quality status, settlement-derived payout fields, and alert codes. The live local consumer emitted the structured `merchant_operating_state_event_emitted` metric after consuming a valid event and routed invalid input to DLQ. Production dashboards, product-consumer lag, and alert routing remain release follow-up.
 
 ### Security / Privacy
 
@@ -236,5 +264,28 @@ The portal remains unsuitable for a production-complete claim until the unproven
 - Live consumer/cache propagation to Customer, Courier, Merchant Android, Merchant Web, and Admin through the published event contract.
 - Business-level withdrawal/payout allocation into a selected outlet is intentionally not performed; Finance/Product must define an auditable allocation policy before that capability is added.
 - Live replay/observability verification and browser/cross-app propagation.
+
+## Locally Actionable Remaining
+
+- Execute authenticated browser E2E for owner, manager, cashier, and finance roles, including duplicate-click, retry, refresh, and reconnect behavior.
+- Prove the Customer, Courier, Merchant Android, and Admin consumers refresh their authoritative views from the same operating-state event contract.
+- Resolve the product decision for how business-level withdrawals/payouts are allocated, or keep them explicitly business-scoped and excluded from outlet totals.
+
+## External Blockers
+
+NONE. The remaining work is locally actionable in the repository/runtime; staging release validation is tracked separately.
+
+## Owner Action Required
+
+NONE.
+
+## Reality Gate Evaluation
+
+- `REALITY-2026-003`: PARTIAL — implementation and local runtime evidence exist, but authenticated cross-app E2E and the finance allocation policy are not proven.
+- `REALITY-2026-011`: PASS — no mock or fabricated production result is being used; broker-only evidence is explicitly labeled as local and synthetic.
+
+## Next Eligible Task
+
+NONE — dependent portal tasks remain held until this task's remaining local requirements are proven or the original scope is explicitly revised.
 
 This task remains active and must not advance to dependent portal tasks until these requirements are proven or the original scope is explicitly revised.
