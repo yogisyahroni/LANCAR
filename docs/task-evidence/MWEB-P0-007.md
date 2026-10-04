@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 4af99409
+implementation_ref: c35d6b93
 
 tests: PASS
 integration: PASS
@@ -24,12 +24,12 @@ external_runtime_validation: NOT_RUN
 release_readiness: PARTIAL
 release_followups: "Run OTP-enabled staging browser E2E with the configured provider, including registration, expiry/rate-limit, and provider-unavailable states."
 
-unproven_requirements: "Live OTP provider behavior, OTP expiry/rate-limit/provider-unavailable scenarios, same-origin refresh-race proof, and deployed staging runtime validation remain unproven."
+unproven_requirements: "Live OTP provider behavior, deployed staging runtime validation, and browser-level shared-cookie refresh-race proof remain unproven."
 known_blockers: NONE
 
-locally_actionable_remaining: "Add/run deterministic OTP expiry/rate-limit/provider-unavailable and same-origin refresh-race coverage; staging provider verification remains a release follow-up."
+locally_actionable_remaining: "Run browser-level shared-cookie refresh-race coverage and staging provider smoke; local invalid/expired OTP, rate-limit, concurrent server refresh, and cleanup paths are proven."
 
-blocker_resolution_attempts: "Rebuilt merchant-service after detecting a stale image missing the portal context route; fixed the gateway CORS allowlist after browser preflight exposed missing merchant scope headers; ran API and browser smoke against the local Docker stack."
+blocker_resolution_attempts: "Rebuilt merchant-service after detecting a stale image missing the portal context route; fixed the gateway CORS allowlist after browser preflight exposed missing merchant scope headers; ran API and browser smoke against the local Docker stack; fixed the legacy OTP handler contract after runtime testing exposed generic Authentication required copy for invalid/expired codes; rebuilt auth-service and merchant-web."
 unblock_condition: NONE
 
 owner_action_required: false
@@ -75,6 +75,7 @@ Original acceptance evidence status:
 - Added a merchant Settings panel that lists active web sessions, identifies the current device, refreshes the list, and revokes all other sessions through the existing server endpoint.
 - Added the merchant session and branch scope headers to the gateway's public browser CORS allowlist, with a contract test, so outlet-scoped portal requests pass preflight without weakening internal-header protections.
 - Mapped OTP rate-limit, send-failure, and invalid/expired-code responses to user-facing Indonesian copy; registration now uses the shared safe error mapper instead of rendering internal error codes.
+- Hardened the legacy OTP endpoints used by merchant-web: provider/storage failure returns a stable `ERR_OTP_SEND_FAILED`/503 contract, and wrong/expired/absent codes return a stable `ERR_OTP_INVALID`/401 contract without exposing authentication or infrastructure details. The web mapper reads both legacy `error` and canonical `code` fields.
 - Verified the OTP-required registration continuation locally with a disposable account: the registration start returned `require_otp=true`, OTP verification returned a session-bearing response, web-session exchange succeeded, merchant submission returned `201`, and the database reflected an active user, `SUBMITTED` onboarding, three documents, and one legal profile. The disposable account, merchant, documents, legal profile, sessions, and OTP log were removed afterward.
 - Kept the non-secret web-session marker in `localStorage` so normal tabs on the same origin can recognize the shared HttpOnly session; `sessionStorage` remains only as a compatibility read path.
 - Added refresh read-after-refresh recovery for the case where another tab rotates the shared cookie first.
@@ -128,11 +129,26 @@ Original acceptance evidence status:
     command: go test ./internal/middleware (backend/auth-service)
     result: PASS — authentication abuse protection and OTP rate-limit tests passed.
 
+    command: go test -count=1 ./... (backend/auth-service)
+    result: PASS — auth handler, middleware, service, observability, and utility packages passed after the stable OTP error-contract change.
+
+    command: docker compose build auth-service && docker compose up -d --no-deps auth-service
+    result: PASS — refreshed auth image started healthy with the OTP handler change.
+
+    command: docker compose build --build-arg VITE_API_URL=https://api.bawain.my.id/api/v1 merchant-web && docker compose up -d --no-deps merchant-web
+    result: PASS — refreshed merchant-web image built with the canonical error-code mapper and returned HTTP 200 for `/masuk`.
+
     command: local OTP-required registration -> OTP verification -> web-session exchange -> merchant registration -> database invariant check
     result: PASS — registration returned `require_otp=true` without a bearer token; verification and session exchange succeeded; merchant registration returned `201`; the database showed an active user, `SUBMITTED` onboarding, three documents, and a legal profile. The disposable test records were deleted afterward.
 
     command: local feature-flag and test-data cleanup verification
     result: PASS — the disposable user, merchant, OTP log, and related session/onboarding rows were absent after cleanup; `customer_auth_otp_required=false` and `otp_provider_live=false` were restored.
+
+    command: local OTP invalid/expired error contract
+    result: PASS — with `customer_auth_otp_required=true`, disposable registration returned `require_otp=true`; wrong and manually expired codes both returned HTTP 401, `ERR_OTP_INVALID`, and the safe Indonesian message without internal-detail leakage. Test records were deleted and the flag was restored afterward.
+
+    command: concurrent web-session refresh race
+    result: PASS — two requests using the same initial cookie produced one HTTP 200 rotation and one HTTP 401 rejection; the cookie from the successful rotation remained valid for `/auth/web/me` (HTTP 200). Browser-level shared-cookie recovery remains a follow-up.
 
     command: git diff --check
     result: PASS.
@@ -161,7 +177,7 @@ Original acceptance evidence status:
 
 Status: PASS
 
-Evidence: Focused admin-service refresh tests passed 5/5, gateway auth-matrix and CORS policy tests passed, merchant web lint/build completed with 0 errors, and the local OTP-required registration/submit path passed with database invariants. Existing non-blocking lint warnings remain in unrelated pages plus the Settings initial-load effect.
+Evidence: Focused admin-service refresh tests passed 5/5, gateway auth-matrix and CORS policy tests passed, auth-service tests passed without cache, merchant web lint/build completed with 0 errors, and the local OTP-required registration/submit plus invalid/expired error paths passed with database invariants. Existing non-blocking lint warnings remain in unrelated pages plus the Settings initial-load effect.
 
 ### Integration
 
@@ -191,7 +207,7 @@ Evidence: Existing structured auth/gateway/service logs were observed during con
 
 Status: PASS
 
-Evidence: HttpOnly cookie session exchange, secure/SameSite production cookie settings, conditional refresh rotation, old-token rejection, logout revocation, CSRF scope alignment, no persistent bearer token storage, merchant scope CORS preflight, device revoke, same-origin logout propagation, OTP-on new-device login, trusted-device behavior, and targeted disposable-data cleanup were verified. Live provider behavior and deterministic OTP error-state scenarios remain release follow-ups.
+Evidence: HttpOnly cookie session exchange, secure/SameSite production cookie settings, conditional refresh rotation, old-token rejection, logout revocation, CSRF scope alignment, no persistent bearer token storage, merchant scope CORS preflight, device revoke, same-origin logout propagation, OTP-on new-device login, trusted-device behavior, safe invalid/expired OTP responses, and targeted disposable-data cleanup were verified. Live provider behavior and deployed staging proof remain release follow-ups.
 
 ### Rollback / Recovery
 
@@ -227,8 +243,7 @@ Evidence: Local Docker and browser smoke are useful task evidence, but the task 
 
 ## Locally Actionable Remaining
 
-- Add/run deterministic OTP expiry, rate-limit, and provider-unavailable error-state tests; the local OTP-required registration/submit path is now proven.
-- Add browser coverage for the same-origin refresh race; logout propagation and device revoke are now proven locally.
+- Add browser coverage for the shared-cookie refresh race; server-side concurrent rotation, logout propagation, and device revoke are now proven locally.
 - Run staging browser smoke with the configured OTP provider.
 
 ## External Blockers
