@@ -558,7 +558,7 @@ jobs:
         run: |
           set -euo pipefail
           container="merchant-web-smoke-${GITHUB_RUN_ID}"
-          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          docker rm -f "$container" >/dev/null 2>&1 || true
           docker run -d --name "$container" -p 4173:80 "tembus-local/${{ matrix.image }}:${{ github.sha }}" >/dev/null
           for attempt in $(seq 1 30); do
             health="$(docker inspect --format='{{.State.Health.Status}}' "$container")"
@@ -589,6 +589,9 @@ jobs:
       - name: Accessibility smoke test (merchant-web)
         if: matrix.image == 'merchant-web'
         run: node scripts/e2e/merchant-web-a11y.mjs http://127.0.0.1:4173
+      - name: Remove merchant web smoke container
+        if: always() && matrix.image == 'merchant-web'
+        run: docker rm -f "merchant-web-smoke-${GITHUB_RUN_ID}" >/dev/null 2>&1 || true
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
         with:
