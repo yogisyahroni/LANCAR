@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 7f82e0cc (merchant-portal shell, session resilience, and capability-safe dashboard)
+implementation_ref: e93cb363 (merchant-portal shell, session resilience, active-outlet guard, and durable scoped mutation audit)
 
 tests: PASS
 integration: PASS
