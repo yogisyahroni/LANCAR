@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 1295ad2a
+implementation_ref: 5eff8d09
 
 tests: PASS
 integration: PARTIAL
@@ -24,10 +24,10 @@ external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Authenticated staging smoke, cross-app event propagation, and release gates remain required before production rollout."
 
-unproven_requirements: "Live event fan-out across Customer, Courier, Merchant Android and Admin read models; product policy for business-level payout allocation in an outlet view."
+unproven_requirements: "Live event fan-out/cache invalidation across Customer, Courier, Merchant Android and Admin read models; product policy for business-level payout allocation in an outlet view."
 known_blockers: NONE
 
-locally_actionable_remaining: "Continue the same task with cross-app verification, then resolve the remaining finance policy and product-consumer propagation gaps before marking COMPLETE."
+locally_actionable_remaining: "Continue the same task with event/cache propagation and role/recovery verification across the remaining consumers, then resolve the finance policy gap before marking COMPLETE."
 
 blocker_resolution_attempts: "Rebuilt merchant-service, order-service, and merchant-web; applied the three new migration up paths to the Docker PostgreSQL instance after the goose image registry denied access; verified schema, triggers, service health, unauthenticated route denial, and executed the expanded order-count SQL directly against the active Docker PostgreSQL instance; then ran the three migration Down paths in reverse and Up paths forward on a schema-only disposable PostgreSQL database and removed that database after validation."
 unblock_condition: NONE
@@ -103,7 +103,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - `merchant-web/Dockerfile` and `docker-compose.yml` — socket build configuration and local outbox/consumer runtime defaults.
 - `backend/merchant-service/internal/service/merchant_access_service.go` — guarantees an empty branch collection serializes as `[]` for older merchants without a backfilled outlet.
 - `merchant-web/src/components/Layout.tsx` and `merchant-web/src/lib/portal-context.ts` — defensive collection handling for legacy/null portal payloads.
-- `scripts/e2e/merchant-web-dashboard-browser.mjs` — disposable browser E2E covering Admin approval, Merchant Web login, dashboard freshness, external status mutation, and Socket.IO-triggered refetch.
+- `scripts/e2e/merchant-web-dashboard-browser.mjs` — disposable browser E2E covering Admin approval, Customer discovery open/closed projection, Admin open/closed projection, Merchant Web login, dashboard freshness, external status mutation, and Socket.IO-triggered refetch.
 
 ## Commands / Checks Run
 
@@ -189,7 +189,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     result: PASS — reverse rollback and forward recovery completed on an isolated database; `orders.branch_id`, auto-accept function, branch-sync function, and operating-state consumer set were restored. The disposable database was removed; the active database was not used for the destructive drill.
 
     command: docker compose build merchant-service merchant-web; docker compose up -d --no-deps merchant-service api-gateway admin-service merchant-web; node scripts/e2e/merchant-web-dashboard-browser.mjs
-    result: PASS — disposable local flow completed Admin approval → Merchant Web login → dashboard render → external operating-state mutation → Socket.IO-triggered dashboard refetch. Browser reported no page errors; one authoritative dashboard refetch was observed. The local image was built with loopback CSP sources only for the explicit local build; the restored image uses the repository's non-loopback CSP configuration.
+    result: PASS — disposable local flow completed Admin approval → canonical merchant open/closed mutation → Customer food discovery exposure/removal → Admin detail projection → Merchant Web login → dashboard render → external operating-state mutation → Socket.IO-triggered dashboard refetch. Customer discovery exposed the disposable merchant only while open, Admin reported the same canonical state in both directions, browser reported no page errors, and one authoritative dashboard refetch was observed. Disposable owner and customer probe users were deleted. The local image was built with loopback CSP sources only for the explicit local build and the Docker stack was restored afterward.
 
 ## Task-Local Verification
 
@@ -203,13 +203,13 @@ Evidence: `go test ./internal/service -run 'TestGetDashboard_' -count=1 -v` pass
 
 Status: PARTIAL
 
-Evidence: Docker services connected to the shared PostgreSQL instance and the schema/trigger contract was verified. The read-only branch sales/finance integration test passed against a real PostgreSQL fixture. The rebuilt admin runtime consumed a broker event through the durable queue and DLQ contract. The authenticated local browser flow also proved the Merchant Web dashboard refetch after an external status mutation. Cross-application propagation to Customer, Courier, Merchant Android, and Admin read models remains unproven.
+Evidence: Docker services connected to the shared PostgreSQL instance and the schema/trigger contract was verified. The read-only branch sales/finance integration test passed against a real PostgreSQL fixture. The rebuilt admin runtime consumed a broker event through the durable queue and DLQ contract. The authenticated local browser flow proved Customer discovery and Admin detail read the same canonical open/closed state as Merchant Web, and proved the Merchant Web dashboard refetch after an external status mutation. Live event/cache propagation to Courier and Merchant Android, plus consumed-event propagation across all product clients, remains unproven.
 
 ### E2E
 
 Status: PARTIAL
 
-Evidence: The HTTPS disposable harness completed registration → document upload → Admin reject/resubmit/approve → ACTIVE status → authenticated `GET /merchant/dashboard` → suspend → SUSPENDED status. Sanitized dashboard proof: `data_as_of_present=true`, `merchant_scope_matches=true`, `scope_level=merchant_aggregate`, `order_fields_present=true`, `auto_accept_present=true`, `alert_count=1`. The local Playwright/Chrome harness additionally completed Admin approval → Merchant Web browser login → dashboard render → external operating-state mutation → Socket.IO-triggered dashboard refetch with `page_errors=[]` and `dashboard_refetch_count=1`. Outlet-scoped sales/finance API attribution passed against local PostgreSQL. Customer → Merchant Web → Courier/Android/Admin cross-app propagation remains unproven.
+Evidence: The HTTPS disposable harness completed registration → document upload → Admin reject/resubmit/approve → ACTIVE status → authenticated `GET /merchant/dashboard` → suspend → SUSPENDED status. Sanitized dashboard proof: `data_as_of_present=true`, `merchant_scope_matches=true`, `scope_level=merchant_aggregate`, `order_fields_present=true`, `auto_accept_present=true`, `alert_count=1`. The local Playwright/Chrome harness additionally completed Admin approval → canonical open state → Customer discovery present → Admin detail open → canonical closed state → Customer discovery absent → Admin detail closed → Merchant Web browser login → dashboard render → external operating-state mutation → Socket.IO-triggered dashboard refetch with `page_errors=[]` and `dashboard_refetch_count=1`. Outlet-scoped sales/finance API attribution passed against local PostgreSQL. Live Customer/Courier/Merchant Android/Admin event/cache propagation remains unproven.
 
 ### Migration
 
@@ -270,15 +270,14 @@ The portal remains unsuitable for a production-complete claim until the unproven
 ## Unproven Requirements
 
 - Authenticated browser E2E for owner, manager, cashier, and finance roles, including retry/duplicate-click behavior.
-- Cross-app propagation to Customer, Courier, Merchant Android, and Admin through consumed outbox/cache contracts.
-- Live consumer/cache propagation to Customer, Courier, Merchant Android, Merchant Web, and Admin through the published event contract.
+- Live operating-state event fan-out and cache invalidation to Customer, Courier, Merchant Android, Merchant Web, and Admin through the published event contract; direct Customer discovery and Admin projection reads are proven, but consumed-event refresh is not.
 - Business-level withdrawal/payout allocation into a selected outlet is intentionally not performed; Finance/Product must define an auditable allocation policy before that capability is added.
-- Live replay/observability verification and browser/cross-app propagation.
+- Live replay/observability verification and browser/cross-app event propagation.
 
 ## Locally Actionable Remaining
 
 - Execute authenticated browser E2E for owner, manager, cashier, and finance roles, including duplicate-click, retry, refresh, and reconnect behavior.
-- Prove the Customer, Courier, Merchant Android, and Admin consumers refresh their authoritative views from the same operating-state event contract.
+- Prove Customer, Courier, Merchant Android, Merchant Web, and Admin consumers refresh their authoritative views from the same operating-state event contract, including replay, duplicate, stale, and reconnect behavior.
 - Resolve the product decision for how business-level withdrawals/payouts are allocated, or keep them explicitly business-scoped and excluded from outlet totals.
 
 ## External Blockers
