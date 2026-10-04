@@ -35,14 +35,15 @@ type MerchantDashboardAlert struct {
 // screen. Every section is sourced from the same merchant-service request and
 // carries one server observation timestamp; unavailable values stay nullable.
 type MerchantDashboard struct {
-	Merchant     *Merchant                   `json:"merchant"`
-	Scope        MerchantDashboardScope      `json:"scope"`
-	Orders       *MerchantOrderCounts        `json:"orders"`
-	RecentOrders []*MerchantOrderView        `json:"recent_orders"`
-	Sales        *SalesReportSummary         `json:"sales,omitempty"`
-	Finance      *MerchantFinanceStatement   `json:"finance,omitempty"`
-	AutoAccept   MerchantAutoAcceptReadiness `json:"auto_accept"`
-	Alerts       []*MerchantDashboardAlert   `json:"alerts"`
-	Warnings     []string                    `json:"warnings,omitempty"`
-	DataAsOf     time.Time                   `json:"data_as_of"`
+	Merchant     *Merchant                       `json:"merchant"`
+	Scope        MerchantDashboardScope          `json:"scope"`
+	Operating    *MerchantOperatingHoursResponse `json:"operating_hours,omitempty"`
+	Orders       *MerchantOrderCounts            `json:"orders"`
+	RecentOrders []*MerchantOrderView            `json:"recent_orders"`
+	Sales        *SalesReportSummary             `json:"sales,omitempty"`
+	Finance      *MerchantFinanceStatement       `json:"finance,omitempty"`
+	AutoAccept   MerchantAutoAcceptReadiness     `json:"auto_accept"`
+	Alerts       []*MerchantDashboardAlert       `json:"alerts"`
+	Warnings     []string                        `json:"warnings,omitempty"`
+	DataAsOf     time.Time                       `json:"data_as_of"`
 }

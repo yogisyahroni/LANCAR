@@ -323,23 +323,49 @@ func (r *postgresMerchantOrderRepository) countOperationalByMerchantScope(ctx co
 	err := r.readDB.QueryRowContext(ctx, `
 		SELECT
 			COUNT(*) FILTER (WHERE o.status = 'pending_merchant'),
+			COUNT(*) FILTER (WHERE o.status = 'pending_merchant'),
 			COUNT(*) FILTER (WHERE o.status = 'preparing'),
 			COUNT(*) FILTER (WHERE o.status IN ('searching', 'accepted', 'picking_up')),
+			COUNT(*) FILTER (WHERE o.status IN ('searching', 'accepted', 'picking_up')),
+			COUNT(*) FILTER (WHERE o.status IN ('preparing', 'picked_up', 'delivering')),
 			COUNT(*) FILTER (WHERE o.status IN ('picked_up', 'delivering')),
 			COUNT(*) FILTER (WHERE o.status = 'delivered'),
+			COUNT(*) FILTER (WHERE o.status IN ('cancelled', 'cancelled_by_merchant')),
+			COUNT(*) FILTER (WHERE EXISTS (
+				SELECT 1 FROM refunds refund
+				WHERE refund.order_id = o.id AND refund.status NOT IN ('failed', 'cancelled')
+			) OR EXISTS (
+				SELECT 1 FROM disputes dispute
+				WHERE dispute.order_id = o.id AND dispute.status NOT IN ('resolved', 'closed')
+			)),
+			COUNT(*) FILTER (WHERE (o.status = 'pending_merchant' AND o.updated_at < NOW() - INTERVAL '3 minutes')
+				OR (o.status IN ('preparing', 'ready_for_pickup', 'searching')
+					AND o.food_eta_predicted_at IS NOT NULL AND o.food_eta_predicted_at < NOW())),
 			COUNT(*) FILTER (WHERE o.status = 'cancelled_by_merchant'
 				OR (o.status = 'cancelled' AND NULLIF(o.reject_reason, '') IS NOT NULL))
+			,
+			COALESCE((SELECT COUNT(*) FROM pos_sync_operations sync
+				WHERE sync.merchant_id = $1
+				  AND ($2 = '' OR sync.branch_id = NULLIF($2, '')::uuid)
+				  AND sync.status = 'failed'), 0)
 		FROM orders o
 		WHERE o.merchant_id = $1
 		  AND ($2 = '' OR o.branch_id = NULLIF($2, '')::uuid)
 		  AND o.service_sub_type = 'food_delivery'`, merchantID, branchID,
 	).Scan(
 		&counts.New,
+		&counts.NeedsAction,
 		&counts.Preparing,
 		&counts.ReadyForPickup,
+		&counts.WaitingCourier,
+		&counts.InProgress,
 		&counts.Delivering,
 		&counts.Completed,
+		&counts.Cancelled,
+		&counts.RefundDispute,
+		&counts.SLAOverdue,
 		&counts.Rejected,
+		&counts.SyncErrors,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("count operational merchant orders: %w", err)

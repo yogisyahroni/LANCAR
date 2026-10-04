@@ -51,10 +51,17 @@ type MerchantBranchScopedOrderRepository interface {
 // It keeps the tab badges consistent with customer/courier state transitions.
 type MerchantOrderCounts struct {
 	New            int `json:"new"`
+	NeedsAction    int `json:"needs_action"`
 	Preparing      int `json:"preparing"`
 	ReadyForPickup int `json:"ready_for_pickup"`
+	WaitingCourier int `json:"waiting_courier"`
+	InProgress     int `json:"in_progress"`
 	Delivering     int `json:"delivering"`
 	Completed      int `json:"completed"`
+	Cancelled      int `json:"cancelled"`
+	RefundDispute  int `json:"refund_dispute"`
+	SLAOverdue     int `json:"sla_overdue"`
+	SyncErrors     int `json:"sync_errors"`
 	Rejected       int `json:"rejected"`
 }
 

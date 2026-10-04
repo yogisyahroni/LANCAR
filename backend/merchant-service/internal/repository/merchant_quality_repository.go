@@ -133,6 +133,25 @@ func (r *postgresReportRepository) QualityScore(ctx context.Context, merchantID 
 	return score, nil
 }
 
+func (r *postgresReportRepository) LatestQualityScore(ctx context.Context, merchantID string) (*domain.MerchantQualityScore, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT id::text, merchant_id::text, market_code, scorecard_version,
+		       (evidence_counts->>'window_days')::int, window_start, window_end,
+		       score, component_scores, evidence_counts, computed_at
+		FROM merchant_quality_scorecards
+		WHERE merchant_id = $1
+		ORDER BY computed_at DESC, id DESC
+		LIMIT 1`, merchantID)
+	score, err := scanQualityScore(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("latest merchant quality score: %w", err)
+	}
+	return score, nil
+}
+
 func (r *postgresReportRepository) SubmitQualityAppeal(ctx context.Context, merchantID, scorecardID, metricCode, reason string) (*domain.MerchantQualityAppeal, error) {
 	appeal, err := scanQualityAppeal(r.db.QueryRowContext(ctx, `
 		INSERT INTO merchant_quality_appeals (

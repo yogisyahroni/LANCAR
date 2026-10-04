@@ -53,6 +53,13 @@ func (s *merchantServiceImpl) GetDashboard(ctx context.Context, userID string) (
 			dashboard.Scope.BranchCount = len(branches)
 		}
 	}
+	operating, operatingErr := s.merchantRepo.GetOperatingHours(ctx, merchant.ID)
+	closures, closureErr := s.merchantRepo.ListSpecialClosures(ctx, merchant.ID)
+	if operatingErr != nil || closureErr != nil {
+		dashboard.Warnings = append(dashboard.Warnings, "Jadwal khusus toko belum dapat dimuat.")
+	} else {
+		dashboard.Operating = &domain.MerchantOperatingHoursResponse{Hours: operating, Closures: closures}
+	}
 
 	branchScoped := false
 	selectedBranchID := dashboard.Scope.SelectedBranchID
@@ -203,11 +210,27 @@ func (s *merchantServiceImpl) appendDashboardAlerts(ctx context.Context, dashboa
 				if !connector.Enabled || connector.State == "connected" || connector.State == "healthy" {
 					continue
 				}
+				code, title := "pos_disconnected", "Perangkat kasir perlu diperiksa"
+				if connector.State == "degraded" || connector.State == "unhealthy" {
+					code, title = "provider_incident", "Penyedia integrasi sedang bermasalah"
+				}
 				dashboard.Alerts = append(dashboard.Alerts, &domain.MerchantDashboardAlert{
-					Code: "pos_disconnected", Severity: "warning", Title: "Perangkat kasir perlu diperiksa",
+					Code: code, Severity: "warning", Title: title,
 					Description: fmt.Sprintf("%s tidak terhubung (%s). Pesanan tetap diproses oleh TEMBUS sampai integrasi pulih.", connector.ProviderName, connector.State), ActionPath: "/integrasi",
 				})
 			}
+		}
+	}
+
+	if qualityRepo, ok := s.reportRepo.(domain.MerchantQualityReadRepository); ok {
+		quality, qualityErr := qualityRepo.LatestQualityScore(ctx, merchant.ID)
+		if qualityErr != nil {
+			dashboard.Warnings = append(dashboard.Warnings, "Indikator kualitas toko belum dapat dimuat.")
+		} else if quality != nil && quality.Score < 70 {
+			dashboard.Alerts = append(dashboard.Alerts, &domain.MerchantDashboardAlert{
+				Code: "quality_degraded", Severity: "warning", Title: "Kualitas operasional perlu diperiksa",
+				Description: fmt.Sprintf("Skor kualitas terbaru %.2f dari 100. Buka laporan kualitas untuk melihat penyebab dan langkah perbaikan.", quality.Score), ActionPath: "/laporan",
+			})
 		}
 	}
 
@@ -225,6 +248,26 @@ func (s *merchantServiceImpl) appendDashboardAlerts(ctx context.Context, dashboa
 			Code: "bank_unverified", Severity: "warning", Title: "Rekening belum terverifikasi",
 			Description: "Pencairan dapat tertahan sampai rekening usaha diverifikasi.", ActionPath: "/profil/rekening",
 		})
+	}
+	if dashboard.Finance != nil {
+		held := 0
+		for _, entry := range dashboard.Finance.Entries {
+			if entry != nil && (strings.EqualFold(entry.Status, "holding") || strings.EqualFold(entry.Status, "processing")) {
+				held++
+			}
+		}
+		if held > 0 {
+			dashboard.Alerts = append(dashboard.Alerts, &domain.MerchantDashboardAlert{
+				Code: "payout_held", Severity: "warning", Title: "Ada pencairan yang masih ditahan",
+				Description: fmt.Sprintf("%d transaksi payout masih menunggu proses settlement. Periksa halaman keuangan untuk detailnya.", held), ActionPath: "/keuangan",
+			})
+		}
+		if len(dashboard.Finance.Discrepancies) > 0 {
+			dashboard.Alerts = append(dashboard.Alerts, &domain.MerchantDashboardAlert{
+				Code: "finance_reconciliation", Severity: "warning", Title: "Ada transaksi yang perlu direkonsiliasi",
+				Description: fmt.Sprintf("%d perbedaan pencatatan menunggu pemeriksaan.", len(dashboard.Finance.Discrepancies)), ActionPath: "/keuangan",
+			})
+		}
 	}
 	if !dashboard.AutoAccept.Ready {
 		dashboard.Alerts = append(dashboard.Alerts, &domain.MerchantDashboardAlert{

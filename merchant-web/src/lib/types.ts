@@ -56,6 +56,7 @@ export interface Merchant {
   operating_state?: 'open' | 'closed' | 'busy' | 'paused' | 'temp_closed' | 'holiday' | string
   operating_state_reason?: string | null
   operating_state_until?: string | null
+  operating_state_updated_by?: string | null
   operating_state_version?: number
   operating_timezone?: string
   busy_until?: string | null
@@ -312,12 +313,23 @@ export interface MerchantDashboard {
     branch_scoped: boolean
     note?: string
   }
+  operating_hours?: {
+    hours: Array<{ weekday: number; is_open: boolean; opens_at?: string | null; closes_at?: string | null; last_order_minutes_before_close: number }>
+    closures: Array<{ id: string; closure_date: string; label: string }>
+  }
   orders: {
     new: number
+    needs_action: number
     preparing: number
     ready_for_pickup: number
+    waiting_courier: number
+    in_progress: number
     delivering: number
     completed: number
+    cancelled: number
+    refund_dispute: number
+    sla_overdue: number
+    sync_errors: number
     rejected: number
   }
   recent_orders: MerchantOrder[]

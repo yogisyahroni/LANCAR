@@ -78,3 +78,9 @@ type MerchantQualityRepository interface {
 	SubmitQualityAppeal(ctx context.Context, merchantID, scorecardID, metricCode, reason string) (*MerchantQualityAppeal, error)
 	ReviewQualityAppeal(ctx context.Context, actorID, actorRole, appealID, status, reviewNote string) (*MerchantQualityAppeal, error)
 }
+
+// MerchantQualityReadRepository exposes the latest persisted scorecard without
+// creating a new snapshot on every dashboard request.
+type MerchantQualityReadRepository interface {
+	LatestQualityScore(ctx context.Context, merchantID string) (*MerchantQualityScore, error)
+}
