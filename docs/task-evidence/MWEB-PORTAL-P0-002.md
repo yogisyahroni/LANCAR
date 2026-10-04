@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: cdc69ded
+implementation_ref: 9859a0ff
 
 tests: PASS
 integration: PARTIAL
@@ -66,6 +66,8 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Expanded order buckets for needs-action, waiting-courier, in-progress, cancelled, refund/dispute, SLA overdue, and POS sync errors; all are calculated from server-owned order/finance/integration tables.
 - Added a read-only latest-quality-score repository path so dashboard refreshes do not create a new scorecard snapshot.
 - Added outbox event contracts for auto-accept changes and expanded operating-state consumer metadata for Customer/Courier/Merchant Android/Merchant Web/Admin consumers.
+- Added settlement-level payout holding totals and the next eligible payout timestamp to the finance read model, so the payout alert is not inferred from the dashboard's limited entry window.
+- Made self-service open/close, pause/resume, and busy mutations persist the authenticated actor and expose a safe display name for the portal; technical reason codes and raw actor UUIDs are no longer rendered as merchant-facing copy.
 
 ## Files Changed
 
@@ -73,6 +75,8 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - `backend/merchant-service/internal/service/dashboard_service.go` — authoritative dashboard composition, branch scope, readiness, and database-backed alerts.
 - `backend/merchant-service/internal/handler/merchant_handler.go` and `backend/merchant-service/cmd/api/main.go` — authenticated dashboard route.
 - `backend/merchant-service/internal/repository/postgres_merchant_repository.go` — readiness query and idempotent operating-state mutations.
+- `backend/merchant-service/internal/service/merchant_service.go` and `backend/merchant-service/internal/domain/merchant.go` — actor-aware state mutation contract with compatibility fallback for existing repository doubles.
+- `backend/merchant-service/internal/repository/postgres_report_repository.go` and `backend/merchant-service/internal/domain/report.go` — authoritative held-payout and next-payout aggregate fields.
 - `backend/merchant-service/internal/repository/postgres_merchant_order_repository.go` and `backend/merchant-service/internal/domain/merchant_order.go` — outlet-scoped order queries.
 - `backend/merchant-service/internal/domain/merchant_quality.go` and `backend/merchant-service/internal/repository/merchant_quality_repository.go` — persisted quality read model for dashboard alerts.
 - `backend/order-service/internal/service/order_food.go`, `internal/domain/order.go`, and `internal/repository/postgres_repository.go` — authoritative single-outlet food-order branch assignment.
@@ -125,7 +129,10 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     result: PASS — 13 server-side order/exception buckets executed against the active schema and returned one row for a real merchant scope.
 
     command: docker compose build merchant-service merchant-web; docker compose up -d --no-deps merchant-service merchant-web
-    result: PASS — current commit `cdc69ded` rebuilt both images; both containers reported healthy; Merchant Web and merchant-service health endpoints returned HTTP 200.
+    result: PASS — current commit `9859a0ff` rebuilt both images; both containers reported healthy; Merchant Web and merchant-service health endpoints returned HTTP 200.
+
+    command: docker exec tembus-db psql ... actor attribution projection
+    result: PASS — the active schema returned the canonical operating state and nullable actor/name projection without exposing a fabricated identity; existing system-managed rows remained null as expected.
 
 ## Task-Local Verification
 
@@ -157,7 +164,7 @@ Evidence: Up-path schema, trigger, function, index, and migration-version presen
 
 Status: PARTIAL
 
-Evidence: Dashboard responses include `data_as_of`, warnings, readiness check time, operating-hours data, persisted quality status, and alert codes; operating-state/auto-accept outbox event wiring is present. Live event delivery, consumer lag, finance-window completeness, and alert routing were not verified.
+Evidence: Dashboard responses include `data_as_of`, warnings, readiness check time, operating-hours data, persisted quality status, settlement-derived payout fields, and alert codes; operating-state/auto-accept outbox event wiring is present. Live event delivery, product consumer lag, and alert routing were not verified.
 
 ### Security / Privacy
 
@@ -207,7 +214,7 @@ The portal remains unsuitable for a production-complete claim until the unproven
 
 - Authenticated browser E2E for owner, manager, cashier, and finance roles, including retry/duplicate-click behavior.
 - Cross-app propagation to Customer, Courier, Merchant Android, and Admin through consumed outbox/cache contracts.
-- Full operational alert coverage for payout held, quality degradation, and provider incident; current implementation covers available local sources and reports unknown/unavailable data honestly.
+- Live consumer/cache propagation to Customer, Courier, Merchant Android, Merchant Web, and Admin through the published event contract.
 - Outlet-level financial/settlement scope; branch order scope is available, while finance remains explicitly business-level.
 - Migration down/recovery and live replay/observability verification.
 
