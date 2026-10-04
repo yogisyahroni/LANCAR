@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: PENDING_COMMIT
+implementation_ref: cd967e40
 
 tests: PASS
 integration: PASS
@@ -22,22 +22,22 @@ task_scope_external_proof_required: true
 external_runtime_validation: PARTIAL
 
 release_readiness: PARTIAL
-release_followups: "Run the pushed staging workflow, verify deployed staging headers/API origin/CORS/TLS and rollback the previous merchant-web image without changing onboarding data. Production sign-off must be recorded separately from this local evidence."
+release_followups: "Configure the staging SSH deployment contract, then verify deployed staging headers/API origin/CORS/TLS and rollback the previous merchant-web image without changing onboarding data. Production sign-off must be recorded separately from this local evidence."
 
-unproven_requirements: "CI result, deployed staging validation, live CORS/TLS verification, error-monitoring wiring, and image rollback/data-preservation proof are not yet observed."
-known_blockers: NONE
+unproven_requirements: "Remote staging deployment/validation, live CORS/TLS verification, error-monitoring wiring, and image rollback/data-preservation proof are not yet observed; remote browser/API jobs were skipped because deployment was not configured."
+known_blockers: "GitHub Actions staging environment has no STAGING_SSH_HOST, so the deploy step intentionally skipped remote deployment."
 
-locally_actionable_remaining: "Push to staging and inspect the resulting CI/release evidence; complete remote runtime and rollback checks after the workflow publishes the image."
+locally_actionable_remaining: "No additional local implementation is required for this failure; configure the staging deployment secrets and then execute remote runtime, browser/API, and rollback validation."
 
-blocker_resolution_attempts: "Added fail-closed build validation, explicit environment API contracts, container health and smoke checks, security headers, SBOM/security workflow coverage, production image publication/signing/deployment wiring, and Chromium accessibility smoke coverage."
-unblock_condition: NONE
+blocker_resolution_attempts: "Added fail-closed build validation, explicit environment API contracts, container health and smoke checks, security headers, SBOM/security workflow coverage, production image publication/signing/deployment wiring, Chromium accessibility smoke coverage, and fixed the CI container lifecycle so accessibility runs before cleanup. Pushed cd967e40; CI/CD staging run 37191670845 passed all executed jobs, while the deploy log confirmed STAGING_SSH_HOST is unset."
+unblock_condition: "Configure the staging environment secrets required by .github/workflows/staging.yml, starting with STAGING_SSH_HOST and STAGING_SSH_PRIVATE_KEY, then rerun the staging workflow."
 
-owner_action_required: false
-owner_action_summary: NONE
-verification_after_unblock: "Run the staging workflow, inspect the published merchant-web image, execute browser/headers/API-origin checks against deployed staging, and exercise rollback to the previous image while checking onboarding data invariants."
+owner_action_required: true
+owner_action_summary: "In GitHub repository Settings > Environments > staging, configure STAGING_SSH_HOST and STAGING_SSH_PRIVATE_KEY; configure STAGING_SSH_USER, STAGING_SSH_PORT, and STAGING_APP_DIR when the defaults are not correct. Do not commit or paste private keys into source, evidence, screenshots, or logs."
+verification_after_unblock: "Rerun the staging workflow, confirm SSH deployment of the cd967e40 images, execute browser/headers/API-origin/CORS/TLS checks against deployed staging, and exercise rollback to the previous image while checking onboarding data invariants."
 
 dependency_chain_blocked: false
-next_eligible_task: MWEB-P1-006
+next_eligible_task: NONE
 
 updated_at: 2026-10-04
 ---
@@ -130,9 +130,9 @@ Evidence: Both local staging-like and production-like images built with explicit
 
 ### E2E
 
-Status: PASS locally; NOT_RUN in remote CI
+Status: PASS locally; CI Docker smoke and accessibility PASS; remote staging E2E NOT_RUN
 
-Evidence: Docker smoke and Chromium/axe checks passed against the local built image. The post-push GitHub Actions result remains to be observed.
+Evidence: Docker smoke and Chromium/axe checks passed against the local built image. CI run `37191670845` passed the merchant-web Docker smoke and accessibility steps after the lifecycle fix. Remote staging E2E/API jobs were skipped because SSH deployment was not configured.
 
 ### Migration
 
@@ -163,12 +163,12 @@ Evidence: Production workflow now carries the image through signed publication a
 Status: PARTIAL
 
 - Public route reachability was observed for all required routes, but the public site still lacks the new response headers, proving that the current deployed image has not yet been replaced by this local build.
-- Staging deployment, real CORS/API-origin verification, TLS inspection, rollback, and production sign-off remain separate from this local proof and must be captured after the pushed workflow runs.
+- CI run `37191670845` passed repository verification, container publication, and the release-pending recording step, but its deploy log explicitly reports that `STAGING_SSH_HOST` is unset and deployment was skipped.
+- Real staging CORS/API-origin verification, TLS inspection, rollback, and production sign-off remain separate from this local proof and require the staging deployment contract to be configured.
 
 ## Remaining Requirements
 
-- Observe the staging CI workflow after this commit and record its actual result.
+- Configure the staging deployment secrets and rerun the workflow.
 - Verify deployed staging headers, asset cache, API origin, CORS, TLS, SPA fallback, and browser routes.
 - Test rollback to the previous Merchant Web image and verify onboarding records are unchanged.
 - Capture production readiness sign-off separately from the local/tunnel health check.
-
