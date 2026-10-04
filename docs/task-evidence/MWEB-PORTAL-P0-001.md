@@ -28,7 +28,7 @@ known_blockers: NONE
 
 locally_actionable_remaining: "Complete the case-scoped read-only support workflow in Admin Support Console and browser E2E for manager, kitchen, finance, and support boundary; then cover multi-tab, reconnect, every sensitive shell action, and staging smoke."
 
-blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing; rebuilt Docker services; executed owner/staff authenticated API flows, tenant tamper, session rotation/logout, device-session revoke, and structured audit-log checks."
+blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing and the order-service merchant_session boundary for notifications; rebuilt Docker services; executed owner/staff authenticated API flows, tenant tamper, session rotation/logout, device-session revoke, browser role matrix, and structured audit-log checks."
 unblock_condition: NONE
 
 owner_action_required: false
@@ -100,6 +100,9 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
   roles are rejected before a database lookup or cookie creation. Support
   access remains an Admin Support Console, case-scoped, redacted, read-only
   workflow rather than a Merchant Web role or general impersonation path.
+- Extended the order-service web-session verifier to accept the dedicated
+  `merchant_session` cookie used by the portal notification inbox, while still
+  resolving the user and role from the database-backed `web_sessions` row.
 
 ## Files Changed
 
@@ -116,6 +119,8 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
   and authenticated handler contract tests.
 - `backend/merchant-service/internal/service/merchant_access_context_test.go` — capability mapping tests.
 - `backend/admin-service/src/controllers/customerAuth.controller.test.ts` — negative merchant-session exchange coverage for Admin/support roles.
+- `backend/order-service/internal/middleware/auth_middleware.go` — accept the database-backed `merchant_session` cookie for order-owned portal routes.
+- `backend/order-service/internal/middleware/auth_middleware_test.go` — regression coverage for valid and invalid merchant portal sessions.
 - `merchant-web/src/lib/portal-context.ts` — context and staff-session bootstrap.
 - `merchant-web/src/lib/auth.ts` and `merchant-web/src/lib/api.ts` — scoped session storage and request headers.
 - `merchant-web/src/lib/types.ts` — branch/context types.
@@ -174,6 +179,15 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
     command: npm test -- --runInBand (backend/admin-service)
     result: PASS — 138 test suites and 664 tests passed.
 
+    command: go test ./... (backend/order-service)
+    result: PASS — all order-service packages passed, including merchant_session authentication regression tests.
+
+    command: docker compose up -d --build order-service
+    result: PASS — order-service image rebuilt and container recreated successfully.
+
+    command: local authenticated API E2E for merchant notification inbox
+    result: PASS — merchant login 200, web-session exchange 200, and GET /api/v1/notifications?limit=8 returned 200 with database-backed inbox data.
+
     command: npm run test:auth-matrix && npm run test:compliance-boundary (backend/api-gateway)
     result: PASS — route auth matrix and compliance boundary tests passed.
 
@@ -182,6 +196,9 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
 
     command: Playwright browser E2E against local Vite + Docker gateway
     result: PASS for owner login UI exchange, dashboard/deep-link navigation, 390px responsive viewport, no credential-like localStorage keys, and expired-session redirect. Local harness injected the production-domain session cookie at the route boundary because localhost cannot store Domain=.bawain.my.id; this is local browser proof, not staging proof.
+
+    command: Playwright authenticated role/capability matrix against local Vite + Docker gateway
+    result: PASS — owner, manager, cashier, kitchen, and finance reached the dashboard; each rendered server-projected navigation and notification GET returned 200. No console errors were observed in the notification smoke path.
 
     command: docker logs --since 15m tembus-merchant
     result: PASS for exercised device-session mutations — structured audit records contained actor role, action, resource, result, request/correlation IDs, and timestamp. This does not prove every sensitive action has audit coverage.
@@ -199,13 +216,13 @@ the corporate-only `manage_staff` guard for individual merchants.
 
 Status: PASS for the exercised local integration path
 
-Evidence: Docker gateway → auth/admin → merchant-service → PostgreSQL was exercised with owner and cashier staff fixtures. The context/search responses were server-scoped, and the gateway route ordering defect for merchant portal login was fixed and re-tested.
+Evidence: Docker gateway → auth/admin → merchant-service/order-service → PostgreSQL was exercised with owner and staff fixtures. The context/search/notification responses were server-scoped, and the gateway/order-service authentication boundaries were fixed and re-tested.
 
 ### E2E
 
 Status: PARTIAL
 
-Evidence: Authenticated API E2E was run against local Docker for owner and cashier staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, 390px responsive layout, credential storage boundary, and expired-session redirect. The shell now has an explicit connection-loss state, but browser coverage for all required PT staff roles, outlet switching, multi-tab, reconnect, and expired device sessions remains required.
+Evidence: Authenticated API E2E was run against local Docker for owner and cashier staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, 390px responsive layout, credential storage boundary, expired-session redirect, and the owner/manager/cashier/kitchen/finance capability matrix. The shell now has an explicit connection-loss state, but browser coverage for outlet switching, multi-tab, reconnect, expired device sessions, and the support console workflow remains required.
 
 ### Migration
 

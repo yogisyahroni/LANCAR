@@ -40,7 +40,7 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		// Support the same DB-backed web session contract as the gateway. The
 		// cookie name is not authorization; user identity and role are read from
 		// the session row on every request.
-		for _, cookieName := range []string{"admin_session", "customer_session", "web_session"} {
+		for _, cookieName := range []string{"admin_session", "customer_session", "merchant_session", "web_session"} {
 			cookie, err := r.Cookie(cookieName)
 			if err != nil || cookie.Value == "" || globalDB == nil {
 				continue
