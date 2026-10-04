@@ -23,10 +23,10 @@ external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Run authenticated browser E2E, complete all required role/capability permutations, and staging smoke after deployment."
 
-unproven_requirements: "Full shell parity, support access mode, durable audit coverage for every sensitive shell action, authenticated browser/deep-link/responsive proof for every required role, and staging release proof remain unproven."
+unproven_requirements: "Full shell parity, the case-scoped support workflow inside Admin Support Console, durable audit coverage for every sensitive shell action, authenticated browser/deep-link/responsive proof for every required role, and staging release proof remain unproven."
 known_blockers: NONE
 
-locally_actionable_remaining: "Complete support access-mode decision/implementation and browser E2E for manager, kitchen, finance, and support; then cover multi-tab, reconnect, every sensitive shell action, and staging smoke."
+locally_actionable_remaining: "Complete the case-scoped read-only support workflow in Admin Support Console and browser E2E for manager, kitchen, finance, and support boundary; then cover multi-tab, reconnect, every sensitive shell action, and staging smoke."
 
 blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing; rebuilt Docker services; executed owner/staff authenticated API flows, tenant tamper, session rotation/logout, device-session revoke, and structured audit-log checks."
 unblock_condition: NONE
@@ -96,6 +96,10 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
 - Added an online/offline/degraded connection banner. Network failures do not
   automatically replay commands or clear the current shell context; recovery
   is explicit after the browser reports connectivity again.
+- Locked the support boundary at the merchant-session exchange: Admin/support
+  roles are rejected before a database lookup or cookie creation. Support
+  access remains an Admin Support Console, case-scoped, redacted, read-only
+  workflow rather than a Merchant Web role or general impersonation path.
 
 ## Files Changed
 
@@ -111,6 +115,7 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
   `internal/handler/merchant_search_handler_test.go` — search normalization
   and authenticated handler contract tests.
 - `backend/merchant-service/internal/service/merchant_access_context_test.go` — capability mapping tests.
+- `backend/admin-service/src/controllers/customerAuth.controller.test.ts` — negative merchant-session exchange coverage for Admin/support roles.
 - `merchant-web/src/lib/portal-context.ts` — context and staff-session bootstrap.
 - `merchant-web/src/lib/auth.ts` and `merchant-web/src/lib/api.ts` — scoped session storage and request headers.
 - `merchant-web/src/lib/types.ts` — branch/context types.
@@ -164,7 +169,10 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
     result: PASS.
 
     command: npm test -- --runInBand src/controllers/customerAuth.controller.test.ts (backend/admin-service)
-    result: PASS — 5 tests passed.
+    result: PASS — 12 tests passed, including rejection of all configured Admin/support roles before database access or merchant cookie creation.
+
+    command: npm test -- --runInBand (backend/admin-service)
+    result: PASS — 138 test suites and 664 tests passed.
 
     command: npm run test:auth-matrix && npm run test:compliance-boundary (backend/api-gateway)
     result: PASS — route auth matrix and compliance boundary tests passed.
@@ -215,7 +223,7 @@ Evidence: Structured merchant-service audit records were observed for device-ses
 
 Status: PARTIAL
 
-Evidence: Merchant and branch scope are derived server-side; owner and cashier staff role/capability checks passed; cross-tenant branch header tampering returned 403; customer portal rejected the merchant cookie with 401; refresh/logout invalidation passed. Full object-ID matrix and all role permutations remain.
+Evidence: Merchant and branch scope are derived server-side; owner and cashier staff role/capability checks passed; configured Admin/support roles are rejected before merchant-session creation; cross-tenant branch header tampering returned 403; customer portal rejected the merchant cookie with 401; refresh/logout invalidation passed. Full object-ID matrix, support case workflow, and all browser role permutations remain.
 
 ### Rollback / Recovery
 

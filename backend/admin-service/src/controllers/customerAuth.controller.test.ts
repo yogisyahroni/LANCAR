@@ -1,6 +1,7 @@
 export {};
 
 const { db } = require('../db');
+const jwt = require('jsonwebtoken');
 
 jest.mock('../db', () => ({ db: { query: jest.fn() } }));
 jest.mock('../security/logRedaction', () => ({ securityLog: { error: jest.fn(), warn: jest.fn(), info: jest.fn() } }));
@@ -14,6 +15,7 @@ const {
   logoutOtherCustomerSessions,
   changeCustomerPin,
   refreshToken,
+  exchangeCustomerJwtForWebSession,
 } = require('./customerAuth.controller');
 
 const makeRes = () => {
@@ -26,7 +28,11 @@ const makeRes = () => {
 };
 
 describe('customer web security controllers', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.JWT_SECRET = 'merchant-portal-test-secret';
+    process.env.JWT_ISSUER = 'tembus-auth-service';
+  });
 
   it('returns only session metadata and identifies the current session', async () => {
     (db.query as jest.Mock).mockResolvedValue({ rows: [
@@ -120,6 +126,33 @@ describe('customer web security controllers', () => {
 
     expect(res.statusCode).toBe(401);
     expect(res.body.error).toMatch(/expired/);
+    expect(res.cookie).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'super_admin',
+    'admin',
+    'ops_security',
+    'ops_admin',
+    'finance_admin',
+    'cs_agent',
+    'zone_manager',
+  ])('rejects %s from creating a merchant web session', async (role) => {
+    const token = jwt.sign(
+      { user_id: 'support-user-1', role },
+      process.env.JWT_SECRET,
+      { algorithm: 'HS256', issuer: process.env.JWT_ISSUER },
+    );
+    const res = makeRes();
+
+    await exchangeCustomerJwtForWebSession({
+      headers: { 'x-portal': 'merchant' },
+      body: { access_token: token },
+    }, res);
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body.error).toBe('Only merchant portal roles can create merchant web sessions');
+    expect(db.query).not.toHaveBeenCalled();
     expect(res.cookie).not.toHaveBeenCalled();
   });
 });
