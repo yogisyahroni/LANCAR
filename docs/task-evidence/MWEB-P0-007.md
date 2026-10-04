@@ -24,10 +24,10 @@ external_runtime_validation: NOT_RUN
 release_readiness: PARTIAL
 release_followups: "Run OTP-enabled staging browser E2E with the configured provider, including registration, expiry/rate-limit, and provider-unavailable states."
 
-unproven_requirements: "Live OTP provider behavior, deployed staging runtime validation, and browser-level shared-cookie refresh-race proof remain unproven."
+unproven_requirements: "Live OTP provider behavior and deployed staging runtime validation remain unproven."
 known_blockers: NONE
 
-locally_actionable_remaining: "Run browser-level shared-cookie refresh-race coverage and staging provider smoke; local invalid/expired OTP, rate-limit, concurrent server refresh, and cleanup paths are proven."
+locally_actionable_remaining: "NONE — local implementation, API proof, browser session proof, and disposable-data cleanup are complete; staging/provider verification remains a release follow-up."
 
 blocker_resolution_attempts: "Rebuilt merchant-service after detecting a stale image missing the portal context route; fixed the gateway CORS allowlist after browser preflight exposed missing merchant scope headers; ran API and browser smoke against the local Docker stack; fixed the legacy OTP handler contract after runtime testing exposed generic Authentication required copy for invalid/expired codes; rebuilt auth-service and merchant-web."
 unblock_condition: NONE
@@ -147,8 +147,8 @@ Original acceptance evidence status:
     command: local OTP invalid/expired error contract
     result: PASS — with `customer_auth_otp_required=true`, disposable registration returned `require_otp=true`; wrong and manually expired codes both returned HTTP 401, `ERR_OTP_INVALID`, and the safe Indonesian message without internal-detail leakage. Test records were deleted and the flag was restored afterward.
 
-    command: concurrent web-session refresh race
-    result: PASS — two requests using the same initial cookie produced one HTTP 200 rotation and one HTTP 401 rejection; the cookie from the successful rotation remained valid for `/auth/web/me` (HTTP 200). Browser-level shared-cookie recovery remains a follow-up.
+    command: browser-level shared-cookie refresh race using two pages in one Playwright context
+    result: PASS — two tabs produced one HTTP 200 rotation and one HTTP 401 rejection; the rotated host-only cookie was shared by the context and `/auth/web/me` returned HTTP 200 afterward. Local Docker was restored to production-like Secure/domain cookie settings after the test.
 
     command: git diff --check
     result: PASS.
@@ -207,7 +207,7 @@ Evidence: Existing structured auth/gateway/service logs were observed during con
 
 Status: PASS
 
-Evidence: HttpOnly cookie session exchange, secure/SameSite production cookie settings, conditional refresh rotation, old-token rejection, logout revocation, CSRF scope alignment, no persistent bearer token storage, merchant scope CORS preflight, device revoke, same-origin logout propagation, OTP-on new-device login, trusted-device behavior, safe invalid/expired OTP responses, and targeted disposable-data cleanup were verified. Live provider behavior and deployed staging proof remain release follow-ups.
+Evidence: HttpOnly cookie session exchange, secure/SameSite production cookie settings, conditional refresh rotation, old-token rejection, logout revocation, CSRF scope alignment, no persistent bearer token storage, merchant scope CORS preflight, device revoke, same-origin logout propagation, browser shared-cookie refresh race, OTP-on new-device login, trusted-device behavior, safe invalid/expired OTP responses, and targeted disposable-data cleanup were verified. Live provider behavior and deployed staging proof remain release follow-ups.
 
 ### Rollback / Recovery
 
@@ -243,7 +243,6 @@ Evidence: Local Docker and browser smoke are useful task evidence, but the task 
 
 ## Locally Actionable Remaining
 
-- Add browser coverage for the shared-cookie refresh race; server-side concurrent rotation, logout propagation, and device revoke are now proven locally.
 - Run staging browser smoke with the configured OTP provider.
 
 ## External Blockers
