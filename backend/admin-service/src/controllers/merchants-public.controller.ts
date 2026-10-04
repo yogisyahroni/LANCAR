@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
-import { db, readDb } from '../db';
+import { db } from '../db';
 import { saveSecureUploadBuffer } from '../security/uploadSecurity';
+import { securityLog } from '../security/logRedaction';
 
 // ─────────────────────────────────────────────
 // WEB MERCHANT REGISTRATION (merchant.bawain.my.id)
@@ -61,6 +62,13 @@ export const uploadMerchantPublicDocument = async (req: Request, res: Response):
 export const getMerchantRegistrationStatus = async (req: Request, res: Response): Promise<void> => {
   const email = String(req.query.email || '').trim().toLowerCase();
   const phone = String(req.query.phone || '').trim();
+  const startedAt = Date.now();
+  const lookupMeta = {
+    has_email: Boolean(email),
+    has_phone: Boolean(phone),
+    identifier_count: Number(Boolean(email)) + Number(Boolean(phone)),
+  };
+
   if (!email && !phone) {
     res.status(400).json({ error: 'Parameter email atau phone wajib diisi' });
     return;
@@ -71,7 +79,7 @@ export const getMerchantRegistrationStatus = async (req: Request, res: Response)
       SELECT u.id AS user_id, u.status AS user_status,
              m.id AS merchant_id, m.nama_toko, m.onboarding_status,
              m.verification_status,
-             m.rejection_reason, m.created_at
+             m.rejection_reason, m.created_at, m.updated_at
       FROM users u
       LEFT JOIN merchants m ON m.user_id = u.id
       WHERE `;
@@ -88,13 +96,26 @@ export const getMerchantRegistrationStatus = async (req: Request, res: Response)
     }
     sql += ` LIMIT 1`;
 
-    const resData = await readDb.query(sql, params);
+    // Status lookup is a read-after-write contract: Admin transitions write to
+    // the primary database, so this public endpoint must not read a lagging
+    // replica and briefly show the previous lifecycle state.
+    const resData = await db.query(sql, params);
     const row = resData.rows[0];
     if (!row) {
+      securityLog.info('merchant_registration_status_lookup', {
+        ...lookupMeta,
+        outcome: 'not_found',
+        duration_ms: Date.now() - startedAt,
+      });
       res.status(404).json({ status: 'not_found', message: 'Pendaftaran tidak ditemukan' });
       return;
     }
     if (!row.merchant_id) {
+      securityLog.info('merchant_registration_status_lookup', {
+        ...lookupMeta,
+        outcome: 'no_merchant',
+        duration_ms: Date.now() - startedAt,
+      });
       res.status(200).json({ status: 'no_merchant', onboarding_status: null, message: 'Akun ditemukan, tetapi belum ada data toko.' });
       return;
     }
@@ -108,16 +129,31 @@ export const getMerchantRegistrationStatus = async (req: Request, res: Response)
           ? 'REJECTED'
           : 'SUBMITTED';
 
+    securityLog.info('merchant_registration_status_lookup', {
+      ...lookupMeta,
+      outcome: 'matched',
+      status: canonicalStatus,
+      duration_ms: Date.now() - startedAt,
+    });
+
     res.status(200).json({
       status: canonicalStatus,
       onboarding_status: canonicalStatus,
       verification_status: row.verification_status,
       nama_toko: row.nama_toko,
-      user_status: row.user_status,
       rejection_reason: row.rejection_reason || null,
       created_at: row.created_at,
+      updated_at: row.updated_at,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    securityLog.error('merchant_registration_status_lookup_failed', {
+      ...lookupMeta,
+      duration_ms: Date.now() - startedAt,
+      error,
+    });
+    res.status(503).json({
+      error: 'Status pendaftaran belum dapat diperiksa. Coba lagi beberapa saat.',
+      code: 'ERR_STATUS_LOOKUP_UNAVAILABLE',
+    });
   }
 };

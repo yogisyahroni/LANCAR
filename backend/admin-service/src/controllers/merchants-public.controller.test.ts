@@ -1,0 +1,128 @@
+import { getMerchantRegistrationStatus } from './merchants-public.controller';
+import { db, readDb } from '../db';
+import { securityLog } from '../security/logRedaction';
+
+jest.mock('../db', () => ({
+  db: { query: jest.fn() },
+  readDb: { query: jest.fn() },
+}));
+
+jest.mock('../security/logRedaction', () => ({
+  securityLog: {
+    info: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
+const makeResponse = () => {
+  const response: any = { statusCode: 200, body: undefined };
+  response.status = (code: number) => {
+    response.statusCode = code;
+    return response;
+  };
+  response.json = (body: unknown) => {
+    response.body = body;
+    return response;
+  };
+  return response;
+};
+
+describe('public merchant registration status contract', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('requires both identifiers to match the same account and reads from primary for read-after-write', async () => {
+    (db.query as jest.Mock).mockResolvedValue({
+      rows: [{
+        merchant_id: 'merchant-1',
+        nama_toko: 'Toko Uji',
+        onboarding_status: 'ACTIVE',
+        verification_status: 'approved',
+        rejection_reason: null,
+        created_at: '2026-10-04T08:00:00.000Z',
+        updated_at: '2026-10-04T09:00:00.000Z',
+        user_status: 'active',
+      }],
+    });
+    const response = makeResponse();
+
+    await getMerchantRegistrationStatus({
+      query: { email: 'owner@example.test', phone: '081234567890' },
+      path: '/api/v1/auth/merchant/registration-status',
+    } as any, response);
+
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('LOWER(u.email) = $1 AND u.phone_number = $2'),
+      ['owner@example.test', '081234567890'],
+    );
+    expect(readDb.query).not.toHaveBeenCalled();
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual(expect.objectContaining({
+      status: 'ACTIVE',
+      onboarding_status: 'ACTIVE',
+      updated_at: '2026-10-04T09:00:00.000Z',
+    }));
+    expect(response.body.user_status).toBeUndefined();
+    expect(securityLog.info).toHaveBeenCalledWith('merchant_registration_status_lookup', expect.objectContaining({
+      outcome: 'matched',
+      status: 'ACTIVE',
+      has_email: true,
+      has_phone: true,
+    }));
+  });
+
+  it('returns a generic not-found response for a mismatched email and phone', async () => {
+    (db.query as jest.Mock).mockResolvedValue({ rows: [] });
+    const response = makeResponse();
+
+    await getMerchantRegistrationStatus({
+      query: { email: 'owner@example.test', phone: '089999999999' },
+    } as any, response);
+
+    expect(response.statusCode).toBe(404);
+    expect(response.body).toEqual({ status: 'not_found', message: 'Pendaftaran tidak ditemukan' });
+    expect(response.body).not.toHaveProperty('onboarding_status');
+    expect(securityLog.info).toHaveBeenCalledWith('merchant_registration_status_lookup', expect.objectContaining({
+      outcome: 'not_found',
+      has_email: true,
+      has_phone: true,
+    }));
+  });
+
+  it('keeps the no-merchant state explicit without exposing account internals', async () => {
+    (db.query as jest.Mock).mockResolvedValue({ rows: [{ merchant_id: null, user_status: 'active' }] });
+    const response = makeResponse();
+
+    await getMerchantRegistrationStatus({ query: { email: 'customer@example.test' } } as any, response);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual({
+      status: 'no_merchant',
+      onboarding_status: null,
+      message: 'Akun ditemukan, tetapi belum ada data toko.',
+    });
+    expect(response.body.user_status).toBeUndefined();
+  });
+
+  it('returns a safe unavailable response and logs only redacted lookup metadata', async () => {
+    (db.query as jest.Mock).mockRejectedValue(new Error('password=do-not-leak database detail'));
+    const response = makeResponse();
+
+    await getMerchantRegistrationStatus({
+      query: { email: 'owner@example.test' },
+    } as any, response);
+
+    expect(response.statusCode).toBe(503);
+    expect(response.body).toEqual({
+      error: 'Status pendaftaran belum dapat diperiksa. Coba lagi beberapa saat.',
+      code: 'ERR_STATUS_LOOKUP_UNAVAILABLE',
+    });
+    expect(JSON.stringify(response.body)).not.toContain('password');
+    expect(securityLog.error).toHaveBeenCalledWith('merchant_registration_status_lookup_failed', expect.objectContaining({
+      has_email: true,
+      has_phone: false,
+    }));
+    const loggedMeta = (securityLog.error as jest.Mock).mock.calls[0][1];
+    expect(loggedMeta).not.toHaveProperty('email');
+    expect(loggedMeta).not.toHaveProperty('phone');
+  });
+});
