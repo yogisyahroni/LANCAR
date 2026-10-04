@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 31e53349
+implementation_ref: 3a2b15ce
 
 tests: PASS
 integration: PARTIAL
@@ -24,7 +24,7 @@ external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Authenticated staging smoke, cross-app event propagation, and release gates remain required before production rollout."
 
-unproven_requirements: "Authenticated browser/cross-app E2E; live consumer/cache propagation; complete finance scope for a selected outlet; migration down/recovery drill."
+unproven_requirements: "Authenticated browser/cross-app E2E; live consumer/cache propagation; product policy for business-level payout allocation in an outlet view; migration down/recovery drill."
 known_blockers: NONE
 
 locally_actionable_remaining: "Continue the same task with authenticated browser and cross-app verification, then close remaining finance-window and recovery gaps before marking COMPLETE."
@@ -68,6 +68,8 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Added outbox event contracts for auto-accept changes and expanded operating-state consumer metadata for Customer/Courier/Merchant Android/Merchant Web/Admin consumers.
 - Added settlement-level payout holding totals and the next eligible payout timestamp to the finance read model, so the payout alert is not inferred from the dashboard's limited entry window.
 - Made self-service open/close, pause/resume, and busy mutations persist the authenticated actor and expose a safe display name for the portal; technical reason codes and raw actor UUIDs are no longer rendered as merchant-facing copy.
+- Added authoritative branch-scoped sales and finance repository capabilities. Sales metrics filter `orders.branch_id`; statement entries, reconciliation exceptions, and held settlements are filtered through their order relation. Business-level withdrawals are excluded rather than assigned to an arbitrary outlet, and the response exposes `scope_level`, `branch_id`, and a merchant-facing scope note.
+- Updated the dashboard UI to label outlet summaries correctly and explain that business-level payouts are not allocated to an outlet; the previous copy that incorrectly claimed outlet summaries followed the business level was removed.
 
 ## Files Changed
 
@@ -77,11 +79,13 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - `backend/merchant-service/internal/repository/postgres_merchant_repository.go` — readiness query and idempotent operating-state mutations.
 - `backend/merchant-service/internal/service/merchant_service.go` and `backend/merchant-service/internal/domain/merchant.go` — actor-aware state mutation contract with compatibility fallback for existing repository doubles.
 - `backend/merchant-service/internal/repository/postgres_report_repository.go` and `backend/merchant-service/internal/domain/report.go` — authoritative held-payout and next-payout aggregate fields.
+- `backend/merchant-service/internal/repository/postgres_report_repository.go` and `backend/merchant-service/internal/domain/report.go` — branch-scoped sales/finance capabilities and explicit finance scope metadata.
 - `backend/merchant-service/internal/repository/postgres_merchant_order_repository.go` and `backend/merchant-service/internal/domain/merchant_order.go` — outlet-scoped order queries.
 - `backend/merchant-service/internal/domain/merchant_quality.go` and `backend/merchant-service/internal/repository/merchant_quality_repository.go` — persisted quality read model for dashboard alerts.
 - `backend/order-service/internal/service/order_food.go`, `internal/domain/order.go`, and `internal/repository/postgres_repository.go` — authoritative single-outlet food-order branch assignment.
 - `merchant-web/src/pages/Dashboard.tsx` and `merchant-web/src/lib/types.ts` — server dashboard rendering and safe operating controls.
 - `backend/merchant-service/internal/service/dashboard_service_test.go` — unit proof for authoritative aggregate/finance data, outlet scope isolation, and fail-closed auto-accept readiness.
+- `backend/merchant-service/internal/repository/merchant_finance_statement_integration_test.go` — opt-in read-only PostgreSQL proof for branch sales/finance attribution and no cross-branch statement leakage.
 - `scripts/e2e/merchant-web-onboarding-local.ps1` — authenticated onboarding harness now verifies the dashboard read model after Admin approval.
 - `database/migrations/20261004000001_merchant_auto_accept_events.sql` — auto-accept outbox event trigger.
 - `database/migrations/20261004000002_food_order_branch_scope.sql` — order branch ownership, legacy backfill, constraint trigger, and index.
@@ -139,6 +143,13 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     command: scripts/e2e/merchant-web-onboarding-local.ps1 -ApiBaseUrl https://api.bawain.my.id/api/v1 -WebOrigin https://merchant.bawain.my.id
     result: PASS — disposable HTTPS lifecycle completed through Admin → database → Merchant Web; authenticated dashboard returned a fresh timestamp, matching merchant scope, order fields, and auto-accept readiness fields. Admin credential was loaded in-memory from the local runtime configuration and is not recorded here.
 
+    command: go test ./internal/repository -run TestMerchantBranchScopedReportsIntegration -count=1 -v
+    location: backend/merchant-service
+    result: PASS — read-only integration against the host-published PostgreSQL fixture proved branch sales/finance repository capability, scope metadata, and that every returned finance entry resolves to the selected order branch. Connection credentials were loaded in-memory and are not recorded here.
+
+    command: docker compose build merchant-service merchant-web; docker compose up -d --no-deps merchant-service merchant-web; Invoke-WebRequest http://127.0.0.1:3086/; Invoke-WebRequest http://127.0.0.1:8080/health
+    result: PASS — affected images built successfully, containers reported healthy, Merchant Web returned HTTP 200, and gateway health returned HTTP 200.
+
 ## Task-Local Verification
 
 ### Tests
@@ -151,13 +162,13 @@ Evidence: `go test ./internal/service -run 'TestGetDashboard_' -count=1 -v` pass
 
 Status: PARTIAL
 
-Evidence: Docker services connected to the shared PostgreSQL instance and the schema/trigger contract was verified. Authenticated mutation and event-consumer integration were not exercised in this run.
+Evidence: Docker services connected to the shared PostgreSQL instance and the schema/trigger contract was verified. The read-only branch sales/finance integration test passed against a real PostgreSQL fixture. Authenticated mutation and event-consumer integration were not exercised in this run.
 
 ### E2E
 
 Status: PARTIAL
 
-Evidence: The HTTPS disposable harness completed registration → document upload → Admin reject/resubmit/approve → ACTIVE status → authenticated `GET /merchant/dashboard` → suspend → SUSPENDED status. Sanitized dashboard proof: `data_as_of_present=true`, `merchant_scope_matches=true`, `scope_level=merchant_aggregate`, `order_fields_present=true`, `auto_accept_present=true`, `alert_count=1`. Browser UI and Customer → Merchant Web → Courier cross-app propagation remain unproven.
+Evidence: The HTTPS disposable harness completed registration → document upload → Admin reject/resubmit/approve → ACTIVE status → authenticated `GET /merchant/dashboard` → suspend → SUSPENDED status. Sanitized dashboard proof: `data_as_of_present=true`, `merchant_scope_matches=true`, `scope_level=merchant_aggregate`, `order_fields_present=true`, `auto_accept_present=true`, `alert_count=1`. Outlet-scoped sales/finance API attribution passed against local PostgreSQL. Browser UI and Customer → Merchant Web → Courier cross-app propagation remain unproven.
 
 ### Migration
 
@@ -220,7 +231,7 @@ The portal remains unsuitable for a production-complete claim until the unproven
 - Authenticated browser E2E for owner, manager, cashier, and finance roles, including retry/duplicate-click behavior.
 - Cross-app propagation to Customer, Courier, Merchant Android, and Admin through consumed outbox/cache contracts.
 - Live consumer/cache propagation to Customer, Courier, Merchant Android, Merchant Web, and Admin through the published event contract.
-- Outlet-level financial/settlement scope; branch order scope is available, while finance remains explicitly business-level.
+- Business-level withdrawal/payout allocation into a selected outlet is intentionally not performed; Finance/Product must define an auditable allocation policy before that capability is added.
 - Migration down/recovery and live replay/observability verification.
 
 This task remains active and must not advance to dependent portal tasks until these requirements are proven or the original scope is explicitly revised.
