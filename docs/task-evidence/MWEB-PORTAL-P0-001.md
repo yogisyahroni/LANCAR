@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: fdafd7b1
+implementation_ref: 212ca12a
 
 tests: PASS
 integration: PARTIAL
@@ -101,6 +101,8 @@ Acceptance criteria remain unproven until role and browser E2E evidence exists:
 - `merchant-web/src/lib/portal-context.ts` — context and staff-session bootstrap.
 - `merchant-web/src/lib/auth.ts` and `merchant-web/src/lib/api.ts` — scoped session storage and request headers.
 - `merchant-web/src/lib/types.ts` — branch/context types.
+- `merchant-web/src/pages/Integrations.tsx` and `merchant-web/src/App.tsx` —
+  capability-gated Integrasi route backed by the read-only POS health API.
 - `merchant-web/src/components/ProtectedRoute.tsx`, `Layout.tsx`, `pages/Login.tsx`, `Dashboard.tsx`, `Settings.tsx`, `Staff.tsx` — server-context consumption.
 
 ## Commands / Checks Run
@@ -127,7 +129,7 @@ Acceptance criteria remain unproven until role and browser E2E evidence exists:
     result: PASS — 5 configuration contract tests passed.
 
     command: git push origin staging
-    result: PASS — commit fdafd7b1 is on origin/staging. Remote reported one
+    result: PASS — commits fdafd7b1 and 212ca12a are on origin/staging. Remote reported one
     existing high Dependabot vulnerability on the repository default branch;
     that warning is unrelated to this change and remains open.
 
