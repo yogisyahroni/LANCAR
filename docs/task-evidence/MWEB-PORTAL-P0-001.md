@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: e93cb363 (merchant-portal shell, session resilience, active-outlet guard, and durable scoped mutation audit)
+implementation_ref: e93cb363 + current route-audit contract (merchant-portal shell, session resilience, active-outlet guard, and durable scoped mutation audit)
 
 tests: PASS
 integration: PASS
@@ -21,12 +21,12 @@ task_scope_external_proof_required: false
 external_runtime_validation: NOT_RUN
 
 release_readiness: NOT_RUN
-release_followups: "Complete remaining shell route/deep-link/responsive permutations, semantic audit coverage for every sensitive shell action, and staging smoke after deployment."
+release_followups: "Complete remaining full shell route/deep-link permutations and staging smoke after deployment."
 
-unproven_requirements: "Full shell parity, semantic audit coverage for every sensitive shell action, authenticated browser proof for every role's responsive permutation, support/admin browser permutations, and staging release proof remain unproven. Generic durable audit persistence is proven locally for owner and staff success/failure mutations. The merchant-to-Admin Support case intake, Admin case detail, timeline, and status transition are proven locally through API and browser evidence."
+unproven_requirements: "Full shell route/deep-link parity and staging release proof remain unproven. The generic durable audit recorder and route-wrapping contract are proven for the registered merchant API surface; business-level semantic action mapping and deployed staging behavior remain release follow-ups. The merchant-to-Admin Support case intake, Admin case detail, timeline, status transition, and responsive Support Console surface are proven locally through API and browser evidence."
 known_blockers: NONE
 
-locally_actionable_remaining: "Complete semantic audit mapping for every sensitive mutation, remaining role-specific responsive/support/admin browser permutations, and staging smoke."
+locally_actionable_remaining: "Complete full shell route/deep-link browser permutations and staging smoke."
 
 blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing, the order-service merchant_session boundary for notifications, shared support-case auth/CSRF handling, duplicate device-session bootstrap, cross-tab logout delivery, capability-unsafe report loading, structured error rendering, inactive outlet switching, and durable merchant mutation audit persistence; rebuilt Docker admin-service and merchant-service; executed owner/staff authenticated API flows, merchant-to-support intake, Admin case list/detail/status transition, tenant tamper, session rotation/logout, device-session revoke, browser role matrix, multi-tab logout, degraded network recovery state, outlet switching, and success/failure audit-log checks."
 unblock_condition: NONE
@@ -140,6 +140,9 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
 - `backend/merchant-service/internal/middleware/base_middleware.go` and
   `backend/merchant-service/internal/middleware/base_middleware_test.go` —
   success/failure mutation audit middleware and unit coverage.
+- `backend/merchant-service/cmd/api/merchant_audit_route_contract_test.go` —
+  route inventory contract proving registered merchant API routes use the
+  durable audit wrapper.
 - `backend/merchant-service/cmd/api/main.go` — wires the audit recorder into
   every merchant-service route chain.
 - `merchant-web/src/components/ProtectedRoute.tsx`, `Layout.tsx`, `pages/Login.tsx`, `Dashboard.tsx`, `Settings.tsx`, `Staff.tsx` — server-context consumption.
@@ -225,6 +228,11 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
     coverage for successful mutations, failed mutations with an HTTP reason,
     and no audit for read requests.
 
+    command: go test ./cmd/api ./internal/middleware (backend/merchant-service)
+    result: PASS — the route inventory contract found the registered merchant
+    API surface and confirmed every merchant route is wrapped by withAudit;
+    middleware success/failure/read coverage also passed.
+
     command: docker compose up -d --build merchant-service && direct local
     authenticated mutation probe plus PostgreSQL audit query
     result: PASS — toggle-open success and restoration returned 200; malformed
@@ -286,6 +294,17 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
     command: Playwright authenticated role/capability matrix against local Vite + Docker gateway
     result: PASS — owner, manager, cashier, kitchen, and finance reached the dashboard; each rendered server-projected navigation and notification GET returned 200. No console errors were observed in the notification smoke path.
 
+    command: Playwright authenticated responsive role/capability matrix against local Vite + Docker gateway
+    result: PASS — 15/15 combinations (owner, manager, cashier, kitchen, and
+    finance at 390px mobile, 768px tablet, and 1440px desktop) returned context
+    200, rendered the shell, had no horizontal overflow, had no page/console
+    errors, had no API failures, and showed exactly the navigation labels
+    projected by server capabilities.
+
+    command: ADMIN_BASE_URL=http://localhost:3084 npx playwright test e2e/reflow.spec.ts --project=chromium --grep '/cases' (admin-dashboard)
+    result: PASS — Support Console `/cases` passed at 320px and 640px plus the
+    WCAG text-spacing override; no route reflow failure was observed.
+
     command: docker logs --since 15m tembus-merchant
     result: PASS for exercised device-session mutations — structured audit records contained actor role, action, resource, result, request/correlation IDs, and timestamp. This does not prove every sensitive action has audit coverage.
 
@@ -308,7 +327,7 @@ Evidence: Docker gateway → auth/admin → merchant-service/order-service → P
 
 Status: PARTIAL
 
-Evidence: Authenticated API E2E was run against local Docker for owner and staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, 390px responsive layout, credential storage boundary, expired-session redirect, owner/manager/cashier/kitchen/finance capability matrix, exactly-once staff device-session bootstrap, multi-tab logout propagation, degraded network recovery state, revoked device-session recovery, random branch tamper rejection, owner route smoke, kitchen capability-denied routes, outlet switching, and the live Admin Support Console case detail/status flow. Browser coverage for every role's responsive permutation and all required support/admin role permutations remains required.
+Evidence: Authenticated API E2E was run against local Docker for owner and staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, credential storage boundary, expired-session redirect, owner/manager/cashier/kitchen/finance capability matrix, all 15 role/viewport dashboard permutations (390px, 768px, 1440px), exactly-once staff device-session bootstrap, multi-tab logout propagation, degraded network recovery state, revoked device-session recovery, random branch tamper rejection, owner route smoke, kitchen capability-denied routes, outlet switching, and the live Admin Support Console case detail/status flow. Admin Support Console reflow/text-spacing coverage passed at 320px and 640px. Full registered merchant shell route/deep-link permutations and staging proof remain required.
 
 ### Migration
 
@@ -324,8 +343,9 @@ Evidence: Durable merchant mutation audit records were verified in the local
 `audit_logs` table for owner success/restoration, owner failure, and manager
 failure. The generic route middleware records authenticated POST/PUT/PATCH/
 DELETE outcomes without request bodies, and resolves tenant/outlet/object scope
-server-side. Full semantic coverage for every sensitive action and dedicated
-portal metrics remain unverified.
+server-side. The merchant route inventory contract confirms all registered
+`/api/v1/merchant/*` routes use the audit wrapper. Dedicated portal metrics and
+business-level semantic action mapping remain unverified.
 
 ### Security / Privacy
 
