@@ -16,6 +16,8 @@ export interface AuthResponse {
   }
 }
 
+export type MerchantOnboardingStatus = 'DRAFT' | 'SUBMITTED' | 'VERIFYING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED'
+
 export interface Merchant {
   id: string
   user_id: string
@@ -30,6 +32,14 @@ export interface Merchant {
   paused_until?: string | null
   completion_rate_pct?: number
   verification_status: 'pending' | 'approved' | 'rejected'
+  onboarding_status?: MerchantOnboardingStatus | string
+  market_code?: string
+  operating_state?: 'open' | 'closed' | 'busy' | 'paused' | 'temp_closed' | 'holiday' | string
+  operating_state_reason?: string | null
+  operating_state_until?: string | null
+  operating_state_version?: number
+  operating_timezone?: string
+  auto_accept_orders?: boolean
   avg_rating?: number
   rating_count?: number
   business_type?: string

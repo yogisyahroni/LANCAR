@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router'
 import { Loader2, LockKeyhole, LogOut, PauseCircle, PlayCircle, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
+import { clearSession } from '../lib/auth'
+import { merchantOnboardingStatus, merchantStatusLabel } from '../lib/merchant-status'
 import type { Merchant } from '../lib/types'
 import { rupiah } from '../lib/types'
 import { MerchantPageSkeleton } from '../components/Skeleton'
@@ -71,6 +73,7 @@ export default function Settings() {
 
   if (loading) return <MerchantPageSkeleton />
   if (!merchant) return <p className="rounded-2xl border border-zinc-100 bg-white p-8 text-center text-sm text-zinc-500">Profil tidak dapat dimuat.</p>
+  const onboardingStatus = merchantOnboardingStatus(merchant.onboarding_status, merchant.verification_status)
 
   return (
     <div className="space-y-6">
@@ -86,7 +89,7 @@ export default function Settings() {
             ['Nama toko', merchant.nama_toko],
             ['Alamat', merchant.alamat],
             ['Jenis usaha', merchant.business_type === 'perusahaan' ? 'Perusahaan' : 'Perorangan'],
-            ['Status verifikasi', merchant.verification_status === 'approved' ? 'Disetujui' : merchant.verification_status === 'rejected' ? 'Ditolak' : 'Menunggu verifikasi'],
+            ['Status pendaftaran', merchantStatusLabel(onboardingStatus)],
             ['Rating', merchant.avg_rating ? `${merchant.avg_rating.toFixed(1)} ★ (${merchant.rating_count} ulasan)` : 'Belum ada rating'],
           ].map(([k, v]) => (
             <div key={k} className="flex items-start justify-between gap-6 border-b border-zinc-100 px-4 py-3 last:border-0">
@@ -152,7 +155,7 @@ export default function Settings() {
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-zinc-50 px-4 py-3.5 opacity-60">
           <div>
             <p className="text-sm font-bold text-zinc-800">Ubah password</p>
-            <p className="text-xs text-zinc-400">Fitur belum tersedia di backend — hubungi support untuk reset.</p>
+            <p className="text-xs text-zinc-400">Fitur ubah password belum tersedia. Hubungi bantuan TEMBUS untuk reset.</p>
           </div>
           <button
             onClick={() => console.warn('Endpoint ganti password belum tersedia di auth-service')}
@@ -169,7 +172,7 @@ export default function Settings() {
             <p className="text-xs text-red-400/80">Sesi login akan dihapus dari browser ini.</p>
           </div>
           <button
-            onClick={() => { localStorage.clear(); navigate('/masuk', { replace: true }) }}
+            onClick={() => { clearSession(); navigate('/masuk', { replace: true }) }}
             className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-red-700"
           >
             <LogOut className="h-4 w-4" /> Keluar

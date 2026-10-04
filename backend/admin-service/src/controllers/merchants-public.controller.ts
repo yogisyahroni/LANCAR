@@ -69,7 +69,8 @@ export const getMerchantRegistrationStatus = async (req: Request, res: Response)
   try {
     let sql = `
       SELECT u.id AS user_id, u.status AS user_status,
-             m.id AS merchant_id, m.nama_toko, m.verification_status,
+             m.id AS merchant_id, m.nama_toko, m.onboarding_status,
+             m.verification_status,
              m.rejection_reason, m.created_at
       FROM users u
       LEFT JOIN merchants m ON m.user_id = u.id
@@ -77,7 +78,7 @@ export const getMerchantRegistrationStatus = async (req: Request, res: Response)
     const params: any[] = [];
     if (email && phone) {
       params.push(email, phone);
-      sql += `(LOWER(u.email) = $1 OR u.phone_number = $2)`;
+      sql += `(LOWER(u.email) = $1 AND u.phone_number = $2)`;
     } else if (email) {
       params.push(email);
       sql += `LOWER(u.email) = $1`;
@@ -94,12 +95,23 @@ export const getMerchantRegistrationStatus = async (req: Request, res: Response)
       return;
     }
     if (!row.merchant_id) {
-      res.status(200).json({ status: 'no_merchant', message: 'Akun ditemukan, tetapi belum ada data toko.' });
+      res.status(200).json({ status: 'no_merchant', onboarding_status: null, message: 'Akun ditemukan, tetapi belum ada data toko.' });
       return;
     }
 
+    const onboardingStatus = String(row.onboarding_status || '').trim().toUpperCase();
+    const canonicalStatus = ['DRAFT', 'SUBMITTED', 'VERIFYING', 'ACTIVE', 'REJECTED', 'SUSPENDED'].includes(onboardingStatus)
+      ? onboardingStatus
+      : row.verification_status === 'approved'
+        ? 'ACTIVE'
+        : row.verification_status === 'rejected'
+          ? 'REJECTED'
+          : 'SUBMITTED';
+
     res.status(200).json({
-      status: row.verification_status,
+      status: canonicalStatus,
+      onboarding_status: canonicalStatus,
+      verification_status: row.verification_status,
       nama_toko: row.nama_toko,
       user_status: row.user_status,
       rejection_reason: row.rejection_reason || null,

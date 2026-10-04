@@ -4,9 +4,10 @@ import { ArrowRight, Clock3, Loader2, Lock, Mail, Store, XCircle } from 'lucide-
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
 import { deviceId, setSession } from '../lib/auth'
+import { merchantOnboardingStatus } from '../lib/merchant-status'
 import type { AuthResponse, Merchant } from '../lib/types'
 
-type Gate = 'none' | 'pending' | 'rejected' | 'not_registered'
+type Gate = 'none' | 'pending' | 'rejected' | 'suspended' | 'not_registered'
 
 function GateCard({ tone, icon, title, children }: {
   tone: 'amber' | 'red' | 'emerald'
@@ -73,11 +74,16 @@ export default function Login() {
       }
 
       setMerchantName(merchant.nama_toko)
-      if (merchant.verification_status === 'rejected') {
+      const onboardingStatus = merchantOnboardingStatus(merchant.onboarding_status, merchant.verification_status)
+      if (onboardingStatus === 'REJECTED') {
         setGate('rejected')
         return
       }
-      if (merchant.verification_status !== 'approved') {
+      if (onboardingStatus === 'SUSPENDED') {
+        setGate('suspended')
+        return
+      }
+      if (onboardingStatus !== 'ACTIVE') {
         setGate('pending')
         return
       }
@@ -93,7 +99,7 @@ export default function Login() {
     return (
       <Shell>
         <GateCard tone="amber" icon={<Clock3 className="h-6 w-6" />} title="Menunggu verifikasi admin">
-          <p>Pendaftaran toko <span className="font-bold text-zinc-900">{merchantName}</span> sedang diperiksa tim TEMBUS (1×24 jam kerja).</p>
+          <p>Pendaftaran toko <span className="font-bold text-zinc-900">{merchantName}</span> sedang diperiksa tim TEMBUS.</p>
           <p>Kamu bisa masuk ke dashboard setelah toko disetujui.</p>
           <button onClick={() => setGate('none')} className="mt-3 self-start rounded-xl border border-zinc-200 px-5 py-3 font-bold text-zinc-700 transition hover:border-zinc-300">
             Kembali ke halaman login
@@ -110,6 +116,20 @@ export default function Login() {
           <p>Toko <span className="font-bold text-zinc-900">{merchantName}</span> belum lolos verifikasi.</p>
           <p>Silakan hubungi support TEMBUS atau daftar ulang dengan dokumen yang lengkap & jelas terbaca.</p>
           <Link to="/daftar" className="mt-3 inline-block rounded-xl bg-[#003A20] px-5 py-3 font-bold text-white transition hover:bg-emerald-950">Daftar Ulang</Link>
+        </GateCard>
+      </Shell>
+    )
+  }
+
+  if (gate === 'suspended') {
+    return (
+      <Shell>
+        <GateCard tone="red" icon={<XCircle className="h-6 w-6" />} title="Akses portal ditangguhkan">
+          <p>Toko <span className="font-bold text-zinc-900">{merchantName}</span> sedang tidak dapat menggunakan operasional portal.</p>
+          <p>Hubungi bantuan TEMBUS untuk mengetahui langkah pemulihan. Jangan membuat pendaftaran baru untuk status ini.</p>
+          <button onClick={() => setGate('none')} className="mt-3 self-start rounded-xl border border-zinc-200 px-5 py-3 font-bold text-zinc-700 transition hover:border-zinc-300">
+            Kembali ke halaman login
+          </button>
         </GateCard>
       </Shell>
     )

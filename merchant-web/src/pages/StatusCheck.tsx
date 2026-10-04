@@ -1,20 +1,28 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { ArrowLeft, CheckCircle2, Clock3, Loader2, Search, XCircle } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { api } from '../lib/api'
+import { merchantOnboardingStatus, merchantStatusLabel } from '../lib/merchant-status'
 
 type StatusResult = {
   status: string
+  onboarding_status?: string | null
+  verification_status?: string | null
   nama_toko?: string
   user_status?: string
   rejection_reason?: string | null
   created_at?: string
 }
 
-const statusMeta: Record<string, { label: string; icon: any; cls: string }> = {
-  pending: { label: 'Sedang Diproses', icon: Clock3, cls: 'bg-amber-100 text-amber-800 border-amber-200' },
-  approved: { label: 'Disetujui 🎉', icon: CheckCircle2, cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-  rejected: { label: 'Ditolak', icon: XCircle, cls: 'bg-red-100 text-red-700 border-red-200' },
+const statusMeta: Record<string, { icon: LucideIcon; cls: string }> = {
+  DRAFT: { icon: Clock3, cls: 'bg-amber-100 text-amber-800 border-amber-200' },
+  SUBMITTED: { icon: Clock3, cls: 'bg-amber-100 text-amber-800 border-amber-200' },
+  VERIFYING: { icon: Clock3, cls: 'bg-amber-100 text-amber-800 border-amber-200' },
+  ACTIVE: { icon: CheckCircle2, cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  REJECTED: { icon: XCircle, cls: 'bg-red-100 text-red-700 border-red-200' },
+  SUSPENDED: { icon: XCircle, cls: 'bg-red-100 text-red-700 border-red-200' },
+  NO_MERCHANT: { icon: Clock3, cls: 'bg-zinc-100 text-zinc-700 border-zinc-200' },
 }
 
 export default function StatusCheck() {
@@ -49,7 +57,9 @@ export default function StatusCheck() {
     }
   }
 
-  const meta = result ? statusMeta[result.status] : null
+  const normalizedStatus = result ? merchantOnboardingStatus(result.onboarding_status || result.status, result.verification_status) : null
+  const displayStatus = result?.status === 'no_merchant' ? 'NO_MERCHANT' : normalizedStatus
+  const meta = displayStatus ? statusMeta[displayStatus] : null
   const StatusIcon = meta?.icon || Clock3
 
   return (
@@ -108,18 +118,28 @@ export default function StatusCheck() {
           <div className={`mt-6 flex items-start gap-4 rounded-2xl border p-6 ${meta.cls}`}>
             <StatusIcon className="mt-0.5 h-8 w-8 shrink-0" />
             <div>
-              <p className="text-lg font-black">{meta.label}</p>
+              <p className="text-lg font-black">{displayStatus === 'NO_MERCHANT' ? 'Belum ada pendaftaran toko' : merchantStatusLabel(normalizedStatus)}</p>
               {result.nama_toko && <p className="mt-1 font-semibold">Toko: {result.nama_toko}</p>}
-              {result.status === 'approved' && (
+              {displayStatus === 'NO_MERCHANT' && (
+                <p className="mt-1 text-sm opacity-90">Akun ditemukan, tetapi belum memiliki data toko. Daftarkan bisnis untuk melanjutkan.</p>
+              )}
+              {normalizedStatus === 'ACTIVE' && (
                 <p className="mt-1 text-sm opacity-90">
-                  Selamat! Toko kamu sudah aktif. Silakan login di aplikasi TEMBUS Merchant menggunakan email & password yang didaftarkan.
+                  Toko kamu sudah aktif. Masuk ke Portal Mitra untuk mulai mengelola operasional.
+                  <Link to="/masuk" className="ml-1 font-bold underline">Masuk ke portal</Link>
                 </p>
               )}
-              {result.status === 'rejected' && result.rejection_reason && (
+              {normalizedStatus === 'REJECTED' && result.rejection_reason && (
                 <p className="mt-1 text-sm opacity-90">Alasan: {result.rejection_reason}</p>
               )}
-              {result.status === 'pending' && (
-                <p className="mt-1 text-sm opacity-90">Tim admin sedang memverifikasi data kamu. Cek kembali dalam beberapa jam.</p>
+              {normalizedStatus === 'REJECTED' && (
+                <Link to="/daftar" className="mt-2 inline-block text-sm font-bold underline">Perbaiki dan daftar ulang</Link>
+              )}
+              {normalizedStatus === 'SUSPENDED' && (
+                <p className="mt-1 text-sm opacity-90">Akses operasional sedang ditangguhkan. Hubungi bantuan TEMBUS untuk langkah pemulihan.</p>
+              )}
+              {['DRAFT', 'SUBMITTED', 'VERIFYING'].includes(normalizedStatus || '') && (
+                <p className="mt-1 text-sm opacity-90">Tim TEMBUS sedang memproses data kamu. Status ini akan berubah setelah ada keputusan verifikasi.</p>
               )}
             </div>
           </div>

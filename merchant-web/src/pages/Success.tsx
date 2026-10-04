@@ -22,7 +22,7 @@ export default function Success() {
             <Clock3 className="h-5 w-5 shrink-0 text-[#F97316]" />
             <div>
               <p className="text-sm font-bold text-zinc-900">Waktu verifikasi</p>
-              <p className="text-xs text-zinc-500">± 1×24 jam kerja</p>
+              <p className="text-xs text-zinc-500">Waktu proses dapat berbeda sesuai kelengkapan data dan antrean verifikasi.</p>
             </div>
           </div>
           {email && (

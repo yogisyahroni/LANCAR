@@ -16,6 +16,10 @@ describe('MERCH-2026-001 onboarding lifecycle contract', () => {
     path.resolve(__dirname, '../../merchant-service/internal/repository/postgres_merchant_repository.go'),
     'utf8',
   );
+  const publicStatusController = fs.readFileSync(
+    path.resolve(__dirname, 'controllers/merchants-public.controller.ts'),
+    'utf8',
+  );
 
   it('stores legal ownership, market requirements and commercial/bank references as structured data', () => {
     expect(migration).toContain('CREATE TABLE IF NOT EXISTS merchant_legal_profiles');
@@ -51,5 +55,12 @@ describe('MERCH-2026-001 onboarding lifecycle contract', () => {
     expect(merchantService).toContain('merchantOnboardingActive');
     expect(repository).toContain('func (r *postgresMerchantRepository) Resubmit');
     expect(repository).toContain("transition_merchant_onboarding($1::uuid, 'SUBMITTED'");
+  });
+
+  it('uses the canonical status for public lookup and requires both identifiers when both are supplied', () => {
+    expect(publicStatusController).toContain('m.onboarding_status');
+    expect(publicStatusController).toContain('onboarding_status: canonicalStatus');
+    expect(publicStatusController).toContain('LOWER(u.email) = $1 AND u.phone_number = $2');
+    expect(publicStatusController).not.toContain('LOWER(u.email) = $1 OR u.phone_number = $2');
   });
 });

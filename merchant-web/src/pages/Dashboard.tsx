@@ -6,6 +6,7 @@ import { api, apiErrorMessage } from '../lib/api'
 import StatCard from '../components/StatCard'
 import StatusBadge from '../components/StatusBadge'
 import { MerchantPageSkeleton } from '../components/Skeleton'
+import { merchantOnboardingStatus } from '../lib/merchant-status'
 import type { Merchant, MerchantOrder, OrderListResponse, SalesReportSummary } from '../lib/types'
 import { rupiah } from '../lib/types'
 
@@ -91,21 +92,25 @@ export default function Dashboard() {
     return <p className="rounded-2xl border border-zinc-100 bg-white p-8 text-center text-sm text-zinc-500">Profil toko tidak dapat dimuat. Coba muat ulang halaman.</p>
   }
 
-  if (merchant.verification_status !== 'approved') {
-    const rejected = merchant.verification_status === 'rejected'
+  const onboardingStatus = merchantOnboardingStatus(merchant.onboarding_status, merchant.verification_status)
+  if (onboardingStatus !== 'ACTIVE') {
+    const rejected = onboardingStatus === 'REJECTED'
+    const suspended = onboardingStatus === 'SUSPENDED'
     return (
-      <div className={`rounded-[1.75rem] border bg-white p-10 text-center shadow-sm ${rejected ? 'border-red-200' : 'border-amber-200'}`}>
-        <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl ${rejected ? 'bg-red-100' : 'bg-amber-100'}`}>
-          <Clock3 className={`h-7 w-7 ${rejected ? 'text-red-600' : 'text-amber-600'}`} />
+      <div className={`rounded-[1.75rem] border bg-white p-10 text-center shadow-sm ${rejected || suspended ? 'border-red-200' : 'border-amber-200'}`}>
+        <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl ${rejected || suspended ? 'bg-red-100' : 'bg-amber-100'}`}>
+          <Clock3 className={`h-7 w-7 ${rejected || suspended ? 'text-red-600' : 'text-amber-600'}`} />
         </div>
-        <h1 className="mt-4 text-2xl font-black text-zinc-900">{rejected ? 'Pendaftaran ditolak' : 'Toko menunggu verifikasi admin'}</h1>
+        <h1 className="mt-4 text-2xl font-black text-zinc-900">{rejected ? 'Pendaftaran perlu diperbaiki' : suspended ? 'Akses portal ditangguhkan' : 'Toko sedang diverifikasi'}</h1>
         <p className="mx-auto mt-2 max-w-md text-sm text-zinc-600">
           {rejected
-            ? 'Toko belum lolos verifikasi. Hubungi support TEMBUS untuk info lebih lanjut.'
-            : `${merchant.nama_toko} sedang diperiksa tim TEMBUS (1×24 jam kerja). Fitur portal akan aktif otomatis setelah disetujui.`}
+            ? 'Periksa alasan penolakan dan kirim ulang data melalui jalur yang diberikan TEMBUS.'
+            : suspended
+              ? 'Operasional portal dinonaktifkan untuk sementara. Hubungi bantuan TEMBUS untuk langkah pemulihan.'
+              : `${merchant.nama_toko} sedang diperiksa tim TEMBUS. Fitur portal akan aktif setelah status menjadi disetujui.`}
         </p>
         <Link to="/masuk" className="mt-6 inline-block rounded-xl border border-zinc-200 px-5 py-3 font-bold text-zinc-700 transition hover:border-zinc-300">
-          Keluar dari portal
+          Kembali ke login
         </Link>
       </div>
     )
