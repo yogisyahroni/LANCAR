@@ -87,7 +87,7 @@ export default function Dashboard() {
 
   const toggleAutoAccept = async () => {
     if (!merchant) return
-    const nextValue = !Boolean(merchant.auto_accept_orders)
+    const nextValue = !merchant.auto_accept_orders
     setTogglingAutoAccept(true)
     try {
       const res = await api.patch<Merchant>('/merchant/order-settings/auto-accept', { auto_accept_orders: nextValue })
