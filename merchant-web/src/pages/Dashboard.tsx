@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [report, setReport] = useState<SalesReportSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState(false)
+  const [togglingAutoAccept, setTogglingAutoAccept] = useState(false)
   const [jamBuka, setJamBuka] = useState('')
   const [jamTutup, setJamTutup] = useState('')
   const [savingHours, setSavingHours] = useState(false)
@@ -84,6 +85,21 @@ export default function Dashboard() {
     }
   }
 
+  const toggleAutoAccept = async () => {
+    if (!merchant) return
+    const nextValue = !Boolean(merchant.auto_accept_orders)
+    setTogglingAutoAccept(true)
+    try {
+      const res = await api.patch<Merchant>('/merchant/order-settings/auto-accept', { auto_accept_orders: nextValue })
+      setMerchant(res.data)
+      toast.success(nextValue ? 'Terima otomatis diaktifkan' : 'Terima otomatis dinonaktifkan')
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Pengaturan terima otomatis tidak dapat diubah'))
+    } finally {
+      setTogglingAutoAccept(false)
+    }
+  }
+
   if (loading) {
     return <MerchantPageSkeleton />
   }
@@ -141,6 +157,24 @@ export default function Dashboard() {
           {toggling ? 'Memproses…' : merchant.is_open ? 'Toko BUKA — Tutup?' : 'Toko TUTUP — Buka?'}
         </button>
       </div>
+
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border border-zinc-100 bg-white p-5 shadow-sm">
+        <div>
+          <h2 className="font-black text-zinc-900">Terima otomatis</h2>
+          <p className="mt-1 max-w-2xl text-sm text-zinc-500">Pesanan baru langsung diproses sesuai kebijakan operasional server. Kamu tetap dapat menonaktifkannya kapan saja.</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={Boolean(merchant.auto_accept_orders)}
+          aria-label="Terima otomatis"
+          onClick={toggleAutoAccept}
+          disabled={togglingAutoAccept}
+          className={`relative h-8 w-14 shrink-0 rounded-full p-1 transition disabled:cursor-wait disabled:opacity-60 ${merchant.auto_accept_orders ? 'bg-emerald-700' : 'bg-zinc-300'}`}
+        >
+          <span className={`block h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${merchant.auto_accept_orders ? 'translate-x-6' : 'translate-x-0'}`} />
+        </button>
+      </section>
 
       {newCount > 0 && (
         <Link to="/pesanan" className="block rounded-2xl border-2 border-[#F97316]/40 bg-orange-50 p-5 transition hover:bg-orange-100">
