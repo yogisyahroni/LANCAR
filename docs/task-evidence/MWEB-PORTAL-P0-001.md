@@ -21,12 +21,12 @@ task_scope_external_proof_required: false
 external_runtime_validation: NOT_RUN
 
 release_readiness: NOT_RUN
-release_followups: "Complete remaining shell route/deep-link/responsive permutations, durable audit coverage for every sensitive shell action, and staging smoke after deployment."
+release_followups: "Complete remaining shell route/deep-link/responsive permutations, semantic audit coverage for every sensitive shell action, and staging smoke after deployment."
 
-unproven_requirements: "Full shell parity, durable audit coverage for every sensitive shell action, authenticated browser proof for every role's responsive permutation, support/admin browser permutations, and staging release proof remain unproven. The merchant-to-Admin Support case intake, Admin case detail, timeline, and status transition are proven locally through API and browser evidence."
+unproven_requirements: "Full shell parity, semantic audit coverage for every sensitive shell action, authenticated browser proof for every role's responsive permutation, support/admin browser permutations, and staging release proof remain unproven. Generic durable audit persistence is proven locally for owner and staff success/failure mutations. The merchant-to-Admin Support case intake, Admin case detail, timeline, and status transition are proven locally through API and browser evidence."
 known_blockers: NONE
 
-locally_actionable_remaining: "Cover every sensitive mutation audit, remaining role-specific responsive/support/admin browser permutations, and staging smoke."
+locally_actionable_remaining: "Complete semantic audit mapping for every sensitive mutation, remaining role-specific responsive/support/admin browser permutations, and staging smoke."
 
 blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing, the order-service merchant_session boundary for notifications, shared support-case auth/CSRF handling, duplicate device-session bootstrap, cross-tab logout delivery, capability-unsafe report loading, structured error rendering, inactive outlet switching, and durable merchant mutation audit persistence; rebuilt Docker admin-service and merchant-service; executed owner/staff authenticated API flows, merchant-to-support intake, Admin case list/detail/status transition, tenant tamper, session rotation/logout, device-session revoke, browser role matrix, multi-tab logout, degraded network recovery state, outlet switching, and success/failure audit-log checks."
 unblock_condition: NONE
