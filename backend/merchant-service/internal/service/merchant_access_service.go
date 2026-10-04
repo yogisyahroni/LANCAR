@@ -162,7 +162,10 @@ func (s *merchantAccessService) GetPortalContext(ctx context.Context, requesterU
 		return nil, err
 	}
 
-	var branches []*domain.MerchantBranch
+	// Keep collection fields JSON-compatible for older merchants that were
+	// created before the MAIN branch backfill. A nil slice serializes as null,
+	// while portal clients depend on branches being a collection.
+	branches := make([]*domain.MerchantBranch, 0)
 	if owner {
 		branches, err = s.accessRepo.ListBranches(ctx, merchant.ID)
 	} else {

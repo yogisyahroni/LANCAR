@@ -90,7 +90,7 @@ export default function Layout() {
   }, [])
 
   const visibleNav = NAV.filter(({ capability }) => !portalContext || portalContext.capabilities.includes(capability))
-  const selectableBranches = portalContext?.branches.filter((branch) => branch.is_active || branch.id === portalContext.current_branch_id) || []
+  const selectableBranches = portalContext?.branches?.filter((branch) => branch.is_active || branch.id === portalContext.current_branch_id) || []
   const outletName = merchant?.outlet_name || merchant?.nama_toko || 'Toko Mitra'
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase('id-ID')
@@ -164,7 +164,7 @@ export default function Layout() {
 
   const switchBranch = (branchID: string) => {
     if (!portalContext || switchingBranch || branchID === portalContext.current_branch_id) return
-    const branch = portalContext.branches.find((item) => item.id === branchID)
+    const branch = portalContext.branches?.find((item) => item.id === branchID)
     if (!branch || !branch.is_active) return
     setSwitchingBranch(true)
     setMerchantBranchSelection({ merchant_id: portalContext.merchant.id, branch_id: branch.id })

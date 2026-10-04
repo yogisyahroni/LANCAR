@@ -22,10 +22,17 @@ RUN npm run build
 # OS package surface. Upgrade the base packages during the image build so the
 # staging scan evaluates the latest security fixes available in the repo.
 FROM nginx:1-alpine-slim
+ARG MERCHANT_BUILD_ENV=production
 RUN apk upgrade --no-cache
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY security-headers.conf /etc/nginx/security-headers.conf
+# Local browser/E2E runs use the host-published gateway. Keep loopback origins
+# out of staging/production images while allowing the explicitly local build to
+# make same-workspace API and Socket.IO requests without a CSP browser failure.
+RUN if [ "$MERCHANT_BUILD_ENV" = "local" ]; then \
+      sed -i "s#connect-src 'self'#connect-src 'self' http://localhost:8080 http://127.0.0.1:8080 ws://localhost:8080 ws://127.0.0.1:8080#" /etc/nginx/security-headers.conf; \
+    fi
 EXPOSE 80
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 CMD wget -qO- http://127.0.0.1/ >/dev/null || exit 1
 CMD ["nginx", "-g", "daemon off;"]

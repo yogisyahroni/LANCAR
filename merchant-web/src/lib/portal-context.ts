@@ -57,7 +57,7 @@ async function loadMerchantPortalContextInternal(): Promise<MerchantPortalContex
 
   if (!context.device_session_required || getMerchantDeviceSession()) return context
 
-  const branchID = context.current_branch_id || context.branches.find((branch) => branch.is_active)?.id
+  const branchID = context.current_branch_id || context.branches?.find((branch) => branch.is_active)?.id
   if (!branchID) throw new Error('Akun staff belum memiliki outlet aktif.')
 
   const currentDeviceID = deviceId()
