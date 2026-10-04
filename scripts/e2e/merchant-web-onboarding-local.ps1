@@ -194,6 +194,18 @@ try {
   $status = Invoke-Api -Client (New-ApiClient) -Method GET -Path "/auth/merchant/registration-status?email=$([Uri]::EscapeDataString($testEmail))&phone=$([Uri]::EscapeDataString($testPhone))"
   if ($status.Data.status -ne 'ACTIVE' -or $status.Data.next_action -ne 'open_portal') { throw "Expected ACTIVE/open_portal after Admin approval, got $($status.Data.status)/$($status.Data.next_action)" }
 
+  $dashboard = Invoke-Api -Client $customerClient -Method GET -Path '/merchant/dashboard'
+  if ($null -eq $dashboard.Data -or [string]::IsNullOrWhiteSpace([string]$dashboard.Data.data_as_of)) {
+    throw 'Authenticated merchant dashboard did not return data_as_of.'
+  }
+  if ([string]$dashboard.Data.merchant.id -ne $merchantId) {
+    throw 'Authenticated merchant dashboard returned a different merchant scope.'
+  }
+  if ($null -eq $dashboard.Data.orders -or $null -eq $dashboard.Data.auto_accept) {
+    throw 'Authenticated merchant dashboard did not return operational read-model sections.'
+  }
+  $dashboardAlertCodes = @($dashboard.Data.alerts | ForEach-Object { [string]$_.code })
+
   $idempotency++
   [void](Invoke-Api -Client $adminClient -Method POST -Path "/admin/merchants/$merchantId/suspend" -Body @{ reason = 'Penangguhan sementara untuk uji pemulihan.' } -Headers @{ 'X-Idempotency-Key' = "mweb-e2e-suspend-$runId-$idempotency"; 'X-CSRF-Token' = $adminCsrfToken })
   $status = Invoke-Api -Client (New-ApiClient) -Method GET -Path "/auth/merchant/registration-status?email=$([Uri]::EscapeDataString($testEmail))&phone=$([Uri]::EscapeDataString($testPhone))"
@@ -203,8 +215,8 @@ try {
   Write-Output (@{
     task_id = 'MWEB-P0-008'
     status = 'PASS'
-    scenario = @('register', 'document_upload', 'admin_verify_reject', 'resubmit', 'admin_approve', 'public_active_status', 'admin_suspend', 'public_suspended_status')
-    sanitized = @{ final_status = $status.Data.status; final_next_action = $status.Data.next_action; db_invariant = $invariant.Trim() }
+    scenario = @('register', 'document_upload', 'admin_verify_reject', 'resubmit', 'admin_approve', 'public_active_status', 'authenticated_dashboard', 'admin_suspend', 'public_suspended_status')
+    sanitized = @{ final_status = $status.Data.status; final_next_action = $status.Data.next_action; db_invariant = $invariant.Trim(); dashboard = @{ data_as_of_present = $true; merchant_scope_matches = $true; scope_level = [string]$dashboard.Data.scope.level; order_fields_present = $null -ne $dashboard.Data.orders; auto_accept_present = $null -ne $dashboard.Data.auto_accept; alert_count = $dashboardAlertCodes.Count } }
   } | ConvertTo-Json -Depth 8 -Compress)
 }
 catch {

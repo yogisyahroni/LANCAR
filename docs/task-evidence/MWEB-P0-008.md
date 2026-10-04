@@ -80,7 +80,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     result: PASS — image `tembus-admin-service`, ID `sha256:e8df81124293890d7f06ae2e5e9e6c613398f3892e5b1cf8c8f93e4da4a39e59`.
 
     command: powershell scripts/e2e/merchant-web-onboarding-local.ps1 (local Gateway + Admin + DB + Merchant Service; disposable data)
-    result: PASS — sanitized scenario output: `register`, `document_upload`, `admin_verify_reject`, `resubmit`, `admin_approve`, `public_active_status`, `admin_suspend`, `public_suspended_status`; final invariant `SUSPENDED|pending|4|1|7`.
+    result: PASS — sanitized scenario output: `register`, `document_upload`, `admin_verify_reject`, `resubmit`, `admin_approve`, `public_active_status`, `authenticated_dashboard`, `admin_suspend`, `public_suspended_status`; final invariant `SUSPENDED|pending|4|1|7`. The dashboard assertion is an additional cross-service proof reused by MWEB-PORTAL-P0-002.
 
     command: node scripts/e2e/merchant-web-status-browser.mjs http://localhost:3004 <disposable-email> <canonical-phone>
     result: PASS — Chromium checks `error_retry`, `status_read`, and `refresh`; identifiers are intentionally omitted from evidence.

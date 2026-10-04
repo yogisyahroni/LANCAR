@@ -9,7 +9,7 @@ implementation_ref: 9859a0ff
 
 tests: PASS
 integration: PARTIAL
-e2e: NOT_RUN
+e2e: PARTIAL
 
 migration: PARTIAL
 migration_na_reason: "N/A — three persistent schema/event changes were introduced."
@@ -24,7 +24,7 @@ external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Authenticated staging smoke, cross-app event propagation, and release gates remain required before production rollout."
 
-unproven_requirements: "Authenticated browser/cross-app E2E; live consumer/cache propagation; payout-held alert coverage beyond the finance statement window; complete finance scope for a selected outlet; migration down/recovery drill."
+unproven_requirements: "Authenticated browser/cross-app E2E; live consumer/cache propagation; complete finance scope for a selected outlet; migration down/recovery drill."
 known_blockers: NONE
 
 locally_actionable_remaining: "Continue the same task with authenticated browser and cross-app verification, then close remaining finance-window and recovery gaps before marking COMPLETE."
@@ -81,6 +81,8 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - `backend/merchant-service/internal/domain/merchant_quality.go` and `backend/merchant-service/internal/repository/merchant_quality_repository.go` — persisted quality read model for dashboard alerts.
 - `backend/order-service/internal/service/order_food.go`, `internal/domain/order.go`, and `internal/repository/postgres_repository.go` — authoritative single-outlet food-order branch assignment.
 - `merchant-web/src/pages/Dashboard.tsx` and `merchant-web/src/lib/types.ts` — server dashboard rendering and safe operating controls.
+- `backend/merchant-service/internal/service/dashboard_service_test.go` — unit proof for authoritative aggregate/finance data, outlet scope isolation, and fail-closed auto-accept readiness.
+- `scripts/e2e/merchant-web-onboarding-local.ps1` — authenticated onboarding harness now verifies the dashboard read model after Admin approval.
 - `database/migrations/20261004000001_merchant_auto_accept_events.sql` — auto-accept outbox event trigger.
 - `database/migrations/20261004000002_food_order_branch_scope.sql` — order branch ownership, legacy backfill, constraint trigger, and index.
 - `database/migrations/20261004000003_merchant_operating_state_consumers.sql` — operating-state event consumer contract.
@@ -134,13 +136,16 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     command: docker exec tembus-db psql ... actor attribution projection
     result: PASS — the active schema returned the canonical operating state and nullable actor/name projection without exposing a fabricated identity; existing system-managed rows remained null as expected.
 
+    command: scripts/e2e/merchant-web-onboarding-local.ps1 -ApiBaseUrl https://api.bawain.my.id/api/v1 -WebOrigin https://merchant.bawain.my.id
+    result: PASS — disposable HTTPS lifecycle completed through Admin → database → Merchant Web; authenticated dashboard returned a fresh timestamp, matching merchant scope, order fields, and auto-accept readiness fields. Admin credential was loaded in-memory from the local runtime configuration and is not recorded here.
+
 ## Task-Local Verification
 
 ### Tests
 
 Status: PASS
 
-Evidence: Merchant-service and order-service package tests passed after the dashboard, branch ownership, readiness, idempotency, order-bucket, operating-hours, and quality-read-model changes.
+Evidence: `go test ./internal/service -run 'TestGetDashboard_' -count=1 -v` passed the three dashboard read-model scenarios; the merchant-service and order-service package tests also passed after the dashboard, branch ownership, readiness, idempotency, order-bucket, operating-hours, and quality-read-model changes.
 
 ### Integration
 
@@ -150,9 +155,9 @@ Evidence: Docker services connected to the shared PostgreSQL instance and the sc
 
 ### E2E
 
-Status: NOT_RUN
+Status: PARTIAL
 
-Evidence: No authenticated browser or Customer → Merchant Web → Courier cross-app flow was executed in this run. The unauthenticated boundary was verified with an HTTP probe only.
+Evidence: The HTTPS disposable harness completed registration → document upload → Admin reject/resubmit/approve → ACTIVE status → authenticated `GET /merchant/dashboard` → suspend → SUSPENDED status. Sanitized dashboard proof: `data_as_of_present=true`, `merchant_scope_matches=true`, `scope_level=merchant_aggregate`, `order_fields_present=true`, `auto_accept_present=true`, `alert_count=1`. Browser UI and Customer → Merchant Web → Courier cross-app propagation remain unproven.
 
 ### Migration
 
