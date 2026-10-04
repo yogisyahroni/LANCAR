@@ -22,6 +22,8 @@ const ADMIN_SOCKET_ROLES = [
   'zone_manager',
 ];
 
+const MERCHANT_SOCKET_ROLES = ['customer', 'merchant', 'merchant_staff'];
+
 const isProductionRuntime = () =>
   process.env.NODE_ENV === 'production' || process.env.ENVIRONMENT === 'production';
 
@@ -154,6 +156,7 @@ export const initWebSocket = (server: HttpServer) => {
     let token = socket.handshake.auth.token || socket.handshake.query.token;
     let adminSessionToken: string | undefined;
     let customerSessionToken: string | undefined;
+    let merchantSessionToken: string | undefined;
     
     // Try to extract token from cookies if not found in auth/query (for Next.js webapp)
     if (socket.handshake.headers.cookie) {
@@ -165,16 +168,18 @@ export const initWebSocket = (server: HttpServer) => {
       token = token || cookies.accessToken || cookies.access_token || cookies.token || cookies.jwt;
       adminSessionToken = cookies.admin_session;
       customerSessionToken = cookies.customer_session || cookies.web_session;
+      merchantSessionToken = cookies.merchant_session;
     }
 
-    if (!token && !adminSessionToken && !customerSessionToken) {
+    if (!token && !adminSessionToken && !customerSessionToken && !merchantSessionToken) {
       void recordRealtimeMetric('socket_auth_failed', { reason: 'token_missing' });
       return next(new Error('Authentication error: Token missing'));
     }
 
-    if ((adminSessionToken || customerSessionToken) && !token) {
-      const sessionToken = adminSessionToken || customerSessionToken;
-      const isCustomerSession = Boolean(customerSessionToken && !adminSessionToken);
+    if ((adminSessionToken || customerSessionToken || merchantSessionToken) && !token) {
+      const sessionToken = merchantSessionToken || adminSessionToken || customerSessionToken;
+      const isMerchantSession = Boolean(merchantSessionToken);
+      const isCustomerSession = Boolean(customerSessionToken && !adminSessionToken && !merchantSessionToken);
       db.query(
         `SELECT s.user_id AS id, u.role, u.full_name
          FROM web_sessions s
@@ -183,27 +188,50 @@ export const initWebSocket = (server: HttpServer) => {
            AND s.expires_at > NOW()
            AND u.deleted_at IS NULL
            AND (
-             ($2::boolean = true AND u.role = 'customer')
-             OR ($2::boolean = false AND u.role = ANY($3::text[]))
+             ($2::text = 'customer' AND u.role = 'customer')
+             OR ($2::text = 'merchant' AND u.role = ANY($3::text[]))
+             OR ($2::text = 'admin' AND u.role = ANY($4::text[]))
            )
          LIMIT 1`,
-        [sessionToken, isCustomerSession, ADMIN_SOCKET_ROLES]
+        [
+          sessionToken,
+          isMerchantSession ? 'merchant' : isCustomerSession ? 'customer' : 'admin',
+          MERCHANT_SOCKET_ROLES,
+          ADMIN_SOCKET_ROLES,
+        ]
       )
         .then((result) => {
           if (result.rows.length === 0) {
-            void recordRealtimeMetric('socket_auth_failed', { reason: isCustomerSession ? 'invalid_customer_session' : 'invalid_admin_session' });
+            void recordRealtimeMetric('socket_auth_failed', {
+              reason: isMerchantSession
+                ? 'invalid_merchant_session'
+                : isCustomerSession
+                  ? 'invalid_customer_session'
+                  : 'invalid_admin_session',
+            });
             return next(new Error('Authentication error: Invalid session'));
           }
           (socket as any).user = result.rows[0];
+          (socket as any).merchantPortalSession = isMerchantSession;
           next();
         })
         .catch((err) => {
           realtimeStructuredLog('error', 'socket_session_verification_failed', {
-            reason: isCustomerSession ? 'customer_session_lookup_error' : 'admin_session_lookup_error',
+            reason: isMerchantSession
+              ? 'merchant_session_lookup_error'
+              : isCustomerSession
+                ? 'customer_session_lookup_error'
+                : 'admin_session_lookup_error',
             error_name: err instanceof Error ? err.name : 'Error',
             error_message: err instanceof Error ? err.message : 'Unknown websocket session error',
           });
-          void recordRealtimeMetric('socket_auth_failed', { reason: isCustomerSession ? 'customer_session_lookup_error' : 'admin_session_lookup_error' });
+          void recordRealtimeMetric('socket_auth_failed', {
+            reason: isMerchantSession
+              ? 'merchant_session_lookup_error'
+              : isCustomerSession
+                ? 'customer_session_lookup_error'
+                : 'admin_session_lookup_error',
+          });
           next(new Error('Internal server error'));
         });
       return;
@@ -279,6 +307,7 @@ export const initWebSocket = (server: HttpServer) => {
     const userId = user?.id || user?.user_id;
     // role is ONLY taken from verified token — do NOT fall back to socket.handshake.query.role
     const role = user?.role;
+    const isMerchantPortalSession = Boolean((socket as any).merchantPortalSession);
     
     if (userId) {
       socket.join(String(userId));
@@ -301,7 +330,7 @@ export const initWebSocket = (server: HttpServer) => {
       realtimeStructuredLog('info', 'socket_role_room_joined', { role });
     }
 
-    if (role === 'merchant' || role === 'merchant_staff') {
+    if (isMerchantPortalSession || role === 'merchant' || role === 'merchant_staff') {
       db.query(
         `SELECT id AS merchant_id
            FROM merchants

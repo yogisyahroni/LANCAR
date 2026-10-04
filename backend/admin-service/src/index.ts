@@ -14,6 +14,7 @@ import { initWebSocket } from './websocket';
 import { startWeatherWorker } from './workers/weather-worker';
 import { startPayoutDispatcherWorker } from './workers/payout-dispatcher-worker';
 import { startEventOutboxWorker } from './workers/event-outbox-worker';
+import { startMerchantOperatingStateConsumer } from './workers/merchant-operating-state-consumer';
 import { startBroadcastSchedulerWorker } from './workers/broadcast-scheduler-worker';
 import { startCourierDocumentComplianceWorker } from './workers/courier-document-compliance-worker';
 import { startCourierAvailabilityPolicyWorker } from './workers/courier-availability-policy-worker';
@@ -129,6 +130,7 @@ server.listen(port, async () => {
     startWeatherWorker();
     startPayoutDispatcherWorker();
     startEventOutboxWorker();
+    startMerchantOperatingStateConsumer();
     startBroadcastSchedulerWorker();
     startCourierDocumentComplianceWorker();
     startCourierAvailabilityPolicyWorker();

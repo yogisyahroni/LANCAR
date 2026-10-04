@@ -10,6 +10,7 @@ import { merchantOnboardingStatus } from '../lib/merchant-status'
 import type { Merchant, MerchantDashboard } from '../lib/types'
 import { rupiah } from '../lib/types'
 import { loadMerchantPortalContext } from '../lib/portal-context'
+import { subscribeToMerchantOperatingState } from '../lib/realtime'
 
 const stateLabels: Record<string, string> = {
   open: 'BUKA', closed: 'TUTUP', busy: 'RAMAI', paused: 'DIJEDA', temp_closed: 'TUTUP SEMENTARA', holiday: 'LIBUR',
@@ -59,8 +60,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     load()
+    const unsubscribe = subscribeToMerchantOperatingState(() => {
+      void load()
+    })
     const timer = setInterval(load, 30000)
-    return () => clearInterval(timer)
+    return () => {
+      unsubscribe()
+      clearInterval(timer)
+    }
   }, [load])
 
   const toggleOpen = async () => {
