@@ -55,6 +55,7 @@ export interface Merchant {
   market_code?: string
   operating_state?: 'open' | 'closed' | 'busy' | 'paused' | 'temp_closed' | 'holiday' | string
   operating_state_reason?: string | null
+  operating_state_source?: string | null
   operating_state_until?: string | null
   operating_state_updated_by?: string | null
   operating_state_updated_by_name?: string | null
@@ -301,6 +302,9 @@ export interface MerchantFinanceStatement {
     net_balance_minor: number
   }[]
   discrepancies: unknown[]
+  scope_level: string
+  branch_id?: string
+  scope_note?: string
   held_payout_count: number
   held_payout_minor: number
   next_payout_at?: string | null

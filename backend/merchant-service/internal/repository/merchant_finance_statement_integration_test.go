@@ -171,6 +171,75 @@ func TestMerchantFinanceStatementIntegration(t *testing.T) {
 	}
 }
 
+// This read-only integration test proves that the dashboard's outlet scope is
+// backed by the same PostgreSQL order/statement relations as production. It
+// intentionally uses the existing fixture IDs and does not mutate the
+// database; it is opt-in for the shared local Docker database.
+func TestMerchantBranchScopedReportsIntegration(t *testing.T) {
+	dsn := os.Getenv("TEMBUS_MERCHANT_FINANCE_TEST_DATABASE_URL")
+	merchantID := os.Getenv("TEMBUS_MERCHANT_FINANCE_TEST_MERCHANT_ID")
+	orderID := os.Getenv("TEMBUS_MERCHANT_FINANCE_TEST_ORDER_ID")
+	if dsn == "" || merchantID == "" || orderID == "" {
+		t.Skip("requires TEMBUS_MERCHANT_FINANCE_TEST_DATABASE_URL, merchant and order fixture IDs")
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := db.Ping(); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	var branchID string
+	if err := db.QueryRowContext(ctx, `
+		SELECT branch_id::text
+		FROM orders
+		WHERE id = $1 AND merchant_id = $2 AND branch_id IS NOT NULL`, orderID, merchantID).Scan(&branchID); err != nil {
+		t.Fatalf("resolve fixture order branch: %v", err)
+	}
+
+	reportRepo := NewPostgresReportRepository(db, db)
+	branchSalesRepo, ok := reportRepo.(domain.MerchantBranchSalesRepository)
+	if !ok {
+		t.Fatal("postgres report repository does not implement branch sales repository")
+	}
+	branchFinanceRepo, ok := reportRepo.(domain.MerchantBranchFinanceRepository)
+	if !ok {
+		t.Fatal("postgres report repository does not implement branch finance repository")
+	}
+
+	sales, err := branchSalesRepo.SalesReportByBranch(ctx, merchantID, branchID, "daily")
+	if err != nil {
+		t.Fatalf("branch sales report: %v", err)
+	}
+	if sales.TotalOrders < 0 || sales.GMVIDR < 0 {
+		t.Fatalf("branch sales returned invalid negative values: %#v", sales)
+	}
+
+	finance, err := branchFinanceRepo.FinanceStatementByBranch(ctx, merchantID, branchID, 100)
+	if err != nil {
+		t.Fatalf("branch finance statement: %v", err)
+	}
+	if finance.ScopeLevel != "branch" || finance.BranchID != branchID {
+		t.Fatalf("branch finance scope metadata = %#v", finance)
+	}
+	for _, entry := range finance.Entries {
+		if entry.OrderID == "" {
+			t.Fatalf("branch finance returned an unattributable entry: %#v", entry)
+		}
+		var entryBranchID string
+		if err := db.QueryRowContext(ctx, `SELECT branch_id::text FROM orders WHERE id = $1`, entry.OrderID).Scan(&entryBranchID); err != nil {
+			t.Fatalf("resolve finance entry order %s: %v", entry.OrderID, err)
+		}
+		if entryBranchID != branchID {
+			t.Fatalf("branch finance leaked order %s from branch %s into %s", entry.OrderID, entryBranchID, branchID)
+		}
+	}
+}
+
 func TestMerchantBankAccountLifecycleIntegration(t *testing.T) {
 	dsn := os.Getenv("TEMBUS_MERCHANT_FINANCE_TEST_DATABASE_URL")
 	merchantID := os.Getenv("TEMBUS_MERCHANT_FINANCE_TEST_MERCHANT_ID")

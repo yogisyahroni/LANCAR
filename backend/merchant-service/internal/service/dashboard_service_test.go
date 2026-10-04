@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -57,8 +58,10 @@ func (r *dashboardOrderRepository) ListByMerchantBranch(context.Context, string,
 
 type dashboardReportRepository struct {
 	domain.MerchantReportRepository
-	sales   *domain.SalesReportSummary
-	finance *domain.MerchantFinanceStatement
+	sales         *domain.SalesReportSummary
+	finance       *domain.MerchantFinanceStatement
+	branchSales   *domain.SalesReportSummary
+	branchFinance *domain.MerchantFinanceStatement
 }
 
 func (r *dashboardReportRepository) SalesReport(context.Context, string, string) (*domain.SalesReportSummary, error) {
@@ -67,6 +70,20 @@ func (r *dashboardReportRepository) SalesReport(context.Context, string, string)
 
 func (r *dashboardReportRepository) FinanceStatement(context.Context, string, int) (*domain.MerchantFinanceStatement, error) {
 	return r.finance, nil
+}
+
+func (r *dashboardReportRepository) SalesReportByBranch(context.Context, string, string, string) (*domain.SalesReportSummary, error) {
+	if r.branchSales == nil {
+		return nil, errors.New("branch sales capability not configured")
+	}
+	return r.branchSales, nil
+}
+
+func (r *dashboardReportRepository) FinanceStatementByBranch(context.Context, string, string, int) (*domain.MerchantFinanceStatement, error) {
+	if r.branchFinance == nil {
+		return nil, errors.New("branch finance capability not configured")
+	}
+	return r.branchFinance, nil
 }
 
 func dashboardTestMerchant(branchID string, isOpen bool) *domain.Merchant {
@@ -154,8 +171,38 @@ func TestGetDashboard_BranchScopeDoesNotPretendBusinessFinanceIsOutletScoped(t *
 	if dashboard.Sales != nil || dashboard.Finance != nil {
 		t.Fatalf("business-level finance must not be presented as outlet-scoped: sales=%#v finance=%#v", dashboard.Sales, dashboard.Finance)
 	}
-	if !containsDashboardWarning(dashboard.Warnings, "level bisnis") {
-		t.Fatalf("expected explicit finance scope warning, warnings = %#v", dashboard.Warnings)
+	if !containsDashboardWarning(dashboard.Warnings, "outlet") {
+		t.Fatalf("expected explicit outlet scope warning, warnings = %#v", dashboard.Warnings)
+	}
+}
+
+func TestGetDashboard_BranchScopeUsesAuthoritativeBranchSalesAndFinance(t *testing.T) {
+	merchant := dashboardTestMerchant("branch-dashboard-2", true)
+	branchSales := &domain.SalesReportSummary{Period: "daily", TotalOrders: 3, GMVIDR: 240000}
+	branchFinance := &domain.MerchantFinanceStatement{
+		ScopeLevel: "branch",
+		BranchID:   merchant.BranchID,
+		ScopeNote:  "order-linked only",
+	}
+	report := &dashboardReportRepository{branchSales: branchSales, branchFinance: branchFinance}
+	orders := &dashboardOrderRepository{
+		aggregateCounts: &domain.MerchantOrderCounts{New: 80},
+		branchCounts:    &domain.MerchantOrderCounts{New: 3},
+	}
+	merchants := &dashboardMerchantRepository{merchant: merchant, readiness: dashboardTestReadiness(true)}
+
+	dashboard, err := NewMerchantService(merchants, nil, orders, report).GetDashboard(context.Background(), merchant.UserID)
+	if err != nil {
+		t.Fatalf("GetDashboard() error = %v", err)
+	}
+	if dashboard.Sales != branchSales || dashboard.Finance != branchFinance {
+		t.Fatalf("dashboard must use outlet-scoped authoritative reports: sales=%#v finance=%#v", dashboard.Sales, dashboard.Finance)
+	}
+	if dashboard.Finance.ScopeLevel != "branch" || dashboard.Finance.BranchID != merchant.BranchID {
+		t.Fatalf("finance scope metadata = %#v", dashboard.Finance)
+	}
+	if containsDashboardWarning(dashboard.Warnings, "Ringkasan penjualan outlet") || containsDashboardWarning(dashboard.Warnings, "Ringkasan keuangan outlet") {
+		t.Fatalf("unexpected missing branch report warning: %#v", dashboard.Warnings)
 	}
 }
 

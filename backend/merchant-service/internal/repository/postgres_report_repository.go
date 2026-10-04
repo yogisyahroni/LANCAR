@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"tembus/merchant-service/internal/domain"
@@ -36,8 +37,34 @@ func periodFilterFor(alias, period string) string {
 	return fmt.Sprintf(`%s.created_at >= date_trunc('day', NOW())`, alias)
 }
 
+func reportBranchFilter(alias, branchID string) string {
+	if strings.TrimSpace(branchID) == "" {
+		return ""
+	}
+	return fmt.Sprintf(" AND %s.branch_id::text = $2", alias)
+}
+
+func reportScopeArgs(merchantID, branchID string) []any {
+	if strings.TrimSpace(branchID) == "" {
+		return []any{merchantID}
+	}
+	return []any{merchantID, branchID}
+}
+
 func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, period string) (*domain.SalesReportSummary, error) {
+	return r.salesReport(ctx, merchantID, "", period)
+}
+
+func (r *postgresReportRepository) SalesReportByBranch(ctx context.Context, merchantID, branchID, period string) (*domain.SalesReportSummary, error) {
+	if strings.TrimSpace(branchID) == "" {
+		return nil, errors.New("branch id wajib diisi untuk laporan outlet")
+	}
+	return r.salesReport(ctx, merchantID, branchID, period)
+}
+
+func (r *postgresReportRepository) salesReport(ctx context.Context, merchantID, branchID, period string) (*domain.SalesReportSummary, error) {
 	filter := periodFilter(period)
+	branchFilter := reportBranchFilter("o", branchID)
 
 	var summary domain.SalesReportSummary
 	summary.Period = period
@@ -49,7 +76,7 @@ func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, 
 		WHERE o.merchant_id = $1
 		  AND o.service_sub_type = 'food_delivery'
 		  AND o.status = 'delivered'
-		  AND %s`, filter), merchantID).Scan(&summary.TotalOrders, &summary.GMVIDR)
+		  AND %s%s`, filter, branchFilter), reportScopeArgs(merchantID, branchID)...).Scan(&summary.TotalOrders, &summary.GMVIDR)
 	if err != nil {
 		return nil, fmt.Errorf("sales report summary: %w", err)
 	}
@@ -69,7 +96,7 @@ func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, 
 		FROM orders o
 		WHERE o.merchant_id = $1
 		  AND o.service_sub_type = 'food_delivery'
-		  AND %s`, performanceFilter), merchantID).Scan(
+		  AND %s%s`, performanceFilter, branchFilter), reportScopeArgs(merchantID, branchID)...).Scan(
 		&summary.Performance.TotalReceived,
 		&summary.Performance.Accepted,
 		&summary.Performance.Cancelled,
@@ -83,10 +110,14 @@ func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, 
 		summary.Performance.CancellationRatePct = float64(summary.Performance.Cancelled) / denominator * 100
 	}
 	ratingFilter := periodFilterFor("r", period)
+	ratingBranchFilter := ""
+	if strings.TrimSpace(branchID) != "" {
+		ratingBranchFilter = " AND EXISTS (SELECT 1 FROM orders ro WHERE ro.id = r.order_id AND ro.merchant_id = $1 AND ro.branch_id::text = $2)"
+	}
 	if err := r.readDB.QueryRowContext(ctx, fmt.Sprintf(`
 		SELECT COALESCE(AVG(r.stars), 0), COUNT(*)
 		FROM merchant_ratings r
-		WHERE r.merchant_id = $1 AND %s`, ratingFilter), merchantID).Scan(
+		WHERE r.merchant_id = $1 AND %s%s`, ratingFilter, ratingBranchFilter), reportScopeArgs(merchantID, branchID)...).Scan(
 		&summary.Performance.AvgRating,
 		&summary.Performance.RatingCount,
 	); err != nil {
@@ -104,9 +135,9 @@ func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, 
 			  AND o.service_sub_type = 'food_delivery'
 			  AND o.status = 'delivered'
 			  AND o.customer_id IS NOT NULL
-			  AND %s
+			  AND %s%s
 			GROUP BY o.customer_id
-		) customer_totals`, filter), merchantID).Scan(
+		) customer_totals`, filter, branchFilter), reportScopeArgs(merchantID, branchID)...).Scan(
 		&summary.Advanced.RepeatCustomerCount,
 		&knownCustomerCount,
 	); err != nil {
@@ -125,10 +156,10 @@ func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, 
 		WHERE o.merchant_id = $1
 		  AND o.service_sub_type = 'food_delivery'
 		  AND o.status = 'delivered'
-		  AND %s
+		  AND %s%s
 		GROUP BY EXTRACT(HOUR FROM (o.created_at AT TIME ZONE 'Asia/Jakarta'))
 		ORDER BY COUNT(*) DESC, EXTRACT(HOUR FROM (o.created_at AT TIME ZONE 'Asia/Jakarta')) ASC
-		LIMIT 1`, filter), merchantID).Scan(&peakHour); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		LIMIT 1`, filter, branchFilter), reportScopeArgs(merchantID, branchID)...).Scan(&peakHour); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("sales report peak hour: %w", err)
 	}
 	if peakHour.Valid {
@@ -145,7 +176,7 @@ func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, 
 		  AND o.status = 'delivered'
 		  AND o.food_ready_at IS NOT NULL
 		  AND o.merchant_accepted_at IS NOT NULL
-		  AND %s`, filter), merchantID).Scan(&avgReady); err != nil {
+		  AND %s%s`, filter, branchFilter), reportScopeArgs(merchantID, branchID)...).Scan(&avgReady); err != nil {
 		return nil, fmt.Errorf("sales report accepted ready time: %w", err)
 	}
 	if avgReady.Valid {
@@ -161,10 +192,10 @@ func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, 
 		WHERE o.merchant_id = $1
 		  AND o.service_sub_type = 'food_delivery'
 		  AND o.status = 'delivered'
-		  AND %s
+		  AND %s%s
 		GROUP BY f.item_name
 		ORDER BY qty DESC
-		LIMIT 10`, filter), merchantID)
+		LIMIT 10`, filter, branchFilter), reportScopeArgs(merchantID, branchID)...)
 	if err != nil {
 		return nil, fmt.Errorf("sales report top items: %w", err)
 	}
@@ -188,10 +219,16 @@ func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, 
 	if period == "weekly" {
 		breakdownDays = 7
 	}
-	breakdownRows, err := r.readDB.QueryContext(ctx, `
+	breakdownDaysParam := "$2"
+	breakdownArgs := []any{merchantID, breakdownDays}
+	if strings.TrimSpace(branchID) != "" {
+		breakdownDaysParam = "$3"
+		breakdownArgs = []any{merchantID, branchID, breakdownDays}
+	}
+	breakdownRows, err := r.readDB.QueryContext(ctx, fmt.Sprintf(`
 		WITH days AS (
 			SELECT generate_series(
-				date_trunc('day', NOW()) - ($2 - 1) * INTERVAL '1 day',
+				date_trunc('day', NOW()) - (%s - 1) * INTERVAL '1 day',
 				date_trunc('day', NOW()),
 				INTERVAL '1 day'
 			)::date AS day
@@ -204,8 +241,9 @@ func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, 
 		  AND o.status = 'delivered'
 		  AND o.created_at >= days.day
 		  AND o.created_at < days.day + INTERVAL '1 day'
+		  %s
 		GROUP BY days.day
-		ORDER BY days.day`, merchantID, breakdownDays)
+		ORDER BY days.day`, breakdownDaysParam, reportBranchFilter("o", branchID)), breakdownArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("sales report daily breakdown: %w", err)
 	}
@@ -379,6 +417,21 @@ func (r *postgresReportRepository) ListWithdrawals(ctx context.Context, merchant
 // query reads the append-only statement projection; source workflow status is
 // joined only for display and never used to rewrite a financial fact.
 func (r *postgresReportRepository) FinanceStatement(ctx context.Context, merchantID string, limit int) (*domain.MerchantFinanceStatement, error) {
+	return r.financeStatement(ctx, merchantID, "", limit)
+}
+
+// FinanceStatementByBranch returns only statement entries attributable to the
+// selected outlet through an authoritative food order. Business-level entries
+// such as bank withdrawals are deliberately excluded because they cannot be
+// safely allocated to one outlet.
+func (r *postgresReportRepository) FinanceStatementByBranch(ctx context.Context, merchantID, branchID string, limit int) (*domain.MerchantFinanceStatement, error) {
+	if strings.TrimSpace(branchID) == "" {
+		return nil, errors.New("branch id wajib diisi untuk laporan keuangan outlet")
+	}
+	return r.financeStatement(ctx, merchantID, branchID, limit)
+}
+
+func (r *postgresReportRepository) financeStatement(ctx context.Context, merchantID, branchID string, limit int) (*domain.MerchantFinanceStatement, error) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -398,6 +451,7 @@ func (r *postgresReportRepository) FinanceStatement(ctx context.Context, merchan
 		return nil, fmt.Errorf("merchant finance context: %w", err)
 	}
 
+	statementArgs := []any{merchantID, branchID, limit}
 	rows, err := r.readDB.QueryContext(ctx, `
 		SELECT mse.id::text, mse.market_code, mse.currency_code, mse.currency_minor_unit,
 		       mse.entry_type, mse.direction, mse.amount_minor, mse.affects_balance,
@@ -411,9 +465,11 @@ func (r *postgresReportRepository) FinanceStatement(ctx context.Context, merchan
 		LEFT JOIN merchant_settlements ms ON ms.id = mse.settlement_id
 		LEFT JOIN refunds rf ON rf.id = mse.refund_id
 		LEFT JOIN merchant_withdrawal_requests wr ON wr.id = mse.withdrawal_id
+		LEFT JOIN orders o ON o.id = COALESCE(mse.order_id, ms.order_id, rf.order_id)
 		WHERE mse.merchant_id = $1
+		  AND ($2 = '' OR o.branch_id::text = $2)
 		ORDER BY mse.occurred_at DESC, mse.created_at DESC
-		LIMIT $2`, merchantID, limit)
+		LIMIT $3`, statementArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("merchant finance statement query: %w", err)
 	}
@@ -423,7 +479,13 @@ func (r *postgresReportRepository) FinanceStatement(ctx context.Context, merchan
 		Entries:       []*domain.MerchantStatementEntry{},
 		Totals:        []*domain.MerchantStatementTotals{},
 		Discrepancies: []*domain.MerchantSettlementDiscrepancy{},
+		ScopeLevel:    "merchant_aggregate",
 		GeneratedAt:   time.Now().UTC().Format(time.RFC3339),
+	}
+	if branchID != "" {
+		statement.ScopeLevel = "branch"
+		statement.BranchID = branchID
+		statement.ScopeNote = "Hanya transaksi yang terhubung ke order outlet ini yang ditampilkan; pencairan level bisnis tidak dialokasikan ke outlet."
 	}
 	buckets := make(map[string]*domain.MerchantStatementTotals)
 	for rows.Next() {
@@ -510,8 +572,8 @@ func (r *postgresReportRepository) FinanceStatement(ctx context.Context, merchan
 
 	discrepancyRows, err := r.readDB.QueryContext(ctx, `
 		SELECT fre.id::text, fre.reference_type, fre.reference_id,
-		       COALESCE(fre.market_code, $2), COALESCE(fre.currency_code, $3),
-		       COALESCE(fre.currency_minor_unit, $4),
+		       COALESCE(fre.market_code, $3), COALESCE(fre.currency_code, $4),
+		       COALESCE(fre.currency_minor_unit, $5),
 		       COALESCE(fre.expected_minor, fre.expected_idr),
 		       COALESCE(fre.actual_minor, fre.actual_idr),
 		       COALESCE(fre.difference_minor, fre.difference_idr),
@@ -521,10 +583,12 @@ func (r *postgresReportRepository) FinanceStatement(ctx context.Context, merchan
 		FROM finance_reconciliation_exceptions fre
 		LEFT JOIN orders o ON fre.reference_type = 'order' AND o.id::text = fre.reference_id
 		LEFT JOIN merchant_settlements ms ON fre.reference_type = 'merchant_settlement' AND ms.id::text = fre.reference_id
+		LEFT JOIN orders settlement_order ON settlement_order.id = ms.order_id
 		WHERE fre.status IN ('open', 'under_review')
 		  AND COALESCE(fre.merchant_id, o.merchant_id, ms.merchant_id) = $1
+		  AND ($2 = '' OR COALESCE(o.branch_id, settlement_order.branch_id)::text = $2)
 		ORDER BY fre.last_seen_at DESC
-		LIMIT $5`, merchantID, currentMarket, currentCurrency, currentMinorUnit, limit)
+		LIMIT $6`, merchantID, branchID, currentMarket, currentCurrency, currentMinorUnit, limit)
 	if err != nil {
 		return nil, fmt.Errorf("merchant finance discrepancy queue: %w", err)
 	}
@@ -546,15 +610,17 @@ func (r *postgresReportRepository) FinanceStatement(ctx context.Context, merchan
 	}
 	var nextPayout sql.NullString
 	if err := r.readDB.QueryRowContext(ctx, `
-		SELECT COUNT(*) FILTER (WHERE UPPER(status) IN ('HOLDING', 'PROCESSING')),
-		       COALESCE(SUM(net_payout_minor) FILTER (WHERE UPPER(status) IN ('HOLDING', 'PROCESSING')), 0),
+		SELECT COUNT(*) FILTER (WHERE UPPER(merchant_settlements.status) IN ('HOLDING', 'PROCESSING')),
+		       COALESCE(SUM(merchant_settlements.net_payout_minor) FILTER (WHERE UPPER(merchant_settlements.status) IN ('HOLDING', 'PROCESSING')), 0),
 		       TO_CHAR(MIN(holding_release_at) FILTER (
-			       WHERE UPPER(status) IN ('HOLDING', 'PROCESSING')
+			       WHERE UPPER(merchant_settlements.status) IN ('HOLDING', 'PROCESSING')
 			         AND holding_release_at IS NOT NULL
 			         AND holding_release_at >= NOW()
 		       ), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 		FROM merchant_settlements
-		WHERE merchant_id = $1`, merchantID).Scan(
+		LEFT JOIN orders o ON o.id = merchant_settlements.order_id
+		WHERE merchant_settlements.merchant_id = $1
+		  AND ($2 = '' OR o.branch_id::text = $2)`, merchantID, branchID).Scan(
 		&statement.HeldPayoutCount, &statement.HeldPayoutMinor, &nextPayout); err != nil {
 		return nil, fmt.Errorf("merchant finance payout summary: %w", err)
 	}

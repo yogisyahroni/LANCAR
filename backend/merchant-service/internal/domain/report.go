@@ -280,6 +280,9 @@ type MerchantFinanceStatement struct {
 	Entries         []*MerchantStatementEntry        `json:"entries"`
 	Totals          []*MerchantStatementTotals       `json:"totals"`
 	Discrepancies   []*MerchantSettlementDiscrepancy `json:"discrepancies"`
+	ScopeLevel      string                           `json:"scope_level"`
+	BranchID        string                           `json:"branch_id,omitempty"`
+	ScopeNote       string                           `json:"scope_note,omitempty"`
 	HeldPayoutCount int                              `json:"held_payout_count"`
 	HeldPayoutMinor int64                            `json:"held_payout_minor"`
 	NextPayoutAt    *string                          `json:"next_payout_at,omitempty"`
@@ -291,4 +294,20 @@ type MerchantFinanceStatement struct {
 // implement finance persistence they do not use.
 type MerchantFinanceRepository interface {
 	FinanceStatement(ctx context.Context, merchantID string, limit int) (*MerchantFinanceStatement, error)
+}
+
+// MerchantBranchSalesRepository is an optional extension for dashboards that
+// have selected an outlet. A branch report must be derived from order rows
+// carrying the authoritative orders.branch_id; callers must not emulate this
+// by filtering an aggregate response in memory.
+type MerchantBranchSalesRepository interface {
+	SalesReportByBranch(ctx context.Context, merchantID, branchID, period string) (*SalesReportSummary, error)
+}
+
+// MerchantBranchFinanceRepository is an optional extension for outlet-scoped
+// finance views. Only entries attributable through an order/outlet relation
+// are returned; business-level withdrawals and other unattributable entries
+// remain excluded instead of being assigned to an arbitrary outlet.
+type MerchantBranchFinanceRepository interface {
+	FinanceStatementByBranch(ctx context.Context, merchantID, branchID string, limit int) (*MerchantFinanceStatement, error)
 }

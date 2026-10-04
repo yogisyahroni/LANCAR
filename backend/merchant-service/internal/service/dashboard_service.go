@@ -95,22 +95,38 @@ func (s *merchantServiceImpl) GetDashboard(ctx context.Context, userID string) (
 
 	dashboard.AutoAccept = s.dashboardAutoAcceptReadiness(ctx, merchant, userID, dashboard)
 
-	if branchScoped {
-		dashboard.Warnings = append(dashboard.Warnings, "Ringkasan penjualan dan pencairan masih tersedia pada level bisnis.")
-	} else if s.dashboardCanViewReports(ctx, userID, merchant) {
+	if s.dashboardCanViewReports(ctx, userID, merchant) {
 		if s.reportRepo == nil {
 			dashboard.Warnings = append(dashboard.Warnings, "Ringkasan penjualan belum tersedia.")
-		} else if sales, salesErr := s.reportRepo.SalesReport(ctx, merchant.ID, "daily"); salesErr != nil {
-			dashboard.Warnings = append(dashboard.Warnings, "Ringkasan penjualan belum dapat dimuat.")
-		} else {
-			dashboard.Sales = sales
-		}
-
-		if financeRepo, ok := s.reportRepo.(domain.MerchantFinanceRepository); ok {
-			if finance, financeErr := financeRepo.FinanceStatement(ctx, merchant.ID, 20); financeErr != nil {
-				dashboard.Warnings = append(dashboard.Warnings, "Ringkasan pencairan belum dapat dimuat.")
+		} else if branchScoped {
+			branchSalesRepo, salesOK := s.reportRepo.(domain.MerchantBranchSalesRepository)
+			branchFinanceRepo, financeOK := s.reportRepo.(domain.MerchantBranchFinanceRepository)
+			if !salesOK {
+				dashboard.Warnings = append(dashboard.Warnings, "Ringkasan penjualan outlet belum tersedia.")
+			} else if sales, salesErr := branchSalesRepo.SalesReportByBranch(ctx, merchant.ID, selectedBranchID, "daily"); salesErr != nil {
+				dashboard.Warnings = append(dashboard.Warnings, "Ringkasan penjualan outlet belum dapat dimuat.")
+			} else {
+				dashboard.Sales = sales
+			}
+			if !financeOK {
+				dashboard.Warnings = append(dashboard.Warnings, "Ringkasan keuangan outlet belum tersedia.")
+			} else if finance, financeErr := branchFinanceRepo.FinanceStatementByBranch(ctx, merchant.ID, selectedBranchID, 20); financeErr != nil {
+				dashboard.Warnings = append(dashboard.Warnings, "Ringkasan keuangan outlet belum dapat dimuat.")
 			} else {
 				dashboard.Finance = finance
+			}
+		} else {
+			if sales, salesErr := s.reportRepo.SalesReport(ctx, merchant.ID, "daily"); salesErr != nil {
+				dashboard.Warnings = append(dashboard.Warnings, "Ringkasan penjualan belum dapat dimuat.")
+			} else {
+				dashboard.Sales = sales
+			}
+			if financeRepo, ok := s.reportRepo.(domain.MerchantFinanceRepository); ok {
+				if finance, financeErr := financeRepo.FinanceStatement(ctx, merchant.ID, 20); financeErr != nil {
+					dashboard.Warnings = append(dashboard.Warnings, "Ringkasan pencairan belum dapat dimuat.")
+				} else {
+					dashboard.Finance = finance
+				}
 			}
 		}
 	}
