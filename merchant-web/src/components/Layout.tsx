@@ -4,7 +4,7 @@ import { Banknote, Bell, Check, ChevronDown, CircleHelp, ClipboardList, LayoutDa
 import { toast } from 'sonner'
 import { clearMerchantDeviceSession, clearSession, getStoredUser, publishWebAuthEvent, setMerchantBranchSelection, subscribeToWebAuthEvents } from '../lib/auth'
 import { api } from '../lib/api'
-import type { Merchant, MerchantNotification, MerchantPortalContext } from '../lib/types'
+import type { Merchant, MerchantNotification, MerchantPortalContext, MerchantSearchResult } from '../lib/types'
 import { loadMerchantPortalContext } from '../lib/portal-context'
 
 const NAV = [
@@ -18,6 +18,13 @@ const NAV = [
   { to: '/pengaturan', label: 'Pengaturan', icon: Settings, capability: 'view_store' },
 ]
 
+function SearchResultIcon({ kind }: { kind: MerchantSearchResult['kind'] }) {
+  if (kind === 'order') return <ClipboardList className="h-4 w-4 text-emerald-800" />
+  if (kind === 'menu') return <UtensilsCrossed className="h-4 w-4 text-emerald-800" />
+  if (kind === 'staff') return <Users className="h-4 w-4 text-emerald-800" />
+  return <Store className="h-4 w-4 text-emerald-800" />
+}
+
 export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -30,6 +37,8 @@ export default function Layout() {
   const [branchOpen, setBranchOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [entitySearchResults, setEntitySearchResults] = useState<MerchantSearchResult[]>([])
+  const [entitySearchLoading, setEntitySearchLoading] = useState(false)
   const [switchingBranch, setSwitchingBranch] = useState(false)
 
   useEffect(() => subscribeToWebAuthEvents((type) => {
@@ -60,6 +69,33 @@ export default function Layout() {
     if (!query) return visibleNav.slice(0, 5)
     return visibleNav.filter((item) => `${item.label} ${item.to}`.toLocaleLowerCase('id-ID').includes(query)).slice(0, 6)
   }, [searchQuery, visibleNav])
+
+  useEffect(() => {
+    const query = searchQuery.trim()
+    if (query.length < 2) {
+      return
+    }
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      setEntitySearchLoading(true)
+      api.get<{ data: MerchantSearchResult[] }>('/merchant/search', { params: { q: query, limit: 8 } })
+        .then((response) => {
+          if (!cancelled) setEntitySearchResults(response.data?.data || [])
+        })
+        .catch(() => {
+          if (!cancelled) setEntitySearchResults([])
+        })
+        .finally(() => {
+          if (!cancelled) setEntitySearchLoading(false)
+        })
+    }, 250)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [searchQuery])
+
+  const visibleEntitySearchResults = searchQuery.trim().length >= 2 ? entitySearchResults : []
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -235,7 +271,7 @@ export default function Layout() {
                   value={searchQuery}
                   onChange={(event) => { setSearchQuery(event.target.value); setSearchOpen(true) }}
                   onFocus={() => setSearchOpen(true)}
-                  placeholder="Cari halaman atau tindakan"
+                  placeholder="Cari halaman, pesanan, atau menu"
                   aria-label="Cari halaman atau tindakan"
                   className="min-w-0 flex-1 bg-transparent text-sm text-zinc-800 outline-none placeholder:text-zinc-400"
                 />
@@ -250,7 +286,19 @@ export default function Layout() {
                       <span className="min-w-0 flex-1 text-sm font-bold text-zinc-800">{label}</span>
                       <ArrowRight className="h-4 w-4 text-zinc-300" />
                     </button>
-                  )) : <p className="px-4 py-6 text-center text-sm text-zinc-500">Tidak ada halaman yang cocok.</p>}
+                  )) : null}
+                  {visibleEntitySearchResults.map((result) => (
+                    <button key={`${result.kind}-${result.id}`} type="button" onClick={() => openSearchResult(result.path)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-emerald-50">
+                      <SearchResultIcon kind={result.kind} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold text-zinc-800">{result.title}</span>
+                        {result.subtitle && <span className="mt-0.5 block truncate text-xs text-zinc-500">{result.subtitle}</span>}
+                      </span>
+                      <ArrowRight className="h-4 w-4 text-zinc-300" />
+                    </button>
+                  ))}
+                  {entitySearchLoading && <p className="px-4 py-4 text-center text-xs text-zinc-500">Mencari data toko…</p>}
+                  {!searchResults.length && !visibleEntitySearchResults.length && !entitySearchLoading && <p className="px-4 py-6 text-center text-sm text-zinc-500">Tidak ada hasil yang cocok.</p>}
                 </div>
               )}
             </div>
@@ -271,7 +319,7 @@ export default function Layout() {
                       autoFocus
                       value={searchQuery}
                       onChange={(event) => setSearchQuery(event.target.value)}
-                      placeholder="Cari halaman atau tindakan"
+                      placeholder="Cari halaman, pesanan, atau menu"
                       aria-label="Cari halaman atau tindakan"
                       className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-zinc-800 outline-none placeholder:text-zinc-400"
                     />
@@ -282,7 +330,19 @@ export default function Layout() {
                       <span className="min-w-0 flex-1 text-sm font-bold text-zinc-800">{label}</span>
                       <ArrowRight className="h-4 w-4 text-zinc-300" />
                     </button>
-                  )) : <p className="px-4 py-6 text-center text-sm text-zinc-500">Tidak ada halaman yang cocok.</p>}
+                  )) : null}
+                  {visibleEntitySearchResults.map((result) => (
+                    <button key={`${result.kind}-${result.id}`} type="button" onClick={() => openSearchResult(result.path)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-emerald-50">
+                      <SearchResultIcon kind={result.kind} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold text-zinc-800">{result.title}</span>
+                        {result.subtitle && <span className="mt-0.5 block truncate text-xs text-zinc-500">{result.subtitle}</span>}
+                      </span>
+                      <ArrowRight className="h-4 w-4 text-zinc-300" />
+                    </button>
+                  ))}
+                  {entitySearchLoading && <p className="px-4 py-4 text-center text-xs text-zinc-500">Mencari data toko…</p>}
+                  {!searchResults.length && !visibleEntitySearchResults.length && !entitySearchLoading && <p className="px-4 py-6 text-center text-sm text-zinc-500">Tidak ada hasil yang cocok.</p>}
                 </div>
               )}
               <a href="https://bawain.my.id/bantuan/pusat-bantuan" target="_blank" rel="noreferrer" className="hidden items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold text-zinc-500 transition hover:bg-emerald-50 hover:text-emerald-900 sm:inline-flex">

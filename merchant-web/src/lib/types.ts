@@ -93,6 +93,14 @@ export interface MerchantNotification {
   created_at: string
 }
 
+export interface MerchantSearchResult {
+  kind: 'menu' | 'order' | 'staff' | 'outlet' | string
+  id: string
+  title: string
+  subtitle?: string
+  path: string
+}
+
 export interface MenuItem {
   id: string
   merchant_id: string

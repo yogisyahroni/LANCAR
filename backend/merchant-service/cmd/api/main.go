@@ -109,10 +109,13 @@ func main() {
 	svc := service.NewMerchantServiceWithGovernance(merchantRepo, menuRepo, orderRepo, reportRepo, accessRepo, menuRepo)
 	staffSvc := service.NewStaffService(merchantRepo, staffRepo, infrastructure.NewStaffNotifier(), accessRepo)
 	accessSvc := service.NewMerchantAccessService(merchantRepo, staffRepo, accessRepo)
+	searchRepo := repository.NewPostgresMerchantSearchRepository(db)
+	searchSvc := service.NewMerchantSearchService(accessSvc, searchRepo)
 	integrationRepo := repository.NewPostgresMerchantIntegrationRepository(db)
 	h := handler.NewMerchantHandler(svc, uploadSvc, integrationRepo)
 	staffH := handler.NewStaffHandler(h, staffSvc)
 	accessH := handler.NewMerchantAccessHandler(h, accessSvc)
+	searchH := handler.NewMerchantSearchHandler(h, searchSvc)
 
 	// FB-099: promo merchant self-serve (dibiayai merchant, bukan duit PT)
 	promoRepo := repository.NewPostgresMerchantPromoRepository(db, db)
@@ -142,6 +145,7 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/register", middleware.BaseChain(h.RegisterMerchant))
 	// MERCH-2026-002: server-authoritative portal tenant and branch context.
 	mux.HandleFunc("/api/v1/merchant/context", middleware.BaseChain(accessH.GetPortalContext))
+	mux.HandleFunc("/api/v1/merchant/search", middleware.BaseChain(searchH.Search))
 	mux.HandleFunc("/api/v1/merchant/profile", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
