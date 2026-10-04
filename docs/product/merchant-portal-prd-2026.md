@@ -63,6 +63,34 @@ settlement, serta hilangnya kepercayaan bisnis.
 7. **Accessible and resilient:** portal tetap dapat dipahami ketika kosong,
    lambat, offline, stale, error, atau session berakhir.
 
+## 3A. Keputusan produk yang sudah dikunci
+
+Keputusan ini menjadi default ketika instruksi implementasi berikutnya belum
+memberikan pengecualian baru:
+
+1. **Portal web ditujukan untuk bisnis/PT.** Jalur pendaftaran perusahaan,
+   verifikasi legal, pengelolaan outlet, staff, keuangan, dan operasi bisnis
+   berada di Merchant Web.
+2. **Merchant perorangan menggunakan Merchant Android.** Portal tidak boleh
+   memaksa merchant perorangan masuk ke flow bisnis; bila akses portal memang
+   diizinkan oleh policy server, menu dan scope tetap ditentukan capability dari
+   server.
+3. **Status approved kembali ke Portal Mitra.** Setelah onboarding disetujui,
+   CTA mengarah ke `merchant.bawain.my.id/masuk`, bukan ke aplikasi Android.
+4. **Semua data production berasal dari source of truth.** Nama toko, status,
+   dokumen, order, menu, nominal, permission, integrasi, dan hasil aksi tidak
+   boleh berasal dari mock, hardcode, screenshot, atau optimistic state yang
+   belum dikonfirmasi server.
+5. **End to end adalah syarat fitur.** Setiap capability harus dapat ditelusuri
+   dari UI → API/service → database atau provider authoritative → event/outbox
+   bila relevan → aplikasi yang terdampak → UI/status yang diperbarui.
+6. **Aset visual harus aman dan konsisten.** Gunakan aset TEMBUS, aset berizin,
+   atau aset generatif khusus produk; jangan mengambil gambar acak dari
+   internet dan jangan menampilkan logo/angka/testimonial yang belum disetujui.
+7. **Pengerjaan mengikuti PRD lalu TASK-ID.** PRD menjelaskan keputusan dan
+   behavior produk; backlog memecahnya menjadi unit implementasi, dependency,
+   acceptance criteria, verification, evidence, dan release gate.
+
 ## 4. Goals dan success outcomes
 
 Target berikut adalah **target persetujuan produk**, bukan hasil yang sudah
@@ -373,6 +401,27 @@ P2 mencakup:
   approval, dan reconciliation.
 - Public API/partner ecosystem dengan OAuth/scoped key, quota, webhook,
   sandbox, certification, deprecation, dan incident process.
+
+### 7.8A. Peta permukaan Portal Mitra
+
+Navigasi berikut adalah baseline pengalaman merchant bisnis. Item yang belum
+memiliki contract atau capability aktif harus disembunyikan atau diberi status
+yang jujur dari server; tidak boleh tampak seolah-olah sudah siap dipakai.
+
+| Permukaan | Tujuan bisnis | Data/aksi minimum | Aplikasi atau domain terdampak |
+|---|---|---|---|
+| Beranda | Mengetahui kesiapan toko dan pekerjaan paling mendesak | status outlet, jam operasi, terima otomatis, order aktif, alert, ringkasan | Merchant Web, Merchant Android, Customer, order, notification |
+| Pesanan | Mengelola order food dari masuk sampai selesai | queue, detail, accept/reject, preparing, ready, issue, refund sesuai hak akses | Customer, Merchant, Courier, order, payment, support |
+| Menu | Menjaga katalog yang tampil ke customer tetap akurat | kategori, item, foto, harga, modifier, ketersediaan, sold-out, publish | Merchant Web, Merchant Android, Customer/search, catalog |
+| Keuangan | Memahami uang dari penjualan sampai pencairan | gross-to-net, fee, promo, refund, settlement, payout, invoice, export | order, ledger, settlement, payout, finance |
+| Profil bisnis | Mengelola identitas legal dan outlet | nama bisnis, legal profile, alamat, jam buka, banner, dokumen, status verifikasi | merchant-service, Admin, storage, Customer |
+| Staff dan akses | Membagi pekerjaan tanpa berbagi password | invite, role, outlet assignment, device/session, revoke, audit | auth, RBAC/ABAC, merchant-service, Admin |
+| Integrasi | Menyambungkan alat operasional secara aman | POS/KDS/printer/payment status, health, reconnect, retry, secret rotation | integration adapters, provider, order/catalog |
+| Bantuan dan status | Menyelesaikan kendala dan memahami perubahan | help, ticket, incident, status onboarding, escalation, release notes | support/Admin, notification, observability |
+
+Setiap permukaan harus memiliki loading, empty, error, stale/offline,
+permission-denied, session-expired, dan recovery state yang dirancang sebelum
+implementasi UI dianggap selesai.
 
 ### 7.9 Inventaris fitur dan alur lintas aplikasi
 
