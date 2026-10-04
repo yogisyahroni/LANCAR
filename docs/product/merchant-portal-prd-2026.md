@@ -1,12 +1,29 @@
 # PRD — Portal Mitra TEMBUS untuk Bisnis F&B
 
-**Status:** Draft untuk implementasi bertahap  
+**Status:** Draft v1.0 — baseline implementasi, menunggu persetujuan lintas fungsi
 **Tanggal:** 2026-10-04  
 **Target product:** Merchant Web / Portal Mitra pada `merchant.bawain.my.id`  
 **Target pengguna:** bisnis F&B, PT/badan usaha, owner, manager outlet, kasir, kitchen, dan finance  
 **Baseline:** branch `staging`  
 **Related backlog:** [`task-merchant-web-growth-p0-p2-2026.md`](../../task-merchant-web-growth-p0-p2-2026.md)  
 **Related task list:** [`TASKS.md`](../../TASKS.md)
+
+## 0. Kontrol dokumen dan keputusan scope
+
+| Item | Keputusan |
+|---|---|
+| Sumber kebenaran produk | Dokumen PRD ini untuk tujuan, scope, behavior, prioritas, dan release gate; backlog untuk unit pengerjaan dan bukti teknis |
+| Jalur bisnis/PT | Onboarding, verifikasi legal, operasional multi-outlet, staff, keuangan, dan Portal Mitra Web |
+| Jalur perorangan | Merchant Android sebagai jalur utama; akses Portal Mitra hanya bila capability server mengizinkan |
+| Handoff setelah approved | Merchant kembali ke Portal Mitra pada `merchant.bawain.my.id/masuk`, bukan dipaksa membuka aplikasi Android |
+| Standar data | Server-authoritative dan end-to-end; UI, mock, screenshot, atau optimistic state tidak boleh menjadi sumber kebenaran |
+| Prioritas | P0 wajib sebelum public production; P1 setelah P0 release gate; P2 untuk scale dan ecosystem maturity |
+| Status persetujuan | Belum dianggap production-ready sebelum Product, Engineering, Design, Security/Privacy, Finance/Legal, Data, dan Operations menyetujui DoD pada bagian 17 |
+
+Dokumen ini sengaja dibuat sebagai acuan yang bisa langsung dipakai untuk
+permintaan berikutnya. Instruksi pengerjaan cukup menyebutkan `TASK-ID` dari
+backlog dan area PRD yang terkait; agent wajib membaca dependency, contract,
+dan evidence sebelum mengubah kode.
 
 > Dokumen ini adalah sumber kebenaran produk. Ia menjelaskan masalah, tujuan,
 > scope, behavior, prioritas, dan definisi sukses. Implementasi teknis tetap
