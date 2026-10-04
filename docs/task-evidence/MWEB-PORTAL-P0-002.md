@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 94cf3188
+implementation_ref: 7c5747a3
 
 tests: PASS
 integration: PARTIAL
@@ -186,6 +186,9 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     command: npm run build
     location: backend/admin-service
     result: PASS — TypeScript production build completed.
+
+    command: docker compose build admin-service; docker compose up -d --no-deps admin-service; docker compose ps admin-service; docker logs --since 30s tembus-admin
+    result: PASS — admin-service image rebuilt from `7c5747a3`, container reported healthy, Socket.IO/Redis initialized, and the merchant operating-state consumer started on the durable queue without startup errors.
 
     command: .\\gradlew.bat :app:testDebugUnitTest --no-daemon
     location: android-app-customer
