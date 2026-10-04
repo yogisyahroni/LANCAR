@@ -269,7 +269,9 @@ func (h *AuthHandler) RequestOTP(w http.ResponseWriter, r *http.Request) {
 
 	err := h.svc.RequestOTP(r.Context(), req.PhoneNumber)
 	if err != nil {
-		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		// Keep provider/storage details server-side. The portal and mobile clients
+		// need a stable, actionable contract rather than an infrastructure error.
+		middleware.WriteError(w, http.StatusServiceUnavailable, "ERR_OTP_SEND_FAILED", "Kode verifikasi belum dapat dikirim. Coba lagi beberapa saat.", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -309,7 +311,9 @@ func (h *AuthHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 	res, err := h.svc.VerifyOTP(r.Context(), req.PhoneNumber, req.Code, req.DeviceID, req.DeviceInfo, ipAddress)
 	if err != nil {
 		h.recordAuthFailure(r, middleware.ScopeCustomerOTPVerify, req.PhoneNumber, "invalid_customer_otp")
-		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Authentication required", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		// Do not expose whether the code was wrong, expired, or absent. The
+		// client only needs the same safe recovery instruction for all cases.
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_OTP_INVALID", "Kode verifikasi salah atau sudah kedaluwarsa.", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 	h.recordAuthSuccess(r, middleware.ScopeCustomerOTPVerify, req.PhoneNumber)
