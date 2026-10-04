@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 196c8221
+implementation_ref: 1295ad2a
 
 tests: PASS
 integration: PARTIAL
@@ -14,7 +14,7 @@ e2e: PARTIAL
 migration: PASS
 migration_na_reason: "N/A — three persistent schema/event changes were introduced."
 
-observability: PASS
+observability: PARTIAL
 security_privacy: PASS
 rollback_recovery: PARTIAL
 
@@ -24,10 +24,10 @@ external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Authenticated staging smoke, cross-app event propagation, and release gates remain required before production rollout."
 
-unproven_requirements: "Authenticated browser/cross-app E2E; live event fan-out across Customer, Courier, Merchant Android and Admin read models; product policy for business-level payout allocation in an outlet view."
+unproven_requirements: "Live event fan-out across Customer, Courier, Merchant Android and Admin read models; product policy for business-level payout allocation in an outlet view."
 known_blockers: NONE
 
-locally_actionable_remaining: "Continue the same task with authenticated browser and cross-app verification, then resolve the remaining finance policy and product-consumer propagation gaps before marking COMPLETE."
+locally_actionable_remaining: "Continue the same task with cross-app verification, then resolve the remaining finance policy and product-consumer propagation gaps before marking COMPLETE."
 
 blocker_resolution_attempts: "Rebuilt merchant-service, order-service, and merchant-web; applied the three new migration up paths to the Docker PostgreSQL instance after the goose image registry denied access; verified schema, triggers, service health, unauthenticated route denial, and executed the expanded order-count SQL directly against the active Docker PostgreSQL instance; then ran the three migration Down paths in reverse and Up paths forward on a schema-only disposable PostgreSQL database and removed that database after validation."
 unblock_condition: NONE
@@ -36,7 +36,7 @@ owner_action_required: false
 owner_action_summary: NONE
 verification_after_unblock: NONE
 
-dependency_chain_blocked: true
+dependency_chain_blocked: false
 next_eligible_task: NONE
 
 updated_at: 2026-10-04
@@ -101,6 +101,9 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - `merchant-web/src/lib/realtime.ts` — authenticated Socket.IO invalidation client.
 - `merchant-web/src/pages/Dashboard.tsx` — authoritative dashboard refetch on operating-state event.
 - `merchant-web/Dockerfile` and `docker-compose.yml` — socket build configuration and local outbox/consumer runtime defaults.
+- `backend/merchant-service/internal/service/merchant_access_service.go` — guarantees an empty branch collection serializes as `[]` for older merchants without a backfilled outlet.
+- `merchant-web/src/components/Layout.tsx` and `merchant-web/src/lib/portal-context.ts` — defensive collection handling for legacy/null portal payloads.
+- `scripts/e2e/merchant-web-dashboard-browser.mjs` — disposable browser E2E covering Admin approval, Merchant Web login, dashboard freshness, external status mutation, and Socket.IO-triggered refetch.
 
 ## Commands / Checks Run
 
@@ -185,6 +188,9 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     command: disposable PostgreSQL schema-only clone; apply Down for 20261004000003, 20261004000002, 20261004000001; apply Up for 20261004000001, 20261004000002, 20261004000003; validate schema/functions/triggers; drop disposable database
     result: PASS — reverse rollback and forward recovery completed on an isolated database; `orders.branch_id`, auto-accept function, branch-sync function, and operating-state consumer set were restored. The disposable database was removed; the active database was not used for the destructive drill.
 
+    command: docker compose build merchant-service merchant-web; docker compose up -d --no-deps merchant-service api-gateway admin-service merchant-web; node scripts/e2e/merchant-web-dashboard-browser.mjs
+    result: PASS — disposable local flow completed Admin approval → Merchant Web login → dashboard render → external operating-state mutation → Socket.IO-triggered dashboard refetch. Browser reported no page errors; one authoritative dashboard refetch was observed. The local image was built with loopback CSP sources only for the explicit local build; the restored image uses the repository's non-loopback CSP configuration.
+
 ## Task-Local Verification
 
 ### Tests
@@ -197,13 +203,13 @@ Evidence: `go test ./internal/service -run 'TestGetDashboard_' -count=1 -v` pass
 
 Status: PARTIAL
 
-Evidence: Docker services connected to the shared PostgreSQL instance and the schema/trigger contract was verified. The read-only branch sales/finance integration test passed against a real PostgreSQL fixture. The rebuilt admin runtime consumed a broker event through the durable queue and DLQ contract. Authenticated mutation and end-to-end browser event propagation remain unproven.
+Evidence: Docker services connected to the shared PostgreSQL instance and the schema/trigger contract was verified. The read-only branch sales/finance integration test passed against a real PostgreSQL fixture. The rebuilt admin runtime consumed a broker event through the durable queue and DLQ contract. The authenticated local browser flow also proved the Merchant Web dashboard refetch after an external status mutation. Cross-application propagation to Customer, Courier, Merchant Android, and Admin read models remains unproven.
 
 ### E2E
 
 Status: PARTIAL
 
-Evidence: The HTTPS disposable harness completed registration → document upload → Admin reject/resubmit/approve → ACTIVE status → authenticated `GET /merchant/dashboard` → suspend → SUSPENDED status. Sanitized dashboard proof: `data_as_of_present=true`, `merchant_scope_matches=true`, `scope_level=merchant_aggregate`, `order_fields_present=true`, `auto_accept_present=true`, `alert_count=1`. Outlet-scoped sales/finance API attribution passed against local PostgreSQL. Browser UI and Customer → Merchant Web → Courier cross-app propagation remain unproven.
+Evidence: The HTTPS disposable harness completed registration → document upload → Admin reject/resubmit/approve → ACTIVE status → authenticated `GET /merchant/dashboard` → suspend → SUSPENDED status. Sanitized dashboard proof: `data_as_of_present=true`, `merchant_scope_matches=true`, `scope_level=merchant_aggregate`, `order_fields_present=true`, `auto_accept_present=true`, `alert_count=1`. The local Playwright/Chrome harness additionally completed Admin approval → Merchant Web browser login → dashboard render → external operating-state mutation → Socket.IO-triggered dashboard refetch with `page_errors=[]` and `dashboard_refetch_count=1`. Outlet-scoped sales/finance API attribution passed against local PostgreSQL. Customer → Merchant Web → Courier/Android/Admin cross-app propagation remains unproven.
 
 ### Migration
 
