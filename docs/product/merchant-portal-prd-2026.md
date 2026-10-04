@@ -374,6 +374,64 @@ P2 mencakup:
 - Public API/partner ecosystem dengan OAuth/scoped key, quota, webhook,
   sandbox, certification, deprecation, dan incident process.
 
+### 7.9 Inventaris fitur dan alur lintas aplikasi
+
+Bagian ini menjadi peta kerja ringkas ketika implementasi diminta per fitur.
+Setiap baris harus dipecah menjadi TASK-ID, contract, test plan, dan evidence
+sebelum dinyatakan selesai.
+
+| Area produk | Kemampuan merchant | Sistem yang terlibat | Bukti end-to-end minimum |
+|---|---|---|---|
+| Akuisisi dan onboarding | Daftar bisnis/PT, upload dokumen, cek status, OTP, resubmit | Merchant Web, Admin, `merchant-service`, database, storage, notification | Akun disposable dibuat; status `DRAFT → SUBMITTED → VERIFYING → ACTIVE/REJECTED/SUSPENDED` terbaca konsisten; approved kembali ke Portal Mitra |
+| Workspace bisnis | Profil legal, brand, outlet, alamat, jam operasi, outlet switcher | Merchant Web, `merchant-service`, Admin, database, event/outbox | Perubahan tersimpan dengan tenant/outlet scope, audit, refresh, dan tidak bocor ke bisnis lain |
+| Kesiapan outlet | Buka/tutup, jeda, mode sibuk, terima otomatis, jadwal libur | Merchant Web, Merchant Android, Customer, Search/availability, `merchant-service` | Perubahan state terlihat konsisten di merchant dan customer; gagal/retry tidak meninggalkan state palsu |
+| Pesanan food | Queue baru/aktif/selesai, terima/tolak, siapkan, siap diambil, item habis, catatan | Customer, Merchant Web/Android, Courier, order service, notification | Customer checkout → merchant action → courier pickup → delivered; transition idempotent dan timeline authoritative |
+| Issue dan bantuan order | Substitusi, item unavailable, pembatalan, refund/kompensasi, komunikasi aman | Customer, Merchant, Courier, order service, support/admin, ledger | Customer approval bila diwajibkan; refund tidak ganda; issue punya owner, reason, audit, dan resolution |
+| Menu dan katalog | Kategori, item, foto, harga, modifier, allergen, prep time, sold-out, publish/rollback | Merchant Web, `merchant-service`, moderation, Customer/search, database | Draft tidak tampil sebelum publish; perubahan menu tidak mengubah snapshot order lama; sold-out mencegah oversell |
+| Staff dan akses | Invite, role, outlet assignment, permission, revoke, device/session | Merchant Web, auth, `merchant-service`, Admin, database/audit | Staff hanya melihat scope-nya; negative authorization lulus; revoke efektif; high-risk action memakai step-up |
+| Keuangan | Gross-to-net, komisi, promo, pajak/biaya, refund, settlement, payout, invoice, export | Order, payment, ledger, settlement/payout provider, Merchant Web, Finance/Admin | Nominal dapat ditelusuri order → ledger → settlement → payout; export sama dengan statement; mismatch masuk exception |
+| Promo dan pertumbuhan | Promo, campaign, budget, funding, eligibility, redemption, performance | Merchant Web, promo/ads, Customer, order, settlement | Eligibility dan pendanaan authoritative; promo tercermin di checkout, order, laporan, dan settlement |
+| Integrasi operasional | POS/KDS/printer, webhook, payment/integration health, retry/replay | Merchant Web, integration adapters, provider, order/catalog | Secret tidak tampil; health dan error nyata; duplicate webhook/replay aman; reconnect dan retry dapat diaudit |
+| Insight dan laporan | Penjualan, order, prep time, item, customer insight, export | Merchant Web, analytics/reporting, order, ledger, data platform | Metric punya definisi, timezone, scope, freshness; data export konsisten dan privacy-safe |
+| Quality dan compliance | Rating/review, food document, quality score, appeal, support ticket | Customer, Merchant Web, Admin, support, document storage | Review/issue dapat ditelusuri ke order; dokumen expiry dan enforcement tidak memakai status buatan UI |
+| Notifikasi dan resilience | Alert order, status, session, stale/offline, incident, recovery | Web, mobile, event/outbox, notification, observability | Duplicate/out-of-order event aman; user melihat live/stale/syncing/offline yang benar; command gagal dapat dipulihkan |
+
+### 7.10 Aturan data untuk setiap fitur
+
+Sebelum mengerjakan fitur apa pun, spesifikasi fitur wajib mencantumkan:
+
+1. **Actor dan scope:** role, business, outlet, market, timezone, dan object
+   yang boleh dilihat/diubah.
+2. **Source of truth:** service, tabel/projection, provider, atau event yang
+   authoritative; frontend tidak boleh menjadi sumber status atau nominal.
+3. **Read contract:** field, enum canonical, version, freshness, pagination,
+   masking, dan mapping error yang dilihat UI.
+4. **Write contract:** command/endpoint, valid transition, idempotency key,
+   optimistic-concurrency rule, audit event, dan permission/step-up.
+5. **Cross-app effect:** aplikasi atau service penerima event, perilaku ketika
+   delivery terlambat/gagal, retry, deduplication, dan rekonsiliasi.
+6. **Failure states:** loading, empty, stale, offline, timeout, provider
+   unavailable, partial success, permission denied, session expired, dan
+   recovery action.
+7. **Evidence:** API/DB invariant, browser E2E, cross-app E2E, security,
+   accessibility, observability, migration/rollback bila relevan.
+
+Jika salah satu poin belum tersedia, fitur berstatus **planned/blocked by
+contract** dan tidak boleh dipresentasikan sebagai fitur production-ready.
+
+### 7.11 Prioritas delivery yang dipakai saat meminta pengerjaan
+
+- **P0:** akses/onboarding, tenant isolation, dashboard outlet, order food
+  normal dan exception, menu availability, staff/RBAC, finance visibility,
+  notifications/recovery, security, observability, dan release gate.
+- **P1:** promo, analytics/reporting, integration center, compliance/support,
+  merchant growth, dan operational efficiency.
+- **P2:** multi-brand/multi-region enterprise, inventory/procurement, advanced
+  accounting/tax, public API, partner ecosystem, dan controlled experimentation.
+
+P1 tidak dimulai sebelum P0 release gate lulus. P2 memerlukan business case,
+owner data/provider, policy legal/finance, serta model operasi yang disetujui.
+
 ## 8. Canonical state dan ownership
 
 PRD menggunakan contract yang sudah tersedia sebagai sumber aturan teknis:
