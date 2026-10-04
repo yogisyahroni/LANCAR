@@ -57,6 +57,7 @@ export interface Merchant {
   operating_state_reason?: string | null
   operating_state_until?: string | null
   operating_state_updated_by?: string | null
+  operating_state_updated_by_name?: string | null
   operating_state_version?: number
   operating_timezone?: string
   busy_until?: string | null
@@ -300,6 +301,9 @@ export interface MerchantFinanceStatement {
     net_balance_minor: number
   }[]
   discrepancies: unknown[]
+  held_payout_count: number
+  held_payout_minor: number
+  next_payout_at?: string | null
   generated_at: string
 }
 

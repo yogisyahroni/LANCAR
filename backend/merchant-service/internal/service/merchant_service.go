@@ -462,8 +462,14 @@ func (s *merchantServiceImpl) ToggleOpen(ctx context.Context, userID string, isO
 	}
 	// ADR 003: dokumen pangan (halal/SPP-IRT/BPOM) TIDAK lagi jadi gate buka
 	// toko — semua status halal boleh buka. Label/filter di sisi customer.
-	if err := s.merchantRepo.ToggleOpen(ctx, m.ID, isOpen); err != nil {
-		return nil, err
+	var stateErr error
+	if actorRepo, ok := s.merchantRepo.(domain.MerchantOperatingStateActorRepository); ok {
+		stateErr = actorRepo.ToggleOpenAs(ctx, m.ID, userID, isOpen)
+	} else {
+		stateErr = s.merchantRepo.ToggleOpen(ctx, m.ID, isOpen)
+	}
+	if stateErr != nil {
+		return nil, stateErr
 	}
 	return s.merchantRepo.GetByID(ctx, m.ID)
 }
@@ -511,7 +517,11 @@ func (s *merchantServiceImpl) Pause(ctx context.Context, userID string, until ti
 	if until.Before(time.Now()) {
 		return nil, errors.New("waktu pause harus di masa depan")
 	}
-	if err := s.merchantRepo.SetPaused(ctx, m.ID, &until); err != nil {
+	if actorRepo, ok := s.merchantRepo.(domain.MerchantOperatingStateActorRepository); ok {
+		if err := actorRepo.SetPausedAs(ctx, m.ID, userID, &until); err != nil {
+			return nil, err
+		}
+	} else if err := s.merchantRepo.SetPaused(ctx, m.ID, &until); err != nil {
 		return nil, err
 	}
 	return s.merchantRepo.GetByID(ctx, m.ID)
@@ -523,7 +533,11 @@ func (s *merchantServiceImpl) Resume(ctx context.Context, userID string) (*domai
 	if err != nil {
 		return nil, err
 	}
-	if err := s.merchantRepo.SetPaused(ctx, m.ID, nil); err != nil {
+	if actorRepo, ok := s.merchantRepo.(domain.MerchantOperatingStateActorRepository); ok {
+		if err := actorRepo.SetPausedAs(ctx, m.ID, userID, nil); err != nil {
+			return nil, err
+		}
+	} else if err := s.merchantRepo.SetPaused(ctx, m.ID, nil); err != nil {
 		return nil, err
 	}
 	return s.merchantRepo.GetByID(ctx, m.ID)
@@ -545,13 +559,18 @@ func (s *merchantServiceImpl) Busy(ctx context.Context, userID string, until tim
 	if extraPrepMinutes < 0 || extraPrepMinutes > 180 {
 		return nil, errors.New("extra_prep_minutes harus 0-180")
 	}
-	repo, ok := s.merchantRepo.(interface {
+	actorRepo, actorCapable := s.merchantRepo.(domain.MerchantOperatingStateActorRepository)
+	repo, legacyCapable := s.merchantRepo.(interface {
 		SetBusy(context.Context, string, *time.Time, int) error
 	})
-	if !ok {
+	if !actorCapable && !legacyCapable {
 		return nil, errors.New("konfigurasi busy belum tersedia")
 	}
-	if err := repo.SetBusy(ctx, m.ID, &until, extraPrepMinutes); err != nil {
+	if actorCapable {
+		if err := actorRepo.SetBusyAs(ctx, m.ID, userID, &until, extraPrepMinutes); err != nil {
+			return nil, err
+		}
+	} else if err := repo.SetBusy(ctx, m.ID, &until, extraPrepMinutes); err != nil {
 		return nil, err
 	}
 	return s.merchantRepo.GetByID(ctx, m.ID)

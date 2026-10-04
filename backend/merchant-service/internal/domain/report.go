@@ -277,10 +277,13 @@ type MerchantSettlementDiscrepancy struct {
 }
 
 type MerchantFinanceStatement struct {
-	Entries       []*MerchantStatementEntry        `json:"entries"`
-	Totals        []*MerchantStatementTotals       `json:"totals"`
-	Discrepancies []*MerchantSettlementDiscrepancy `json:"discrepancies"`
-	GeneratedAt   string                           `json:"generated_at"`
+	Entries         []*MerchantStatementEntry        `json:"entries"`
+	Totals          []*MerchantStatementTotals       `json:"totals"`
+	Discrepancies   []*MerchantSettlementDiscrepancy `json:"discrepancies"`
+	HeldPayoutCount int                              `json:"held_payout_count"`
+	HeldPayoutMinor int64                            `json:"held_payout_minor"`
+	NextPayoutAt    *string                          `json:"next_payout_at,omitempty"`
+	GeneratedAt     string                           `json:"generated_at"`
 }
 
 // MerchantFinanceRepository is an optional extension of the existing report

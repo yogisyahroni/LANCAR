@@ -202,6 +202,7 @@ const merchantColumns = `m.id, m.user_id,
 	ST_Y(m.lokasi::geometry), ST_X(m.lokasi::geometry),
 	to_char(m.jam_buka, 'HH24:MI'), to_char(m.jam_tutup, 'HH24:MI'),
 	m.is_open, m.auto_accept_orders, m.operating_state, m.operating_state_reason, m.operating_state_until, m.operating_state_updated_by,
+	(SELECT NULLIF(TRIM(u2.full_name), '') FROM users u2 WHERE u2.id = m.operating_state_updated_by),
 	m.operating_state_source, m.operating_state_version, m.operating_timezone,
 	m.paused_until, m.busy_until, m.busy_extra_prep_minutes, m.min_order_idr, m.completion_rate_pct, m.verification_status,
 	m.avg_rating, m.rating_count,
@@ -235,7 +236,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	var businessType sql.NullString
 	var payoutSchedule sql.NullString
 	var npwp sql.NullString
-	var operatingState, operatingStateReason, operatingStateUpdatedBy, operatingStateSource, operatingTimezone sql.NullString
+	var operatingState, operatingStateReason, operatingStateUpdatedBy, operatingStateUpdatedByName, operatingStateSource, operatingTimezone sql.NullString
 	var operatingStateUntil sql.NullTime
 	var operatingStateVersion sql.NullInt64
 	err := row.Scan(
@@ -244,7 +245,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 		&shortDescription, &primaryCategories, &bannerURL, &logoURL,
 		&lat, &lng,
 		&jamBuka, &jamTutup,
-		&m.IsOpen, &m.AutoAcceptOrders, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingStateUpdatedBy,
+		&m.IsOpen, &m.AutoAcceptOrders, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingStateUpdatedBy, &operatingStateUpdatedByName,
 		&operatingStateSource, &operatingStateVersion, &operatingTimezone,
 		&pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.CompletionRatePct, &m.VerificationStatus,
 		&avgRating, &ratingCount,
@@ -306,6 +307,9 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	}
 	if operatingStateUpdatedBy.Valid {
 		m.OperatingStateUpdatedBy = &operatingStateUpdatedBy.String
+	}
+	if operatingStateUpdatedByName.Valid {
+		m.OperatingStateUpdatedByName = &operatingStateUpdatedByName.String
 	}
 	if operatingStateSource.Valid {
 		m.OperatingStateSource = operatingStateSource.String
@@ -529,6 +533,14 @@ func (r *postgresMerchantRepository) UpdateVerification(ctx context.Context, id,
 }
 
 func (r *postgresMerchantRepository) ToggleOpen(ctx context.Context, id string, isOpen bool) error {
+	return r.toggleOpenAs(ctx, id, "", isOpen)
+}
+
+func (r *postgresMerchantRepository) ToggleOpenAs(ctx context.Context, id, actorID string, isOpen bool) error {
+	return r.toggleOpenAs(ctx, id, actorID, isOpen)
+}
+
+func (r *postgresMerchantRepository) toggleOpenAs(ctx context.Context, id, actorID string, isOpen bool) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE merchants SET
 			is_open = $2,
@@ -538,7 +550,7 @@ func (r *postgresMerchantRepository) ToggleOpen(ctx context.Context, id string, 
 			operating_state = CASE WHEN $2 THEN 'open' ELSE 'closed' END,
 			operating_state_reason = NULL,
 			operating_state_until = NULL,
-			operating_state_updated_by = NULL,
+			operating_state_updated_by = NULLIF($3, '')::uuid,
 			operating_state_source = 'merchant',
 			operating_state_version = operating_state_version + 1,
 			updated_at = NOW()
@@ -550,8 +562,8 @@ func (r *postgresMerchantRepository) ToggleOpen(ctx context.Context, id string, 
 			OR operating_state IS DISTINCT FROM CASE WHEN $2 THEN 'open' ELSE 'closed' END
 			OR operating_state_reason IS NOT NULL
 			OR operating_state_until IS NOT NULL
-			OR operating_state_updated_by IS NOT NULL
-		  )`, id, isOpen)
+			OR operating_state_updated_by IS DISTINCT FROM NULLIF($3, '')::uuid
+		  )`, id, isOpen, actorID)
 	return err
 }
 
@@ -606,6 +618,14 @@ func (r *postgresMerchantRepository) GetAutoAcceptReadiness(ctx context.Context,
 // atau buka + pause 15 menit. Order-service cek paused_until > NOW() saat
 // validasi order, jadi merchant pause otomatis tidak terima order baru.
 func (r *postgresMerchantRepository) SetPaused(ctx context.Context, id string, until *time.Time) error {
+	return r.setPausedAs(ctx, id, "", until)
+}
+
+func (r *postgresMerchantRepository) SetPausedAs(ctx context.Context, id, actorID string, until *time.Time) error {
+	return r.setPausedAs(ctx, id, actorID, until)
+}
+
+func (r *postgresMerchantRepository) setPausedAs(ctx context.Context, id, actorID string, until *time.Time) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE merchants SET
 			paused_until = $2,
@@ -616,7 +636,7 @@ func (r *postgresMerchantRepository) SetPaused(ctx context.Context, id string, u
 				ELSE 'paused' END,
 			operating_state_reason = CASE WHEN $2::timestamptz IS NULL THEN NULL ELSE 'merchant_pause' END,
 			operating_state_until = $2,
-			operating_state_updated_by = NULL,
+			operating_state_updated_by = NULLIF($3, '')::uuid,
 			operating_state_source = 'merchant',
 			operating_state_version = operating_state_version + 1,
 			updated_at = NOW()
@@ -627,14 +647,23 @@ func (r *postgresMerchantRepository) SetPaused(ctx context.Context, id string, u
 			OR operating_state IS DISTINCT FROM CASE WHEN $2::timestamptz IS NULL THEN CASE WHEN is_open THEN 'open' ELSE 'closed' END ELSE 'paused' END
 			OR operating_state_reason IS DISTINCT FROM CASE WHEN $2::timestamptz IS NULL THEN NULL ELSE 'merchant_pause' END
 			OR operating_state_until IS DISTINCT FROM $2
+			OR operating_state_updated_by IS DISTINCT FROM NULLIF($3, '')::uuid
 		  )`,
-		id, until)
+		id, until, actorID)
 	return err
 }
 
 // SetBusy stores the temporary busy policy without changing is_open. The
 // order-service reads this same row when building the authoritative Food quote.
 func (r *postgresMerchantRepository) SetBusy(ctx context.Context, id string, until *time.Time, extraPrepMinutes int) error {
+	return r.setBusyAs(ctx, id, "", until, extraPrepMinutes)
+}
+
+func (r *postgresMerchantRepository) SetBusyAs(ctx context.Context, id, actorID string, until *time.Time, extraPrepMinutes int) error {
+	return r.setBusyAs(ctx, id, actorID, until, extraPrepMinutes)
+}
+
+func (r *postgresMerchantRepository) setBusyAs(ctx context.Context, id, actorID string, until *time.Time, extraPrepMinutes int) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE merchants
 		SET busy_until = $2,
@@ -645,7 +674,7 @@ func (r *postgresMerchantRepository) SetBusy(ctx context.Context, id string, unt
 				ELSE 'busy' END,
 			operating_state_reason = CASE WHEN $2::timestamptz IS NULL THEN NULL ELSE 'merchant_busy' END,
 			operating_state_until = $2,
-			operating_state_updated_by = NULL,
+			operating_state_updated_by = NULLIF($4, '')::uuid,
 			operating_state_source = 'merchant',
 			operating_state_version = operating_state_version + 1,
 			updated_at = NOW()
@@ -657,7 +686,8 @@ func (r *postgresMerchantRepository) SetBusy(ctx context.Context, id string, unt
 			OR operating_state IS DISTINCT FROM CASE WHEN $2::timestamptz IS NULL THEN CASE WHEN is_open THEN 'open' ELSE 'closed' END ELSE 'busy' END
 			OR operating_state_reason IS DISTINCT FROM CASE WHEN $2::timestamptz IS NULL THEN NULL ELSE 'merchant_busy' END
 			OR operating_state_until IS DISTINCT FROM $2
-		  )`, id, until, extraPrepMinutes)
+			OR operating_state_updated_by IS DISTINCT FROM NULLIF($4, '')::uuid
+		  )`, id, until, extraPrepMinutes, actorID)
 	return err
 }
 

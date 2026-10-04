@@ -38,13 +38,14 @@ type Merchant struct {
 	// MERCH-2026-004: canonical operating state. IsOpen remains a legacy
 	// projection for existing consumers; state carries busy/pause/holiday and
 	// temporary-closure semantics explicitly.
-	OperatingState          string     `json:"operating_state"`
-	OperatingStateReason    *string    `json:"operating_state_reason,omitempty"`
-	OperatingStateUntil     *time.Time `json:"operating_state_until,omitempty"`
-	OperatingStateUpdatedBy *string    `json:"operating_state_updated_by,omitempty"`
-	OperatingStateSource    string     `json:"operating_state_source"`
-	OperatingStateVersion   int64      `json:"operating_state_version"`
-	OperatingTimezone       string     `json:"operating_timezone"`
+	OperatingState              string     `json:"operating_state"`
+	OperatingStateReason        *string    `json:"operating_state_reason,omitempty"`
+	OperatingStateUntil         *time.Time `json:"operating_state_until,omitempty"`
+	OperatingStateUpdatedBy     *string    `json:"operating_state_updated_by,omitempty"`
+	OperatingStateUpdatedByName *string    `json:"operating_state_updated_by_name,omitempty"`
+	OperatingStateSource        string     `json:"operating_state_source"`
+	OperatingStateVersion       int64      `json:"operating_state_version"`
+	OperatingTimezone           string     `json:"operating_timezone"`
 	// FB-107: pause sementara sampai jam ini (NULL = tidak pause). Auto
 	// un-pause ketika waktu habis — tidak mengubah is_open / jam operasional.
 	PausedUntil *time.Time `json:"paused_until,omitempty"`
@@ -117,6 +118,14 @@ type MerchantOperatingStateOverrideRequest struct {
 type MerchantOperatingStateRepository interface {
 	SetOperatingStateOverride(ctx context.Context, merchantID, actorID, actorRole string, req MerchantOperatingStateOverrideRequest) error
 	SetScheduledOperatingState(ctx context.Context, merchantID, state, reason string) error
+}
+
+// MerchantOperatingStateActorRepository keeps self-service state changes
+// attributable to the authenticated merchant user in the same database write.
+type MerchantOperatingStateActorRepository interface {
+	ToggleOpenAs(ctx context.Context, merchantID, actorID string, isOpen bool) error
+	SetPausedAs(ctx context.Context, merchantID, actorID string, until *time.Time) error
+	SetBusyAs(ctx context.Context, merchantID, actorID string, until *time.Time, extraPrepMinutes int) error
 }
 
 // HalalStatusValue — status halal merchant (ADR 003, model Grab/GoFood):

@@ -544,6 +544,23 @@ func (r *postgresReportRepository) FinanceStatement(ctx context.Context, merchan
 	if err := discrepancyRows.Err(); err != nil {
 		return nil, fmt.Errorf("merchant finance discrepancy rows: %w", err)
 	}
+	var nextPayout sql.NullString
+	if err := r.readDB.QueryRowContext(ctx, `
+		SELECT COUNT(*) FILTER (WHERE UPPER(status) IN ('HOLDING', 'PROCESSING')),
+		       COALESCE(SUM(net_payout_minor) FILTER (WHERE UPPER(status) IN ('HOLDING', 'PROCESSING')), 0),
+		       TO_CHAR(MIN(holding_release_at) FILTER (
+			       WHERE UPPER(status) IN ('HOLDING', 'PROCESSING')
+			         AND holding_release_at IS NOT NULL
+			         AND holding_release_at >= NOW()
+		       ), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+		FROM merchant_settlements
+		WHERE merchant_id = $1`, merchantID).Scan(
+		&statement.HeldPayoutCount, &statement.HeldPayoutMinor, &nextPayout); err != nil {
+		return nil, fmt.Errorf("merchant finance payout summary: %w", err)
+	}
+	if nextPayout.Valid {
+		statement.NextPayoutAt = &nextPayout.String
+	}
 	return statement, nil
 }
 

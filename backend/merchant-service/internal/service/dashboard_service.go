@@ -250,16 +250,10 @@ func (s *merchantServiceImpl) appendDashboardAlerts(ctx context.Context, dashboa
 		})
 	}
 	if dashboard.Finance != nil {
-		held := 0
-		for _, entry := range dashboard.Finance.Entries {
-			if entry != nil && (strings.EqualFold(entry.Status, "holding") || strings.EqualFold(entry.Status, "processing")) {
-				held++
-			}
-		}
-		if held > 0 {
+		if dashboard.Finance.HeldPayoutCount > 0 {
 			dashboard.Alerts = append(dashboard.Alerts, &domain.MerchantDashboardAlert{
 				Code: "payout_held", Severity: "warning", Title: "Ada pencairan yang masih ditahan",
-				Description: fmt.Sprintf("%d transaksi payout masih menunggu proses settlement. Periksa halaman keuangan untuk detailnya.", held), ActionPath: "/keuangan",
+				Description: fmt.Sprintf("%d transaksi payout masih menunggu proses settlement. Periksa halaman keuangan untuk detailnya.", dashboard.Finance.HeldPayoutCount), ActionPath: "/keuangan",
 			})
 		}
 		if len(dashboard.Finance.Discrepancies) > 0 {
