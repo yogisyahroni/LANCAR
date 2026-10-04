@@ -155,6 +155,9 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
     command: authenticated local API E2E against Docker gateway
     result: PASS for owner and cashier staff paths: merchant login/exchange, HttpOnly merchant cookie, server-owned context, role/capability filtering, cross-tenant branch rejection (403), device-session create/revoke, refresh rotation, customer-session isolation (401), logout invalidation (401), and entity search.
 
+    command: Playwright browser E2E against local Vite + Docker gateway
+    result: PASS for owner login UI exchange, dashboard/deep-link navigation, 390px responsive viewport, no credential-like localStorage keys, and expired-session redirect. Local harness injected the production-domain session cookie at the route boundary because localhost cannot store Domain=.bawain.my.id; this is local browser proof, not staging proof.
+
     command: docker logs --since 15m tembus-merchant
     result: PASS for exercised device-session mutations — structured audit records contained actor role, action, resource, result, request/correlation IDs, and timestamp. This does not prove every sensitive action has audit coverage.
 
@@ -176,7 +179,7 @@ Evidence: Docker gateway → auth/admin → merchant-service → PostgreSQL was 
 
 Status: PARTIAL
 
-Evidence: Authenticated API E2E was run against local Docker. Browser UI E2E for owner, all required PT staff roles, outlet switching, deep links, responsive layout, and expired device sessions remains required; no browser automation result is claimed here.
+Evidence: Authenticated API E2E was run against local Docker for owner and cashier staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, 390px responsive layout, credential storage boundary, and expired-session redirect. Browser coverage for all required PT staff roles, outlet switching, multi-tab, reconnect, and expired device sessions remains required.
 
 ### Migration
 
