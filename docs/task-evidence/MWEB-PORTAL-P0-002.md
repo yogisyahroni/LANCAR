@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 183e2e1d
+implementation_ref: cdc69ded
 
 tests: PASS
 integration: PARTIAL
@@ -24,12 +24,12 @@ external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Authenticated staging smoke, cross-app event propagation, and release gates remain required before production rollout."
 
-unproven_requirements: "Authenticated browser/cross-app E2E; live consumer/cache propagation; full operational alert catalog (payout held, quality degradation, provider incident); complete finance scope for a selected outlet; migration down/recovery drill."
+unproven_requirements: "Authenticated browser/cross-app E2E; live consumer/cache propagation; payout-held alert coverage beyond the finance statement window; complete finance scope for a selected outlet; migration down/recovery drill."
 known_blockers: NONE
 
-locally_actionable_remaining: "Continue the same task with authenticated browser and cross-app verification, then close remaining alert and recovery gaps before marking COMPLETE."
+locally_actionable_remaining: "Continue the same task with authenticated browser and cross-app verification, then close remaining finance-window and recovery gaps before marking COMPLETE."
 
-blocker_resolution_attempts: "Rebuilt merchant-service, order-service, and merchant-web; applied the three new migration up paths to the Docker PostgreSQL instance after the goose image registry denied access; verified schema, triggers, service health, and unauthenticated route denial."
+blocker_resolution_attempts: "Rebuilt merchant-service, order-service, and merchant-web; applied the three new migration up paths to the Docker PostgreSQL instance after the goose image registry denied access; verified schema, triggers, service health, unauthenticated route denial, and executed the expanded order-count SQL directly against the active Docker PostgreSQL instance."
 unblock_condition: NONE
 
 owner_action_required: false
@@ -62,6 +62,9 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Made open/close, pause/resume, busy, and auto-accept persistence idempotent when the requested state is already current.
 - Added server-side readiness checks for outlet state, available/moderated menu, registered merchant-device notification token, and notification preference before auto-accept can be enabled.
 - Added database-backed dashboard alerts for unverified bank account, unavailable auto-accept readiness, sold-out menu, expired food documents, POS/integration health, and unavailable dashboard sources.
+- Added authoritative operating-hours and special-closure data to the dashboard read model, plus alerts for provider incidents, persisted quality degradation, payout holding, and finance reconciliation exceptions.
+- Expanded order buckets for needs-action, waiting-courier, in-progress, cancelled, refund/dispute, SLA overdue, and POS sync errors; all are calculated from server-owned order/finance/integration tables.
+- Added a read-only latest-quality-score repository path so dashboard refreshes do not create a new scorecard snapshot.
 - Added outbox event contracts for auto-accept changes and expanded operating-state consumer metadata for Customer/Courier/Merchant Android/Merchant Web/Admin consumers.
 
 ## Files Changed
@@ -71,6 +74,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - `backend/merchant-service/internal/handler/merchant_handler.go` and `backend/merchant-service/cmd/api/main.go` — authenticated dashboard route.
 - `backend/merchant-service/internal/repository/postgres_merchant_repository.go` — readiness query and idempotent operating-state mutations.
 - `backend/merchant-service/internal/repository/postgres_merchant_order_repository.go` and `backend/merchant-service/internal/domain/merchant_order.go` — outlet-scoped order queries.
+- `backend/merchant-service/internal/domain/merchant_quality.go` and `backend/merchant-service/internal/repository/merchant_quality_repository.go` — persisted quality read model for dashboard alerts.
 - `backend/order-service/internal/service/order_food.go`, `internal/domain/order.go`, and `internal/repository/postgres_repository.go` — authoritative single-outlet food-order branch assignment.
 - `merchant-web/src/pages/Dashboard.tsx` and `merchant-web/src/lib/types.ts` — server dashboard rendering and safe operating controls.
 - `database/migrations/20261004000001_merchant_auto_accept_events.sql` — auto-accept outbox event trigger.
@@ -117,13 +121,19 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     command: docker logs --tail 80 tembus-merchant and docker logs --tail 60 tembus-order
     result: PASS — database connection and service startup were successful; no startup error was observed.
 
+    command: expanded operational order-count SQL executed with docker exec tembus-db psql
+    result: PASS — 13 server-side order/exception buckets executed against the active schema and returned one row for a real merchant scope.
+
+    command: docker compose build merchant-service merchant-web; docker compose up -d --no-deps merchant-service merchant-web
+    result: PASS — current commit `cdc69ded` rebuilt both images; both containers reported healthy; Merchant Web and merchant-service health endpoints returned HTTP 200.
+
 ## Task-Local Verification
 
 ### Tests
 
 Status: PASS
 
-Evidence: Merchant-service and order-service package tests passed after the dashboard, branch ownership, readiness, and idempotency changes.
+Evidence: Merchant-service and order-service package tests passed after the dashboard, branch ownership, readiness, idempotency, order-bucket, operating-hours, and quality-read-model changes.
 
 ### Integration
 
@@ -147,7 +157,7 @@ Evidence: Up-path schema, trigger, function, index, and migration-version presen
 
 Status: PARTIAL
 
-Evidence: Dashboard responses include `data_as_of`, warnings, readiness check time, and alert codes; operating-state/auto-accept outbox event wiring is present. Live event delivery, consumer lag, and alert routing were not verified.
+Evidence: Dashboard responses include `data_as_of`, warnings, readiness check time, operating-hours data, persisted quality status, and alert codes; operating-state/auto-accept outbox event wiring is present. Live event delivery, consumer lag, finance-window completeness, and alert routing were not verified.
 
 ### Security / Privacy
 
