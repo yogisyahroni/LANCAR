@@ -80,5 +80,12 @@ api.interceptors.response.use(
 
 export function apiErrorMessage(err: unknown, fallback = 'Terjadi kesalahan. Coba lagi.'): string {
   const e = err as { response?: { data?: { error?: string; message?: string } }; message?: string }
-  return e?.response?.data?.error || e?.response?.data?.message || e?.message || fallback
+  const errorCode = e?.response?.data?.error
+  const friendlyMessages: Record<string, string> = {
+    ERR_OTP_RATE_LIMIT: 'Terlalu banyak permintaan kode. Coba lagi setelah beberapa saat.',
+    ERR_OTP_VERIFY_RATE_LIMIT: 'Terlalu banyak percobaan kode. Coba lagi setelah beberapa saat.',
+    otp_send_failed: 'Kode verifikasi belum dapat dikirim. Coba lagi beberapa saat.',
+    otp_invalid: 'Kode verifikasi salah atau sudah kedaluwarsa.',
+  }
+  return (errorCode && friendlyMessages[errorCode]) || e?.response?.data?.message || errorCode || e?.message || fallback
 }

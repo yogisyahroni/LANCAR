@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import {
   ArrowLeft, ArrowRight, Building2, Check, FileUp, Loader2, ShieldCheck, Store,
 } from 'lucide-react'
-import { api } from '../lib/api'
+import { api, apiErrorMessage } from '../lib/api'
 import { clearAccessToken, deviceId, markWebSessionEstablished } from '../lib/auth'
 import { toast } from 'sonner'
 import LocationPicker from '../components/LocationPicker'
@@ -141,8 +141,8 @@ export default function Register() {
         return { ...p, [key]: URL.createObjectURL(file) }
       })
       toast.success(`${file.name} berhasil diupload`)
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Upload gagal. Coba lagi.')
+    } catch (err: unknown) {
+      setError(apiErrorMessage(err, 'Upload gagal. Coba lagi.'))
       toast.error('Upload dokumen gagal')
     } finally {
       setUploading(null)
@@ -203,8 +203,8 @@ export default function Register() {
       const token = regRes.data?.access_token
       if (!token) throw new Error('Registrasi akun belum selesai. Coba lagi atau hubungi bantuan TEMBUS.')
       await submitMerchant(token, regRes.data?.user)
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Pendaftaran gagal. Coba lagi.')
+    } catch (err: unknown) {
+      setError(apiErrorMessage(err, 'Pendaftaran gagal. Coba lagi.'))
       toast.error('Pendaftaran gagal')
     } finally {
       setSubmitting(false)
@@ -231,8 +231,8 @@ export default function Register() {
       if (!token) throw new Error('Kode verifikasi belum dapat menyelesaikan pendaftaran.')
       await submitMerchant(token, res.data?.user)
       setOtpRequired(false)
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Kode verifikasi salah atau sudah kedaluwarsa.')
+    } catch (err: unknown) {
+      setError(apiErrorMessage(err, 'Kode verifikasi salah atau sudah kedaluwarsa.'))
     } finally {
       setOtpSubmitting(false)
     }
@@ -244,8 +244,8 @@ export default function Register() {
     try {
       await api.post('/auth/otp/send', { phone_number: form.email.trim() })
       toast.success('Kode verifikasi baru sudah dikirim')
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Kode belum dapat dikirim ulang. Coba beberapa saat lagi.')
+    } catch (err: unknown) {
+      setError(apiErrorMessage(err, 'Kode belum dapat dikirim ulang. Coba beberapa saat lagi.'))
     } finally {
       setOtpSubmitting(false)
     }
