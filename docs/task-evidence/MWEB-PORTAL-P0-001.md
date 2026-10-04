@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 61fa97b4
+implementation_ref: fdafd7b1
 
 tests: PASS
 integration: PARTIAL
@@ -24,10 +24,10 @@ external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Run authenticated browser E2E, cross-role tenant-isolation checks, and staging smoke after deployment."
 
-unproven_requirements: "Full shell parity, capability-aware navigation for every role, entity-level global search, audit-event proof, deep-link/session-expiry authenticated browser flows, responsive proof, and API/browser permission E2E remain unproven."
+unproven_requirements: "Full shell parity, capability-aware navigation for every role, audit-event proof, deep-link/session-expiry authenticated browser flows, responsive proof, and API/browser permission E2E remain unproven. The entity-search endpoint is implemented locally but still needs authenticated API/browser and tenant-isolation proof."
 known_blockers: NONE
 
-locally_actionable_remaining: "Complete entity-level search and remaining shell states, then execute API, authenticated browser, responsive, tenant-isolation, audit, and expired-session verification."
+locally_actionable_remaining: "Execute authenticated API/browser, responsive, tenant-isolation, audit, and expired-session verification; add dedicated audit evidence for sensitive shell actions."
 
 blocker_resolution_attempts: NONE
 unblock_condition: NONE
@@ -77,7 +77,12 @@ Acceptance criteria remain unproven until role and browser E2E evidence exists:
   branch before protected screens reload.
 - Added capability-aware shell search for portal pages, with keyboard shortcut
   support and a mobile layout. It searches only server-authorized navigation;
-  entity-level order/menu search remains a separate requirement.
+- Added `GET /api/v1/merchant/search` for server-authorized entity search over
+  menu, food order, outlet, and (when allowed) staff records. Results are
+  merchant-scoped, current-outlet scoped where the schema supports outlet
+  ownership, and omit customer PII.
+- Connected the desktop and mobile shell search to the entity endpoint with a
+  debounced query and explicit loading/empty state.
 
 ## Files Changed
 
@@ -85,6 +90,13 @@ Acceptance criteria remain unproven until role and browser E2E evidence exists:
 - `backend/merchant-service/internal/service/merchant_access_service.go` — owner/staff context resolution and capabilities.
 - `backend/merchant-service/internal/handler/merchant_access_handler.go` — authenticated context endpoint and device-session validation.
 - `backend/merchant-service/cmd/api/main.go` — route registration.
+- `backend/merchant-service/internal/domain/merchant_search.go`,
+  `internal/service/merchant_search_service.go`,
+  `internal/repository/postgres_merchant_search_repository.go`, and
+  `internal/handler/merchant_search_handler.go` — scoped entity search API.
+- `backend/merchant-service/internal/domain/merchant_search_test.go` and
+  `internal/handler/merchant_search_handler_test.go` — search normalization
+  and authenticated handler contract tests.
 - `backend/merchant-service/internal/service/merchant_access_context_test.go` — capability mapping tests.
 - `merchant-web/src/lib/portal-context.ts` — context and staff-session bootstrap.
 - `merchant-web/src/lib/auth.ts` and `merchant-web/src/lib/api.ts` — scoped session storage and request headers.
@@ -110,6 +122,14 @@ Acceptance criteria remain unproven until role and browser E2E evidence exists:
 
     command: npm run lint
     result: PASS — 0 errors; 12 existing warnings remain.
+
+    command: npm run test:config
+    result: PASS — 5 configuration contract tests passed.
+
+    command: git push origin staging
+    result: PASS — commit fdafd7b1 is on origin/staging. Remote reported one
+    existing high Dependabot vulnerability on the repository default branch;
+    that warning is unrelated to this change and remains open.
 
 ## Task-Local Verification
 
