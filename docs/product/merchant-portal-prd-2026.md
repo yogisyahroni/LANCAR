@@ -19,6 +19,7 @@
 | Standar data | Server-authoritative dan end-to-end; UI, mock, screenshot, atau optimistic state tidak boleh menjadi sumber kebenaran |
 | Prioritas | P0 wajib sebelum public production; P1 setelah P0 release gate; P2 untuk scale dan ecosystem maturity |
 | Status persetujuan | Belum dianggap production-ready sebelum Product, Engineering, Design, Security/Privacy, Finance/Legal, Data, dan Operations menyetujui DoD pada bagian 17 |
+| Standar peluncuran | Baseline capability mengikuti praktik global; peluncuran awal Indonesia-first dengan Bahasa Indonesia, IDR, WIB, kebijakan pajak/legal/payout lokal, dan localization yang dapat diperluas |
 
 Dokumen ini sengaja dibuat sebagai acuan yang bisa langsung dipakai untuk
 permintaan berikutnya. Instruksi pengerjaan cukup menyebutkan `TASK-ID` dari
@@ -115,6 +116,12 @@ memberikan pengecualian baru:
    Jika di masa depan diperlukan tampilan konteks merchant dari portal, akses
    itu harus berupa token singkat, case-scoped, read-only, dan tidak boleh
    menjadi impersonasi umum.
+9. **Global baseline, Indonesia-first.** Tenant isolation, least privilege,
+   auditability, accessibility, reliability, financial traceability, dan recovery
+   mengikuti baseline yang dapat digunakan lintas negara. Rilis pertama memakai
+   Bahasa Indonesia, IDR, WIB, serta policy pajak, invoice, payout, dan legal
+   Indonesia; variasi market berikutnya wajib masuk melalui konfigurasi dan
+   contract, bukan hardcode baru di halaman.
 
 ## 4. Goals dan success outcomes
 
