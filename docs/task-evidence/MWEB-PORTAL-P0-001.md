@@ -21,12 +21,12 @@ task_scope_external_proof_required: false
 external_runtime_validation: NOT_RUN
 
 release_readiness: NOT_RUN
-release_followups: "Complete remaining full shell route/deep-link permutations and staging smoke after deployment."
+release_followups: "Complete staging smoke after deployment."
 
-unproven_requirements: "Full shell route/deep-link parity and staging release proof remain unproven. The generic durable audit recorder and route-wrapping contract are proven for the registered merchant API surface; business-level semantic action mapping and deployed staging behavior remain release follow-ups. The merchant-to-Admin Support case intake, Admin case detail, timeline, status transition, and responsive Support Console surface are proven locally through API and browser evidence."
+unproven_requirements: "Staging release proof remains unproven. The generic durable audit recorder and route-wrapping contract are proven for the registered merchant API surface; deployed staging behavior remains a release follow-up. The merchant-to-Admin Support case intake, Admin case detail, timeline, status transition, and responsive Support Console surface are proven locally through API and browser evidence."
 known_blockers: NONE
 
-locally_actionable_remaining: "Complete full shell route/deep-link browser permutations and staging smoke."
+locally_actionable_remaining: "Complete authenticated staging smoke after deployment."
 
 blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing, the order-service merchant_session boundary for notifications, shared support-case auth/CSRF handling, duplicate device-session bootstrap, cross-tab logout delivery, capability-unsafe report loading, structured error rendering, inactive outlet switching, and durable merchant mutation audit persistence; rebuilt Docker admin-service and merchant-service; executed owner/staff authenticated API flows, merchant-to-support intake, Admin case list/detail/status transition, tenant tamper, session rotation/logout, device-session revoke, browser role matrix, multi-tab logout, degraded network recovery state, outlet switching, and success/failure audit-log checks."
 unblock_condition: NONE
@@ -288,6 +288,12 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
     command: authenticated local API E2E against Docker gateway
     result: PASS for owner and cashier staff paths: merchant login/exchange, HttpOnly merchant cookie, server-owned context, role/capability filtering, cross-tenant branch rejection (403), device-session create/revoke, refresh rotation, customer-session isolation (401), logout invalidation (401), and entity search.
 
+    command: authenticated object-scope mutation probe against local Docker gateway
+    result: PASS — manager attempted to PATCH a menu ID belonging to another
+    merchant; the server returned generic `400 menu item tidak ditemukan` and
+    the database name remained unchanged. The response did not reveal the
+    other tenant's ownership and no write occurred.
+
     command: Playwright browser E2E against local Vite + Docker gateway
     result: PASS for owner login UI exchange, dashboard/deep-link navigation, 390px responsive viewport, no credential-like localStorage keys, and expired-session redirect. Local harness injected the production-domain session cookie at the route boundary because localhost cannot store Domain=.bawain.my.id; this is local browser proof, not staging proof.
 
@@ -300,6 +306,20 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
     200, rendered the shell, had no horizontal overflow, had no page/console
     errors, had no API failures, and showed exactly the navigation labels
     projected by server capabilities.
+
+    command: Playwright authenticated protected-route deep-link smoke against local Vite + Docker gateway
+    result: PASS — all 9 protected routes (`/dashboard`, `/pesanan`, `/menu`,
+    `/promo`, `/laporan`, `/settlement`, `/staff`, `/integrasi`, and
+    `/pengaturan`) opened directly at 390px, preserved their URL, rendered the
+    shell, had no horizontal overflow, and produced no console, page, or API
+    failures.
+
+    command: release Docker build with HTTPS API args plus node ../scripts/e2e/merchant-web-docker-smoke.mjs http://127.0.0.1:4174
+    result: PASS — ephemeral `MERCHANT_BUILD_ENV=staging` image validated
+    `https://api.bawain.my.id/api/v1`, served the SPA fallback routes, emitted
+    required security headers, and passed bundle/runtime URL smoke; temporary
+    image and container were removed afterward. This is local release-image
+    proof, not authenticated staging deployment proof.
 
     command: ADMIN_BASE_URL=http://localhost:3084 npx playwright test e2e/reflow.spec.ts --project=chromium --grep '/cases' (admin-dashboard)
     result: PASS — Support Console `/cases` passed at 320px and 640px plus the
@@ -327,7 +347,7 @@ Evidence: Docker gateway → auth/admin → merchant-service/order-service → P
 
 Status: PARTIAL
 
-Evidence: Authenticated API E2E was run against local Docker for owner and staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, credential storage boundary, expired-session redirect, owner/manager/cashier/kitchen/finance capability matrix, all 15 role/viewport dashboard permutations (390px, 768px, 1440px), exactly-once staff device-session bootstrap, multi-tab logout propagation, degraded network recovery state, revoked device-session recovery, random branch tamper rejection, owner route smoke, kitchen capability-denied routes, outlet switching, and the live Admin Support Console case detail/status flow. Admin Support Console reflow/text-spacing coverage passed at 320px and 640px. Full registered merchant shell route/deep-link permutations and staging proof remain required.
+Evidence: Authenticated API E2E was run against local Docker for owner and staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, credential storage boundary, expired-session redirect, owner/manager/cashier/kitchen/finance capability matrix, all 15 role/viewport dashboard permutations (390px, 768px, 1440px), all 9 protected-route deep links at 390px, exactly-once staff device-session bootstrap, multi-tab logout propagation, degraded network recovery state, revoked device-session recovery, random branch tamper rejection, owner route smoke, kitchen capability-denied routes, outlet switching, and the live Admin Support Console case detail/status flow. Admin Support Console reflow/text-spacing coverage passed at 320px and 640px. Only staging proof remains required for this task.
 
 ### Migration
 
@@ -344,8 +364,9 @@ Evidence: Durable merchant mutation audit records were verified in the local
 failure. The generic route middleware records authenticated POST/PUT/PATCH/
 DELETE outcomes without request bodies, and resolves tenant/outlet/object scope
 server-side. The merchant route inventory contract confirms all registered
-`/api/v1/merchant/*` routes use the audit wrapper. Dedicated portal metrics and
-business-level semantic action mapping remain unverified.
+`/api/v1/merchant/*` routes use the audit wrapper, and the representative
+cross-tenant object probe returned a generic not-found response without a
+write. Dedicated portal metrics remain unverified.
 
 ### Security / Privacy
 
