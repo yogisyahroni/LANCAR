@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: HEAD (merchant-portal shell capability and resilience follow-up)
+implementation_ref: HEAD (merchant-portal shell, notification, and support intake boundary)
 
 tests: PASS
 integration: PASS
@@ -21,14 +21,14 @@ task_scope_external_proof_required: false
 external_runtime_validation: NOT_RUN
 
 release_readiness: NOT_RUN
-release_followups: "Run authenticated browser E2E, complete all required role/capability permutations, and staging smoke after deployment."
+release_followups: "Complete remaining shell role/deep-link/responsive permutations, durable audit coverage for every sensitive shell action, and staging smoke after deployment."
 
-unproven_requirements: "Full shell parity, the case-scoped support workflow inside Admin Support Console, durable audit coverage for every sensitive shell action, authenticated browser/deep-link/responsive proof for every required role, and staging release proof remain unproven."
+unproven_requirements: "Full shell parity, durable audit coverage for every sensitive shell action, authenticated browser/deep-link/responsive proof for every required role, and staging release proof remain unproven. The merchant-to-Admin Support case intake, Admin case detail, timeline, and status transition are proven locally through API and browser evidence."
 known_blockers: NONE
 
-locally_actionable_remaining: "Complete the case-scoped read-only support workflow in Admin Support Console and browser E2E for manager, kitchen, finance, and support boundary; then cover multi-tab, reconnect, every sensitive shell action, and staging smoke."
+locally_actionable_remaining: "Cover browser E2E for manager, kitchen, finance, and support boundary; then cover multi-tab, reconnect, every sensitive audit, and staging smoke."
 
-blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing and the order-service merchant_session boundary for notifications; rebuilt Docker services; executed owner/staff authenticated API flows, tenant tamper, session rotation/logout, device-session revoke, browser role matrix, and structured audit-log checks."
+blocker_resolution_attempts: "Reproduced and repaired merchant portal login routing, the order-service merchant_session boundary for notifications, and shared support-case auth/CSRF handling; rebuilt Docker admin-service; executed owner/staff authenticated API flows, merchant-to-support intake, Admin case list/detail/status transition, tenant tamper, session rotation/logout, device-session revoke, browser role matrix, and structured audit-log checks."
 unblock_condition: NONE
 
 owner_action_required: false
@@ -81,6 +81,9 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
 - Added service-level role matrix coverage for owner perusahaan, owner
   perorangan, manager, cashier, kitchen, marketing, and finance permissions.
 - Added an authenticated notification center backed by the existing order-service inbox and read endpoint.
+- Fixed shared support-case intake so a database-backed `merchant_session` can
+  create a case without being misclassified as a customer session; Admin
+  Support Console retains its separate admin-session and role boundary.
 - Added a server-scoped outlet switcher. The selected branch is kept in
   session storage, sent as a branch scope header, and cannot expand the branch
   set returned by the server. Staff device sessions are reopened for the new
@@ -119,6 +122,9 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
   and authenticated handler contract tests.
 - `backend/merchant-service/internal/service/merchant_access_context_test.go` — capability mapping tests.
 - `backend/admin-service/src/controllers/customerAuth.controller.test.ts` — negative merchant-session exchange coverage for Admin/support roles.
+- `backend/admin-service/src/middlewares.ts` — shared support intake accepts and validates merchant web sessions without weakening customer-only session checks.
+- `backend/admin-service/src/middleware/csrfProtection.ts` — merchant web sessions participate in the shared cookie-CSRF protection boundary.
+- `backend/admin-service/src/supportCasesContract.test.ts` — support route contract covers merchant-session and CSRF wiring.
 - `backend/order-service/internal/middleware/auth_middleware.go` — accept the database-backed `merchant_session` cookie for order-owned portal routes.
 - `backend/order-service/internal/middleware/auth_middleware_test.go` — regression coverage for valid and invalid merchant portal sessions.
 - `merchant-web/src/lib/portal-context.ts` — context and staff-session bootstrap.
@@ -185,8 +191,20 @@ Acceptance criteria remain partially unproven until all role and browser E2E evi
     command: docker compose up -d --build order-service
     result: PASS — order-service image rebuilt and container recreated successfully.
 
+    command: npm test -- --runInBand src/supportCasesContract.test.ts && npm run build (backend/admin-service)
+    result: PASS — support route contract 2/2 tests passed and TypeScript build completed after merchant-session support intake fix.
+
+    command: docker compose up -d --build admin-service
+    result: PASS — admin-service image rebuilt and container recreated successfully.
+
     command: local authenticated API E2E for merchant notification inbox
     result: PASS — merchant login 200, web-session exchange 200, and GET /api/v1/notifications?limit=8 returned 200 with database-backed inbox data.
+
+    command: local authenticated API E2E for merchant support intake and Admin Support Console
+    result: PASS — merchant login/exchange 200, POST /api/v1/support/cases 200, Admin list 200 containing the created case, Admin status transition 200, detail 200, and append-only event count increased to 2.
+
+    command: Playwright browser E2E against live local Admin Support Console and Docker gateway
+    result: PASS — `/cases` loaded with authenticated admin session, a database-backed case opened in the detail dialog, Timeline and Authoritative references were visible, and the manual status gate changed to `pending_internal` through a successful PATCH.
 
     command: npm run test:auth-matrix && npm run test:compliance-boundary (backend/api-gateway)
     result: PASS — route auth matrix and compliance boundary tests passed.
@@ -222,7 +240,7 @@ Evidence: Docker gateway → auth/admin → merchant-service/order-service → P
 
 Status: PARTIAL
 
-Evidence: Authenticated API E2E was run against local Docker for owner and cashier staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, 390px responsive layout, credential storage boundary, expired-session redirect, and the owner/manager/cashier/kitchen/finance capability matrix. The shell now has an explicit connection-loss state, but browser coverage for outlet switching, multi-tab, reconnect, expired device sessions, and the support console workflow remains required.
+Evidence: Authenticated API E2E was run against local Docker for owner and cashier staff. Playwright browser E2E passed for owner login UI, dashboard/deep link, 390px responsive layout, credential storage boundary, expired-session redirect, owner/manager/cashier/kitchen/finance capability matrix, and the live Admin Support Console case detail/status flow. The shell now has an explicit connection-loss state, but browser coverage for outlet switching, multi-tab, reconnect, expired device sessions, and all required support/admin role permutations remains required.
 
 ### Migration
 
@@ -240,7 +258,7 @@ Evidence: Structured merchant-service audit records were observed for device-ses
 
 Status: PARTIAL
 
-Evidence: Merchant and branch scope are derived server-side; owner and cashier staff role/capability checks passed; configured Admin/support roles are rejected before merchant-session creation; cross-tenant branch header tampering returned 403; customer portal rejected the merchant cookie with 401; refresh/logout invalidation passed. Full object-ID matrix, support case workflow, and all browser role permutations remain.
+Evidence: Merchant and branch scope are derived server-side; owner and cashier staff role/capability checks passed; configured Admin/support roles are rejected before merchant-session creation; merchant support intake validates the dedicated merchant session and cookie-CSRF boundary; cross-tenant branch header tampering returned 403; customer portal rejected the merchant cookie with 401; refresh/logout invalidation passed. Full object-ID matrix and all browser role permutations remain.
 
 ### Rollback / Recovery
 

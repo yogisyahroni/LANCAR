@@ -146,17 +146,25 @@ export const requireMobileOrWebAuth = async (req: Request, res: Response, next: 
     }
   }
 
-  // 3. Check for Web Customer Session cookie
+  // 3. Check for Merchant Portal session cookie. Support intake is shared by
+  // customer, merchant, and courier clients, but merchant sessions must still
+  // be validated against the merchant role boundary rather than falling
+  // through to the customer-only verifier.
+  if (req.cookies?.merchant_session) {
+    return verifyMerchantWebSession(req, res, next);
+  }
+
+  // 4. Check for Web Customer Session cookie
   if (req.cookies?.customer_session) {
     return verifyWebSession(req, res, next);
   }
 
-  // 4. Check for Web Admin Session cookie
+  // 5. Check for Web Admin Session cookie
   if (req.cookies?.admin_session) {
     return verifyAdminSession(req, res, next);
   }
 
-  // 5. Reject if no authentication mechanism provided
+  // 6. Reject if no authentication mechanism provided
   securityLog.warn('Blocked unauthenticated mobile or web request', requestLogMeta(req));
   res.status(401).json({ error: 'Unauthorized: Authentication required' });
 };

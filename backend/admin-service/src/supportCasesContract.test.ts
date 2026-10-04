@@ -27,11 +27,16 @@ describe('GLOB-2026-010 support cases contract', () => {
     const routes = read('./routes/support.routes.ts');
     const gateway = read('../../../backend/api-gateway/src/index.ts');
     const matrix = read('../../../backend/api-gateway/src/routeAuthMatrix.ts');
+    const middleware = read('./middlewares.ts');
+    const csrf = read('./middleware/csrfProtection.ts');
 
     expect(routes).toContain("'/api/v1/support/cases'");
     expect(routes).toContain("'/admin/support/cases'");
     expect(gateway).toContain("pathFilter: '/api/v1/support'");
     expect(matrix).toContain("id: 'support-case-api'");
     expect(matrix).toContain("requirement: 'web-session-or-jwt'");
+    expect(csrf).toContain("['admin_session', 'merchant_session', 'customer_session', 'web_session']");
+    expect(middleware).toContain("if (req.cookies?.merchant_session) {");
+    expect(middleware).toContain('return verifyMerchantWebSession(req, res, next);');
   });
 });

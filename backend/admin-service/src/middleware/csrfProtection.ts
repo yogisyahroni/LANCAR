@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { verifyInternalGatewayAuth } from '../internalAuth';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-const SESSION_COOKIE_NAMES = ['admin_session', 'customer_session', 'web_session'];
+const SESSION_COOKIE_NAMES = ['admin_session', 'merchant_session', 'customer_session', 'web_session'];
 export const CSRF_COOKIE_NAME = 'csrf_token';
 const CSRF_HEADER_NAMES = ['x-csrf-token', 'x-xsrf-token'];
 
