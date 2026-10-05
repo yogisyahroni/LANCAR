@@ -61,7 +61,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Merchant accept, ready, dan reject pada repository produksi sekarang memakai transition atomik berbasis row lock, server-side lifecycle guard, audit `order_events`, actor role, reason, event version, dan idempotency key stabil per order/action.
 - Endpoint `GET /api/v1/merchant/orders/{id}` ditambahkan dengan ownership/tenant check di database.
 - Detail order mengembalikan snapshot item, payment state/method, state version, courier assignment/status dengan nomor dimasking, ringkasan subtotal/biaya/promo/refund/net settlement, freshness timestamp, dan ordered transition timeline.
-- Merchant Web menampilkan panel timeline dan ringkasan pembayaran/refund dari endpoint authoritative; tidak menghitung ulang total atau status dari data UI.
+- Merchant Web menampilkan panel timeline dan ringkasan pembayaran/refund dari endpoint authoritative; tidak menghitung ulang total atau status dari data UI. Queue juga mencakup seluruh status assignment/pickup/delivery serta terminal failed/refund/dispute dari order-service.
 - Merchant Web kini mengambil katalog aktif dari database untuk memilih item pengganti dan mengirim proposal substitution melalui merchant-service ke internal order-service. Customer decision tetap authoritative di order-service; portal tidak menerima harga dari client.
 - Existing reject/refund item flow tetap dipakai dan tidak diganti dengan mock atau angka hardcode.
 - Resolusi substitution memakai migration `20261005000001`, row lock, guard `resolved = false`, dan unique pending-item index agar keputusan customer tidak dapat diproses dua kali.
@@ -83,6 +83,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - `backend/order-service/internal/domain/order_transition.go`, `internal/repository/postgres_order_transition_repository.go`, dan `internal/service/order_read.go` — policy fee/reject reason ikut ditulis dalam transaksi lifecycle canonical.
 - `backend/merchant-service/internal/service/substitution_service.go`, domain/handler/routes — authenticated portal proxy untuk proposal substitution.
 - `backend/order-service/cmd/api/main.go`, `backend/merchant-service/internal/domain/requests.go`, `backend/merchant-service/internal/handler/merchant_handler.go`, `backend/merchant-service/internal/service/substitution_service.go`, dan `merchant-web/src/pages/Orders.tsx` — HTTP idempotency untuk command substitution/item-unavailable serta forwarding key portal.
+- `merchant-web/src/pages/Orders.tsx` dan `merchant-web/src/components/StatusBadge.tsx` — queue dan label status courier/terminal diperluas agar tidak menghilangkan order yang sudah ditugaskan, gagal, refund, atau dispute.
 - `backend/merchant-service/internal/domain/merchant_service.go`, `internal/service/merchant_service.go`, `internal/handler/merchant_handler.go`, dan `cmd/api/main.go` — cancel capability, route, friendly error mapping, dan permission boundary.
 - `merchant-web/src/pages/Orders.tsx`, `merchant-web/src/components/OrderCard.tsx`, `merchant-web/src/components/StatusBadge.tsx` — aksi pembatalan dengan alasan wajib, idempotency key, dan canonical `cancelled` tab.
 - `TASKS.md`, `task-merchant-web-growth-p0-p2-2026.md` — record owner-approved feature-first sequencing and active work.

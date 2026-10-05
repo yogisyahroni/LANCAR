@@ -12,9 +12,9 @@ import { subscribeToMerchantOrderEvents } from '../lib/realtime'
 const TABS = [
   { key: 'baru', label: 'Baru', statuses: ['pending_merchant', 'scheduled'] },
   { key: 'preparing', label: 'Diproses', statuses: ['preparing'] },
-  { key: 'siap', label: 'Siap / Kurir', statuses: ['searching', 'accepted', 'picking_up', 'picked_up', 'delivering'] },
+  { key: 'siap', label: 'Siap / Kurir', statuses: ['pending_assignment', 'searching', 'assigned', 'accepted', 'pickup_arrived', 'picking_up', 'picked_up', 'inbound_origin', 'outbound_origin', 'inbound_destination', 'outbound_destination', 'delivering'] },
   { key: 'selesai', label: 'Selesai', statuses: ['delivered'] },
-  { key: 'batal', label: 'Batal', statuses: ['cancelled', 'cancelled_by_merchant', 'cancelled_by_customer', 'cancelled_by_system'] },
+  { key: 'masalah', label: 'Batal / Refund', statuses: ['cancelled', 'cancelled_by_merchant', 'cancelled_by_customer', 'cancelled_by_system', 'failed', 'failed_delivery', 'return_to_sender', 'no_courier_found', 'refunded', 'partially_refunded', 'disputed'] },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
