@@ -39,7 +39,7 @@ verification_after_unblock: NONE
 dependency_chain_blocked: false
 next_eligible_task: NONE
 
-updated_at: 2026-10-04
+updated_at: 2026-10-05
 ---
 
 # Evidence — MWEB-PORTAL-P0-002
@@ -241,7 +241,11 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 
     command: adb install -r <courier-debug.apk>; adb install -r <customer-debug.apk>; adb install -r <merchant-debug.apk>; adb shell am start -n <package>/<explicit-launcher>
     tool: Android SDK emulator `Pixel_7_merchant`, device `emulator-5554`
-    result: PASS for launch sanity — all three debug APKs installed successfully. Merchant `SplashActivity` transitioned to `MainActivity` and rendered the dashboard; Customer `MainActivity` became the focused activity; after stopping the other two apps to release emulator resources, Courier `MainActivity` rendered its login screen. A generic launcher invocation opened the debug-only LeakCanary screen, not the merchant app; explicit activity launch was used for the actual app result. This proves install/launch sanity only, not authenticated order or reconnect behavior.
+    result: PASS for launch sanity — all three debug APKs installed successfully. Merchant `SplashActivity` transitioned to `MainActivity` and rendered the dashboard; Customer `MainActivity` became the focused activity and rendered the customer home after onboarding was skipped; after stopping the other two apps to release emulator resources, Courier `MainActivity` rendered its login screen. A generic launcher invocation opened the debug-only LeakCanary screen, not the merchant app; explicit activity launch was used for the actual app result. This proves install/launch sanity only, not authenticated order or reconnect behavior.
+
+    command: courier UAT login through the explicit `com.tembus.courier/.ui.MainActivity` activity, followed by UI dump inspection
+    tool: Android SDK emulator `Pixel_7_merchant`, device `emulator-5554`
+    result: PASS for authenticated courier dashboard sanity — the staging update prompt was deferred, then the courier dashboard rendered `OFFLINE`, courier identity, earnings, completed-order count, GPS state, order radar, service cards, and the work-mode control. The attempt to enable work mode did not produce an active-state transition, so no availability transition is claimed from this run. Credentials were loaded in-memory from the local UAT secret store and are not recorded here.
 
     command: API health and dashboard unauthenticated checks against https://api.bawain.my.id plus browser harness against https://merchant.bawain.my.id
     result: PARTIAL — portal returned HTTP 200, API health returned HTTP 200, and unauthenticated dashboard returned HTTP 401. The authenticated staging harness stopped at document upload with HTTP 429 `ERR_RATE_LIMITED`; no staging order/state mutation was claimed.
@@ -264,7 +268,7 @@ Evidence: Docker services connected to the shared PostgreSQL instance and the sc
 
 Status: PASS
 
-Evidence: The HTTPS disposable harness completed registration → document upload → Admin reject/resubmit/approve → ACTIVE status → authenticated `GET /merchant/dashboard` → suspend → SUSPENDED status. Sanitized dashboard proof: `data_as_of_present=true`, `merchant_scope_matches=true`, `scope_level=merchant_aggregate`, `order_fields_present=true`, `auto_accept_present=true`, `alert_count=1`. The local Playwright/Chrome harness additionally completed Admin approval → canonical open state → Customer discovery present → Admin detail open → canonical closed state → Customer discovery absent → Admin detail closed → Merchant Web owner login → dashboard render → disposable manager/cashier/kitchen/finance login and branch/device context resolution → manager operating-state mutation → non-manager server-side rejection → external operating-state mutation → Socket.IO-triggered dashboard refetch with `page_errors=[]` and `dashboard_refetch_count=5`; it also proved optimistic rollback after a forced 503, successful retry, and concurrent-toggle idempotency with version/event delta `1/1`. Outlet-scoped sales/finance API attribution passed against local PostgreSQL. Merchant, Customer, and Courier explicit Android activities were installed/launched on `emulator-5554`; no authenticated Android order flow was claimed. The staging retry stopped at HTTP 429 `ERR_RATE_LIMITED` during document upload, so no staging E2E result is claimed.
+Evidence: The HTTPS disposable harness completed registration → document upload → Admin reject/resubmit/approve → ACTIVE status → authenticated `GET /merchant/dashboard` → suspend → SUSPENDED status. Sanitized dashboard proof: `data_as_of_present=true`, `merchant_scope_matches=true`, `scope_level=merchant_aggregate`, `order_fields_present=true`, `auto_accept_present=true`, `alert_count=1`. The local Playwright/Chrome harness additionally completed Admin approval → canonical open state → Customer discovery present → Admin detail open → canonical closed state → Customer discovery absent → Admin detail closed → Merchant Web owner login → dashboard render → disposable manager/cashier/kitchen/finance login and branch/device context resolution → manager operating-state mutation → non-manager server-side rejection → external operating-state mutation → Socket.IO-triggered dashboard refetch with `page_errors=[]` and `dashboard_refetch_count=5`; it also proved optimistic rollback after a forced 503, successful retry, and concurrent-toggle idempotency with version/event delta `1/1`. Outlet-scoped sales/finance API attribution passed against local PostgreSQL. Merchant, Customer, and Courier explicit Android activities were installed/launched on `emulator-5554`; Courier authenticated dashboard sanity was also exercised, but no authenticated Android order flow or reconnect/replay proof was claimed. The staging retry stopped at HTTP 429 `ERR_RATE_LIMITED` during document upload, so no staging E2E result is claimed.
 
 ### Migration
 
