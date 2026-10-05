@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Loader2, LockKeyhole, LogOut, MonitorSmartphone, PauseCircle, PlayCircle, RefreshCw, Save } from 'lucide-react'
+import { Bell, Loader2, LockKeyhole, LogOut, MonitorSmartphone, PauseCircle, PlayCircle, RefreshCw, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
 import { clearSession, publishWebAuthEvent } from '../lib/auth'
@@ -17,6 +17,14 @@ type WebSession = {
   location?: string
   timestamp: string
   is_current: boolean
+}
+
+type MerchantNotificationPreferences = {
+  new_order_alerts: boolean
+  order_cancellations: boolean
+  daily_summary_reports: boolean
+  promotional_updates: boolean
+  updated_at?: string
 }
 
 const sessionDeviceLabel = (session: WebSession) => {
@@ -46,6 +54,12 @@ export default function Settings() {
   const [sessions, setSessions] = useState<WebSession[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(true)
   const [revokingSessions, setRevokingSessions] = useState(false)
+  const [notificationPreferences, setNotificationPreferences] = useState<MerchantNotificationPreferences | null>(null)
+  const [notificationsLoading, setNotificationsLoading] = useState(true)
+  const [savingNotifications, setSavingNotifications] = useState(false)
+  const [browserNotificationPermission, setBrowserNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() => (
+    typeof window !== 'undefined' && 'Notification' in window ? window.Notification.permission : 'unsupported'
+  ))
 
   const loadSessions = useCallback(async () => {
     setSessionsLoading(true)
@@ -62,6 +76,21 @@ export default function Settings() {
     }
   }, [])
 
+  const loadNotificationPreferences = useCallback(async () => {
+    setNotificationsLoading(true)
+    try {
+      const response = await api.get<{ data?: MerchantNotificationPreferences } | MerchantNotificationPreferences>('/notifications/preferences')
+      const payload = (response.data && 'data' in response.data ? response.data.data : response.data) as MerchantNotificationPreferences | undefined
+      if (!payload) throw new Error('Preferensi notifikasi belum tersedia')
+      setNotificationPreferences(payload)
+    } catch (err) {
+      setNotificationPreferences(null)
+      toast.error(apiErrorMessage(err, 'Preferensi notifikasi belum dapat dimuat'))
+    } finally {
+      setNotificationsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     loadMerchantPortalContext()
       .then((context) => {
@@ -74,7 +103,8 @@ export default function Settings() {
       .catch((err) => toast.error(apiErrorMessage(err, 'Gagal memuat profil')))
       .finally(() => setLoading(false))
     void loadSessions()
-  }, [loadSessions])
+    void loadNotificationPreferences()
+  }, [loadNotificationPreferences, loadSessions])
 
   const revokeOtherSessions = async () => {
     if (!sessions.some((session) => !session.is_current)) return
@@ -115,6 +145,33 @@ export default function Settings() {
     } finally {
       setSavingMinOrder(false)
     }
+  }
+
+  const saveNotificationPreferences = async () => {
+    if (!notificationPreferences) return
+    setSavingNotifications(true)
+    try {
+      const response = await api.patch<{ data?: MerchantNotificationPreferences } | MerchantNotificationPreferences>('/notifications/preferences', notificationPreferences)
+      const payload = (response.data && 'data' in response.data ? response.data.data : response.data) as MerchantNotificationPreferences | undefined
+      if (payload) setNotificationPreferences(payload)
+      toast.success('Preferensi notifikasi disimpan')
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Preferensi notifikasi belum dapat disimpan'))
+    } finally {
+      setSavingNotifications(false)
+    }
+  }
+
+  const requestBrowserNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      setBrowserNotificationPermission('unsupported')
+      toast.error('Browser ini belum mendukung notifikasi desktop')
+      return
+    }
+    const permission = await window.Notification.requestPermission()
+    setBrowserNotificationPermission(permission)
+    if (permission === 'granted') toast.success('Notifikasi desktop diizinkan untuk portal ini')
+    else if (permission === 'denied') toast.error('Notifikasi desktop diblokir di browser ini')
   }
 
   const togglePause = useCallback(async () => {
@@ -260,6 +317,59 @@ export default function Settings() {
                 </button>
               )}
             </>
+          )}
+        </div>
+
+        <div className="rounded-xl bg-zinc-50 px-4 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-900/10 text-emerald-900">
+                <Bell className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-zinc-800">Notifikasi operasional</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">Atur pembaruan yang dikirim ke akun ini. Perubahan disimpan ke server dan berlaku lintas perangkat.</p>
+              </div>
+            </div>
+            {notificationPreferences?.updated_at && <span className="text-[11px] text-zinc-400">Diperbarui {new Date(notificationPreferences.updated_at).toLocaleString('id-ID')}</span>}
+          </div>
+
+          {notificationsLoading ? (
+            <div className="mt-4 flex items-center gap-2 text-xs text-zinc-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat preferensi notifikasi…</div>
+          ) : notificationPreferences ? (
+            <>
+              <div className="mt-4 grid gap-2 md:grid-cols-2">
+                {([
+                  ['new_order_alerts', 'Pesanan baru', 'Beritahu saat ada pesanan baru yang perlu ditangani.'],
+                  ['order_cancellations', 'Pembatalan pesanan', 'Beritahu saat pesanan dibatalkan atau berubah status penting.'],
+                  ['daily_summary_reports', 'Ringkasan harian', 'Kirim ringkasan operasional dan penjualan toko.'],
+                  ['promotional_updates', 'Info promosi', 'Terima informasi program dan promosi TEMBUS.'],
+                ] as const).map(([key, title, description]) => (
+                  <label key={key} className="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-zinc-200 bg-white px-3 py-3 transition hover:border-emerald-900/30">
+                    <span>
+                      <span className="block text-sm font-bold text-zinc-800">{title}</span>
+                      <span className="mt-0.5 block text-xs leading-relaxed text-zinc-500">{description}</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={notificationPreferences[key]}
+                      onChange={(event) => setNotificationPreferences((current) => current ? { ...current, [key]: event.target.checked } : current)}
+                      className="mt-1 h-5 w-5 shrink-0 accent-emerald-900"
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <button type="button" onClick={() => void requestBrowserNotificationPermission()} className="rounded-xl border border-emerald-900/20 px-4 py-2.5 text-sm font-bold text-emerald-900 transition hover:bg-emerald-50">
+                  {browserNotificationPermission === 'granted' ? 'Notifikasi desktop aktif' : browserNotificationPermission === 'denied' ? 'Notifikasi desktop diblokir' : 'Izinkan notifikasi desktop'}
+                </button>
+                <button type="button" onClick={() => void saveNotificationPreferences()} disabled={savingNotifications} className="inline-flex items-center gap-2 rounded-xl bg-[#003A20] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-950 disabled:opacity-60">
+                  {savingNotifications ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Simpan notifikasi
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="mt-4 rounded-lg border border-dashed border-zinc-200 px-3 py-3 text-xs text-zinc-500">Preferensi notifikasi belum tersedia. Muat ulang halaman untuk mencoba lagi.</p>
           )}
         </div>
 
