@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import {
+  applyProviderCallback,
   buildPayoutProviderPayload,
   dispatchApprovedPayouts,
   dispatchToProvider,
@@ -118,6 +119,41 @@ describe('payoutProviderDispatcher', () => {
     expect(verifyProviderWebhookSignature(raw, `sha256=${signature}`, secret)).toBe(true);
     expect(verifyProviderWebhookSignature(raw, signature.slice(2), secret)).toBe(false);
     expect(verifyProviderWebhookSignature(raw, undefined, secret)).toBe(false);
+  });
+
+  it('reverses the courier ledger exactly once when a provider callback fails', async () => {
+    const queries: string[] = [];
+    const client = {
+      query: jest.fn(async (sql: string) => {
+        queries.push(sql);
+        if (sql.includes('SELECT d.*, pr.status AS request_status')) {
+          return {
+            rows: [{
+              id: 'dispatch-1',
+              payout_request_id: 'payout-1',
+              provider_name: 'xendit',
+              provider_reference: 'xnd-1',
+              request_status: 'processing',
+              amount_idr: 100000,
+              courier_id: 'courier-1',
+            }],
+          };
+        }
+        if (sql.includes('SELECT 1') && sql.includes("transaction_type = 'payout_failed'")) return { rows: [] };
+        return { rows: [] };
+      }),
+    };
+
+    await expect(applyProviderCallback(client as any, {
+      providerName: 'xendit',
+      providerReference: 'xnd-1',
+      providerStatus: 'failed',
+      response: { status: 'FAILED', reference_id: 'xnd-1' },
+      failureReason: 'bank rejected',
+    })).resolves.toMatchObject({ payoutRequestId: 'payout-1', status: 'failed' });
+
+    expect(queries.some((sql) => sql.includes('INSERT INTO courier_earnings_ledger'))).toBe(true);
+    expect(queries.filter((sql) => sql.includes("transaction_type = 'payout_failed'"))).toHaveLength(1);
   });
 
   it('does not dispatch when emergency kill switch is active', async () => {

@@ -157,7 +157,7 @@ updated_at: 2026-10-05
     result: PASS — applied 20261005000014_payout_provider_unknown_recovery.sql.
 
     command: npm test -- --runInBand src/services/payoutReconciliation.test.ts src/services/payoutProviderDispatcher.test.ts
-    result: PASS — 2 suites, 9 tests; provider UNKNOWN, missing payout reversal, and vault-boundary resolution are covered.
+    result: PASS — 2 suites, 10 tests; provider UNKNOWN, missing payout reversal, vault-boundary resolution, and one-time payout-failure ledger reversal are covered.
 
     command: go test ./internal/... && go build ./cmd/api (backend/integration-gateway)
     result: PASS — provider interface, Xendit adapter, query boundary, and existing gateway packages compiled and passed.
