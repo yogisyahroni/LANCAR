@@ -6,6 +6,7 @@ const {
 } = require('../dist/routeAuthMatrix');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.ts'), 'utf8');
+const csrfSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'middleware', 'csrf.ts'), 'utf8');
 
 const assertPolicy = (method, route, requirement, id) => {
   const policy = resolveGatewayRoutePolicy(method, route);
@@ -36,5 +37,7 @@ assert(source.includes("app.use('/api/v1/payments/xendit', providerWebhookLimite
 assert(source.includes("app.use('/api/v1/maps', publicMapsLimiter, publicMapsAbuseGuard);"));
 assert(source.includes('publicPricingLimiter,\n  jsonParser,\n  publicPricingAbuseGuard'));
 assert(source.includes("max: Number(process.env.PROVIDER_WEBHOOK_RATE_LIMIT_PER_MINUTE || 600)"));
+assert(csrfSource.includes("const CSRF_COOKIE_NAMES = ['csrf_token', 'tembus_admin_csrf'] as const"));
+assert(csrfSource.includes('CSRF_COOKIE_NAMES.some((name) => c.startsWith(`${name}=`))'));
 
 console.log('edge security contract tests passed');

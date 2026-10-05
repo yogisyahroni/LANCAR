@@ -3,7 +3,9 @@
  * S-AD-01 FIX: Backend CSRF verification middleware for admin routes.
  *
  * Implements the Double Submit Cookie verification:
- *  1. Read CSRF token from the `tembus_admin_csrf` cookie.
+ *  1. Read CSRF token from the canonical `csrf_token` cookie. The legacy
+ *     `tembus_admin_csrf` cookie remains accepted for older admin-dashboard
+ *     clients during the cookie migration.
  *  2. Read CSRF token from the `X-CSRF-Token` request header.
  *  3. Reject if either is missing or if they do not match (timing-safe comparison).
  *
@@ -18,7 +20,7 @@
 import { timingSafeEqual } from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 
-const CSRF_COOKIE_NAME = 'tembus_admin_csrf';
+const CSRF_COOKIE_NAMES = ['csrf_token', 'tembus_admin_csrf'] as const;
 const CSRF_HEADER_NAME = 'x-csrf-token'; // Express normalizes headers to lowercase
 
 /** HTTP methods that do NOT mutate state — CSRF check is skipped. */
@@ -33,9 +35,11 @@ const parseCsrfFromCookie = (cookieHeader: string | undefined): string | null =>
   const match = cookieHeader
     .split(';')
     .map((c) => c.trim())
-    .find((c) => c.startsWith(`${CSRF_COOKIE_NAME}=`));
+    .find((c) => CSRF_COOKIE_NAMES.some((name) => c.startsWith(`${name}=`)));
   if (!match) return null;
-  const raw = match.slice(CSRF_COOKIE_NAME.length + 1);
+  const cookieName = CSRF_COOKIE_NAMES.find((name) => match.startsWith(`${name}=`));
+  if (!cookieName) return null;
+  const raw = match.slice(cookieName.length + 1);
   try {
     return decodeURIComponent(raw) || null;
   } catch {

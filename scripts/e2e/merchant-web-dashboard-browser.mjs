@@ -91,10 +91,16 @@ try {
     headers: { 'X-Portal': 'merchant' },
   }), 'merchant web session exchange')
 
+  const merchantSessionState = await customerApi.storageState()
+  const merchantCsrfToken = merchantSessionState.cookies.find((cookie) => cookie.name === 'csrf_token')?.value
+  if (!merchantCsrfToken) throw new Error('Merchant web session did not issue a csrf_token cookie.')
+  const merchantMutationHeaders = { 'X-CSRF-Token': merchantCsrfToken }
+
   const documentBuffer = fs.readFileSync(documentPath)
   const documents = {}
   for (const docType of ['ktp_pemilik', 'foto_tempat_usaha', 'rekening_bank', 'nib']) {
     const upload = await json(await customerApi.post('auth/merchant/documents/upload', {
+      headers: merchantMutationHeaders,
       multipart: {
         file: { name: `browser-${docType}.png`, mimeType: 'image/png', buffer: documentBuffer },
         doc_type: docType,
@@ -104,6 +110,7 @@ try {
   }
 
   const merchant = await json(await customerApi.post('merchant/register', {
+    headers: merchantMutationHeaders,
     data: {
       nama_toko: 'Merchant Browser E2E',
       alamat: 'Jl. Uji Browser No. 1, Jakarta Selatan',
@@ -129,7 +136,7 @@ try {
     headers: { 'X-Portal': 'admin' },
   }), 'admin login')
   const adminState = await adminApi.storageState()
-  const csrfCookie = adminState.cookies.find((cookie) => cookie.name === 'tembus_admin_csrf')
+  const csrfCookie = adminState.cookies.find((cookie) => cookie.name === 'csrf_token')
   const csrfToken = csrfCookie?.value || crypto.randomUUID().replaceAll('-', '')
   if (!csrfCookie) {
     const apiHost = new URL(apiBaseUrl).hostname
@@ -148,7 +155,7 @@ try {
       storageState: {
         cookies: [
           ...normalizedCookies,
-          { name: 'tembus_admin_csrf', value: csrfToken, domain: apiHost, path: '/', expires: -1, httpOnly: false, secure: false, sameSite: 'Lax' },
+          { name: 'csrf_token', value: csrfToken, domain: apiHost, path: '/', expires: -1, httpOnly: false, secure: false, sameSite: 'Lax' },
         ],
         origins: [],
       },
@@ -207,6 +214,7 @@ try {
   }
 
   await json(await customerApi.post('merchant/toggle-open', {
+    headers: merchantMutationHeaders,
     data: { is_open: true },
   }), 'merchant open for cross-app probe')
 
@@ -243,6 +251,7 @@ try {
     throw new Error('Admin projection did not observe the canonical open merchant state.')
   }
   await json(await customerApi.post('merchant/toggle-open', {
+    headers: merchantMutationHeaders,
     data: { is_open: false },
   }), 'merchant close for cross-app probe')
   const closedDiscovery = await json(await customerDiscoveryApi.get('food/merchants?lat=-6.2615&lng=106.8106&search=Merchant%20Browser%20E2E'), 'customer discovery while closed')
