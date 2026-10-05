@@ -1126,7 +1126,7 @@ export const handleCourierPayoutProviderWebhook = async (req: Request, res: Resp
     return;
   }
 
-  if (!eventId || !providerReference || !['processing', 'paid', 'failed'].includes(providerStatus)) {
+  if (!eventId || !providerReference || !['processing', 'unknown', 'paid', 'failed'].includes(providerStatus)) {
     await insertWebhookAuditEvent(db, req, {
       providerName,
       providerEventId: eventId || null,

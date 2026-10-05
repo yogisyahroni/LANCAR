@@ -11,7 +11,7 @@ type PoolLike = {
   connect: () => Promise<Queryable & { release: () => void }>;
 };
 
-export type ProviderStatus = 'processing' | 'paid' | 'failed';
+export type ProviderStatus = 'processing' | 'unknown' | 'paid' | 'failed';
 
 export type PayoutProviderPayload = {
   payout_request_id: string;
@@ -33,6 +33,12 @@ export type PayoutProviderPayload = {
 export type ProviderDispatchResult = {
   providerName: string;
   providerReference: string;
+  providerStatus: ProviderStatus;
+  response: Record<string, unknown>;
+  failureReason?: string | null;
+};
+
+export type ProviderQueryResult = {
   providerStatus: ProviderStatus;
   response: Record<string, unknown>;
   failureReason?: string | null;
@@ -122,6 +128,29 @@ export const dispatchToProvider = async (
       accepted_at: new Date().toISOString(),
       idempotency_key_hash: sha256Hex(idempotencyKey),
       amount_idr: payload.amount_idr,
+    },
+  };
+};
+
+/**
+ * Query an ambiguous provider result without creating a second payout.
+ * Real adapters can replace this stub boundary; the persisted UNKNOWN state
+ * remains the source of truth until a query or webhook resolves it.
+ */
+export const queryProviderStatus = async (
+  providerName: string,
+  providerReference: string,
+): Promise<ProviderQueryResult> => {
+  if (providerName !== 'stub') {
+    throw new Error(`Unsupported payout provider: ${providerName}`);
+  }
+  return {
+    providerStatus: 'processing',
+    response: {
+      provider: providerName,
+      reference: providerReference,
+      status: 'processing',
+      polled_at: new Date().toISOString(),
     },
   };
 };
@@ -455,6 +484,65 @@ export const dispatchApprovedPayouts = async (pool: PoolLike = db, req?: Request
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
     payoutStructuredLog('error', 'payout_dispatch_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+export const pollUnknownPayouts = async (pool: PoolLike = db, req?: Request) => {
+  const client = await pool.connect();
+  const results: Array<{ payoutRequestId: string; status: ProviderStatus; providerReference: string }> = [];
+  const skipped: Array<{ payoutRequestId?: string; reason: string }> = [];
+
+  try {
+    const batchSize = await configInt(client, 'payout_provider_poll_batch_size', 25);
+    await client.query('BEGIN');
+    const candidates = await client.query(
+      `SELECT d.provider_name, d.provider_reference, d.payout_request_id
+       FROM courier_payout_dispatches d
+       WHERE d.provider_status = 'unknown'
+         AND d.provider_reference IS NOT NULL
+       ORDER BY d.updated_at ASC
+       LIMIT $1
+       FOR UPDATE SKIP LOCKED`,
+      [batchSize],
+    );
+
+    for (const dispatch of candidates.rows) {
+      try {
+        const providerResult = await queryProviderStatus(dispatch.provider_name, dispatch.provider_reference);
+        const result = await applyProviderCallback(client, {
+          providerName: dispatch.provider_name,
+          providerReference: dispatch.provider_reference,
+          providerStatus: providerResult.providerStatus,
+          response: providerResult.response,
+          failureReason: providerResult.failureReason,
+          req,
+        });
+        results.push({
+          payoutRequestId: result.payoutRequestId,
+          status: result.status,
+          providerReference: dispatch.provider_reference,
+        });
+      } catch (error) {
+        skipped.push({ payoutRequestId: dispatch.payout_request_id, reason: error instanceof Error ? error.message : String(error) });
+        payoutStructuredLog('warn', 'payout_provider_poll_failed', {
+          payout_request_id: dispatch.payout_request_id,
+          provider_name: dispatch.provider_name,
+          provider_reference: dispatch.provider_reference,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    await client.query('COMMIT');
+    return { processed: results.length, skipped, results };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    payoutStructuredLog('error', 'payout_provider_poll_failed', {
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;

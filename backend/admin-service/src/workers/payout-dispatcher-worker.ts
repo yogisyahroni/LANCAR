@@ -1,4 +1,4 @@
-import { dispatchApprovedPayouts } from '../services/payoutProviderDispatcher';
+import { dispatchApprovedPayouts, pollUnknownPayouts } from '../services/payoutProviderDispatcher';
 import { payoutStructuredLog } from '../utils/payoutObservability';
 
 let started = false;
@@ -20,8 +20,9 @@ export const startPayoutDispatcherWorker = () => {
     running = true;
     try {
       const result = await dispatchApprovedPayouts();
-      if (result.processed > 0) {
-        payoutStructuredLog('info', 'payout_dispatcher_worker_processed', result);
+      const recovery = await pollUnknownPayouts();
+      if (result.processed > 0 || recovery.processed > 0 || recovery.skipped.length > 0) {
+        payoutStructuredLog('info', 'payout_dispatcher_worker_processed', { dispatch: result, recovery });
       }
     } catch (error) {
       payoutStructuredLog('error', 'payout_dispatcher_worker_error', {
