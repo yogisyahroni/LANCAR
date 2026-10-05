@@ -160,6 +160,22 @@ export interface MenuListResponse {
   page_size: number
 }
 
+export interface MerchantSubstitutionProposal {
+  id: string
+  order_id: string
+  original_menu_item_id: string
+  original_item_name: string
+  replacement_menu_item_id: string
+  replacement_item_name: string
+  original_price_idr: number
+  replacement_price_idr: number
+  price_difference_idr: number
+  reason?: string
+  proposed_at: string
+  customer_decision: string
+  customer_decided_at?: string | null
+}
+
 export interface MenuItemVariantOption {
   id: string
   variant_id: string

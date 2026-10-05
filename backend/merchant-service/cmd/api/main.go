@@ -270,6 +270,7 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/reject", withAudit(h.RejectOrder))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/struk", withAudit(h.GetStruk))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/items/unavailable", withAudit(h.PartialRejectOrder))
+	mux.HandleFunc("/api/v1/merchant/orders/{id}/substitution", withAudit(h.ProposeFoodSubstitution))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/items", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			h.GetOrderEdit(w, r)

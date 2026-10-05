@@ -224,6 +224,30 @@ type PartialRejectOrderRequest struct {
 	Reason string                     `json:"reason,omitempty"`
 }
 
+// ProposeMerchantSubstitutionRequest — merchant mengusulkan menu pengganti
+// melalui portal. Harga dan nama item tetap dihitung oleh order-service.
+type ProposeMerchantSubstitutionRequest struct {
+	OriginalMenuItemID    string `json:"original_menu_item_id"`
+	ReplacementMenuItemID string `json:"replacement_menu_item_id"`
+	Reason                string `json:"reason,omitempty"`
+}
+
+type MerchantSubstitutionProposal struct {
+	ID                    string  `json:"id"`
+	OrderID               string  `json:"order_id"`
+	OriginalMenuItemID    string  `json:"original_menu_item_id"`
+	OriginalItemName      string  `json:"original_item_name"`
+	ReplacementMenuItemID string  `json:"replacement_menu_item_id"`
+	ReplacementItemName   string  `json:"replacement_item_name"`
+	OriginalPriceIDR      int64   `json:"original_price_idr"`
+	ReplacementPriceIDR   int64   `json:"replacement_price_idr"`
+	PriceDifferenceIDR    int64   `json:"price_difference_idr"`
+	Reason                string  `json:"reason,omitempty"`
+	ProposedAt            string  `json:"proposed_at"`
+	CustomerDecision      string  `json:"customer_decision"`
+	CustomerDecidedAt     *string `json:"customer_decided_at,omitempty"`
+}
+
 // CreateMerchantPromoRequest — body buat promo merchant (FB-099).
 // discount_type: percent | fixed | buy1get1. max_discount_idr hanya
 // relevan untuk percent (cap diskon). Harga tidak boleh negatif/nol.

@@ -62,6 +62,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Endpoint `GET /api/v1/merchant/orders/{id}` ditambahkan dengan ownership/tenant check di database.
 - Detail order mengembalikan snapshot item, payment state/method, state version, courier assignment/status dengan nomor dimasking, ringkasan subtotal/biaya/promo/refund/net settlement, freshness timestamp, dan ordered transition timeline.
 - Merchant Web menampilkan panel timeline dan ringkasan pembayaran/refund dari endpoint authoritative; tidak menghitung ulang total atau status dari data UI.
+- Merchant Web kini mengambil katalog aktif dari database untuk memilih item pengganti dan mengirim proposal substitution melalui merchant-service ke internal order-service. Customer decision tetap authoritative di order-service; portal tidak menerima harga dari client.
 - Existing reject/refund item flow tetap dipakai dan tidak diganti dengan mock atau angka hardcode.
 
 ## Files Changed
@@ -72,6 +73,8 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - `backend/merchant-service/internal/service/merchant_service.go` — route merchant actions through atomic transition capability with compatibility fallback.
 - `backend/merchant-service/internal/handler/merchant_handler.go` and `backend/merchant-service/cmd/api/main.go` — authenticated detail route.
 - `merchant-web/src/lib/types.ts`, `merchant-web/src/pages/Orders.tsx`, `merchant-web/src/components/OrderCard.tsx` — detail/timeline UI wired to API.
+- `backend/order-service/internal/handler/food_substitution_handler.go` dan `backend/order-service/cmd/api/main.go` — internal service boundary untuk proposal merchant dengan API key dan merchant identity.
+- `backend/merchant-service/internal/service/substitution_service.go`, domain/handler/routes — authenticated portal proxy untuk proposal substitution.
 - `TASKS.md`, `task-merchant-web-growth-p0-p2-2026.md` — record owner-approved feature-first sequencing and active work.
 
 ## Commands / Checks Run
@@ -83,6 +86,15 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     result: PASS
 
     command: VITE_API_URL=http://127.0.0.1:8080/api/v1 VITE_WEB_ORIGIN=http://127.0.0.1:3086 npm run build (working directory merchant-web)
+    result: PASS
+
+    command: go test ./... (working directory backend/order-service)
+    result: PASS
+
+    command: go test ./... (working directory backend/merchant-service)
+    result: PASS
+
+    command: VITE_API_URL=http://127.0.0.1:8080/api/v1 VITE_WEB_ORIGIN=http://127.0.0.1:3086 npm run build (working directory merchant-web, after substitution UI wiring)
     result: PASS
 
 ## Task-Local Verification
@@ -97,7 +109,7 @@ Evidence: Merchant service package tests passed after the transition/detail impl
 
 Status: NOT_RUN
 
-Evidence: Docker service rebuild and live database request against the new detail route are deferred until the feature-first implementation batch is complete.
+Evidence: Docker service rebuild and live database request against the new detail/substitution routes are deferred until the feature-first implementation batch is complete.
 
 ### E2E
 
@@ -126,6 +138,7 @@ Evidence: Deferred with the owner-approved verification queue; no recovery resul
 ## Deferred Verification Queue
 
 - Customer creates food order → payment authorization → database → Merchant Web notification/detail.
+- Merchant Web loads active menu from database → proposes substitution through merchant-service → order-service validates merchant ownership and server price → customer decision.
 - Merchant accept/reject/prepare/ready → Courier assignment/pickup/delivery → Customer confirmation.
 - Timeout, duplicate click, refresh, multi-tab, reconnect, replayed/out-of-order event, worker restart, item unavailable, substitution approval/rejection, cancel, refund, partial refund, dispute, and failed states.
 - Staging Docker rebuild/migration/runtime smoke, Android physical/emulator flows, security/accessibility/observability, rollback/recovery, and production release gate.

@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
 import OrderCard from '../components/OrderCard'
 import { MerchantPageSkeleton } from '../components/Skeleton'
-import type { MerchantOrder, MerchantOrderDetail, MerchantStruk, OrderListResponse } from '../lib/types'
+import type { MenuItem, MerchantOrder, MerchantOrderDetail, MerchantStruk, OrderListResponse } from '../lib/types'
 import { rupiah } from '../lib/types'
 
 const TABS = [
@@ -26,6 +26,7 @@ export default function Orders() {
   const [orders, setOrders] = useState<MerchantOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([])
 
   const load = useCallback(async (showSpinner = false) => {
     if (showSpinner) setRefreshing(true)
@@ -45,6 +46,12 @@ export default function Orders() {
     const t = setInterval(() => load(), 15000)
     return () => clearInterval(t)
   }, [load])
+
+  useEffect(() => {
+    api.get<{ items?: MenuItem[] }>('/merchant/menu?page=1&page_size=100')
+      .then((res) => setMenuItems(res.data?.items || []))
+      .catch(() => setMenuItems([]))
+  }, [])
 
   const filtered = useMemo(() => {
     const t = TABS.find((x) => x.key === tab)
@@ -116,6 +123,20 @@ export default function Orders() {
     return res.data
   }
 
+  const proposeSubstitution = async (id: string, originalMenuItemId: string, replacementMenuItemId: string, reason: string) => {
+    try {
+      await api.post(`/merchant/orders/${id}/substitution`, {
+        original_menu_item_id: originalMenuItemId,
+        replacement_menu_item_id: replacementMenuItemId,
+        reason,
+      })
+      toast.success('Usulan pengganti dikirim — menunggu persetujuan pelanggan')
+      await load()
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Gagal mengirim usulan pengganti'))
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -155,7 +176,7 @@ export default function Orders() {
       ) : (
         <div className="space-y-4">
             {filtered.map((o) => (
-            <OrderCard key={o.id} order={o} onAccept={acceptOrder} onReject={rejectOrder} onReady={readyOrder} onPrint={printOrder} onPartialReject={partialRejectOrder} onLoadDetail={loadOrderDetail} />
+            <OrderCard key={o.id} order={o} menuItems={menuItems} onAccept={acceptOrder} onReject={rejectOrder} onReady={readyOrder} onPrint={printOrder} onPartialReject={partialRejectOrder} onProposeSubstitution={proposeSubstitution} onLoadDetail={loadOrderDetail} />
           ))}
         </div>
       )}

@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/middleware"
 )
@@ -89,6 +91,47 @@ func (h *OrderHandler) ProposeFoodSubstitution(w http.ResponseWriter, r *http.Re
 		}
 	}
 	proposal, err := h.orderSvc.ProposeFoodSubstitution(r.Context(), merchantID, orderID, *req)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusConflict)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(proposal)
+}
+
+// ProposeFoodSubstitutionInternal exposes the same domain operation to the
+// merchant-service portal. The merchant identity is supplied only over the
+// authenticated service boundary; the order service remains authoritative for
+// ownership, status, menu ownership, pricing, and duplicate pending proposals.
+func (h *OrderHandler) ProposeFoodSubstitutionInternal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !middleware.RequireInternalAPIKey(r, os.Getenv("INTERNAL_API_KEY"), r.Header.Get("X-Internal-Api-Key"), "food.substitution.internal") {
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Internal access required", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	merchantID := strings.TrimSpace(r.Header.Get("X-Merchant-ID"))
+	if merchantID == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_MERCHANT", "Merchant identity wajib dikirim", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	orderID := strings.TrimSpace(r.PathValue("order_id"))
+	if orderID == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_ID", "order_id wajib dikirim", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	var req domain.ProposeFoodSubstitutionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid request body", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	if err := ValidateProposeFoodSubstitution(&req); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", err.Error(), middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	proposal, err := h.orderSvc.ProposeFoodSubstitution(r.Context(), merchantID, orderID, req)
 	if err != nil {
 		userSafeError(w, r, err, http.StatusConflict)
 		return

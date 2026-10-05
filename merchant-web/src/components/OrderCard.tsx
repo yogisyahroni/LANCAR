@@ -2,23 +2,29 @@ import { useState } from 'react'
 import { Check, ChevronDown, ChevronUp, Clock3, FileText, MapPin, Phone, Utensils } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import { REJECT_REASONS, rupiah } from '../lib/types'
-import type { MerchantOrder, MerchantOrderDetail } from '../lib/types'
+import type { MenuItem, MerchantOrder, MerchantOrderDetail } from '../lib/types'
 
-export default function OrderCard({ order, onAccept, onReject, onReady, onPrint, onPartialReject, onLoadDetail }: {
+export default function OrderCard({ order, menuItems, onAccept, onReject, onReady, onPrint, onPartialReject, onProposeSubstitution, onLoadDetail }: {
   order: MerchantOrder
+  menuItems: MenuItem[]
   onAccept: (id: string) => Promise<void>
   onReject: (id: string, reason: string, detail: string) => Promise<void>
   onReady: (id: string) => Promise<void>
   onPrint: (id: string) => Promise<void>
   onPartialReject: (id: string, items: { menu_item_id: string; quantity: number; reason: string }[], reason: string) => Promise<void>
+  onProposeSubstitution: (id: string, originalMenuItemId: string, replacementMenuItemId: string, reason: string) => Promise<void>
   onLoadDetail: (id: string) => Promise<MerchantOrderDetail>
 }) {
   const [expanded, setExpanded] = useState(order.status === 'pending_merchant')
   const [busy, setBusy] = useState(false)
   const [showReject, setShowReject] = useState(false)
   const [showPartialReject, setShowPartialReject] = useState(false)
+  const [showSubstitution, setShowSubstitution] = useState(false)
   const [partialItemIds, setPartialItemIds] = useState<Set<string>>(new Set())
   const [partialReason, setPartialReason] = useState('Stok menu habis')
+  const [originalSubstitutionItem, setOriginalSubstitutionItem] = useState(order.items[0]?.menu_item_id || '')
+  const [replacementSubstitutionItem, setReplacementSubstitutionItem] = useState('')
+  const [substitutionReason, setSubstitutionReason] = useState('Item tidak tersedia')
   const [reason, setReason] = useState<string>('stok_habis')
   const [detail, setDetail] = useState('')
   const [serverDetail, setServerDetail] = useState<MerchantOrderDetail | null>(null)
@@ -126,6 +132,11 @@ export default function OrderCard({ order, onAccept, onReject, onReady, onPrint,
                 ) : null}
               </>
             )}
+            {order.status === 'preparing' && order.items.some((item) => item.menu_item_id) && (
+              <button disabled={busy} onClick={() => setShowSubstitution(true)} className="rounded-xl border border-emerald-200 px-5 py-2.5 text-sm font-bold text-emerald-800 transition hover:bg-emerald-50 disabled:opacity-60">
+                Ajukan pengganti
+              </button>
+            )}
             {order.status === 'preparing' && !order.food_ready_at && (
               <button
                 disabled={busy}
@@ -201,6 +212,33 @@ export default function OrderCard({ order, onAccept, onReject, onReady, onPrint,
                   Konfirmasi refund item
                 </button>
                 <button onClick={() => setShowPartialReject(false)} className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-bold text-zinc-600">Batal</button>
+              </div>
+            </div>
+          )}
+
+          {showSubstitution && order.status === 'preparing' && (
+            <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+              <p className="text-sm font-bold text-emerald-900">Usulkan item pengganti</p>
+              <p className="mt-1 text-xs text-emerald-800">Harga dihitung server dan pelanggan harus menyetujui sebelum item berubah.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <select value={originalSubstitutionItem} onChange={(event) => setOriginalSubstitutionItem(event.target.value)} className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-400" aria-label="Item yang tidak tersedia">
+                  {order.items.filter((item) => item.menu_item_id).map((item) => <option key={item.menu_item_id} value={item.menu_item_id}>{item.item_name}</option>)}
+                </select>
+                <select value={replacementSubstitutionItem} onChange={(event) => setReplacementSubstitutionItem(event.target.value)} className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-400" aria-label="Item pengganti">
+                  <option value="">Pilih menu pengganti</option>
+                  {menuItems.filter((item) => item.is_available && item.id !== originalSubstitutionItem).map((item) => <option key={item.id} value={item.id}>{item.nama} · {rupiah(item.harga)}</option>)}
+                </select>
+              </div>
+              <input value={substitutionReason} onChange={(event) => setSubstitutionReason(event.target.value)} className="mt-2 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-emerald-400" aria-label="Alasan pengganti" />
+              <div className="mt-3 flex gap-2">
+                <button
+                  disabled={busy || !originalSubstitutionItem || !replacementSubstitutionItem || !substitutionReason.trim()}
+                  onClick={() => act(async () => { await onProposeSubstitution(order.id, originalSubstitutionItem, replacementSubstitutionItem, substitutionReason.trim()); setShowSubstitution(false); setReplacementSubstitutionItem('') })}
+                  className="rounded-lg bg-[#003A20] px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-950 disabled:opacity-60"
+                >
+                  Kirim usulan
+                </button>
+                <button onClick={() => setShowSubstitution(false)} className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-bold text-zinc-600">Batal</button>
               </div>
             </div>
           )}

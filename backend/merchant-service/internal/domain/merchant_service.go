@@ -218,4 +218,7 @@ type MerchantService interface {
 	EditOrderItems(ctx context.Context, userID, orderID string, req EditOrderItemsRequest) (*EditOrderResult, error)
 	// PartialRejectOrder membuat satu refund item tanpa membatalkan seluruh order.
 	PartialRejectOrder(ctx context.Context, userID, orderID string, req PartialRejectOrderRequest) (*PartialRejectResult, error)
+	// ProposeFoodSubstitution meneruskan proposal ke order-service yang menjadi
+	// pemilik canonical substitution state dan perhitungan harga.
+	ProposeFoodSubstitution(ctx context.Context, userID, orderID string, req ProposeMerchantSubstitutionRequest) (*MerchantSubstitutionProposal, error)
 }

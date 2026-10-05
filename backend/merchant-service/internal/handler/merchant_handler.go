@@ -75,7 +75,7 @@ func merchantPermissionForRequest(r *http.Request) int {
 		return domain.PermManageMenu
 	}
 	if strings.Contains(path, "/orders") {
-		if strings.HasSuffix(path, "/accept") || strings.HasSuffix(path, "/reject") || strings.HasSuffix(path, "/items/unavailable") || strings.HasSuffix(path, "/items") {
+		if strings.HasSuffix(path, "/accept") || strings.HasSuffix(path, "/reject") || strings.HasSuffix(path, "/items/unavailable") || strings.HasSuffix(path, "/substitution") || strings.HasSuffix(path, "/items") {
 			return domain.PermAcceptOrder
 		}
 		if strings.HasSuffix(path, "/ready") {
@@ -1600,6 +1600,43 @@ func (h *MerchantHandler) PartialRejectOrder(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	h.respondJSON(w, http.StatusOK, result)
+}
+
+// ProposeFoodSubstitution godoc
+// @Summary Usulkan item pengganti untuk pesanan food
+// @Description Proposal dihitung dan disimpan oleh order-service; customer wajib memberi keputusan.
+// @Tags merchant
+// @Accept json
+// @Produce json
+// @Param id path string true "Order ID"
+// @Param request body domain.ProposeMerchantSubstitutionRequest true "Item asli dan pengganti"
+// @Success 200 {object} domain.MerchantSubstitutionProposal
+// @Router /merchant/orders/{id}/substitution [post]
+func (h *MerchantHandler) ProposeFoodSubstitution(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	orderID := strings.TrimSpace(r.PathValue("id"))
+	if orderID == "" {
+		h.respondError(w, http.StatusBadRequest, "order id wajib diisi")
+		return
+	}
+	var req domain.ProposeMerchantSubstitutionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	proposal, err := h.svc.ProposeFoodSubstitution(r.Context(), userID, orderID, req)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, proposal)
 }
 
 func parsePagination(r *http.Request) (int, int) {

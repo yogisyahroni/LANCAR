@@ -598,6 +598,7 @@ func main() {
 	// FOOD-2026-007: item unavailable + substitution flow
 	mux.HandleFunc("/api/v1/food/orders/{order_id}/item-unavailable", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ReportFoodItemUnavailable)))
 	mux.HandleFunc("/api/v1/food/orders/{order_id}/substitution", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ProposeFoodSubstitution)))
+	mux.HandleFunc("/api/v1/internal/food/orders/{order_id}/substitution", middleware.BaseChain(orderHandler.ProposeFoodSubstitutionInternal))
 	mux.HandleFunc("/api/v1/food/orders/{order_id}/substitutions", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetPendingSubstitutionProposals)))
 	mux.HandleFunc("/api/v1/food/substitutions/{proposal_id}/decision", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.DecideFoodSubstitution)))
 
