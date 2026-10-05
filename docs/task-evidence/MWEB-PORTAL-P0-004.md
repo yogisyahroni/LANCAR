@@ -50,6 +50,7 @@ updated_at: 2026-10-05
 - Customer detail dan discovery preview membaca publikasi terbaru; availability, stok, jadwal, dan enforcement tetap dibaca dari state live untuk mencegah order sold-out.
 - Migration `20261005000002` dan repair backfill `20261005000003` membuat serta mengisi snapshot publikasi pada database Docker.
 - Admin memiliki queue moderasi katalog (`GET /admin/catalog/moderation`) dan review decision (`PATCH /admin/catalog/moderation/:id`). Decision wajib melalui role + TOTP + idempotency, mengunci row pending dengan `FOR UPDATE`, mengubah status secara server-authoritative, dan menulis actor/reason/version ke audit log.
+- Editor menu Merchant Web sekarang menyediakan upload foto langsung. Storage memvalidasi magic bytes, ukuran 2 MB, dimensi maksimum 4096×4096, pixel budget 16 MP, dan menolak EICAR security-test signature; file publik dikirim dengan `nosniff` dan restrictive CSP.
 
 ## Verification
 
@@ -58,6 +59,9 @@ updated_at: 2026-10-05
 
     command: go test ./... (working directory backend/merchant-service)
     result: PASS
+
+    command: go test ./internal/service ./internal/handler ./internal/domain (working directory backend/merchant-service)
+    result: PASS — upload dimension, WebP header, security-signature, handler, and catalog service tests passed.
 
     command: go test ./... (working directory backend/order-service)
     result: PASS
@@ -83,6 +87,12 @@ updated_at: 2026-10-05
     command: docker compose up -d --build --no-deps admin-service admin-dashboard
     result: PASS — admin-service and admin-dashboard rebuilt; admin-service healthy and dashboard returned HTTP 200.
 
+    command: docker compose up -d --build --no-deps merchant-service merchant-web
+    result: PASS — upload policy and Merchant Web editor image were rebuilt; merchant health returned HTTP 200 and web returned HTTP 200.
+
+    command: POST http://localhost:8080/api/v1/merchant/menu/upload without credentials
+    result: PASS — gateway returned HTTP 401; photo upload is not public.
+
     command: GET http://localhost:8080/api/v1/admin/catalog/moderation without credentials
     result: PASS — gateway returned HTTP 401; admin catalog queue is not publicly readable.
 
@@ -95,7 +105,7 @@ updated_at: 2026-10-05
 
 Status: PASS
 
-Evidence: Merchant/order package tests, Admin moderation contract test, Admin Service TypeScript build, Merchant Web production build, and Admin Dashboard production bundle passed.
+Evidence: Merchant/order package tests, menu upload policy tests, Admin moderation contract test, Admin Service TypeScript build, Merchant Web production build, and Admin Dashboard production bundle passed.
 
 ### Integration
 
@@ -125,7 +135,7 @@ Evidence: Structured request logs exist, but freshness/lag dashboards and alert 
 
 Status: PARTIAL
 
-Evidence: Publication and rollback require authenticated merchant ownership and idempotency; Admin moderation requires role, TOTP, idempotency, row lock, and audit actor/reason. Upload MIME/dimension/virus/CDN policy and full tenant/RBAC review remain unproven.
+Evidence: Publication and rollback require authenticated merchant ownership and idempotency; Admin moderation requires role, TOTP, idempotency, row lock, and audit actor/reason. Local upload magic-byte/dimension/pixel/security-signature policy is covered; production AV/CDN scan, image expiry/fallback, and full tenant/RBAC review remain unproven.
 
 ### Rollback / Recovery
 
@@ -162,7 +172,7 @@ Evidence: Release gate is intentionally deferred until the remaining portal capa
 
 ## Locally Actionable Remaining
 
-- Complete image security policy and multi-outlet catalog projection.
+- Complete production AV/CDN scan, image expiry/fallback, and multi-outlet catalog projection.
 - Add stale-cache/sold-out race and modifier contract coverage.
 - Run authenticated Admin → merchant catalog moderation → publish → customer projection proof after the feature batch is complete.
 

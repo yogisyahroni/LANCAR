@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Trash2, X } from 'lucide-react'
+import { ImagePlus, Loader2, Plus, Trash2, X } from 'lucide-react'
 import { api, apiErrorMessage } from '../lib/api'
 import { toast } from 'sonner'
 import type { MenuItem, MenuItemRequest, ReplaceVariantsRequest } from '../lib/types'
@@ -25,6 +25,7 @@ export default function MenuEditor({ item, onClose, onSaved }: {
   const [form, setForm] = useState(emptyForm)
   const [variants, setVariants] = useState<VariantDraft[]>([])
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [loadingVariants, setLoadingVariants] = useState(false)
 
   useEffect(() => {
@@ -101,6 +102,22 @@ export default function MenuEditor({ item, onClose, onSaved }: {
     }
   }
 
+  const uploadPhoto = async (file?: File) => {
+    if (!file) return
+    setUploading(true)
+    try {
+      const body = new FormData()
+      body.append('file', file)
+      const res = await api.post<{ url: string }>('/merchant/menu/upload', body, { headers: { 'Content-Type': 'multipart/form-data' } })
+      setForm((current) => ({ ...current, foto: res.data.url }))
+      toast.success('Foto menu berhasil diunggah dan lolos validasi keamanan')
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Foto menu gagal diunggah'))
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-6">
       <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[1.75rem] bg-white p-6 shadow-2xl sm:rounded-[1.75rem]">
@@ -130,10 +147,18 @@ export default function MenuEditor({ item, onClose, onSaved }: {
               <span className="text-sm font-bold text-zinc-700">Waktu siap (menit)</span>
               <input type="number" min={1} value={form.prep_time_minutes} onChange={(e) => setForm({ ...form, prep_time_minutes: e.target.value })} className="mt-1.5 w-full rounded-xl border border-zinc-200 px-4 py-3 outline-none focus:border-emerald-900" />
             </label>
-            <label className="block">
-              <span className="text-sm font-bold text-zinc-700">URL Foto</span>
-              <input value={form.foto} onChange={(e) => setForm({ ...form, foto: e.target.value })} placeholder="https://…jpg" className="mt-1.5 w-full rounded-xl border border-zinc-200 px-4 py-3 outline-none focus:border-emerald-900" />
-            </label>
+            <div className="block">
+              <span className="text-sm font-bold text-zinc-700">Foto menu</span>
+              <div className="mt-1.5 flex gap-2">
+                <input value={form.foto} onChange={(e) => setForm({ ...form, foto: e.target.value })} placeholder="https://…jpg atau unggah file" className="min-w-0 flex-1 rounded-xl border border-zinc-200 px-4 py-3 outline-none focus:border-emerald-900" />
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-emerald-900 px-3 py-3 text-xs font-black text-emerald-900 hover:bg-emerald-50">
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                  <span>{uploading ? 'Memeriksa…' : 'Unggah'}</span>
+                  <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} onChange={(e) => { void uploadPhoto(e.target.files?.[0]); e.currentTarget.value = '' }} className="sr-only" />
+                </label>
+              </div>
+              <span className="mt-1 block text-xs text-zinc-400">JPG, PNG, WebP · maksimal 2 MB · maksimal 4096×4096 px.</span>
+            </div>
           </div>
           <label className="flex cursor-pointer items-center justify-between rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3.5">
             <span>
