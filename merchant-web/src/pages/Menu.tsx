@@ -52,6 +52,7 @@ export default function Menu() {
   const [editing, setEditing] = useState<MenuItem | null>(null)
   const [showEditor, setShowEditor] = useState(false)
   const [bulkRows, setBulkRows] = useState<BulkMenuRow[]>([])
+  const [bulkCsv, setBulkCsv] = useState('')
   const [bulkError, setBulkError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
 
@@ -88,20 +89,26 @@ export default function Menu() {
     if (!file) return
     try {
       setBulkError(null)
-      setBulkRows(parseBulkMenuCsv(await file.text()))
+      const content = await file.text()
+      setBulkCsv(content)
+      setBulkRows(parseBulkMenuCsv(content))
     } catch (err) {
+      setBulkCsv('')
       setBulkRows([])
       setBulkError(err instanceof Error ? err.message : 'CSV tidak dapat dibaca')
     }
   }
 
   const importBulkMenu = async () => {
-    if (bulkRows.length === 0) return
+    if (bulkRows.length === 0 || !bulkCsv) return
     setImporting(true)
     try {
-      for (const row of bulkRows) await api.post('/merchant/menu', { ...row, is_available: true, foto: null })
-      toast.success(`${bulkRows.length} menu berhasil diimpor`)
+      const result = await api.post<{ rows?: number; created_count?: number }>('/merchant/menu/import', bulkCsv, {
+        headers: { 'Content-Type': 'text/csv', 'Idempotency-Key': crypto.randomUUID() },
+      })
+      toast.success(`${result.data?.created_count ?? bulkRows.length} menu berhasil diimpor dalam satu batch`)
       setBulkRows([])
+      setBulkCsv('')
       await load()
     } catch (err) {
       toast.error(apiErrorMessage(err, 'Import berhenti karena ada menu yang gagal disimpan'))
