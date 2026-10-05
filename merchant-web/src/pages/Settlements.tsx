@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle2, FileText, Landmark, RefreshCw, ShieldCheck, Wallet } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, FileText, Landmark, Pencil, RefreshCw, ShieldCheck, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
 import type { Merchant, MerchantFinanceStatement, MerchantPortalContext, SettlementSummary, WithdrawalRecord } from '../lib/types'
@@ -15,13 +15,22 @@ export default function Settlements() {
   const [loading, setLoading] = useState(true)
   const [amount, setAmount] = useState('')
   const [bank, setBank] = useState({ name: '', number: '', holder: '' })
+  const [accountDraft, setAccountDraft] = useState({ name: '', number: '', holder: '' })
   const [approvalId, setApprovalId] = useState('')
+  const [accountApprovalId, setAccountApprovalId] = useState('')
   const [approvalLoading, setApprovalLoading] = useState(false)
+  const [accountApprovalLoading, setAccountApprovalLoading] = useState(false)
+  const [accountSaving, setAccountSaving] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const load = async () => {
     const context: MerchantPortalContext = await loadMerchantPortalContext()
     setMerchant(context.merchant)
+    setAccountDraft({
+      name: context.merchant.bank_name || '',
+      number: context.merchant.bank_account_number || '',
+      holder: context.merchant.bank_account_holder || '',
+    })
     const [settlementResponse, withdrawalResponse, statementResponse] = await Promise.all([
       api.get<SettlementSummary>('/merchant/settlements'),
       api.get<WithdrawalRecord[]>('/merchant/withdrawals'),
@@ -57,6 +66,35 @@ export default function Settlements() {
     } catch (err) { toast.error(apiErrorMessage(err, 'Pencairan belum dapat diajukan')) } finally { setSaving(false) }
   }
 
+  const requestBankAccountApproval = async () => {
+    if (!merchant) return
+    setAccountApprovalLoading(true)
+    try {
+      const response = await api.post<{ data?: { id?: string; status?: string } }>(`/merchant/security-approvals/${merchant.id}`, { change_type: 'bank_account', idempotency_key: crypto.randomUUID() })
+      const id = response.data?.data?.id
+      if (id) setAccountApprovalId(id)
+      toast.success(id ? 'Permintaan perubahan rekening dibuat. Berikan ID ini ke Admin.' : 'Permintaan perubahan rekening dibuat')
+    } catch (err) { toast.error(apiErrorMessage(err, 'Persetujuan perubahan rekening belum dapat dibuat')) } finally { setAccountApprovalLoading(false) }
+  }
+
+  const updateBankAccount = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!accountApprovalId.trim()) return toast.error('ID persetujuan Admin wajib diisi')
+    setAccountSaving(true)
+    try {
+      await api.put('/merchant/bank-account', {
+        bank_name: accountDraft.name,
+        bank_account_number: accountDraft.number,
+        bank_account_holder: accountDraft.holder,
+        approval_id: accountApprovalId.trim(),
+        idempotency_key: crypto.randomUUID(),
+      })
+      toast.success('Perubahan rekening tersimpan dan menunggu verifikasi ulang')
+      setAccountApprovalId('')
+      await load()
+    } catch (err) { toast.error(apiErrorMessage(err, 'Perubahan rekening belum dapat disimpan')) } finally { setAccountSaving(false) }
+  }
+
   if (loading) return <MerchantPageSkeleton />
   return <div className="space-y-6">
     <div><h1 className="text-2xl font-black text-zinc-900">Keuangan dan pencairan</h1><p className="mt-1 text-sm text-zinc-500">Saldo dan riwayat pencairan diambil dari catatan transaksi server. Pencairan tidak dianggap berhasil sebelum status penyedia dan catatan keuangan berubah.</p></div>
@@ -67,6 +105,15 @@ export default function Settlements() {
         <span className={`rounded-full px-3 py-1 text-xs font-bold ${merchant?.bank_account_verified ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>{merchant?.bank_account_verified ? 'Terverifikasi' : 'Perlu verifikasi'}</span>
       </div>
       {merchant?.bank_name ? <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3"><div><p className="text-xs text-zinc-400">Bank</p><p className="mt-1 font-bold text-zinc-800">{merchant.bank_name}</p></div><div><p className="text-xs text-zinc-400">Nomor rekening</p><p className="mt-1 font-bold text-zinc-800">{maskAccount(merchant.bank_account_number)}</p></div><div><p className="text-xs text-zinc-400">Nama pemilik</p><p className="mt-1 font-bold text-zinc-800">{merchant.bank_account_holder || '—'}</p></div></div> : <p className="mt-4 rounded-xl border border-dashed border-zinc-200 px-4 py-3 text-sm text-zinc-500">Rekening pencairan belum tersimpan.</p>}
+      <form onSubmit={updateBankAccount} className="mt-5 grid gap-3 border-t border-zinc-100 pt-5 sm:grid-cols-2">
+        <div className="sm:col-span-2"><h3 className="flex items-center gap-2 text-sm font-black text-zinc-800"><Pencil className="h-4 w-4 text-emerald-800" /> Ubah rekening pencairan</h3><p className="mt-1 text-xs leading-relaxed text-zinc-500">Perubahan hanya dapat dilakukan pemilik usaha. Sesi keamanan, persetujuan Admin, dan verifikasi rekening akan dicek server.</p></div>
+        <label className="text-sm font-bold">Nama bank<input required value={accountDraft.name} onChange={(e) => setAccountDraft({ ...accountDraft, name: e.target.value })} className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-3 font-normal" /></label>
+        <label className="text-sm font-bold">Nomor rekening<input required value={accountDraft.number} onChange={(e) => setAccountDraft({ ...accountDraft, number: e.target.value.replace(/\D/g, '') })} inputMode="numeric" autoComplete="off" className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-3 font-normal" /></label>
+        <label className="text-sm font-bold sm:col-span-2">Nama pemilik rekening<input required value={accountDraft.holder} onChange={(e) => setAccountDraft({ ...accountDraft, holder: e.target.value })} className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-3 font-normal" /></label>
+        <button type="button" onClick={() => void requestBankAccountApproval()} disabled={accountApprovalLoading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900 disabled:opacity-60">{accountApprovalLoading ? 'Membuat permintaan…' : 'Minta persetujuan perubahan'}</button>
+        <label className="text-sm font-bold">ID persetujuan Admin<input required value={accountApprovalId} onChange={(e) => setAccountApprovalId(e.target.value)} placeholder="Tempel ID setelah disetujui" className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-3 font-normal" /></label>
+        <button disabled={accountSaving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#003A20] px-5 py-3 text-sm font-bold text-white disabled:opacity-60 sm:col-span-2"><Pencil className="h-4 w-4" />{accountSaving ? 'Menyimpan…' : 'Simpan rekening baru'}</button>
+      </form>
     </section>
     <section className="rounded-[1.75rem] border border-amber-200 bg-amber-50 p-5"><div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" /><div><h2 className="font-black text-amber-950">Pencairan dilindungi persetujuan</h2><p className="mt-1 text-sm leading-relaxed text-amber-900/80">Sesi 2FA dan persetujuan Admin diperlukan. Minta persetujuan, tunggu sampai disetujui, lalu masukkan ID persetujuan pada formulir.</p><button type="button" onClick={() => void requestApproval()} disabled={approvalLoading} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-xs font-bold text-amber-900 disabled:opacity-60">{approvalLoading ? 'Membuat permintaan…' : 'Minta persetujuan pencairan'}</button></div></div></section>
     <form onSubmit={withdraw} className="grid gap-4 rounded-[1.75rem] border border-zinc-100 bg-white p-6 shadow-sm md:grid-cols-2"><div className="md:col-span-2"><h2 className="font-black">Ajukan pencairan</h2><p className="mt-1 text-xs text-zinc-500">Nominal minimum Rp10.000 dan maksimum Rp50.000.000 per permintaan.</p></div><label className="text-sm font-bold">Nominal<input required type="number" min="10000" max="50000000" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Nominal IDR" className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-3 font-normal" /></label><label className="text-sm font-bold">Nama bank<input required value={bank.name} onChange={(e) => setBank({ ...bank, name: e.target.value })} className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-3 font-normal" /></label><label className="text-sm font-bold">Nomor rekening<input required value={bank.number} onChange={(e) => setBank({ ...bank, number: e.target.value.replace(/\D/g, '') })} inputMode="numeric" className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-3 font-normal" /></label><label className="text-sm font-bold">Nama pemilik rekening<input required value={bank.holder} onChange={(e) => setBank({ ...bank, holder: e.target.value })} className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-3 font-normal" /></label><label className="text-sm font-bold md:col-span-2">ID persetujuan Admin<input required value={approvalId} onChange={(e) => setApprovalId(e.target.value)} placeholder="Tempel ID setelah disetujui" className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-3 font-normal" /></label><button disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#003A20] px-5 py-3 font-bold text-white disabled:opacity-60 md:col-span-2"><Wallet className="h-4 w-4" />{saving ? 'Memproses…' : 'Ajukan pencairan'}</button></form>

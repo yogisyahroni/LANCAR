@@ -3,7 +3,7 @@ task_id: MWEB-PORTAL-P0-007
 status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
-implementation_ref: 1f239626
+implementation_ref: f22748fe
 tests: PASS
 integration: PARTIAL
 e2e: NOT_RUN
@@ -16,9 +16,9 @@ task_scope_external_proof_required: true
 external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Staging/UAT, payout-provider webhook, maker-checker console, export audit, and reconciliation recovery remain deferred."
-unproven_requirements: "Payout-account change UI with real step-up flow, independent approval console, provider webhook/polling UNKNOWN handling, mismatch queue actions, audited export, and full ledger-to-payout reconciliation E2E."
+unproven_requirements: "Independent approval console, provider webhook/polling UNKNOWN handling, mismatch queue actions, audited export, and full ledger-to-payout reconciliation E2E."
 known_blockers: NONE
-locally_actionable_remaining: "Implement and verify the remaining payout-account, provider UNKNOWN, mismatch action, and reconciliation workflows before release gate."
+locally_actionable_remaining: "Implement and verify the independent approval console, provider UNKNOWN, mismatch action, audited export, and reconciliation workflows before release gate."
 blocker_resolution_attempts: NONE
 unblock_condition: NONE
 owner_action_required: false
@@ -45,10 +45,11 @@ updated_at: 2026-10-05
 - Ringkasan rekening payout menampilkan bank, pemilik, status verifikasi, dan nomor hanya dalam bentuk empat digit terakhir.
 - Catatan transaksi menampilkan entry server-authoritative, nominal debit/kredit terpisah, serta peringatan pencocokan yang perlu ditinjau.
 - Permintaan payout tetap guarded oleh TOTP/step-up, approval Admin terpisah, rentang nominal, saldo tersedia, dan idempotency key.
+- Form perubahan rekening payout memakai endpoint server-authoritative yang sudah ada, meminta approval dengan `change_type=bank_account`, mengirim idempotency key, tidak menampilkan nomor rekening penuh, dan menunggu verifikasi ulang setelah perubahan.
 
 ## Files Changed
 
-- `merchant-web/src/pages/Settlements.tsx` — summary rekening masked, finance statement, dan reconciliation warning.
+- `merchant-web/src/pages/Settlements.tsx` — summary rekening masked, perubahan rekening guarded approval, finance statement, dan reconciliation warning.
 - `merchant-web/src/lib/types.ts` — tipe statement/discrepancy dan metadata rekening merchant.
 - `backend/merchant-service/internal/service/report_service.go` — settlement/withdrawal authority yang sudah ada dan dipakai UI.
 - `backend/merchant-service/internal/repository/postgres_report_repository.go` — statement/discrepancy persistence yang sudah ada.
@@ -64,7 +65,15 @@ updated_at: 2026-10-05
     command: go test ./... (backend/merchant-service)
     result: PASS — targeted merchant-service suite passed before this UI-only increment.
 
+    command: docker compose up -d --build merchant-service merchant-web
+    result: PASS — rebuilt and restarted local merchant-service and merchant-web images.
+
+    command: Invoke-WebRequest http://localhost:8085/health; Invoke-WebRequest http://localhost:3086/
+    result: PASS — merchant-service returned HTTP 200/healthy and merchant-web returned HTTP 200.
+
+    command: Invoke-WebRequest GET /api/v1/merchant/audit-logs?limit=5 and format=csv with sanitized merchant portal headers
+    result: PASS — JSON and CSV audit endpoints returned HTTP 200 with tenant-scoped empty data.
+
 ## Remaining Requirements
 
-Provider webhook/polling UNKNOWN, payout-account change UI with real step-up verification, independent maker-checker approval console, mismatch queue actions, audited export, and staging/cross-app reconciliation proof remain PARTIAL/NOT_RUN. This evidence does not claim production finance readiness.
-
+Provider webhook/polling UNKNOWN, independent maker-checker approval console, mismatch queue actions, audited export, and staging/cross-app reconciliation proof remain PARTIAL/NOT_RUN. The browser form is wired to the real step-up/approval-guarded endpoint, but its authenticated TOTP and Admin approval path remain unverified. This evidence does not claim production finance readiness.
