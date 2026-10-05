@@ -14,7 +14,7 @@ const TABS = [
   { key: 'preparing', label: 'Diproses', statuses: ['preparing'] },
   { key: 'siap', label: 'Siap / Kurir', statuses: ['searching', 'accepted', 'picking_up', 'picked_up', 'delivering'] },
   { key: 'selesai', label: 'Selesai', statuses: ['delivered'] },
-  { key: 'batal', label: 'Batal', statuses: ['cancelled_by_merchant', 'cancelled_by_customer', 'cancelled_by_system'] },
+  { key: 'batal', label: 'Batal', statuses: ['cancelled', 'cancelled_by_merchant', 'cancelled_by_customer', 'cancelled_by_system'] },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
@@ -96,6 +96,16 @@ export default function Orders() {
       await load()
     } catch (err) {
       toast.error(apiErrorMessage(err, 'Gagal menandai pesanan siap'))
+    }
+  }
+
+  const cancelOrder = async (id: string, reason: string) => {
+    try {
+      await api.post(`/merchant/orders/${id}/cancel`, { reason }, { headers: { 'Idempotency-Key': crypto.randomUUID() } })
+      toast.success('Pesanan dibatalkan dan proses pengembalian dana dimulai')
+      await load()
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Gagal membatalkan pesanan'))
     }
   }
 
@@ -191,7 +201,7 @@ export default function Orders() {
       ) : (
         <div className="space-y-4">
             {filtered.map((o) => (
-            <OrderCard key={o.id} order={o} menuItems={menuItems} onAccept={acceptOrder} onReject={rejectOrder} onReady={readyOrder} onPrint={printOrder} onPartialReject={partialRejectOrder} onProposeSubstitution={proposeSubstitution} onLoadDetail={loadOrderDetail} onReportIssue={reportOrderIssue} />
+            <OrderCard key={o.id} order={o} menuItems={menuItems} onAccept={acceptOrder} onReject={rejectOrder} onCancel={cancelOrder} onReady={readyOrder} onPrint={printOrder} onPartialReject={partialRejectOrder} onProposeSubstitution={proposeSubstitution} onLoadDetail={loadOrderDetail} onReportIssue={reportOrderIssue} />
           ))}
         </div>
       )}

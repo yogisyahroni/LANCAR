@@ -2048,6 +2048,68 @@ func (s *merchantServiceImpl) RejectOrder(ctx context.Context, userID string, or
 	return nil
 }
 
+// CancelOrder cancels an accepted food order through order-service's
+// canonical transition boundary. This is intentionally not a direct UPDATE
+// in merchant-service: cancellation must atomically release any active
+// courier assignment, calculate the refund policy from the previous status,
+// and write the lifecycle audit event.
+func (s *merchantServiceImpl) CancelOrder(ctx context.Context, userID, orderID, reason, idempotencyKey string) error {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return err
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return errors.New("alasan pembatalan wajib diisi")
+	}
+	if len(reason) > 500 {
+		return errors.New("alasan pembatalan terlalu panjang")
+	}
+
+	orderServiceURL := strings.TrimSpace(os.Getenv("ORDER_SERVICE_URL"))
+	if orderServiceURL == "" || strings.Contains(orderServiceURL, "localhost") || strings.Contains(orderServiceURL, "127.0.0.1") {
+		orderServiceURL = "http://order-service:8083"
+	}
+	payload, _ := json.Marshal(map[string]string{
+		"order_id":    orderID,
+		"merchant_id": m.ID,
+		"actor_id":    userID,
+		"reason":      reason,
+	})
+	callCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(callCtx, http.MethodPost,
+		orderServiceURL+"/api/v1/internal/orders/merchant-cancel", bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("buat permintaan pembatalan: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Api-Key", os.Getenv("INTERNAL_API_KEY"))
+	if strings.TrimSpace(idempotencyKey) != "" {
+		req.Header.Set("Idempotency-Key", strings.TrimSpace(idempotencyKey))
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("order-service tidak dapat dihubungi: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		log.Printf("[MerchantService] CancelOrder: canonical transition rejected order=%s status=%d body=%s", orderID, resp.StatusCode, strings.TrimSpace(string(body)))
+		switch resp.StatusCode {
+		case http.StatusNotFound:
+			return errors.New("pesanan tidak ditemukan")
+		case http.StatusForbidden:
+			return errors.New("pesanan bukan milik toko ini")
+		case http.StatusConflict:
+			return errors.New("pesanan sudah berubah atau tidak dapat dibatalkan pada tahap ini")
+		default:
+			return errors.New("pesanan belum dapat dibatalkan. Coba lagi")
+		}
+	}
+	return nil
+}
+
 // MarkReady: merchant menandai order sudah siap (masak selesai) → status
 // preparing → searching (mulai cari kurir). FB-125: explicit "Pesanan Siap"
 // button (DoorDash-style Order Ready signal) sesuai best practice industri.

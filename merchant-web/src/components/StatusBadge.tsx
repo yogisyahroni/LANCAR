@@ -8,6 +8,7 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   picked_up: { label: 'Diambil', cls: 'bg-blue-100 text-blue-800' },
   delivering: { label: 'Diantar', cls: 'bg-blue-100 text-blue-800' },
   delivered: { label: 'Selesai', cls: 'bg-emerald-100 text-emerald-800' },
+  cancelled: { label: 'Dibatalkan', cls: 'bg-red-100 text-red-700' },
   cancelled_by_merchant: { label: 'Ditolak Merchant', cls: 'bg-red-100 text-red-700' },
   cancelled_by_customer: { label: 'Dibatalkan Customer', cls: 'bg-red-100 text-red-700' },
   cancelled_by_system: { label: 'Dibatalkan Sistem', cls: 'bg-red-100 text-red-700' },

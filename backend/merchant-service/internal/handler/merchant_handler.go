@@ -75,7 +75,7 @@ func merchantPermissionForRequest(r *http.Request) int {
 		return domain.PermManageMenu
 	}
 	if strings.Contains(path, "/orders") {
-		if strings.HasSuffix(path, "/accept") || strings.HasSuffix(path, "/reject") || strings.HasSuffix(path, "/items/unavailable") || strings.HasSuffix(path, "/substitution") || strings.HasSuffix(path, "/items") {
+		if strings.HasSuffix(path, "/accept") || strings.HasSuffix(path, "/reject") || strings.HasSuffix(path, "/cancel") || strings.HasSuffix(path, "/items/unavailable") || strings.HasSuffix(path, "/substitution") || strings.HasSuffix(path, "/items") {
 			return domain.PermAcceptOrder
 		}
 		if strings.HasSuffix(path, "/ready") {
@@ -1106,6 +1106,36 @@ func (h *MerchantHandler) RejectOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.svc.RejectOrder(r.Context(), userID, orderID, body.Reason, body.RejectReason); err != nil {
 		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, map[string]bool{"success": true})
+}
+
+// CancelOrder cancels a food order after merchant acceptance. The service
+// forwards the mutation to order-service's canonical lifecycle boundary so
+// refund, courier release, and audit remain server-authoritative.
+func (h *MerchantHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	canceller, ok := h.svc.(domain.MerchantOrderCancellationService)
+	if !ok {
+		h.respondError(w, http.StatusNotImplemented, "Pembatalan order belum tersedia")
+		return
+	}
+	orderID := strings.TrimSpace(r.PathValue("id"))
+	var body domain.MerchantOrderActionRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	if strings.TrimSpace(body.Reason) == "" {
+		h.respondError(w, http.StatusBadRequest, "Alasan pembatalan wajib diisi")
+		return
+	}
+	if err := canceller.CancelOrder(r.Context(), userID, orderID, body.Reason, strings.TrimSpace(r.Header.Get("Idempotency-Key"))); err != nil {
+		h.respondError(w, http.StatusConflict, err.Error())
 		return
 	}
 	h.respondJSON(w, http.StatusOK, map[string]bool{"success": true})

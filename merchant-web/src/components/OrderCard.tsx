@@ -1,14 +1,15 @@
 import { useState } from 'react'
-import { Check, ChevronDown, ChevronUp, Clock3, FileText, LifeBuoy, MapPin, Phone, Utensils } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Clock3, FileText, LifeBuoy, MapPin, Phone, Utensils, XCircle } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import { REJECT_REASONS, rupiah } from '../lib/types'
 import type { MenuItem, MerchantOrder, MerchantOrderDetail } from '../lib/types'
 
-export default function OrderCard({ order, menuItems, onAccept, onReject, onReady, onPrint, onPartialReject, onProposeSubstitution, onLoadDetail, onReportIssue }: {
+export default function OrderCard({ order, menuItems, onAccept, onReject, onCancel, onReady, onPrint, onPartialReject, onProposeSubstitution, onLoadDetail, onReportIssue }: {
   order: MerchantOrder
   menuItems: MenuItem[]
   onAccept: (id: string) => Promise<void>
   onReject: (id: string, reason: string, detail: string) => Promise<void>
+  onCancel: (id: string, reason: string) => Promise<void>
   onReady: (id: string) => Promise<void>
   onPrint: (id: string) => Promise<void>
   onPartialReject: (id: string, items: { menu_item_id: string; quantity: number; reason: string }[], reason: string) => Promise<void>
@@ -19,6 +20,7 @@ export default function OrderCard({ order, menuItems, onAccept, onReject, onRead
   const [expanded, setExpanded] = useState(order.status === 'pending_merchant')
   const [busy, setBusy] = useState(false)
   const [showReject, setShowReject] = useState(false)
+  const [showCancel, setShowCancel] = useState(false)
   const [showPartialReject, setShowPartialReject] = useState(false)
   const [showSubstitution, setShowSubstitution] = useState(false)
   const [partialItemIds, setPartialItemIds] = useState<Set<string>>(new Set())
@@ -30,6 +32,9 @@ export default function OrderCard({ order, menuItems, onAccept, onReject, onRead
   const [detail, setDetail] = useState('')
   const [serverDetail, setServerDetail] = useState<MerchantOrderDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [cancelReason, setCancelReason] = useState('Operasional toko tidak memungkinkan pesanan dilanjutkan')
+
+  const merchantCancellable = ['preparing', 'searching', 'accepted', 'picking_up'].includes(order.status)
 
   if (!order.id) return null
 
@@ -154,7 +159,41 @@ export default function OrderCard({ order, menuItems, onAccept, onReject, onRead
                 <Check className="h-4 w-4" /> Pesanan Siap
               </button>
             )}
+            {merchantCancellable && !showCancel && (
+              <button
+                disabled={busy}
+                onClick={() => setShowCancel(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-bold text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+              >
+                <XCircle className="h-4 w-4" /> Batalkan pesanan
+              </button>
+            )}
           </div>
+
+          {showCancel && merchantCancellable && (
+            <div className="mt-4 rounded-xl border border-red-100 bg-red-50/60 p-4">
+              <p className="text-sm font-bold text-red-900">Batalkan pesanan ini?</p>
+              <p className="mt-1 text-xs leading-5 text-red-800">Pelanggan akan diberi tahu. Pengembalian dana mengikuti status kurir dan kebijakan pesanan.</p>
+              <textarea
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                maxLength={500}
+                rows={2}
+                className="mt-3 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm outline-none focus:border-red-400"
+                aria-label="Alasan pembatalan pesanan"
+              />
+              <div className="mt-3 flex gap-2">
+                <button
+                  disabled={busy || !cancelReason.trim()}
+                  onClick={() => act(async () => { await onCancel(order.id, cancelReason.trim()); setShowCancel(false) })}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-60"
+                >
+                  Konfirmasi pembatalan
+                </button>
+                <button onClick={() => setShowCancel(false)} className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-bold text-zinc-600">Kembali</button>
+              </div>
+            </div>
+          )}
 
           {showReject && order.status === 'pending_merchant' && (
             <div className="mt-4 rounded-xl border border-red-100 bg-red-50/50 p-4">

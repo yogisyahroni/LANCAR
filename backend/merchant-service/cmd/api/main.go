@@ -274,6 +274,7 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/accept", withAudit(h.AcceptOrder))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/ready", withAudit(h.MarkReady))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/reject", withAudit(h.RejectOrder))
+	mux.HandleFunc("/api/v1/merchant/orders/{id}/cancel", withAudit(h.CancelOrder))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/struk", withAudit(h.GetStruk))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/items/unavailable", withAudit(h.PartialRejectOrder))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/substitution", withAudit(h.ProposeFoodSubstitution))

@@ -246,3 +246,11 @@ type MerchantService interface {
 	// pemilik canonical substitution state dan perhitungan harga.
 	ProposeFoodSubstitution(ctx context.Context, userID, orderID string, req ProposeMerchantSubstitutionRequest) (*MerchantSubstitutionProposal, error)
 }
+
+// MerchantOrderCancellationService is an optional capability so existing
+// service test doubles remain source-compatible while the production service
+// can expose cancellation after acceptance through order-service's canonical
+// lifecycle boundary.
+type MerchantOrderCancellationService interface {
+	CancelOrder(ctx context.Context, userID, orderID, reason, idempotencyKey string) error
+}

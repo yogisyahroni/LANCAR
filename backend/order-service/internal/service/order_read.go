@@ -284,7 +284,11 @@ func (s *orderServiceImpl) updateStatusThroughBoundary(ctx context.Context, requ
 			s.releaseFoodInventoryIfUnpicked(ctx, request.OrderID, result.PreviousStatus)
 		}
 		if oid, parseErr := uuid.Parse(request.OrderID); parseErr == nil && s.refundSvc != nil {
-			if _, refundErr := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, "Order cancelled", domain.RefundOptions{OriginalStatus: result.PreviousStatus}); refundErr != nil {
+			refundReason := request.Reason
+			if refundReason == "" {
+				refundReason = "Order cancelled"
+			}
+			if _, refundErr := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, refundReason, domain.RefundOptions{OriginalStatus: result.PreviousStatus}); refundErr != nil {
 				log.Printf("[OrderService] Failed to trigger refund for order %s: %v", request.OrderID, refundErr)
 			}
 		}

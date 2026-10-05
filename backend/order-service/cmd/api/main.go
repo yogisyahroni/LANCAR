@@ -690,6 +690,9 @@ func main() {
 	// Internal Orchestration Routes (Should be IP-whitelisted or internally routed)
 	mux.HandleFunc("/api/v1/internal/orders/matching", orderHandler.InternalStartMatching)
 	mux.HandleFunc("/api/v1/internal/orders/retry-matching", orderHandler.InternalRetryMatching)
+	// Merchant cancellation must cross the canonical order boundary so courier
+	// assignment, refund policy, inventory release, and audit stay atomic.
+	mux.HandleFunc("/api/v1/internal/orders/merchant-cancel", orderHandler.InternalMerchantCancel)
 
 	// Rating Endpoints
 	mux.HandleFunc("/api/v1/customer/orders/", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {

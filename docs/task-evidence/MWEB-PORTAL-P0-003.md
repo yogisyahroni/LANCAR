@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: WORKTREE-2026-10-05
+implementation_ref: 5313cba4
 
 tests: PASS
 integration: NOT_RUN
@@ -66,6 +66,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Existing reject/refund item flow tetap dipakai dan tidak diganti dengan mock atau angka hardcode.
 - Resolusi substitution memakai migration `20261005000001`, row lock, guard `resolved = false`, dan unique pending-item index agar keputusan customer tidak dapat diproses dua kali.
 - Merchant Web order list/detail di-refresh melalui realtime event dan polling fallback sehingga perubahan server dapat masuk kembali setelah reconnect.
+- Merchant cancellation setelah order diterima (preparing/searching/accepted/picking_up) sekarang melewati endpoint internal order-service. Ownership merchant diverifikasi ulang terhadap order canonical; state machine memutuskan kelayakan, lalu refund policy, pelepasan courier leg, audit event, inventory release, dan tip refund tetap berada di order-service.
 
 ## Files Changed
 
@@ -76,7 +77,10 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - `backend/merchant-service/internal/handler/merchant_handler.go` and `backend/merchant-service/cmd/api/main.go` — authenticated detail route.
 - `merchant-web/src/lib/types.ts`, `merchant-web/src/pages/Orders.tsx`, `merchant-web/src/components/OrderCard.tsx` — detail/timeline UI wired to API.
 - `backend/order-service/internal/handler/food_substitution_handler.go` dan `backend/order-service/cmd/api/main.go` — internal service boundary untuk proposal merchant dengan API key dan merchant identity.
+- `backend/order-service/internal/handler/internal_merchant_order_handler.go`, `backend/order-service/internal/service/order_read.go`, dan `backend/order-service/cmd/api/main.go` — internal merchant-cancel boundary dengan API key, ownership check, canonical transition, dan reason refund.
 - `backend/merchant-service/internal/service/substitution_service.go`, domain/handler/routes — authenticated portal proxy untuk proposal substitution.
+- `backend/merchant-service/internal/domain/merchant_service.go`, `internal/service/merchant_service.go`, `internal/handler/merchant_handler.go`, dan `cmd/api/main.go` — cancel capability, route, friendly error mapping, dan permission boundary.
+- `merchant-web/src/pages/Orders.tsx`, `merchant-web/src/components/OrderCard.tsx`, `merchant-web/src/components/StatusBadge.tsx` — aksi pembatalan dengan alasan wajib, idempotency key, dan canonical `cancelled` tab.
 - `TASKS.md`, `task-merchant-web-growth-p0-p2-2026.md` — record owner-approved feature-first sequencing and active work.
 
 ## Commands / Checks Run
@@ -108,13 +112,28 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     command: docker compose up -d --build merchant-service order-service merchant-web
     result: PASS — local merchant/order/web containers healthy; this is not staging deployment evidence.
 
+    command: go test ./internal/domain ./internal/handler ./internal/service ./cmd/api (working directory backend/order-service)
+    result: PASS — merchant cancellation edges (preparing/accepted/picking_up allowed; picked_up rejected) are covered by the food state-machine tests.
+
+    command: go test ./internal/domain ./internal/handler ./internal/service ./cmd/api (working directory backend/merchant-service)
+    result: PASS — cancellation service/handler compiles and existing merchant service tests remain green.
+
+    command: VITE_API_URL=https://api.bawain.my.id/api/v1 VITE_SOCKET_URL=wss://api.bawain.my.id/ws npm run build (working directory merchant-web)
+    result: PASS — production TypeScript/Vite build.
+
+    command: docker compose up -d --build --no-deps order-service merchant-service merchant-web; HTTP GET localhost health endpoints
+    result: PASS — all three containers rebuilt; order=200, merchant=200, web=200. Worker startup remained healthy.
+
+    command: curl POST /api/v1/internal/orders/merchant-cancel without X-Internal-Api-Key
+    result: PASS — returns 401 ERR_UNAUTHORIZED and does not execute a transition.
+
 ## Task-Local Verification
 
 ### Tests
 
 Status: PASS
 
-Evidence: Merchant service package tests passed after the transition/detail implementation. The web TypeScript/Vite production build passed with the project-required local API configuration.
+Evidence: Merchant and order-service package tests passed after the canonical cancellation boundary. The web TypeScript/Vite production build passed with the project-required API configuration. Frontend lint returned 0 errors and existing warnings only.
 
 ### Integration
 
@@ -183,7 +202,7 @@ Evidence: Release gate waits for the remaining portal feature slices.
 
 ## Locally Actionable Remaining
 
-- Complete courier/customer event delivery, timeout/reconnect/replay tests, cancellation/refund/dispute UI path, and receipt/print verification.
+- Complete courier/customer event delivery, timeout/reconnect/replay tests, cancellation/refund/dispute cross-app proof, and receipt/print verification. The merchant cancellation capability is implemented locally but still needs authenticated cross-app proof.
 
 ## External Blockers
 
