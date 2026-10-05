@@ -94,6 +94,26 @@ export interface MerchantPortalContext {
   }
 }
 
+export interface MenuItemOutletOverride {
+  id?: string
+  merchant_id: string
+  menu_item_id: string
+  branch_id: string
+  branch_code?: string
+  branch_name?: string
+  base_price_idr: number
+  effective_price_idr: number
+  price_idr?: number | null
+  base_is_available: boolean
+  effective_is_available: boolean
+  is_available?: boolean | null
+  promo_id?: string | null
+  version: number
+  updated_by?: string
+  created_at?: string
+  updated_at?: string
+}
+
 export interface MerchantNotification {
   id: string
   title: string
@@ -238,6 +258,7 @@ export interface MerchantPOSIntegrationStatus {
 export interface MenuItem {
   id: string
   merchant_id: string
+  branch_id?: string
   nama: string
   harga: number
   foto?: string | null

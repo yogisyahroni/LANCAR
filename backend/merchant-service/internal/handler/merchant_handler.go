@@ -20,9 +20,10 @@ import (
 // Identity user diambil dari header X-User-ID (di-set API Gateway setelah
 // verifikasi JWT) — pola sama persis dengan payment-service.
 type MerchantHandler struct {
-	svc             domain.MerchantService
-	uploadSvc       *service.MenuPhotoStorage
-	integrationRepo domain.MerchantIntegrationRepository
+	svc               domain.MerchantService
+	uploadSvc         *service.MenuPhotoStorage
+	integrationRepo   domain.MerchantIntegrationRepository
+	outletOverrideSvc domain.MenuOutletOverrideService
 }
 
 func NewMerchantHandler(svc domain.MerchantService, uploadSvc *service.MenuPhotoStorage, integrationRepos ...domain.MerchantIntegrationRepository) *MerchantHandler {
@@ -30,7 +31,11 @@ func NewMerchantHandler(svc domain.MerchantService, uploadSvc *service.MenuPhoto
 	if len(integrationRepos) > 0 {
 		integrationRepo = integrationRepos[0]
 	}
-	return &MerchantHandler{svc: svc, uploadSvc: uploadSvc, integrationRepo: integrationRepo}
+	var outletOverrideSvc domain.MenuOutletOverrideService
+	if candidate, ok := svc.(domain.MenuOutletOverrideService); ok {
+		outletOverrideSvc = candidate
+	}
+	return &MerchantHandler{svc: svc, uploadSvc: uploadSvc, integrationRepo: integrationRepo, outletOverrideSvc: outletOverrideSvc}
 }
 
 // parseUserID fail-closed: header wajib ada & UUID valid.
@@ -810,6 +815,69 @@ func (h *MerchantHandler) ListMenuCategories(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	h.respondJSON(w, http.StatusOK, categories)
+}
+
+// ListMenuItemOutletOverrides returns canonical and effective values for the
+// selected outlet. Rows without an override have an empty id and explicitly
+// indicate inheritance through null override fields.
+func (h *MerchantHandler) ListMenuItemOutletOverrides(w http.ResponseWriter, r *http.Request) {
+	if h.outletOverrideSvc == nil {
+		h.respondError(w, http.StatusNotImplemented, "fitur pengaturan harga per outlet belum tersedia")
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.outletOverrideSvc.ListMenuItemOutletOverrides(
+		r.Context(), userID,
+		strings.TrimSpace(r.URL.Query().Get("menu_item_id")),
+		strings.TrimSpace(r.URL.Query().Get("branch_id")),
+	)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+// UpsertMenuItemOutletOverride updates only the selected outlet policy. A
+// null price/availability/promo clears that override and restores inheritance.
+func (h *MerchantHandler) UpsertMenuItemOutletOverride(w http.ResponseWriter, r *http.Request) {
+	if h.outletOverrideSvc == nil {
+		h.respondError(w, http.StatusNotImplemented, "fitur pengaturan harga per outlet belum tersedia")
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	if r.Method != http.MethodPut {
+		h.respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	var req domain.UpsertMenuItemOutletOverrideRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if idempotencyKey == "" {
+		idempotencyKey = strings.TrimSpace(r.Header.Get("X-Idempotency-Key"))
+	}
+	result, replay, err := h.outletOverrideSvc.UpsertMenuItemOutletOverride(r.Context(), userID, req, idempotencyKey)
+	if err != nil {
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "berubah") {
+			status = http.StatusConflict
+		}
+		h.respondError(w, status, err.Error())
+		return
+	}
+	if replay {
+		w.Header().Set("Idempotent-Replay", "true")
+	}
+	h.respondJSON(w, http.StatusOK, result)
 }
 
 func (h *MerchantHandler) UpdateMenuCategory(w http.ResponseWriter, r *http.Request) {

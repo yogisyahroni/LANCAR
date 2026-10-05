@@ -47,6 +47,11 @@ func TestMerchantDiscoveryCheckoutReleaseGateIntegration(t *testing.T) {
 		db.Close()
 		t.Fatal("merchant fixture must have a real pickup location")
 	}
+	var actorID string
+	if err := db.QueryRowContext(ctx, `SELECT user_id::text FROM merchants WHERE id = $1`, merchantID).Scan(&actorID); err != nil {
+		db.Close()
+		t.Fatalf("read merchant owner: %v", err)
+	}
 
 	discovered, err := repo.ListFoodMerchants(ctx, merchant.Lat, merchant.Lng, "", "all", 100)
 	if err != nil {
@@ -82,6 +87,7 @@ func TestMerchantDiscoveryCheckoutReleaseGateIntegration(t *testing.T) {
 	}
 	itemID := uuid.NewString()
 	t.Cleanup(func() {
+		_, _ = db.ExecContext(ctx, `DELETE FROM merchant_menu_item_outlet_overrides WHERE menu_item_id = $1`, itemID)
 		_, _ = db.ExecContext(ctx, `DELETE FROM merchant_menu_items WHERE id = $1`, itemID)
 		_, _ = db.ExecContext(ctx, `DELETE FROM merchant_catalog_events WHERE entity_id = $1`, itemID)
 		_, _ = db.ExecContext(ctx, `DELETE FROM event_outbox WHERE aggregate_type = 'merchant_catalog' AND aggregate_id = $1 AND payload->>'entity_id' = $2`, merchantID, itemID)
@@ -102,6 +108,19 @@ func TestMerchantDiscoveryCheckoutReleaseGateIntegration(t *testing.T) {
 	}
 	if items[0].Price != 27500 || items[0].BranchID != branchID || items[0].EnforcementActive {
 		t.Fatalf("unexpected checkout catalog projection: %+v", items[0])
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO merchant_menu_item_outlet_overrides
+			(merchant_id, menu_item_id, branch_id, price_idr, is_available, updated_by)
+		VALUES ($1, $2, $3, 39000, FALSE, $4)`, merchantID, itemID, branchID, actorID); err != nil {
+		t.Fatalf("insert outlet override: %v", err)
+	}
+	items, err = repo.GetFoodMenuItems(ctx, []string{itemID})
+	if err != nil || len(items) != 1 || items[0].Price != 39000 || items[0].IsAvailable {
+		t.Fatalf("checkout did not read effective outlet override: items=%+v err=%v", items, err)
+	}
+	if _, err := db.ExecContext(ctx, `DELETE FROM merchant_menu_item_outlet_overrides WHERE menu_item_id = $1`, itemID); err != nil {
+		t.Fatalf("clear outlet override: %v", err)
 	}
 
 	// Change the canonical menu price, then prove checkout reads the new server

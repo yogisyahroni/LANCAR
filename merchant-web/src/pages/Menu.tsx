@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, FileUp, ImageOff, Pencil, Plus, RefreshCw, RotateCcw, UploadCloud } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
 import MenuEditor from '../components/MenuEditor'
 import { MerchantPageSkeleton } from '../components/Skeleton'
-import type { CatalogPublication, CatalogReadiness, MenuItem, MenuListResponse } from '../lib/types'
+import type { CatalogPublication, CatalogReadiness, MenuItem, MenuItemOutletOverride, MenuListResponse, MerchantPortalContext } from '../lib/types'
+import { loadMerchantPortalContext } from '../lib/portal-context'
 import { rupiah } from '../lib/types'
 
 interface BulkMenuRow {
@@ -59,18 +60,39 @@ export default function Menu() {
   const [publications, setPublications] = useState<CatalogPublication[]>([])
   const [publishing, setPublishing] = useState(false)
   const [rollingBack, setRollingBack] = useState(false)
+  const [outletOverrides, setOutletOverrides] = useState<MenuItemOutletOverride[]>([])
+  const [portalContext, setPortalContext] = useState<MerchantPortalContext | null>(null)
+  const [overrideDrafts, setOverrideDrafts] = useState<Record<string, { price: string; availability: 'inherit' | 'available' | 'unavailable' }>>({})
+  const [savingOverride, setSavingOverride] = useState<string | null>(null)
+
+  const activeBranch = useMemo(() => {
+    if (!portalContext) return null
+    return portalContext.branches.find((branch) => branch.id === portalContext.current_branch_id) || null
+  }, [portalContext])
 
   const load = useCallback(async (spinner = false) => {
     if (spinner) setRefreshing(true)
     try {
-      const [res, readinessRes, publicationsRes] = await Promise.all([
+      // Bootstrap tenant/branch headers first. Without this ordering an owner
+      // can race the context request and accidentally load every outlet into
+      // a page that is meant to edit only the selected outlet.
+      const context = await loadMerchantPortalContext()
+      const [res, readinessRes, publicationsRes, overridesRes] = await Promise.all([
         api.get<MenuListResponse>('/merchant/menu?page=1&page_size=100'),
         api.get<CatalogReadiness>('/merchant/menu/readiness'),
         api.get<{ items: CatalogPublication[] }>('/merchant/menu/publications?limit=20'),
+        api.get<{ items: MenuItemOutletOverride[] }>('/merchant/menu/outlet-overrides'),
       ])
       setItems(res.data?.items || [])
       setReadiness(readinessRes.data)
       setPublications(publicationsRes.data?.items || [])
+      const loadedOverrides = overridesRes.data?.items || []
+      setOutletOverrides(loadedOverrides)
+      setPortalContext(context)
+      setOverrideDrafts(Object.fromEntries(loadedOverrides.map((override) => [override.menu_item_id, {
+        price: override.price_idr == null ? '' : String(override.price_idr),
+        availability: override.is_available == null ? 'inherit' : override.is_available ? 'available' : 'unavailable',
+      }])))
     } catch (err) {
       toast.error(apiErrorMessage(err, 'Gagal memuat menu'))
     } finally {
@@ -118,6 +140,35 @@ export default function Menu() {
     } catch (err) {
       toast.error(apiErrorMessage(err, 'Gagal mengubah ketersediaan'))
     }
+  }
+
+  const saveOutletOverride = async (item: MenuItem) => {
+    if (!activeBranch) {
+      toast.error('Pilih outlet aktif terlebih dahulu')
+      return
+    }
+    const draft = overrideDrafts[item.id] || { price: '', availability: 'inherit' as const }
+    const current = outletOverrides.find((override) => override.menu_item_id === item.id)
+    const price = draft.price.trim() === '' ? null : Number(draft.price.replace(/[^\d]/g, ''))
+    if (price !== null && (!Number.isSafeInteger(price) || price < 0)) {
+      toast.error('Harga outlet harus berupa angka yang valid')
+      return
+    }
+    setSavingOverride(item.id)
+    try {
+      await api.put<MenuItemOutletOverride>('/merchant/menu/outlet-overrides', {
+        menu_item_id: item.id,
+        branch_id: activeBranch.id,
+        price_idr: price,
+        is_available: draft.availability === 'inherit' ? null : draft.availability === 'available',
+        promo_id: current?.promo_id ?? null,
+        expected_version: current?.version || undefined,
+      }, { headers: { 'Idempotency-Key': crypto.randomUUID() } })
+      toast.success(`Pengaturan ${activeBranch.name} disimpan`)
+      await load()
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Pengaturan outlet belum tersimpan'))
+    } finally { setSavingOverride(null) }
   }
 
   const chooseBulkFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -222,6 +273,17 @@ export default function Menu() {
         )}
       </section>
 
+      <section className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Pengaturan per outlet</p>
+            <h2 className="mt-1 font-black text-emerald-950">Harga dan ketersediaan mengikuti outlet aktif</h2>
+            <p className="mt-1 text-sm text-emerald-900/70">Katalog pusat tetap menjadi dasar. Kosongkan harga atau pilih “Ikuti katalog” untuk menghapus override outlet.</p>
+          </div>
+          <span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-emerald-900">{activeBranch?.name || 'Outlet belum dipilih'}</span>
+        </div>
+      </section>
+
       {loading ? (
         <MerchantPageSkeleton />
       ) : items.length === 0 ? (
@@ -261,6 +323,36 @@ export default function Menu() {
                   <Pencil className="h-3.5 w-3.5" /> Edit
                 </button>
               </div>
+              <details className="mt-3 border-t border-zinc-100 pt-3">
+                <summary className="cursor-pointer text-xs font-black text-emerald-900">Atur outlet {activeBranch?.name || ''}</summary>
+                <div className="mt-3 space-y-3 rounded-xl bg-zinc-50 p-3">
+                  <p className="text-xs text-zinc-500">Harga katalog: <span className="font-bold text-zinc-700">{rupiah(item.harga)}</span></p>
+                  <label className="block text-xs font-bold text-zinc-600">Harga outlet
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder={String(item.harga)}
+                      value={overrideDrafts[item.id]?.price ?? ''}
+                      onChange={(event) => setOverrideDrafts((prev) => ({ ...prev, [item.id]: { ...(prev[item.id] || { availability: 'inherit' }), price: event.target.value } }))}
+                      className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-normal outline-none focus:border-emerald-700"
+                    />
+                  </label>
+                  <label className="block text-xs font-bold text-zinc-600">Ketersediaan outlet
+                    <select
+                      value={overrideDrafts[item.id]?.availability ?? 'inherit'}
+                      onChange={(event) => setOverrideDrafts((prev) => ({ ...prev, [item.id]: { ...(prev[item.id] || { price: '' }), availability: event.target.value as 'inherit' | 'available' | 'unavailable' } }))}
+                      className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-normal outline-none focus:border-emerald-700"
+                    >
+                      <option value="inherit">Ikuti katalog</option>
+                      <option value="available">Tersedia di outlet</option>
+                      <option value="unavailable">Tidak tersedia di outlet</option>
+                    </select>
+                  </label>
+                  <button onClick={() => void saveOutletOverride(item)} disabled={!activeBranch || savingOverride === item.id} className="w-full rounded-lg bg-emerald-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
+                    {savingOverride === item.id ? 'Menyimpan…' : 'Simpan pengaturan outlet'}
+                  </button>
+                </div>
+              </details>
             </div>
           ))}
         </div>

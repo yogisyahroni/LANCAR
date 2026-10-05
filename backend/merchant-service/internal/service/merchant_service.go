@@ -1043,6 +1043,167 @@ func (s *merchantServiceImpl) requireMenuGovernance() (domain.MenuGovernanceRepo
 	return s.governanceRepo, nil
 }
 
+func (s *merchantServiceImpl) requireMenuOutletOverrideRepository() (domain.MenuItemOutletOverrideRepository, error) {
+	repository, ok := s.menuRepo.(domain.MenuItemOutletOverrideRepository)
+	if !ok || repository == nil {
+		return nil, errors.New("menu outlet override repository not wired")
+	}
+	return repository, nil
+}
+
+// resolveMenuOutletScope resolves the tenant and verifies the target outlet.
+// Owners may manage any outlet in their tenant; staff must present the same
+// server-issued session/device context that protects normal menu mutations.
+func (s *merchantServiceImpl) resolveMenuOutletScope(ctx context.Context, userID, branchID string) (*domain.Merchant, string, error) {
+	branchID = strings.TrimSpace(branchID)
+	owner, err := s.merchantRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, "", err
+	}
+	if owner != nil {
+		if branchID != "" {
+			if s.accessRepo == nil {
+				return nil, "", errors.New("merchant access repository not wired")
+			}
+			branch, branchErr := s.accessRepo.GetBranch(ctx, owner.ID, branchID)
+			if branchErr != nil {
+				return nil, "", branchErr
+			}
+			if branch == nil || !branch.IsActive {
+				return nil, "", errors.New("outlet tidak ditemukan atau tidak aktif")
+			}
+		}
+		return owner, branchID, nil
+	}
+
+	if s.accessRepo == nil {
+		return nil, "", errors.New("merchant belum terdaftar")
+	}
+	access := domain.MerchantAccessFromContext(ctx)
+	if branchID == "" {
+		branchID = strings.TrimSpace(access.BranchID)
+	}
+	if strings.TrimSpace(access.SessionToken) == "" || branchID == "" || strings.TrimSpace(access.DeviceID) == "" {
+		return nil, "", errors.New("merchant session, branch, dan device wajib diisi untuk staff")
+	}
+	session, err := s.accessRepo.AuthorizeDeviceSession(ctx, domain.MerchantSessionAuthorization{
+		UserID:             userID,
+		BranchID:           branchID,
+		DeviceID:           access.DeviceID,
+		SessionToken:       access.SessionToken,
+		RequiredPermission: domain.PermManageMenu,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	merchant, err := s.merchantRepo.GetByID(ctx, session.MerchantID)
+	if err != nil {
+		return nil, "", err
+	}
+	if merchant == nil {
+		return nil, "", errors.New("merchant tidak ditemukan")
+	}
+	return merchant, branchID, nil
+}
+
+func validateMenuOutletOverrideRequest(req domain.UpsertMenuItemOutletOverrideRequest) error {
+	if _, err := uuid.Parse(strings.TrimSpace(req.MenuItemID)); err != nil {
+		return errors.New("menu_item_id tidak valid")
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(req.BranchID)); err != nil {
+		return errors.New("branch_id tidak valid")
+	}
+	if req.PriceIDR != nil && *req.PriceIDR < 0 {
+		return errors.New("price_idr tidak boleh negatif")
+	}
+	if req.PromoID != nil {
+		if _, err := uuid.Parse(strings.TrimSpace(*req.PromoID)); err != nil {
+			return errors.New("promo_id tidak valid")
+		}
+	}
+	if req.ExpectedVersion != nil && *req.ExpectedVersion < 1 {
+		return errors.New("expected_version harus lebih besar dari 0")
+	}
+	return nil
+}
+
+func menuOutletOverrideFingerprint(merchantID, userID string, req domain.UpsertMenuItemOutletOverrideRequest) (string, error) {
+	payload, err := json.Marshal(struct {
+		MerchantID string                                     `json:"merchant_id"`
+		UserID     string                                     `json:"user_id"`
+		Request    domain.UpsertMenuItemOutletOverrideRequest `json:"request"`
+	}{merchantID, userID, req})
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(payload)
+	return fmt.Sprintf("%x", sum[:]), nil
+}
+
+func (s *merchantServiceImpl) ListMenuItemOutletOverrides(ctx context.Context, userID, menuItemID, branchID string) ([]*domain.MenuItemOutletOverride, error) {
+	repository, err := s.requireMenuOutletOverrideRepository()
+	if err != nil {
+		return nil, err
+	}
+	menuItemID = strings.TrimSpace(menuItemID)
+	if menuItemID != "" {
+		if _, parseErr := uuid.Parse(menuItemID); parseErr != nil {
+			return nil, errors.New("menu_item_id tidak valid")
+		}
+	}
+	if strings.TrimSpace(branchID) == "" {
+		branchID = domain.MerchantAccessFromContext(ctx).BranchID
+	}
+	merchant, branchID, err := s.resolveMenuOutletScope(ctx, userID, branchID)
+	if err != nil {
+		return nil, err
+	}
+	return repository.ListMenuItemOutletOverrides(ctx, merchant.ID, menuItemID, branchID)
+}
+
+func (s *merchantServiceImpl) UpsertMenuItemOutletOverride(ctx context.Context, userID string, req domain.UpsertMenuItemOutletOverrideRequest, idempotencyKey string) (*domain.MenuItemOutletOverride, bool, error) {
+	if err := validateMenuOutletOverrideRequest(req); err != nil {
+		return nil, false, err
+	}
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if len(idempotencyKey) < 12 || len(idempotencyKey) > 200 {
+		return nil, false, errors.New("idempotency key wajib diisi dan panjangnya 12-200 karakter")
+	}
+	merchant, branchID, err := s.resolveMenuOutletScope(ctx, userID, req.BranchID)
+	if err != nil {
+		return nil, false, err
+	}
+	repository, err := s.requireMenuOutletOverrideRepository()
+	if err != nil {
+		return nil, false, err
+	}
+	req.MenuItemID = strings.TrimSpace(req.MenuItemID)
+	req.BranchID = branchID
+	if req.PromoID != nil {
+		value := strings.TrimSpace(*req.PromoID)
+		req.PromoID = &value
+	}
+	fingerprint, err := menuOutletOverrideFingerprint(merchant.ID, userID, req)
+	if err != nil {
+		return nil, false, err
+	}
+	version := int64(0)
+	if req.ExpectedVersion != nil {
+		version = *req.ExpectedVersion
+	}
+	override := &domain.MenuItemOutletOverride{
+		MerchantID:  merchant.ID,
+		MenuItemID:  req.MenuItemID,
+		BranchID:    branchID,
+		PriceIDR:    req.PriceIDR,
+		IsAvailable: req.IsAvailable,
+		PromoID:     req.PromoID,
+		Version:     version,
+		UpdatedBy:   userID,
+	}
+	return repository.UpsertMenuItemOutletOverride(ctx, override, idempotencyKey, fingerprint)
+}
+
 func (s *merchantServiceImpl) GetCatalogReadiness(ctx context.Context, userID string) (*domain.CatalogReadiness, error) {
 	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {

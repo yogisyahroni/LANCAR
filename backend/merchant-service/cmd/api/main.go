@@ -208,6 +208,16 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/menu/publications", withAudit(h.ListCatalogPublications))
 	mux.HandleFunc("/api/v1/merchant/menu/publish", withAudit(h.PublishCatalog))
 	mux.HandleFunc("/api/v1/merchant/menu/rollback", withAudit(h.RollbackCatalog))
+	mux.HandleFunc("/api/v1/merchant/menu/outlet-overrides", withAudit(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			h.ListMenuItemOutletOverrides(w, r)
+		case http.MethodPut:
+			h.UpsertMenuItemOutletOverride(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
 	mux.HandleFunc("/api/v1/merchant/menu", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:

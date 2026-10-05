@@ -134,11 +134,11 @@ func (r *foodRepo) GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]do
 		SELECT
 			merchant_menu_items.id::text,
 			merchant_menu_items.merchant_id::text,
-			branch_id::text,
-			nama,
-			harga,
-			is_available,
-			status,
+			merchant_menu_items.branch_id::text,
+			merchant_menu_items.nama,
+			COALESCE(outlet_override.price_idr, merchant_menu_items.harga),
+			COALESCE(outlet_override.is_available, merchant_menu_items.is_available),
+			merchant_menu_items.status,
 			(NOT EXISTS (
 				SELECT 1 FROM merchant_menu_item_schedules schedule
 				WHERE schedule.menu_item_id = merchant_menu_items.id AND schedule.is_active = TRUE
@@ -156,14 +156,17 @@ func (r *foodRepo) GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]do
 					      OR (NOW() AT TIME ZONE 'Asia/Jakarta')::time < schedule.ends_at))
 				  )
 			)) AS schedule_available,
-			prep_time_minutes,
-			stock_quantity,
-			daily_sales_limit,
-			daily_sales_count,
-			sales_limit_reset_at,
+			merchant_menu_items.prep_time_minutes,
+			merchant_menu_items.stock_quantity,
+			merchant_menu_items.daily_sales_limit,
+			merchant_menu_items.daily_sales_count,
+			merchant_menu_items.sales_limit_reset_at,
 			merchant_enforcement_is_active(merchant_menu_items.merchant_id, merchant_menu_items.branch_id, merchant_menu_items.id, NULL)
 		FROM merchant_menu_items
 		JOIN merchant_branches branch ON branch.id = merchant_menu_items.branch_id AND branch.is_active = TRUE
+		LEFT JOIN merchant_menu_item_outlet_overrides outlet_override
+		  ON outlet_override.menu_item_id = merchant_menu_items.id
+		 AND outlet_override.branch_id = merchant_menu_items.branch_id
 		WHERE merchant_menu_items.id IN (%s)`, strings.Join(placeholders, ", "))
 
 	rows, err := r.readDB.QueryContext(ctx, query, args...)
@@ -206,13 +209,20 @@ func (r *foodRepo) CreateFoodOrderWithItems(ctx context.Context, order *domain.O
 	}
 	previousAvailability := make(map[string]bool, len(menuItemIDs))
 	for _, menuItemID := range menuItemIDs {
-		var previousAvailable bool
+		var previousAvailable, effectiveAvailable bool
 		if err := tx.QueryRowContext(ctx, `
-			SELECT is_available
-			FROM merchant_menu_items
-			WHERE id = $1
-			FOR UPDATE`, menuItemID).Scan(&previousAvailable); err != nil {
+			SELECT item.is_available,
+			       COALESCE(outlet_override.is_available, item.is_available)
+			FROM merchant_menu_items item
+			LEFT JOIN merchant_menu_item_outlet_overrides outlet_override
+			  ON outlet_override.menu_item_id = item.id
+			 AND outlet_override.branch_id = item.branch_id
+			WHERE item.id = $1
+			FOR UPDATE OF item`, menuItemID).Scan(&previousAvailable, &effectiveAvailable); err != nil {
 			return fmt.Errorf("kunci stok item %s: %w", menuItemID, err)
+		}
+		if !effectiveAvailable {
+			return fmt.Errorf("menu item %s sedang tidak tersedia di outlet ini", menuItemID)
 		}
 		previousAvailability[menuItemID] = previousAvailable
 
@@ -1076,7 +1086,9 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 			WHERE item.merchant_id = $1
 			  AND NOT EXISTS (SELECT 1 FROM latest_publication)
 		)
-		SELECT visible.menu_item_id::text, visible.merchant_id::text, visible.nama, visible.harga, live.is_available, live.status,
+		SELECT visible.menu_item_id::text, visible.merchant_id::text, live.branch_id::text, visible.nama,
+		       COALESCE(outlet_override.price_idr, visible.harga),
+		       COALESCE(outlet_override.is_available, live.is_available), live.status,
 		       (NOT EXISTS (
 				SELECT 1 FROM merchant_menu_item_schedules schedule
 				WHERE schedule.menu_item_id = live.id AND schedule.is_active = TRUE
@@ -1093,6 +1105,9 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 		       visible.kategori, visible.foto, visible.deskripsi, visible.images
 		FROM visible_items visible
 		JOIN merchant_menu_items live ON live.id = visible.menu_item_id
+		LEFT JOIN merchant_menu_item_outlet_overrides outlet_override
+		  ON outlet_override.menu_item_id = live.id
+		 AND outlet_override.branch_id = live.branch_id
 		WHERE live.status NOT IN ('draft', 'moderation_pending', 'rejected', 'archived')
 		ORDER BY CASE WHEN live.status = 'active' THEN 0 ELSE 1 END, visible.kategori NULLS LAST, visible.nama ASC`,
 		merchantID,
@@ -1110,7 +1125,7 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 		var imageSnapshot []byte
 		var scheduleAvailable bool
 		if err := rows.Scan(
-			&item.ID, &item.MerchantID, &item.Name, &item.Price, &item.IsAvailable, &item.Status, &scheduleAvailable,
+			&item.ID, &item.MerchantID, &item.BranchID, &item.Name, &item.Price, &item.IsAvailable, &item.Status, &scheduleAvailable,
 			&item.PrepTimeMinutes, &item.StockQuantity, &item.DailySalesLimit, &item.DailySalesCount,
 			&item.SalesResetAt, &item.EnforcementActive, &kategori, &foto, &deskripsi, &imageSnapshot,
 		); err != nil {
@@ -1206,9 +1221,10 @@ func (r *foodRepo) AttachFoodMerchantMenuPreview(ctx context.Context, merchants 
 			SELECT
 				visible.menu_item_id::text AS id,
 				visible.merchant_id::text,
+				live.branch_id::text,
 				visible.nama,
-				visible.harga,
-				live.is_available,
+				COALESCE(outlet_override.price_idr, visible.harga),
+				COALESCE(outlet_override.is_available, live.is_available),
 				live.status,
 				live.prep_time_minutes,
 				live.stock_quantity,
@@ -1226,6 +1242,9 @@ func (r *foodRepo) AttachFoodMerchantMenuPreview(ctx context.Context, merchants 
 				) AS preview_rank
 			FROM visible_items visible
 			JOIN merchant_menu_items live ON live.id = visible.menu_item_id
+			LEFT JOIN merchant_menu_item_outlet_overrides outlet_override
+			  ON outlet_override.menu_item_id = live.id
+			 AND outlet_override.branch_id = live.branch_id
 			LEFT JOIN LATERAL (
 				SELECT image.url
 				FROM merchant_menu_item_images image
@@ -1233,10 +1252,10 @@ func (r *foodRepo) AttachFoodMerchantMenuPreview(ctx context.Context, merchants 
 				ORDER BY image.is_primary DESC, image.sort_order ASC, image.created_at ASC
 				LIMIT 1
 			) primary_image ON TRUE
-			WHERE live.is_available = TRUE
+			WHERE COALESCE(outlet_override.is_available, live.is_available) = TRUE
 			  AND live.status NOT IN ('draft', 'moderation_pending', 'rejected', 'archived')
 		)
-		SELECT id, merchant_id, nama, harga, is_available, status,
+		SELECT id, merchant_id, branch_id, nama, harga, is_available, status,
 		       prep_time_minutes, stock_quantity, daily_sales_limit, daily_sales_count,
 		       sales_limit_reset_at, enforcement_active, kategori, foto, deskripsi
 		FROM ranked
@@ -1254,7 +1273,7 @@ func (r *foodRepo) AttachFoodMerchantMenuPreview(ctx context.Context, merchants 
 		var item domain.FoodMenuItemInfo
 		var kategori, foto, deskripsi sql.NullString
 		if err := rows.Scan(
-			&item.ID, &item.MerchantID, &item.Name, &item.Price, &item.IsAvailable, &item.Status,
+			&item.ID, &item.MerchantID, &item.BranchID, &item.Name, &item.Price, &item.IsAvailable, &item.Status,
 			&item.PrepTimeMinutes, &item.StockQuantity, &item.DailySalesLimit, &item.DailySalesCount,
 			&item.SalesResetAt, &item.EnforcementActive, &kategori, &foto, &deskripsi,
 		); err != nil {
