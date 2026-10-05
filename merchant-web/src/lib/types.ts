@@ -98,6 +98,73 @@ export interface MerchantNotification {
   created_at: string
 }
 
+export type MerchantSupportCaseStatus =
+  | 'open'
+  | 'investigating'
+  | 'pending_customer'
+  | 'pending_internal'
+  | 'resolved'
+  | 'closed'
+  | string
+
+export interface MerchantSupportCaseLink {
+  id?: string
+  reference_type: string
+  reference_id: string
+  reference_label?: string | null
+  created_at?: string
+}
+
+export interface MerchantSupportCaseEvent {
+  id: string
+  event_type: string
+  from_status?: string | null
+  to_status?: string | null
+  actor_id?: string | null
+  actor_role?: string | null
+  note?: string | null
+  created_at: string
+}
+
+export interface MerchantSupportCase {
+  id: string
+  case_number: string
+  requester_role: string
+  category: string
+  subject: string
+  description: string
+  service_code: string
+  market_code: string
+  priority: 'low' | 'normal' | 'high' | 'urgent' | string
+  status: MerchantSupportCaseStatus
+  assigned_to?: string | null
+  assigned_to_name?: string | null
+  escalation_level: number
+  sla_due_at: string
+  sla_breached?: boolean
+  resolved_at?: string | null
+  reopened_at?: string | null
+  reopen_count: number
+  created_at: string
+  updated_at: string
+  links?: MerchantSupportCaseLink[]
+  events?: MerchantSupportCaseEvent[]
+  actions?: Array<{ id: string; action_type: string; status: string; amount_idr?: number | null; created_at: string }>
+  authoritative?: {
+    order_id?: string | null
+    order_status?: string | null
+    payment_status?: string | null
+  }
+}
+
+export interface MerchantSupportCaseListResponse {
+  success?: boolean
+  data: MerchantSupportCase[]
+  total: number
+  limit: number
+  offset: number
+}
+
 export interface MerchantSearchResult {
   kind: 'menu' | 'order' | 'staff' | 'outlet' | string
   id: string
@@ -158,6 +225,25 @@ export interface MenuListResponse {
   total: number
   page: number
   page_size: number
+}
+
+export interface CatalogReadiness {
+  ready: boolean
+  catalog_version: number
+  published_version?: number | null
+  published_catalog_version?: number | null
+  item_count: number
+  blocking_reasons?: string[]
+}
+
+export interface CatalogPublication {
+  id: string
+  merchant_id: string
+  publication_version: number
+  catalog_version: number
+  item_count: number
+  created_at: string
+  source_publication_id?: string | null
 }
 
 export interface MerchantReviewReply {
@@ -309,7 +395,24 @@ export interface MerchantOrderDetail extends MerchantOrder {
     net_merchant_idr: number
   }
   timeline: MerchantOrderTimelineEvent[]
+  substitutions?: MerchantSubstitutionProposal[]
   data_as_of: string
+}
+
+export interface MerchantSubstitutionProposal {
+  id: string
+  original_menu_item_id: string
+  original_item_name: string
+  original_price_idr: number
+  replacement_menu_item_id: string
+  replacement_item_name: string
+  replacement_price_idr: number
+  price_difference_idr: number
+  reason?: string
+  proposed_by_role: string
+  proposed_at: string
+  customer_decision: 'pending' | 'approved' | 'rejected' | string
+  customer_decided_at?: string | null
 }
 
 export interface MerchantStruk {
@@ -489,6 +592,8 @@ export interface MerchantStaff {
   id: string
   role: 'manager' | 'kasir' | 'kitchen' | string
   status: 'pending' | 'active' | 'revoked' | string
+  permissions: number
+  branch_ids?: string[]
   staff_name?: string | null
   staff_email?: string | null
   invited_at: string

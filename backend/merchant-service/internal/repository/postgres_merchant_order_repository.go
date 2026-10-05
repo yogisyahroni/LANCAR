@@ -308,6 +308,53 @@ func (r *postgresMerchantOrderRepository) GetOrderDetail(ctx context.Context, me
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
+	proposalRows, err := r.readDB.QueryContext(ctx, `
+		SELECT p.id::text,
+		       p.original_menu_item_id::text,
+		       COALESCE(original_item.nama, ''),
+		       COALESCE(original_order_item.item_price, 0),
+		       p.replacement_menu_item_id::text,
+		       COALESCE(replacement_item.nama, ''),
+		       COALESCE(replacement_item.harga, 0),
+		       p.price_difference_idr,
+		       COALESCE(p.reason, ''),
+		       p.proposed_by_role,
+		       to_char(p.proposed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		       COALESCE(p.customer_decision, 'pending'),
+		       COALESCE(to_char(p.customer_decided_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')
+		  FROM food_substitution_proposals p
+		  LEFT JOIN merchant_menu_items original_item ON original_item.id = p.original_menu_item_id
+		  LEFT JOIN merchant_menu_items replacement_item ON replacement_item.id = p.replacement_menu_item_id
+		  LEFT JOIN food_order_items original_order_item
+		    ON original_order_item.order_id = p.order_id
+		   AND original_order_item.menu_item_id = p.original_menu_item_id
+		 WHERE p.order_id = $1
+		 ORDER BY p.proposed_at ASC`, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("list merchant substitution proposals: %w", err)
+	}
+	defer proposalRows.Close()
+	detail.Substitutions = []domain.MerchantSubstitutionProposalView{}
+	for proposalRows.Next() {
+		var proposal domain.MerchantSubstitutionProposalView
+		var decidedAt string
+		if err := proposalRows.Scan(
+			&proposal.ID, &proposal.OriginalItemID, &proposal.OriginalItemName,
+			&proposal.OriginalPrice, &proposal.ReplacementItemID, &proposal.ReplacementItemName,
+			&proposal.ReplacementPrice, &proposal.PriceDifferenceIDR, &proposal.Reason,
+			&proposal.ProposedBy, &proposal.ProposedAt, &proposal.CustomerDecision, &decidedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan merchant substitution proposal: %w", err)
+		}
+		if decidedAt != "" {
+			proposal.CustomerDecidedAt = &decidedAt
+		}
+		detail.Substitutions = append(detail.Substitutions, proposal)
+	}
+	if err := proposalRows.Err(); err != nil {
+		return nil, fmt.Errorf("read merchant substitution proposals: %w", err)
+	}
 	detail.DataAsOf = time.Now().UTC().Format(time.RFC3339)
 	return &detail, nil
 }

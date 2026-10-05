@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Check, ChevronDown, ChevronUp, Clock3, FileText, MapPin, Phone, Utensils } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Clock3, FileText, LifeBuoy, MapPin, Phone, Utensils } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import { REJECT_REASONS, rupiah } from '../lib/types'
 import type { MenuItem, MerchantOrder, MerchantOrderDetail } from '../lib/types'
 
-export default function OrderCard({ order, menuItems, onAccept, onReject, onReady, onPrint, onPartialReject, onProposeSubstitution, onLoadDetail }: {
+export default function OrderCard({ order, menuItems, onAccept, onReject, onReady, onPrint, onPartialReject, onProposeSubstitution, onLoadDetail, onReportIssue }: {
   order: MerchantOrder
   menuItems: MenuItem[]
   onAccept: (id: string) => Promise<void>
@@ -14,6 +14,7 @@ export default function OrderCard({ order, menuItems, onAccept, onReject, onRead
   onPartialReject: (id: string, items: { menu_item_id: string; quantity: number; reason: string }[], reason: string) => Promise<void>
   onProposeSubstitution: (id: string, originalMenuItemId: string, replacementMenuItemId: string, reason: string) => Promise<void>
   onLoadDetail: (id: string) => Promise<MerchantOrderDetail>
+  onReportIssue: (id: string) => void
 }) {
   const [expanded, setExpanded] = useState(order.status === 'pending_merchant')
   const [busy, setBusy] = useState(false)
@@ -110,6 +111,13 @@ export default function OrderCard({ order, menuItems, onAccept, onReject, onRead
               className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 px-4 py-2.5 text-sm font-bold text-emerald-800 transition hover:bg-emerald-50 disabled:opacity-60"
             >
               {detailLoading ? 'Memuat…' : 'Lihat timeline'}
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => onReportIssue(order.id)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-orange-200 px-4 py-2.5 text-sm font-bold text-orange-700 transition hover:bg-orange-50 disabled:opacity-60"
+            >
+              <LifeBuoy className="h-4 w-4" /> Laporkan masalah
             </button>
             {order.status === 'pending_merchant' && (
               <>
@@ -258,6 +266,19 @@ export default function OrderCard({ order, menuItems, onAccept, onReject, onRead
                 </dl>
                 <p className="mt-3 text-xs text-zinc-500">Pembayaran: {serverDetail.payment_status || 'Belum tersedia'}{serverDetail.payment_method ? ` · ${serverDetail.payment_method}` : ''}</p>
                 {serverDetail.courier && <p className="mt-2 text-xs text-zinc-600">Kurir: <b>{serverDetail.courier.name || 'Sedang ditugaskan'}</b> · {serverDetail.courier.status || 'status belum tersedia'}</p>}
+                {serverDetail.substitutions && serverDetail.substitutions.length > 0 && (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+                    <p className="font-black">Perubahan item</p>
+                    <ul className="mt-2 space-y-2">
+                      {serverDetail.substitutions.map((proposal) => (
+                        <li key={proposal.id}>
+                          <p className="font-semibold">{proposal.original_item_name} → {proposal.replacement_item_name}</p>
+                          <p className="text-amber-800">Pelanggan: {proposal.customer_decision === 'pending' ? 'menunggu persetujuan' : proposal.customer_decision === 'approved' ? 'disetujui' : 'ditolak'}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-xs font-black uppercase tracking-wide text-emerald-900">Jejak pesanan</p>

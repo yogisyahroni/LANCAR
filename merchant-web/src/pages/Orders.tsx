@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
@@ -6,6 +7,7 @@ import OrderCard from '../components/OrderCard'
 import { MerchantPageSkeleton } from '../components/Skeleton'
 import type { MenuItem, MerchantOrder, MerchantOrderDetail, MerchantStruk, OrderListResponse } from '../lib/types'
 import { rupiah } from '../lib/types'
+import { subscribeToMerchantOrderEvents } from '../lib/realtime'
 
 const TABS = [
   { key: 'baru', label: 'Baru', statuses: ['pending_merchant', 'scheduled'] },
@@ -22,6 +24,7 @@ const escapeHtml = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (
 }[character] || character))
 
 export default function Orders() {
+  const navigate = useNavigate()
   const [tab, setTab] = useState<TabKey>('baru')
   const [orders, setOrders] = useState<MerchantOrder[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,7 +47,8 @@ export default function Orders() {
   useEffect(() => {
     load(true)
     const t = setInterval(() => load(), 15000)
-    return () => clearInterval(t)
+    const unsubscribe = subscribeToMerchantOrderEvents(() => { void load() })
+    return () => { clearInterval(t); unsubscribe() }
   }, [load])
 
   useEffect(() => {
@@ -123,6 +127,10 @@ export default function Orders() {
     return res.data
   }
 
+  const reportOrderIssue = (id: string) => {
+    navigate(`/dukungan?order=${encodeURIComponent(id)}`)
+  }
+
   const proposeSubstitution = async (id: string, originalMenuItemId: string, replacementMenuItemId: string, reason: string) => {
     try {
       await api.post(`/merchant/orders/${id}/substitution`, {
@@ -176,7 +184,7 @@ export default function Orders() {
       ) : (
         <div className="space-y-4">
             {filtered.map((o) => (
-            <OrderCard key={o.id} order={o} menuItems={menuItems} onAccept={acceptOrder} onReject={rejectOrder} onReady={readyOrder} onPrint={printOrder} onPartialReject={partialRejectOrder} onProposeSubstitution={proposeSubstitution} onLoadDetail={loadOrderDetail} />
+            <OrderCard key={o.id} order={o} menuItems={menuItems} onAccept={acceptOrder} onReject={rejectOrder} onReady={readyOrder} onPrint={printOrder} onPartialReject={partialRejectOrder} onProposeSubstitution={proposeSubstitution} onLoadDetail={loadOrderDetail} onReportIssue={reportOrderIssue} />
           ))}
         </div>
       )}

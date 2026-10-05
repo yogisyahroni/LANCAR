@@ -309,6 +309,13 @@ type FoodSubstitutionProposal struct {
 	CustomerDecidedAt   *time.Time `json:"customer_decided_at,omitempty"`
 }
 
+// FoodSubstitutionAtomicRepository is implemented by the production
+// repository so an approved decision updates the proposal and the order item
+// subtotal in one database transaction.
+type FoodSubstitutionAtomicRepository interface {
+	ResolveFoodSubstitutionAndApply(ctx context.Context, proposalID, decision string, orderID, originalItemID string, replacementPrice int64) error
+}
+
 type ReportFoodItemUnavailableRequest struct {
 	MenuItemID string `json:"menu_item_id" validate:"required"`
 	Quantity   int    `json:"quantity" validate:"required,min=1"`

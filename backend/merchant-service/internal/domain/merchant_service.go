@@ -59,16 +59,36 @@ type MerchantOrderFinancials struct {
 	NetMerchantIDR           int64 `json:"net_merchant_idr"`
 }
 
+// MerchantSubstitutionProposalView exposes the server-owned customer decision
+// state so merchant staff can see whether an item replacement is pending,
+// approved, or rejected without guessing from a local UI flag.
+type MerchantSubstitutionProposalView struct {
+	ID                  string  `json:"id"`
+	OriginalItemID      string  `json:"original_menu_item_id"`
+	OriginalItemName    string  `json:"original_item_name"`
+	OriginalPrice       int64   `json:"original_price_idr"`
+	ReplacementItemID   string  `json:"replacement_menu_item_id"`
+	ReplacementItemName string  `json:"replacement_item_name"`
+	ReplacementPrice    int64   `json:"replacement_price_idr"`
+	PriceDifferenceIDR  int64   `json:"price_difference_idr"`
+	Reason              string  `json:"reason,omitempty"`
+	ProposedBy          string  `json:"proposed_by_role"`
+	ProposedAt          string  `json:"proposed_at"`
+	CustomerDecision    string  `json:"customer_decision"`
+	CustomerDecidedAt   *string `json:"customer_decided_at,omitempty"`
+}
+
 // MerchantOrderDetail is a read model only. All values are loaded from the
 // authoritative order/payment/refund/event tables; the web client cannot
 // derive or overwrite them.
 type MerchantOrderDetail struct {
 	MerchantOrderView
-	StateVersion int64                        `json:"state_version"`
-	Courier      *MerchantOrderCourier        `json:"courier,omitempty"`
-	Financials   MerchantOrderFinancials      `json:"financials"`
-	Timeline     []MerchantOrderTimelineEvent `json:"timeline"`
-	DataAsOf     string                       `json:"data_as_of"`
+	StateVersion  int64                              `json:"state_version"`
+	Courier       *MerchantOrderCourier              `json:"courier,omitempty"`
+	Financials    MerchantOrderFinancials            `json:"financials"`
+	Timeline      []MerchantOrderTimelineEvent       `json:"timeline"`
+	Substitutions []MerchantSubstitutionProposalView `json:"substitutions,omitempty"`
+	DataAsOf      string                             `json:"data_as_of"`
 }
 
 // FoodOrderItemView — item dalam order food (dari food_order_items snapshot).
@@ -148,6 +168,10 @@ type MerchantService interface {
 	UpdateMenuCategory(ctx context.Context, userID, categoryID string, req UpdateMenuCategoryRequest) (*MenuCategory, error)
 	ModerateMenuItem(ctx context.Context, actorID, actorRole, itemID string, req ModerateMenuItemRequest) (*MenuItem, error)
 	ImportMenuCSV(ctx context.Context, userID, idempotencyKey string, content []byte) (*BulkMenuImportResult, error)
+	GetCatalogReadiness(ctx context.Context, userID string) (*CatalogReadiness, error)
+	ListCatalogPublications(ctx context.Context, userID string, limit int) ([]*CatalogPublication, error)
+	PublishCatalog(ctx context.Context, userID, idempotencyKey string, expectedCatalogVersion *int64) (*CatalogPublication, error)
+	RollbackCatalog(ctx context.Context, userID, idempotencyKey string, targetPublicationVersion int64) (*CatalogPublication, error)
 
 	// Order action (FOOD-BIKE-017/021)
 	// AcceptOrder menyetujui order food: status → preparing, set merchant_accepted_at.

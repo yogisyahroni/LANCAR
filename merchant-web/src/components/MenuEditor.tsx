@@ -44,7 +44,7 @@ export default function MenuEditor({ item, onClose, onSaved }: {
           const list = (res.data ?? []) as { nama: string; is_required: boolean; min_select: number; max_select: number; options: { nama: string; price_delta: number }[] }[]
           setVariants(list.map((v) => ({ ...v, options: v.options.map((o) => ({ nama: o.nama, price_delta: o.price_delta })) })))
         })
-        .catch(() => console.warn('Endpoint varian tidak tersedia'))
+        .catch((err) => toast.error(apiErrorMessage(err, 'Varian menu gagal dimuat')))
         .finally(() => setLoadingVariants(false))
     } else {
       setForm(emptyForm)
@@ -89,7 +89,7 @@ export default function MenuEditor({ item, onClose, onSaved }: {
               options: v.options.filter((o) => o.nama.trim()).map((o) => ({ nama: o.nama.trim(), price_delta: Number(o.price_delta) || 0 })),
             })),
         }
-        await api.put(`/merchant/menu/${saved.id}/variants`, body).catch(() => console.warn('Simpan varian gagal — endpoint varian mungkin belum tersedia'))
+        await api.put(`/merchant/menu/${saved.id}/variants`, body)
       }
       toast.success(item ? 'Menu diperbarui' : 'Menu ditambahkan')
       onSaved()

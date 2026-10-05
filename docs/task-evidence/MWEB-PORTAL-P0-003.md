@@ -11,8 +11,8 @@ tests: PASS
 integration: NOT_RUN
 e2e: NOT_RUN
 
-migration: N/A
-migration_na_reason: "Vertical slice ini memakai kolom/tabel order food, event, payment, refund, dan settlement yang sudah ada; belum ada perubahan schema baru pada increment ini."
+migration: PASS
+migration_na_reason: "N/A — migration applicable untuk atomic substitution resolution dan sudah diverifikasi pada database Docker/PgBouncer."
 
 observability: NOT_RUN
 security_privacy: PARTIAL
@@ -64,6 +64,8 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Merchant Web menampilkan panel timeline dan ringkasan pembayaran/refund dari endpoint authoritative; tidak menghitung ulang total atau status dari data UI.
 - Merchant Web kini mengambil katalog aktif dari database untuk memilih item pengganti dan mengirim proposal substitution melalui merchant-service ke internal order-service. Customer decision tetap authoritative di order-service; portal tidak menerima harga dari client.
 - Existing reject/refund item flow tetap dipakai dan tidak diganti dengan mock atau angka hardcode.
+- Resolusi substitution memakai migration `20261005000001`, row lock, guard `resolved = false`, dan unique pending-item index agar keputusan customer tidak dapat diproses dua kali.
+- Merchant Web order list/detail di-refresh melalui realtime event dan polling fallback sehingga perubahan server dapat masuk kembali setelah reconnect.
 
 ## Files Changed
 
@@ -96,6 +98,15 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 
     command: VITE_API_URL=http://127.0.0.1:8080/api/v1 VITE_WEB_ORIGIN=http://127.0.0.1:3086 npm run build (working directory merchant-web, after substitution UI wiring)
     result: PASS
+
+    command: go test ./... (working directory backend/order-service)
+    result: PASS
+
+    command: goose -dir database/migrations postgres "postgres://postgres:1234@localhost:6432/tembus_session?sslmode=disable" up
+    result: PASS — substitution resolution migration applied to Docker/PgBouncer database.
+
+    command: docker compose up -d --build merchant-service order-service merchant-web
+    result: PASS — local merchant/order/web containers healthy; this is not staging deployment evidence.
 
 ## Task-Local Verification
 
@@ -144,3 +155,62 @@ Evidence: Deferred with the owner-approved verification queue; no recovery resul
 - Staging Docker rebuild/migration/runtime smoke, Android physical/emulator flows, security/accessibility/observability, rollback/recovery, and production release gate.
 
 The queue is intentionally recorded as deferred, not passed.
+
+## External Runtime / Release Validation
+
+### Is external proof required by the original TASK-ID?
+
+Value: `true`
+
+Reason: Original acceptance explicitly requires browser cross-app Customer → Merchant → Courier → Customer proof.
+
+### External Runtime Validation
+
+Status: NOT_RUN
+
+Evidence: Local service integration was rebuilt, but authenticated staging/device/cross-app lifecycle is deferred.
+
+### Release Readiness
+
+Status: NOT_RUN
+
+Evidence: Release gate waits for the remaining portal feature slices.
+
+### Release Follow-ups
+
+- Full customer payment/order → merchant accept/reject/prepare/ready → courier pickup/delivery → customer completion.
+- Timeout, duplicate click, refresh, multi-tab, reconnect/out-of-order/replay, cancellation, partial refund, dispute, receipt/print, and notification proof.
+
+## Locally Actionable Remaining
+
+- Complete courier/customer event delivery, timeout/reconnect/replay tests, cancellation/refund/dispute UI path, and receipt/print verification.
+
+## External Blockers
+
+NONE
+
+## Owner Action Required
+
+NONE
+
+## Reality Gate Evaluation
+
+### REALITY-2026-003 — Evidence-based Definition of Done
+
+Status: PARTIAL
+
+Evidence: Server-authoritative order detail/transition/substitution implementation and local package verification exist; cross-app original acceptance remains unproven.
+
+### REALITY-2026-011 — No Fake Completeness
+
+Status: PASS
+
+Evidence: Deferred lifecycle/device/staging results are recorded as NOT_RUN and are not represented as success.
+
+## Unproven / Remaining
+
+Full cross-app lifecycle, timeout/reconnect/out-of-order/duplicate E2E, courier handoff, cancel/refund/dispute, receipt/print, and staging/device proof.
+
+## Next Eligible Task
+
+CURRENT TASK — continue working

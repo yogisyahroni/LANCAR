@@ -903,6 +903,81 @@ func (h *MerchantHandler) ImportMenuCSV(w http.ResponseWriter, r *http.Request) 
 	h.respondJSON(w, http.StatusCreated, result)
 }
 
+func (h *MerchantHandler) GetCatalogReadiness(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	readiness, err := h.svc.GetCatalogReadiness(r.Context(), userID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, readiness)
+}
+
+func (h *MerchantHandler) ListCatalogPublications(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	publications, err := h.svc.ListCatalogPublications(r.Context(), userID, limit)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, map[string]any{"items": publications})
+}
+
+func (h *MerchantHandler) PublishCatalog(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		ExpectedCatalogVersion *int64 `json:"expected_catalog_version,omitempty"`
+	}
+	if r.Body != nil && r.ContentLength != 0 {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+			return
+		}
+	}
+	publication, err := h.svc.PublishCatalog(r.Context(), userID, strings.TrimSpace(r.Header.Get("Idempotency-Key")), body.ExpectedCatalogVersion)
+	if err != nil {
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "katalog berubah") {
+			status = http.StatusConflict
+		} else if strings.Contains(err.Error(), "belum siap") {
+			status = http.StatusUnprocessableEntity
+		}
+		h.respondError(w, status, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusCreated, publication)
+}
+
+func (h *MerchantHandler) RollbackCatalog(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		PublicationVersion int64 `json:"publication_version"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	publication, err := h.svc.RollbackCatalog(r.Context(), userID, strings.TrimSpace(r.Header.Get("Idempotency-Key")), body.PublicationVersion)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusCreated, publication)
+}
+
 // ─────────────────────────────────────────────
 // Order Action (FOOD-BIKE-017/021)
 // ─────────────────────────────────────────────

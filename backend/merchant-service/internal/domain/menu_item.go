@@ -140,6 +140,25 @@ type CatalogImportRecord struct {
 	Result         BulkMenuImportResult
 }
 
+type CatalogReadiness struct {
+	Ready                   bool     `json:"ready"`
+	CatalogVersion          int64    `json:"catalog_version"`
+	PublishedVersion        *int64   `json:"published_version,omitempty"`
+	PublishedCatalogVersion *int64   `json:"published_catalog_version,omitempty"`
+	ItemCount               int      `json:"item_count"`
+	BlockingReasons         []string `json:"blocking_reasons,omitempty"`
+}
+
+type CatalogPublication struct {
+	ID                  string  `json:"id"`
+	MerchantID          string  `json:"merchant_id"`
+	PublicationVersion  int64   `json:"publication_version"`
+	CatalogVersion      int64   `json:"catalog_version"`
+	ItemCount           int     `json:"item_count"`
+	CreatedAt           string  `json:"created_at"`
+	SourcePublicationID *string `json:"source_publication_id,omitempty"`
+}
+
 // MenuGovernanceRepository owns canonical catalog projections, moderation,
 // schedules, and atomic/idempotent import persistence.
 type MenuGovernanceRepository interface {
@@ -152,6 +171,10 @@ type MenuGovernanceRepository interface {
 	StartCatalogImport(ctx context.Context, merchantID, idempotencyKey, requestHash string) (*CatalogImportRecord, bool, error)
 	CompleteCatalogImport(ctx context.Context, importID, status string, result BulkMenuImportResult) error
 	BulkImportMenu(ctx context.Context, merchantID, importID string, items []*MenuItem, categories []*MenuCategory, result BulkMenuImportResult) error
+	GetCatalogReadiness(ctx context.Context, merchantID string) (*CatalogReadiness, error)
+	ListCatalogPublications(ctx context.Context, merchantID string, limit int) ([]*CatalogPublication, error)
+	PublishCatalog(ctx context.Context, merchantID, actorID, idempotencyKey string, expectedCatalogVersion *int64) (*CatalogPublication, error)
+	RollbackCatalog(ctx context.Context, merchantID, actorID, idempotencyKey string, targetPublicationVersion int64) (*CatalogPublication, error)
 }
 
 // MenuItemVariantOption — satu opsi dalam grup varian (harga delta IDR).

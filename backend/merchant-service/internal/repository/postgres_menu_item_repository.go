@@ -712,3 +712,254 @@ func (r *postgresMenuItemRepository) BulkImportMenu(ctx context.Context, merchan
 	}
 	return tx.Commit()
 }
+
+func scanCatalogPublication(row interface{ Scan(...any) error }) (*domain.CatalogPublication, error) {
+	publication := &domain.CatalogPublication{}
+	var sourceID sql.NullString
+	var createdAt time.Time
+	if err := row.Scan(
+		&publication.ID, &publication.MerchantID, &publication.PublicationVersion,
+		&publication.CatalogVersion, &publication.ItemCount, &createdAt, &sourceID,
+	); err != nil {
+		return nil, err
+	}
+	publication.CreatedAt = createdAt.UTC().Format(time.RFC3339)
+	if sourceID.Valid {
+		publication.SourcePublicationID = &sourceID.String
+	}
+	return publication, nil
+}
+
+const catalogReadinessQuery = `
+SELECT
+  COALESCE((SELECT version FROM merchant_catalog_versions WHERE merchant_id = $1), 0),
+  COUNT(*) FILTER (WHERE item.status NOT IN ('draft', 'moderation_pending', 'rejected', 'archived') AND item.moderation_status = 'approved' AND item.harga > 0 AND BTRIM(item.nama) <> '' AND BTRIM(COALESCE(item.kategori, '')) <> '' AND item.prep_time_minutes BETWEEN 1 AND 180),
+  COUNT(*) FILTER (WHERE item.moderation_status = 'pending' OR item.status = 'moderation_pending'),
+  COUNT(*) FILTER (WHERE item.moderation_status = 'approved' AND (item.harga <= 0 OR BTRIM(item.nama) = '' OR BTRIM(COALESCE(item.kategori, '')) = '' OR item.prep_time_minutes NOT BETWEEN 1 AND 180))
+FROM merchant_menu_items item
+WHERE item.merchant_id = $1`
+
+func (r *postgresMenuItemRepository) getCatalogReadinessRow(ctx context.Context, queryer interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}, merchantID string) (*domain.CatalogReadiness, error) {
+	readiness := &domain.CatalogReadiness{}
+	var pending, invalid int
+	if err := queryer.QueryRowContext(ctx, catalogReadinessQuery, merchantID).Scan(
+		&readiness.CatalogVersion, &readiness.ItemCount, &pending, &invalid,
+	); err != nil {
+		return nil, err
+	}
+	if readiness.ItemCount == 0 {
+		readiness.BlockingReasons = append(readiness.BlockingReasons, "Tambahkan minimal satu menu yang siap dijual")
+	}
+	if pending > 0 {
+		readiness.BlockingReasons = append(readiness.BlockingReasons, fmt.Sprintf("%d menu masih menunggu pemeriksaan", pending))
+	}
+	if invalid > 0 {
+		readiness.BlockingReasons = append(readiness.BlockingReasons, fmt.Sprintf("%d menu memiliki data nama, kategori, harga, atau waktu persiapan yang belum valid", invalid))
+	}
+	readiness.Ready = len(readiness.BlockingReasons) == 0
+	var publishedVersion, publishedCatalogVersion sql.NullInt64
+	if err := queryer.QueryRowContext(ctx, `
+		SELECT publication_version, catalog_version
+		FROM merchant_catalog_publications
+		WHERE merchant_id = $1
+		ORDER BY publication_version DESC
+		LIMIT 1`, merchantID).Scan(&publishedVersion, &publishedCatalogVersion); err == nil {
+		readiness.PublishedVersion = &publishedVersion.Int64
+		readiness.PublishedCatalogVersion = &publishedCatalogVersion.Int64
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	return readiness, nil
+}
+
+func (r *postgresMenuItemRepository) GetCatalogReadiness(ctx context.Context, merchantID string) (*domain.CatalogReadiness, error) {
+	return r.getCatalogReadinessRow(ctx, r.readDB, merchantID)
+}
+
+func (r *postgresMenuItemRepository) ListCatalogPublications(ctx context.Context, merchantID string, limit int) ([]*domain.CatalogPublication, error) {
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT id::text, merchant_id::text, publication_version, catalog_version,
+		       item_count, created_at, source_publication_id::text
+		FROM merchant_catalog_publications
+		WHERE merchant_id = $1
+		ORDER BY publication_version DESC
+		LIMIT $2`, merchantID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	publications := make([]*domain.CatalogPublication, 0)
+	for rows.Next() {
+		publication, err := scanCatalogPublication(rows)
+		if err != nil {
+			return nil, err
+		}
+		publications = append(publications, publication)
+	}
+	return publications, rows.Err()
+}
+
+const publicationItemSnapshotSelect = `
+SELECT item.id, item.merchant_id, item.nama, item.harga, item.foto, item.deskripsi,
+       item.kategori, item.prep_time_minutes,
+       COALESCE((SELECT jsonb_agg(jsonb_build_object(
+         'id', image.id, 'menu_item_id', image.menu_item_id, 'url', image.url,
+         'alt_text', image.alt_text, 'sort_order', image.sort_order,
+         'is_primary', image.is_primary
+       ) ORDER BY image.sort_order, image.created_at)
+       FROM merchant_menu_item_images image WHERE image.menu_item_id = item.id), '[]'::jsonb),
+       COALESCE((SELECT jsonb_agg(jsonb_build_object(
+         'id', variant.id, 'menu_item_id', variant.menu_item_id, 'nama', variant.nama,
+         'kind', COALESCE(variant.kind, 'variant'), 'status', COALESCE(variant.status, 'active'),
+         'is_required', variant.is_required, 'min_select', variant.min_select,
+         'max_select', variant.max_select, 'sort_order', variant.sort_order,
+         'options', COALESCE((SELECT jsonb_agg(jsonb_build_object(
+           'id', option.id, 'variant_id', option.variant_id, 'nama', option.nama,
+           'price_delta', option.price_delta, 'is_default', option.is_default
+         ) ORDER BY option.created_at)
+         FROM menu_item_variant_options option WHERE option.variant_id = variant.id), '[]'::jsonb)
+       ) ORDER BY variant.sort_order, variant.created_at)
+       FROM menu_item_variants variant WHERE variant.menu_item_id = item.id AND COALESCE(variant.status, 'active') = 'active'), '[]'::jsonb)
+FROM merchant_menu_items item
+WHERE item.merchant_id = $1
+  AND item.status NOT IN ('draft', 'moderation_pending', 'rejected', 'archived')
+  AND item.moderation_status = 'approved'`
+
+func (r *postgresMenuItemRepository) PublishCatalog(ctx context.Context, merchantID, actorID, idempotencyKey string, expectedCatalogVersion *int64) (*domain.CatalogPublication, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var existing *domain.CatalogPublication
+	existing, err = scanCatalogPublication(tx.QueryRowContext(ctx, `
+		SELECT id::text, merchant_id::text, publication_version, catalog_version,
+		       item_count, created_at, source_publication_id::text
+		FROM merchant_catalog_publications
+		WHERE merchant_id = $1 AND idempotency_key = $2`, merchantID, idempotencyKey))
+	if err == nil {
+		return existing, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO merchant_catalog_versions (merchant_id, version)
+		VALUES ($1, 0)
+		ON CONFLICT (merchant_id) DO NOTHING`, merchantID); err != nil {
+		return nil, err
+	}
+	var catalogVersion int64
+	if err := tx.QueryRowContext(ctx, `SELECT version FROM merchant_catalog_versions WHERE merchant_id = $1 FOR UPDATE`, merchantID).Scan(&catalogVersion); err != nil {
+		return nil, err
+	}
+	if expectedCatalogVersion != nil && *expectedCatalogVersion != catalogVersion {
+		return nil, fmt.Errorf("katalog berubah sejak halaman dibuka; muat ulang sebelum mempublikasikan (versi saat ini %d)", catalogVersion)
+	}
+	readiness, err := r.getCatalogReadinessRow(ctx, tx, merchantID)
+	if err != nil {
+		return nil, err
+	}
+	if !readiness.Ready {
+		return nil, fmt.Errorf("katalog belum siap dipublikasikan: %s", strings.Join(readiness.BlockingReasons, "; "))
+	}
+
+	var nextPublicationVersion int64
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COALESCE(MAX(publication_version), 0) + 1
+		FROM merchant_catalog_publications
+		WHERE merchant_id = $1`, merchantID).Scan(&nextPublicationVersion); err != nil {
+		return nil, err
+	}
+	var publication *domain.CatalogPublication
+	publication, err = scanCatalogPublication(tx.QueryRowContext(ctx, `
+		INSERT INTO merchant_catalog_publications (
+			merchant_id, publication_version, catalog_version, published_by,
+			idempotency_key, item_count
+		)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id::text, merchant_id::text, publication_version, catalog_version,
+		          item_count, created_at, source_publication_id::text`,
+		merchantID, nextPublicationVersion, catalogVersion, actorID, idempotencyKey, readiness.ItemCount))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO merchant_catalog_publication_items (
+			publication_id, menu_item_id, merchant_id, nama, harga, foto, deskripsi,
+			kategori, prep_time_minutes, images, variants
+		)
+		`+strings.Replace(publicationItemSnapshotSelect, "SELECT item.id, item.merchant_id,", "SELECT $2::uuid, item.id, item.merchant_id,", 1),
+		merchantID, publication.ID); err != nil {
+		return nil, fmt.Errorf("snapshot katalog: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return publication, nil
+}
+
+func (r *postgresMenuItemRepository) RollbackCatalog(ctx context.Context, merchantID, actorID, idempotencyKey string, targetPublicationVersion int64) (*domain.CatalogPublication, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if existing, existingErr := scanCatalogPublication(tx.QueryRowContext(ctx, `
+		SELECT id::text, merchant_id::text, publication_version, catalog_version,
+		       item_count, created_at, source_publication_id::text
+		FROM merchant_catalog_publications
+		WHERE merchant_id = $1 AND idempotency_key = $2`, merchantID, idempotencyKey)); existingErr == nil {
+		return existing, nil
+	} else if !errors.Is(existingErr, sql.ErrNoRows) {
+		return nil, existingErr
+	}
+	var targetID string
+	var targetCatalogVersion int64
+	var targetItemCount int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT id::text, catalog_version, item_count
+		FROM merchant_catalog_publications
+		WHERE merchant_id = $1 AND publication_version = $2`, merchantID, targetPublicationVersion).
+		Scan(&targetID, &targetCatalogVersion, &targetItemCount); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("versi publikasi %d tidak ditemukan", targetPublicationVersion)
+		}
+		return nil, err
+	}
+	var nextPublicationVersion int64
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(publication_version), 0) + 1 FROM merchant_catalog_publications WHERE merchant_id = $1`, merchantID).Scan(&nextPublicationVersion); err != nil {
+		return nil, err
+	}
+	publication, err := scanCatalogPublication(tx.QueryRowContext(ctx, `
+		INSERT INTO merchant_catalog_publications (
+			merchant_id, publication_version, catalog_version, published_by,
+			source_publication_id, idempotency_key, item_count
+		)
+		VALUES ($1, $2, $3, $4, $5::uuid, $6, $7)
+		RETURNING id::text, merchant_id::text, publication_version, catalog_version,
+		          item_count, created_at, source_publication_id::text`,
+		merchantID, nextPublicationVersion, targetCatalogVersion, actorID, targetID, idempotencyKey, targetItemCount))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO merchant_catalog_publication_items (
+			publication_id, menu_item_id, merchant_id, nama, harga, foto, deskripsi,
+			kategori, prep_time_minutes, images, variants
+		)
+		SELECT $1::uuid, menu_item_id, merchant_id, nama, harga, foto, deskripsi,
+		       kategori, prep_time_minutes, images, variants
+		FROM merchant_catalog_publication_items
+		WHERE publication_id = $2::uuid`, publication.ID, targetID); err != nil {
+		return nil, fmt.Errorf("copy snapshot rollback: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return publication, nil
+}

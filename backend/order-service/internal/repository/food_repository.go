@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -364,6 +365,62 @@ func (r *foodRepo) GetMenuItemVariants(ctx context.Context, menuIDs []string) (m
 	placeholders := make([]string, len(menuIDs))
 	args := make([]any, len(menuIDs))
 	for i, id := range menuIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+
+	// Prefer the immutable customer-facing snapshot. If a merchant has not
+	// published yet, the legacy catalog query below remains a safe compatibility
+	// path for old records created before catalog publication was introduced.
+	publishedRows, err := r.readDB.QueryContext(ctx, fmt.Sprintf(`
+		SELECT publication_item.menu_item_id::text, publication_item.variants
+		FROM merchant_catalog_publication_items publication_item
+		JOIN merchant_catalog_publications publication ON publication.id = publication_item.publication_id
+		JOIN (
+			SELECT DISTINCT ON (merchant_id) id
+			FROM merchant_catalog_publications
+			ORDER BY merchant_id, publication_version DESC
+		) latest ON latest.id = publication.id
+		WHERE publication_item.menu_item_id IN (%s)`, strings.Join(placeholders, ", ")), args...)
+	if err != nil {
+		return nil, fmt.Errorf("query published menu variants: %w", err)
+	}
+	foundPublished := make(map[string]bool, len(menuIDs))
+	for publishedRows.Next() {
+		var menuID string
+		var payload []byte
+		if err := publishedRows.Scan(&menuID, &payload); err != nil {
+			publishedRows.Close()
+			return nil, err
+		}
+		foundPublished[menuID] = true
+		var variants []domain.MenuItemVariant
+		if len(payload) > 0 {
+			if err := json.Unmarshal(payload, &variants); err != nil {
+				publishedRows.Close()
+				return nil, fmt.Errorf("decode published menu variants: %w", err)
+			}
+		}
+		result[menuID] = variants
+	}
+	if err := publishedRows.Err(); err != nil {
+		publishedRows.Close()
+		return nil, err
+	}
+	publishedRows.Close()
+	remaining := make([]string, 0, len(menuIDs))
+	for _, id := range menuIDs {
+		if !foundPublished[id] {
+			remaining = append(remaining, id)
+		}
+	}
+	if len(remaining) == 0 {
+		return result, nil
+	}
+
+	placeholders = make([]string, len(remaining))
+	args = make([]any, len(remaining))
+	for i, id := range remaining {
 		placeholders[i] = fmt.Sprintf("$%d", i+1)
 		args[i] = id
 	}
@@ -999,25 +1056,45 @@ func (r *foodRepo) ActivateScheduledFoodOrder(ctx context.Context, orderID strin
 // GetFoodMerchantMenu — FOOD-BIKE-055/056: daftar menu merchant.
 func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) ([]domain.FoodMenuItemInfo, error) {
 	rows, err := r.readDB.QueryContext(ctx, `
-		SELECT id::text, merchant_id::text, nama, harga, is_available, status,
+		WITH latest_publication AS (
+			SELECT id
+			FROM merchant_catalog_publications
+			WHERE merchant_id = $1
+			ORDER BY publication_version DESC
+			LIMIT 1
+		), visible_items AS (
+			SELECT publication_item.menu_item_id, publication_item.merchant_id,
+			       publication_item.nama, publication_item.harga, publication_item.prep_time_minutes,
+			       publication_item.kategori, publication_item.foto, publication_item.deskripsi,
+			       publication_item.images
+			FROM merchant_catalog_publication_items publication_item
+			JOIN latest_publication publication ON publication.id = publication_item.publication_id
+			UNION ALL
+			SELECT item.id, item.merchant_id, item.nama, item.harga, item.prep_time_minutes,
+			       item.kategori, item.foto, item.deskripsi, '[]'::jsonb
+			FROM merchant_menu_items item
+			WHERE item.merchant_id = $1
+			  AND NOT EXISTS (SELECT 1 FROM latest_publication)
+		)
+		SELECT visible.menu_item_id::text, visible.merchant_id::text, visible.nama, visible.harga, live.is_available, live.status,
 		       (NOT EXISTS (
 				SELECT 1 FROM merchant_menu_item_schedules schedule
-				WHERE schedule.menu_item_id = merchant_menu_items.id AND schedule.is_active = TRUE
+				WHERE schedule.menu_item_id = live.id AND schedule.is_active = TRUE
 			   ) OR EXISTS (
 				SELECT 1 FROM merchant_menu_item_schedules schedule
-				WHERE schedule.menu_item_id = merchant_menu_items.id AND schedule.is_active = TRUE
+				WHERE schedule.menu_item_id = live.id AND schedule.is_active = TRUE
 				  AND schedule.weekday = EXTRACT(DOW FROM (NOW() AT TIME ZONE 'Asia/Jakarta'))::smallint
 				  AND ((schedule.starts_at < schedule.ends_at AND (NOW() AT TIME ZONE 'Asia/Jakarta')::time >= schedule.starts_at AND (NOW() AT TIME ZONE 'Asia/Jakarta')::time < schedule.ends_at)
 				       OR (schedule.starts_at > schedule.ends_at AND ((NOW() AT TIME ZONE 'Asia/Jakarta')::time >= schedule.starts_at OR (NOW() AT TIME ZONE 'Asia/Jakarta')::time < schedule.ends_at)))
 			   )) AS schedule_available,
-		       prep_time_minutes, stock_quantity, daily_sales_limit, daily_sales_count,
+		       visible.prep_time_minutes, live.stock_quantity, live.daily_sales_limit, live.daily_sales_count,
 		       sales_limit_reset_at,
-		       merchant_enforcement_is_active(merchant_id, branch_id, id, NULL),
-			       kategori, foto, deskripsi
-		FROM merchant_menu_items
-		WHERE merchant_id = $1
-		  AND status NOT IN ('draft', 'moderation_pending', 'rejected', 'archived')
-		ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END, kategori NULLS LAST, nama ASC`,
+		       merchant_enforcement_is_active(live.merchant_id, live.branch_id, live.id, NULL),
+		       visible.kategori, visible.foto, visible.deskripsi, visible.images
+		FROM visible_items visible
+		JOIN merchant_menu_items live ON live.id = visible.menu_item_id
+		WHERE live.status NOT IN ('draft', 'moderation_pending', 'rejected', 'archived')
+		ORDER BY CASE WHEN live.status = 'active' THEN 0 ELSE 1 END, visible.kategori NULLS LAST, visible.nama ASC`,
 		merchantID,
 	)
 	if err != nil {
@@ -1030,11 +1107,12 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 	for rows.Next() {
 		var item domain.FoodMenuItemInfo
 		var kategori, foto, deskripsi sql.NullString
+		var imageSnapshot []byte
 		var scheduleAvailable bool
 		if err := rows.Scan(
 			&item.ID, &item.MerchantID, &item.Name, &item.Price, &item.IsAvailable, &item.Status, &scheduleAvailable,
 			&item.PrepTimeMinutes, &item.StockQuantity, &item.DailySalesLimit, &item.DailySalesCount,
-			&item.SalesResetAt, &item.EnforcementActive, &kategori, &foto, &deskripsi,
+			&item.SalesResetAt, &item.EnforcementActive, &kategori, &foto, &deskripsi, &imageSnapshot,
 		); err != nil {
 			return nil, err
 		}
@@ -1048,46 +1126,25 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 			item.Deskripsi = &deskripsi.String
 		}
 		item.ScheduleAvailable = &scheduleAvailable
+		if len(imageSnapshot) > 0 {
+			var images []struct {
+				URL string `json:"url"`
+			}
+			if err := json.Unmarshal(imageSnapshot, &images); err != nil {
+				return nil, fmt.Errorf("decode katalog publikasi images: %w", err)
+			}
+			for _, image := range images {
+				if image.URL != "" {
+					item.Images = append(item.Images, image.URL)
+				}
+			}
+		}
 		out = append(out, item)
 		menuIDs = append(menuIDs, item.ID)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	if len(menuIDs) > 0 {
-		imagePlaceholders := make([]string, len(menuIDs))
-		imageArgs := make([]any, len(menuIDs))
-		for i, id := range menuIDs {
-			imagePlaceholders[i] = fmt.Sprintf("$%d", i+1)
-			imageArgs[i] = id
-		}
-		imageRows, imageErr := r.readDB.QueryContext(ctx, fmt.Sprintf(`
-			SELECT menu_item_id::text, url
-			FROM merchant_menu_item_images
-			WHERE menu_item_id IN (%s)
-			ORDER BY sort_order, created_at`, strings.Join(imagePlaceholders, ", ")), imageArgs...)
-		if imageErr != nil {
-			return nil, imageErr
-		}
-		imagesByItem := make(map[string][]string)
-		for imageRows.Next() {
-			var itemID, imageURL string
-			if scanErr := imageRows.Scan(&itemID, &imageURL); scanErr != nil {
-				imageRows.Close()
-				return nil, scanErr
-			}
-			imagesByItem[itemID] = append(imagesByItem[itemID], imageURL)
-		}
-		if imageErr := imageRows.Err(); imageErr != nil {
-			imageRows.Close()
-			return nil, imageErr
-		}
-		imageRows.Close()
-		for i := range out {
-			out[i].Images = imagesByItem[out[i].ID]
-		}
-	}
-
 	// FB-108: attach grup varian per item (sekali query batch).
 	variantMap, err := r.GetMenuItemVariants(ctx, menuIDs)
 	if err != nil {
@@ -1125,46 +1182,66 @@ func (r *foodRepo) AttachFoodMerchantMenuPreview(ctx context.Context, merchants 
 	}
 
 	query := fmt.Sprintf(`
-		WITH ranked AS (
-			SELECT
-				item.id::text,
-				item.merchant_id::text,
-				item.nama,
-				item.harga,
-				item.is_available,
-				item.status,
-				item.prep_time_minutes,
-				item.stock_quantity,
-				item.daily_sales_limit,
-				item.daily_sales_count,
-				item.sales_limit_reset_at,
-				merchant_enforcement_is_active(item.merchant_id, item.branch_id, item.id, NULL) AS enforcement_active,
-				item.kategori,
-				COALESCE(NULLIF(BTRIM(item.foto), ''), primary_image.url) AS foto,
-				item.deskripsi,
-				ROW_NUMBER() OVER (
-					PARTITION BY item.merchant_id
-					ORDER BY CASE WHEN item.status = 'active' THEN 0 ELSE 1 END,
-						item.kategori NULLS LAST, item.nama ASC
-				) AS preview_rank
+		WITH latest_publication AS (
+			SELECT DISTINCT ON (merchant_id) merchant_id, id
+			FROM merchant_catalog_publications
+			WHERE merchant_id IN (%s)
+			ORDER BY merchant_id, publication_version DESC
+		), visible_items AS (
+			SELECT publication_item.menu_item_id, publication_item.merchant_id,
+			       publication_item.nama, publication_item.harga,
+			       publication_item.kategori, publication_item.foto, publication_item.deskripsi
+			FROM merchant_catalog_publication_items publication_item
+			JOIN latest_publication publication ON publication.id = publication_item.publication_id
+			UNION ALL
+			SELECT item.id, item.merchant_id, item.nama, item.harga,
+			       item.kategori, item.foto, item.deskripsi
 			FROM merchant_menu_items item
+			WHERE item.merchant_id IN (%s)
+			  AND NOT EXISTS (
+				SELECT 1 FROM latest_publication publication
+				WHERE publication.merchant_id = item.merchant_id
+			  )
+		), ranked AS (
+			SELECT
+				visible.menu_item_id::text AS id,
+				visible.merchant_id::text,
+				visible.nama,
+				visible.harga,
+				live.is_available,
+				live.status,
+				live.prep_time_minutes,
+				live.stock_quantity,
+				live.daily_sales_limit,
+				live.daily_sales_count,
+				live.sales_limit_reset_at,
+				merchant_enforcement_is_active(live.merchant_id, live.branch_id, live.id, NULL) AS enforcement_active,
+				visible.kategori,
+				COALESCE(NULLIF(BTRIM(visible.foto), ''), primary_image.url) AS foto,
+				visible.deskripsi,
+				ROW_NUMBER() OVER (
+					PARTITION BY visible.merchant_id
+					ORDER BY CASE WHEN live.status = 'active' THEN 0 ELSE 1 END,
+						visible.kategori NULLS LAST, visible.nama ASC
+				) AS preview_rank
+			FROM visible_items visible
+			JOIN merchant_menu_items live ON live.id = visible.menu_item_id
 			LEFT JOIN LATERAL (
 				SELECT image.url
 				FROM merchant_menu_item_images image
-				WHERE image.menu_item_id = item.id
+				WHERE image.menu_item_id = live.id
 				ORDER BY image.is_primary DESC, image.sort_order ASC, image.created_at ASC
 				LIMIT 1
 			) primary_image ON TRUE
-			WHERE item.merchant_id IN (%s)
-			  AND item.is_available = TRUE
-			  AND item.status NOT IN ('draft', 'moderation_pending', 'rejected', 'archived')
+			WHERE live.is_available = TRUE
+			  AND live.status NOT IN ('draft', 'moderation_pending', 'rejected', 'archived')
 		)
 		SELECT id, merchant_id, nama, harga, is_available, status,
 		       prep_time_minutes, stock_quantity, daily_sales_limit, daily_sales_count,
 		       sales_limit_reset_at, enforcement_active, kategori, foto, deskripsi
 		FROM ranked
 		WHERE preview_rank <= 2
-		ORDER BY merchant_id, preview_rank`, strings.Join(placeholders, ", "))
+		ORDER BY merchant_id, preview_rank`, strings.Join(placeholders, ", "), strings.Join(placeholders, ", "))
 
 	rows, err := r.readDB.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -1626,12 +1703,70 @@ func (r *foodRepo) ResolveFoodSubstitution(ctx context.Context, proposalID strin
 	return nil
 }
 
+// ResolveFoodSubstitutionAndApply keeps the customer decision, replacement
+// price, and item subtotal in one transaction. Without this boundary an
+// approved proposal could be marked resolved while the order item update
+// failed, leaving customer, merchant, and finance projections inconsistent.
+func (r *foodRepo) ResolveFoodSubstitutionAndApply(ctx context.Context, proposalID, decision, orderID, originalItemID string, replacementPrice int64) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin substitution decision: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var currentOrderID, currentItemID, currentDecision string
+	if err := tx.QueryRowContext(ctx, `
+		SELECT order_id, original_menu_item_id, customer_decision
+		  FROM food_substitution_proposals
+		 WHERE id = $1
+		 FOR UPDATE`, proposalID).Scan(&currentOrderID, &currentItemID, &currentDecision); err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("substitution proposal %s tidak ditemukan", proposalID)
+		}
+		return fmt.Errorf("lock substitution proposal: %w", err)
+	}
+	if currentOrderID != orderID || currentItemID != originalItemID || currentDecision != "pending" {
+		return fmt.Errorf("substitution proposal %s tidak lagi dapat diputuskan", proposalID)
+	}
+
+	if decision == "approved" {
+		result, err := tx.ExecContext(ctx, `
+			UPDATE food_order_items
+			   SET item_price = $3,
+			       subtotal = $3 * quantity
+			 WHERE order_id = $1 AND menu_item_id = $2`, orderID, originalItemID, replacementPrice)
+		if err != nil {
+			return fmt.Errorf("apply replacement price: %w", err)
+		}
+		changed, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("read replacement price result: %w", err)
+		}
+		if changed == 0 {
+			return fmt.Errorf("food_order_items tidak ditemukan untuk order %s item %s", orderID, originalItemID)
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE food_substitution_proposals
+		   SET customer_decision = $2,
+		       customer_decided_at = NOW(),
+		       resolved = TRUE
+		 WHERE id = $1 AND customer_decision = 'pending'`, proposalID, decision); err != nil {
+		return fmt.Errorf("resolve substitution proposal: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit substitution decision: %w", err)
+	}
+	return nil
+}
+
 // UpdateFoodOrderItemPrice — update harga item food_order_items + subtotal
 // (dipanggil ketika substitution approved). Harga baru = harga replacement.
 func (r *foodRepo) UpdateFoodOrderItemPrice(ctx context.Context, orderID, menuItemID string, newPrice int64) error {
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE food_order_items
-		SET item_price = $3, subtotal = item_price * quantity
+		SET item_price = $3, subtotal = $3 * quantity
 		WHERE order_id = $1 AND menu_item_id = $2`,
 		orderID, menuItemID, newPrice,
 	)

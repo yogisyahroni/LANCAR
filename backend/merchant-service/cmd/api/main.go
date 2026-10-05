@@ -202,6 +202,10 @@ func main() {
 	}))
 	mux.HandleFunc("/api/v1/merchant/menu-categories/{id}", withAudit(h.UpdateMenuCategory))
 	mux.HandleFunc("/api/v1/merchant/menu/import", withAudit(h.ImportMenuCSV))
+	mux.HandleFunc("/api/v1/merchant/menu/readiness", withAudit(h.GetCatalogReadiness))
+	mux.HandleFunc("/api/v1/merchant/menu/publications", withAudit(h.ListCatalogPublications))
+	mux.HandleFunc("/api/v1/merchant/menu/publish", withAudit(h.PublishCatalog))
+	mux.HandleFunc("/api/v1/merchant/menu/rollback", withAudit(h.RollbackCatalog))
 	mux.HandleFunc("/api/v1/merchant/menu", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:

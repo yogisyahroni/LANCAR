@@ -167,14 +167,22 @@ func (s *orderServiceImpl) DecideFoodSubstitution(ctx context.Context, customerI
 	if o.Status != domain.StatusPreparing && o.Status != domain.StatusSearching {
 		return fmt.Errorf("order %s status %s — keputusan substitution hanya bisa saat preparing/searching", o.ID, o.Status)
 	}
-	if err := s.foodRepo.ResolveFoodSubstitution(ctx, proposalID, req.Decision); err != nil {
-		return fmt.Errorf("resolve substitution: %w", err)
+	if atomicRepo, ok := s.foodRepo.(domain.FoodSubstitutionAtomicRepository); ok {
+		if err := atomicRepo.ResolveFoodSubstitutionAndApply(ctx, proposalID, req.Decision, p.OrderID, p.OriginalItemID, p.ReplacementPrice); err != nil {
+			return fmt.Errorf("resolve substitution atomically: %w", err)
+		}
+	} else {
+		if err := s.foodRepo.ResolveFoodSubstitution(ctx, proposalID, req.Decision); err != nil {
+			return fmt.Errorf("resolve substitution: %w", err)
+		}
+		if req.Decision == "approved" {
+			// Compatibility path for non-production test repositories.
+			if err := s.foodRepo.UpdateFoodOrderItemPrice(ctx, p.OrderID, p.OriginalItemID, p.ReplacementPrice); err != nil {
+				return fmt.Errorf("update harga item order: %w", err)
+			}
+		}
 	}
 	if req.Decision == "approved" {
-		// Update harga item food_order_items → harga replacement live.
-		if err := s.foodRepo.UpdateFoodOrderItemPrice(ctx, p.OrderID, p.OriginalItemID, p.ReplacementPrice); err != nil {
-			return fmt.Errorf("update harga item order: %w", err)
-		}
 		// Event + notif customer bahwa harga berubah.
 		s.publishOrderEvent(ctx, p.OrderID, o.Status,
 			fmt.Sprintf("Substitution approved: %s → %s (delta Rp %d)", p.OriginalItemName, p.ReplacementItemName, p.PriceDifferenceIDR))

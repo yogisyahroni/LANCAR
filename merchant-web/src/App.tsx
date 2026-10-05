@@ -14,6 +14,8 @@ import Settlements from './pages/Settlements'
 import Staff from './pages/Staff'
 import Integrations from './pages/Integrations'
 import Reviews from './pages/Reviews'
+import Support from './pages/Support'
+import Outlets from './pages/Outlets'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -40,8 +42,10 @@ export default function App() {
         <Route path="/laporan" element={<Reports />} />
         <Route path="/settlement" element={<Settlements />} />
         <Route path="/staff" element={<Staff />} />
+        <Route path="/outlet" element={<Outlets />} />
         <Route path="/integrasi" element={<Integrations />} />
         <Route path="/ulasan" element={<Reviews />} />
+        <Route path="/dukungan" element={<Support />} />
         <Route path="/pengaturan" element={<Settings />} />
       </Route>
 

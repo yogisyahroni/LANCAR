@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { Banknote, Bell, Check, ChevronDown, CircleHelp, ClipboardList, LayoutDashboard, LogOut, Menu as MenuIcon, Percent, PlugZap, Search, Settings, Store, Users, UtensilsCrossed, X, BarChart3, ArrowRight, MessageSquareText } from 'lucide-react'
+import { Banknote, Bell, Check, ChevronDown, CircleHelp, ClipboardList, LayoutDashboard, LogOut, Menu as MenuIcon, Percent, PlugZap, Search, Settings, Store, Users, UtensilsCrossed, X, BarChart3, ArrowRight, MessageSquareText, LifeBuoy } from 'lucide-react'
 import { toast } from 'sonner'
 import { clearMerchantDeviceSession, clearSession, getStoredUser, publishWebAuthEvent, setMerchantBranchSelection, subscribeToWebAuthEvents } from '../lib/auth'
 import { api } from '../lib/api'
@@ -15,8 +15,10 @@ const NAV = [
   { to: '/promo', label: 'Promo', icon: Percent, capability: 'manage_promo' },
   { to: '/laporan', label: 'Laporan', icon: BarChart3, capability: 'view_reports' },
   { to: '/ulasan', label: 'Ulasan', icon: MessageSquareText, capability: 'view_reports' },
+  { to: '/dukungan', label: 'Dukungan', icon: LifeBuoy, capability: 'view_store' },
   { to: '/settlement', label: 'Settlement', icon: Banknote, capability: 'view_reports' },
   { to: '/staff', label: 'Staff', icon: Users, capability: 'manage_staff' },
+  { to: '/outlet', label: 'Outlet', icon: Store, capability: 'manage_branch' },
   { to: '/integrasi', label: 'Integrasi', icon: PlugZap, capability: 'view_store' },
   { to: '/pengaturan', label: 'Pengaturan', icon: Settings, capability: 'view_store' },
 ]

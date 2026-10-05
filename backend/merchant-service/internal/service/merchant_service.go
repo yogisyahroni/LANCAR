@@ -1043,6 +1043,68 @@ func (s *merchantServiceImpl) requireMenuGovernance() (domain.MenuGovernanceRepo
 	return s.governanceRepo, nil
 }
 
+func (s *merchantServiceImpl) GetCatalogReadiness(ctx context.Context, userID string) (*domain.CatalogReadiness, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	governance, err := s.requireMenuGovernance()
+	if err != nil {
+		return nil, err
+	}
+	return governance.GetCatalogReadiness(ctx, m.ID)
+}
+
+func (s *merchantServiceImpl) ListCatalogPublications(ctx context.Context, userID string, limit int) ([]*domain.CatalogPublication, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	governance, err := s.requireMenuGovernance()
+	if err != nil {
+		return nil, err
+	}
+	if limit < 1 || limit > 50 {
+		limit = 20
+	}
+	return governance.ListCatalogPublications(ctx, m.ID, limit)
+}
+
+func (s *merchantServiceImpl) PublishCatalog(ctx context.Context, userID, idempotencyKey string, expectedCatalogVersion *int64) (*domain.CatalogPublication, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	governance, err := s.requireMenuGovernance()
+	if err != nil {
+		return nil, err
+	}
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if idempotencyKey == "" {
+		return nil, errors.New("Idempotency-Key wajib diisi untuk publikasi katalog")
+	}
+	return governance.PublishCatalog(ctx, m.ID, userID, idempotencyKey, expectedCatalogVersion)
+}
+
+func (s *merchantServiceImpl) RollbackCatalog(ctx context.Context, userID, idempotencyKey string, targetPublicationVersion int64) (*domain.CatalogPublication, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	governance, err := s.requireMenuGovernance()
+	if err != nil {
+		return nil, err
+	}
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if idempotencyKey == "" {
+		return nil, errors.New("Idempotency-Key wajib diisi untuk rollback katalog")
+	}
+	if targetPublicationVersion <= 0 {
+		return nil, errors.New("publication_version tujuan tidak valid")
+	}
+	return governance.RollbackCatalog(ctx, m.ID, userID, idempotencyKey, targetPublicationVersion)
+}
+
 func slugifyMenuCategory(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	var b strings.Builder

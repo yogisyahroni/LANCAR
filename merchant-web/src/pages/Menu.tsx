@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FileUp, ImageOff, Pencil, Plus, RefreshCw } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, FileUp, ImageOff, Pencil, Plus, RefreshCw, RotateCcw, UploadCloud } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
 import MenuEditor from '../components/MenuEditor'
 import { MerchantPageSkeleton } from '../components/Skeleton'
-import type { MenuItem, MenuListResponse } from '../lib/types'
+import type { CatalogPublication, CatalogReadiness, MenuItem, MenuListResponse } from '../lib/types'
 import { rupiah } from '../lib/types'
 
 interface BulkMenuRow {
@@ -55,12 +55,22 @@ export default function Menu() {
   const [bulkCsv, setBulkCsv] = useState('')
   const [bulkError, setBulkError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
+  const [readiness, setReadiness] = useState<CatalogReadiness | null>(null)
+  const [publications, setPublications] = useState<CatalogPublication[]>([])
+  const [publishing, setPublishing] = useState(false)
+  const [rollingBack, setRollingBack] = useState(false)
 
   const load = useCallback(async (spinner = false) => {
     if (spinner) setRefreshing(true)
     try {
-      const res = await api.get<MenuListResponse>('/merchant/menu?page=1&page_size=100')
+      const [res, readinessRes, publicationsRes] = await Promise.all([
+        api.get<MenuListResponse>('/merchant/menu?page=1&page_size=100'),
+        api.get<CatalogReadiness>('/merchant/menu/readiness'),
+        api.get<{ items: CatalogPublication[] }>('/merchant/menu/publications?limit=20'),
+      ])
       setItems(res.data?.items || [])
+      setReadiness(readinessRes.data)
+      setPublications(publicationsRes.data?.items || [])
     } catch (err) {
       toast.error(apiErrorMessage(err, 'Gagal memuat menu'))
     } finally {
@@ -68,6 +78,33 @@ export default function Menu() {
       if (spinner) setRefreshing(false)
     }
   }, [])
+
+  const publishCatalog = async () => {
+    if (!readiness?.ready) return
+    setPublishing(true)
+    try {
+      await api.post('/merchant/menu/publish', { expected_catalog_version: readiness.catalog_version }, {
+        headers: { 'Idempotency-Key': crypto.randomUUID() },
+      })
+      toast.success('Menu berhasil dipublikasikan ke pelanggan')
+      await load()
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Katalog belum dapat dipublikasikan'))
+    } finally { setPublishing(false) }
+  }
+
+  const rollbackCatalog = async (publication: CatalogPublication) => {
+    setRollingBack(true)
+    try {
+      await api.post('/merchant/menu/rollback', { publication_version: publication.publication_version }, {
+        headers: { 'Idempotency-Key': crypto.randomUUID() },
+      })
+      toast.success(`Katalog dikembalikan ke versi ${publication.publication_version}`)
+      await load()
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Katalog belum dapat dikembalikan'))
+    } finally { setRollingBack(false) }
+  }
 
   useEffect(() => {
     load(true)
@@ -148,6 +185,42 @@ export default function Menu() {
           {bulkError ? <p className="mt-3 text-sm font-semibold text-red-700">{bulkError}</p> : <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[500px] text-left text-sm"><thead><tr className="text-xs uppercase text-orange-800"><th className="pb-2">Nama</th><th className="pb-2">Harga</th><th className="pb-2">Kategori</th><th className="pb-2">Prep</th></tr></thead><tbody>{bulkRows.slice(0, 10).map((row, index) => <tr key={`${row.nama}-${index}`} className="border-t border-orange-200"><td className="py-2 font-semibold">{row.nama}</td><td className="py-2">{rupiah(row.harga)}</td><td className="py-2">{row.kategori}</td><td className="py-2">{row.prep_time_minutes} menit</td></tr>)}</tbody></table>{bulkRows.length > 10 && <p className="mt-2 text-xs text-orange-800">Menampilkan 10 dari {bulkRows.length} baris.</p>}</div>}
         </section>
       )}
+
+      <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              {readiness?.ready ? <CheckCircle2 className="h-5 w-5 text-emerald-700" /> : <AlertTriangle className="h-5 w-5 text-orange-600" />}
+              <h2 className="font-black text-zinc-900">Kesiapan katalog pelanggan</h2>
+            </div>
+            <p className="mt-1 text-sm text-zinc-500">
+              {readiness ? `Versi edit ${readiness.catalog_version} · ${readiness.item_count} menu siap` : 'Memeriksa data menu…'}
+            </p>
+            {!readiness?.ready && readiness?.blocking_reasons?.length ? (
+              <ul className="mt-3 space-y-1 text-sm text-orange-800">{readiness.blocking_reasons.map((reason) => <li key={reason}>• {reason}</li>)}</ul>
+            ) : null}
+          </div>
+          <button onClick={publishCatalog} disabled={!readiness?.ready || publishing} className="inline-flex items-center gap-2 rounded-xl bg-emerald-900 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">
+            <UploadCloud className="h-4 w-4" /> {publishing ? 'Mempublikasikan…' : 'Publikasikan ke pelanggan'}
+          </button>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-3 text-xs text-zinc-500">
+          <span className="rounded-full bg-zinc-100 px-3 py-1.5">Terbit ke pelanggan: {readiness?.published_version ? `versi ${readiness.published_version}` : 'belum ada'}</span>
+          <span className="rounded-full bg-zinc-100 px-3 py-1.5">Perubahan baru tidak tampil sebelum diterbitkan</span>
+        </div>
+        {publications.length > 1 && (
+          <div className="mt-4 border-t border-zinc-100 pt-4">
+            <p className="text-xs font-black uppercase tracking-wide text-zinc-400">Riwayat publikasi</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {publications.slice(1).map((publication) => (
+                <button key={publication.id} onClick={() => rollbackCatalog(publication)} disabled={rollingBack} className="inline-flex items-center gap-2 rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-600 hover:border-orange-300 hover:text-orange-700 disabled:opacity-50">
+                  <RotateCcw className="h-3.5 w-3.5" /> Kembalikan versi {publication.publication_version}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       {loading ? (
         <MerchantPageSkeleton />
