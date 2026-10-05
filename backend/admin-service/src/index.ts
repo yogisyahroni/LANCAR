@@ -21,6 +21,8 @@ import { startCourierAvailabilityPolicyWorker } from './workers/courier-availabi
 import { startCrmCampaignSchedulerWorker } from './workers/crm-campaign-scheduler-worker';
 import { startCostObservabilityWorker } from './workers/cost-observability-worker';
 import { startCustomerScheduledOrderWorker } from './workers/customer-scheduled-order-worker';
+import { startSupportCaseNotificationWorker } from './workers/support-case-notification-worker';
+import { startSupportCaseRetentionWorker } from './workers/support-case-retention-worker';
 import { initFirebase } from './notifications';
 import { requestContext } from './middleware/requestContext';
 import { genericErrorHandler, sanitizeErrorResponses } from './middleware/errorMapper';
@@ -137,6 +139,8 @@ server.listen(port, async () => {
     startCrmCampaignSchedulerWorker();
     startCostObservabilityWorker();
     startCustomerScheduledOrderWorker();
+    startSupportCaseNotificationWorker();
+    startSupportCaseRetentionWorker();
   } catch (error) {
     console.error(JSON.stringify({
       level: 'fatal',

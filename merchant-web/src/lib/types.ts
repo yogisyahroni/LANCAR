@@ -156,6 +156,8 @@ export interface MerchantSupportCaseAttachment {
   checksum_sha256: string
   uploaded_by_role: string
   expires_at: string
+  moderation_status?: 'pending' | 'approved' | 'rejected' | string
+  moderation_reason?: string | null
   created_at: string
 }
 

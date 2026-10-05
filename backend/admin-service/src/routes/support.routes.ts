@@ -42,6 +42,11 @@ supportRoutes.get(
   (req, res) => controllers.getSupportCase(req, res),
 );
 supportRoutes.patch(
+  '/admin/support/cases/:id/attachments/:attachmentId',
+  requireIdempotencyKey('admin.support.case.attachment.moderate'),
+  (req, res) => controllers.moderateSupportCaseAttachment(req, res),
+);
+supportRoutes.patch(
   '/admin/support/cases/:id',
   requireIdempotencyKey('admin.support.case.update'),
   (req, res) => controllers.updateSupportCase(req, res),

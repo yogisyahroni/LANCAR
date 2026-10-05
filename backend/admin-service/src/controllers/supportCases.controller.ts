@@ -44,6 +44,7 @@ const SUPPORT_RESOLUTION_CODES = [
   'provider_failure',
   'other',
 ] as const;
+const SUPPORT_ATTACHMENT_MODERATION_STATUSES = ['approved', 'rejected'] as const;
 
 const createCaseSchema = z.object({
   category: z.string().trim().min(2).max(80),
@@ -154,6 +155,10 @@ type CaseAttachmentRow = {
   expires_at: Date;
   created_at: Date;
   storage_key?: string;
+  moderation_status?: 'pending' | 'approved' | 'rejected';
+  moderation_reason?: string | null;
+  moderated_by?: string | null;
+  moderated_at?: Date | null;
 };
 
 type AuthorityContext = {
@@ -202,6 +207,8 @@ const attachmentView = (row: CaseAttachmentRow) => ({
   checksum_sha256: row.checksum_sha256,
   uploaded_by_role: row.uploaded_by_role,
   expires_at: row.expires_at,
+  moderation_status: row.moderation_status || 'pending',
+  moderation_reason: row.moderation_reason || null,
   created_at: row.created_at,
 });
 
@@ -340,10 +347,11 @@ const appendCaseEvent = async (
   },
 ) => {
   const metadata = input.metadata || {};
-  await client.query(
+  const eventResult = await client.query<{ id: string }>(
     `INSERT INTO support_case_events
       (case_id, event_type, from_status, to_status, actor_id, actor_role, note, metadata)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING id`,
     [
       input.caseId,
       input.eventType,
@@ -353,6 +361,39 @@ const appendCaseEvent = async (
       input.actorRole || null,
       input.note ? redactSupportText(input.note).slice(0, 1000) : null,
       JSON.stringify(metadata),
+    ],
+  );
+
+  // Resolve recipients from authoritative order ownership. This intent is
+  // committed with the case event and delivered asynchronously by a worker,
+  // so a transient order-service outage cannot lose a customer/courier update.
+  await client.query(
+    `INSERT INTO support_case_notification_outbox
+      (case_event_id, case_id, recipient_id, order_id, event_type, payload)
+     SELECT $1, $2, recipients.recipient_id, recipients.order_id, $3, $4::jsonb
+       FROM (
+         SELECT o.customer_id AS recipient_id, o.id AS order_id
+           FROM support_case_links scl
+           JOIN orders o ON o.id::text = scl.reference_id
+          WHERE scl.case_id = $2 AND scl.reference_type = 'order'
+         UNION
+         SELECT ol.courier_id AS recipient_id, ol.order_id
+           FROM support_case_links scl
+           JOIN order_legs ol ON ol.order_id::text = scl.reference_id
+          WHERE scl.case_id = $2
+            AND scl.reference_type = 'order'
+            AND ol.courier_id IS NOT NULL
+       ) recipients
+      WHERE recipients.recipient_id IS NOT NULL
+     ON CONFLICT (case_event_id, recipient_id) DO NOTHING`,
+    [
+      eventResult.rows[0]?.id,
+      input.caseId,
+      input.eventType,
+      JSON.stringify({
+        from_status: input.fromStatus || null,
+        to_status: input.toStatus || null,
+      }),
     ],
   );
 
@@ -444,6 +485,11 @@ const validateReferenceIds = (links: Array<{ reference_type: string; reference_i
 
 const caseDetail = async (row: CaseRow, req: Request, useWriter = false) => {
   const executor = useWriter ? db : readDb;
+  const supportStaff = isSupportStaffRole(actorRole(req));
+  const attachmentVisibility = supportStaff
+    ? ''
+    : ' AND (moderation_status = \'approved\' OR uploaded_by = $2)';
+  const attachmentParams = supportStaff ? [row.id] : [row.id, actorId(req)];
   const [linksResult, eventsResult, actionsResult, attachmentsResult, authority] = await Promise.all([
     executor.query<CaseLinkRow>(
       `SELECT id, reference_type, reference_id, reference_label, created_at
@@ -469,11 +515,11 @@ const caseDetail = async (row: CaseRow, req: Request, useWriter = false) => {
     ),
     executor.query<CaseAttachmentRow>(
       `SELECT id, original_name, content_type, size_bytes, checksum_sha256,
-              uploaded_by_role, expires_at, created_at
+              uploaded_by_role, expires_at, moderation_status, moderation_reason, created_at
          FROM support_case_attachments
-        WHERE case_id = $1 AND expires_at > NOW()
+        WHERE case_id = $1 AND expires_at > NOW() AND retention_status = 'active'${attachmentVisibility}
         ORDER BY created_at ASC`,
-      [row.id],
+      attachmentParams,
     ),
     findAuthorityContext(row.id, useWriter),
   ]);
@@ -734,7 +780,7 @@ export const uploadSupportCaseAttachment = async (req: Request, res: Response): 
         `SELECT id, original_name, content_type, size_bytes, checksum_sha256,
                 uploaded_by_role, expires_at, created_at
            FROM support_case_attachments
-          WHERE case_id = $1 AND checksum_sha256 = $2
+          WHERE case_id = $1 AND checksum_sha256 = $2 AND retention_status = 'active'
           LIMIT 1`,
         [id, req.file.checksumSha256],
       );
@@ -800,13 +846,16 @@ export const downloadSupportCaseAttachment = async (req: Request, res: Response)
     res.status(403).json({ success: false, code: 'ERR_SUPPORT_CASE_FORBIDDEN', error: 'Support case access denied' });
     return;
   }
+  const supportStaff = isSupportStaffRole(actorRole(req));
+  const moderationVisibility = supportStaff ? '' : ' AND (moderation_status = \'approved\' OR uploaded_by = $3)';
   const result = await readDb.query<CaseAttachmentRow>(
     `SELECT id, storage_key, original_name, content_type, size_bytes,
-            checksum_sha256, uploaded_by_role, expires_at, created_at
+            checksum_sha256, uploaded_by, moderation_status, moderation_reason,
+            uploaded_by_role, expires_at, created_at
        FROM support_case_attachments
-      WHERE id = $1 AND case_id = $2 AND expires_at > NOW()
+      WHERE id = $1 AND case_id = $2 AND expires_at > NOW() AND retention_status = 'active'${moderationVisibility}
       LIMIT 1`,
-    [attachmentId, caseId],
+    supportStaff ? [attachmentId, caseId] : [attachmentId, caseId, actorId(req)],
   );
   const attachment = result.rows[0];
   if (!attachment?.storage_key) {
@@ -827,6 +876,80 @@ export const downloadSupportCaseAttachment = async (req: Request, res: Response)
       res.status(500).json({ success: false, error: 'Failed to read support attachment' });
     }
   });
+};
+
+export const moderateSupportCaseAttachment = async (req: Request, res: Response): Promise<void> => {
+  const caseId = parseCaseId(String(req.params.id || ''));
+  const attachmentId = parseAttachmentId(String(req.params.attachmentId || ''));
+  const currentActorId = actorId(req);
+  const parsed = z.object({
+    status: z.enum(SUPPORT_ATTACHMENT_MODERATION_STATUSES),
+    reason: z.string().trim().max(500).optional(),
+  }).safeParse(req.body);
+  if (!caseId || !attachmentId) {
+    res.status(400).json({ success: false, code: 'ERR_SUPPORT_ATTACHMENT_ID', error: 'Invalid attachment id' });
+    return;
+  }
+  if (!currentActorId || !isSupportStaffRole(actorRole(req))) {
+    res.status(403).json({ success: false, code: 'ERR_SUPPORT_STAFF_REQUIRED', error: 'Support staff only' });
+    return;
+  }
+  if (!parsed.success || (parsed.data.status === 'rejected' && !parsed.data.reason)) {
+    res.status(400).json({ success: false, code: 'ERR_SUPPORT_ATTACHMENT_MODERATION', error: 'Status dan alasan peninjauan tidak valid' });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query<CaseAttachmentRow>(
+      `SELECT id, original_name, content_type, size_bytes, checksum_sha256,
+              uploaded_by_role, expires_at, created_at, moderation_status
+         FROM support_case_attachments
+        WHERE id = $1 AND case_id = $2 AND retention_status = 'active'
+        FOR UPDATE`,
+      [attachmentId, caseId],
+    );
+    if (!current.rows[0]) throw Object.assign(new Error('Lampiran tidak ditemukan'), { statusCode: 404 });
+
+    const updated = await client.query<CaseAttachmentRow>(
+      `UPDATE support_case_attachments
+          SET moderation_status = $3,
+              moderation_reason = $4,
+              moderated_by = $5,
+              moderated_at = NOW(),
+              updated_at = NOW()
+        WHERE id = $1 AND case_id = $2
+        RETURNING id, original_name, content_type, size_bytes, checksum_sha256,
+                  uploaded_by_role, expires_at, moderation_status, moderation_reason, created_at`,
+      [attachmentId, caseId, parsed.data.status, parsed.data.reason || null, currentActorId],
+    );
+    await appendCaseEvent(client, {
+      caseId,
+      eventType: 'attachment_moderated',
+      actorId: currentActorId,
+      actorRole: actorRole(req),
+      note: `Lampiran ${parsed.data.status === 'approved' ? 'disetujui' : 'ditolak'}`,
+      metadata: {
+        attachment_id: attachmentId,
+        moderation_status: parsed.data.status,
+        moderation_reason: parsed.data.reason || null,
+      },
+    });
+    await client.query('COMMIT');
+    res.json({ success: true, data: { attachment: attachmentView(updated.rows[0]) } });
+  } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    const status = Number(error?.statusCode) || 500;
+    if (status < 500) {
+      res.status(status).json({ success: false, code: 'ERR_SUPPORT_ATTACHMENT_MODERATION', error: parseError(error) });
+      return;
+    }
+    securityLog.error('Support attachment moderation failed:', error);
+    res.status(500).json({ success: false, code: 'ERR_SUPPORT_ATTACHMENT_MODERATION', error: 'Peninjauan lampiran belum tersedia' });
+  } finally {
+    client.release();
+  }
 };
 
 const statusTransitions: Record<string, Set<string>> = {

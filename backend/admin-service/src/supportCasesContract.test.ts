@@ -40,6 +40,44 @@ describe('GLOB-2026-010 support cases contract', () => {
     expect(controller).toContain('resolution_code wajib diisi saat laporan diselesaikan');
   });
 
+  it('delivers case updates durably and cleans expired private evidence', () => {
+    const deliveryMigration = read('../../../database/migrations/20261005000009_support_case_delivery_retention.sql');
+    const controller = read('./controllers/supportCases.controller.ts');
+    const notificationWorker = read('./workers/support-case-notification-worker.ts');
+    const retentionWorker = read('./workers/support-case-retention-worker.ts');
+    const index = read('./index.ts');
+
+    expect(deliveryMigration).toContain('support_case_notification_outbox');
+    expect(deliveryMigration).toContain('retention_status');
+    expect(controller).toContain('RETURNING id');
+    expect(controller).toContain('support_case_notification_outbox');
+    expect(controller).toContain("retention_status = 'active'");
+    expect(notificationWorker).toContain('/api/v1/internal/communications/events');
+    expect(notificationWorker).toContain('event_id: row.id');
+    expect(notificationWorker).toContain("terminal ? 'dead' : 'retry'");
+    expect(retentionWorker).toContain('resolvePrivateUploadPath');
+    expect(retentionWorker).toContain("retention_status = 'cleaned'");
+    expect(index).toContain('startSupportCaseNotificationWorker');
+    expect(index).toContain('startSupportCaseRetentionWorker');
+  });
+
+  it('keeps attachment moderation explicit and role-scoped', () => {
+    const moderationMigration = read('../../../database/migrations/20261005000010_support_case_attachment_moderation.sql');
+    const controller = read('./controllers/supportCases.controller.ts');
+    const routes = read('./routes/support.routes.ts');
+    const dashboard = read('../../../admin-dashboard/src/pages/Cases.tsx');
+
+    expect(moderationMigration).toContain('moderation_status');
+    expect(moderationMigration).toContain("IN ('pending', 'approved', 'rejected')");
+    expect(controller).toContain('moderateSupportCaseAttachment');
+    expect(controller).toContain('moderation_status =');
+    expect(controller).toContain('moderateSupportCaseAttachment');
+    expect(routes).toContain("'/admin/support/cases/:id/attachments/:attachmentId'");
+    expect(dashboard).toContain('attachmentModerationMutation');
+    expect(dashboard).toContain('Setujui');
+    expect(dashboard).toContain('Tolak');
+  });
+
   it('requires financial actions to pass order-service reconciliation proof', () => {
     const controller = read('./controllers/supportCases.controller.ts');
     const orderRefundHandler = read('../../../backend/order-service/internal/handler/refund_handler.go');
