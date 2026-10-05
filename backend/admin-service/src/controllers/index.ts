@@ -106,6 +106,7 @@ export * from './courierRetention.controller';
 export * as productCatalog from './productCatalog.controller';
 export * as costIntelligence from './costIntelligence.controller';
 export * as merchantSettlement from './merchantSettlement.controller';
+export * from './merchantSecurityApprovals.controller';
 export * from './merchantCommissionContracts.controller';
 export * from './customerFeeCredits.controller';
 export * from './riskReview.controller';
