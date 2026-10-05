@@ -67,6 +67,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Resolusi substitution memakai migration `20261005000001`, row lock, guard `resolved = false`, dan unique pending-item index agar keputusan customer tidak dapat diproses dua kali.
 - Merchant Web order list/detail di-refresh melalui realtime event dan polling fallback sehingga perubahan server dapat masuk kembali setelah reconnect.
 - Merchant cancellation setelah order diterima (preparing/searching/accepted/picking_up) sekarang melewati endpoint internal order-service. Ownership merchant diverifikasi ulang terhadap order canonical; state machine memutuskan kelayakan, lalu refund policy, pelepasan courier leg, audit event, inventory release, dan tip refund tetap berada di order-service.
+- Merchant rejection pada status `pending_merchant` sekarang memakai boundary internal yang sama; structured `reject_reason` dan `charge_cancellation_fee_to=merchant` ikut masuk ke request canonical sehingga transition, audit, refund penuh, pelepasan stok/leg, dan fee merchant tidak lagi terpecah dalam update langsung + worker refund terpisah.
 
 ## Files Changed
 
@@ -78,6 +79,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - `merchant-web/src/lib/types.ts`, `merchant-web/src/pages/Orders.tsx`, `merchant-web/src/components/OrderCard.tsx` — detail/timeline UI wired to API.
 - `backend/order-service/internal/handler/food_substitution_handler.go` dan `backend/order-service/cmd/api/main.go` — internal service boundary untuk proposal merchant dengan API key dan merchant identity.
 - `backend/order-service/internal/handler/internal_merchant_order_handler.go`, `backend/order-service/internal/service/order_read.go`, dan `backend/order-service/cmd/api/main.go` — internal merchant-cancel boundary dengan API key, ownership check, canonical transition, dan reason refund.
+- `backend/order-service/internal/domain/order_transition.go`, `internal/repository/postgres_order_transition_repository.go`, dan `internal/service/order_read.go` — policy fee/reject reason ikut ditulis dalam transaksi lifecycle canonical.
 - `backend/merchant-service/internal/service/substitution_service.go`, domain/handler/routes — authenticated portal proxy untuk proposal substitution.
 - `backend/merchant-service/internal/domain/merchant_service.go`, `internal/service/merchant_service.go`, `internal/handler/merchant_handler.go`, dan `cmd/api/main.go` — cancel capability, route, friendly error mapping, dan permission boundary.
 - `merchant-web/src/pages/Orders.tsx`, `merchant-web/src/components/OrderCard.tsx`, `merchant-web/src/components/StatusBadge.tsx` — aksi pembatalan dengan alasan wajib, idempotency key, dan canonical `cancelled` tab.
@@ -127,13 +129,22 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     command: curl POST /api/v1/internal/orders/merchant-cancel without X-Internal-Api-Key
     result: PASS — returns 401 ERR_UNAUTHORIZED and does not execute a transition.
 
+    command: go test ./internal/domain ./internal/handler ./internal/service ./cmd/api (working directory backend/order-service, after unified merchant reject boundary)
+    result: PASS — policy normalization and canonical cancellation/rejection code compile with existing order tests.
+
+    command: go test ./internal/domain ./internal/handler ./internal/service ./cmd/api (working directory backend/merchant-service, after unified merchant reject boundary)
+    result: PASS — merchant rejection/cancellation client compiles and existing service/handler tests remain green.
+
+    command: git diff --check
+    result: PASS
+
 ## Task-Local Verification
 
 ### Tests
 
 Status: PASS
 
-Evidence: Merchant and order-service package tests passed after the canonical cancellation boundary. The web TypeScript/Vite production build passed with the project-required API configuration. Frontend lint returned 0 errors and existing warnings only.
+Evidence: Merchant and order-service package tests passed after unifying rejection and cancellation on the canonical order boundary. The web TypeScript/Vite production build passed with the project-required API configuration. Frontend lint returned 0 errors and existing warnings only.
 
 ### Integration
 

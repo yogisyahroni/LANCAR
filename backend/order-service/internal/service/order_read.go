@@ -200,16 +200,27 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 // keeps actor identity, override reason, and transport idempotency inside the
 // same transactional lifecycle write instead of passing only a target status.
 func (s *orderServiceImpl) UpdateStatusWithActor(ctx context.Context, orderID string, status domain.OrderStatus, actorID string, actor domain.OrderActor, reason, idempotencyKey string) error {
+	return s.UpdateStatusWithActorAndPolicy(ctx, orderID, status, actorID, actor, reason, idempotencyKey, "", "")
+}
+
+// UpdateStatusWithActorAndPolicy extends the actor transition boundary with
+// the cancellation policy selected by the owning workflow. Keeping this on
+// the same request as the lifecycle write prevents a merchant rejection from
+// being committed while its merchant-fee/refund policy is lost in a second
+// asynchronous call.
+func (s *orderServiceImpl) UpdateStatusWithActorAndPolicy(ctx context.Context, orderID string, status domain.OrderStatus, actorID string, actor domain.OrderActor, reason, idempotencyKey, chargeCancellationFeeTo, rejectReason string) error {
 	if _, ok := s.orderRepo.(domain.OrderTransitionRepository); !ok {
 		return s.UpdateStatus(ctx, orderID, status)
 	}
 	return s.updateStatusThroughBoundary(ctx, domain.OrderTransitionRequest{
-		OrderID:        orderID,
-		ActorID:        actorID,
-		Actor:          actor,
-		TargetStatus:   status,
-		Reason:         reason,
-		IdempotencyKey: idempotencyKey,
+		OrderID:                 orderID,
+		ActorID:                 actorID,
+		Actor:                   actor,
+		TargetStatus:            status,
+		Reason:                  reason,
+		IdempotencyKey:          idempotencyKey,
+		ChargeCancellationFeeTo: chargeCancellationFeeTo,
+		RejectReason:            rejectReason,
 	})
 }
 
@@ -288,7 +299,10 @@ func (s *orderServiceImpl) updateStatusThroughBoundary(ctx context.Context, requ
 			if refundReason == "" {
 				refundReason = "Order cancelled"
 			}
-			if _, refundErr := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, refundReason, domain.RefundOptions{OriginalStatus: result.PreviousStatus}); refundErr != nil {
+			if _, refundErr := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, refundReason, domain.RefundOptions{
+				OriginalStatus:          result.PreviousStatus,
+				ChargeCancellationFeeTo: request.ChargeCancellationFeeTo,
+			}); refundErr != nil {
 				log.Printf("[OrderService] Failed to trigger refund for order %s: %v", request.OrderID, refundErr)
 			}
 		}

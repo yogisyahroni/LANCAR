@@ -232,6 +232,14 @@ func (r *postgresRepo) TransitionOrder(ctx context.Context, request domain.Order
 			 WHERE id = $2`, request.Reason, order.ID); err != nil {
 			return domain.OrderTransitionResult{}, fmt.Errorf("persist cancellation reason: %w", err)
 		}
+		if request.RejectReason != "" {
+			if _, err := tx.ExecContext(ctx, `
+				UPDATE orders
+				   SET reject_reason = $1
+				 WHERE id = $2`, request.RejectReason, order.ID); err != nil {
+				return domain.OrderTransitionResult{}, fmt.Errorf("persist rejection reason: %w", err)
+			}
+		}
 	}
 
 	if request.TargetStatus == domain.StatusDelivered || request.TargetStatus == domain.StatusCancelled {
@@ -261,8 +269,10 @@ func (r *postgresRepo) TransitionOrder(ctx context.Context, request domain.Order
 		message = fmt.Sprintf("Order status updated to %s", request.TargetStatus)
 	}
 	metadata, _ := json.Marshal(map[string]any{
-		"transition":      true,
-		"proof_reference": request.ProofReference,
+		"transition":                 true,
+		"proof_reference":            request.ProofReference,
+		"reject_reason":              request.RejectReason,
+		"charge_cancellation_fee_to": request.ChargeCancellationFeeTo,
 	})
 	var eventID string
 	err = tx.QueryRowContext(ctx, `

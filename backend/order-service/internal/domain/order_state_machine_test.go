@@ -44,3 +44,16 @@ func TestValidateOrderTransitionSameStateIsIdempotent(t *testing.T) {
 		t.Fatalf("same-state replay should be idempotent: %v", err)
 	}
 }
+
+func TestOrderTransitionRequestNormalizesCancellationPolicy(t *testing.T) {
+	request := (OrderTransitionRequest{
+		ChargeCancellationFeeTo: " Merchant ",
+		RejectReason:             "  stok_habis  ",
+	}).Normalized()
+	if request.ChargeCancellationFeeTo != "merchant" {
+		t.Fatalf("charge cancellation policy was not normalized: %q", request.ChargeCancellationFeeTo)
+	}
+	if request.RejectReason != "stok_habis" {
+		t.Fatalf("reject reason was not trimmed: %q", request.RejectReason)
+	}
+}

@@ -21,13 +21,21 @@ var (
 // Proof and ledger effects are optional for ordinary transitions, but the
 // repository requires them for delivered transitions before committing state.
 type OrderTransitionRequest struct {
-	OrderID             string
-	ActorID             string
-	Actor               OrderActor
-	TargetStatus        OrderStatus
-	Reason              string
-	IdempotencyKey      string
-	EventMessage        string
+	OrderID        string
+	ActorID        string
+	Actor          OrderActor
+	TargetStatus   OrderStatus
+	Reason         string
+	IdempotencyKey string
+	EventMessage   string
+	// ChargeCancellationFeeTo is evaluated by the refund policy after a
+	// merchant-caused cancellation. It is intentionally part of the
+	// canonical transition request so the lifecycle decision and its financial
+	// consequence cannot diverge across services.
+	ChargeCancellationFeeTo string
+	// RejectReason is the structured merchant rejection code used for
+	// analytics/audit while Reason remains the customer-facing explanation.
+	RejectReason        string
 	Proof               *PackageScan
 	ProofReference      string
 	CourierID           string
@@ -63,6 +71,8 @@ func (r OrderTransitionRequest) Normalized() OrderTransitionRequest {
 	r.Reason = strings.TrimSpace(r.Reason)
 	r.IdempotencyKey = strings.TrimSpace(r.IdempotencyKey)
 	r.EventMessage = strings.TrimSpace(r.EventMessage)
+	r.ChargeCancellationFeeTo = strings.ToLower(strings.TrimSpace(r.ChargeCancellationFeeTo))
+	r.RejectReason = strings.TrimSpace(r.RejectReason)
 	r.ProofReference = strings.TrimSpace(r.ProofReference)
 	r.CourierID = strings.TrimSpace(r.CourierID)
 	if r.Proof != nil {

@@ -2029,23 +2029,11 @@ func (s *merchantServiceImpl) RejectOrder(ctx context.Context, userID string, or
 	if strings.TrimSpace(label) == "" {
 		return errors.New("reason wajib diisi saat menolak order")
 	}
-	if transitionRepo, ok := s.orderRepo.(domain.MerchantOrderTransitionRepository); ok {
-		if err := transitionRepo.TransitionOrder(ctx, m.ID, orderID, "cancelled", userID, label, rejectReason, "merchant-order:reject:"+orderID); err != nil {
-			return err
-		}
-	} else if err := s.orderRepo.RejectOrder(ctx, m.ID, orderID, label, rejectReason); err != nil {
-		return err
-	}
-	// Jejak pembatalan utk customer/tracking
-	if evErr := s.orderRepo.RecordOrderEvent(ctx, orderID, "cancelled", "Pesanan ditolak merchant: "+label); evErr != nil {
-		log.Printf("[MerchantService] RejectOrder: gagal catat order_events utk %s: %v", orderID, evErr)
-	}
-
-	// Refund otomatis (async, non-blocking)
-	go s.triggerRefundOnMerchantReject(orderID, label)
-	// FB-084: notif push customer (async, non-blocking)
-	go s.notifyCustomerRejected(orderID, label)
-	return nil
+	// Rejection uses the same order-service boundary as post-accept merchant
+	// cancellation. This keeps the state transition, audit, inventory release,
+	// refund policy, and merchant cancellation fee in one transaction instead
+	// of splitting them across a direct merchant DB update plus an async refund.
+	return s.cancelFoodOrderThroughOrderService(ctx, m.ID, userID, orderID, label, rejectReason, "merchant-order:reject:"+orderID, "merchant")
 }
 
 // CancelOrder cancels an accepted food order through order-service's
@@ -2066,15 +2054,25 @@ func (s *merchantServiceImpl) CancelOrder(ctx context.Context, userID, orderID, 
 		return errors.New("alasan pembatalan terlalu panjang")
 	}
 
+	return s.cancelFoodOrderThroughOrderService(ctx, m.ID, userID, orderID, reason, "", idempotencyKey, "merchant")
+}
+
+// cancelFoodOrderThroughOrderService is the merchant-service client for the
+// canonical food cancellation boundary. The order-service transaction owns
+// lifecycle validation and all financial side effects; merchant-service only
+// supplies the authenticated merchant context and structured reason.
+func (s *merchantServiceImpl) cancelFoodOrderThroughOrderService(ctx context.Context, merchantID, actorID, orderID, reason, rejectReason, idempotencyKey, chargeCancellationFeeTo string) error {
 	orderServiceURL := strings.TrimSpace(os.Getenv("ORDER_SERVICE_URL"))
 	if orderServiceURL == "" || strings.Contains(orderServiceURL, "localhost") || strings.Contains(orderServiceURL, "127.0.0.1") {
 		orderServiceURL = "http://order-service:8083"
 	}
 	payload, _ := json.Marshal(map[string]string{
-		"order_id":    orderID,
-		"merchant_id": m.ID,
-		"actor_id":    userID,
-		"reason":      reason,
+		"order_id":                   orderID,
+		"merchant_id":                merchantID,
+		"actor_id":                   actorID,
+		"reason":                     reason,
+		"reject_reason":              rejectReason,
+		"charge_cancellation_fee_to": chargeCancellationFeeTo,
 	})
 	callCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
@@ -2095,7 +2093,7 @@ func (s *merchantServiceImpl) CancelOrder(ctx context.Context, userID, orderID, 
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		log.Printf("[MerchantService] CancelOrder: canonical transition rejected order=%s status=%d body=%s", orderID, resp.StatusCode, strings.TrimSpace(string(body)))
+		log.Printf("[MerchantService] canonical food cancellation rejected order=%s status=%d body=%s", orderID, resp.StatusCode, strings.TrimSpace(string(body)))
 		switch resp.StatusCode {
 		case http.StatusNotFound:
 			return errors.New("pesanan tidak ditemukan")
