@@ -10,6 +10,7 @@ import (
 type MenuItem struct {
 	ID               string             `json:"id"`
 	MerchantID       string             `json:"merchant_id"`
+	BranchID         string             `json:"branch_id"`
 	Nama             string             `json:"nama"`
 	Harga            int64              `json:"harga"`
 	Foto             *string            `json:"foto,omitempty"`

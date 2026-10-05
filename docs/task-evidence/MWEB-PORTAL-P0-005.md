@@ -3,12 +3,12 @@ task_id: MWEB-PORTAL-P0-005
 status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
-implementation_ref: WORKTREE-2026-10-05
+implementation_ref: WORKTREE-2026-10-05-branch-scoped-catalog
 tests: PASS
 integration: PASS
 e2e: NOT_RUN
 migration: N/A
-migration_na_reason: "Outlet schema, branch scope, and staff branch access already existed; this batch added portal UI wiring without schema changes."
+migration_na_reason: "Outlet schema, branch scope, and staff branch access already existed; this batch reused those columns and added repository enforcement without schema changes."
 observability: NOT_RUN
 security_privacy: PARTIAL
 rollback_recovery: PARTIAL
@@ -16,9 +16,9 @@ task_scope_external_proof_required: true
 external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Staging/browser/device proof and cross-app outlet projection remain deferred until the feature batch is complete."
-unproven_requirements: "Central catalog/outlet override, holiday/tax/payout profile, bulk action preview/rollback, and customer/courier cross-app outlet proof."
+unproven_requirements: "Central catalog/outlet override, holiday/tax/payout profile, bulk action preview/rollback, and customer/courier cross-app outlet proof. Branch-scoped catalog behavior is locally compiled and container-started but not yet proven with authenticated multi-outlet data."
 known_blockers: NONE
-locally_actionable_remaining: "Implement outlet-specific catalog/price/availability override and business profile fields; add tenant isolation and outlet switching E2E."
+locally_actionable_remaining: "Implement central catalog/outlet-specific price and availability override, business profile fields, and authenticated tenant/outlet isolation E2E."
 blocker_resolution_attempts: NONE
 unblock_condition: NONE
 owner_action_required: false
@@ -43,6 +43,7 @@ updated_at: 2026-10-05
 - Added the authenticated `/outlet` Merchant Web page for owner outlet creation, name/address edits, active/inactive lifecycle, and a guard that prevents disabling the final active outlet.
 - Added the Outlet navigation entry for owner capability `manage_branch`.
 - Reused the server-authoritative branch context and `X-Merchant-Branch-ID` request scope already used by the portal shell.
+- Enforced selected-branch scope in the menu repository for list/count/read, create/import, update, availability, inventory, delete, images, schedules, and variants. Unscoped owner aggregation remains explicit for existing aggregate paths; the portal branch context is applied server-side.
 
 ## Files Changed
 
@@ -65,19 +66,28 @@ updated_at: 2026-10-05
     command: authenticated GET /api/v1/merchant/branches/{merchant_id} and GET /api/v1/merchant/staff/{merchant_id}
     result: PASS — local Docker API returned server-owned branch and staff-scope data for the seeded merchant.
 
+    command: go test ./... (backend/merchant-service)
+    result: PASS — repository, service, handler, and domain packages passed after branch-scoping menu reads/writes and import paths.
+
+    command: docker compose up -d --build --no-deps merchant-service; GET http://localhost:8085/health
+    result: PASS — refreshed merchant-service image started and health returned HTTP 200.
+
+    command: git diff --check
+    result: PASS — no whitespace errors in the branch-scope implementation.
+
 ## Task-Local Verification
 
 ### Tests
 
 Status: PASS
 
-Evidence: Merchant Web TypeScript/Vite build and lint completed without errors.
+Evidence: Merchant Web TypeScript/Vite build and lint completed without errors; merchant-service Go tests passed after repository scope enforcement.
 
 ### Integration
 
 Status: PASS
 
-Evidence: The rebuilt local merchant-service returned real branch records and the existing portal context supplies the selected outlet scope.
+Evidence: The rebuilt local merchant-service returned real branch records and the existing portal context supplies the selected outlet scope. Repository queries now apply that context to menu mutations and reads, but authenticated cross-branch negative tests are not yet run.
 
 ### E2E
 
@@ -109,9 +119,9 @@ Status: NOT_RUN — local Docker only; staging and production are intentionally 
 
 ## Reality Gate Evaluation
 
-- `REALITY-2026-003`: PARTIAL — portal outlet management is implemented and locally integrated, but original override and cross-app criteria remain.
+- `REALITY-2026-003`: PARTIAL — portal outlet management and server-side menu branch scoping are implemented and locally integrated, but override and cross-app criteria remain.
 - `REALITY-2026-011`: PASS — no staging or cross-app result is claimed.
 
 ## Unproven / Remaining
 
-Central catalog/outlet override, business profile fields, outlet-specific financial/tax configuration, bulk operations, and authenticated cross-app tenant-isolation proof.
+Central catalog/outlet override, business profile fields, outlet-specific financial/tax configuration, bulk operations, and authenticated cross-app tenant-isolation proof. Local compilation/container health does not prove cross-outlet authorization or customer projection.

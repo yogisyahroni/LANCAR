@@ -24,18 +24,18 @@ func NewPostgresMenuItemRepository(db, readDB *sql.DB) *postgresMenuItemReposito
 	return &postgresMenuItemRepository{db: db, readDB: readDB}
 }
 
-const menuItemColumns = `id, merchant_id, nama, harga, foto, deskripsi, kategori, category_id::text,
+const menuItemColumns = `id, merchant_id, branch_id::text, nama, harga, foto, deskripsi, kategori, category_id::text,
 	prep_time_minutes, is_available, status, moderation_status, moderation_reason, version,
 	stock_quantity, daily_sales_limit, daily_sales_count, sales_limit_reset_at, created_at, updated_at`
 
 func scanMenuItem(row interface{ Scan(...any) error }) (*domain.MenuItem, error) {
 	var item domain.MenuItem
-	var foto, deskripsi, categoryID, status, moderationStatus, moderationReason sql.NullString
+	var branchID, foto, deskripsi, categoryID, status, moderationStatus, moderationReason sql.NullString
 	var stockQuantity, dailySalesLimit sql.NullInt64
 	var salesResetAt sql.NullTime
 	var version sql.NullInt64
 	err := row.Scan(
-		&item.ID, &item.MerchantID, &item.Nama, &item.Harga, &foto, &deskripsi,
+		&item.ID, &item.MerchantID, &branchID, &item.Nama, &item.Harga, &foto, &deskripsi,
 		&item.Kategori, &categoryID, &item.PrepTimeMinutes, &item.IsAvailable,
 		&status, &moderationStatus, &moderationReason, &version,
 		&stockQuantity, &dailySalesLimit, &item.DailySalesCount, &salesResetAt,
@@ -46,6 +46,9 @@ func scanMenuItem(row interface{ Scan(...any) error }) (*domain.MenuItem, error)
 	}
 	if foto.Valid {
 		item.Foto = &foto.String
+	}
+	if branchID.Valid {
+		item.BranchID = branchID.String
 	}
 	if deskripsi.Valid {
 		item.Deskripsi = &deskripsi.String
@@ -95,13 +98,14 @@ func (r *postgresMenuItemRepository) Create(ctx context.Context, item *domain.Me
 	if moderationStatus == "" {
 		moderationStatus = domain.MenuModerationPending
 	}
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO merchant_menu_items (id, merchant_id, nama, harga, foto, deskripsi, kategori, category_id,
+		INSERT INTO merchant_menu_items (id, merchant_id, branch_id, nama, harga, foto, deskripsi, kategori, category_id,
 			prep_time_minutes, is_available, status, moderation_status, moderation_reason, version,
 			stock_quantity, daily_sales_limit, daily_sales_count, sales_limit_reset_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid, $9, $10, $11, $12, $13, 1, $14::int, $15::int, $16, $17::timestamptz)
+		VALUES ($1, $2, NULLIF($3, '')::uuid, $4, $5, $6, $7, $8, $9::uuid, $10, $11, $12, $13, $14, 1, $15::int, $16::int, $17, $18::timestamptz)
 		RETURNING created_at, updated_at`,
-		item.ID, item.MerchantID, item.Nama, item.Harga, foto, deskripsi, item.Kategori, item.CategoryID,
+		item.ID, item.MerchantID, branchID, item.Nama, item.Harga, foto, deskripsi, item.Kategori, item.CategoryID,
 		item.PrepTimeMinutes, item.IsAvailable, status, moderationStatus, item.ModerationReason,
 		item.StockQuantity, item.DailySalesLimit, item.DailySalesCount, item.SalesResetAt,
 	).Scan(&item.CreatedAt, &item.UpdatedAt)
@@ -112,7 +116,14 @@ func (r *postgresMenuItemRepository) Create(ctx context.Context, item *domain.Me
 }
 
 func (r *postgresMenuItemRepository) GetByID(ctx context.Context, id string) (*domain.MenuItem, error) {
-	row := r.readDB.QueryRowContext(ctx, `SELECT `+menuItemColumns+` FROM merchant_menu_items WHERE id = $1`, id)
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
+	query := `SELECT ` + menuItemColumns + ` FROM merchant_menu_items WHERE id = $1`
+	args := []any{id}
+	if branchID != "" {
+		query += ` AND branch_id = $2`
+		args = append(args, branchID)
+	}
+	row := r.readDB.QueryRowContext(ctx, query, args...)
 	item, err := scanMenuItem(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -124,11 +135,19 @@ func (r *postgresMenuItemRepository) GetByID(ctx context.Context, id string) (*d
 }
 
 func (r *postgresMenuItemRepository) ListByMerchant(ctx context.Context, merchantID string, limit, offset int) ([]*domain.MenuItem, error) {
-	rows, err := r.readDB.QueryContext(ctx, `
-		SELECT `+menuItemColumns+` FROM merchant_menu_items
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
+	query := `
+		SELECT ` + menuItemColumns + ` FROM merchant_menu_items
 		WHERE merchant_id = $1
-		ORDER BY kategori, nama
-		LIMIT $2 OFFSET $3`, merchantID, limit, offset)
+	`
+	args := []any{merchantID}
+	if branchID != "" {
+		query += ` AND branch_id = $2`
+		args = append(args, branchID)
+	}
+	query += fmt.Sprintf(` ORDER BY kategori, nama LIMIT $%d OFFSET $%d`, len(args)+1, len(args)+2)
+	args = append(args, limit, offset)
+	rows, err := r.readDB.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -157,6 +176,7 @@ func (r *postgresMenuItemRepository) Update(ctx context.Context, item *domain.Me
 	if item.Deskripsi != nil {
 		deskripsi = sql.NullString{String: *item.Deskripsi, Valid: true}
 	}
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE merchant_menu_items SET
 			nama = COALESCE(NULLIF($3, ''), nama),
@@ -174,23 +194,25 @@ func (r *postgresMenuItemRepository) Update(ctx context.Context, item *domain.Me
 			sales_limit_reset_at = $15::timestamptz,
 			version = version + 1,
 			updated_at = NOW()
-		WHERE id = $1 AND merchant_id = $2`,
+		WHERE id = $1 AND merchant_id = $2 AND ($16 = '' OR branch_id = NULLIF($16, '')::uuid)`,
 		item.ID, item.MerchantID, item.Nama, item.Harga, foto, deskripsi, item.Kategori, item.CategoryID,
 		item.PrepTimeMinutes, item.IsAvailable, item.Status, item.StockQuantity, item.DailySalesLimit,
-		item.DailySalesCount, item.SalesResetAt,
+		item.DailySalesCount, item.SalesResetAt, branchID,
 	)
 	return err
 }
 
 func (r *postgresMenuItemRepository) SetAvailability(ctx context.Context, id, merchantID string, available bool) error {
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE merchant_menu_items SET status = CASE WHEN $3 THEN 'active' ELSE 'sold_out' END,
 			version = version + 1, updated_at = NOW()
-		WHERE id = $1 AND merchant_id = $2`, id, merchantID, available)
+		WHERE id = $1 AND merchant_id = $2 AND ($4 = '' OR branch_id = NULLIF($4, '')::uuid)`, id, merchantID, available, branchID)
 	return err
 }
 
 func (r *postgresMenuItemRepository) UpdateInventory(ctx context.Context, id, merchantID string, stockQuantity *int, dailySalesLimit *int, resetAt *time.Time) error {
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
 	result, err := r.db.ExecContext(ctx, `
 		UPDATE merchant_menu_items SET
 			stock_quantity = $3::int,
@@ -200,7 +222,7 @@ func (r *postgresMenuItemRepository) UpdateInventory(ctx context.Context, id, me
 			is_available = CASE WHEN $3::int = 0 THEN FALSE ELSE is_available END,
 			version = version + 1,
 			updated_at = NOW()
-		WHERE id = $1 AND merchant_id = $2`, id, merchantID, stockQuantity, dailySalesLimit, resetAt)
+		WHERE id = $1 AND merchant_id = $2 AND ($6 = '' OR branch_id = NULLIF($6, '')::uuid)`, id, merchantID, stockQuantity, dailySalesLimit, resetAt, branchID)
 	if err != nil {
 		return err
 	}
@@ -211,8 +233,9 @@ func (r *postgresMenuItemRepository) UpdateInventory(ctx context.Context, id, me
 }
 
 func (r *postgresMenuItemRepository) Delete(ctx context.Context, id, merchantID string) error {
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
 	res, err := r.db.ExecContext(ctx, `
-		DELETE FROM merchant_menu_items WHERE id = $1 AND merchant_id = $2`, id, merchantID)
+		DELETE FROM merchant_menu_items WHERE id = $1 AND merchant_id = $2 AND ($3 = '' OR branch_id = NULLIF($3, '')::uuid)`, id, merchantID, branchID)
 	if err != nil {
 		return err
 	}
@@ -224,9 +247,10 @@ func (r *postgresMenuItemRepository) Delete(ctx context.Context, id, merchantID 
 }
 
 func (r *postgresMenuItemRepository) CountByMerchant(ctx context.Context, merchantID string) (int, error) {
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
 	var n int
 	err := r.readDB.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM merchant_menu_items WHERE merchant_id = $1`, merchantID).Scan(&n)
+		SELECT COUNT(*) FROM merchant_menu_items WHERE merchant_id = $1 AND ($2 = '' OR branch_id = NULLIF($2, '')::uuid)`, merchantID, branchID).Scan(&n)
 	return n, err
 }
 
@@ -237,8 +261,9 @@ func (r *postgresMenuItemRepository) CountByMerchant(ctx context.Context, mercha
 func (r *postgresMenuItemRepository) GetVariantsByMenuItem(ctx context.Context, menuItemID, merchantID string) ([]*domain.MenuItemVariant, error) {
 	// Validasi kepemilikan dulu — menu item harus milik merchant ini.
 	var owner string
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
 	err := r.readDB.QueryRowContext(ctx,
-		`SELECT merchant_id::text FROM merchant_menu_items WHERE id = $1`, menuItemID).Scan(&owner)
+		`SELECT merchant_id::text FROM merchant_menu_items WHERE id = $1 AND ($2 = '' OR branch_id = NULLIF($2, '')::uuid)`, menuItemID, branchID).Scan(&owner)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("menu item tidak ditemukan")
@@ -321,8 +346,9 @@ func (r *postgresMenuItemRepository) ReplaceVariants(ctx context.Context, menuIt
 	defer func() { _ = tx.Rollback() }()
 
 	var owner string
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
 	err = tx.QueryRowContext(ctx,
-		`SELECT merchant_id::text FROM merchant_menu_items WHERE id = $1 FOR UPDATE`, menuItemID).Scan(&owner)
+		`SELECT merchant_id::text FROM merchant_menu_items WHERE id = $1 AND ($2 = '' OR branch_id = NULLIF($2, '')::uuid) FOR UPDATE`, menuItemID, branchID).Scan(&owner)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("menu item tidak ditemukan")
@@ -381,13 +407,15 @@ func normalizeVariantKind(kind string) string {
 }
 
 func (r *postgresMenuItemRepository) listImages(ctx context.Context, menuItemID, merchantID string) ([]domain.MenuItemImage, error) {
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
 	rows, err := r.readDB.QueryContext(ctx, `
 		SELECT image.id::text, image.menu_item_id::text, image.url, image.alt_text,
 		       image.sort_order, image.is_primary, image.created_at
 		FROM merchant_menu_item_images image
 		JOIN merchant_menu_items item ON item.id = image.menu_item_id
 		WHERE image.menu_item_id = $1 AND item.merchant_id = $2
-		ORDER BY image.sort_order, image.created_at`, menuItemID, merchantID)
+		  AND ($3 = '' OR item.branch_id = NULLIF($3, '')::uuid)
+		ORDER BY image.sort_order, image.created_at`, menuItemID, merchantID, branchID)
 	if err != nil {
 		return nil, err
 	}
@@ -405,13 +433,15 @@ func (r *postgresMenuItemRepository) listImages(ctx context.Context, menuItemID,
 }
 
 func (r *postgresMenuItemRepository) listSchedules(ctx context.Context, menuItemID, merchantID string) ([]domain.MenuItemSchedule, error) {
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
 	rows, err := r.readDB.QueryContext(ctx, `
 		SELECT schedule.id::text, schedule.menu_item_id::text, schedule.weekday,
 		       TO_CHAR(schedule.starts_at, 'HH24:MI'), TO_CHAR(schedule.ends_at, 'HH24:MI'), schedule.is_active
 		FROM merchant_menu_item_schedules schedule
 		JOIN merchant_menu_items item ON item.id = schedule.menu_item_id
 		WHERE schedule.menu_item_id = $1 AND item.merchant_id = $2
-		ORDER BY schedule.weekday, schedule.starts_at`, menuItemID, merchantID)
+		  AND ($3 = '' OR item.branch_id = NULLIF($3, '')::uuid)
+		ORDER BY schedule.weekday, schedule.starts_at`, menuItemID, merchantID, branchID)
 	if err != nil {
 		return nil, err
 	}
@@ -506,7 +536,8 @@ func (r *postgresMenuItemRepository) ReplaceImages(ctx context.Context, menuItem
 	}
 	defer func() { _ = tx.Rollback() }()
 	var exists bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM merchant_menu_items WHERE id = $1 AND merchant_id = $2)`, menuItemID, merchantID).Scan(&exists); err != nil {
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM merchant_menu_items WHERE id = $1 AND merchant_id = $2 AND ($3 = '' OR branch_id = NULLIF($3, '')::uuid))`, menuItemID, merchantID, branchID).Scan(&exists); err != nil {
 		return err
 	}
 	if !exists {
@@ -533,7 +564,8 @@ func (r *postgresMenuItemRepository) ReplaceSchedules(ctx context.Context, menuI
 	}
 	defer func() { _ = tx.Rollback() }()
 	var exists bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM merchant_menu_items WHERE id = $1 AND merchant_id = $2)`, menuItemID, merchantID).Scan(&exists); err != nil {
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM merchant_menu_items WHERE id = $1 AND merchant_id = $2 AND ($3 = '' OR branch_id = NULLIF($3, '')::uuid))`, menuItemID, merchantID, branchID).Scan(&exists); err != nil {
 		return err
 	}
 	if !exists {
@@ -660,6 +692,7 @@ func (r *postgresMenuItemRepository) BulkImportMenu(ctx context.Context, merchan
 	if importMerchant != merchantID || importStatus != "processing" {
 		return fmt.Errorf("catalog import tidak dalam status processing")
 	}
+	branchID := domain.MerchantAccessFromContext(ctx).BranchID
 
 	for _, category := range categories {
 		if _, err := tx.ExecContext(ctx, `
@@ -674,11 +707,11 @@ func (r *postgresMenuItemRepository) BulkImportMenu(ctx context.Context, merchan
 	for _, item := range items {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO merchant_menu_items (
-				id, merchant_id, nama, harga, foto, deskripsi, kategori, category_id,
+				id, merchant_id, branch_id, nama, harga, foto, deskripsi, kategori, category_id,
 				prep_time_minutes, is_available, status, moderation_status, version,
 				stock_quantity, daily_sales_limit, daily_sales_count, sales_limit_reset_at
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid, $9, FALSE, 'moderation_pending', 'pending', 1, $10::int, $11::int, 0, $12::timestamptz)`,
-			item.ID, merchantID, item.Nama, item.Harga, item.Foto, item.Deskripsi, item.Kategori,
+			) VALUES ($1, $2, NULLIF($3, '')::uuid, $4, $5, $6, $7, $8, $9::uuid, $10, FALSE, 'moderation_pending', 'pending', 1, $11::int, $12::int, 0, $13::timestamptz)`,
+			item.ID, merchantID, branchID, item.Nama, item.Harga, item.Foto, item.Deskripsi, item.Kategori,
 			item.CategoryID, item.PrepTimeMinutes, item.StockQuantity, item.DailySalesLimit, item.SalesResetAt); err != nil {
 			return fmt.Errorf("insert menu %q: %w", item.Nama, err)
 		}
