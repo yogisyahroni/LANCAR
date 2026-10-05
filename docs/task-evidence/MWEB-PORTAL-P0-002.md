@@ -239,6 +239,10 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     environment: local Docker with loopback API/web origins and non-secure local cookies
     result: PASS — local disposable browser E2E proved Admin approval, Customer open/closed discovery, Admin projection, Merchant Web login, owner/manager/cashier/kitchen/finance authorization, socket refetch, optimistic rollback, retry, and concurrent-toggle idempotency. `dashboard_refetch_count=5`, version/event delta `1/1`, and `page_errors=[]`.
 
+    command: docker exec tembus-redis redis-cli DEL rate_limit:public:/api/v1/auth/merchant/documents/upload:<local-container-ip>; node scripts/e2e/merchant-web-dashboard-browser.mjs
+    environment: local Docker with loopback API/web origins and non-secure local cookies
+    result: PASS — after clearing only the exhausted local upload-rate-limit bucket, the current commit repeated the complete disposable flow successfully. Checks included Admin approval, Customer open/closed discovery, Admin projection, browser login, dashboard freshness, role authorization, socket refetch, optimistic rollback, retry, and concurrent-toggle idempotency; `dashboard_refetch_count=5`, version/event delta `1/1`, and `page_errors=[]`.
+
     command: adb install -r <courier-debug.apk>; adb install -r <customer-debug.apk>; adb install -r <merchant-debug.apk>; adb shell am start -n <package>/<explicit-launcher>
     tool: Android SDK emulator `Pixel_7_merchant`, device `emulator-5554`
     result: PASS for launch sanity — all three debug APKs installed successfully. Merchant `SplashActivity` transitioned to `MainActivity` and rendered the dashboard; Customer `MainActivity` became the focused activity and rendered the customer home after onboarding was skipped; after stopping the other two apps to release emulator resources, Courier `MainActivity` rendered its login screen. A generic launcher invocation opened the debug-only LeakCanary screen, not the merchant app; explicit activity launch was used for the actual app result. This proves install/launch sanity only, not authenticated order or reconnect behavior.
