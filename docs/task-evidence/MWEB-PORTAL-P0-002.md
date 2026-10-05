@@ -248,7 +248,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
     result: PASS for authenticated courier dashboard sanity — the staging update prompt was deferred, then the courier dashboard rendered `OFFLINE`, courier identity, earnings, completed-order count, GPS state, order radar, service cards, and the work-mode control. After location permission was granted in the emulator, tapping `Aktifkan kerja` reached the operational guardrail and displayed `Lokasi Anda berada di luar zona operasional aktif`; the courier correctly remained offline, so no availability transition is claimed from this out-of-zone run. Credentials were loaded in-memory from the local UAT secret store and are not recorded here.
 
     command: API health and dashboard unauthenticated checks against https://api.bawain.my.id plus browser harness against https://merchant.bawain.my.id
-    result: PARTIAL — portal returned HTTP 200, API health returned HTTP 200, and unauthenticated dashboard returned HTTP 401. The authenticated staging harness stopped at document upload with HTTP 429 `ERR_RATE_LIMITED`; no staging order/state mutation was claimed.
+    result: PARTIAL — portal returned HTTP 200, API health returned HTTP 200, and unauthenticated dashboard returned HTTP 401. The authenticated staging harness was retried after the rate-limit window but again stopped at document upload with HTTP 429 `ERR_RATE_LIMITED`; no staging order/state mutation was claimed.
 
 ## Task-Local Verification
 
@@ -314,7 +314,7 @@ PARTIAL
 
 Evidence:
 
-The staging domains were reachable: Merchant Web returned HTTP 200, API health returned HTTP 200, and the unauthenticated dashboard route correctly returned HTTP 401. The authenticated disposable harness reached document upload but was rejected by the staging rate limiter with HTTP 429 `ERR_RATE_LIMITED`; the run was stopped without creating or mutating a staging order. A successful authenticated staging lifecycle must be rerun after the rate-limit window.
+The staging domains were reachable: Merchant Web returned HTTP 200, API health returned HTTP 200, and the unauthenticated dashboard route correctly returned HTTP 401. The authenticated disposable harness reached document upload but was rejected by the staging rate limiter with HTTP 429 `ERR_RATE_LIMITED`; a later retry hit the same response. Both runs stopped without creating or mutating a staging order. A successful authenticated staging lifecycle must be rerun after the staging upload limit is cleared.
 
 ### Release Readiness
 
