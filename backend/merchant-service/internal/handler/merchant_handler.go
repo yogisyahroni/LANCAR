@@ -962,13 +962,29 @@ func (h *MerchantHandler) ImportMenuCSV(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
-	result, err := h.svc.ImportMenuCSV(r.Context(), userID, idempotencyKey, content)
+	var result *domain.BulkMenuImportResult
+	var err error
+	preview := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("preview")), "true") || r.URL.Query().Get("preview") == "1"
+	if preview {
+		previewSvc, ok := h.svc.(domain.MerchantCatalogPreviewService)
+		if !ok {
+			h.respondError(w, http.StatusNotImplemented, "validasi preview CSV belum tersedia")
+			return
+		}
+		result, err = previewSvc.PreviewMenuCSV(r.Context(), userID, idempotencyKey, content)
+	} else {
+		result, err = h.svc.ImportMenuCSV(r.Context(), userID, idempotencyKey, content)
+	}
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if len(result.Errors) > 0 {
 		h.respondJSON(w, http.StatusUnprocessableEntity, result)
+		return
+	}
+	if preview {
+		h.respondJSON(w, http.StatusOK, result)
 		return
 	}
 	h.respondJSON(w, http.StatusCreated, result)

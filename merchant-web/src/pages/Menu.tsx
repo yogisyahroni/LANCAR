@@ -56,6 +56,7 @@ export default function Menu() {
   const [bulkCsv, setBulkCsv] = useState('')
   const [bulkError, setBulkError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
+  const [validating, setValidating] = useState(false)
   const [readiness, setReadiness] = useState<CatalogReadiness | null>(null)
   const [publications, setPublications] = useState<CatalogPublication[]>([])
   const [publishing, setPublishing] = useState(false)
@@ -203,6 +204,25 @@ export default function Menu() {
     } finally { setImporting(false) }
   }
 
+  const validateBulkMenu = async () => {
+    if (!bulkRows.length || !bulkCsv) return
+    setValidating(true)
+    try {
+      const result = await api.post<{ created_count?: number; errors?: { row: number; message: string }[] }>('/merchant/menu/import?preview=1', bulkCsv, {
+        headers: { 'Content-Type': 'text/csv', 'Idempotency-Key': crypto.randomUUID() },
+      })
+      const errors = result.data?.errors || []
+      if (errors.length) {
+        setBulkError(errors.map((error) => `Baris ${error.row}: ${error.message}`).join(' · '))
+        return
+      }
+      setBulkError(null)
+      toast.success(`Validasi server lulus untuk ${result.data?.created_count ?? bulkRows.length} menu; belum ada data yang disimpan`)
+    } catch (err) {
+      setBulkError(apiErrorMessage(err, 'Validasi server gagal'))
+    } finally { setValidating(false) }
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -231,7 +251,7 @@ export default function Menu() {
         <section className="rounded-2xl border border-orange-200 bg-orange-50/60 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div><p className="font-black text-orange-950">Preview import menu</p><p className="text-xs text-orange-800">Kolom: nama, harga, kategori, prep_time_minutes.</p></div>
-            {bulkRows.length > 0 && <button onClick={importBulkMenu} disabled={importing} className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{importing ? 'Mengimpor…' : `Impor ${bulkRows.length} menu`}</button>}
+            {bulkRows.length > 0 && <div className="flex flex-wrap gap-2"><button onClick={validateBulkMenu} disabled={importing || validating} className="rounded-xl border border-orange-300 px-4 py-2 text-sm font-bold text-orange-800 disabled:opacity-60">{validating ? 'Memvalidasi…' : 'Validasi server'}</button><button onClick={importBulkMenu} disabled={importing || validating} className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{importing ? 'Mengimpor…' : `Impor ${bulkRows.length} menu`}</button></div>}
           </div>
           {bulkError ? <p className="mt-3 text-sm font-semibold text-red-700">{bulkError}</p> : <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[500px] text-left text-sm"><thead><tr className="text-xs uppercase text-orange-800"><th className="pb-2">Nama</th><th className="pb-2">Harga</th><th className="pb-2">Kategori</th><th className="pb-2">Prep</th></tr></thead><tbody>{bulkRows.slice(0, 10).map((row, index) => <tr key={`${row.nama}-${index}`} className="border-t border-orange-200"><td className="py-2 font-semibold">{row.nama}</td><td className="py-2">{rupiah(row.harga)}</td><td className="py-2">{row.kategori}</td><td className="py-2">{row.prep_time_minutes} menit</td></tr>)}</tbody></table>{bulkRows.length > 10 && <p className="mt-2 text-xs text-orange-800">Menampilkan 10 dari {bulkRows.length} baris.</p>}</div>}
         </section>

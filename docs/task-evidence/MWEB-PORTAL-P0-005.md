@@ -16,9 +16,9 @@ task_scope_external_proof_required: true
 external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Staging/browser/device proof and cross-app outlet projection remain deferred until the feature batch is complete."
-unproven_requirements: "Customer-facing promo calculation/stacking, holiday/tax/payout business profile, bulk action preview/rollback, and customer/courier cross-app outlet proof. Provider/live staging and authenticated multi-outlet browser qualification remain unproven."
+unproven_requirements: "Holiday/tax/payout business profile, bulk action rollback/recovery, and customer/courier cross-app outlet proof. Provider/live staging and authenticated multi-outlet browser qualification remain unproven."
 known_blockers: NONE
-locally_actionable_remaining: "Implement customer-facing promo calculation/stacking, holiday/tax/payout profile, bulk action preview/rollback, and authenticated tenant/outlet isolation E2E."
+locally_actionable_remaining: "Implement bulk action rollback/recovery and finish authenticated tenant/outlet isolation E2E after the capability batch."
 blocker_resolution_attempts: NONE
 unblock_condition: NONE
 owner_action_required: false
@@ -47,6 +47,8 @@ updated_at: 2026-10-05
 - Added `merchant_menu_item_outlet_overrides` as a separate, database-guarded overlay for outlet price, availability, and promo association. NULL values inherit the canonical catalog; cross-tenant menu/branch/promo links are rejected by a database trigger.
 - Added durable idempotency request records, optimistic version checks, append-only audit events, merchant API endpoints, and Merchant Web controls for the selected outlet.
 - Updated order-service checkout/discovery reads and stock reservation checks to use the effective outlet price/availability without changing the canonical menu row.
+- Added server-side CSV dry-run validation through `POST /merchant/menu/import?preview=1`; it reuses the commit parser and database-backed category/total-item checks without creating an import record or writing menu data.
+- Added customer-facing merchant-funded promo calculation at food quote/order time, combined with voucher discount rules and snapshotted for settlement consistency.
 
 ## Files Changed
 
@@ -59,6 +61,10 @@ updated_at: 2026-10-05
 - `backend/merchant-service/internal/service/merchant_service.go` and `backend/merchant-service/internal/handler/merchant_handler.go` — scope authorization and API.
 - `backend/order-service/internal/repository/food_repository.go` — effective outlet projection in checkout/discovery and reservation guard.
 - `merchant-web/src/pages/Menu.tsx` and `merchant-web/src/lib/types.ts` — selected-outlet override UI and types.
+- `merchant-web/src/pages/Menu.tsx` — server validation action for CSV preview before commit.
+- `backend/merchant-service/internal/domain/menu_item.go` — preview/commit result contract.
+- `backend/merchant-service/internal/domain/merchant_service.go` — optional preview capability contract.
+- `backend/merchant-service/internal/service/merchant_service.go` and `backend/merchant-service/internal/handler/merchant_handler.go` — atomic dry-run validation path and HTTP preview response.
 - `backend/order-service/internal/repository/merchant_discovery_checkout_release_gate_integration_test.go` — database-backed effective override assertion.
 - `TASKS.md` — current implementation and remaining requirements.
 
@@ -106,13 +112,22 @@ updated_at: 2026-10-05
     command: git diff --check
     result: PASS — no whitespace errors in the catalog/outlet implementation.
 
+    command: go test ./internal/service ./internal/handler ./internal/domain ./internal/repository (backend/merchant-service)
+    result: PASS — merchant service packages passed after adding the server-side CSV preview path.
+
+    command: go build ./... (backend/merchant-service)
+    result: PASS — merchant service compiled after the preview handler/service changes.
+
+    command: MERCHANT_BUILD_ENV=local VITE_API_URL=http://localhost:8080/api/v1 npm run build (merchant-web)
+    result: PASS — TypeScript and Vite production build completed with the server validation action.
+
 ## Task-Local Verification
 
 ### Tests
 
 Status: PASS
 
-Evidence: Merchant Web TypeScript/Vite build and merchant/order Go tests passed; order-service integration coverage reads the effective outlet override from PostgreSQL.
+Evidence: Merchant Web TypeScript/Vite build and merchant/order Go tests passed; order-service integration coverage reads the effective outlet override from PostgreSQL, and merchant import preview uses the same validation path without writes.
 
 ### Integration
 
@@ -150,9 +165,9 @@ Status: NOT_RUN — local Docker only; staging and production are intentionally 
 
 ## Reality Gate Evaluation
 
-- `REALITY-2026-003`: PARTIAL — portal outlet management, separate outlet override persistence, and effective checkout reads are implemented and locally integrated, but business profile, bulk, and cross-app criteria remain.
+- `REALITY-2026-003`: PARTIAL — portal outlet management, separate outlet override persistence, effective checkout reads, merchant-funded promo calculation, and server-side import preview are implemented and locally integrated, but rollback/recovery and cross-app criteria remain.
 - `REALITY-2026-011`: PASS — no staging or cross-app result is claimed.
 
 ## Unproven / Remaining
 
-Customer-facing promo calculation/stacking, business profile holiday/tax/payout configuration, bulk preview/rollback, authenticated cross-outlet authorization matrix, and customer/courier cross-app tenant-isolation proof. Local compilation/container health does not prove staging readiness.
+Business profile holiday/tax/payout configuration, bulk rollback/recovery, authenticated cross-outlet authorization matrix, and customer/courier cross-app tenant-isolation proof. Local compilation/container health does not prove staging readiness.

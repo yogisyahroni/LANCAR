@@ -126,6 +126,7 @@ type CatalogImportRowError struct {
 
 type BulkMenuImportResult struct {
 	ImportID     string                  `json:"import_id"`
+	Preview      bool                    `json:"preview"`
 	Committed    bool                    `json:"committed"`
 	Rows         int                     `json:"rows"`
 	CreatedCount int                     `json:"created_count"`

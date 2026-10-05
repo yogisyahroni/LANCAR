@@ -250,6 +250,13 @@ type MerchantService interface {
 	ProposeFoodSubstitution(ctx context.Context, userID, orderID string, req ProposeMerchantSubstitutionRequest) (*MerchantSubstitutionProposal, error)
 }
 
+// MerchantCatalogPreviewService is optional so existing MerchantService test
+// doubles remain compatible while production exposes server-side dry-run CSV
+// validation.
+type MerchantCatalogPreviewService interface {
+	PreviewMenuCSV(ctx context.Context, userID, idempotencyKey string, content []byte) (*BulkMenuImportResult, error)
+}
+
 // MerchantOrderCancellationService is an optional capability so existing
 // service test doubles remain source-compatible while the production service
 // can expose cancellation after acceptance through order-service's canonical

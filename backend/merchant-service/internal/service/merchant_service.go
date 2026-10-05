@@ -1913,6 +1913,14 @@ func (s *merchantServiceImpl) ModerateMenuItem(ctx context.Context, actorID, act
 }
 
 func (s *merchantServiceImpl) ImportMenuCSV(ctx context.Context, userID, idempotencyKey string, content []byte) (*domain.BulkMenuImportResult, error) {
+	return s.importMenuCSV(ctx, userID, idempotencyKey, content, false)
+}
+
+func (s *merchantServiceImpl) PreviewMenuCSV(ctx context.Context, userID, idempotencyKey string, content []byte) (*domain.BulkMenuImportResult, error) {
+	return s.importMenuCSV(ctx, userID, idempotencyKey, content, true)
+}
+
+func (s *merchantServiceImpl) importMenuCSV(ctx context.Context, userID, idempotencyKey string, content []byte, preview bool) (*domain.BulkMenuImportResult, error) {
 	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -1933,24 +1941,30 @@ func (s *merchantServiceImpl) ImportMenuCSV(ctx context.Context, userID, idempot
 	}
 	digest := sha256.Sum256(content)
 	requestHash := fmt.Sprintf("%x", digest[:])
-	record, created, err := governance.StartCatalogImport(ctx, m.ID, idempotencyKey, requestHash)
-	if err != nil {
-		return nil, err
-	}
-	if !created {
-		if record.RequestHash != requestHash {
-			return nil, errors.New("Idempotency-Key sudah dipakai untuk payload CSV berbeda")
+	var record *domain.CatalogImportRecord
+	if preview {
+		record = &domain.CatalogImportRecord{ID: "preview-" + uuid.NewString()}
+	} else {
+		var created bool
+		record, created, err = governance.StartCatalogImport(ctx, m.ID, idempotencyKey, requestHash)
+		if err != nil {
+			return nil, err
 		}
-		if record.Status == "completed" || record.Status == "rejected" {
-			return &record.Result, nil
+		if !created {
+			if record.RequestHash != requestHash {
+				return nil, errors.New("Idempotency-Key sudah dipakai untuk payload CSV berbeda")
+			}
+			if record.Status == "completed" || record.Status == "rejected" {
+				return &record.Result, nil
+			}
+			if record.Status == "failed" {
+				return nil, errors.New("import sebelumnya gagal; gunakan Idempotency-Key baru setelah memperbaiki data")
+			}
+			return nil, errors.New("import dengan Idempotency-Key ini masih diproses")
 		}
-		if record.Status == "failed" {
-			return nil, errors.New("import sebelumnya gagal; gunakan Idempotency-Key baru setelah memperbaiki data")
-		}
-		return nil, errors.New("import dengan Idempotency-Key ini masih diproses")
 	}
 
-	result := &domain.BulkMenuImportResult{ImportID: record.ID}
+	result := &domain.BulkMenuImportResult{ImportID: record.ID, Preview: preview}
 	reader := csv.NewReader(bytes.NewReader(content))
 	reader.FieldsPerRecord = -1
 	reader.TrimLeadingSpace = true
@@ -1961,12 +1975,16 @@ func (s *merchantServiceImpl) ImportMenuCSV(ctx context.Context, userID, idempot
 	records, err := reader.ReadAll()
 	if err != nil {
 		result.Errors = []domain.CatalogImportRowError{{Row: 1, Message: "CSV tidak valid: " + err.Error()}}
-		_ = governance.CompleteCatalogImport(ctx, record.ID, "rejected", *result)
+		if !preview {
+			_ = governance.CompleteCatalogImport(ctx, record.ID, "rejected", *result)
+		}
 		return result, nil
 	}
 	if len(records) < 2 {
 		result.Errors = []domain.CatalogImportRowError{{Row: 1, Message: "CSV wajib memiliki header dan minimal satu baris"}}
-		_ = governance.CompleteCatalogImport(ctx, record.ID, "rejected", *result)
+		if !preview {
+			_ = governance.CompleteCatalogImport(ctx, record.ID, "rejected", *result)
+		}
 		return result, nil
 	}
 	columns := map[string]int{}
@@ -1978,7 +1996,9 @@ func (s *merchantServiceImpl) ImportMenuCSV(ctx context.Context, userID, idempot
 	categoryIndex := firstCSVColumn(columns, "kategori", "category", "category_name")
 	if nameIndex < 0 || priceIndex < 0 || categoryIndex < 0 {
 		result.Errors = []domain.CatalogImportRowError{{Row: 1, Message: "Header wajib: nama, harga, kategori"}}
-		_ = governance.CompleteCatalogImport(ctx, record.ID, "rejected", *result)
+		if !preview {
+			_ = governance.CompleteCatalogImport(ctx, record.ID, "rejected", *result)
+		}
 		return result, nil
 	}
 	descriptionIndex := firstCSVColumn(columns, "deskripsi", "description")
@@ -2108,10 +2128,15 @@ func (s *merchantServiceImpl) ImportMenuCSV(ctx context.Context, userID, idempot
 	}
 	if len(result.Errors) > 0 {
 		result.Committed = false
-		_ = governance.CompleteCatalogImport(ctx, record.ID, "rejected", *result)
+		if !preview {
+			_ = governance.CompleteCatalogImport(ctx, record.ID, "rejected", *result)
+		}
 		return result, nil
 	}
 	result.CreatedCount = len(items)
+	if preview {
+		return result, nil
+	}
 	result.Committed = true
 	if err := governance.BulkImportMenu(ctx, m.ID, record.ID, items, newCategories, *result); err != nil {
 		result.Committed = false
