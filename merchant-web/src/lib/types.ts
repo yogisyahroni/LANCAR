@@ -160,6 +160,38 @@ export interface MenuListResponse {
   page_size: number
 }
 
+export interface MerchantReviewReply {
+  id: string
+  body: string
+  created_at: string
+  updated_at: string
+}
+
+export interface MerchantReview {
+  id: string
+  order_number?: string
+  reviewer_name: string
+  stars: number
+  comment?: string
+  tags?: string[]
+  created_at: string
+  reply?: MerchantReviewReply | null
+}
+
+export interface MerchantRatingBucket {
+  stars: number
+  count: number
+}
+
+export interface MerchantReviewsResponse {
+  avg_rating: number
+  rating_count: number
+  reviews: MerchantReview[]
+  rating_distribution: MerchantRatingBucket[]
+  page: number
+  page_size: number
+}
+
 export interface MerchantSubstitutionProposal {
   id: string
   order_id: string
