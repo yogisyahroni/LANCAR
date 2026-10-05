@@ -30,13 +30,18 @@ export default function Orders() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
+  const [syncError, setSyncError] = useState(false)
 
   const load = useCallback(async (showSpinner = false) => {
     if (showSpinner) setRefreshing(true)
     try {
       const res = await api.get<OrderListResponse>('/merchant/orders?page=1&page_size=50')
       setOrders(res.data?.orders || [])
+      setLastSyncedAt(new Date().toISOString())
+      setSyncError(false)
     } catch (err) {
+      setSyncError(true)
       toast.error(apiErrorMessage(err, 'Gagal memuat pesanan'))
     } finally {
       setLoading(false)
@@ -150,12 +155,14 @@ export default function Orders() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-zinc-900">Pesanan</h1>
-          <p className="mt-1 text-sm text-zinc-500">Auto-refresh tiap 15 detik.</p>
+          <p className="mt-1 text-sm text-zinc-500">Auto-refresh tiap 15 detik{lastSyncedAt ? ` · terakhir ${new Date(lastSyncedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : ''}.</p>
         </div>
         <button onClick={() => load(true)} disabled={refreshing} className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-600 transition hover:border-emerald-900/30 hover:text-emerald-900 disabled:opacity-60">
           <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Muat Ulang
         </button>
       </div>
+
+      {syncError && <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">Data pesanan belum tersinkron. Tampilan terakhir mungkin sudah usang; coba muat ulang sebelum mengambil tindakan.</div>}
 
       <div className="flex gap-1.5 overflow-x-auto rounded-full border border-zinc-100 bg-white p-1.5 shadow-sm">
         {TABS.map((t) => (

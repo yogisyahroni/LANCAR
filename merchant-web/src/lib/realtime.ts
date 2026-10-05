@@ -52,6 +52,8 @@ export type MerchantOrderEvent = {
   order_id?: string
   merchant_id?: string | null
   status?: string
+  sequence?: number | null
+  version?: number | null
   occurred_at?: string
   received_at: string
 }
@@ -68,10 +70,19 @@ export function subscribeToMerchantOrderEvents(
 
   let socket: Socket | null = null
   const seen = new Set<string>()
+  const latestSequence = new Map<string, number>()
   const notify = (payload: unknown) => {
     if (!payload || typeof payload !== 'object') return
     const event = payload as Omit<MerchantOrderEvent, 'received_at'>
     if (!event.order_id) return
+    const sequence = typeof event.sequence === 'number' ? event.sequence : typeof event.version === 'number' ? event.version : null
+    if (sequence !== null) {
+      const previous = latestSequence.get(event.order_id)
+      // Events are invalidation signals. Ignore late/duplicate versions so a
+      // reconnect cannot cause an older snapshot to overwrite a newer one.
+      if (previous !== undefined && sequence <= previous) return
+      latestSequence.set(event.order_id, sequence)
+    }
     const key = `${event.order_id}:${event.event || event.status || 'updated'}:${event.occurred_at || ''}`
     if (seen.has(key)) return
     seen.add(key)

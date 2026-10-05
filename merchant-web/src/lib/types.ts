@@ -64,6 +64,11 @@ export interface Merchant {
   busy_until?: string | null
   busy_extra_prep_minutes?: number
   auto_accept_orders?: boolean
+  bank_name?: string | null
+  bank_account_number?: string | null
+  bank_account_holder?: string | null
+  bank_account_verified?: boolean
+  bank_account_cooldown_until?: string | null
   avg_rating?: number
   rating_count?: number
   business_type?: string
@@ -472,7 +477,7 @@ export interface MerchantDashboardReadiness {
 }
 
 export interface MerchantFinanceStatement {
-  entries: unknown[]
+  entries: MerchantStatementEntry[]
   totals: {
     market_code: string
     currency_code: string
@@ -488,7 +493,7 @@ export interface MerchantFinanceStatement {
     payout_minor: number
     net_balance_minor: number
   }[]
-  discrepancies: unknown[]
+  discrepancies: MerchantSettlementDiscrepancy[]
   scope_level: string
   branch_id?: string
   scope_note?: string
@@ -496,6 +501,32 @@ export interface MerchantFinanceStatement {
   held_payout_minor: number
   next_payout_at?: string | null
   generated_at: string
+}
+
+export interface MerchantStatementEntry {
+  id: string
+  entry_type: string
+  direction: string
+  amount_minor: number
+  signed_amount_minor: number
+  source_type: string
+  source_id: string
+  status?: string
+  occurred_at: string
+  description: string
+}
+
+export interface MerchantSettlementDiscrepancy {
+  id: string
+  reference_type: string
+  reference_id: string
+  expected_minor: number
+  actual_minor: number
+  difference_minor: number
+  reason: string
+  status: string
+  first_seen_at: string
+  last_seen_at: string
 }
 
 export interface MerchantDashboard {
