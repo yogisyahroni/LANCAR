@@ -279,7 +279,10 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	}
 	merchantCommissionPercent := product.PlatformCommissionPercent
 	if merchantCommissionPercent <= 0 {
-		merchantCommissionPercent = s.configRepo.GetFloatConfig(ctx, "merchant_commission_percent", 2.5)
+		// Food merchant commercial terms default to the standard 15% rate.
+		// A merchant-specific introductory contract is applied and snapshotted
+		// by the order trigger when the order is created.
+		merchantCommissionPercent = s.configRepo.GetFloatConfig(ctx, "merchant_commission_percent", 15)
 	}
 	if merchantCommissionPercent < 0 || merchantCommissionPercent > 100 {
 		return nil, fmt.Errorf("invalid merchant commission policy percent %.3f", merchantCommissionPercent)

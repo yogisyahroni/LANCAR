@@ -25,6 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import android.content.Intent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -452,6 +454,8 @@ fun RegistrationScreen(
 
 @Composable
 private fun RegisteredSuccessContent(onDone: () -> Unit) {
+    val context = LocalContext.current
+    val statusUrl = "https://merchant.bawain.my.id/status"
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -480,6 +484,26 @@ private fun RegisteredSuccessContent(onDone: () -> Unit) {
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(24.dp))
+        OutlinedButton(
+            onClick = {
+                ContextCompat.startActivity(
+                    context,
+                    Intent(Intent.ACTION_VIEW, Uri.parse(statusUrl)),
+                    null
+                )
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Cek status pendaftaran di web")
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = "Gunakan email atau nomor HP yang sama saat mendaftar untuk melihat status terbaru.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = onDone) {
             Text("Selesai")
         }

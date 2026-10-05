@@ -431,6 +431,143 @@ func (r *postgresReportRepository) FinanceStatementByBranch(ctx context.Context,
 	return r.financeStatement(ctx, merchantID, branchID, limit)
 }
 
+// CurrentMerchantCommissionTerms reads the same approved contract and
+// service-default sources used by the order snapshot trigger. Introductory
+// contracts are ignored after their completed-order cap is reached, so the
+// portal never advertises a rate that a new order would not receive.
+func (r *postgresReportRepository) CurrentMerchantCommissionTerms(ctx context.Context, merchantID, marketCode string) (*domain.MerchantCommissionTerms, error) {
+	market := strings.ToUpper(strings.TrimSpace(marketCode))
+	if market == "" {
+		market = "ID-JK"
+	}
+
+	var terms domain.MerchantCommissionTerms
+	var businessType, resolvedMarket, basis, programCode, programLabel, source, contractVersion sql.NullString
+	var contractID, effectiveFrom, effectiveTo sql.NullString
+	var currentPct, standardPct, fallbackPct sql.NullFloat64
+	var fixedFee, completedOrders, orderCap sql.NullInt64
+	err := r.readDB.QueryRowContext(ctx, `
+		WITH completed AS (
+			SELECT COUNT(*)::BIGINT AS completed_orders
+			  FROM orders
+			 WHERE merchant_id = $1::uuid
+			   AND service_sub_type = 'food_delivery'
+			   AND status IN ('delivered', 'completed')
+		), standard AS (
+			SELECT COALESCE(MAX(NULLIF(platform_commission_percent, 0)), 15)::NUMERIC AS standard_percent
+			  FROM delivery_service_products
+			 WHERE code = 'food_delivery'
+		)
+		SELECT m.business_type,
+		       COALESCE(NULLIF(m.market_code, ''), $2::text),
+		       COALESCE(c.commission_basis, 'item_subtotal'),
+		       COALESCE(c.commission_percent, standard.standard_percent)::DOUBLE PRECISION,
+		       standard.standard_percent::DOUBLE PRECISION,
+		       COALESCE(c.fixed_fee_idr, 0)::BIGINT,
+		       CASE WHEN c.id IS NULL THEN 'standard' ELSE COALESCE(NULLIF(c.metadata->>'program_code', ''), 'standard') END,
+		       CASE
+		         WHEN c.id IS NOT NULL AND c.metadata->>'program_code' = 'new_merchant_intro'
+		           THEN COALESCE(NULLIF(c.metadata->>'program_label', ''), 'Program merchant baru')
+		         ELSE 'Tarif standar'
+		       END,
+		       CASE WHEN c.id IS NULL THEN 'service_default' ELSE 'approved_merchant_contract' END,
+		       c.id::TEXT,
+		       c.contract_version,
+		       TO_CHAR(c.effective_from AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		       TO_CHAR(c.effective_to AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		       completed.completed_orders,
+		       NULLIF(c.metadata->>'completed_order_cap', '')::BIGINT,
+		       COALESCE(NULLIF(c.metadata->>'fallback_commission_percent', '')::DOUBLE PRECISION, standard.standard_percent::DOUBLE PRECISION)
+		  FROM merchants m
+		 CROSS JOIN completed
+		 CROSS JOIN standard
+		  LEFT JOIN LATERAL (
+			SELECT contract.*
+			  FROM merchant_commission_contracts contract
+			 WHERE contract.merchant_id = m.id
+			   AND contract.market_code = COALESCE(NULLIF(m.market_code, ''), $2::text)
+			   AND contract.service_code = 'food_delivery'
+			   AND contract.status = 'approved'
+			   AND NOW() >= contract.effective_from
+			   AND (contract.effective_to IS NULL OR NOW() < contract.effective_to)
+			   AND (
+				 COALESCE(contract.metadata->>'program_code', 'standard') <> 'new_merchant_intro'
+				 OR NULLIF(contract.metadata->>'completed_order_cap', '') IS NULL
+				 OR completed.completed_orders < (contract.metadata->>'completed_order_cap')::BIGINT
+			   )
+			 ORDER BY contract.effective_from DESC, contract.created_at DESC
+			 LIMIT 1
+		  ) c ON TRUE
+		 WHERE m.id = $1::uuid`, merchantID, market).
+		Scan(
+			&businessType, &resolvedMarket, &basis, &currentPct, &standardPct,
+			&fixedFee, &programCode, &programLabel, &source, &contractID,
+			&contractVersion, &effectiveFrom, &effectiveTo, &completedOrders,
+			&orderCap, &fallbackPct,
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("merchant tidak ditemukan")
+		}
+		return nil, fmt.Errorf("merchant commission terms query: %w", err)
+	}
+
+	terms.MerchantID = merchantID
+	terms.BusinessType = nullStringValue(businessType, "perorangan")
+	terms.MarketCode = nullStringValue(resolvedMarket, market)
+	terms.ServiceCode = "food_delivery"
+	terms.CommissionBasis = nullStringValue(basis, "item_subtotal")
+	terms.CurrentCommissionPct = nullFloatValue(currentPct, 15)
+	terms.StandardCommissionPct = nullFloatValue(standardPct, 15)
+	terms.FixedFeeIDR = nullIntValue(fixedFee, 0)
+	terms.ProgramCode = nullStringValue(programCode, "standard")
+	terms.ProgramLabel = nullStringValue(programLabel, "Tarif standar")
+	terms.Source = nullStringValue(source, "service_default")
+	terms.ContractVersion = nullStringValue(contractVersion, "service-default-food_delivery-v2")
+	terms.CompletedFoodOrders = nullIntValue(completedOrders, 0)
+	terms.FallbackCommissionPct = nullFloatValue(fallbackPct, terms.StandardCommissionPct)
+	if contractID.Valid {
+		terms.ContractID = &contractID.String
+	}
+	if effectiveFrom.Valid {
+		terms.EffectiveFrom = &effectiveFrom.String
+	}
+	if effectiveTo.Valid {
+		terms.EffectiveTo = &effectiveTo.String
+	}
+	if orderCap.Valid {
+		cap := orderCap.Int64
+		terms.CompletedOrderCap = &cap
+		remaining := cap - terms.CompletedFoodOrders
+		if remaining < 0 {
+			remaining = 0
+		}
+		terms.RemainingOrderCap = &remaining
+	}
+	return &terms, nil
+}
+
+func nullStringValue(value sql.NullString, fallback string) string {
+	if value.Valid && strings.TrimSpace(value.String) != "" {
+		return value.String
+	}
+	return fallback
+}
+
+func nullFloatValue(value sql.NullFloat64, fallback float64) float64 {
+	if value.Valid {
+		return value.Float64
+	}
+	return fallback
+}
+
+func nullIntValue(value sql.NullInt64, fallback int64) int64 {
+	if value.Valid {
+		return value.Int64
+	}
+	return fallback
+}
+
 func (r *postgresReportRepository) financeStatement(ctx context.Context, merchantID, branchID string, limit int) (*domain.MerchantFinanceStatement, error) {
 	if limit <= 0 {
 		limit = 100

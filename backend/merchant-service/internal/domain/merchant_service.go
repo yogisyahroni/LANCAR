@@ -212,6 +212,10 @@ type MerchantService interface {
 	// ExportFinanceStatementCSV returns a server-authoritative finance export.
 	// The HTTP command is audited separately from the read-only statement view.
 	ExportFinanceStatementCSV(ctx context.Context, userID string, limit int) (string, error)
+	// GetCommissionTerms returns the currently applicable food commission
+	// program and its progress. Order history remains immutable and is not
+	// recomputed by this read endpoint.
+	GetCommissionTerms(ctx context.Context, userID string) (*MerchantCommissionTerms, error)
 	// GetCustomerReviews mengambil ringkasan + review customer dari merchant_ratings.
 	GetCustomerReviews(ctx context.Context, userID string, page, pageSize int) (*MerchantReviewsResponse, error)
 	// ReplyToCustomerReview membuat atau mengubah tanggapan merchant pada review miliknya.

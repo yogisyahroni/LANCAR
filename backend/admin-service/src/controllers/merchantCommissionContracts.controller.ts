@@ -18,6 +18,38 @@ const requireUUID = (value: unknown, field: string) => {
   return normalized;
 };
 
+const normalizeCommissionMetadata = (value: unknown): Record<string, unknown> => {
+  if (value == null) return {};
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw Object.assign(new Error('metadata komisi harus berupa object'), { statusCode: 400 });
+  }
+  const metadata = { ...(value as Record<string, unknown>) };
+  const programCode = String(metadata.program_code || 'standard').trim().toLowerCase();
+  if (!['standard', 'new_merchant_intro'].includes(programCode)) {
+    throw Object.assign(new Error('program_code komisi tidak valid'), { statusCode: 400 });
+  }
+  metadata.program_code = programCode;
+
+  if (programCode === 'new_merchant_intro') {
+    const orderCap = Number(metadata.completed_order_cap);
+    const fallbackPercent = Number(metadata.fallback_commission_percent);
+    if (!Number.isInteger(orderCap) || orderCap < 1 || orderCap > 1000000) {
+      throw Object.assign(new Error('completed_order_cap wajib berupa bilangan bulat positif'), { statusCode: 400 });
+    }
+    if (!Number.isFinite(fallbackPercent) || fallbackPercent < 0 || fallbackPercent > 100) {
+      throw Object.assign(new Error('fallback_commission_percent tidak valid'), { statusCode: 400 });
+    }
+    metadata.completed_order_cap = orderCap;
+    metadata.fallback_commission_percent = fallbackPercent;
+    const label = String(metadata.program_label || 'Program merchant baru').trim();
+    if (!label || label.length > 120) {
+      throw Object.assign(new Error('program_label tidak valid'), { statusCode: 400 });
+    }
+    metadata.program_label = label;
+  }
+  return metadata;
+};
+
 const audit = async (client: { query: Function }, actor: string, action: string, targetId: string, payload: unknown) => {
   await client.query(
     `INSERT INTO audit_logs (actor_id, action, target_id, payload)
@@ -64,6 +96,7 @@ export const createMerchantCommissionContract = async (req: Request, res: Respon
     const fixedFee = Number(body.fixed_fee_idr || 0);
     const effectiveFrom = new Date(body.effective_from);
     const effectiveTo = body.effective_to ? new Date(body.effective_to) : null;
+    const metadata = normalizeCommissionMetadata(body.metadata);
     if (!marketCode || marketCode.length > 32 || !version || version.length > 100) throw Object.assign(new Error('market_code dan contract_version wajib valid'), { statusCode: 400 });
     if (serviceCode !== CONTRACT_SERVICE) throw Object.assign(new Error('contract service saat ini harus food_delivery'), { statusCode: 400 });
     if (!['item_subtotal', 'gross_item'].includes(basis)) throw Object.assign(new Error('commission_basis tidak valid'), { statusCode: 400 });
@@ -80,7 +113,7 @@ export const createMerchantCommissionContract = async (req: Request, res: Respon
            effective_from, effective_to, status, created_by, metadata)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'draft', $10, $11::jsonb)
          RETURNING *`,
-        [merchantId, marketCode, serviceCode, version, basis, percent, Math.trunc(fixedFee), effectiveFrom, effectiveTo, actor, JSON.stringify(body.metadata || {})],
+        [merchantId, marketCode, serviceCode, version, basis, percent, Math.trunc(fixedFee), effectiveFrom, effectiveTo, actor, JSON.stringify(metadata)],
       );
       await audit(client, actor, 'merchant_commission_contract.created', result.rows[0].id, { after: result.rows[0] });
       await client.query('COMMIT');

@@ -274,6 +274,34 @@ func (s *merchantServiceImpl) ExportFinanceStatementCSV(ctx context.Context, use
 	return buf.String(), nil
 }
 
+// GetCommissionTerms exposes the active commercial policy without allowing a
+// merchant client to write or simulate a different rate. The order trigger
+// and settlement snapshot remain the financial source of truth.
+func (s *merchantServiceImpl) GetCommissionTerms(ctx context.Context, userID string) (*domain.MerchantCommissionTerms, error) {
+	if s.reportRepo == nil || s.merchantRepo == nil {
+		return nil, errors.New("commission repository not wired")
+	}
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if m == nil {
+		return nil, errors.New("merchant belum terdaftar")
+	}
+	if m.VerificationStatus != "approved" {
+		return nil, errors.New("merchant belum disetujui")
+	}
+	repo, ok := s.reportRepo.(domain.MerchantCommercialTermsRepository)
+	if !ok {
+		return nil, errors.New("commission repository not wired")
+	}
+	market := strings.TrimSpace(m.MarketCode)
+	if market == "" {
+		market = "ID-JK"
+	}
+	return repo.CurrentMerchantCommissionTerms(ctx, m.ID, market)
+}
+
 // GetCustomerReviews — review customer dari merchant_ratings, bukan data statis.
 func (s *merchantServiceImpl) GetCustomerReviews(ctx context.Context, userID string, page, pageSize int) (*domain.MerchantReviewsResponse, error) {
 	if s.reportRepo == nil || s.merchantRepo == nil {

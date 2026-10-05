@@ -161,6 +161,38 @@ Dasar keputusan yang perlu ditutup:
 - Rollback ke image sebelumnya teruji tanpa merusak data onboarding.
 - Public production readiness sign-off memiliki evidence terpisah dari health check tunnel lokal.
 
+### MWEB-P0-011 — Tarif merchant food dan dua jalur onboarding
+
+**Tujuan:** bisnis/PT dapat mengelola kebijakan komisi secara terkontrol di Admin dan
+merchant perorangan dapat mendaftar lewat Merchant Android lalu memantau hasilnya
+melalui Portal Mitra.
+
+**Ruang lingkup:**
+
+- Jadikan tarif food merchant server-authoritative: standar 15% dan program merchant
+  baru 5% selama 90 hari atau 100 pesanan makanan selesai, mana yang lebih dulu.
+- Simpan kontrak bertanggal, versi, metadata program, dan snapshot komersial order;
+  tarif tidak boleh dihitung ulang dari frontend atau mengubah order lama.
+- Sediakan pengaturan Admin untuk membuat draft, approval maker-checker/TOTP, dan
+  retire kontrak; Portal Merchant menampilkan tarif aktif dan progres program dari API.
+- Merchant Android menyediakan pendaftaran perorangan/perusahaan dengan tipe usaha,
+  dokumen, dan submit yang sudah ada; setelah submit tampilkan CTA ke
+  `https://merchant.bawain.my.id/status` menggunakan identitas yang sama.
+- Login Merchant Android menjelaskan bahwa pendaftaran perorangan dilakukan dari
+  profil aplikasi, tanpa membuat jalur web perorangan yang berbeda.
+
+**Acceptance criteria:**
+
+- Kontrak komisi aktif dipakai oleh snapshot order food baru dan tarif intro berhenti
+  ketika batas waktu atau batas pesanan tercapai.
+- Finance Merchant Web menampilkan tarif aktif, tarif standar, dasar perhitungan,
+  dan potongan komisi dari statement server.
+- Admin UI tidak dapat mengubah kontrak aktif tanpa role, TOTP, idempotency key,
+  approval reference, dan audit path.
+- Merchant Android dapat dikompilasi/diluncurkan, menampilkan pilihan perorangan,
+  dan menyediakan link status publik setelah submit; status tetap berasal dari Admin
+  → database → endpoint status, bukan status buatan aplikasi.
+
 ---
 
 ## P1 — Kelengkapan operasional setelah blocker P0 selesai

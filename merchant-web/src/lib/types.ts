@@ -570,6 +570,28 @@ export interface MerchantFinanceStatement {
   generated_at: string
 }
 
+export interface MerchantCommissionTerms {
+  merchant_id: string
+  business_type: string
+  market_code: string
+  service_code: string
+  commission_basis: string
+  current_commission_percent: number
+  standard_commission_percent: number
+  fixed_fee_idr: number
+  program_code: string
+  program_label: string
+  source: string
+  contract_id?: string
+  contract_version: string
+  effective_from?: string
+  effective_to?: string
+  completed_food_orders: number
+  completed_order_cap?: number
+  remaining_order_cap?: number
+  fallback_commission_percent: number
+}
+
 export interface MerchantStatementEntry {
   id: string
   entry_type: string

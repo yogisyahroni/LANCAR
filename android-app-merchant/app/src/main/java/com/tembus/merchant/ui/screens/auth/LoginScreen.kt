@@ -185,7 +185,7 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
-                    text = "Belum punya akun merchant?\nDaftar melalui admin Tembus terlebih dahulu.",
+                    text = "Belum punya toko?\nMasuk dengan akun TEMBUS, lalu pilih Profil › Daftar sebagai merchant.",
                     style = MaterialTheme.typography.bodySmall,
                     color = LoginTextSoft,
                     textAlign = TextAlign.Center

@@ -262,6 +262,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: Calculator, label: "Tax Center", path: "/tax-center" },
         { icon: Calculator, label: "Tariff Engine", path: "/tariff-engine" },
         { icon: WalletCards, label: "Merchant Escrow", path: "/merchant-settlements" },
+        { icon: BadgePercent, label: "Komisi Merchant Food", path: "/merchant-commission-contracts", allowedRoles: ['super_admin', 'finance_admin', 'finance'] },
         { icon: ShieldCheck, label: "Persetujuan Merchant", path: "/merchant-security-approvals", allowedRoles: ['super_admin', 'ops_security', 'ops_admin', 'finance_admin', 'finance'] },
         { icon: BadgePercent, label: "Pricing & Tariffs", path: "/pricing" },
         { icon: ShieldCheck, label: "Economics Control Plane", path: "/economics", allowedRoles: ['super_admin', 'ops_admin', 'finance_admin', 'finance'] },

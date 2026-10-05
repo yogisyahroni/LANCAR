@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Download, FileText, Landmark, Pencil, RefreshCw, ShieldCheck, Wallet } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Download, FileText, Landmark, Pencil, Percent, RefreshCw, ShieldCheck, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
-import type { Merchant, MerchantFinanceStatement, MerchantPortalContext, SettlementSummary, WithdrawalRecord } from '../lib/types'
+import type { Merchant, MerchantCommissionTerms, MerchantFinanceStatement, MerchantPortalContext, SettlementSummary, WithdrawalRecord } from '../lib/types'
 import { rupiah } from '../lib/types'
 import { MerchantPageSkeleton } from '../components/Skeleton'
 import { loadMerchantPortalContext } from '../lib/portal-context'
@@ -10,6 +10,7 @@ import { loadMerchantPortalContext } from '../lib/portal-context'
 export default function Settlements() {
   const [summary, setSummary] = useState<SettlementSummary | null>(null)
   const [statement, setStatement] = useState<MerchantFinanceStatement | null>(null)
+  const [commissionTerms, setCommissionTerms] = useState<MerchantCommissionTerms | null>(null)
   const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>([])
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [loading, setLoading] = useState(true)
@@ -31,14 +32,16 @@ export default function Settlements() {
       number: context.merchant.bank_account_number || '',
       holder: context.merchant.bank_account_holder || '',
     })
-    const [settlementResponse, withdrawalResponse, statementResponse] = await Promise.all([
+    const [settlementResponse, withdrawalResponse, statementResponse, commissionResponse] = await Promise.all([
       api.get<SettlementSummary>('/merchant/settlements'),
       api.get<WithdrawalRecord[]>('/merchant/withdrawals'),
       api.get<MerchantFinanceStatement>('/merchant/finance-statement?limit=100'),
+      api.get<MerchantCommissionTerms>('/merchant/commission-terms'),
     ])
     setSummary(settlementResponse.data)
     setWithdrawals(withdrawalResponse.data || [])
     setStatement(statementResponse.data)
+    setCommissionTerms(commissionResponse.data)
   }
 
   useEffect(() => { load().catch((err) => toast.error(apiErrorMessage(err, 'Gagal memuat keuangan'))).finally(() => setLoading(false)) }, [])
@@ -112,6 +115,8 @@ export default function Settlements() {
   return <div className="space-y-6">
     <div><h1 className="text-2xl font-black text-zinc-900">Keuangan dan pencairan</h1><p className="mt-1 text-sm text-zinc-500">Saldo dan riwayat pencairan diambil dari catatan transaksi server. Pencairan tidak dianggap berhasil sebelum status penyedia dan catatan keuangan berubah.</p></div>
     <div className="grid gap-4 sm:grid-cols-3"><Stat label="Bisa ditarik" value={rupiah(summary?.available_idr || 0)} accent /><Stat label="Sudah cair" value={rupiah(summary?.total_idr || 0)} /><Stat label="Ditahan / proses" value={rupiah(summary?.holding_idr || 0)} /></div>
+    {commissionTerms && <CommissionTermsCard terms={commissionTerms} />}
+    {statement?.totals?.length ? <FinanceBreakdown totals={statement.totals} /> : null}
     <section className="rounded-[1.75rem] border border-zinc-100 bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3"><Landmark className="mt-0.5 h-5 w-5 text-emerald-800" /><div><h2 className="font-black">Rekening pencairan</h2><p className="mt-1 text-sm text-zinc-500">Nomor rekening disamarkan. Perubahan rekening memerlukan verifikasi keamanan dan persetujuan terpisah.</p></div></div>
@@ -141,6 +146,27 @@ export default function Settlements() {
 }
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) { return <div className={`rounded-2xl border p-5 shadow-sm ${accent ? 'border-orange-200 bg-orange-50' : 'border-zinc-100 bg-white'}`}><p className="text-xs font-bold uppercase tracking-wide text-zinc-400">{label}</p><p className="mt-2 text-xl font-black text-emerald-950">{value}</p></div> }
+
+function CommissionTermsCard({ terms }: { terms: MerchantCommissionTerms }) {
+  const intro = terms.program_code === 'new_merchant_intro'
+  const endLabel = terms.effective_to ? new Date(terms.effective_to).toLocaleDateString('id-ID') : null
+  return <section className={`rounded-[1.75rem] border p-6 shadow-sm ${intro ? 'border-orange-200 bg-orange-50' : 'border-zinc-100 bg-white'}`}>
+    <div className="flex items-start gap-3"><Percent className={`mt-0.5 h-5 w-5 ${intro ? 'text-orange-700' : 'text-emerald-800'}`} /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-black">Biaya layanan untuk tokomu</h2><p className="mt-1 text-sm text-zinc-600">{terms.program_label} · berdasarkan kontrak {terms.contract_version}</p></div><span className={`rounded-full px-3 py-1 text-xs font-black ${intro ? 'bg-orange-100 text-orange-800' : 'bg-emerald-100 text-emerald-800'}`}>{terms.current_commission_percent}% komisi</span></div>
+      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3"><div><p className="text-xs text-zinc-500">Tarif saat ini</p><p className="mt-1 text-lg font-black text-zinc-900">{terms.current_commission_percent}%</p></div><div><p className="text-xs text-zinc-500">Tarif standar</p><p className="mt-1 text-lg font-black text-zinc-900">{terms.standard_commission_percent}%</p></div><div><p className="text-xs text-zinc-500">Dasar perhitungan</p><p className="mt-1 font-bold text-zinc-800">{terms.commission_basis === 'gross_item' ? 'Nilai item kotor' : 'Subtotal item'}</p></div></div>
+      {intro ? <p className="mt-4 text-sm leading-relaxed text-orange-950">Program tarif merchant baru aktif sampai {endLabel || 'batas program'} atau {terms.completed_order_cap ?? 'batas pesanan'} pesanan makanan selesai, mana yang lebih dulu. Setelah itu tarif kembali ke {terms.fallback_commission_percent}%.</p> : <p className="mt-4 text-sm leading-relaxed text-zinc-600">Tarif ini berasal dari kebijakan server. Biaya pembayaran, pajak, promo, refund, dan pencairan ditampilkan terpisah di catatan transaksi.</p>}
+      {intro && terms.completed_order_cap != null ? <p className="mt-2 text-xs font-semibold text-orange-900">Progres: {terms.completed_food_orders} selesai · tersisa {terms.remaining_order_cap ?? 0} pesanan program.</p> : null}
+    </div></div>
+  </section>
+}
+
+function FinanceBreakdown({ totals }: { totals: MerchantFinanceStatement['totals'] }) {
+  return <section className="rounded-[1.75rem] border border-zinc-100 bg-white p-6 shadow-sm"><div className="flex items-start gap-3"><FileText className="mt-0.5 h-5 w-5 text-emerald-800" /><div><h2 className="font-black">Ringkasan pendapatan dan potongan</h2><p className="mt-1 text-sm text-zinc-500">Nilai di bawah adalah total dari catatan transaksi server; tidak dihitung ulang oleh browser.</p></div></div><div className="mt-5 space-y-5">{totals.map((total) => <div key={`${total.market_code}-${total.currency_code}`} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><BreakdownItem label="Penjualan kotor" value={total.sales_minor} /><BreakdownItem label="Komisi platform" value={-total.commission_minor} negative /><BreakdownItem label="Promo / pajak / biaya" value={-(total.promo_subsidy_minor + total.tax_minor + total.fee_minor)} negative /><BreakdownItem label="Saldo bersih" value={total.net_balance_minor} emphasized /></div>)}</div></section>
+}
+
+function BreakdownItem({ label, value, negative, emphasized }: { label: string; value: number; negative?: boolean; emphasized?: boolean }) {
+  const display = `${value < 0 ? '-' : ''}${rupiah(Math.abs(value))}`
+  return <div className={`rounded-2xl p-4 ${emphasized ? 'bg-emerald-50' : 'bg-zinc-50'}`}><p className="text-xs font-bold text-zinc-500">{label}</p><p className={`mt-1 text-lg font-black ${emphasized ? 'text-emerald-900' : negative ? 'text-orange-700' : 'text-zinc-900'}`}>{display}</p></div>
+}
 
 function maskAccount(value?: string | null) {
   const digits = String(value || '').replace(/\D/g, '')

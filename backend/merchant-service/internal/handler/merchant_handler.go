@@ -91,7 +91,7 @@ func merchantPermissionForRequest(r *http.Request) int {
 		}
 		return domain.PermViewStore
 	}
-	if strings.Contains(path, "/report") || strings.Contains(path, "/settlement") || strings.Contains(path, "/review") || strings.Contains(path, "/withdrawal") || strings.Contains(path, "/finance-statement") || strings.Contains(path, "/quality-score") {
+	if strings.Contains(path, "/report") || strings.Contains(path, "/settlement") || strings.Contains(path, "/review") || strings.Contains(path, "/withdrawal") || strings.Contains(path, "/finance-statement") || strings.Contains(path, "/commission-terms") || strings.Contains(path, "/quality-score") {
 		return domain.PermViewReports
 	}
 	if strings.Contains(path, "/enforcement") {
@@ -1454,6 +1454,25 @@ func (h *MerchantHandler) GetFinanceStatement(w http.ResponseWriter, r *http.Req
 		return
 	}
 	h.respondJSON(w, http.StatusOK, statement)
+}
+
+// GetCommissionTerms returns the currently applicable food commission policy
+// and introductory-program progress for the authenticated merchant.
+func (h *MerchantHandler) GetCommissionTerms(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	terms, err := h.svc.GetCommissionTerms(r.Context(), userID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, terms)
 }
 
 // ExportFinanceStatementCSV exports the immutable finance projection through

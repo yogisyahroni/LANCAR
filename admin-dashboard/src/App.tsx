@@ -51,6 +51,7 @@ import PaymentLinks from './pages/PaymentLinks'
 import ResiTemplates from './pages/ResiTemplates'
 import LogisticsDiscount from './pages/LogisticsDiscount'
 import MerchantSettlements from './pages/MerchantSettlements'
+import MerchantCommissionContracts from './pages/MerchantCommissionContracts'
 import MerchantSecurityApprovals from './pages/MerchantSecurityApprovals'
 import CustomReports from './pages/CustomReports'
 import CampaignCalendar from './pages/CampaignCalendar'
@@ -356,6 +357,7 @@ function App() {
               </ProtectedRoute>
             } 
           />
+          <Route path="/merchant-commission-contracts" element={<ProtectedRoute allowedRoles={['super_admin', 'finance_admin', 'finance']}><MerchantCommissionContracts /></ProtectedRoute>} />
           <Route path="/merchant-security-approvals" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_security', 'ops_admin', 'finance_admin', 'finance']}><MerchantSecurityApprovals /></ProtectedRoute>} />
           <Route 
             path="/cost-intelligence" 
