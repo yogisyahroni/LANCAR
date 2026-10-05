@@ -253,6 +253,7 @@
 ## Waiting On
 
 - [ ] **Production/staging deploy secret operator** - lokal dan no-maps automation sudah selesai; untuk server staging/production masih perlu isi env di host/GitHub Secrets: `FIREBASE_CUSTOMER_PROJECT_ID`, `FIREBASE_CUSTOMER_SERVICE_ACCOUNT_B64`, `FIREBASE_COURIER_PROJECT_ID`, dan `FIREBASE_COURIER_SERVICE_ACCOUNT_B64`; `GOOGLE_MAPS_API_KEY`/`GOOGLE_DIRECTIONS_API_KEY` tetap dibutuhkan jika provider `google_maps` diaktifkan, tetapi tidak boleh menjadi blocker total setelah runtime OSM fallback selesai.
+- [ ] **Deferred provider production boundary** — kredensial Xendit nyata, vault payout nyata + webhook provider, connect/disconnect POS eksternal, dan UAT/E2E Customer–Merchant–Kurir. Ditahan sampai payment gateway production final, provider contract/secret manager siap, POS provider disetujui, dan environment UAT lintas aplikasi tersedia. Status: **DEFERRED / NOT STARTED**, bukan PASS atau production-ready.
 ## Someday
 
 No someday on-demand readiness tasks.
