@@ -521,6 +521,29 @@ contract** dan tidak boleh dipresentasikan sebagai fitur production-ready.
 P1 tidak dimulai sebelum P0 release gate lulus. P2 memerlukan business case,
 owner data/provider, policy legal/finance, serta model operasi yang disetujui.
 
+### 7.2 Keputusan scope delivery 2026-10-05
+
+Prioritas implementasi berikutnya adalah capability enterprise yang masih dapat
+dibangun dan diverifikasi secara lokal:
+
+- `MWEB-PORTAL-P2-001`: multi-brand/multi-region control plane;
+- `MWEB-PORTAL-P2-002`: inventory, waste, procurement, dan kitchen capacity;
+- `MWEB-PORTAL-P2-003`: advanced finance, tax, dan accounting ecosystem;
+- `MWEB-PORTAL-P2-004`: public API dan partner ecosystem.
+
+Empat batas eksternal tidak dikerjakan pada fase ini dan berstatus
+`DEFERRED / NOT STARTED`: kredensial Xendit nyata; vault payout nyata dan webhook
+provider; connect/disconnect provider POS eksternal; serta UAT/E2E lintas
+Customer–Merchant–Kurir. Alasannya adalah payment gateway production masih akan
+berganti dan kontrak provider final belum dipilih. Status deferred bukan bukti
+berhasil, bukan PASS, dan bukan klaim production-ready.
+
+Pekerjaan lokal yang tidak tergantung kredensial tetap boleh disiapkan, termasuk
+contract/interface, status unconfigured, validation, idempotency, audit,
+recovery, dan fixture test. Keempat item dibuka kembali setelah gateway final,
+secret manager/vault, webhook signing, provider POS yang disetujui, dan
+lingkungan UAT lintas aplikasi tersedia.
+
 ## 8. Canonical state dan ownership
 
 PRD menggunakan contract yang sudah tersedia sebagai sumber aturan teknis:

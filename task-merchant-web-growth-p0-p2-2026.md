@@ -698,6 +698,46 @@ Benchmark tersebut adalah referensi capability, bukan izin untuk menyalin merek/
 
 **Acceptance criteria:** tidak ada partner yang dapat membaca tenant lain; secret tidak muncul di UI/log; API version dan webhook replay dapat diuji; partner capability matrix selalu up to date.
 
+### Keputusan scope eksekusi 2026-10-05 — Enterprise P2 dikerjakan lebih dahulu
+
+Empat capability enterprise berikut menjadi fokus implementasi feature-first setelah
+baseline P0/P1 yang menjadi dependensinya dapat dipakai oleh capability tersebut:
+
+1. `MWEB-PORTAL-P2-001` — control plane multi-brand/multi-region.
+2. `MWEB-PORTAL-P2-002` — inventory, waste, procurement, dan kitchen capacity.
+3. `MWEB-PORTAL-P2-003` — accounting export/API, tax, dan finance ecosystem.
+4. `MWEB-PORTAL-P2-004` — public API dan partner ecosystem.
+
+Urutan kerja lokal yang dipakai adalah: model ownership dan tenant/market policy →
+inventory/catalog projection → accounting export yang membaca ledger secara
+read-only → public API/partner boundary. Setiap capability tetap harus memakai
+source of truth server-side, authorization, audit, idempotency, observability,
+migration/rollback yang relevan, dan evidence per TASK-ID. Implementasi lokal tidak
+boleh disebut production-ready sebelum gate verifikasi yang diwajibkan task-nya
+terpenuhi.
+
+#### Deferred — bukan selesai dan bukan PASS
+
+Item berikut sengaja dicatat sebagai `DEFERRED / NOT STARTED` karena kontrak payment
+gateway masih akan diganti dan provider production belum diputuskan:
+
+1. kredensial Xendit nyata;
+2. vault payout nyata dan webhook provider;
+3. connect/disconnect provider POS eksternal;
+4. UAT/E2E lintas Customer → Merchant → Kurir.
+
+Pekerjaan lokal seperti interface, adapter boundary, validation, idempotency,
+recovery, audit, fixture contract test, dan status `planned/unconfigured` boleh
+disiapkan bila menjadi dependency capability, tetapi tidak boleh dianggap sebagai
+bukti provider live, payout live, POS eksternal live, atau UAT lintas aplikasi.
+
+#### Kondisi re-entry deferred
+
+Deferred item dibuka kembali setelah payment gateway production dipilih dan
+contract-nya tersedia, secret/provider access dikonfigurasi melalui secret manager,
+vault payout serta webhook signing siap, provider POS yang didukung disetujui, dan
+lingkungan UAT lintas aplikasi memiliki akun/seed serta data reset yang aman.
+
 ### Ketergantungan dan urutan eksekusi portal
 
 `MWEB-P0-006` + `MWEB-P0-007` → `MWEB-PORTAL-P0-001` → `MWEB-PORTAL-P0-002..P0-009` → `MWEB-PORTAL-P0-010` → `MWEB-PORTAL-P1-001..P1-006` → `MWEB-PORTAL-P2-001..P2-004`.
