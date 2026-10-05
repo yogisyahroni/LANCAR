@@ -8,7 +8,9 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const approvalProjection = `
   SELECT a.id, a.merchant_id, m.nama_toko AS merchant_name,
          a.requested_by, COALESCE(requester.full_name, requester.email) AS requester_name,
-         a.change_type, a.status, a.approval_reference, a.approved_by,
+         a.change_type,
+         CASE WHEN a.status = 'pending' AND a.expires_at <= NOW() THEN 'expired' ELSE a.status END AS status,
+         a.approval_reference, a.approved_by,
          COALESCE(approver.full_name, approver.email) AS approver_name,
          a.rejected_by, COALESCE(rejecter.full_name, rejecter.email) AS rejecter_name,
          a.rejection_reason, a.expires_at, a.created_at, a.approved_at, a.rejected_at
@@ -31,7 +33,7 @@ export const listMerchantSecurityApprovals = async (req: Request, res: Response)
   try {
     const result = await readDb.query(
       `${approvalProjection}
-       WHERE ($1 = '' OR a.status = $1)
+       WHERE ($1 = '' OR CASE WHEN a.status = 'pending' AND a.expires_at <= NOW() THEN 'expired' ELSE a.status END = $1)
        ORDER BY a.created_at DESC
        LIMIT $2`,
       [status, limit],
@@ -108,8 +110,10 @@ export const rejectMerchantSecurityApproval = async (req: Request, res: Response
     return;
   }
   const actor = getActorId(req);
+  const client = await db.connect();
   try {
-    const result = await db.query(
+    await client.query('BEGIN');
+    const result = await client.query(
       `UPDATE merchant_security_approvals
           SET status = 'rejected', rejected_by = $2, rejection_reason = $3, rejected_at = NOW()
         WHERE id = $1 AND status = 'pending' AND requested_by <> $2 AND expires_at > NOW()
@@ -117,18 +121,23 @@ export const rejectMerchantSecurityApproval = async (req: Request, res: Response
       [approvalId, actor, reason],
     );
     if (!result.rows[0]) {
+      await client.query('ROLLBACK');
       res.status(409).json({ success: false, code: 'APPROVAL_NOT_REJECTABLE', error: 'Permintaan tidak lagi menunggu keputusan, sudah kedaluwarsa, atau pembuat tidak boleh menolaknya sendiri' });
       return;
     }
     const row = result.rows[0];
-    await db.query(
+    await client.query(
       `INSERT INTO audit_logs (actor_id, action, target_id, merchant_id, payload)
        VALUES ($1, 'merchant.security_approval.rejected', $2, $3, $4::jsonb)`,
       [actor, approvalId, row.merchant_id, JSON.stringify({ change_type: row.change_type, reason })],
     );
+    await client.query('COMMIT');
     res.json({ success: true, data: row });
   } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => undefined);
     securityLog.error('admin_merchant_security_approval_reject_failed', { error: error.message, approval_id: approvalId });
     res.status(500).json({ success: false, error: 'Penolakan perubahan merchant gagal diproses' });
+  } finally {
+    client.release();
   }
 };
