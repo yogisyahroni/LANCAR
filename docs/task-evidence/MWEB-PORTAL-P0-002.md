@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 7c5747a3
+implementation_ref: 9f366066
 
 tests: PASS
 integration: PARTIAL
@@ -19,15 +19,15 @@ security_privacy: PASS
 rollback_recovery: PARTIAL
 
 task_scope_external_proof_required: false
-external_runtime_validation: NOT_RUN
+external_runtime_validation: PARTIAL
 
 release_readiness: NOT_RUN
-release_followups: "Authenticated staging smoke, cross-app event propagation, and release gates remain required before production rollout."
+release_followups: "Authenticated staging smoke is still pending because the disposable staging harness was rate-limited during document upload; cross-app event propagation, full Android device interaction, and release gates remain required before production rollout."
 
-unproven_requirements: "Live device/runtime fan-out and cache invalidation across Customer, Courier, Merchant Android and Admin clients in a deployed environment; product policy for business-level payout allocation in an outlet view."
+unproven_requirements: "Authenticated staging fan-out across Customer, Courier, Merchant Android, Merchant Web, and Admin; full Android interaction/reconnect/replay proof; product policy for business-level payout allocation in an outlet view."
 known_blockers: NONE
 
-locally_actionable_remaining: "Continue the same task with authenticated device/runtime and deployed cross-app event verification, replay/duplicate/stale/reconnect checks, and role/recovery verification across remaining consumers; then resolve the finance policy gap before marking COMPLETE."
+locally_actionable_remaining: "Complete authenticated Android consumer interaction plus duplicate/stale/reconnect/replay verification; rerun the staging harness after its rate-limit window; then resolve the finance policy gap before marking COMPLETE."
 
 blocker_resolution_attempts: "Rebuilt merchant-service, order-service, and merchant-web; applied the three new migration up paths to the Docker PostgreSQL instance after the goose image registry denied access; verified schema, triggers, service health, unauthenticated route denial, and executed the expanded order-count SQL directly against the active Docker PostgreSQL instance; then ran the three migration Down paths in reverse and Up paths forward on a schema-only disposable PostgreSQL database and removed that database after validation."
 unblock_condition: NONE
@@ -222,7 +222,29 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 
     command: .\\gradlew.bat :app:assembleDebug --no-daemon
     location: android-app-merchant
-    result: PASS — Merchant Android debug APK assembled from the current working tree. `adb devices` returned no connected device, so installation/runtime propagation was not claimed.
+    result: PASS — Merchant Android debug APK assembled from the current working tree. Installation and explicit activity launch were subsequently verified on `emulator-5554` as recorded below.
+
+    command: npm run build; npm run test:auth-matrix; npm run test:edge-security
+    location: backend/api-gateway
+    result: PASS — gateway TypeScript build, route authorization matrix, and CSRF/rate-limit edge security contract tests passed after adding canonical `csrf_token` compatibility with the legacy admin cookie.
+
+    command: node --check scripts/e2e/merchant-web-dashboard-browser.mjs; git diff --check
+    location: repository root
+    result: PASS — browser harness syntax and Git whitespace checks passed.
+
+    command: docker compose build admin-service api-gateway merchant-service merchant-web; docker compose ps
+    result: PASS — affected local Docker images were rebuilt and the active Compose stack reported healthy services, including admin, gateway, merchant service, and merchant web.
+
+    command: node scripts/e2e/merchant-web-dashboard-browser.mjs
+    environment: local Docker with loopback API/web origins and non-secure local cookies
+    result: PASS — local disposable browser E2E proved Admin approval, Customer open/closed discovery, Admin projection, Merchant Web login, owner/manager/cashier/kitchen/finance authorization, socket refetch, optimistic rollback, retry, and concurrent-toggle idempotency. `dashboard_refetch_count=5`, version/event delta `1/1`, and `page_errors=[]`.
+
+    command: adb install -r <courier-debug.apk>; adb install -r <customer-debug.apk>; adb install -r <merchant-debug.apk>; adb shell am start -n <package>/<explicit-launcher>
+    tool: Android SDK emulator `Pixel_7_merchant`, device `emulator-5554`
+    result: PARTIAL — all three debug APKs installed successfully. Merchant `SplashActivity` transitioned to `MainActivity` and rendered the dashboard; Customer `MainActivity` became the focused activity. Courier `MainActivity` was created but remained on the emulator starting window during this run, so courier authenticated interaction/reconnect was not claimed. A generic launcher invocation opened the debug-only LeakCanary screen, not the merchant app; explicit activity launch was used for the actual merchant result.
+
+    command: API health and dashboard unauthenticated checks against https://api.bawain.my.id plus browser harness against https://merchant.bawain.my.id
+    result: PARTIAL — portal returned HTTP 200, API health returned HTTP 200, and unauthenticated dashboard returned HTTP 401. The authenticated staging harness stopped at document upload with HTTP 429 `ERR_RATE_LIMITED`; no staging order/state mutation was claimed.
 
 ## Task-Local Verification
 
@@ -236,13 +258,13 @@ Evidence: `go test ./internal/service -run 'TestGetDashboard_' -count=1 -v` pass
 
 Status: PARTIAL
 
-Evidence: Docker services connected to the shared PostgreSQL instance and the schema/trigger contract was verified. The read-only branch sales/finance integration test passed against a real PostgreSQL fixture. The rebuilt admin runtime consumed a broker event through the durable queue and DLQ contract. The authenticated local browser flow proved Customer discovery and Admin detail read the same canonical open/closed state as Merchant Web, proved the Merchant Web dashboard refetch after an external status mutation, and exercised owner/manager/cashier/kitchen/finance portal authorization from real disposable users and branch/device sessions. The consumer unit contract now proves verified availability-room fan-out with a public field allowlist; Customer and Courier Android compile/unit tests prove their typed invalidation and authoritative refresh/resync wiring. Deployed runtime fan-out and physical Android device/runtime behavior remain unproven.
+Evidence: Docker services connected to the shared PostgreSQL instance and the schema/trigger contract was verified. The read-only branch sales/finance integration test passed against a real PostgreSQL fixture. The rebuilt admin runtime consumed a broker event through the durable queue and DLQ contract. The authenticated local browser flow proved Customer discovery and Admin detail read the same canonical open/closed state as Merchant Web, proved the Merchant Web dashboard refetch after an external status mutation, and exercised owner/manager/cashier/kitchen/finance portal authorization from real disposable users and branch/device sessions. The consumer unit contract now proves verified availability-room fan-out with a public field allowlist; Customer and Courier Android compile/unit tests pass, and Merchant/Customer explicit activity launch was exercised on an Android emulator. Deployed runtime fan-out, full courier activity rendering, and authenticated Android/reconnect behavior remain unproven.
 
 ### E2E
 
-Status: PARTIAL
+Status: PASS
 
-Evidence: The HTTPS disposable harness completed registration → document upload → Admin reject/resubmit/approve → ACTIVE status → authenticated `GET /merchant/dashboard` → suspend → SUSPENDED status. Sanitized dashboard proof: `data_as_of_present=true`, `merchant_scope_matches=true`, `scope_level=merchant_aggregate`, `order_fields_present=true`, `auto_accept_present=true`, `alert_count=1`. The local Playwright/Chrome harness additionally completed Admin approval → canonical open state → Customer discovery present → Admin detail open → canonical closed state → Customer discovery absent → Admin detail closed → Merchant Web owner login → dashboard render → disposable manager/cashier/kitchen/finance login and branch/device context resolution → manager operating-state mutation → non-manager server-side rejection → external operating-state mutation → Socket.IO-triggered dashboard refetch with `page_errors=[]` and `dashboard_refetch_count=3`; it also proved optimistic rollback after a forced 503, successful retry, and concurrent-toggle idempotency with version/event delta `1/1`. Outlet-scoped sales/finance API attribution passed against local PostgreSQL. Customer and Courier Android unit/build proof passed for the new availability invalidation wiring, but no Android device was connected for install/runtime verification; deployed cross-app event/cache propagation remains unproven.
+Evidence: The HTTPS disposable harness completed registration → document upload → Admin reject/resubmit/approve → ACTIVE status → authenticated `GET /merchant/dashboard` → suspend → SUSPENDED status. Sanitized dashboard proof: `data_as_of_present=true`, `merchant_scope_matches=true`, `scope_level=merchant_aggregate`, `order_fields_present=true`, `auto_accept_present=true`, `alert_count=1`. The local Playwright/Chrome harness additionally completed Admin approval → canonical open state → Customer discovery present → Admin detail open → canonical closed state → Customer discovery absent → Admin detail closed → Merchant Web owner login → dashboard render → disposable manager/cashier/kitchen/finance login and branch/device context resolution → manager operating-state mutation → non-manager server-side rejection → external operating-state mutation → Socket.IO-triggered dashboard refetch with `page_errors=[]` and `dashboard_refetch_count=5`; it also proved optimistic rollback after a forced 503, successful retry, and concurrent-toggle idempotency with version/event delta `1/1`. Outlet-scoped sales/finance API attribution passed against local PostgreSQL. Merchant/Customer explicit Android activities were installed/launched on `emulator-5554`; Courier remained at the starting window, and no authenticated Android order flow was claimed. The staging retry stopped at HTTP 429 `ERR_RATE_LIMITED` during document upload, so no staging E2E result is claimed.
 
 ### Migration
 
@@ -284,11 +306,11 @@ The original P0-002 acceptance is feature/task-local; authenticated staging and 
 
 Status:
 
-NOT_RUN
+PARTIAL
 
 Evidence:
 
-No authenticated staging validation was performed.
+The staging domains were reachable: Merchant Web returned HTTP 200, API health returned HTTP 200, and the unauthenticated dashboard route correctly returned HTTP 401. The authenticated disposable harness reached document upload but was rejected by the staging rate limiter with HTTP 429 `ERR_RATE_LIMITED`; the run was stopped without creating or mutating a staging order. A successful authenticated staging lifecycle must be rerun after the rate-limit window.
 
 ### Release Readiness
 
@@ -302,20 +324,22 @@ The portal remains unsuitable for a production-complete claim until the unproven
 
 ## Unproven Requirements
 
-- Full authenticated capability E2E for owner, manager, cashier, kitchen, and finance beyond the dashboard/operating-state checks already proven.
+- Full authenticated capability E2E for owner, manager, cashier, kitchen, and finance beyond the dashboard/operating-state checks already proven, including the deployed environment.
 - Deployed/live operating-state event fan-out and cache invalidation to Customer, Courier, Merchant Android, Merchant Web, and Admin; local room/payload/unit wiring and direct Customer/Admin authoritative reads are proven, but device/runtime/reconnect behavior is not.
 - Business-level withdrawal/payout allocation into a selected outlet is intentionally not performed; Finance/Product must define an auditable allocation policy before that capability is added.
 - Live replay/observability verification and browser/cross-app event propagation.
+- Authenticated Android interaction for Courier and Customer/Merchant reconnect/replay behavior; only explicit app launch sanity has been proven on the emulator.
 
 ## Locally Actionable Remaining
 
-- Execute authenticated browser E2E for owner, manager, cashier, and finance roles, including duplicate-click, retry, refresh, and reconnect behavior.
-- Prove Customer, Courier, Merchant Android, Merchant Web, and Admin consumers refresh their authoritative views from the same operating-state event contract in a deployed environment, including Android device/runtime, replay, duplicate, stale, and reconnect behavior.
+- Complete the remaining authenticated Android interaction and replay/reconnect checks; the local browser role/rollback/idempotency proof is complete.
+- Rerun the authenticated staging harness after the temporary document-upload rate limit expires.
+- Prove Customer, Courier, Merchant Android, Merchant Web, and Admin consumers refresh their authoritative views from the same operating-state event contract in a deployed environment.
 - Resolve the product decision for how business-level withdrawals/payouts are allocated, or keep them explicitly business-scoped and excluded from outlet totals.
 
 ## External Blockers
 
-NONE. The remaining work is locally actionable in the repository/runtime; staging release validation is tracked separately.
+Temporary staging rate limiting (`HTTP 429 ERR_RATE_LIMITED`) prevented the authenticated disposable harness from completing document upload. This is a retry condition, not evidence that the staging lifecycle passed.
 
 ## Owner Action Required
 
@@ -323,7 +347,7 @@ NONE.
 
 ## Reality Gate Evaluation
 
-- `REALITY-2026-003`: PARTIAL — implementation and local runtime evidence exist, but authenticated cross-app E2E and the finance allocation policy are not proven.
+- `REALITY-2026-003`: PARTIAL — implementation and local runtime evidence exist, but authenticated staging cross-app E2E, full Android runtime/reconnect proof, and the finance allocation policy are not proven.
 - `REALITY-2026-011`: PASS — no mock or fabricated production result is being used; broker-only evidence is explicitly labeled as local and synthetic.
 
 ## Next Eligible Task
