@@ -1344,6 +1344,30 @@ func (h *MerchantHandler) GetFinanceStatement(w http.ResponseWriter, r *http.Req
 	h.respondJSON(w, http.StatusOK, statement)
 }
 
+// ExportFinanceStatementCSV exports the immutable finance projection through
+// an audited POST command. The browser never calculates or edits statement
+// amounts; it only downloads the server-generated CSV.
+func (h *MerchantHandler) ExportFinanceStatementCSV(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		h.respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	csvData, err := h.svc.ExportFinanceStatementCSV(r.Context(), userID, limit)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=merchant-finance-statement.csv")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(csvData))
+}
+
 // GetQualityScore godoc
 // @Summary Merchant quality scorecard
 // @Description Score operasional berbobot dari acceptance/timeout, prep, availability, review, refund/cancel, dan policy review.

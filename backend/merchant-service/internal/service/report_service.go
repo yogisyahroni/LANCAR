@@ -213,6 +213,67 @@ func (s *merchantServiceImpl) GetFinanceStatement(ctx context.Context, userID st
 	return financeRepo.FinanceStatement(ctx, m.ID, limit)
 }
 
+// ExportFinanceStatementCSV serializes the same immutable statement projection
+// returned by GetFinanceStatement. It deliberately includes a record_type so
+// entries, totals, and open reconciliation exceptions cannot be mistaken for
+// one another by spreadsheet users. No amount is recomputed in the browser.
+func (s *merchantServiceImpl) ExportFinanceStatementCSV(ctx context.Context, userID string, limit int) (string, error) {
+	statement, err := s.GetFinanceStatement(ctx, userID, limit)
+	if err != nil {
+		return "", err
+	}
+	var buf strings.Builder
+	w := csv.NewWriter(&buf)
+	if err := w.Write([]string{
+		"record_type", "id", "occurred_at", "market_code", "currency_code", "currency_minor_unit",
+		"entry_type", "direction", "amount_minor", "signed_amount_minor", "source_type", "source_id",
+		"order_id", "settlement_id", "refund_id", "withdrawal_id", "status", "description",
+		"reference_type", "reference_id", "expected_minor", "actual_minor", "difference_minor", "reason",
+	}); err != nil {
+		return "", fmt.Errorf("write finance csv header: %w", err)
+	}
+	for _, entry := range statement.Entries {
+		if err := w.Write([]string{
+			"entry", entry.ID, entry.OccurredAt, entry.MarketCode, entry.CurrencyCode,
+			strconv.Itoa(entry.CurrencyMinorUnit), entry.EntryType, entry.Direction,
+			strconv.FormatInt(entry.AmountMinor, 10), strconv.FormatInt(entry.SignedAmountMinor, 10),
+			entry.SourceType, entry.SourceID, entry.OrderID, entry.SettlementID, entry.RefundID,
+			entry.WithdrawalID, entry.Status, entry.Description,
+			"", "", "", "", "", "",
+		}); err != nil {
+			return "", fmt.Errorf("write finance entry csv: %w", err)
+		}
+	}
+	for _, total := range statement.Totals {
+		if err := w.Write([]string{
+			"total", "", "", total.MarketCode, total.CurrencyCode, strconv.Itoa(total.CurrencyMinorUnit),
+			"sales=" + strconv.FormatInt(total.SalesMinor, 10),
+			"commission=" + strconv.FormatInt(total.CommissionMinor, 10),
+			strconv.FormatInt(total.NetBalanceMinor, 10), strconv.FormatInt(total.NetBalanceMinor, 10),
+			"", "", "", "", "", "", "", "",
+			"", "", "", "", "", "",
+		}); err != nil {
+			return "", fmt.Errorf("write finance total csv: %w", err)
+		}
+	}
+	for _, discrepancy := range statement.Discrepancies {
+		if err := w.Write([]string{
+			"discrepancy", discrepancy.ID, discrepancy.LastSeenAt, discrepancy.MarketCode, discrepancy.CurrencyCode,
+			strconv.Itoa(discrepancy.CurrencyMinorUnit), "", "", "", "", "", "", "", "", "", "",
+			discrepancy.Status, "", discrepancy.ReferenceType, discrepancy.ReferenceID,
+			strconv.FormatInt(discrepancy.ExpectedMinor, 10), strconv.FormatInt(discrepancy.ActualMinor, 10),
+			strconv.FormatInt(discrepancy.DifferenceMinor, 10), discrepancy.Reason,
+		}); err != nil {
+			return "", fmt.Errorf("write finance discrepancy csv: %w", err)
+		}
+	}
+	w.Flush()
+	if err := w.Error(); err != nil {
+		return "", fmt.Errorf("flush finance csv: %w", err)
+	}
+	return buf.String(), nil
+}
+
 // GetCustomerReviews — review customer dari merchant_ratings, bukan data statis.
 func (s *merchantServiceImpl) GetCustomerReviews(ctx context.Context, userID string, page, pageSize int) (*domain.MerchantReviewsResponse, error) {
 	if s.reportRepo == nil || s.merchantRepo == nil {

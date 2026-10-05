@@ -18,7 +18,7 @@ release_readiness: NOT_RUN
 release_followups: "Staging/UAT, payout-provider webhook, export audit, and reconciliation recovery remain deferred."
 unproven_requirements: "Provider webhook/polling UNKNOWN handling, mismatch queue actions, audited export, and full ledger-to-payout reconciliation E2E."
 known_blockers: NONE
-locally_actionable_remaining: "Implement and verify provider UNKNOWN, mismatch action, audited export, and reconciliation workflows before release gate."
+locally_actionable_remaining: "Implement and verify provider UNKNOWN, merchant mismatch action, and full ledger-to-payout reconciliation workflows before release gate."
 blocker_resolution_attempts: NONE
 unblock_condition: NONE
 owner_action_required: false
@@ -47,6 +47,7 @@ updated_at: 2026-10-05
 - Permintaan payout tetap guarded oleh TOTP/step-up, approval Admin terpisah, rentang nominal, saldo tersedia, dan idempotency key.
 - Form perubahan rekening payout memakai endpoint server-authoritative yang sudah ada, meminta approval dengan `change_type=bank_account`, mengirim idempotency key, tidak menampilkan nomor rekening penuh, dan menunggu verifikasi ulang setelah perubahan.
 - Admin memiliki antrean approval tenant-aware untuk perubahan merchant; approval/reject dikunci row-level, requester tidak dapat menyetujui atau menolak permintaannya sendiri, expiry dipaksakan oleh database path, dan alasan/referensi keputusan disimpan.
+- Ekspor catatan keuangan tersedia melalui `POST /merchant/finance-statement/export`; CSV dibentuk dari projection immutable yang sama dengan halaman statement, memisahkan entry, total, dan discrepancy, serta diaudit oleh middleware mutation.
 
 ## Files Changed
 
@@ -85,6 +86,18 @@ updated_at: 2026-10-05
     command: npm run build (backend/admin-service)
     result: PASS — TypeScript compilation completed.
 
+    command: go test ./... (backend/merchant-service)
+    result: PASS — finance export service/handler contract compiled with the existing merchant service suite.
+
+    command: npx tsc -b; npx vite build (merchant-web)
+    result: PASS — finance export action and download UI compiled and bundled.
+
+    command: docker compose up -d --build --no-deps merchant-service merchant-web; GET /health; GET /
+    result: PASS — refreshed containers started; merchant-service and merchant-web returned HTTP 200.
+
+    command: unauthenticated POST /api/v1/merchant/finance-statement/export
+    result: PASS — request was rejected with HTTP 401; export remains behind merchant authentication and scope resolution.
+
     command: npm run lint (admin-dashboard)
     result: PASS — 0 errors; repository has existing non-blocking warnings.
 
@@ -93,4 +106,4 @@ updated_at: 2026-10-05
 
 ## Remaining Requirements
 
-Provider webhook/polling UNKNOWN, mismatch queue actions, audited export, and staging/cross-app reconciliation proof remain PARTIAL/NOT_RUN. The browser form and Admin approval queue are wired to real guarded endpoints, but authenticated TOTP, two-user approval, provider UNKNOWN recovery, and ledger-to-payout reconciliation remain unverified. This evidence does not claim production finance readiness.
+Provider webhook/polling UNKNOWN, merchant mismatch actions, and staging/cross-app reconciliation proof remain PARTIAL/NOT_RUN. The browser form, audited server-generated export, and Admin approval queue are wired to real guarded endpoints, but authenticated TOTP, two-user approval, provider UNKNOWN recovery, and ledger-to-payout reconciliation remain unverified. This evidence does not claim production finance readiness.

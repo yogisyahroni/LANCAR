@@ -292,6 +292,7 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/reports/export", withAudit(h.ExportSalesReport))
 	mux.HandleFunc("/api/v1/merchant/settlements", withAudit(h.GetSettlements))
 	mux.HandleFunc("/api/v1/merchant/finance-statement", withAudit(h.GetFinanceStatement))
+	mux.HandleFunc("/api/v1/merchant/finance-statement/export", withAudit(h.ExportFinanceStatementCSV))
 	mux.HandleFunc("/api/v1/merchant/ads", withAudit(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
