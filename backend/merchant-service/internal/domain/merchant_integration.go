@@ -27,9 +27,24 @@ type MerchantPOSIntegrationStatus struct {
 	Connectors             []MerchantPOSConnectorStatus `json:"connectors"`
 }
 
+type MerchantPOSReconciliationItem struct {
+	ID               string `json:"id"`
+	ProviderCode     string `json:"provider_code"`
+	BranchID         string `json:"branch_id,omitempty"`
+	ResourceType     string `json:"resource_type"`
+	ResourceID       string `json:"resource_id"`
+	LocalStatus      string `json:"local_status"`
+	MerchantReceived bool   `json:"merchant_received"`
+	Attempts         int    `json:"attempts"`
+	Reason           string `json:"reason,omitempty"`
+	FirstSeenAt      string `json:"first_seen_at"`
+	LastSeenAt       string `json:"last_seen_at"`
+}
+
 // MerchantIntegrationRepository exposes a read-only projection owned by the
 // Integration Gateway. Merchant state and customer order state stay in their
 // existing services.
 type MerchantIntegrationRepository interface {
 	GetPOSStatusByOwnerUser(ctx context.Context, ownerUserID string) (*MerchantPOSIntegrationStatus, error)
+	ListPOSReconciliationByOwnerUser(ctx context.Context, ownerUserID string, limit int) ([]MerchantPOSReconciliationItem, error)
 }

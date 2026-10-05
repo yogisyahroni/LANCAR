@@ -255,6 +255,20 @@ export interface MerchantPOSIntegrationStatus {
   connectors: MerchantPOSConnectorStatus[]
 }
 
+export interface MerchantPOSReconciliationItem {
+  id: string
+  provider_code: string
+  branch_id?: string
+  resource_type: string
+  resource_id: string
+  local_status: string
+  merchant_received: boolean
+  attempts: number
+  reason?: string
+  first_seen_at: string
+  last_seen_at: string
+}
+
 export interface MenuItem {
   id: string
   merchant_id: string

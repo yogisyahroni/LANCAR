@@ -99,7 +99,16 @@ func main() {
 		// bentrok dengan /uploads admin-service di gateway).
 		uploadBaseURL = "http://localhost:8080/merchant-uploads"
 	}
-	uploadSvc, err := service.NewMenuPhotoStorage(uploadDir, uploadBaseURL)
+	var photoScanner service.MenuPhotoScanner
+	if scannerURL := strings.TrimSpace(os.Getenv("MENU_AV_SCANNER_URL")); scannerURL != "" {
+		photoScanner = service.HTTPMenuPhotoScanner{
+			Endpoint:   scannerURL,
+			Token:      os.Getenv("MENU_AV_SCANNER_TOKEN"),
+			FailClosed: !strings.EqualFold(os.Getenv("MENU_AV_SCANNER_FAIL_CLOSED"), "false"),
+			Client:     &http.Client{Timeout: 10 * time.Second},
+		}
+	}
+	uploadSvc, err := service.NewMenuPhotoStorageWithScanner(uploadDir, uploadBaseURL, photoScanner)
 	if err != nil {
 		log.Fatal("Could not init menu upload storage:", err)
 	}
@@ -296,6 +305,7 @@ func main() {
 		h.EditOrderItems(w, r)
 	}))
 	mux.HandleFunc("/api/v1/merchant/integrations/pos", withAudit(h.GetPOSIntegrationStatus))
+	mux.HandleFunc("/api/v1/merchant/integrations/pos/reconciliation", withAudit(h.GetPOSReconciliation))
 
 	// Report penjualan (FB-086)
 	mux.HandleFunc("/api/v1/merchant/reports", withAudit(h.GetSalesReport))

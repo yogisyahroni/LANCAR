@@ -107,11 +107,85 @@ export const providerIdempotencyKey = (payoutRequestId: string) => `courier-payo
 
 const providerReferenceFromKey = (idempotencyKey: string) => `STUB-${sha256Hex(idempotencyKey).slice(0, 18).toUpperCase()}`;
 
+const normalizeProviderStatus = (status: unknown): ProviderStatus => {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (['completed', 'complete', 'paid', 'success', 'succeeded'].includes(normalized)) return 'paid';
+  if (['failed', 'failure', 'rejected', 'cancelled', 'canceled'].includes(normalized)) return 'failed';
+  if (['pending', 'processing', 'queued', 'submitted'].includes(normalized)) return 'processing';
+  return 'unknown';
+};
+
+const providerGatewayURL = () => (process.env.PAYOUT_PROVIDER_GATEWAY_URL || process.env.INTEGRATION_GATEWAY_URL || 'http://integration-gateway:8085').replace(/\/+$/, '');
+
+const payoutAccountVaultURL = () => (process.env.PAYOUT_ACCOUNT_VAULT_URL || '').replace(/\/+$/, '');
+
+/**
+ * Resolve the full destination only at the provider boundary. The canonical
+ * payout tables intentionally store a vault reference and last four digits,
+ * never the raw account number. A missing/unavailable vault must fail closed.
+ */
+export const resolvePayoutAccountNumber = async (vaultRef: string): Promise<string> => {
+  const baseURL = payoutAccountVaultURL();
+  if (!baseURL || !vaultRef) throw new Error('payout account vault is not configured');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  let response: Response;
+  try {
+    response = await fetch(`${baseURL}/v1/payout-accounts/${encodeURIComponent(vaultRef)}`, {
+      headers: {
+        accept: 'application/json',
+        ...(process.env.PAYOUT_ACCOUNT_VAULT_TOKEN ? { authorization: `Bearer ${process.env.PAYOUT_ACCOUNT_VAULT_TOKEN}` } : {}),
+      },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+  const body = await response.json().catch(() => ({} as Record<string, unknown>));
+  if (!response.ok) throw new Error(`payout account vault rejected request (${response.status})`);
+  const accountNumber = String(body.account_number || body.accountNumber || body.value || '').replace(/\D/g, '');
+  if (!/^\d{6,32}$/.test(accountNumber)) throw new Error('payout account vault returned an invalid account number');
+  return accountNumber;
+};
+
 export const dispatchToProvider = async (
   providerName: string,
   payload: PayoutProviderPayload,
   idempotencyKey: string,
+  accountNumber = '',
 ): Promise<ProviderDispatchResult> => {
+  if (providerName === 'xendit') {
+    if (!/^\d{6,32}$/.test(accountNumber)) {
+      throw new Error('verified payout account number is unavailable for provider dispatch');
+    }
+    const response = await fetch(`${providerGatewayURL()}/api/internal/payment/disburse`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-internal-api-key': process.env.INTERNAL_API_KEY || '',
+        'x-payment-provider': 'xendit',
+        'x-idempotency-key': idempotencyKey,
+      },
+      body: JSON.stringify({
+        ReferenceID: idempotencyKey,
+        Amount: payload.amount_idr,
+        BeneficiaryName: payload.destination.account_name,
+        BeneficiaryAccount: accountNumber,
+        BeneficiaryBank: payload.destination.bank_code,
+        Notes: `Courier payout ${payload.request_number}`,
+      }),
+    });
+    const body = await response.json().catch(() => ({} as Record<string, unknown>));
+    if (!response.ok) throw new Error(`payout provider gateway rejected request (${response.status})`);
+    const providerReference = String(body.reference_id || body.id || idempotencyKey);
+    return {
+      providerName,
+      providerReference,
+      providerStatus: normalizeProviderStatus(body.status),
+      response: { provider: providerName, reference: providerReference, status: body.status || 'unknown', accepted_at: new Date().toISOString(), amount_idr: payload.amount_idr },
+    };
+  }
   if (providerName !== 'stub') {
     throw new Error(`Unsupported payout provider: ${providerName}`);
   }
@@ -141,6 +215,20 @@ export const queryProviderStatus = async (
   providerName: string,
   providerReference: string,
 ): Promise<ProviderQueryResult> => {
+  if (providerName === 'xendit') {
+    const response = await fetch(`${providerGatewayURL()}/api/internal/payment/disburse/${encodeURIComponent(providerReference)}`, {
+      headers: {
+        'x-internal-api-key': process.env.INTERNAL_API_KEY || '',
+        'x-payment-provider': 'xendit',
+      },
+    });
+    const body = await response.json().catch(() => ({} as Record<string, unknown>));
+    if (!response.ok) throw new Error(`payout provider status query failed (${response.status})`);
+    return {
+      providerStatus: normalizeProviderStatus(body.status),
+      response: { provider: providerName, reference: providerReference, status: body.status || 'unknown', polled_at: new Date().toISOString() },
+    };
+  }
   if (providerName !== 'stub') {
     throw new Error(`Unsupported payout provider: ${providerName}`);
   }
@@ -332,9 +420,15 @@ export const dispatchApprovedPayouts = async (pool: PoolLike = db, req?: Request
     let providerAmountToday = Number(providerUsage.rows[0]?.amount_idr || 0);
 
     const candidates = await client.query(
-      `SELECT pr.*
+      `SELECT pr.*, cpa.bank_code AS payout_account_bank_code,
+              cpa.account_name AS payout_account_name,
+              cpa.account_number_last4 AS payout_account_last4,
+              cpa.account_number_vault_ref AS payout_account_vault_ref,
+              cpa.status AS payout_account_status
        FROM courier_payout_requests pr
+       LEFT JOIN courier_payout_accounts cpa ON cpa.id = pr.payout_account_id
        WHERE pr.status IN ('approved_auto', 'approved')
+         AND cpa.status = 'verified'
          AND NOT EXISTS (
            SELECT 1
            FROM courier_payout_dispatches d
@@ -373,10 +467,40 @@ export const dispatchApprovedPayouts = async (pool: PoolLike = db, req?: Request
         continue;
       }
 
-      const payload = buildPayoutProviderPayload(payout);
+      const payload = buildPayoutProviderPayload({
+        ...payout,
+        bank_code: payout.payout_account_bank_code,
+        account_name: payout.payout_account_name,
+        account_number_last4: payout.payout_account_last4,
+        account_number_vault_ref: payout.payout_account_vault_ref,
+      });
       const idempotencyKey = providerIdempotencyKey(payout.id);
       const payloadHash = sha256Hex(payload);
-      const providerResult = await dispatchToProvider(providerName, payload, idempotencyKey);
+      let providerAccountNumber = '';
+      if (providerName === 'xendit') {
+        try {
+          providerAccountNumber = await resolvePayoutAccountNumber(payload.destination.account_number_vault_ref);
+        } catch (error) {
+          const reason = String(error instanceof Error ? error.message : error).includes('not configured')
+            ? 'payout_account_vault_unconfigured'
+            : 'provider_account_unavailable';
+          skipped.push({ payoutRequestId: payout.id, reason });
+          await writePayoutAuditEvent(client, req, {
+            courierId: payout.courier_id,
+            payoutRequestId: payout.id,
+            eventType: 'payout_dispatch_created',
+            severity: 'warning',
+            actorRole: req?.user?.role || 'system',
+            subjectType: 'courier_payout_request',
+            subjectId: payout.id,
+            oldStatus: payout.status,
+            newStatus: payout.status,
+            metadata: { skipped: true, reason, provider_name: providerName },
+          });
+          continue;
+        }
+      }
+      const providerResult = await dispatchToProvider(providerName, payload, idempotencyKey, providerAccountNumber);
       const responseHash = sha256Hex(providerResult.response);
 
       const inserted = await client.query(

@@ -15,10 +15,10 @@ rollback_recovery: PARTIAL
 task_scope_external_proof_required: true
 external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
-release_followups: "MFA/step-up, separation of duties, and staging authorization matrix remain deferred."
-unproven_requirements: "Invite acceptance runtime/E2E proof, MFA/step-up, session/device lifecycle proof, separation of duties, and complete API authorization matrix."
+release_followups: "Invite acceptance runtime/E2E, TOTP session proof, separation-of-duties runtime proof, and staging authorization matrix remain deferred."
+unproven_requirements: "Invite acceptance runtime/E2E, TOTP session/device proof, separation-of-duties runtime proof, and complete API authorization matrix."
 known_blockers: NONE
-locally_actionable_remaining: "Add MFA/step-up integration, separation-of-duties rules, and focused authorization tests for every staff capability and branch scope."
+locally_actionable_remaining: "Run full authenticated owner/manager/staff and cross-outlet matrix; keep any failure on the same task until fixed."
 blocker_resolution_attempts: NONE
 unblock_condition: NONE
 owner_action_required: false
@@ -102,7 +102,7 @@ Evidence: Invite acceptance, revoked-session rejection, cross-outlet authorizati
 
 Status: PARTIAL
 
-Evidence: Corporate-only, owner/manager server guards, permission validation, branch ownership checks, redacted tenant/outlet-scoped audit reads, and server-side invite expiry/rate limiting exist; MFA and full capability matrix remain.
+Evidence: Corporate-only, owner/manager server guards, permission validation, branch ownership checks, redacted tenant/outlet-scoped audit reads, server-side invite expiry/rate limiting, gateway-propagated TOTP step-up guards, and a focused endpoint permission matrix exist; authenticated runtime/MFA session proof remains.
 
 ### Rollback / Recovery
 
@@ -121,4 +121,4 @@ Status: NOT_RUN — local Docker only; staging and production are deferred.
 
 ## Unproven / Remaining
 
-Invite acceptance proof, MFA/step-up, separation of duties, and complete authorization matrix.
+Invite acceptance proof, TOTP session/device runtime proof, separation of duties, cross-outlet runtime proof, and full staging authorization matrix.

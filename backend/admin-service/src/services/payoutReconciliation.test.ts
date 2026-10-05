@@ -13,13 +13,19 @@ const makeClient = (overrides: Record<string, any> = {}) => ({
     if (sql.includes('HAVING COALESCE') && sql.includes("pr.status NOT IN")) {
       return { rows: overrides.ledgerMismatch || [] };
     }
+    if (sql.includes("d.provider_status = 'unknown'")) {
+      return { rows: overrides.unknownProviderState || [] };
+    }
+    if (sql.includes("pr.status = 'failed'") && sql.includes("payout_failed")) {
+      return { rows: overrides.payoutFailureWithoutReversal || [] };
+    }
     if (sql.includes('d.provider_status =') && sql.includes('request_status')) {
       return { rows: overrides.providerMismatch || [] };
     }
     if (sql.includes("WHERE pr.status = 'paid'")) {
       return { rows: overrides.paidLedgerMismatch || [] };
     }
-    if (sql.includes("d.provider_status = 'processing'") && sql.includes('age_minutes')) {
+    if ((sql.includes("d.provider_status = 'processing'") || sql.includes("d.provider_status IN ('processing', 'unknown')")) && sql.includes('age_minutes')) {
       return { rows: overrides.providerLatency || [] };
     }
     if (sql.includes("status IN ('requested'") && sql.includes('age_minutes')) {
@@ -60,6 +66,17 @@ describe('payout reconciliation', () => {
         provider_name: 'stub',
         provider_reference: 'REF-3',
       }],
+      unknownProviderState: [{
+        payout_request_id: 'payout-5',
+        courier_id: 'courier-5',
+        provider_status: 'unknown',
+        provider_reference: 'REF-4',
+      }],
+      payoutFailureWithoutReversal: [{
+        payout_request_id: 'payout-6',
+        courier_id: 'courier-6',
+        amount_idr: 50000,
+      }],
     });
 
     const items = await buildPayoutReconciliationItems(client as any);
@@ -67,10 +84,13 @@ describe('payout reconciliation', () => {
     expect(items.map((item) => item.check_type)).toEqual([
       'ledger_vs_request',
       'request_vs_provider',
+      'unknown_provider_state',
+      'payout_failure_without_reversal',
       'provider_latency_high',
       'webhook_missing',
     ]);
     expect(items[0].severity).toBe('critical');
-    expect(items[2].severity).toBe('warning');
+    expect(items.find((item) => item.check_type === 'unknown_provider_state')?.severity).toBe('critical');
+    expect(items.find((item) => item.check_type === 'provider_latency_high')?.severity).toBe('warning');
   });
 });

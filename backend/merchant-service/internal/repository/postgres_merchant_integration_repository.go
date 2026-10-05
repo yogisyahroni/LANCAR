@@ -91,3 +91,43 @@ func (r *postgresMerchantIntegrationRepository) GetPOSStatusByOwnerUser(ctx cont
 	}
 	return status, nil
 }
+
+func (r *postgresMerchantIntegrationRepository) ListPOSReconciliationByOwnerUser(ctx context.Context, ownerUserID string, limit int) ([]domain.MerchantPOSReconciliationItem, error) {
+	if limit < 1 || limit > 200 {
+		limit = 100
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT reconciliation.id, reconciliation.provider_code, reconciliation.branch_id,
+		       reconciliation.resource_type, reconciliation.resource_id, reconciliation.local_status,
+		       reconciliation.merchant_received, reconciliation.attempts, reconciliation.reason,
+		       reconciliation.first_seen_at, reconciliation.last_seen_at
+		FROM pos_reconciliation_items reconciliation
+		JOIN merchants merchant ON merchant.id = reconciliation.merchant_id
+		WHERE merchant.user_id = $1::uuid AND reconciliation.status = 'open'
+		ORDER BY reconciliation.last_seen_at DESC
+		LIMIT $2`, ownerUserID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]domain.MerchantPOSReconciliationItem, 0)
+	for rows.Next() {
+		var item domain.MerchantPOSReconciliationItem
+		var branchID, reason sql.NullString
+		if err := rows.Scan(&item.ID, &item.ProviderCode, &branchID, &item.ResourceType, &item.ResourceID,
+			&item.LocalStatus, &item.MerchantReceived, &item.Attempts, &reason, &item.FirstSeenAt, &item.LastSeenAt); err != nil {
+			return nil, err
+		}
+		if branchID.Valid {
+			item.BranchID = branchID.String
+		}
+		if reason.Valid {
+			item.Reason = reason.String
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

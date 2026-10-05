@@ -8,7 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"tembus/integration-gateway/internal/domain"
 	"time"
 )
@@ -132,6 +134,53 @@ func (x *XenditProvider) CreateDisbursement(ctx context.Context, req domain.Disb
 	}
 
 	return &domain.DisbursementResponse{
-		Status: data.Status,
+		Status:      data.Status,
+		ReferenceID: data.ID,
 	}, nil
+}
+
+// QueryDisbursement resolves an ambiguous create response without issuing a
+// second transfer. Xendit identifies the transfer by the provider id returned
+// by create; the external id is accepted as a fallback for older responses.
+func (x *XenditProvider) QueryDisbursement(ctx context.Context, referenceID string) (*domain.DisbursementResponse, error) {
+	if x.secretKey == "" {
+		return nil, errors.New("XENDIT_SECRET_KEY is not configured")
+	}
+	if strings.TrimSpace(referenceID) == "" {
+		return nil, errors.New("disbursement reference is required")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.xendit.co/disbursements/"+url.PathEscape(referenceID), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(x.secretKey+":")))
+	resp, err := x.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("xendit disbursement query failed: %w", err)
+	}
+	defer resp.Body.Close()
+	var data struct {
+		ID         string `json:"id"`
+		ExternalID string `json:"external_id"`
+		Status     string `json:"status"`
+		ErrorCode  string `json:"error_code"`
+		Message    string `json:"message"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, fmt.Errorf("failed to parse xendit disbursement status: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("xendit disbursement query rejected: %s - %s", data.ErrorCode, data.Message)
+	}
+	return &domain.DisbursementResponse{Status: data.Status, ReferenceID: firstNonEmptyDisbursement(data.ID, data.ExternalID)}, nil
+}
+
+func firstNonEmptyDisbursement(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }

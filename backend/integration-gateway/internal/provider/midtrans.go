@@ -167,3 +167,7 @@ func (m *MidtransProvider) CreateDisbursement(ctx context.Context, req domain.Di
 
 	return &domain.DisbursementResponse{Status: "pending"}, nil
 }
+
+func (m *MidtransProvider) QueryDisbursement(_ context.Context, _ string) (*domain.DisbursementResponse, error) {
+	return nil, fmt.Errorf("midtrans disbursement status query is not supported by this adapter")
+}

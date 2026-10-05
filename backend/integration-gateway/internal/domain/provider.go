@@ -24,6 +24,7 @@ type OTPProvider interface {
 type PaymentProvider interface {
 	CreateInvoice(ctx context.Context, req InvoiceRequest) (*InvoiceResponse, error)
 	CreateDisbursement(ctx context.Context, req DisbursementRequest) (*DisbursementResponse, error)
+	QueryDisbursement(ctx context.Context, referenceID string) (*DisbursementResponse, error)
 }
 
 type InvoiceRequest struct {
@@ -49,7 +50,8 @@ type DisbursementRequest struct {
 }
 
 type DisbursementResponse struct {
-	Status string
+	Status      string `json:"status"`
+	ReferenceID string `json:"reference_id,omitempty"`
 }
 
 // MapsProvider defines the interface for an external Maps service (e.g. TomTom, Google Maps)

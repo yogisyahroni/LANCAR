@@ -3,6 +3,9 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
@@ -22,13 +25,92 @@ import (
 type MenuPhotoStorage struct {
 	basePath string
 	baseURL  string
+	scanner  MenuPhotoScanner
+}
+
+// MenuPhotoScanner is the AV boundary for uploaded merchant media. The local
+// scanner remains deterministic for development; production can inject a
+// ClamAV/object-scanning adapter without changing the upload contract.
+type MenuPhotoScanner interface {
+	Scan(ctx context.Context, filename, contentType string, content []byte) error
+}
+
+type localMenuPhotoScanner struct{}
+
+func (localMenuPhotoScanner) Scan(_ context.Context, _ string, _ string, content []byte) error {
+	if bytes.Contains(content, []byte(eicarSignature)) {
+		return ErrMenuPhotoMalware
+	}
+	return nil
+}
+
+// HTTPMenuPhotoScanner calls an external AV service using bytes only. It never
+// logs or returns the image payload. The scanner response must be JSON with
+// {"clean":true}; fail-closed is intentional for production media paths.
+type HTTPMenuPhotoScanner struct {
+	Endpoint   string
+	Token      string
+	FailClosed bool
+	Client     *http.Client
+}
+
+func (s HTTPMenuPhotoScanner) Scan(ctx context.Context, filename, contentType string, content []byte) error {
+	if strings.TrimSpace(s.Endpoint) == "" {
+		if s.FailClosed {
+			return ErrMenuPhotoMalware
+		}
+		return nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.Endpoint, bytes.NewReader(content))
+	if err != nil {
+		return fmt.Errorf("scanner request: %w", err)
+	}
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("X-File-Name", filepath.Base(filename))
+	digest := sha256.Sum256(content)
+	req.Header.Set("X-File-SHA256", hex.EncodeToString(digest[:]))
+	if s.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+s.Token)
+	}
+	client := s.Client
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		if s.FailClosed {
+			return fmt.Errorf("antivirus scanner unavailable: %w", err)
+		}
+		return nil
+	}
+	defer resp.Body.Close()
+	var result struct {
+		Clean bool `json:"clean"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 16*1024)).Decode(&result); err != nil {
+		if s.FailClosed {
+			return fmt.Errorf("invalid antivirus scanner response: %w", err)
+		}
+		return nil
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 || !result.Clean {
+		return ErrMenuPhotoMalware
+	}
+	return nil
 }
 
 func NewMenuPhotoStorage(basePath, baseURL string) (*MenuPhotoStorage, error) {
+	return NewMenuPhotoStorageWithScanner(basePath, baseURL, localMenuPhotoScanner{})
+}
+
+func NewMenuPhotoStorageWithScanner(basePath, baseURL string, scanner MenuPhotoScanner) (*MenuPhotoStorage, error) {
 	if err := os.MkdirAll(basePath, 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create menu upload dir: %w", err)
 	}
-	return &MenuPhotoStorage{basePath: basePath, baseURL: baseURL}, nil
+	if scanner == nil {
+		scanner = localMenuPhotoScanner{}
+	}
+	return &MenuPhotoStorage{basePath: basePath, baseURL: baseURL, scanner: scanner}, nil
 }
 
 // ErrMenuPhotoTooLarge — foto menu melebihi 2MB.
@@ -51,6 +133,9 @@ func (s *MenuPhotoStorage) Save(ctx context.Context, filename string, content []
 		return "", err
 	}
 	if err := validateMenuPhotoContent(content, ext); err != nil {
+		return "", err
+	}
+	if err := s.scanner.Scan(ctx, filename, ContentTypeByExt(ext), content); err != nil {
 		return "", err
 	}
 

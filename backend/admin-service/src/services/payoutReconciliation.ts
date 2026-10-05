@@ -17,6 +17,8 @@ type ReconciliationItem = {
     | 'ledger_vs_request'
     | 'request_vs_provider'
     | 'paid_amount_vs_ledger'
+    | 'unknown_provider_state'
+    | 'payout_failure_without_reversal'
     | 'provider_latency_high'
     | 'pending_too_long'
     | 'webhook_missing';
@@ -41,6 +43,8 @@ export const buildPayoutReconciliationItems = async (client: Queryable): Promise
 
   const [
     ledgerMismatch,
+    unknownProviderState,
+    payoutFailureWithoutReversal,
     providerMismatch,
     paidLedgerMismatch,
     providerLatency,
@@ -60,6 +64,42 @@ export const buildPayoutReconciliationItems = async (client: Queryable): Promise
        WHERE pr.status NOT IN ('blocked', 'rejected', 'cancelled')
        GROUP BY pr.id
        HAVING COALESCE(SUM(CASE WHEN cel.direction = 'debit' THEN cel.amount_idr ELSE 0 END), 0)::int <> pr.amount_idr
+       LIMIT 100`,
+    ),
+    client.query(
+      `SELECT
+         pr.id AS payout_request_id,
+         pr.courier_id,
+         pr.status AS request_status,
+         d.provider_name,
+         d.provider_status,
+         d.provider_reference,
+         d.updated_at
+       FROM courier_payout_requests pr
+       JOIN LATERAL (
+         SELECT provider_name, provider_status, provider_reference, updated_at
+         FROM courier_payout_dispatches
+         WHERE payout_request_id = pr.id
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) d ON TRUE
+       WHERE d.provider_status = 'unknown'
+       LIMIT 100`,
+    ),
+    client.query(
+      `SELECT
+         pr.id AS payout_request_id,
+         pr.courier_id,
+         pr.amount_idr,
+         pr.status,
+         pr.updated_at
+       FROM courier_payout_requests pr
+       LEFT JOIN courier_earnings_ledger reversal
+         ON reversal.payout_request_id = pr.id
+        AND reversal.transaction_type = 'payout_failed'
+        AND reversal.direction = 'credit'
+       WHERE pr.status = 'failed'
+         AND reversal.id IS NULL
        LIMIT 100`,
     ),
     client.query(
@@ -106,7 +146,7 @@ export const buildPayoutReconciliationItems = async (client: Queryable): Promise
          EXTRACT(EPOCH FROM (NOW() - d.dispatched_at))/60 AS age_minutes
        FROM courier_payout_dispatches d
        JOIN courier_payout_requests pr ON pr.id = d.payout_request_id
-       WHERE d.provider_status = 'processing'
+       WHERE d.provider_status IN ('processing', 'unknown')
          AND d.dispatched_at < NOW() - ($1::text || ' minutes')::interval
        ORDER BY d.dispatched_at ASC
        LIMIT 100`,
@@ -134,7 +174,7 @@ export const buildPayoutReconciliationItems = async (client: Queryable): Promise
        LEFT JOIN courier_payout_provider_webhook_events e
          ON e.provider_name = d.provider_name
         AND e.provider_reference = d.provider_reference
-       WHERE d.provider_status = 'processing'
+       WHERE d.provider_status IN ('processing', 'unknown')
          AND d.dispatched_at < NOW() - ($1::text || ' minutes')::interval
          AND e.id IS NULL
        ORDER BY d.dispatched_at ASC
@@ -169,6 +209,24 @@ export const buildPayoutReconciliationItems = async (client: Queryable): Promise
       severity: 'critical' as const,
       expected_value: String(row.amount_idr),
       actual_value: String(row.ledger_debit_idr),
+      details: row,
+    })),
+    ...unknownProviderState.rows.map((row) => ({
+      payout_request_id: row.payout_request_id,
+      courier_id: row.courier_id,
+      check_type: 'unknown_provider_state' as const,
+      severity: 'critical' as const,
+      expected_value: 'paid atau failed dari provider',
+      actual_value: 'unknown',
+      details: row,
+    })),
+    ...payoutFailureWithoutReversal.rows.map((row) => ({
+      payout_request_id: row.payout_request_id,
+      courier_id: row.courier_id,
+      check_type: 'payout_failure_without_reversal' as const,
+      severity: 'critical' as const,
+      expected_value: 'satu reversal payout_failed',
+      actual_value: 'reversal tidak ditemukan',
       details: row,
     })),
     ...providerLatency.rows.map((row) => ({
@@ -262,7 +320,7 @@ export const runPayoutReconciliation = async (pool: PoolLike = db, req?: Request
        RETURNING *`,
       [
         items.length,
-        items.filter((item) => ['ledger_vs_request', 'request_vs_provider', 'paid_amount_vs_ledger'].includes(item.check_type)).length,
+        items.filter((item) => ['ledger_vs_request', 'request_vs_provider', 'paid_amount_vs_ledger', 'unknown_provider_state', 'payout_failure_without_reversal'].includes(item.check_type)).length,
         items.filter((item) => ['provider_latency_high', 'pending_too_long', 'webhook_missing'].includes(item.check_type)).length,
         JSON.stringify(summary),
         runId,

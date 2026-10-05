@@ -64,6 +64,9 @@ func (h *MerchantHandler) parseUserID(w http.ResponseWriter, r *http.Request) (s
 
 func merchantPermissionForRequest(r *http.Request) int {
 	path := strings.ToLower(r.URL.Path)
+	if strings.Contains(path, "/staff") && !strings.HasSuffix(path, "/staff/accept") {
+		return domain.PermManageStaff
+	}
 	if strings.HasSuffix(path, "/dashboard") {
 		return domain.PermViewStore
 	}
@@ -1318,6 +1321,31 @@ func (h *MerchantHandler) GetPOSIntegrationStatus(w http.ResponseWriter, r *http
 		return
 	}
 	h.respondJSON(w, http.StatusOK, status)
+}
+
+// GetPOSReconciliation exposes only open provider delivery mismatches for the
+// authenticated merchant. It is read-only; retry/resolve remains owned by the
+// integration gateway so the portal cannot create a second order receipt.
+func (h *MerchantHandler) GetPOSReconciliation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	if h.integrationRepo == nil {
+		h.respondError(w, http.StatusServiceUnavailable, "rekonsiliasi integrasi belum tersedia")
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	items, err := h.integrationRepo.ListPOSReconciliationByOwnerUser(r.Context(), userID, limit)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, map[string]any{"items": items, "server_authoritative": true})
 }
 
 // ─────────────────────────────────────────────

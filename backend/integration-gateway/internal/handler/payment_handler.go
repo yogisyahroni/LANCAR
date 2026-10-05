@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"tembus/integration-gateway/internal/domain"
 	"tembus/integration-gateway/internal/provider"
 )
@@ -55,4 +56,26 @@ func (h *PaymentHandler) CreateDisbursement(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (h *PaymentHandler) QueryDisbursement(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	referenceID := strings.TrimSpace(strings.TrimPrefix(r.URL.Path, "/api/internal/payment/disburse/"))
+	if referenceID == "" || strings.Contains(referenceID, "/") {
+		http.Error(w, "reference id is required", http.StatusBadRequest)
+		return
+	}
+	providerName := r.Header.Get("X-Payment-Provider")
+	prov, _ := provider.GetPaymentProvider(providerName)
+	resp, err := prov.QueryDisbursement(r.Context(), referenceID)
+	if err != nil {
+		log.Printf("[integration-gateway] QueryDisbursement Error: %v", err)
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
 }

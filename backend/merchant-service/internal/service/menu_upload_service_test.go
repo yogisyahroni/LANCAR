@@ -2,9 +2,12 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"image"
 	"image/jpeg"
 	"image/png"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -58,5 +61,22 @@ func TestWebpDimensionsVP8X(t *testing.T) {
 	width, height, err := webpDimensions(content)
 	if err != nil || width != 100 || height != 50 {
 		t.Fatalf("unexpected VP8X dimensions: %d x %d, err=%v", width, height, err)
+	}
+}
+
+func TestHTTPMenuPhotoScannerFailsClosedAndSendsDigest(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-File-SHA256") == "" || r.Header.Get("X-File-Name") != "menu.png" {
+			t.Fatalf("scanner request missing safe metadata")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"clean":false}`))
+	}))
+	defer server.Close()
+	scanner := HTTPMenuPhotoScanner{Endpoint: server.URL, FailClosed: true, Client: server.Client()}
+	err := scanner.Scan(context.Background(), "../../menu.png", "image/png", []byte("bytes"))
+	if err != ErrMenuPhotoMalware {
+		t.Fatalf("expected malware rejection, got %v", err)
 	}
 }

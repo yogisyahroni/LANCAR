@@ -148,6 +148,7 @@ func main() {
 
 	mux.Handle("/api/internal/payment/invoice", authMiddleware(http.HandlerFunc(paymentHandler.CreateInvoice)))
 	mux.Handle("/api/internal/payment/disburse", authMiddleware(http.HandlerFunc(paymentHandler.CreateDisbursement)))
+	mux.Handle("/api/internal/payment/disburse/", authMiddleware(http.HandlerFunc(paymentHandler.QueryDisbursement)))
 
 	mux.Handle("/api/internal/maps/distance-matrix", authMiddleware(http.HandlerFunc(mapsHandler.GetDistanceMatrix)))
 	mux.Handle("/api/internal/maps/optimize-waypoints", authMiddleware(http.HandlerFunc(mapsHandler.OptimizeWaypoints)))

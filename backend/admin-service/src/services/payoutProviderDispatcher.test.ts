@@ -4,6 +4,8 @@ import {
   dispatchApprovedPayouts,
   dispatchToProvider,
   providerIdempotencyKey,
+  queryProviderStatus,
+  resolvePayoutAccountNumber,
   sha256Hex,
   verifyProviderWebhookSignature,
 } from './payoutProviderDispatcher';
@@ -53,6 +55,58 @@ describe('payoutProviderDispatcher', () => {
 
     expect(first.providerStatus).toBe('processing');
     expect(first.providerReference).toBe(second.providerReference);
+  });
+
+  it('dispatches through the configured Xendit gateway without exposing the account in the persisted response', async () => {
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+      expect(body.BeneficiaryAccount).toBe('1234567890');
+      return new Response(JSON.stringify({ status: 'PENDING', reference_id: 'xnd-1' }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }) as any;
+    try {
+      const result = await dispatchToProvider('xendit', buildPayoutProviderPayload({
+        id: 'payout-1', request_number: 'CPY-1', courier_id: 'courier-1', payout_account_id: 'account-1', amount_idr: 100000,
+        destination_snapshot: { bank_code: 'BCA', account_name: 'Courier', account_number_last4: '7890', account_number_vault_ref: 'vault:1' },
+      }), 'courier-payout:payout-1:v1', '1234567890');
+      expect(result).toMatchObject({ providerName: 'xendit', providerReference: 'xnd-1', providerStatus: 'processing' });
+      expect(JSON.stringify(result.response)).not.toContain('1234567890');
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it('maps provider status query to paid without issuing a second payout', async () => {
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn(async () => new Response(JSON.stringify({ status: 'COMPLETED', reference_id: 'xnd-1' }), { status: 200 })) as any;
+    try {
+      await expect(queryProviderStatus('xendit', 'xnd-1')).resolves.toMatchObject({ providerStatus: 'paid' });
+      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/internal/payment/disburse/xnd-1'), expect.any(Object));
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it('resolves payout account only through the configured vault boundary', async () => {
+    const originalFetch = global.fetch;
+    const originalURL = process.env.PAYOUT_ACCOUNT_VAULT_URL;
+    const originalToken = process.env.PAYOUT_ACCOUNT_VAULT_TOKEN;
+    process.env.PAYOUT_ACCOUNT_VAULT_URL = 'https://vault.test';
+    process.env.PAYOUT_ACCOUNT_VAULT_TOKEN = 'test-token';
+    global.fetch = jest.fn(async (input, init) => {
+      expect(input).toBe('https://vault.test/v1/payout-accounts/vault%3Aaccount-1');
+      expect(init?.headers).toMatchObject({ authorization: 'Bearer test-token' });
+      return new Response(JSON.stringify({ account_number: '1234567890' }), { status: 200 });
+    }) as any;
+    try {
+      await expect(resolvePayoutAccountNumber('vault:account-1')).resolves.toBe('1234567890');
+    } finally {
+      global.fetch = originalFetch;
+      if (originalURL === undefined) delete process.env.PAYOUT_ACCOUNT_VAULT_URL;
+      else process.env.PAYOUT_ACCOUNT_VAULT_URL = originalURL;
+      if (originalToken === undefined) delete process.env.PAYOUT_ACCOUNT_VAULT_TOKEN;
+      else process.env.PAYOUT_ACCOUNT_VAULT_TOKEN = originalToken;
+    }
   });
 
   it('verifies webhook signatures with timing safe hmac', () => {

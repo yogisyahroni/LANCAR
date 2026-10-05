@@ -15,10 +15,10 @@ rollback_recovery: PARTIAL
 task_scope_external_proof_required: true
 external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
-release_followups: "Staging/UAT, real payout-provider adapter/webhook, and full reconciliation recovery proof remain deferred."
-unproven_requirements: "Real provider webhook/polling behavior and full ledger-to-payout reconciliation E2E."
+release_followups: "Staging/UAT, live Xendit webhook/polling, vault secret provisioning, and full reconciliation recovery proof remain deferred."
+unproven_requirements: "Live provider behavior, production vault response, and full ledger-to-payout reconciliation E2E."
 known_blockers: NONE
-locally_actionable_remaining: "Complete the real provider adapter/webhook contract and full ledger-to-payout reconciliation workflow before release gate."
+locally_actionable_remaining: "Add authenticated provider webhook contract coverage and ledger-to-payout reconciliation flow before release gate; the local vault boundary is fail-closed and ready for owner/provider configuration."
 blocker_resolution_attempts: NONE
 unblock_condition: NONE
 owner_action_required: false
@@ -50,6 +50,9 @@ updated_at: 2026-10-05
 - Ekspor catatan keuangan tersedia melalui `POST /merchant/finance-statement/export`; CSV dibentuk dari projection immutable yang sama dengan halaman statement, memisahkan entry, total, dan discrepancy, serta diaudit oleh middleware mutation.
 - Admin memiliki keputusan exception payment `OPEN → IN_REVIEW → RESOLVED/ACCEPTED` dengan row lock, role/TOTP/idempotency guard, catatan wajib, append-only `payment_reconciliation_exception_actions`, dan audit log. Keputusan hanya mengubah queue projection; payment intent, provider evidence, ledger, dan nominal payout tidak diubah.
 - Provider payout berstatus `UNKNOWN` kini disimpan sebagai state retryable yang mencegah redispatch duplikat; worker recovery melakukan polling terkontrol dan hanya mengubah state setelah provider mengembalikan status authoritative.
+- Adapter payout Xendit kini tersambung melalui Integration Gateway dengan idempotency key, status query, normalisasi status provider, serta masking response; konfigurasi default tetap `stub` dan tidak diklaim sebagai provider live.
+- Dispatcher payout hanya membaca `courier_payout_accounts` kanonik dan menyelesaikan nomor rekening melalui `PAYOUT_ACCOUNT_VAULT_URL` pada boundary provider; vault yang kosong/gagal menahan payout dan menulis audit tanpa fallback ke kolom rekening legacy.
+- Rekonsiliasi kini juga mengeluarkan exception kritis untuk provider `UNKNOWN` dan payout `failed` tanpa reversal `payout_failed`; frontend tidak mengoreksi ledger secara diam-diam.
 
 ## Files Changed
 
@@ -67,8 +70,14 @@ updated_at: 2026-10-05
 - `database/migrations/20261005000012_payment_reconciliation_exception_actions.sql` — riwayat keputusan exception append-only/idempotent.
 - `database/migrations/20261005000014_payout_provider_unknown_recovery.sql` — state UNKNOWN, active-dispatch guard, recovery index, dan polling batch config.
 - `backend/admin-service/src/services/payoutProviderDispatcher.ts` — provider status UNKNOWN dan polling recovery tanpa redispatch.
+- `backend/admin-service/src/services/payoutProviderDispatcher.ts` — canonical payout-account join dan fail-closed vault resolver.
 - `backend/admin-service/src/workers/payout-dispatcher-worker.ts` — menjalankan recovery polling bersama dispatcher.
 - `backend/admin-service/src/controllers/finance.controller.ts` — menerima status provider UNKNOWN sebagai hasil ambigu yang retryable.
+- `backend/integration-gateway/internal/provider/xendit.go` — create/query disbursement Xendit dengan reference provider.
+- `backend/integration-gateway/internal/handler/payment_handler.go` — boundary internal query status disbursement.
+- `database/migrations/20261005000015_payout_reconciliation_completeness.sql` — check type exception provider UNKNOWN dan reversal payout gagal.
+- `backend/admin-service/src/services/payoutReconciliation.ts` — exception reconciliation tambahan.
+- `docker-compose.yml` — DATABASE_URL durable untuk POS gateway, provider/vault/AV configuration boundaries.
 
 ## Commands / Checks Run
 
@@ -139,7 +148,7 @@ updated_at: 2026-10-05
     result: PASS — gateway rejected the protected decision route with HTTP 401.
 
     command: npm test -- --runInBand src/services/payoutProviderDispatcher.test.ts (backend/admin-service)
-    result: PASS — 1 suite, 5 tests; idempotent dispatch, provider limit, kill switch, payload masking, and webhook signature checks remain green.
+    result: PASS — 1 suite, 7 tests; idempotent dispatch, provider limit, kill switch, Xendit gateway payload boundary, payload masking, and webhook signature checks remain green.
 
     command: npm run build (backend/admin-service)
     result: PASS — TypeScript compilation completed with UNKNOWN recovery polling.
@@ -147,9 +156,27 @@ updated_at: 2026-10-05
     command: goose -dir database/migrations postgres "postgres://postgres:1234@localhost:6432/tembus_session?sslmode=disable" up
     result: PASS — applied 20261005000014_payout_provider_unknown_recovery.sql.
 
+    command: npm test -- --runInBand src/services/payoutReconciliation.test.ts src/services/payoutProviderDispatcher.test.ts
+    result: PASS — 2 suites, 9 tests; provider UNKNOWN, missing payout reversal, and vault-boundary resolution are covered.
+
+    command: go test ./internal/... && go build ./cmd/api (backend/integration-gateway)
+    result: PASS — provider interface, Xendit adapter, query boundary, and existing gateway packages compiled and passed.
+
     command: docker compose up -d --build --no-deps admin-service; GET http://localhost:8081/health
     result: PASS — admin-service image rebuilt and returned HTTP 200.
 
+    command: goose -dir database/migrations postgres "postgres://postgres:1234@localhost:6432/tembus_session?sslmode=disable" up
+    result: PASS — applied 20261005000015_payout_reconciliation_completeness.sql.
+
+    command: docker compose build integration-gateway admin-service merchant-service merchant-web
+    result: PASS — all four updated images compiled and were exported successfully.
+
+    command: docker compose up -d --no-deps integration-gateway admin-service merchant-service merchant-web
+    result: PASS — updated containers restarted; integration gateway logged durable POS state initialization.
+
+    command: Invoke-WebRequest http://localhost:8081/health; Invoke-WebRequest http://localhost:8085/health; Invoke-WebRequest http://localhost:3086/; Invoke-WebRequest http://localhost:8080/health
+    result: PASS — admin-service, merchant-service, merchant-web, and API gateway returned HTTP 200.
+
 ## Remaining Requirements
 
-Real provider webhook/polling and staging/cross-app reconciliation proof remain PARTIAL/NOT_RUN. The browser form, audited server-generated export, exception decision queue, and local UNKNOWN recovery boundary are wired to guarded server paths, but authenticated TOTP, real provider lookup behavior, and ledger-to-payout reconciliation remain unverified. This evidence does not claim production finance readiness.
+Live provider webhook/polling, production vault response, and staging/cross-app reconciliation proof remain PARTIAL/NOT_RUN. The local Xendit adapter/query boundary, canonical vault resolver, audited export, exception queue, UNKNOWN recovery, and ledger reversal checks are wired to guarded server paths, but no real provider call or production finance readiness is claimed.

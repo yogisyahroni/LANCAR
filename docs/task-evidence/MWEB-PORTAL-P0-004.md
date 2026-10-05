@@ -19,7 +19,7 @@ release_readiness: NOT_RUN
 release_followups: "Authenticated staging, browser/device E2E, sold-out race/reconnect, upload security/virus scan, multi-outlet projection, and release gate masih ditunda sampai feature scope selesai."
 unproven_requirements: "Authenticated runtime proof of catalog review approval, sold-out race proof, image policy/virus scan, multi-outlet central-vs-local projection, and authenticated staging E2E."
 known_blockers: NONE
-locally_actionable_remaining: "Lengkapi upload security policy (dimensi, virus/CDN, expiry, alt text), multi-outlet central/local projection, serta contract tests untuk stale-cache/sold-out sebelum deferred runtime verification."
+locally_actionable_remaining: "Lengkapi image expiry/fallback dan alt-text projection, multi-outlet central/local projection, serta contract tests untuk stale-cache/sold-out sebelum deferred runtime verification."
 blocker_resolution_attempts: NONE
 unblock_condition: NONE
 owner_action_required: false
@@ -142,7 +142,7 @@ Evidence: Structured request logs exist, but freshness/lag dashboards and alert 
 
 Status: PARTIAL
 
-Evidence: Publication and rollback require authenticated merchant ownership and idempotency; Admin moderation requires role, TOTP, idempotency, row lock, and audit actor/reason. Local upload magic-byte/dimension/pixel/security-signature policy is covered; production AV/CDN scan, image expiry/fallback, and full tenant/RBAC review remain unproven.
+Evidence: Publication and rollback require authenticated merchant ownership and idempotency; Admin moderation requires role, TOTP, idempotency, row lock, and audit actor/reason. Local upload magic-byte/dimension/pixel/security-signature policy plus an injectable fail-closed HTTP AV scanner and immutable public/CDN base URL are implemented; live scanner/CDN, image expiry/fallback, and full tenant/RBAC review remain unproven.
 
 ### Rollback / Recovery
 
@@ -179,7 +179,7 @@ Evidence: Release gate is intentionally deferred until the remaining portal capa
 
 ## Locally Actionable Remaining
 
-- Complete production AV/CDN scan, image expiry/fallback, and multi-outlet catalog projection proof.
+- Complete image expiry/fallback and multi-outlet catalog projection proof; live AV/CDN verification remains a release/runtime check.
 - Add stale-cache/sold-out race and modifier contract coverage.
 - Run authenticated Admin → merchant catalog moderation → publish → customer projection proof after the feature batch is complete.
 
