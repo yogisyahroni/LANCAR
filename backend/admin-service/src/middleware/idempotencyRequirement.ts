@@ -49,12 +49,20 @@ const stableJson = (value: unknown): string => {
 };
 
 const hashRequest = (req: Request) => {
+  const file = req.file
+    ? {
+        size: req.file.size,
+        detected_mime_type: req.file.detectedMimeType || req.file.mimetype,
+        checksum_sha256: req.file.checksumSha256 || null,
+      }
+    : null;
   const payload = {
     method: req.method,
     path: req.originalUrl.split('?')[0],
     params: req.params,
     query: req.query,
     body: req.body ?? null,
+    file,
   };
   return sha256(stableJson(payload));
 };

@@ -27,6 +27,13 @@ export const servePrivateUpload = async (req: Request, res: Response): Promise<v
     return;
   }
 
+  // Support evidence is never served through the legacy public upload
+  // surface. It must pass the case-scoped authenticated download controller.
+  if (rawPath === 'support-cases' || rawPath.startsWith('support-cases/')) {
+    res.status(403).json({ success: false, error: 'This upload requires authenticated support-case access' });
+    return;
+  }
+
   if (!fs.existsSync(absolutePath)) {
     res.status(404).json({ success: false, error: 'File not found' });
     return;

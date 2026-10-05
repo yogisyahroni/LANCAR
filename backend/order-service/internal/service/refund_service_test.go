@@ -52,6 +52,37 @@ func (m *mockRefundRepo) GetPendingRefunds(ctx context.Context) ([]domain.Refund
 	return res, nil
 }
 
+func TestRefundService_ReconcileRefundRequiresTerminalGatewayAndLedgerProof(t *testing.T) {
+	ctx := context.Background()
+	refundRepo := newMockRefundRepo()
+	svc := service.NewRefundService(refundRepo, nil, nil, nil, &MockRedisRepo{}, nil, nil, nil)
+	orderID := uuid.New()
+	refundID := uuid.New()
+	ledgerID := uuid.New()
+	gatewayRef := "wallet-ref-123"
+	refundRepo.refunds[refundID] = &domain.RefundRecord{
+		ID: refundID, OrderID: orderID, AmountIDR: 42000,
+		Status: domain.RefundStatusProcessed, LedgerJournalID: &ledgerID, GatewayRef: &gatewayRef,
+	}
+
+	proof, err := svc.(domain.RefundReconciliationService).ReconcileRefund(ctx, orderID, refundID, intPtr(42000))
+	if err != nil {
+		t.Fatalf("expected reconciliation lookup to succeed, got %v", err)
+	}
+	if !proof.Reconciled || !proof.LedgerJournalPresent || !proof.GatewayReferencePresent {
+		t.Fatalf("expected complete reconciliation proof, got %+v", proof)
+	}
+
+	wrongAmount := 41000
+	mismatch, err := svc.(domain.RefundReconciliationService).ReconcileRefund(ctx, orderID, refundID, &wrongAmount)
+	if err != nil {
+		t.Fatalf("expected mismatch to be returned as a proof result, got %v", err)
+	}
+	if mismatch.Reconciled || mismatch.Reason == "" {
+		t.Fatalf("expected amount mismatch to fail proof, got %+v", mismatch)
+	}
+}
+
 type mockRefundGateway struct {
 	processedCount int
 	lastOrderID    string

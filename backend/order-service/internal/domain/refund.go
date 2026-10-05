@@ -104,3 +104,20 @@ type RefundService interface {
 	CalculateItemRefund(ctx context.Context, orderID uuid.UUID, items []ItemRefundRequest, opts RefundItemOptions) (*RefundRecord, error)
 	ProcessPendingRefunds(ctx context.Context) error
 }
+
+// RefundReconciliationService is separate so existing order/payment callers
+// and test doubles do not depend on the internal reconciliation read model.
+type RefundReconciliation struct {
+	RefundID                uuid.UUID `json:"refund_id"`
+	OrderID                 uuid.UUID `json:"order_id"`
+	Status                  string    `json:"status"`
+	AmountIDR               int       `json:"amount_idr"`
+	LedgerJournalPresent    bool      `json:"ledger_journal_present"`
+	GatewayReferencePresent bool      `json:"gateway_reference_present"`
+	Reconciled              bool      `json:"reconciled"`
+	Reason                  string    `json:"reason,omitempty"`
+}
+
+type RefundReconciliationService interface {
+	ReconcileRefund(ctx context.Context, orderID uuid.UUID, refundID uuid.UUID, expectedAmountIDR *int) (*RefundReconciliation, error)
+}

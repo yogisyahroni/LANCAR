@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as controllers from '../controllers';
 import { requireIdempotencyKey } from '../middleware/idempotencyRequirement';
 import { requireAuth, requireMobileOrWebAuth, requireRole } from '../middlewares';
+import { secureUploadSingle } from '../security/uploadSecurity';
 
 export const supportRoutes = Router();
 
@@ -15,6 +16,18 @@ supportRoutes.post(
 );
 supportRoutes.get('/api/v1/support/cases', requireMobileOrWebAuth, (req, res) => controllers.listSupportCases(req, res));
 supportRoutes.get('/api/v1/support/cases/:id', requireMobileOrWebAuth, (req, res) => controllers.getSupportCase(req, res));
+supportRoutes.post(
+  '/api/v1/support/cases/:id/attachments',
+  requireMobileOrWebAuth,
+  ...secureUploadSingle('file', 'customerAttachment'),
+  requireIdempotencyKey('support.case.attachment'),
+  (req, res) => controllers.uploadSupportCaseAttachment(req, res),
+);
+supportRoutes.get(
+  '/api/v1/support/cases/:id/attachments/:attachmentId',
+  requireMobileOrWebAuth,
+  (req, res) => controllers.downloadSupportCaseAttachment(req, res),
+);
 
 // Admin console workflow. Financial actions perform their own finance-role +
 // TOTP gate in the controller before calling the audited order-service API.

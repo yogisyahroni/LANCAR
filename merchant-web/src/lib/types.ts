@@ -148,6 +148,17 @@ export interface MerchantSupportCaseEvent {
   created_at: string
 }
 
+export interface MerchantSupportCaseAttachment {
+  id: string
+  original_name: string
+  content_type: string
+  size_bytes: number
+  checksum_sha256: string
+  uploaded_by_role: string
+  expires_at: string
+  created_at: string
+}
+
 export interface MerchantSupportCase {
   id: string
   case_number: string
@@ -159,6 +170,7 @@ export interface MerchantSupportCase {
   market_code: string
   priority: 'low' | 'normal' | 'high' | 'urgent' | string
   status: MerchantSupportCaseStatus
+  resolution_code?: string | null
   assigned_to?: string | null
   assigned_to_name?: string | null
   escalation_level: number
@@ -171,6 +183,7 @@ export interface MerchantSupportCase {
   updated_at: string
   links?: MerchantSupportCaseLink[]
   events?: MerchantSupportCaseEvent[]
+  attachments?: MerchantSupportCaseAttachment[]
   actions?: Array<{ id: string; action_type: string; status: string; amount_idr?: number | null; created_at: string }>
   authoritative?: {
     order_id?: string | null

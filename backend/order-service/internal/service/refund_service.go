@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -354,6 +355,53 @@ func (s *refundService) ProcessPendingRefunds(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// ReconcileRefund proves that an internal refund action reached a provider
+// terminal state and has a corresponding append-only ledger journal. An HTTP
+// 200 from the create endpoint alone is not sufficient evidence.
+func (s *refundService) ReconcileRefund(ctx context.Context, orderID uuid.UUID, refundID uuid.UUID, expectedAmountIDR *int) (*domain.RefundReconciliation, error) {
+	refunds, err := s.refundRepo.GetRefundsByOrder(ctx, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("load refund for reconciliation: %w", err)
+	}
+	var record *domain.RefundRecord
+	for i := range refunds {
+		if refunds[i].ID == refundID {
+			record = &refunds[i]
+			break
+		}
+	}
+	if record == nil {
+		return nil, fmt.Errorf("refund %s not found for order %s", refundID, orderID)
+	}
+
+	reconciliation := &domain.RefundReconciliation{
+		RefundID:                record.ID,
+		OrderID:                 record.OrderID,
+		Status:                  string(record.Status),
+		AmountIDR:               record.AmountIDR,
+		LedgerJournalPresent:    record.LedgerJournalID != nil && *record.LedgerJournalID != uuid.Nil,
+		GatewayReferencePresent: record.GatewayRef != nil && strings.TrimSpace(*record.GatewayRef) != "",
+	}
+	if expectedAmountIDR != nil && record.AmountIDR != *expectedAmountIDR {
+		reconciliation.Reason = "refund amount does not match the financial action response"
+		return reconciliation, nil
+	}
+	if reconciliation.Status != string(domain.RefundStatusProcessed) && reconciliation.Status != "completed" && reconciliation.Status != "refunded" {
+		reconciliation.Reason = "refund has not reached a terminal processed state"
+		return reconciliation, nil
+	}
+	if !reconciliation.LedgerJournalPresent {
+		reconciliation.Reason = "refund has no ledger journal"
+		return reconciliation, nil
+	}
+	if !reconciliation.GatewayReferencePresent {
+		reconciliation.Reason = "refund has no gateway reference"
+		return reconciliation, nil
+	}
+	reconciliation.Reconciled = true
+	return reconciliation, nil
 }
 
 // CalculateItemRefund — refund partial per item food (FB-080).

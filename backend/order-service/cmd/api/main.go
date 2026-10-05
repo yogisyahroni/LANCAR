@@ -707,15 +707,18 @@ func main() {
 	mux.HandleFunc("/api/v1/customer/rating-reminders", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetRatingReminders)))
 
 	mux.HandleFunc("/api/v1/internal/refunds/process", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			refundHandler.CreateRefund(w, r)
+		if !middleware.RequireInternalAPIKey(r, os.Getenv("INTERNAL_API_KEY"), r.Header.Get("X-Internal-Api-Key"), "refund.process") {
+			return
 		}
+		refundHandler.CreateRefund(w, r)
 	})
 	mux.HandleFunc("/api/v1/internal/refunds/items", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			refundHandler.CreateItemRefund(w, r)
+		if !middleware.RequireInternalAPIKey(r, os.Getenv("INTERNAL_API_KEY"), r.Header.Get("X-Internal-Api-Key"), "refund.items") {
+			return
 		}
+		refundHandler.CreateItemRefund(w, r)
 	})
+	mux.HandleFunc("/api/v1/internal/refunds/reconcile", refundHandler.ReconcileRefund)
 	// FB-084: notif push customer saat merchant reject (dipanggil merchant-service)
 	mux.HandleFunc("/api/v1/internal/push/order-cancelled", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {

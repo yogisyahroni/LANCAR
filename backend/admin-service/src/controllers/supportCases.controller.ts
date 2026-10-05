@@ -1,8 +1,11 @@
 import { PoolClient } from 'pg';
+import fs from 'fs';
+import path from 'path';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { db, readDb } from '../db';
 import { securityLog } from '../security/logRedaction';
+import { resolvePrivateUploadPath, saveSecureUploadBuffer } from '../security/uploadSecurity';
 import {
   SUPPORT_ACTIONS,
   SUPPORT_CASE_STATUSES,
@@ -28,6 +31,19 @@ const SUPPORT_STAFF_ROLES = [
 const FINANCIAL_ACTIONS = new Set<SupportAction>(['refund', 'compensate']);
 const RESTRICTED_FINANCIAL_ROLES = new Set(['super_admin', 'finance_admin', 'finance']);
 const CASE_STATUS_SET = new Set<string>(SUPPORT_CASE_STATUSES);
+const SUPPORT_RESOLUTION_CODES = [
+  'merchant_error',
+  'customer_refund',
+  'courier_issue',
+  'item_unavailable',
+  'quality_issue',
+  'payment_issue',
+  'safety_escalation',
+  'duplicate_case',
+  'no_issue_found',
+  'provider_failure',
+  'other',
+] as const;
 
 const createCaseSchema = z.object({
   category: z.string().trim().min(2).max(80),
@@ -49,6 +65,7 @@ const updateCaseSchema = z.object({
   assigned_to: z.string().uuid().nullable().optional(),
   escalation_level: z.number().int().min(0).max(5).optional(),
   sla_due_at: z.string().trim().max(80).nullable().optional(),
+  resolution_code: z.enum(SUPPORT_RESOLUTION_CODES).nullable().optional(),
   note: z.string().trim().max(1000).optional(),
 });
 
@@ -62,6 +79,11 @@ const actionSchema = z.object({
     qty: z.number().int().positive().max(1000),
   })).max(100).default([]),
   include_delivery_fee: z.boolean().default(false),
+  resolution_code: z.enum(SUPPORT_RESOLUTION_CODES).optional(),
+}).superRefine((value, context) => {
+  if (value.action === 'resolve' && !value.resolution_code) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['resolution_code'], message: 'Kode penyelesaian wajib diisi saat menyelesaikan laporan' });
+  }
 });
 
 type CaseRow = {
@@ -76,6 +98,7 @@ type CaseRow = {
   market_code: string;
   priority: string;
   status: string;
+  resolution_code: string | null;
   assigned_to: string | null;
   assigned_to_name?: string | null;
   escalation_level: number;
@@ -121,6 +144,18 @@ type CaseActionRow = {
   updated_at: Date;
 };
 
+type CaseAttachmentRow = {
+  id: string;
+  original_name: string;
+  content_type: string;
+  size_bytes: number;
+  checksum_sha256: string;
+  uploaded_by_role: string;
+  expires_at: Date;
+  created_at: Date;
+  storage_key?: string;
+};
+
 type AuthorityContext = {
   orderId: string | null;
   orderStatus: string | null;
@@ -142,7 +177,33 @@ const isUuid = (value: string) =>
 
 const parseCaseId = (value: string) => (isUuid(value) ? value : null);
 
+const parseAttachmentId = (value: string) => (isUuid(value) ? value : null);
+
 const parseError = (error: unknown) => error instanceof Error ? error.message : 'Unexpected support case error';
+
+const contentTypeByUploadMime: Record<string, string> = {
+  'application/pdf': 'application/pdf',
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+  'image/webp': 'image/webp',
+};
+
+const safeOriginalName = (value: string) => {
+  const basename = path.basename(value || 'lampiran');
+  const redacted = redactSupportText(basename).replace(/[\u0000-\u001f\u007f]/g, '_').trim();
+  return (redacted || 'lampiran').slice(0, 180);
+};
+
+const attachmentView = (row: CaseAttachmentRow) => ({
+  id: row.id,
+  original_name: row.original_name,
+  content_type: row.content_type,
+  size_bytes: Number(row.size_bytes),
+  checksum_sha256: row.checksum_sha256,
+  uploaded_by_role: row.uploaded_by_role,
+  expires_at: row.expires_at,
+  created_at: row.created_at,
+});
 
 const sendValidationError = (res: Response, parsed: { success: false; error: z.ZodError }) => {
   res.status(400).json({
@@ -166,6 +227,7 @@ const findCase = async (caseId: string, useWriter = false) => {
             sc.market_code,
             sc.priority,
             sc.status,
+            sc.resolution_code,
             sc.assigned_to,
             assigned.full_name AS assigned_to_name,
             sc.escalation_level,
@@ -382,7 +444,7 @@ const validateReferenceIds = (links: Array<{ reference_type: string; reference_i
 
 const caseDetail = async (row: CaseRow, req: Request, useWriter = false) => {
   const executor = useWriter ? db : readDb;
-  const [linksResult, eventsResult, actionsResult, authority] = await Promise.all([
+  const [linksResult, eventsResult, actionsResult, attachmentsResult, authority] = await Promise.all([
     executor.query<CaseLinkRow>(
       `SELECT id, reference_type, reference_id, reference_label, created_at
          FROM support_case_links
@@ -402,6 +464,14 @@ const caseDetail = async (row: CaseRow, req: Request, useWriter = false) => {
               external_reference, result_metadata, error_code, created_at, updated_at
          FROM support_case_actions
         WHERE case_id = $1
+        ORDER BY created_at ASC`,
+      [row.id],
+    ),
+    executor.query<CaseAttachmentRow>(
+      `SELECT id, original_name, content_type, size_bytes, checksum_sha256,
+              uploaded_by_role, expires_at, created_at
+         FROM support_case_attachments
+        WHERE case_id = $1 AND expires_at > NOW()
         ORDER BY created_at ASC`,
       [row.id],
     ),
@@ -437,6 +507,7 @@ const caseDetail = async (row: CaseRow, req: Request, useWriter = false) => {
       idempotency_key: undefined,
       requested_by: isSupportStaffRole(actorRole(req)) ? action.requested_by : null,
     })),
+    attachments: attachmentsResult.rows.map(attachmentView),
     authoritative: {
       order_id: authority.orderId,
       order_status: authority.orderStatus,
@@ -474,7 +545,7 @@ export const createSupportCase = async (req: Request, res: Response): Promise<vo
        VALUES ($1, $2, $3, $4, $5, $6, LOWER($7), $8)
        RETURNING id, case_number, requester_id, requester_role, category, subject, description,
                  service_code, market_code, priority, status, assigned_to, escalation_level,
-                 sla_due_at, resolved_at, reopened_at, reopen_count, created_at, updated_at`,
+                 resolution_code, sla_due_at, resolved_at, reopened_at, reopen_count, created_at, updated_at`,
       [
         currentActorId,
         actorRole(req),
@@ -560,7 +631,7 @@ export const listSupportCases = async (req: Request, res: Response): Promise<voi
   const dataParams = [...params, limit, offset];
   const rows = await readDb.query<CaseRow>(
     `SELECT sc.id, sc.case_number, sc.requester_id, sc.requester_role, sc.category, sc.subject,
-            sc.description, sc.service_code, sc.market_code, sc.priority, sc.status, sc.assigned_to,
+            sc.description, sc.service_code, sc.market_code, sc.priority, sc.status, sc.resolution_code, sc.assigned_to,
             assigned.full_name AS assigned_to_name, sc.escalation_level, sc.sla_due_at, sc.resolved_at,
             sc.reopened_at, sc.reopen_count, sc.created_at, sc.updated_at
        FROM support_cases sc
@@ -603,6 +674,161 @@ export const getSupportCase = async (req: Request, res: Response): Promise<void>
   await respondWithCase(res, req, row);
 };
 
+export const uploadSupportCaseAttachment = async (req: Request, res: Response): Promise<void> => {
+  const id = parseCaseId(String(req.params.id || ''));
+  const currentActorId = actorId(req);
+  if (!id) {
+    res.status(400).json({ success: false, code: 'ERR_SUPPORT_CASE_ID', error: 'Invalid case id' });
+    return;
+  }
+  if (!currentActorId) {
+    res.status(401).json({ success: false, code: 'ERR_UNAUTHORIZED', error: 'Authentication required' });
+    return;
+  }
+  if (!req.file?.checksumSha256 || !req.file.detectedMimeType) {
+    res.status(400).json({ success: false, code: 'ERR_SUPPORT_ATTACHMENT_FILE', error: 'Lampiran tidak ditemukan' });
+    return;
+  }
+
+  const row = await findCase(id);
+  if (!row) {
+    res.status(404).json({ success: false, code: 'ERR_SUPPORT_CASE_NOT_FOUND', error: 'Support case not found' });
+    return;
+  }
+  if (!canAccessCase(row, req)) {
+    res.status(403).json({ success: false, code: 'ERR_SUPPORT_CASE_FORBIDDEN', error: 'Support case access denied' });
+    return;
+  }
+  if (row.status === 'closed') {
+    res.status(409).json({ success: false, code: 'ERR_SUPPORT_CASE_CLOSED', error: 'Laporan yang sudah ditutup tidak dapat diberi lampiran baru' });
+    return;
+  }
+
+  let saved: ReturnType<typeof saveSecureUploadBuffer> | null = null;
+  const client = await db.connect();
+  try {
+    saved = saveSecureUploadBuffer(req.file, `support-cases/${id}`);
+    await client.query('BEGIN');
+    const inserted = await client.query<CaseAttachmentRow>(
+      `INSERT INTO support_case_attachments
+        (case_id, storage_key, original_name, content_type, size_bytes,
+         checksum_sha256, uploaded_by, uploaded_by_role)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (case_id, checksum_sha256) DO NOTHING
+       RETURNING id, original_name, content_type, size_bytes, checksum_sha256,
+                 uploaded_by_role, expires_at, created_at`,
+      [
+        id,
+        saved.storageKey,
+        safeOriginalName(req.file.originalname),
+        req.file.detectedMimeType,
+        req.file.size,
+        req.file.checksumSha256,
+        currentActorId,
+        actorRole(req),
+      ],
+    );
+
+    if (inserted.rows.length === 0) {
+      const existing = await client.query<CaseAttachmentRow>(
+        `SELECT id, original_name, content_type, size_bytes, checksum_sha256,
+                uploaded_by_role, expires_at, created_at
+           FROM support_case_attachments
+          WHERE case_id = $1 AND checksum_sha256 = $2
+          LIMIT 1`,
+        [id, req.file.checksumSha256],
+      );
+      await client.query('COMMIT');
+      if (saved) {
+        try { fs.unlinkSync(saved.absolutePath); } catch (_cleanupError) { /* best effort cleanup */ }
+      }
+      if (!existing.rows[0]) {
+        res.status(409).json({ success: false, code: 'ERR_SUPPORT_ATTACHMENT_CONFLICT', error: 'Lampiran sedang diproses, coba lagi' });
+        return;
+      }
+      res.json({ success: true, deduplicated: true, data: { attachment: attachmentView(existing.rows[0]) } });
+      return;
+    }
+
+    const attachment = inserted.rows[0];
+    await appendCaseEvent(client, {
+      caseId: id,
+      eventType: 'attachment_added',
+      actorId: currentActorId,
+      actorRole: actorRole(req),
+      note: 'Evidence attachment added',
+      metadata: {
+        attachment_id: attachment.id,
+        content_type: attachment.content_type,
+        size_bytes: Number(attachment.size_bytes),
+        checksum_sha256: attachment.checksum_sha256,
+        retention_days: 30,
+      },
+    });
+    await client.query('COMMIT');
+    res.status(201).json({ success: true, data: { attachment: attachmentView(attachment) } });
+  } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    if (saved) {
+      try { fs.unlinkSync(saved.absolutePath); } catch (_cleanupError) { /* best effort cleanup */ }
+    }
+    securityLog.error('Support case attachment failed:', error);
+    const status = Number(error?.statusCode) || 500;
+    if (status < 500) {
+      res.status(status).json({ success: false, code: 'ERR_SUPPORT_ATTACHMENT', error: parseError(error) });
+      return;
+    }
+    res.status(500).json({ success: false, code: 'ERR_SUPPORT_ATTACHMENT', error: 'Lampiran belum dapat disimpan' });
+  } finally {
+    client.release();
+  }
+};
+
+export const downloadSupportCaseAttachment = async (req: Request, res: Response): Promise<void> => {
+  const caseId = parseCaseId(String(req.params.id || ''));
+  const attachmentId = parseAttachmentId(String(req.params.attachmentId || ''));
+  if (!caseId || !attachmentId) {
+    res.status(400).json({ success: false, code: 'ERR_SUPPORT_ATTACHMENT_ID', error: 'Invalid attachment id' });
+    return;
+  }
+  const row = await findCase(caseId);
+  if (!row) {
+    res.status(404).json({ success: false, code: 'ERR_SUPPORT_CASE_NOT_FOUND', error: 'Support case not found' });
+    return;
+  }
+  if (!canAccessCase(row, req)) {
+    res.status(403).json({ success: false, code: 'ERR_SUPPORT_CASE_FORBIDDEN', error: 'Support case access denied' });
+    return;
+  }
+  const result = await readDb.query<CaseAttachmentRow>(
+    `SELECT id, storage_key, original_name, content_type, size_bytes,
+            checksum_sha256, uploaded_by_role, expires_at, created_at
+       FROM support_case_attachments
+      WHERE id = $1 AND case_id = $2 AND expires_at > NOW()
+      LIMIT 1`,
+    [attachmentId, caseId],
+  );
+  const attachment = result.rows[0];
+  if (!attachment?.storage_key) {
+    res.status(404).json({ success: false, code: 'ERR_SUPPORT_ATTACHMENT_NOT_FOUND', error: 'Lampiran tidak ditemukan atau sudah kedaluwarsa' });
+    return;
+  }
+  const absolutePath = resolvePrivateUploadPath(attachment.storage_key);
+  if (!absolutePath || !fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
+    res.status(404).json({ success: false, code: 'ERR_SUPPORT_ATTACHMENT_NOT_FOUND', error: 'Lampiran tidak tersedia' });
+    return;
+  }
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Type', contentTypeByUploadMime[attachment.content_type] || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(attachment.original_name)}`);
+  res.sendFile(absolutePath, (error) => {
+    if (error && !res.headersSent) {
+      res.status(500).json({ success: false, error: 'Failed to read support attachment' });
+    }
+  });
+};
+
 const statusTransitions: Record<string, Set<string>> = {
   open: new Set(['open', 'investigating', 'pending_customer', 'pending_internal', 'resolved', 'closed']),
   investigating: new Set(['investigating', 'pending_customer', 'pending_internal', 'resolved', 'closed']),
@@ -634,7 +860,7 @@ export const updateSupportCase = async (req: Request, res: Response): Promise<vo
     await client.query('BEGIN');
     const locked = await client.query<CaseRow>(
       `SELECT id, case_number, requester_id, requester_role, category, subject, description, service_code,
-              market_code, priority, status, assigned_to, escalation_level, sla_due_at, resolved_at,
+              market_code, priority, status, resolution_code, assigned_to, escalation_level, sla_due_at, resolved_at,
               reopened_at, reopen_count, created_at, updated_at
          FROM support_cases WHERE id = $1 FOR UPDATE`,
       [id],
@@ -666,23 +892,30 @@ export const updateSupportCase = async (req: Request, res: Response): Promise<vo
     const nextEscalation = parsed.data.escalation_level ?? row.escalation_level;
     const reopened = (row.status === 'resolved' || row.status === 'closed') && nextStatus === 'open';
     const resolvedAt = nextStatus === 'resolved' || nextStatus === 'closed' ? new Date() : null;
+    const nextResolutionCode = nextStatus === 'resolved' || nextStatus === 'closed'
+      ? parsed.data.resolution_code ?? row.resolution_code
+      : null;
+    if ((nextStatus === 'resolved' || nextStatus === 'closed') && !nextResolutionCode) {
+      throw Object.assign(new Error('resolution_code wajib diisi saat laporan diselesaikan'), { statusCode: 400 });
+    }
 
     const updated = await client.query<CaseRow>(
       `UPDATE support_cases
           SET status = $2,
-              priority = $3,
-              assigned_to = $4,
-              escalation_level = $5,
-              sla_due_at = $6,
-              resolved_at = $7,
-              reopened_at = CASE WHEN $8 THEN NOW() ELSE reopened_at END,
-              reopen_count = CASE WHEN $8 THEN reopen_count + 1 ELSE reopen_count END,
+              resolution_code = $3,
+              priority = $4,
+              assigned_to = $5,
+              escalation_level = $6,
+              sla_due_at = $7,
+              resolved_at = $8,
+              reopened_at = CASE WHEN $9 THEN NOW() ELSE reopened_at END,
+              reopen_count = CASE WHEN $9 THEN reopen_count + 1 ELSE reopen_count END,
               updated_at = NOW()
         WHERE id = $1
         RETURNING id, case_number, requester_id, requester_role, category, subject, description,
-                  service_code, market_code, priority, status, assigned_to, escalation_level,
+                  service_code, market_code, priority, status, resolution_code, assigned_to, escalation_level,
                   sla_due_at, resolved_at, reopened_at, reopen_count, created_at, updated_at`,
-      [id, nextStatus, parsed.data.priority ?? row.priority, parsed.data.assigned_to === undefined ? row.assigned_to : parsed.data.assigned_to, nextEscalation, slaDueAt, resolvedAt, reopened],
+      [id, nextStatus, nextResolutionCode, parsed.data.priority ?? row.priority, parsed.data.assigned_to === undefined ? row.assigned_to : parsed.data.assigned_to, nextEscalation, slaDueAt, resolvedAt, reopened],
     );
     await appendCaseEvent(client, {
       caseId: id,
@@ -718,6 +951,7 @@ type FinancialResult = {
   amountIdr: number | null;
   externalReference: string | null;
   errorCode: string | null;
+  reconciled: boolean;
 };
 
 const executeFinancialAction = async (
@@ -730,9 +964,9 @@ const executeFinancialAction = async (
   includeDeliveryFee: boolean,
   idempotencyKey: string,
 ): Promise<FinancialResult> => {
-  if (!authority.orderId) return { success: false, amountIdr: null, externalReference: null, errorCode: 'ORDER_REFERENCE_REQUIRED' };
+  if (!authority.orderId) return { success: false, amountIdr: null, externalReference: null, errorCode: 'ORDER_REFERENCE_REQUIRED', reconciled: false };
   if (refundMode === 'partial' && refundItems.length === 0) {
-    return { success: false, amountIdr: null, externalReference: null, errorCode: 'REFUND_ITEMS_REQUIRED' };
+    return { success: false, amountIdr: null, externalReference: null, errorCode: 'REFUND_ITEMS_REQUIRED', reconciled: false };
   }
 
   const baseUrl = process.env.ORDER_SERVICE_URL || 'http://order-service:8083';
@@ -772,16 +1006,52 @@ const executeFinancialAction = async (
         action,
         status: response.status,
       });
-      return { success: false, amountIdr: null, externalReference: null, errorCode: `ORDER_SERVICE_${response.status}` };
+      return { success: false, amountIdr: null, externalReference: null, errorCode: `ORDER_SERVICE_${response.status}`, reconciled: false };
     }
     const body = await response.json().catch(() => null) as any;
     const data = body?.data || {};
     const amount = Number(data.amount_idr ?? data.AmountIDR ?? NaN);
+    const refundId = typeof data.id === 'string' ? data.id : null;
+    if (!refundId) {
+      return { success: false, amountIdr: Number.isFinite(amount) ? amount : null, externalReference: null, errorCode: 'REFUND_RECONCILIATION_REFERENCE_MISSING', reconciled: false };
+    }
+    const reconcileResponse = await fetch(`${baseUrl}/api/v1/internal/refunds/reconcile`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || '',
+        'X-Idempotency-Key': `${idempotencyKey}:reconcile`,
+      },
+      body: JSON.stringify({
+        order_id: authority.orderId,
+        refund_id: refundId,
+        ...(Number.isFinite(amount) ? { expected_amount_idr: amount } : {}),
+      }),
+      signal: abort.signal,
+    });
+    const reconcileBody = await reconcileResponse.json().catch(() => null) as any;
+    const reconciled = reconcileResponse.ok && reconcileBody?.data?.reconciled === true;
+    if (!reconciled) {
+      securityLog.error('Support financial action reconciliation failed', {
+        case_id: caseId,
+        action,
+        status: reconcileResponse.status,
+        reason: reconcileBody?.data?.reason || reconcileBody?.error || 'unknown',
+      });
+      return {
+        success: false,
+        amountIdr: Number.isFinite(amount) ? amount : null,
+        externalReference: refundId,
+        errorCode: reconcileResponse.status === 409 ? 'REFUND_NOT_RECONCILED' : 'ORDER_SERVICE_RECONCILIATION_UNAVAILABLE',
+        reconciled: false,
+      };
+    }
     return {
       success: true,
       amountIdr: Number.isFinite(amount) ? amount : null,
-      externalReference: typeof data.id === 'string' ? data.id : null,
+      externalReference: refundId,
       errorCode: null,
+      reconciled: true,
     };
   } catch (error: any) {
     securityLog.error('Support financial action upstream unavailable', {
@@ -789,7 +1059,7 @@ const executeFinancialAction = async (
       action,
       error: error?.name === 'AbortError' ? 'timeout' : error?.message,
     });
-    return { success: false, amountIdr: null, externalReference: null, errorCode: error?.name === 'AbortError' ? 'ORDER_SERVICE_TIMEOUT' : 'ORDER_SERVICE_UNAVAILABLE' };
+    return { success: false, amountIdr: null, externalReference: null, errorCode: error?.name === 'AbortError' ? 'ORDER_SERVICE_TIMEOUT' : 'ORDER_SERVICE_UNAVAILABLE', reconciled: false };
   } finally {
     clearTimeout(timer);
   }
@@ -825,7 +1095,7 @@ export const executeSupportCaseAction = async (req: Request, res: Response): Pro
     await client.query('BEGIN');
     const locked = await client.query<CaseRow>(
       `SELECT id, case_number, requester_id, requester_role, category, subject, description, service_code,
-              market_code, priority, status, assigned_to, escalation_level, sla_due_at, resolved_at,
+              market_code, priority, status, resolution_code, assigned_to, escalation_level, sla_due_at, resolved_at,
               reopened_at, reopen_count, created_at, updated_at
          FROM support_cases WHERE id = $1 FOR UPDATE`,
       [id],
@@ -914,9 +1184,14 @@ export const executeSupportCaseAction = async (req: Request, res: Response): Pro
           ? 'open'
           : parsed.data.action === 'request_more_info'
             ? 'pending_customer'
-            : parsed.data.action === 'escalate'
+              : parsed.data.action === 'escalate'
               ? 'pending_internal'
               : row.status;
+      const nextResolutionCode = parsed.data.action === 'resolve'
+        ? parsed.data.resolution_code || null
+        : parsed.data.action === 'reopen'
+          ? null
+          : row.resolution_code;
       const nextAssignee = parsed.data.action === 'reassign' ? parsed.data.assigned_to : row.assigned_to;
       if (parsed.data.action === 'reassign' && !nextAssignee) {
         throw Object.assign(new Error('assigned_to wajib diisi untuk action reassign'), { statusCode: 400 });
@@ -933,12 +1208,13 @@ export const executeSupportCaseAction = async (req: Request, res: Response): Pro
             SET status = $2,
                 assigned_to = $3,
                 escalation_level = CASE WHEN $4 = 'escalate' THEN LEAST(escalation_level + 1, 5) ELSE escalation_level END,
+                resolution_code = $5,
                 resolved_at = CASE WHEN $2 = 'resolved' THEN NOW() ELSE NULL END,
                 reopened_at = CASE WHEN $4 = 'reopen' THEN NOW() ELSE reopened_at END,
                 reopen_count = CASE WHEN $4 = 'reopen' THEN reopen_count + 1 ELSE reopen_count END,
                 updated_at = NOW()
           WHERE id = $1`,
-        [id, nextStatus, nextAssignee || null, parsed.data.action],
+        [id, nextStatus, nextAssignee || null, parsed.data.action, nextResolutionCode],
       );
       await client.query(
         `UPDATE support_case_actions SET status = 'succeeded', result_metadata = $2, updated_at = NOW() WHERE id = $1`,
@@ -952,7 +1228,7 @@ export const executeSupportCaseAction = async (req: Request, res: Response): Pro
         actorId: currentActorId,
         actorRole: actorRole(req),
         note: parsed.data.reason,
-        metadata: { action_id: actionId },
+        metadata: { action_id: actionId, resolution_code: nextResolutionCode },
       });
       await client.query('COMMIT');
       const updated = await findCase(id);
@@ -1007,6 +1283,7 @@ export const executeSupportCaseAction = async (req: Request, res: Response): Pro
           refund_mode: parsed.data.refund_mode,
           order_id: authority.orderId,
           action: parsed.data.action,
+          reconciled: financialResult.reconciled,
         }),
       ],
     );
@@ -1021,6 +1298,7 @@ export const executeSupportCaseAction = async (req: Request, res: Response): Pro
         action_id: actionId,
         amount_idr: financialResult.amountIdr,
         error_code: financialResult.errorCode,
+        reconciled: financialResult.reconciled,
       },
     });
     await resultClient.query(
@@ -1036,6 +1314,7 @@ export const executeSupportCaseAction = async (req: Request, res: Response): Pro
           status: financialResult.success ? 'succeeded' : 'failed',
           amount_idr: financialResult.amountIdr,
           error_code: financialResult.errorCode,
+          reconciled: financialResult.reconciled,
         }),
       ],
     );

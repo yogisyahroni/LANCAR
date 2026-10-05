@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, ChevronRight, RefreshCw, ShieldCheck, X } from 'lucide-react'
+import { CheckCircle2, ChevronRight, Download, FileText, RefreshCw, ShieldCheck, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import CaseTimeline from '../components/CaseTimeline'
@@ -17,6 +17,7 @@ type SupportCase = {
   market_code: string
   priority: string
   status: string
+  resolution_code?: string | null
   assigned_to_name?: string | null
   escalation_level: number
   sla_due_at: string
@@ -25,6 +26,7 @@ type SupportCase = {
   events?: any[]
   policy?: { allowedActions: string[]; suggestedActions: string[]; reason: string }
   authoritative?: { order_id?: string | null; order_status?: string | null; payment_status?: string | null }
+  attachments?: Array<{ id: string; original_name: string; content_type: string; size_bytes: number; expires_at: string }>
 }
 
 const statuses = ['', 'open', 'investigating', 'pending_customer', 'pending_internal', 'resolved', 'closed']
@@ -37,11 +39,26 @@ const actionLabels: Record<string, string> = {
   reopen: 'Buka kembali',
   resolve: 'Selesaikan',
 }
+const resolutionLabels: Record<string, string> = {
+  merchant_error: 'Kesalahan merchant',
+  customer_refund: 'Refund customer',
+  courier_issue: 'Masalah kurir',
+  item_unavailable: 'Item tidak tersedia',
+  quality_issue: 'Masalah kualitas',
+  payment_issue: 'Masalah pembayaran',
+  safety_escalation: 'Eskalasi keamanan',
+  duplicate_case: 'Laporan duplikat',
+  no_issue_found: 'Tidak ditemukan masalah',
+  provider_failure: 'Gangguan provider',
+  other: 'Lainnya',
+}
+const resolutionCodes = Object.keys(resolutionLabels)
 const actionLabel = (action: string) => actionLabels[action] || action.replaceAll('_', ' ')
 
 export default function Cases() {
   const [status, setStatus] = useState('')
   const [selected, setSelected] = useState<SupportCase | null>(null)
+  const [resolutionCode, setResolutionCode] = useState('other')
   const queryClient = useQueryClient()
   const casesQuery = useQuery({
     queryKey: ['support-cases', status],
@@ -62,7 +79,7 @@ export default function Cases() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, nextStatus }: { id: string; nextStatus: string }) => {
-      await api.patch(`/admin/support/cases/${id}`, { status: nextStatus, note: `Status diubah dari support console menjadi ${nextStatus}` }, { headers: { 'X-Idempotency-Key': newIdempotencyKey() } })
+      await api.patch(`/admin/support/cases/${id}`, { status: nextStatus, resolution_code: ['resolved', 'closed'].includes(nextStatus) ? resolutionCode : null, note: `Status diubah dari support console menjadi ${nextStatus}` }, { headers: { 'X-Idempotency-Key': newIdempotencyKey() } })
     },
     onSuccess: () => {
       toast.success('Status kasus diperbarui')
@@ -74,7 +91,7 @@ export default function Cases() {
 
   const actionMutation = useMutation({
     mutationFn: async ({ id, action }: { id: string; action: string }) => {
-      await api.post(`/admin/support/cases/${id}/actions`, { action, reason: `Action ${action} dijalankan dari support console` }, { headers: { 'X-Idempotency-Key': newIdempotencyKey() } })
+      await api.post(`/admin/support/cases/${id}/actions`, { action, reason: `Action ${action} dijalankan dari support console`, ...(action === 'resolve' ? { resolution_code: resolutionCode } : {}) }, { headers: { 'X-Idempotency-Key': newIdempotencyKey() } })
     },
     onSuccess: () => {
       toast.success('Action support berhasil dicatat')
@@ -88,6 +105,23 @@ export default function Cases() {
   const openCount = useMemo(() => data.filter((item) => !['resolved', 'closed'].includes(item.status)).length, [data])
   const breachedCount = useMemo(() => data.filter((item) => item.sla_breached).length, [data])
   const detail = detailQuery.data || selected
+
+  const downloadAttachment = async (attachment: NonNullable<SupportCase['attachments']>[number]) => {
+    if (!detail) return
+    try {
+      const response = await api.get(`/support/cases/${detail.id}/attachments/${attachment.id}`, { responseType: 'blob' })
+      const url = URL.createObjectURL(response.data as Blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = attachment.original_name
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Lampiran belum dapat diunduh')
+    }
+  }
 
   return (
     <div className="space-y-8 animate-in">
@@ -128,7 +162,7 @@ export default function Cases() {
                   <td className="px-6 py-5 text-xs text-foreground-muted"><p className="font-bold text-foreground-muted">{item.service_code}</p><p className="mt-1 uppercase tracking-wide text-foreground-muted">{item.market_code}</p></td>
                   <td className="px-6 py-5 text-xs"><StatusBadge status={item.sla_breached ? 'critical' : 'scheduled'} labelPrefix="Case SLA" label={item.sla_breached ? 'Melewati SLA' : `Jatuh tempo ${new Date(item.sla_due_at).toLocaleString('id-ID')}`} className={item.sla_breached ? 'border-error bg-error-surface' : 'border-border bg-surface-subtle text-foreground-muted'} /></td>
                   <td className="px-6 py-5 text-xs text-foreground-muted">{item.assigned_to_name || 'Unassigned'}</td>
-                  <td className="px-6 py-5 text-right"><button type="button" onClick={() => setSelected(item)} aria-label={`Open ${item.case_number}`} title={`Open ${item.case_number}`} className="rounded-xl border border-border p-2.5 text-foreground-muted hover:bg-surface-subtle hover:text-foreground"><ChevronRight size={18} aria-hidden="true" /></button></td>
+                  <td className="px-6 py-5 text-right"><button type="button" onClick={() => { setResolutionCode(item.resolution_code || 'other'); setSelected(item) }} aria-label={`Open ${item.case_number}`} title={`Open ${item.case_number}`} className="rounded-xl border border-border p-2.5 text-foreground-muted hover:bg-surface-subtle hover:text-foreground"><ChevronRight size={18} aria-hidden="true" /></button></td>
                 </tr>)}
               </tbody>
             </table>
@@ -152,7 +186,8 @@ export default function Cases() {
           <div className="mt-8 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="space-y-6"><div className="rounded-2xl border border-border bg-surface/[0.025] p-5"><p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Customer report</p><p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground-muted">{detail.description}</p></div><div><div className="mb-4 flex items-center justify-between"><h3 className="text-xs font-black uppercase tracking-wide text-foreground-muted">Timeline</h3><span className="text-xs text-foreground-muted">Append-only audit</span></div><CaseTimeline events={detail.events || []} /></div></div>
             <div className="space-y-5"><div className="rounded-2xl border border-border bg-surface/[0.025] p-5"><p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Authoritative references</p><div className="mt-3 space-y-2">{(detail.links || []).map((link) => <div key={link.id} className="flex justify-between gap-3 text-xs"><span className="uppercase tracking-wide text-foreground-muted">{link.reference_type}</span><span className="max-w-[230px] truncate text-foreground-muted" title={link.reference_id}>{link.reference_label || link.reference_id}</span></div>)}{(!detail.links || detail.links.length === 0) && <p className="text-sm text-foreground-muted">No visible references</p>}</div>{detail.authoritative?.payment_status && <div className="mt-4 flex items-center gap-2 border-t border-border pt-3"><span className="text-xs text-foreground-muted">Payment state:</span><StatusBadge status={detail.authoritative.payment_status} labelPrefix="Payment state" /></div>}</div>
-              <div className="rounded-2xl border border-border bg-surface/[0.025] p-5"><p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Policy actions</p><p className="mt-2 text-xs leading-relaxed text-foreground-muted">{detail.policy?.reason || 'Policy unavailable'}</p><div className="mt-4 flex flex-wrap gap-2">{(detail.policy?.allowedActions || []).map((action) => <button key={action} type="button" disabled={actionMutation.isPending || updateMutation.isPending} onClick={() => actionMutation.mutate({ id: detail.id, action })} className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-bold tracking-wide text-primary-light hover:bg-primary/20 disabled:opacity-60">{actionLabel(action)}</button>)}</div></div>
+              <div className="rounded-2xl border border-border bg-surface/[0.025] p-5"><div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Evidence attachments</p><span className="text-[11px] text-foreground-muted">30-day retention</span></div><div className="mt-3 space-y-2">{(detail.attachments || []).map((attachment) => <button key={attachment.id} type="button" onClick={() => void downloadAttachment(attachment)} className="flex w-full items-center gap-3 rounded-xl border border-border px-3 py-3 text-left hover:bg-surface-subtle"><FileText size={17} className="shrink-0 text-primary-light" aria-hidden="true" /><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-foreground-muted">{attachment.original_name}</span><span className="block text-[11px] text-foreground-muted">{Math.max(1, Math.round(attachment.size_bytes / 1024))} KB · expires {new Date(attachment.expires_at).toLocaleDateString('id-ID')}</span></span><Download size={15} className="shrink-0 text-primary-light" aria-hidden="true" /></button>)}{(!detail.attachments || detail.attachments.length === 0) && <p className="text-sm text-foreground-muted">No active evidence attachments.</p>}</div></div>
+              <div className="rounded-2xl border border-border bg-surface/[0.025] p-5"><p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Policy actions</p><p className="mt-2 text-xs leading-relaxed text-foreground-muted">{detail.policy?.reason || 'Policy unavailable'}</p>{(detail.policy?.allowedActions || []).includes('resolve') && <label className="mt-4 block text-xs font-bold text-foreground-muted">Kode penyelesaian<select value={resolutionCode} onChange={(event) => setResolutionCode(event.target.value)} className="mt-1.5 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2.5 text-sm text-foreground-muted">{resolutionCodes.map((code) => <option key={code} value={code}>{resolutionLabels[code]}</option>)}</select></label>}<div className="mt-4 flex flex-wrap gap-2">{(detail.policy?.allowedActions || []).map((action) => <button key={action} type="button" disabled={actionMutation.isPending || updateMutation.isPending} onClick={() => actionMutation.mutate({ id: detail.id, action })} className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-bold tracking-wide text-primary-light hover:bg-primary/20 disabled:opacity-60">{actionLabel(action)}</button>)}</div>{detail.resolution_code && <p className="mt-3 text-xs text-foreground-muted">Resolution: <span className="font-bold">{resolutionLabels[detail.resolution_code] || detail.resolution_code}</span></p>}</div>
               <div className="rounded-2xl border border-border bg-surface/[0.025] p-5"><p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Manual status gate</p><select aria-label="Manual status gate" value={detail.status} onChange={(event) => updateMutation.mutate({ id: detail.id, nextStatus: event.target.value })} disabled={updateMutation.isPending} className="mt-3 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-foreground-muted">{statuses.filter(Boolean).map((value) => <option key={value} value={value}>{getStatusPresentation(value).label}</option>)}</select><p className="mt-3 flex items-center gap-2 text-xs text-foreground-muted"><ShieldCheck size={13} aria-hidden="true" /> Financial actions require finance role + TOTP.</p></div>
             </div>
           </div>

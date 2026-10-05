@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 
 	"github.com/google/uuid"
 	"tembus/order-service/internal/domain"
@@ -125,4 +126,58 @@ func (h *RefundHandler) CreateRefund(w http.ResponseWriter, r *http.Request) {
 		"status":  "success",
 		"message": "Pending refunds batch processed successfully",
 	})
+}
+
+// ReconcileRefund is an internal, authenticated read-after-write check used
+// by support/admin actions. It verifies provider terminal state, ledger
+// journal, amount equality, and gateway reference before a case is marked
+// funded.
+func (h *RefundHandler) ReconcileRefund(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	if !middleware.RequireInternalAPIKey(r, os.Getenv("INTERNAL_API_KEY"), r.Header.Get("X-Internal-Api-Key"), "refund.reconcile") {
+		return
+	}
+	var req struct {
+		OrderID           string `json:"order_id"`
+		RefundID          string `json:"refund_id"`
+		ExpectedAmountIDR *int   `json:"expected_amount_idr,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid JSON body", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	orderID, err := uuid.Parse(req.OrderID)
+	if err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid order ID format", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	refundID, err := uuid.Parse(req.RefundID)
+	if err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid refund ID format", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	reconciler, ok := h.refundService.(domain.RefundReconciliationService)
+	if !ok {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_REFUND_RECONCILIATION_UNAVAILABLE", "Refund reconciliation is not configured", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	result, err := reconciler.ReconcileRefund(r.Context(), orderID, refundID, req.ExpectedAmountIDR)
+	if err != nil {
+		middleware.WriteError(w, http.StatusNotFound, "ERR_REFUND_RECONCILIATION_FAILED", err.Error(), middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	status := http.StatusOK
+	if !result.Reconciled {
+		status = http.StatusConflict
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	statusText := "failed"
+	if result.Reconciled {
+		statusText = "success"
+	}
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": statusText, "data": result})
 }
