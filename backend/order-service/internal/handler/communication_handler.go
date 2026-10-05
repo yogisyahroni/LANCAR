@@ -234,7 +234,19 @@ func (h *CommunicationHandler) DeliveryHealth(w http.ResponseWriter, r *http.Req
 		middleware.WriteError(w, 500, "ERR_INTERNAL", "delivery health unavailable", middleware.GetCorrelationID(r.Context()))
 		return
 	}
-	middleware.WriteSuccess(w, 200, map[string]any{"window": "24h", "items": items})
+	alerts := make([]map[string]any, 0)
+	for _, item := range items {
+		status, _ := item["status"].(string)
+		count, _ := item["count"].(int64)
+		stale, _ := item["stale_count"].(int64)
+		if status == "dead_letter" && count > 0 {
+			alerts = append(alerts, map[string]any{"severity": "critical", "channel": item["channel"], "status": status, "count": count, "message": "Delivery masuk dead letter dan membutuhkan replay atau investigasi."})
+		}
+		if (status == "queued" || status == "processing") && stale > 0 {
+			alerts = append(alerts, map[string]any{"severity": "warning", "channel": item["channel"], "status": status, "count": stale, "message": "Delivery menunggu atau diproses lebih dari 60 detik."})
+		}
+	}
+	middleware.WriteSuccess(w, 200, map[string]any{"window": "24h", "items": items, "alerts": alerts})
 }
 
 func (h *CommunicationHandler) Preference(w http.ResponseWriter, r *http.Request) {

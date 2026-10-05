@@ -194,7 +194,6 @@ func (h *NotificationHandler) MarkAsRead(w http.ResponseWriter, r *http.Request)
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", err.Error(), middleware.GetCorrelationID(r.Context()))
 		return
 	}
-
 	middleware.WriteSuccess(w, http.StatusOK, map[string]string{"status": "ok", "message": "Notification marked as read"})
 }
 

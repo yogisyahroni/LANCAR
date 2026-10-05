@@ -83,6 +83,18 @@ type CommunicationPreference struct {
 	ConsentSource   string                `json:"consent_source"`
 }
 
+// CommunicationDeliveryWork is the server-authoritative unit claimed by the
+// delivery worker. NotificationID may be nil for a suppressed/missing inbox
+// projection; that state must never be treated as a successful delivery.
+type CommunicationDeliveryWork struct {
+	ID             uuid.UUID
+	EventID        uuid.UUID
+	RecipientID    uuid.UUID
+	NotificationID *uuid.UUID
+	Channel        CommunicationChannel
+	Attempts       int
+}
+
 func (t CommunicationTemplate) Validate() error {
 	if strings.TrimSpace(t.TemplateKey) == "" || t.Version < 1 || strings.TrimSpace(t.MarketCode) == "" || strings.TrimSpace(t.Locale) == "" || strings.TrimSpace(t.BodyTemplate) == "" {
 		return errors.New("template key/version/market/locale/body are required")

@@ -61,8 +61,27 @@ func (r *PostgresNotificationRepo) GetNotificationsByUserID(ctx context.Context,
 
 func (r *PostgresNotificationRepo) MarkAsRead(ctx context.Context, notificationID, userID uuid.UUID) error {
 	query := `UPDATE notifications SET is_read = TRUE, read_at = NOW() WHERE id = $1 AND user_id = $2`
-	_, err := r.db.ExecContext(ctx, query, notificationID, userID)
-	return err
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, query, notificationID, userID); err != nil {
+		return err
+	}
+	// Keep the durable communication receipt projection aligned with the
+	// user-visible inbox state. This is intentionally scoped by notification
+	// owner so a forged notification ID cannot mark another user's delivery read.
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE communication_deliveries d
+		SET status='read', read_at=COALESCE(read_at, NOW()), updated_at=NOW()
+		FROM notifications n
+		WHERE d.notification_id=n.id
+		  AND n.id=$1 AND n.user_id=$2
+		  AND d.status IN ('sent','delivered')`, notificationID, userID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *PostgresNotificationRepo) GetTemplateByKey(ctx context.Context, key string, channel domain.NotificationChannel) (*domain.NotificationTemplate, error) {

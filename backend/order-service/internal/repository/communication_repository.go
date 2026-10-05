@@ -66,14 +66,17 @@ func (r *CommunicationRepository) CreateEvent(ctx context.Context, e domain.Comm
 			inAppAllowed = true
 		}
 	}
+	var notificationID *uuid.UUID
 	if inAppAllowed {
-		_, err = tx.ExecContext(ctx, `INSERT INTO notifications(id,user_id,title,body,type,deep_link,channel,is_read,push_status,order_id,metadata,category,priority,created_at) VALUES($1,$2,$3,$4,$5,$6,'in_app',FALSE,'pending',$7,$8,$9,$10,NOW()) ON CONFLICT(id) DO NOTHING`, uuid.New(), e.RecipientID, title, body, e.SemanticType, typedDeepLink(e), orderID, meta, communicationInboxCategory(e.Category), communicationInboxPriority(e.Priority))
+		id := uuid.New()
+		notificationID = &id
+		_, err = tx.ExecContext(ctx, `INSERT INTO notifications(id,user_id,title,body,type,deep_link,channel,is_read,push_status,order_id,metadata,category,priority,created_at) VALUES($1,$2,$3,$4,$5,$6,'in_app',FALSE,'pending',$7,$8,$9,$10,NOW()) ON CONFLICT(id) DO NOTHING`, id, e.RecipientID, title, body, e.SemanticType, typedDeepLink(e), orderID, meta, communicationInboxCategory(e.Category), communicationInboxPriority(e.Priority))
 		if err != nil {
 			return false, err
 		}
 	}
 	for _, delivery := range channels {
-		if _, err = tx.ExecContext(ctx, `INSERT INTO communication_deliveries(event_id,channel,status,next_attempt_at) VALUES($1,$2,$3,CASE WHEN CAST($3 AS VARCHAR)='queued' THEN NOW() ELSE NULL END) ON CONFLICT(event_id,channel) DO NOTHING`, e.EventID, delivery.channel, delivery.status); err != nil {
+		if _, err = tx.ExecContext(ctx, `INSERT INTO communication_deliveries(event_id,channel,status,next_attempt_at,notification_id) VALUES($1,$2,$3,CASE WHEN CAST($3 AS VARCHAR)='queued' THEN NOW() ELSE NULL END,$4) ON CONFLICT(event_id,channel) DO NOTHING`, e.EventID, delivery.channel, delivery.status, notificationID); err != nil {
 			return false, err
 		}
 	}
@@ -85,6 +88,100 @@ func (r *CommunicationRepository) CreateEvent(ctx context.Context, e domain.Comm
 	}
 	err = tx.Commit()
 	return inserted, err
+}
+
+// RecoverStuckDeliveries makes worker crashes recoverable. It deliberately
+// returns rows to queued; it never marks an unconfirmed delivery as sent.
+func (r *CommunicationRepository) RecoverStuckDeliveries(ctx context.Context, staleAfter time.Duration, limit int) (int, error) {
+	if staleAfter <= 0 {
+		staleAfter = 2 * time.Minute
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE communication_deliveries
+		   SET status='queued', locked_at=NULL, locked_by=NULL, next_attempt_at=NOW(), updated_at=NOW()
+		 WHERE id IN (
+		   SELECT id FROM communication_deliveries
+		    WHERE status='processing' AND locked_at < NOW() - ($1::bigint * INTERVAL '1 second')
+		    ORDER BY locked_at ASC
+		    LIMIT $2
+		 )`, int64(staleAfter/time.Second), limit)
+	if err != nil {
+		return 0, err
+	}
+	count, _ := result.RowsAffected()
+	return int(count), nil
+}
+
+// ClaimQueuedDeliveries uses row locks so multiple order-service replicas do
+// not deliver one semantic event twice concurrently.
+func (r *CommunicationRepository) ClaimQueuedDeliveries(ctx context.Context, workerID string, limit int) ([]domain.CommunicationDeliveryWork, error) {
+	if strings.TrimSpace(workerID) == "" {
+		workerID = "order-service:communication-delivery"
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 25
+	}
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	rows, err := tx.QueryxContext(ctx, `
+		WITH candidates AS (
+		  SELECT id, event_id
+		    FROM communication_deliveries
+		   WHERE status='queued'
+		     AND COALESCE(next_attempt_at, NOW()) <= NOW()
+		   ORDER BY COALESCE(next_attempt_at, created_at), created_at
+		   FOR UPDATE SKIP LOCKED
+		   LIMIT $1
+		)
+		UPDATE communication_deliveries d
+		   SET status='processing', locked_at=NOW(), locked_by=$2, updated_at=NOW()
+		  FROM candidates c
+		  JOIN communication_events e ON e.event_id=c.event_id
+		 WHERE d.id=c.id
+		 RETURNING d.id, d.event_id, e.recipient_id, d.notification_id, d.channel, d.attempts`, limit, workerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	work := make([]domain.CommunicationDeliveryWork, 0, limit)
+	for rows.Next() {
+		var item domain.CommunicationDeliveryWork
+		if err := rows.Scan(&item.ID, &item.EventID, &item.RecipientID, &item.NotificationID, &item.Channel, &item.Attempts); err != nil {
+			return nil, err
+		}
+		work = append(work, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return work, nil
+}
+
+// RecordDeliveryFailure clears the lock and leaves an explicit retry/dead
+// state. The attempt count is incremented exactly once per worker attempt.
+func (r *CommunicationRepository) RecordDeliveryFailure(ctx context.Context, id uuid.UUID, providerError string, permanent bool) error {
+	status := "failed"
+	if permanent {
+		status = "dead_letter"
+	}
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE communication_deliveries
+		   SET status=$2::text,
+		       attempts=attempts+1,
+		       provider_error=LEFT($3, 1000),
+		       next_attempt_at=CASE WHEN $2::text='failed' THEN NOW() + LEAST((INTERVAL '1 second' * power(2, attempts)), INTERVAL '5 minutes') ELSE NULL END,
+		       locked_at=NULL, locked_by=NULL, updated_at=NOW()
+		 WHERE id=$1 AND status='processing'`, id, status, strings.TrimSpace(providerError))
+	return err
 }
 
 type plannedCommunicationDelivery struct {
@@ -194,7 +291,7 @@ func (r *CommunicationRepository) Receipt(ctx context.Context, id uuid.UUID, sta
 	if status == "failed" && isPermanentProviderError(providerCode) {
 		canonicalStatus = "dead_letter"
 	}
-	result, err := r.db.ExecContext(ctx, `UPDATE communication_deliveries SET status=$1,provider_code=$2,provider_error=$3,delivered_at=CASE WHEN CAST($1 AS VARCHAR)='delivered' THEN NOW() ELSE delivered_at END,read_at=CASE WHEN CAST($1 AS VARCHAR)='read' THEN NOW() ELSE read_at END,updated_at=NOW() WHERE id=$4`, canonicalStatus, providerCode, providerErr, id)
+	result, err := r.db.ExecContext(ctx, `UPDATE communication_deliveries SET status=$1,provider_code=$2,provider_error=$3,delivered_at=CASE WHEN CAST($1 AS VARCHAR)='delivered' THEN NOW() ELSE delivered_at END,read_at=CASE WHEN CAST($1 AS VARCHAR)='read' THEN NOW() ELSE read_at END,next_attempt_at=NULL,locked_at=NULL,locked_by=NULL,updated_at=NOW() WHERE id=$4`, canonicalStatus, providerCode, providerErr, id)
 	if err != nil {
 		return err
 	}
@@ -282,7 +379,18 @@ func (r *CommunicationRepository) ListTemplates(ctx context.Context, market, loc
 	return out, rows.Err()
 }
 func (r *CommunicationRepository) DeliveryHealth(ctx context.Context) ([]map[string]any, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT channel,status,COUNT(*),COALESCE(AVG(EXTRACT(EPOCH FROM NOW()-created_at)),0),COALESCE(SUM(cost_minor),0) FROM communication_deliveries WHERE created_at>=NOW()-INTERVAL '24 hours' GROUP BY channel,status ORDER BY channel,status`)
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT channel,
+		       status,
+		       COUNT(*),
+		       COALESCE(AVG(EXTRACT(EPOCH FROM NOW()-created_at)),0),
+		       COALESCE(MAX(EXTRACT(EPOCH FROM NOW()-created_at)),0),
+		       COALESCE(SUM(cost_minor),0),
+		       COUNT(*) FILTER (WHERE status IN ('queued','processing') AND created_at < NOW()-INTERVAL '60 seconds')
+		  FROM communication_deliveries
+		 WHERE created_at>=NOW()-INTERVAL '24 hours'
+		 GROUP BY channel,status
+		 ORDER BY channel,status`)
 	if err != nil {
 		return nil, err
 	}
@@ -290,12 +398,20 @@ func (r *CommunicationRepository) DeliveryHealth(ctx context.Context) ([]map[str
 	var out []map[string]any
 	for rows.Next() {
 		var ch, st string
-		var count, cost int64
-		var age float64
-		if err := rows.Scan(&ch, &st, &count, &age, &cost); err != nil {
+		var count, cost, stale int64
+		var age, oldest float64
+		if err := rows.Scan(&ch, &st, &count, &age, &oldest, &cost, &stale); err != nil {
 			return nil, err
 		}
-		out = append(out, map[string]any{"channel": ch, "status": st, "count": count, "average_age_seconds": int64(age), "cost_minor": cost})
+		out = append(out, map[string]any{
+			"channel":             ch,
+			"status":              st,
+			"count":               count,
+			"average_age_seconds": int64(age),
+			"oldest_age_seconds":  int64(oldest),
+			"stale_count":         stale,
+			"cost_minor":          cost,
+		})
 	}
 	return out, rows.Err()
 }

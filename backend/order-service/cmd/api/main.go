@@ -256,6 +256,8 @@ func main() {
 	}
 
 	notificationSvc := service.NewNotificationService(notifRepo, tq)
+	communicationDeliveryWorker := worker.NewCommunicationDeliveryWorker(communicationRepo, notificationinfra.NewHTTPDeliveryProvider(notifRepo), os.Getenv("HOSTNAME"))
+	go communicationDeliveryWorker.Start(context.Background())
 	trackingSvc := service.NewTrackingService(trackingRepo, pgRepo, pgRepo, eb, datalakePub)
 	sosSvc := service.NewSosService(sosRepo, notificationSvc)
 
