@@ -122,6 +122,17 @@ func (h *MerchantHandler) respondJSON(w http.ResponseWriter, status int, v inter
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+func enforceMobileIndividualRegistration(r *http.Request, req *domain.RegisterMerchantRequest) error {
+	if !strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Merchant-Registration-Channel")), "android") {
+		return nil
+	}
+	if strings.TrimSpace(req.BusinessType) != "" && !strings.EqualFold(req.BusinessType, "perorangan") {
+		return errors.New("Aplikasi Merchant hanya menerima pendaftaran perorangan")
+	}
+	req.BusinessType = "perorangan"
+	return nil
+}
+
 // RegisterMerchant godoc
 // @Summary Daftarkan merchant baru
 // @Description Mendaftarkan merchant (status SUBMITTED) + dokumen KYB. Wajib ACTIVE melalui review admin sebelum operasi.
@@ -143,6 +154,13 @@ func (h *MerchantHandler) RegisterMerchant(w http.ResponseWriter, r *http.Reques
 	var req domain.RegisterMerchantRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	// The Android app is intentionally the individual-only lane. The web
+	// Portal Mitra keeps the company/PT lane, so enforce the boundary by
+	// channel instead of trusting a mutable UI selector.
+	if err := enforceMobileIndividualRegistration(r, &req); err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	m, err := h.svc.Register(r.Context(), userID, req)

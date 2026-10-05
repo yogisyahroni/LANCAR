@@ -226,7 +226,10 @@ fun AppNavHost() {
         startDestination = MerchantRoutes.LOGIN
     ) {
         composable(MerchantRoutes.LOGIN) {
-            LoginScreen(onLoginSuccess = { /* isLoggedIn flow memicu redirect */ })
+            LoginScreen(
+                onLoginSuccess = { /* isLoggedIn flow memicu redirect */ },
+                onGoToRegistration = { pendingPostLoginRoute = MerchantRoutes.REGISTRATION }
+            )
         }
 
         composable(MerchantRoutes.ONBOARDING) {

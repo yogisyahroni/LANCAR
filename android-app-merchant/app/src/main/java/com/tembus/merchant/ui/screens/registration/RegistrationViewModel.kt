@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 data class RegistrationUiState(
     val isLoading: Boolean = false,
@@ -21,11 +22,22 @@ class RegistrationViewModel(
 
     private val _uiState = MutableStateFlow(RegistrationUiState())
     val uiState: StateFlow<RegistrationUiState> = _uiState.asStateFlow()
+    private val consentAttemptId = UUID.randomUUID().toString()
 
     fun register(request: RegisterMerchantRequest) {
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
-            merchantRepository.registerMerchant(request)
+            val consents = merchantRepository.recordIndividualMerchantLegalConsents(consentAttemptId)
+            if (consents.isFailure) {
+                val e = consents.exceptionOrNull()
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = e?.message ?: "Persetujuan legal belum tercatat. Coba lagi."
+                )
+                return@launch
+            }
+
+            merchantRepository.registerMerchant(request.copy(businessType = "perorangan"))
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(isLoading = false, success = true)
                 }

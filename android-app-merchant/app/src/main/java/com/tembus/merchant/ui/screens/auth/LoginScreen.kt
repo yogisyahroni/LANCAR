@@ -1,6 +1,7 @@
 package com.tembus.merchant.ui.screens.auth
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,6 +41,7 @@ private val LoginFieldBorderFocused = Color(0xFFFF6201)
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
+    onGoToRegistration: () -> Unit,
     viewModel: LoginViewModel = viewModel(
         factory = rememberLoginViewModelFactory()
     )
@@ -185,7 +187,24 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
-                    text = "Belum punya toko?\nMasuk dengan akun TEMBUS, lalu pilih Profil › Daftar sebagai merchant.",
+                    text = "Belum punya toko?",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LoginTextSoft,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onGoToRegistration,
+                    shape = RoundedCornerShape(TembusRadius.Card),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = LoginText),
+                    border = BorderStroke(1.dp, LoginFieldBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Daftar sebagai merchant perorangan")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Masuk dengan akun TEMBUS terlebih dahulu. Setelah masuk, form pendaftaran akan dibuka otomatis.",
                     style = MaterialTheme.typography.bodySmall,
                     color = LoginTextSoft,
                     textAlign = TextAlign.Center

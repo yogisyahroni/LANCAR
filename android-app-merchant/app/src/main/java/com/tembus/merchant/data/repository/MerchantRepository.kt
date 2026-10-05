@@ -8,6 +8,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
+import java.util.UUID
 
 /**
  * MerchantRepository — semua endpoint merchant-service (profile, menu, orders, struk).
@@ -45,7 +46,54 @@ class MerchantRepository(
         request { api.deleteSpecialClosure(id) }.map { it.success }
 
     suspend fun registerMerchant(req: RegisterMerchantRequest): Result<Merchant> =
-        request { api.registerMerchant(req) }
+        request { api.registerMerchant(request = req) }
+
+    /**
+     * Records both legal consents from the active server policy. The version is
+     * deliberately resolved at submit time so a policy rotation cannot be
+     * silently accepted against a stale hard-coded contract.
+     */
+    suspend fun recordIndividualMerchantLegalConsents(
+        consentAttemptId: String = UUID.randomUUID().toString()
+    ): Result<Unit> {
+        val policy = request { api.getCompliancePolicy("id-jk") }
+            .getOrElse { return Result.failure(it) }
+        val requirements = policy.data?.requirements.orEmpty()
+        val required = listOf("merchant_terms", "merchant_privacy_notice")
+        val selected = required.map { code ->
+            requirements.firstOrNull { it.roleCode == "merchant" && it.requirementCode == code }
+                ?: return Result.failure(IllegalStateException("Persyaratan legal merchant belum tersedia"))
+        }
+
+        selected.forEach { requirement ->
+            val documentType = requirement.documentType
+                ?: return Result.failure(IllegalStateException("Dokumen legal merchant belum tersedia"))
+            val documentVersion = requirement.documentVersion
+                ?: return Result.failure(IllegalStateException("Versi dokumen legal merchant belum tersedia"))
+            val consent = request {
+                api.recordComplianceConsent(
+                    idempotencyKey = "merchant-registration-$consentAttemptId-${requirement.requirementCode}",
+                    request = ComplianceConsentRequest(
+                        marketCode = "id-jk",
+                        requirementCode = requirement.requirementCode,
+                        documentType = documentType,
+                        documentVersion = documentVersion,
+                        locale = requirement.locale,
+                        purpose = requirement.purpose,
+                        consent = true,
+                        metadata = mapOf(
+                            "source" to "merchant_android_registration",
+                            "business_type" to "perorangan"
+                        )
+                    )
+                )
+            }.getOrElse { return Result.failure(it) }
+            if (consent.data == null) {
+                return Result.failure(IllegalStateException("Persetujuan legal merchant tidak tercatat"))
+            }
+        }
+        return Result.success(Unit)
+    }
 
     suspend fun toggleOpen(isOpen: Boolean): Result<Merchant> =
         request { api.toggleOpen(ToggleOpenRequest(isOpen)) }

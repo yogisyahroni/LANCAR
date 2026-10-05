@@ -20,6 +20,7 @@ import androidx.compose.material3.*
 import com.tembus.merchant.ui.localization.MerchantText as Text
 import com.tembus.merchant.ui.localization.MerchantTextCatalog
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,8 +72,7 @@ fun RegistrationScreen(
     var sppIrtExpiry by remember { mutableStateOf("") }
     var bpomNumber by remember { mutableStateOf("") }
     var bpomExpiry by remember { mutableStateOf("") }
-    // X1/M1: jenis usaha — perorangan (tanpa staff) | perusahaan (wajib staff mgmt).
-    var businessType by remember { mutableStateOf("perorangan") }
+    var termsAccepted by rememberSaveable { mutableStateOf(false) }
 
     // FB-045: upload dokumen dari galeri — target field yang lagi di-upload
     var docUploading by remember { mutableStateOf<String?>(null) } // "ktp"|"toko"|"rekening"
@@ -201,29 +201,25 @@ fun RegistrationScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // X1/M1: pilihan jenis usaha (conditional staff management).
-            Text(
-                text = "Jenis Usaha",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = "Perusahaan wajib punya manajemen staff (kasir/dapur). Perorangan dikerjakan langsung oleh pemilik.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = businessType == "perorangan",
-                    onClick = { businessType = "perorangan" },
-                    label = { Text("Perorangan") }
-                )
-                FilterChip(
-                    selected = businessType == "perusahaan",
-                    onClick = { businessType = "perusahaan" },
-                    label = { Text("Perusahaan") }
-                )
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Pendaftaran merchant perorangan",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Form di aplikasi ini khusus pemilik usaha perorangan. Pendaftaran PT atau badan usaha dilakukan melalui Portal Mitra.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -395,6 +391,34 @@ fun RegistrationScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                Checkbox(
+                    checked = termsAccepted,
+                    onCheckedChange = { termsAccepted = it }
+                )
+                Column(modifier = Modifier.padding(top = 12.dp)) {
+                    Text(
+                        text = "Saya menyetujui Perjanjian Mitra Merchant TEMBUS dan Kebijakan Privasi.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(
+                            onClick = { openLegalDocument(context, MERCHANT_TERMS_URL) },
+                            contentPadding = PaddingValues(0.dp)
+                        ) { Text("Baca perjanjian") }
+                        TextButton(
+                            onClick = { openLegalDocument(context, PRIVACY_URL) },
+                            contentPadding = PaddingValues(0.dp)
+                        ) { Text("Baca privasi") }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
@@ -419,8 +443,8 @@ fun RegistrationScreen(
                             sppIrtExpiryDate = sppIrtExpiry.trim().ifBlank { null },
                             bpomNumber = bpomNumber.trim().ifBlank { null },
                             bpomExpiryDate = bpomExpiry.trim().ifBlank { null },
-                            // X1/M1: jenis usaha (conditional staff mgmt).
-                            businessType = businessType
+                            // Mobile registration is server-enforced as perorangan.
+                            businessType = "perorangan"
                         )
                     )
                 },
@@ -431,7 +455,8 @@ fun RegistrationScreen(
                     lokasiLng != null &&
                     ktpUrl.isNotBlank() &&
                     fotoTokoUrl.isNotBlank() &&
-                    rekeningUrl.isNotBlank(),
+                    rekeningUrl.isNotBlank() &&
+                    termsAccepted,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
@@ -450,6 +475,17 @@ fun RegistrationScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
+}
+
+private const val MERCHANT_TERMS_URL = "https://bawain.my.id/bantuan/syarat-dan-ketentuan"
+private const val PRIVACY_URL = "https://bawain.my.id/bantuan/kebijakan-privasi"
+
+private fun openLegalDocument(context: Context, url: String) {
+    ContextCompat.startActivity(
+        context,
+        Intent(Intent.ACTION_VIEW, Uri.parse(url)),
+        null
+    )
 }
 
 @Composable
@@ -471,14 +507,14 @@ private fun RegisteredSuccessContent(onDone: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Pendaftaran Terkirim!",
+            text = "Pendaftaran merchant perorangan terkirim",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Tokomu sedang menunggu verifikasi admin Tembus. Kamu akan bisa menerima pesanan setelah disetujui.",
+            text = "Data dan dokumenmu sedang diverifikasi admin Tembus. Kamu baru bisa menerima pesanan setelah statusnya disetujui.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center

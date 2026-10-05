@@ -53,7 +53,7 @@ Original requirements are in `task-merchant-web-growth-p0-p2-2026.md` under
 - Kontrak bertanggal/versioned dan snapshot order lama tidak berubah.
 - Admin dapat membuat draft, approve dengan maker-checker/TOTP, dan retire kontrak.
 - Merchant Web menampilkan tarif aktif, tarif standar, dan potongan komisi dari statement server.
-- Merchant Android mempertahankan pilihan perorangan/perusahaan dan memberi link status setelah submit.
+- Merchant Android menyediakan jalur perorangan saja, mencatat consent legal, dan memberi link status setelah submit; jalur perusahaan tetap berada di Portal Mitra.
 
 ## Scope Implemented
 
@@ -61,7 +61,7 @@ Original requirements are in `task-merchant-web-growth-p0-p2-2026.md` under
 - Merchant service exposes `GET /api/v1/merchant/commission-terms`; the repository reads the approved contract, completed food orders, cap, remaining cap, and server fallback rate from PostgreSQL.
 - Merchant Web Finance displays current/standard commission and a gross-to-net statement breakdown from the server projection.
 - Admin service validates program metadata and exposes role/TOTP/idempotent contract create/approve/retire endpoints. Admin dashboard now provides the contract-management screen.
-- Merchant Android retains the `perorangan`/`perusahaan` selector, sends `business_type` in the existing registration command, and shows a status-page CTA after a successful submit. Login copy points users to `Profil → Daftar sebagai merchant`.
+- Merchant Android now uses the individual-only registration lane and shows the status-page CTA after a successful submit. Detailed consent and channel-boundary evidence is tracked in `docs/task-evidence/MWEB-P0-012.md`.
 
 ## Files Changed
 

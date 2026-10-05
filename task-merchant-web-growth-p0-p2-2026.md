@@ -175,8 +175,9 @@ melalui Portal Mitra.
   tarif tidak boleh dihitung ulang dari frontend atau mengubah order lama.
 - Sediakan pengaturan Admin untuk membuat draft, approval maker-checker/TOTP, dan
   retire kontrak; Portal Merchant menampilkan tarif aktif dan progres program dari API.
-- Merchant Android menyediakan pendaftaran perorangan/perusahaan dengan tipe usaha,
-  dokumen, dan submit yang sudah ada; setelah submit tampilkan CTA ke
+- Merchant Android menyediakan pendaftaran **perorangan saja** dengan dokumen dan
+  persetujuan legal yang tercatat; pendaftaran PT/badan usaha tetap melalui Portal
+  Mitra web. Setelah submit tampilkan CTA ke
   `https://merchant.bawain.my.id/status` menggunakan identitas yang sama.
 - Login Merchant Android menjelaskan bahwa pendaftaran perorangan dilakukan dari
   profil aplikasi, tanpa membuat jalur web perorangan yang berbeda.
@@ -189,9 +190,41 @@ melalui Portal Mitra.
   dan potongan komisi dari statement server.
 - Admin UI tidak dapat mengubah kontrak aktif tanpa role, TOTP, idempotency key,
   approval reference, dan audit path.
-- Merchant Android dapat dikompilasi/diluncurkan, menampilkan pilihan perorangan,
-  dan menyediakan link status publik setelah submit; status tetap berasal dari Admin
-  → database → endpoint status, bukan status buatan aplikasi.
+- Merchant Android dapat dikompilasi/diluncurkan, menampilkan jalur pendaftaran
+  perorangan yang jelas, meminta persetujuan Perjanjian Mitra dan Kebijakan Privasi
+  dari policy server, serta menyediakan link status publik setelah submit; status
+  tetap berasal dari Admin → database → endpoint status, bukan status buatan aplikasi.
+
+### MWEB-P0-012 — Pendaftaran merchant perorangan end-to-end di aplikasi
+
+**Tujuan:** pemilik usaha perorangan dapat memulai pendaftaran dari aplikasi
+Merchant tanpa tersesat ke jalur PT, dengan legal consent yang versioned dan
+status yang dapat dilacak melalui Portal Mitra.
+
+**Ruang lingkup:**
+
+- Tampilkan CTA `Daftar sebagai merchant perorangan` di layar login. Karena
+  endpoint pendaftaran memakai akun TEMBUS yang terautentikasi, CTA menyimpan
+  tujuan dan membuka form setelah login atau onboarding selesai.
+- Hilangkan pemilih `perusahaan` dari form mobile. Backend menegakkan kanal
+  Android sebagai `business_type=perorangan`, sedangkan Portal Mitra tetap menjadi
+  jalur perusahaan/PT.
+- Sebelum submit, ambil requirement legal aktif dari policy server dan catat
+  persetujuan append-only untuk `merchant_terms` dan `merchant_privacy_notice`
+  memakai versi yang dikembalikan server, bukan versi hardcode di aplikasi.
+- Wajibkan data toko, lokasi, KTP, foto tempat usaha, rekening, dan checkbox
+  persetujuan. Setelah submit, tampilkan hasil `SUBMITTED` dan link status publik.
+
+**Acceptance criteria:**
+
+- CTA daftar terlihat di login dan tidak membuat request pendaftaran sebelum akun
+  TEMBUS berhasil masuk.
+- Payload perusahaan dari kanal Android ditolak server; payload portal perusahaan
+  tidak berubah.
+- Submit hanya dapat dilanjutkan setelah dua consent legal tercatat dan semua
+  dokumen inti tersedia.
+- Pendaftaran berhasil masuk ke lifecycle merchant yang sudah ada dan halaman
+  sukses mengarahkan pengguna ke `/status`.
 
 ---
 

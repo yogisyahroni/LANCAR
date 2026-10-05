@@ -86,8 +86,22 @@ interface TEMBUSApiService {
 
     @POST("api/v1/merchant/register")
     suspend fun registerMerchant(
+        @Header("X-Merchant-Registration-Channel") registrationChannel: String = "android",
         @Body request: RegisterMerchantRequest
     ): Response<Merchant>
+
+    /** Active legal requirements are server-owned; the app never invents versions. */
+    @GET("api/v1/compliance/policy")
+    suspend fun getCompliancePolicy(
+        @Query("market_code") marketCode: String
+    ): Response<CompliancePolicyEnvelope>
+
+    /** Append-only legal consent, protected by an idempotency key. */
+    @POST("api/v1/compliance/consents")
+    suspend fun recordComplianceConsent(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: ComplianceConsentRequest
+    ): Response<ComplianceConsentEnvelope>
 
     @POST("api/v1/merchant/toggle-open")
     suspend fun toggleOpen(
