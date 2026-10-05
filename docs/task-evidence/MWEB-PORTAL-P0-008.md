@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: WORKTREE-2026-10-05
+implementation_ref: 658e971e
 
 tests: PASS
 integration: PARTIAL
