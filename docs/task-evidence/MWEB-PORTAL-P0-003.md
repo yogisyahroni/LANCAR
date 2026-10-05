@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: 5313cba4
+implementation_ref: f01c67dd
 
 tests: PASS
 integration: NOT_RUN
