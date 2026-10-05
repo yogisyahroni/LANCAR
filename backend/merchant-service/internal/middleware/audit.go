@@ -94,12 +94,13 @@ func (r *SQLMutationAuditRecorder) RecordMutation(ctx context.Context, event Mut
 	}
 
 	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (actor_id, action, target_id, payload, created_at)
-		VALUES ($1, $2, $3, $4, NOW())`,
+		INSERT INTO audit_logs (actor_id, action, target_id, payload, merchant_id, created_at)
+		VALUES ($1, $2, $3, $4, $5, NOW())`,
 		actorID,
 		strings.TrimSpace(event.Action),
 		targetID,
 		string(payload),
+		tenantID,
 	)
 	if err != nil {
 		return fmt.Errorf("persist merchant audit event: %w", err)

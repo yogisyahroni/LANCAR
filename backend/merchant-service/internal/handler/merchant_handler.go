@@ -95,6 +95,9 @@ func merchantPermissionForRequest(r *http.Request) int {
 	if strings.Contains(path, "/integrations") {
 		return domain.PermViewStore
 	}
+	if strings.Contains(path, "/audit-logs") {
+		return domain.PermManageStaff
+	}
 	return 0
 }
 

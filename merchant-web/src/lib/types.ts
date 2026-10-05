@@ -103,6 +103,23 @@ export interface MerchantNotification {
   created_at: string
 }
 
+export interface MerchantAuditEntry {
+  id: string
+  actor_id: string
+  actor_role?: string
+  action: string
+  resource?: string
+  object_id?: string
+  target_id?: string
+  outlet_id?: string
+  result: string
+  failure_reason?: string
+  status?: number
+  correlation_id?: string
+  request_id?: string
+  created_at: string
+}
+
 export type MerchantSupportCaseStatus =
   | 'open'
   | 'investigating'

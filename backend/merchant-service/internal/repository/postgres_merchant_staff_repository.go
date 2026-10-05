@@ -22,14 +22,15 @@ func NewPostgresMerchantStaffRepository(db, readDB *sql.DB) domain.StaffReposito
 	return &postgresMerchantStaffRepository{db: db, readDB: readDB}
 }
 
-const staffColumns = `id, merchant_id, user_id, role, invite_token, invited_by, status, permissions, created_at, updated_at`
+const staffColumns = `id, merchant_id, user_id, role, invite_token, invited_by, status, permissions, created_at, updated_at, invite_email, invite_phone, invite_expires_at, invite_attempts, invite_last_attempt_at, accepted_at`
 
 func scanStaff(row interface{ Scan(...any) error }) (*domain.MerchantStaff, error) {
 	var s domain.MerchantStaff
-	var uid, invitedBy sql.NullString
+	var uid, invitedBy, inviteEmail, invitePhone sql.NullString
+	var inviteExpiresAt, inviteLastAttemptAt, acceptedAt sql.NullTime
 	err := row.Scan(
 		&s.ID, &s.MerchantID, &uid, &s.Role, &s.InviteToken, &invitedBy, &s.Status, &s.Permissions,
-		&s.CreatedAt, &s.UpdatedAt,
+		&s.CreatedAt, &s.UpdatedAt, &inviteEmail, &invitePhone, &inviteExpiresAt, &s.InviteAttempts, &inviteLastAttemptAt, &acceptedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -41,22 +42,84 @@ func scanStaff(row interface{ Scan(...any) error }) (*domain.MerchantStaff, erro
 	if invitedBy.Valid {
 		s.InvitedBy = invitedBy.String
 	}
+	if inviteEmail.Valid {
+		s.InviteEmail = inviteEmail.String
+	}
+	if invitePhone.Valid {
+		s.InvitePhone = invitePhone.String
+	}
+	if inviteExpiresAt.Valid {
+		s.InviteExpiresAt = inviteExpiresAt.Time
+	}
+	if inviteLastAttemptAt.Valid {
+		value := inviteLastAttemptAt.Time
+		s.InviteLastAttemptAt = &value
+	}
+	if acceptedAt.Valid {
+		value := acceptedAt.Time
+		s.AcceptedAt = &value
+	}
 	return &s, nil
 }
 
 // Create — simpan undangan baru (status pending).
 func (r *postgresMerchantStaffRepository) Create(ctx context.Context, s *domain.MerchantStaff) error {
 	query := `INSERT INTO merchant_staff
-		(merchant_id, user_id, role, invite_token, invited_by, status, permissions)
-		VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+		(merchant_id, user_id, role, invite_token, invited_by, status, permissions, invite_email, invite_phone, invite_expires_at)
+		VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, $8, $9)
 		RETURNING id, created_at, updated_at`
 	err := r.db.QueryRowContext(ctx, query,
-		s.MerchantID, nullableString(s.UserID), s.Role, s.InviteToken, s.InvitedBy, s.Permissions,
+		s.MerchantID, nullableString(s.UserID), s.Role, s.InviteToken, s.InvitedBy, s.Permissions, nullableInviteText(s.InviteEmail), nullableInviteText(s.InvitePhone), s.InviteExpiresAt,
 	).Scan(&s.ID, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("insert staff: %w", err)
 	}
 	return nil
+}
+
+// AcceptInvite atomically checks expiry/rate-limit and binds the invite to the
+// authenticated user. The row lock prevents two devices from consuming the
+// same invitation successfully.
+func (r *postgresMerchantStaffRepository) AcceptInvite(ctx context.Context, token, userID string) (*domain.MerchantStaff, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin staff invite acceptance: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	row := tx.QueryRowContext(ctx, `SELECT `+staffColumns+` FROM merchant_staff WHERE invite_token = $1 FOR UPDATE`, token)
+	st, err := scanStaff(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, errors.New("undangan tidak ditemukan")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("load staff invite: %w", err)
+	}
+	now := time.Now().UTC()
+	if st.Status != string(domain.StaffStatusPending) {
+		return nil, errors.New("undangan sudah digunakan atau dicabut")
+	}
+	if !st.InviteExpiresAt.IsZero() && !now.Before(st.InviteExpiresAt) {
+		_, _ = tx.ExecContext(ctx, `UPDATE merchant_staff SET status = 'revoked', updated_at = NOW() WHERE id = $1`, st.ID)
+		return nil, errors.New("undangan sudah kedaluwarsa")
+	}
+	if st.InviteLastAttemptAt != nil && now.Sub(*st.InviteLastAttemptAt) < 15*time.Minute && st.InviteAttempts >= 5 {
+		return nil, errors.New("terlalu banyak percobaan menerima undangan; coba lagi setelah beberapa saat")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE merchant_staff SET invite_attempts = CASE WHEN invite_last_attempt_at IS NULL OR invite_last_attempt_at < NOW() - INTERVAL '15 minutes' THEN 1 ELSE invite_attempts + 1 END, invite_last_attempt_at = NOW(), updated_at = NOW() WHERE id = $1`, st.ID); err != nil {
+		return nil, fmt.Errorf("record staff invite attempt: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE merchant_staff SET user_id = $2, status = 'active', accepted_at = NOW(), updated_at = NOW() WHERE id = $1 AND status = 'pending'`, st.ID, userID); err != nil {
+		return nil, fmt.Errorf("activate staff invite: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit staff invite acceptance: %w", err)
+	}
+	st.UserID = &userID
+	st.Status = string(domain.StaffStatusActive)
+	acceptedAt := now
+	st.AcceptedAt = &acceptedAt
+	return st, nil
 }
 
 // ListByMerchant — semua staff toko (termasuk pending/revoked).
@@ -196,6 +259,13 @@ func nullableString(s *string) any {
 		return nil
 	}
 	return *s
+}
+
+func nullableInviteText(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
 }
 
 // Ensure time import used (ke depan bisa dipakai untuk audit).

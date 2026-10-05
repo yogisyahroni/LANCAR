@@ -110,17 +110,23 @@ func (s *MerchantStaff) HasPermission(p int) bool {
 
 // MerchantStaff — satu record staff toko (corporate only).
 type MerchantStaff struct {
-	ID          string    `json:"id"`
-	MerchantID  string    `json:"merchant_id"`
-	UserID      *string   `json:"user_id,omitempty"` // NULL sampai accept invite
-	Role        string    `json:"role"`
-	InviteToken string    `json:"-"` // tidak pernah dikirim ke client response list
-	InvitedBy   string    `json:"-"` // diisi service
-	Status      string    `json:"status"`
-	Permissions int       `json:"permissions"`
-	BranchIDs   []string  `json:"branch_ids,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID                  string     `json:"id"`
+	MerchantID          string     `json:"merchant_id"`
+	UserID              *string    `json:"user_id,omitempty"` // NULL sampai accept invite
+	Role                string     `json:"role"`
+	InviteToken         string     `json:"-"` // tidak pernah dikirim ke client response list
+	InvitedBy           string     `json:"-"` // diisi service
+	Status              string     `json:"status"`
+	Permissions         int        `json:"permissions"`
+	BranchIDs           []string   `json:"branch_ids,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
+	InviteEmail         string     `json:"-"`
+	InvitePhone         string     `json:"-"`
+	InviteExpiresAt     time.Time  `json:"-"`
+	InviteAttempts      int        `json:"-"`
+	InviteLastAttemptAt *time.Time `json:"-"`
+	AcceptedAt          *time.Time `json:"-"`
 	// Field denormalisasi untuk response (diisi service, bukan DB):
 	StaffName  *string `json:"staff_name,omitempty"`
 	StaffEmail *string `json:"staff_email,omitempty"`
@@ -209,6 +215,13 @@ type StaffRepository interface {
 	GetActiveByUser(ctx context.Context, userID string) (*MerchantStaff, error)
 	// SetUserRole set role user (dipakai saat staff accept invite → 'merchant_staff').
 	SetUserRole(ctx context.Context, userID, role string) error
+}
+
+// InviteAcceptanceRepository provides an atomic, rate-limited invite claim.
+// It is optional at the interface boundary for backwards-compatible test
+// doubles, but the PostgreSQL implementation always provides it.
+type InviteAcceptanceRepository interface {
+	AcceptInvite(ctx context.Context, token, userID string) (*MerchantStaff, error)
 }
 
 // StaffListResult carries the staff rows and the requester's effective

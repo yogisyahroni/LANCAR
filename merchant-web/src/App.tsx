@@ -12,6 +12,7 @@ import Promo from './pages/Promo'
 import Reports from './pages/Reports'
 import Settlements from './pages/Settlements'
 import Staff from './pages/Staff'
+import Audit from './pages/Audit'
 import Integrations from './pages/Integrations'
 import Reviews from './pages/Reviews'
 import Support from './pages/Support'
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/laporan" element={<Reports />} />
         <Route path="/settlement" element={<Settlements />} />
         <Route path="/staff" element={<Staff />} />
+        <Route path="/audit" element={<Audit />} />
         <Route path="/outlet" element={<Outlets />} />
         <Route path="/integrasi" element={<Integrations />} />
         <Route path="/ulasan" element={<Reviews />} />

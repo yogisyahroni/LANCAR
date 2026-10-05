@@ -110,6 +110,7 @@ func main() {
 	reportRepo := repository.NewPostgresReportRepository(db, db)
 	staffRepo := repository.NewPostgresMerchantStaffRepository(db, db)
 	accessRepo := repository.NewPostgresMerchantAccessRepository(db, db)
+	auditRepo := repository.NewPostgresMerchantAuditRepository(db)
 	integrationRepo := repository.NewPostgresMerchantIntegrationRepository(db)
 	svc := service.NewMerchantServiceWithGovernance(merchantRepo, menuRepo, orderRepo, reportRepo, accessRepo, menuRepo, integrationRepo)
 	staffSvc := service.NewStaffService(merchantRepo, staffRepo, infrastructure.NewStaffNotifier(), accessRepo)
@@ -119,6 +120,7 @@ func main() {
 	h := handler.NewMerchantHandler(svc, uploadSvc, integrationRepo)
 	staffH := handler.NewStaffHandler(h, staffSvc)
 	accessH := handler.NewMerchantAccessHandler(h, accessSvc)
+	auditH := handler.NewMerchantAuditHandler(h, auditRepo, accessSvc)
 	searchH := handler.NewMerchantSearchHandler(h, searchSvc)
 
 	// FB-099: promo merchant self-serve (dibiayai merchant, bukan duit PT)
@@ -339,6 +341,7 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/device-sessions/{id}/{sessionId}", withAudit(accessH.RevokeDeviceSession))
 	mux.HandleFunc("/api/v1/merchant/security-approvals/{id}", withAudit(accessH.CreateSecurityApproval))
 	mux.HandleFunc("/api/v1/merchant/security-approvals/{id}/{approvalId}/approve", withAudit(accessH.ApproveSecurityApproval))
+	mux.HandleFunc("/api/v1/merchant/audit-logs", withAudit(auditH.List))
 
 	// ── Staff Management (M1, CORPORATE ONLY) ──
 	// NOTE: route di-namespaced ke /merchant/staff/{id} (bukan /merchant/{id}/staff)

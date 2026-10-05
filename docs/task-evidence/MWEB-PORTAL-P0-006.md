@@ -7,18 +7,18 @@ implementation_ref: WORKTREE-2026-10-05
 tests: PASS
 integration: PASS
 e2e: NOT_RUN
-migration: N/A
-migration_na_reason: "Existing merchant_staff, permission mask, branch assignment, and device session schema is reused."
+migration: PASS
+migration_na_reason: NONE
 observability: PARTIAL
 security_privacy: PARTIAL
 rollback_recovery: PARTIAL
 task_scope_external_proof_required: true
 external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
-release_followups: "Invite acceptance, MFA/step-up, audit viewer/export, and staging authorization matrix remain deferred."
-unproven_requirements: "Invite token acceptance/expiry/rate-limit E2E, MFA/step-up, session/device lifecycle proof, audit viewer/export, separation of duties, and complete API authorization matrix."
+release_followups: "MFA/step-up, separation of duties, and staging authorization matrix remain deferred."
+unproven_requirements: "Invite acceptance runtime/E2E proof, MFA/step-up, session/device lifecycle proof, separation of duties, and complete API authorization matrix."
 known_blockers: NONE
-locally_actionable_remaining: "Add invite lifecycle UI/verification, audit viewer/export, and focused authorization tests for every staff capability and branch scope."
+locally_actionable_remaining: "Add MFA/step-up integration, separation-of-duties rules, and focused authorization tests for every staff capability and branch scope."
 blocker_resolution_attempts: NONE
 unblock_condition: NONE
 owner_action_required: false
@@ -43,11 +43,22 @@ updated_at: 2026-10-05
 - New invitations require at least one active outlet and send the selected branch scope to the existing server-side invite endpoint.
 - Staff changes persist role/permissions and branch assignments through separate authorized API commands; revoke/activate remains server-side.
 - Individual merchants remain blocked from staff management by both capability filtering and page guard.
+- Added an append-only merchant audit scope column and index; new mutation events persist the resolved merchant tenant server-side.
+- Added `GET /merchant/audit-logs` with owner/manager authorization, outlet scoping, redacted response fields, and CSV export.
+- Added the Portal `Riwayat aktivitas` page, limited to the corporate staff-management capability.
+- Added a seven-day invite expiry, persisted invite contact metadata, acceptance-attempt tracking, and atomic row-locked acceptance with a five-attempt/15-minute guard.
 
 ## Files Changed
 
 - `merchant-web/src/pages/Staff.tsx` — invite, role, permission, outlet assignment, revoke/activate UI.
+- `merchant-web/src/pages/Audit.tsx` — tenant/outlet-scoped activity timeline and CSV export.
 - `merchant-web/src/lib/types.ts` — staff permission and branch-scope response fields.
+- `backend/merchant-service/internal/domain/audit.go` — redacted audit contract.
+- `backend/merchant-service/internal/repository/postgres_merchant_audit_repository.go` — tenant/outlet-scoped query.
+- `backend/merchant-service/internal/handler/merchant_audit_handler.go` — authorization, pagination, and CSV response.
+- `database/migrations/20261005000004_merchant_audit_scope.sql` — merchant scope/index for audit rows.
+- `database/migrations/20261005000005_merchant_staff_invite_hardening.sql` — invite expiry, attempts, and acceptance metadata.
+- `backend/merchant-service/internal/middleware/audit.go` — persist resolved merchant scope on new events.
 - `TASKS.md` — current implementation and remaining requirements.
 
 ## Commands / Checks Run
@@ -58,8 +69,14 @@ updated_at: 2026-10-05
     command: npm run lint (merchant-web)
     result: PASS — 0 errors; non-blocking existing effect warnings remain.
 
-    command: authenticated GET /api/v1/merchant/staff/{merchant_id}
-    result: PASS — local Docker API returned real staff roles, permission masks, and branch_ids.
+    command: goose -dir database/migrations postgres "postgres://postgres:1234@localhost:6432/tembus_session?sslmode=disable" up
+    result: PASS — migration 20261005000004_merchant_audit_scope.sql applied to the local PgBouncer database.
+
+    command: goose -dir database/migrations postgres "postgres://postgres:1234@localhost:6432/tembus_session?sslmode=disable" up
+    result: PASS — migration 20261005000005_merchant_staff_invite_hardening.sql applied to the local PgBouncer database.
+
+    command: go test ./... (backend/merchant-service)
+    result: PASS — merchant service packages, handlers, repositories, middleware, and API route contract compiled and passed.
 
 ## Task-Local Verification
 
@@ -73,25 +90,25 @@ Evidence: Merchant Web build/lint and local staff API response passed.
 
 Status: PASS
 
-Evidence: UI calls existing server-side invite/update/branch-assignment endpoints; local API exposes the fields needed for the UI.
+Evidence: UI calls existing server-side invite/update/branch-assignment endpoints and the new scoped audit endpoint; local migration and service tests passed.
 
 ### E2E
 
 Status: NOT_RUN
 
-Evidence: Invite acceptance, revoked-session rejection, cross-outlet authorization, and manual unauthorized request tests remain.
+Evidence: Invite acceptance, revoked-session rejection, cross-outlet authorization, audit export runtime, and manual unauthorized request tests remain; the atomic acceptance path is covered by compile/service integration wiring but not yet exercised in staging.
 
 ### Security / Privacy
 
 Status: PARTIAL
 
-Evidence: Corporate-only, owner/manager server guards, permission validation, and branch ownership checks exist; full capability matrix, token expiry/rate-limit, MFA, and audit evidence remain.
+Evidence: Corporate-only, owner/manager server guards, permission validation, branch ownership checks, redacted tenant/outlet-scoped audit reads, and server-side invite expiry/rate limiting exist; MFA and full capability matrix remain.
 
 ### Rollback / Recovery
 
 Status: PARTIAL
 
-Evidence: Role/status/branch updates are reversible server commands; invite replay, permission rollback audit, and session recovery are not yet proven.
+Evidence: Role/status/branch updates and audit export are server commands; invite replay, permission rollback recovery, and session recovery are not yet proven.
 
 ## External Runtime / Release Validation
 
@@ -99,9 +116,9 @@ Status: NOT_RUN — local Docker only; staging and production are deferred.
 
 ## Reality Gate Evaluation
 
-- `REALITY-2026-003`: PARTIAL — staff UI and server wiring exist, but original identity/audit/security criteria remain.
+- `REALITY-2026-003`: PARTIAL — staff UI and tenant-scoped audit wiring exist, but invite hardening and runtime authorization proof remain.
 - `REALITY-2026-011`: PASS — unproven authorization and staging scenarios are explicitly recorded.
 
 ## Unproven / Remaining
 
-Invite acceptance lifecycle, MFA/step-up, audit viewer/export, separation of duties, and complete authorization matrix.
+Invite acceptance proof, MFA/step-up, separation of duties, and complete authorization matrix.

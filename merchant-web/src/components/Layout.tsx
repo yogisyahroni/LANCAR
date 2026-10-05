@@ -18,6 +18,7 @@ const NAV = [
   { to: '/dukungan', label: 'Dukungan', icon: LifeBuoy, capability: 'view_store' },
   { to: '/settlement', label: 'Settlement', icon: Banknote, capability: 'view_reports' },
   { to: '/staff', label: 'Staff', icon: Users, capability: 'manage_staff' },
+  { to: '/audit', label: 'Riwayat aktivitas', icon: ClipboardList, capability: 'manage_staff' },
   { to: '/outlet', label: 'Outlet', icon: Store, capability: 'manage_branch' },
   { to: '/integrasi', label: 'Integrasi', icon: PlugZap, capability: 'view_store' },
   { to: '/pengaturan', label: 'Pengaturan', icon: Settings, capability: 'view_store' },

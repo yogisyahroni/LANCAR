@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"tembus/merchant-service/internal/domain"
 )
@@ -71,12 +72,15 @@ func (s *staffServiceImpl) Invite(ctx context.Context, ownerUserID, merchantID s
 	}
 	role := domain.NormalizeStaffRole(req.Role)
 	staff := &domain.MerchantStaff{
-		MerchantID:  merchantID,
-		Role:        string(role),
-		InviteToken: token,
-		InvitedBy:   ownerUserID,
-		Status:      string(domain.StaffStatusPending),
-		Permissions: domain.DefaultPermissionsForRole(role),
+		MerchantID:      merchantID,
+		Role:            string(role),
+		InviteToken:     token,
+		InvitedBy:       ownerUserID,
+		Status:          string(domain.StaffStatusPending),
+		Permissions:     domain.DefaultPermissionsForRole(role),
+		InviteEmail:     req.Email,
+		InvitePhone:     req.Phone,
+		InviteExpiresAt: time.Now().UTC().Add(7 * 24 * time.Hour),
 	}
 	if err := s.staffRepo.Create(ctx, staff); err != nil {
 		return nil, err
@@ -180,6 +184,17 @@ func (s *staffServiceImpl) ListStaff(ctx context.Context, requesterUserID, merch
 
 // AcceptInvite — staff menerima undangan → user_id diset, status active, role merchant_staff.
 func (s *staffServiceImpl) AcceptInvite(ctx context.Context, userID, token string) (*domain.MerchantStaff, error) {
+	if atomicRepo, ok := s.staffRepo.(domain.InviteAcceptanceRepository); ok {
+		st, err := atomicRepo.AcceptInvite(ctx, token, userID)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.staffRepo.SetUserRole(ctx, userID, "merchant_staff"); err != nil {
+			_ = s.staffRepo.UpdateStatus(ctx, st.ID, string(domain.StaffStatusRevoked))
+			return nil, fmt.Errorf("set staff user role: %w", err)
+		}
+		return st, nil
+	}
 	st, err := s.staffRepo.GetByToken(ctx, token)
 	if err != nil {
 		return nil, err
@@ -189,6 +204,10 @@ func (s *staffServiceImpl) AcceptInvite(ctx context.Context, userID, token strin
 	}
 	if st.Status != string(domain.StaffStatusPending) {
 		return nil, errors.New("undangan sudah digunakan atau dicabut")
+	}
+	if !st.InviteExpiresAt.IsZero() && !time.Now().UTC().Before(st.InviteExpiresAt) {
+		_ = s.staffRepo.UpdateStatus(ctx, st.ID, string(domain.StaffStatusRevoked))
+		return nil, errors.New("undangan sudah kedaluwarsa")
 	}
 	if err := s.staffRepo.SetUserAndActivate(ctx, st.ID, userID); err != nil {
 		return nil, err
