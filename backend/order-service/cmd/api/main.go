@@ -598,11 +598,11 @@ func main() {
 	mux.HandleFunc("/api/v1/food/favorites/check/{id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CheckIsFavoriteMerchant)))
 
 	// FOOD-2026-007: item unavailable + substitution flow
-	mux.HandleFunc("/api/v1/food/orders/{order_id}/item-unavailable", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ReportFoodItemUnavailable)))
-	mux.HandleFunc("/api/v1/food/orders/{order_id}/substitution", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ProposeFoodSubstitution)))
-	mux.HandleFunc("/api/v1/internal/food/orders/{order_id}/substitution", middleware.BaseChain(orderHandler.ProposeFoodSubstitutionInternal))
+	mux.HandleFunc("/api/v1/food/orders/{order_id}/item-unavailable", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "food.item_unavailable", orderHandler.ReportFoodItemUnavailable))))
+	mux.HandleFunc("/api/v1/food/orders/{order_id}/substitution", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "food.substitution.propose", orderHandler.ProposeFoodSubstitution))))
+	mux.HandleFunc("/api/v1/internal/food/orders/{order_id}/substitution", middleware.BaseChain(middleware.RequireIdempotencyKey(writeDB, "food.substitution.propose.internal", orderHandler.ProposeFoodSubstitutionInternal)))
 	mux.HandleFunc("/api/v1/food/orders/{order_id}/substitutions", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetPendingSubstitutionProposals)))
-	mux.HandleFunc("/api/v1/food/substitutions/{proposal_id}/decision", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.DecideFoodSubstitution)))
+	mux.HandleFunc("/api/v1/food/substitutions/{proposal_id}/decision", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "food.substitution.decision", orderHandler.DecideFoodSubstitution))))
 
 	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.GetOrder))))
 	mux.HandleFunc("/api/v1/orders/reorder-info", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.ReorderCheck))))

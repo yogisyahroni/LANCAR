@@ -152,7 +152,7 @@ export default function Orders() {
         original_menu_item_id: originalMenuItemId,
         replacement_menu_item_id: replacementMenuItemId,
         reason,
-      })
+      }, { headers: { 'Idempotency-Key': crypto.randomUUID() } })
       toast.success('Usulan pengganti dikirim — menunggu persetujuan pelanggan')
       await load()
     } catch (err) {

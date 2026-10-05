@@ -1831,6 +1831,14 @@ func (h *MerchantHandler) ProposeFoodSubstitution(w http.ResponseWriter, r *http
 		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
 		return
 	}
+	req.IdempotencyKey = strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if req.IdempotencyKey == "" {
+		req.IdempotencyKey = strings.TrimSpace(r.Header.Get("X-Idempotency-Key"))
+	}
+	if len(req.IdempotencyKey) < 12 || len(req.IdempotencyKey) > 160 {
+		h.respondError(w, http.StatusBadRequest, "Idempotency-Key wajib 12-160 karakter")
+		return
+	}
 	proposal, err := h.svc.ProposeFoodSubstitution(r.Context(), userID, orderID, req)
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, err.Error())

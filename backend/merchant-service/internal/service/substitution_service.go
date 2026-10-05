@@ -53,6 +53,7 @@ func (s *merchantServiceImpl) ProposeFoodSubstitution(ctx context.Context, userI
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Internal-Api-Key", os.Getenv("INTERNAL_API_KEY"))
 	req.Header.Set("X-Merchant-ID", m.ID)
+	req.Header.Set("Idempotency-Key", input.IdempotencyKey)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("order-service substitution unavailable: %w", err)

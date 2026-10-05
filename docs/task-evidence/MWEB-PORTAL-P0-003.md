@@ -5,7 +5,7 @@ status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
 
-implementation_ref: f01c67dd
+implementation_ref: WORKTREE-2026-10-05-substitution-http-idempotency
 
 tests: PASS
 integration: NOT_RUN
@@ -65,6 +65,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - Merchant Web kini mengambil katalog aktif dari database untuk memilih item pengganti dan mengirim proposal substitution melalui merchant-service ke internal order-service. Customer decision tetap authoritative di order-service; portal tidak menerima harga dari client.
 - Existing reject/refund item flow tetap dipakai dan tidak diganti dengan mock atau angka hardcode.
 - Resolusi substitution memakai migration `20261005000001`, row lock, guard `resolved = false`, dan unique pending-item index agar keputusan customer tidak dapat diproses dua kali.
+- Mutation HTTP item-unavailable, proposal, dan keputusan customer sekarang memakai `RequireIdempotencyKey` berbasis PostgreSQL; proxy Merchant Web meneruskan key yang sama ke internal order-service sehingga retry payload yang sama dapat direplay tanpa membuat command kedua.
 - Merchant Web order list/detail di-refresh melalui realtime event dan polling fallback sehingga perubahan server dapat masuk kembali setelah reconnect.
 - Merchant cancellation setelah order diterima (preparing/searching/accepted/picking_up) sekarang melewati endpoint internal order-service. Ownership merchant diverifikasi ulang terhadap order canonical; state machine memutuskan kelayakan, lalu refund policy, pelepasan courier leg, audit event, inventory release, dan tip refund tetap berada di order-service.
 - Merchant rejection pada status `pending_merchant` sekarang memakai boundary internal yang sama; structured `reject_reason` dan `charge_cancellation_fee_to=merchant` ikut masuk ke request canonical sehingga transition, audit, refund penuh, pelepasan stok/leg, dan fee merchant tidak lagi terpecah dalam update langsung + worker refund terpisah.
@@ -81,6 +82,7 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 - `backend/order-service/internal/handler/internal_merchant_order_handler.go`, `backend/order-service/internal/service/order_read.go`, dan `backend/order-service/cmd/api/main.go` — internal merchant-cancel boundary dengan API key, ownership check, canonical transition, dan reason refund.
 - `backend/order-service/internal/domain/order_transition.go`, `internal/repository/postgres_order_transition_repository.go`, dan `internal/service/order_read.go` — policy fee/reject reason ikut ditulis dalam transaksi lifecycle canonical.
 - `backend/merchant-service/internal/service/substitution_service.go`, domain/handler/routes — authenticated portal proxy untuk proposal substitution.
+- `backend/order-service/cmd/api/main.go`, `backend/merchant-service/internal/domain/requests.go`, `backend/merchant-service/internal/handler/merchant_handler.go`, `backend/merchant-service/internal/service/substitution_service.go`, dan `merchant-web/src/pages/Orders.tsx` — HTTP idempotency untuk command substitution/item-unavailable serta forwarding key portal.
 - `backend/merchant-service/internal/domain/merchant_service.go`, `internal/service/merchant_service.go`, `internal/handler/merchant_handler.go`, dan `cmd/api/main.go` — cancel capability, route, friendly error mapping, dan permission boundary.
 - `merchant-web/src/pages/Orders.tsx`, `merchant-web/src/components/OrderCard.tsx`, `merchant-web/src/components/StatusBadge.tsx` — aksi pembatalan dengan alasan wajib, idempotency key, dan canonical `cancelled` tab.
 - `TASKS.md`, `task-merchant-web-growth-p0-p2-2026.md` — record owner-approved feature-first sequencing and active work.
@@ -137,6 +139,21 @@ Original requirements from `task-merchant-web-growth-p0-p2-2026.md`:
 
     command: git diff --check
     result: PASS
+
+    command: go test ./... (working directory backend/order-service)
+    result: PASS — seluruh package order-service tetap lulus setelah route idempotency dipasang.
+
+    command: go test ./... (working directory backend/merchant-service)
+    result: PASS — seluruh package merchant-service tetap lulus setelah proxy key ditambahkan.
+
+    command: go build ./... (working directory backend/order-service dan backend/merchant-service)
+    result: PASS
+
+    command: VITE_API_URL=https://api.bawain.my.id/api/v1 VITE_WS_URL=wss://api.bawain.my.id VITE_SOCKET_URL=https://api.bawain.my.id npm run build && npm run lint (working directory merchant-web)
+    result: PASS — build/lint lulus; lint hanya melaporkan 17 warning existing dan 0 error.
+
+    command: docker compose up -d --build --no-deps order-service merchant-service merchant-web; HTTP GET localhost health endpoints
+    result: PASS — ketiga image rebuild dan order=200, merchant=200, web=200.
 
 ## Task-Local Verification
 

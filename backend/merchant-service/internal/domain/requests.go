@@ -230,6 +230,8 @@ type ProposeMerchantSubstitutionRequest struct {
 	OriginalMenuItemID    string `json:"original_menu_item_id"`
 	ReplacementMenuItemID string `json:"replacement_menu_item_id"`
 	Reason                string `json:"reason,omitempty"`
+	// IdempotencyKey is transport metadata and is never sent as business data.
+	IdempotencyKey string `json:"-"`
 }
 
 type MerchantSubstitutionProposal struct {
