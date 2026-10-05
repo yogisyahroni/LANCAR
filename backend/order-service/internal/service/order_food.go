@@ -223,6 +223,10 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		return nil, fmt.Errorf("minimum order di toko ini Rp %d — subtotal kamu Rp %d",
 			merchant.MinOrderIDR, subtotal)
 	}
+	merchantPromoDiscount, err := computeFoodMerchantPromoDiscount(ctx, s.foodRepo, req.MerchantID, foodOrderItemPromoLines(orderItems), time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("calculate merchant promo: %w", err)
+	}
 	if merchant.BusyUntil != nil && merchant.BusyUntil.After(time.Now()) {
 		maxPrep += merchant.BusyExtraPrepMinutes
 	}
@@ -304,7 +308,7 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	if taxMinor == 0 && taxSnapshot.Currency == "IDR" {
 		taxMinor = taxSnapshot.PPNIDR
 	}
-	total := subtotal + deliveryFee + platformFee + taxMinor
+	total := subtotal + deliveryFee + platformFee + taxMinor - merchantPromoDiscount
 
 	// 6b. FB-078: apply voucher diskon (kalau ada) — zero-trust server-side.
 	// Base diskon = subtotal + deliveryFee (platform fee tidak boleh kena diskon).
@@ -327,6 +331,7 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		total -= voucherDiscount
 		voucherUsage = vres
 	}
+	discount := merchantPromoDiscount + voucherDiscount
 	if total != foodQuote.TotalPriceIDR {
 		return nil, &domain.RequoteRequiredError{
 			QuoteID: foodQuote.QuoteID, CurrentTotal: total,
@@ -404,14 +409,15 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		BasePriceMinor:       subtotal,
 		DistanceFeeMinor:     deliveryFee,
 		DynamicPriceMinor:    subtotal,
-		DiscountMinor:        voucherDiscount,
+		DiscountMinor:        discount,
 		PlatformFeeMinor:     platformFee,
 		TotalPriceMinor:      foodQuote.TotalPriceMinor,
 		DistanceFeeIDR:       deliveryFee,
 		BasePriceIDR:         subtotal,
 		DynamicPriceIDR:      subtotal,
 		TotalPriceIDR:        total,
-		DiscountIDR:          voucherDiscount,
+		DiscountIDR:          discount,
+		PromoSponsor:         merchantPromoSponsor(merchantPromoDiscount, voucherDiscount),
 		MembershipSubsidyIDR: membershipSubsidy,
 		PromoCode:            req.VoucherCode,
 		PricingSnapshot:      string(pricingSnapshot),

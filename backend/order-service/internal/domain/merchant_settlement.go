@@ -191,6 +191,8 @@ type FoodOrderSettlementData struct {
 	MerchantID     string
 	PlatformFeeIDR int64
 	GrossItemIDR   int64
+	// PricingSnapshot contains the immutable food quote captured at checkout.
+	PricingSnapshot string
 	// MerchantCommissionIDR and CommercialTerms are read from the order's
 	// immutable commercial snapshot. PlatformFeeIDR is retained as the
 	// backward-compatible fallback for orders created before ECON-2026-006.

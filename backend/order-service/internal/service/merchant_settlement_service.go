@@ -291,10 +291,14 @@ func (s *merchantSettlementService) HandleFoodOrderDelivered(ctx context.Context
 	// 4b. FB-101: potongan promo merchant (dibiayai merchant) mengurangi
 	// payout — BUKAN komisi PT. Ambil item order + promo aktif merchant,
 	// hitung diskon, kurangi dari netPayout.
-	promoDiscountIDR, promoErr := s.computeMerchantPromoDiscount(ctx, data.MerchantID, data.OrderID)
-	if promoErr != nil {
-		slog.WarnContext(ctx, "merchant_settlement: gagal hitung promo discount (lanjut tanpa potongan)",
-			"merchant_id", data.MerchantID, "order_id", data.OrderID, "error", promoErr)
+	promoDiscountIDR, promoSnapshotted := merchantPromoDiscountFromSnapshot(data.PricingSnapshot)
+	if !promoSnapshotted {
+		var promoErr error
+		promoDiscountIDR, promoErr = s.computeMerchantPromoDiscount(ctx, data.MerchantID, data.OrderID)
+		if promoErr != nil {
+			slog.WarnContext(ctx, "merchant_settlement: gagal hitung promo discount (lanjut tanpa potongan)",
+				"merchant_id", data.MerchantID, "order_id", data.OrderID, "error", promoErr)
+		}
 	}
 
 	netPayoutIDR := data.GrossItemIDR - merchantCommissionIDR - disbursementFeeIDR - promoDiscountIDR
@@ -838,6 +842,22 @@ func (s *merchantSettlementService) computeMerchantPromoDiscount(ctx context.Con
 			"promo_discount_idr", discount)
 	}
 	return discount, nil
+}
+
+func merchantPromoDiscountFromSnapshot(raw string) (int64, bool) {
+	if strings.TrimSpace(raw) == "" {
+		return 0, false
+	}
+	var snapshot struct {
+		MerchantPromoDiscountIDR int64 `json:"merchant_promo_discount_idr"`
+	}
+	if err := json.Unmarshal([]byte(raw), &snapshot); err != nil {
+		return 0, false
+	}
+	if snapshot.MerchantPromoDiscountIDR < 0 {
+		return 0, true
+	}
+	return snapshot.MerchantPromoDiscountIDR, true
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -116,3 +116,17 @@ func TestComputeMerchantPromoDiscount_TotalCapSubtotal(t *testing.T) {
 }
 
 func int64p(v int64) *int64 { return &v }
+
+func TestMerchantPromoDiscountFromSnapshot(t *testing.T) {
+	got, present := merchantPromoDiscountFromSnapshot(`{"merchant_promo_discount_idr":7500}`)
+	if !present || got != 7500 {
+		t.Fatalf("snapshot promo = (%d, %v), want (7500, true)", got, present)
+	}
+	got, present = merchantPromoDiscountFromSnapshot(`{"merchant_promo_discount_idr":0}`)
+	if !present || got != 0 {
+		t.Fatalf("zero snapshot promo = (%d, %v), want (0, true)", got, present)
+	}
+	if _, present = merchantPromoDiscountFromSnapshot(""); present {
+		t.Fatal("empty snapshot must use legacy fallback")
+	}
+}

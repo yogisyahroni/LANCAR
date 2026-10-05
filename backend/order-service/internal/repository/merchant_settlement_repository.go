@@ -327,6 +327,7 @@ func (r *merchantSettlementRepository) GetFoodOrderForSettlement(ctx context.Con
 		       COALESCE(o.merchant_id::text, ''),
 		       COALESCE(o.platform_fee_idr, 0),
 		       COALESCE(SUM(f.subtotal), 0),
+		       COALESCE(o.pricing_snapshot, ''),
 		       COALESCE((o.settlement_snapshot->'merchant_commercial_terms'->>'commission_idr')::BIGINT, 0),
 		       COALESCE(o.settlement_snapshot->'merchant_commercial_terms', '{}'::jsonb),
 		       (o.settlement_snapshot ? 'merchant_commercial_terms')
@@ -340,7 +341,7 @@ func (r *merchantSettlementRepository) GetFoodOrderForSettlement(ctx context.Con
 	var d domain.FoodOrderSettlementData
 	var termsRaw []byte
 	err := row.Scan(&d.OrderID, &d.MerchantID, &d.PlatformFeeIDR, &d.GrossItemIDR,
-		&d.MerchantCommissionIDR, &termsRaw, &d.CommercialTermsApplied)
+		&d.PricingSnapshot, &d.MerchantCommissionIDR, &termsRaw, &d.CommercialTermsApplied)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

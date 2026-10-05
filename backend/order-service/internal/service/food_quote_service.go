@@ -172,6 +172,10 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if merchant.MinOrderIDR > 0 && subtotal < merchant.MinOrderIDR {
 		return nil, domain.NewUserFacingError(fmt.Sprintf("minimum order di toko ini Rp %d", merchant.MinOrderIDR))
 	}
+	merchantPromoDiscount, err := computeFoodMerchantPromoDiscount(ctx, s.foodRepo, req.MerchantID, quoteItemPromoLines(quoteItems), time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("calculate merchant promo: %w", err)
+	}
 
 	distanceKM := haversineKM(merchant.Lat, merchant.Lng, req.DropoffLat, req.DropoffLng)
 	if err := validateFoodDeliveryDistance(distanceKM); err != nil {
@@ -240,8 +244,8 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if taxIDR == 0 && taxSnapshot.Currency == "IDR" {
 		taxIDR = taxSnapshot.PPNIDR
 	}
-	total := subtotal + deliveryFee + platformFee + taxIDR
-	discount := int64(0)
+	total := subtotal + deliveryFee + platformFee + taxIDR - merchantPromoDiscount
+	discount := merchantPromoDiscount
 	if strings.TrimSpace(req.VoucherCode) != "" {
 		if s.voucherSvc == nil {
 			return nil, domain.NewUserFacingError("voucher belum dapat divalidasi")
@@ -255,6 +259,11 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		}
 		discount = min(validation.DiscountIDR, total)
 		total -= discount
+	}
+	if merchantPromoDiscount > 0 && strings.TrimSpace(req.VoucherCode) != "" && s.voucherSvc != nil {
+		// The voucher branch above replaces the running discount; restore the
+		// merchant-funded component so the quote exposes the full discount.
+		discount += merchantPromoDiscount
 	}
 
 	etaSpeed := 20.0
@@ -302,6 +311,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		pricingComponent("promo_discount", domain.PricingComponentCustomerDiscount, discount, true),
 		pricingComponent("merchant_gross", domain.PricingComponentMerchantGross, subtotal, false),
 		pricingComponent("merchant_commission", domain.PricingComponentMerchantCommission, merchantCommission, false),
+		pricingComponent("merchant_promo_subsidy", domain.PricingComponentMerchantSubsidy, merchantPromoDiscount, false),
 		pricingComponent("courier_earning", domain.PricingComponentCourierEarning, courierEarning, false),
 	}
 	breakdown, err := buildPricingBreakdown(ctx, s.configRepo, product.Code, market, pricingRuleVersion, components)
@@ -320,8 +330,8 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		QuoteID: uuid.New().String(), InputFingerprint: foodQuoteInputFingerprint(req),
 		MerchantID: req.MerchantID, Currency: currency, CurrencyMinorUnit: currencyMinorUnit, Items: quoteItems, SubtotalIDR: subtotal,
 		MinOrderIDR:    merchant.MinOrderIDR,
-		DeliveryFeeIDR: deliveryFee, PlatformFeeIDR: platformFee, TaxIDR: taxIDR, DiscountIDR: discount, MembershipSubsidyIDR: membershipSubsidy,
-		TotalPriceIDR: total, DistanceKM: distanceKM,
+		DeliveryFeeIDR: deliveryFee, PlatformFeeIDR: platformFee, TaxIDR: taxIDR, DiscountIDR: discount, MerchantPromoDiscountIDR: merchantPromoDiscount, MembershipSubsidyIDR: membershipSubsidy,
+		TotalPriceIDR: total, TotalPriceMinor: total, DistanceKM: distanceKM,
 		ETAMinutes: prepMinutes + pickupTravelMinutes,
 		ETASource:  "merchant_prep_plus_configured_route_speed", PricingRuleVersion: pricingRuleVersion, Market: market,
 		SurgeMultiplier:  decision.Multiplier,
@@ -365,7 +375,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		FoodVoucherCode: req.VoucherCode, FoodScheduledAt: req.ScheduledAt,
 		FoodMembershipID: membershipID,
 		PriceComponents: map[string]int64{
-			"food_subtotal_idr": subtotal, "delivery_fee_idr": deliveryFee, "dynamic_price_idr": dynamicAdjustment, "membership_subsidy_idr": membershipSubsidy,
+			"food_subtotal_idr": subtotal, "delivery_fee_idr": deliveryFee, "dynamic_price_idr": dynamicAdjustment, "membership_subsidy_idr": membershipSubsidy, "merchant_promo_discount_idr": merchantPromoDiscount,
 			"platform_fee_idr": platformFee, "tax_idr": taxIDR, "discount_idr": discount,
 			"merchant_commission_idr": merchantCommission, "courier_earning_idr": courierEarning,
 			"customer_total_idr": total, "merchant_payable_idr": breakdown.MerchantPayableIDR,

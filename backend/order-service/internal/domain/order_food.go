@@ -87,28 +87,31 @@ type FoodQuoteItem struct {
 }
 
 type FoodQuoteResponse struct {
-	QuoteID              string          `json:"quote_id"`
-	InputFingerprint     string          `json:"input_fingerprint"`
-	SnapshotHash         string          `json:"snapshot_hash"`
-	MerchantID           string          `json:"merchant_id"`
-	Currency             string          `json:"currency"`
-	CurrencyMinorUnit    int             `json:"currency_minor_unit"`
-	Items                []FoodQuoteItem `json:"items"`
-	SubtotalIDR          int64           `json:"subtotal_idr"`
-	MinOrderIDR          int64           `json:"min_order_idr,omitempty"`
-	DeliveryFeeIDR       int64           `json:"delivery_fee_idr"`
-	PlatformFeeIDR       int64           `json:"platform_fee_idr"`
-	TaxIDR               int64           `json:"tax_idr"`
-	DiscountIDR          int64           `json:"discount_idr"`
-	MembershipSubsidyIDR int64           `json:"membership_subsidy_idr,omitempty"`
-	TotalPriceIDR        int64           `json:"total_price_idr"`
-	TotalPriceMinor      int64           `json:"total_price_minor"`
-	DistanceKM           float64         `json:"distance_km"`
-	DynamicPriceIDR      int64           `json:"dynamic_price_idr,omitempty"`
-	SurgeFeeIDR          int64           `json:"surge_fee_idr,omitempty"`
-	SurgeMultiplier      float64         `json:"surge_multiplier,omitempty"`
-	ETAMinutes           int             `json:"eta_minutes"`
-	ETASource            string          `json:"eta_source"`
+	QuoteID           string          `json:"quote_id"`
+	InputFingerprint  string          `json:"input_fingerprint"`
+	SnapshotHash      string          `json:"snapshot_hash"`
+	MerchantID        string          `json:"merchant_id"`
+	Currency          string          `json:"currency"`
+	CurrencyMinorUnit int             `json:"currency_minor_unit"`
+	Items             []FoodQuoteItem `json:"items"`
+	SubtotalIDR       int64           `json:"subtotal_idr"`
+	MinOrderIDR       int64           `json:"min_order_idr,omitempty"`
+	DeliveryFeeIDR    int64           `json:"delivery_fee_idr"`
+	PlatformFeeIDR    int64           `json:"platform_fee_idr"`
+	TaxIDR            int64           `json:"tax_idr"`
+	DiscountIDR       int64           `json:"discount_idr"`
+	// MerchantPromoDiscountIDR is funded by the merchant and is snapshotted
+	// with the quote so settlement does not depend on a later promo edit.
+	MerchantPromoDiscountIDR int64   `json:"merchant_promo_discount_idr,omitempty"`
+	MembershipSubsidyIDR     int64   `json:"membership_subsidy_idr,omitempty"`
+	TotalPriceIDR            int64   `json:"total_price_idr"`
+	TotalPriceMinor          int64   `json:"total_price_minor"`
+	DistanceKM               float64 `json:"distance_km"`
+	DynamicPriceIDR          int64   `json:"dynamic_price_idr,omitempty"`
+	SurgeFeeIDR              int64   `json:"surge_fee_idr,omitempty"`
+	SurgeMultiplier          float64 `json:"surge_multiplier,omitempty"`
+	ETAMinutes               int     `json:"eta_minutes"`
+	ETASource                string  `json:"eta_source"`
 	// ETA components are explicit so unavailable provider signals are not
 	// silently folded into a fabricated client-side number.
 	PrepMinutes                    int               `json:"prep_minutes"`

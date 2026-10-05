@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -188,6 +189,47 @@ func (r *foodRepo) GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]do
 		items = append(items, it)
 	}
 	return items, rows.Err()
+}
+
+// ListActiveMerchantPromos reads the same merchant-funded promo source used by
+// settlement so customer pricing and payout accounting share one rule set.
+func (r *foodRepo) ListActiveMerchantPromos(ctx context.Context, merchantID string, now time.Time) ([]domain.ActiveMerchantPromo, error) {
+	// Promo activation is a checkout input. Read it from the primary so a
+	// merchant toggle is not hidden behind replica lag or a stale cache.
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT menu_item_id::text, discount_type, discount_value, max_discount_idr
+		FROM merchant_promos
+		WHERE merchant_id = $1 AND is_active = TRUE
+		  AND starts_at <= $2 AND ends_at > $2`, merchantID, now)
+	if err != nil {
+		return nil, fmt.Errorf("list active merchant promos: %w", err)
+	}
+	defer rows.Close()
+
+	promos := make([]domain.ActiveMerchantPromo, 0)
+	for rows.Next() {
+		var promo domain.ActiveMerchantPromo
+		var menuItemID, maxDiscount sql.NullString
+		if err := rows.Scan(&menuItemID, &promo.DiscountType, &promo.DiscountValue, &maxDiscount); err != nil {
+			return nil, fmt.Errorf("scan active merchant promo: %w", err)
+		}
+		if menuItemID.Valid && menuItemID.String != "" {
+			value := menuItemID.String
+			promo.MenuItemID = &value
+		}
+		if maxDiscount.Valid && maxDiscount.String != "" {
+			value, parseErr := strconv.ParseInt(maxDiscount.String, 10, 64)
+			if parseErr != nil {
+				return nil, fmt.Errorf("parse merchant promo cap: %w", parseErr)
+			}
+			promo.MaxDiscountIDR = &value
+		}
+		promos = append(promos, promo)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate active merchant promos: %w", err)
+	}
+	return promos, nil
 }
 
 // CreateFoodOrderWithItems — insert order + food_order_items dalam SATU
