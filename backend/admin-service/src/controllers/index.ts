@@ -101,6 +101,7 @@ export * from './logisticsProviders.controller';
 export * from './merchants.controller'; // FOOD-BIKE-048
 export * from './merchantEnforcement.controller'; // MERCH-2026-008
 export * from './merchantIntegration.controller'; // MERCH-2026-009
+export * from './merchantCatalogModeration.controller'; // MWEB-PORTAL-P0-004
 export * from './driverWalletHold.controller'; // FOOD-BIKE-054
 export * from './courierRetention.controller';
 export * as productCatalog from './productCatalog.controller';

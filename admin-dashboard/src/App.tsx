@@ -8,6 +8,7 @@ import OrderExceptions from './pages/OrderExceptions'
 import Couriers from './pages/Couriers'
 import CourierApplications from './pages/CourierApplications'
 import Merchants from './pages/Merchants'
+import CatalogModeration from './pages/CatalogModeration'
 import MerchantStaff from './pages/MerchantStaff'
 import CourierFaceVerifications from './pages/CourierFaceVerifications'
 import CourierSafetyEvents from './pages/CourierSafetyEvents'
@@ -204,6 +205,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/catalog-moderation" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security']}><CatalogModeration /></ProtectedRoute>} />
           <Route 
             path="/merchant-staff"
             element={

@@ -240,6 +240,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: Truck, label: "Couriers", path: "/couriers" },
         { icon: ClipboardCheck, label: "Courier Review", path: "/courier-applications" },
         { icon: Store, label: "Merchants", path: "/merchants" },
+        { icon: ClipboardCheck, label: "Catalog Moderation", path: "/catalog-moderation", allowedRoles: ['super_admin', 'ops_admin', 'ops_security'] },
         { icon: UserCircle2, label: "Staff Oversight", path: "/merchant-staff", allowedRoles: ['super_admin'] }, // A3
         { icon: TrendingUp, label: "Courier Performance", path: "/courier-performance" },
         { icon: BarChart3, label: "Merchant Performance", path: "/merchant-performance" }, // FOOD-BIKE-051

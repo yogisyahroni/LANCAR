@@ -249,6 +249,8 @@ adminRoutes.get('/admin/merchant-enforcement/appeals', requireRole(['super_admin
 adminRoutes.patch('/admin/merchant-enforcement/appeals/:appealId', requireRole(['super_admin', 'ops_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.merchant_enforcement.review'), (req, res) => controllers.reviewAdminMerchantEnforcementAppeal(req, res));
 adminRoutes.get('/admin/merchant-integrations/pos', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminMerchantPOSIntegrations(req, res));
 adminRoutes.get('/admin/merchants/:id/integrations/pos', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminMerchantPOSIntegrations(req, res));
+adminRoutes.get('/admin/catalog/moderation', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminCatalogModeration(req, res));
+adminRoutes.patch('/admin/catalog/moderation/:id', requireRole(['super_admin', 'ops_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.catalog.moderation.review'), (req, res) => controllers.reviewAdminCatalogModeration(req, res));
 adminRoutes.get('/admin/disputes', (req, res) => controllers.getDisputes(req, res));
 adminRoutes.get('/admin/disputes/stats', (req, res) => controllers.getDisputeStats(req, res));
 adminRoutes.patch('/admin/disputes/:id/status', (req, res) => controllers.updateDisputeStatus(req, res));

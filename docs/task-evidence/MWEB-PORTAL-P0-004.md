@@ -17,9 +17,9 @@ task_scope_external_proof_required: true
 external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
 release_followups: "Authenticated staging, browser/device E2E, sold-out race/reconnect, upload security/virus scan, multi-outlet projection, and release gate masih ditunda sampai feature scope selesai."
-unproven_requirements: "Full catalog review approval, sold-out race proof, image policy/virus scan, multi-outlet central-vs-local projection, and authenticated staging E2E."
+unproven_requirements: "Authenticated runtime proof of catalog review approval, sold-out race proof, image policy/virus scan, multi-outlet central-vs-local projection, and authenticated staging E2E."
 known_blockers: NONE
-locally_actionable_remaining: "Tambahkan review/approval catalog, upload security policy, multi-outlet projection, dan contract tests untuk stale-cache/sold-out sebelum deferred runtime verification."
+locally_actionable_remaining: "Lengkapi upload security policy (dimensi, virus/CDN, expiry, alt text), multi-outlet central/local projection, serta contract tests untuk stale-cache/sold-out sebelum deferred runtime verification."
 blocker_resolution_attempts: NONE
 unblock_condition: NONE
 owner_action_required: false
@@ -49,6 +49,7 @@ updated_at: 2026-10-05
 - Rollback membuat publikasi baru dari snapshot target tanpa memutasi riwayat publikasi.
 - Customer detail dan discovery preview membaca publikasi terbaru; availability, stok, jadwal, dan enforcement tetap dibaca dari state live untuk mencegah order sold-out.
 - Migration `20261005000002` dan repair backfill `20261005000003` membuat serta mengisi snapshot publikasi pada database Docker.
+- Admin memiliki queue moderasi katalog (`GET /admin/catalog/moderation`) dan review decision (`PATCH /admin/catalog/moderation/:id`). Decision wajib melalui role + TOTP + idempotency, mengunci row pending dengan `FOR UPDATE`, mengubah status secara server-authoritative, dan menulis actor/reason/version ke audit log.
 
 ## Verification
 
@@ -64,11 +65,26 @@ updated_at: 2026-10-05
     command: npm test -- --runInBand src/supportCasesContract.test.ts src/services/supportCasePolicy.test.ts (working directory backend/admin-service)
     result: PASS — 2 suites, 5 tests
 
+    command: npm test -- --runInBand merchantCatalogModerationContract.test.ts (working directory backend/admin-service)
+    result: PASS — 1 suite, 2 tests
+
+    command: npm run build (working directory backend/admin-service)
+    result: PASS — TypeScript compilation succeeded.
+
+    command: npx tsc -b && npx vite build (working directory admin-dashboard)
+    result: PASS — dashboard production bundle built; existing chunk-size warning only.
+
     command: goose -dir database/migrations postgres "postgres://postgres:1234@localhost:6432/tembus_session?sslmode=disable" up
     result: PASS — migrations 20261005000001, 20261005000002, and 20261005000003 applied to Docker/PgBouncer database.
 
     command: docker compose up -d --build merchant-service order-service merchant-web
     result: PASS — merchant, order, and web containers healthy; health endpoints returned 200.
+
+    command: docker compose up -d --build --no-deps admin-service admin-dashboard
+    result: PASS — admin-service and admin-dashboard rebuilt; admin-service healthy and dashboard returned HTTP 200.
+
+    command: GET http://localhost:8080/api/v1/admin/catalog/moderation without credentials
+    result: PASS — gateway returned HTTP 401; admin catalog queue is not publicly readable.
 
     command: Authenticated local API readiness/publication, publish, rollback, customer detail, and customer discovery preview
     result: PASS — local Docker database/API returned 200/201; catalog snapshot and modifier data were visible to customer detail/discovery. This is local integration evidence, not staging proof.
@@ -79,7 +95,7 @@ updated_at: 2026-10-05
 
 Status: PASS
 
-Evidence: Merchant/order package tests and Merchant Web production build passed.
+Evidence: Merchant/order package tests, Admin moderation contract test, Admin Service TypeScript build, Merchant Web production build, and Admin Dashboard production bundle passed.
 
 ### Integration
 
@@ -109,7 +125,7 @@ Evidence: Structured request logs exist, but freshness/lag dashboards and alert 
 
 Status: PARTIAL
 
-Evidence: Publication and rollback require authenticated merchant ownership and idempotency; upload MIME/dimension/virus/CDN policy and full tenant/RBAC review remain unproven.
+Evidence: Publication and rollback require authenticated merchant ownership and idempotency; Admin moderation requires role, TOTP, idempotency, row lock, and audit actor/reason. Upload MIME/dimension/virus/CDN policy and full tenant/RBAC review remain unproven.
 
 ### Rollback / Recovery
 
@@ -146,9 +162,9 @@ Evidence: Release gate is intentionally deferred until the remaining portal capa
 
 ## Locally Actionable Remaining
 
-- Implement/verify catalog review approval and moderation handoff.
 - Complete image security policy and multi-outlet catalog projection.
 - Add stale-cache/sold-out race and modifier contract coverage.
+- Run authenticated Admin → merchant catalog moderation → publish → customer projection proof after the feature batch is complete.
 
 ## External Blockers
 
@@ -174,7 +190,7 @@ Evidence: Local Docker results are explicitly separated from staging/release cla
 
 ## Unproven / Remaining
 
-Full original catalog review/moderation, multi-outlet central-vs-local behavior, image security/virus/CDN policy, stale-cache sold-out race, and authenticated staging E2E.
+Authenticated runtime proof of catalog review/moderation, multi-outlet central-vs-local behavior, image security/virus/CDN policy, stale-cache sold-out race, and authenticated staging E2E.
 
 ## Next Eligible Task
 
