@@ -7,6 +7,21 @@ Target: `merchant-web` pada `https://merchant.bawain.my.id/`
 Audience: perusahaan/PT dan merchant bisnis; pendaftaran perorangan diarahkan ke Merchant Android
 Product requirements: [`docs/product/merchant-portal-prd-2026.md`](docs/product/merchant-portal-prd-2026.md)
 
+## Urutan eksekusi yang disepakati — 2026-10-05
+
+Atas keputusan pemilik produk, implementasi capability end-to-end didahulukan
+lintas Customer, Merchant Web/Android, Courier, Admin, service, database, dan
+event contract. Staging smoke test, device/UAT, reconnect/replay, security,
+accessibility, observability, rollback, dan production release gate tetap wajib
+dikerjakan, tetapi dicatat sebagai verifikasi tertunda sampai seluruh scope
+fitur portal selesai.
+
+Verifikasi tertunda bukan status lulus dan bukan indikasi production-ready.
+Setiap evidence harus mempertahankan status `NOT_RUN`, `PARTIAL`, atau
+`DEFERRED` yang jujur; tidak boleh mengubah proof yang belum dijalankan menjadi
+PASS. Setelah seluruh capability selesai, queue verifikasi harus dijalankan
+secara berurutan dan seluruh kegagalan diperbaiki sebelum readiness diputuskan.
+
 ## Tujuan
 
 Membawa website Merchant TEMBUS dari landing page yang sudah rapi menjadi kanal akuisisi bisnis yang meyakinkan, jelas alurnya, dapat diverifikasi, dan konsisten dengan portal Merchant yang sudah berjalan.

@@ -2,9 +2,15 @@
 
 ## Active
 
+> **Execution policy (2026-10-05):** implementasi seluruh capability end-to-end
+> dikerjakan terlebih dahulu. Staging/UAT, device, reconnect/replay, security,
+> accessibility, observability, rollback, dan release gate tetap dicatat sebagai
+> verifikasi tertunda; penundaan tidak berarti PASS atau production-ready.
+
 - [ ] **Merchant Web Growth, Trust & Operational Readiness P0–P2** — backlog rinci untuk merombak `merchant.bawain.my.id` agar siap menarik perusahaan/PT, tetap mengarahkan perorangan ke aplikasi Merchant Android, dan memiliki trust, onboarding, product proof, content hub, serta growth measurement yang dapat diverifikasi. Keputusan readiness saat ini: **belum untuk public production; hanya staging/closed UAT** sampai task `MWEB-P0-006` s.d. `MWEB-P0-010` selesai. Detail task dan acceptance criteria: [task-merchant-web-growth-p0-p2-2026.md](task-merchant-web-growth-p0-p2-2026.md).
 
 - [ ] **Merchant Portal Authenticated F&B — Global Operations Standard** — task lanjutan untuk seluruh area setelah login Portal Mitra: multi-outlet, order lifecycle customer–merchant–kurir, menu/modifier, outlet state, staff/RBAC, finance/settlement, issue/refund, review, notification/realtime, integration, analytics, support, security, dan production E2E. Semua capability harus memakai state server-authoritative dan dibuktikan lintas database, admin, merchant web, Merchant Android, Customer Android, dan Courier Android; detail P0–P2: [task-merchant-web-growth-p0-p2-2026.md](task-merchant-web-growth-p0-p2-2026.md#portal-mitra-authenticated-fb-global-operations-standard). Product requirements: [merchant-portal-prd-2026.md](docs/product/merchant-portal-prd-2026.md).
+  - [ ] **MWEB-PORTAL-P0-003 — Order operations center dan lifecycle F&B** — implementasi feature-first berjalan; detail order, timeline, status kurir, financial/refund projection, dan transition merchant atomik sudah ditambahkan. Browser/staging/device E2E tetap deferred sampai seluruh capability portal selesai.
 
 - [ ] **Customer App Figma ↔ Code Parity & Flow Execution 2026** — blueprint eksekusi baru untuk menyatukan file Figma `ALL TEMBUS CUSTOMER` dengan route/screen Android customer yang sudah ada. Flow dipecah menjadi foundation/global shell, home, aktivitas/order, parcel, food, payment/wallet, tambal ban, towing, komunikasi/support, dan akun/privacy/security. Detail mapping, gap, dependency, dan gate implementasi: [task-customer-figma-code-parity-2026.md](task-customer-figma-code-parity-2026.md).
 

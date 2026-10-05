@@ -1930,7 +1930,12 @@ func (s *merchantServiceImpl) AcceptOrder(ctx context.Context, userID string, or
 	if err != nil {
 		return err
 	}
-	if err := s.orderRepo.AcceptOrder(ctx, m.ID, orderID); err != nil {
+	if transitionRepo, ok := s.orderRepo.(domain.MerchantOrderTransitionRepository); ok {
+		err = transitionRepo.TransitionOrder(ctx, m.ID, orderID, "preparing", userID, "Merchant menerima pesanan", "", "merchant-order:accept:"+orderID)
+	} else {
+		err = s.orderRepo.AcceptOrder(ctx, m.ID, orderID)
+	}
+	if err != nil {
 		return err
 	}
 	// FB-124: customer harus dapat notifikasi inbox saat merchant menerima order.
@@ -1962,7 +1967,11 @@ func (s *merchantServiceImpl) RejectOrder(ctx context.Context, userID string, or
 	if strings.TrimSpace(label) == "" {
 		return errors.New("reason wajib diisi saat menolak order")
 	}
-	if err := s.orderRepo.RejectOrder(ctx, m.ID, orderID, label, rejectReason); err != nil {
+	if transitionRepo, ok := s.orderRepo.(domain.MerchantOrderTransitionRepository); ok {
+		if err := transitionRepo.TransitionOrder(ctx, m.ID, orderID, "cancelled", userID, label, rejectReason, "merchant-order:reject:"+orderID); err != nil {
+			return err
+		}
+	} else if err := s.orderRepo.RejectOrder(ctx, m.ID, orderID, label, rejectReason); err != nil {
 		return err
 	}
 	// Jejak pembatalan utk customer/tracking
@@ -1987,7 +1996,11 @@ func (s *merchantServiceImpl) MarkReady(ctx context.Context, userID string, orde
 	if err != nil {
 		return err
 	}
-	if err := s.orderRepo.MarkReady(ctx, m.ID, orderID); err != nil {
+	if transitionRepo, ok := s.orderRepo.(domain.MerchantOrderTransitionRepository); ok {
+		if err := transitionRepo.TransitionOrder(ctx, m.ID, orderID, "searching", userID, "Pesanan siap, mencari kurir", "", "merchant-order:ready:"+orderID); err != nil {
+			return err
+		}
+	} else if err := s.orderRepo.MarkReady(ctx, m.ID, orderID); err != nil {
 		return err
 	}
 	// Jejak order event untuk customer/tracking
@@ -2200,4 +2213,16 @@ func (s *merchantServiceImpl) GetOrderCounts(ctx context.Context, userID string)
 		return nil, err
 	}
 	return s.orderRepo.CountOperationalByMerchant(ctx, m.ID)
+}
+
+func (s *merchantServiceImpl) GetOrderDetail(ctx context.Context, userID, orderID string) (*domain.MerchantOrderDetail, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	repo, ok := s.orderRepo.(domain.MerchantOrderDetailRepository)
+	if !ok {
+		return nil, errors.New("detail order belum tersedia")
+	}
+	return repo.GetOrderDetail(ctx, m.ID, strings.TrimSpace(orderID))
 }

@@ -264,6 +264,7 @@ func main() {
 	// Order action (FOOD-BIKE-017/021)
 	mux.HandleFunc("/api/v1/merchant/orders", withAudit(h.ListOrders))
 	mux.HandleFunc("/api/v1/merchant/orders/counts", withAudit(h.GetOrderCounts))
+	mux.HandleFunc("/api/v1/merchant/orders/{id}", withAudit(h.GetOrderDetail))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/accept", withAudit(h.AcceptOrder))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/ready", withAudit(h.MarkReady))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/reject", withAudit(h.RejectOrder))

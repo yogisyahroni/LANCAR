@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
 import OrderCard from '../components/OrderCard'
 import { MerchantPageSkeleton } from '../components/Skeleton'
-import type { MerchantOrder, MerchantStruk, OrderListResponse } from '../lib/types'
+import type { MerchantOrder, MerchantOrderDetail, MerchantStruk, OrderListResponse } from '../lib/types'
 import { rupiah } from '../lib/types'
 
 const TABS = [
@@ -111,6 +111,11 @@ export default function Orders() {
     }
   }
 
+  const loadOrderDetail = async (id: string) => {
+    const res = await api.get<MerchantOrderDetail>(`/merchant/orders/${id}`)
+    return res.data
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -150,7 +155,7 @@ export default function Orders() {
       ) : (
         <div className="space-y-4">
             {filtered.map((o) => (
-            <OrderCard key={o.id} order={o} onAccept={acceptOrder} onReject={rejectOrder} onReady={readyOrder} onPrint={printOrder} onPartialReject={partialRejectOrder} />
+            <OrderCard key={o.id} order={o} onAccept={acceptOrder} onReject={rejectOrder} onReady={readyOrder} onPrint={printOrder} onPartialReject={partialRejectOrder} onLoadDetail={loadOrderDetail} />
           ))}
         </div>
       )}

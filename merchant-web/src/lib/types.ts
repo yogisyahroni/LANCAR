@@ -225,7 +225,43 @@ export interface MerchantOrder {
   created_at?: string | null
   order_notes?: string | null
   scheduled_at?: string | null
+  payment_status?: string | null
+  payment_method?: string | null
   items: FoodOrderItem[]
+}
+
+export interface MerchantOrderTimelineEvent {
+  id: string
+  event_type: string
+  description?: string
+  actor_role?: string
+  from_status?: string
+  to_status?: string
+  reason?: string
+  version: number
+  created_at: string
+}
+
+export interface MerchantOrderDetail extends MerchantOrder {
+  state_version: number
+  courier?: {
+    id?: string
+    name?: string
+    phone?: string
+    status?: string
+    assigned_at?: string
+    picked_up_at?: string
+  }
+  financials: {
+    subtotal_idr: number
+    delivery_fee_idr: number
+    platform_fee_idr: number
+    merchant_promo_discount_idr: number
+    refunded_idr: number
+    net_merchant_idr: number
+  }
+  timeline: MerchantOrderTimelineEvent[]
+  data_as_of: string
 }
 
 export interface MerchantStruk {

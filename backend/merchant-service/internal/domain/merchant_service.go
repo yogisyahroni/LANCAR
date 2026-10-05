@@ -29,6 +29,48 @@ type MerchantOrderView struct {
 	Items         []FoodOrderItemView `json:"items"`
 }
 
+type MerchantOrderTimelineEvent struct {
+	ID          string `json:"id"`
+	EventType   string `json:"event_type"`
+	Description string `json:"description,omitempty"`
+	ActorRole   string `json:"actor_role,omitempty"`
+	FromStatus  string `json:"from_status,omitempty"`
+	ToStatus    string `json:"to_status,omitempty"`
+	Reason      string `json:"reason,omitempty"`
+	Version     int64  `json:"version"`
+	CreatedAt   string `json:"created_at"`
+}
+
+type MerchantOrderCourier struct {
+	ID         string  `json:"id,omitempty"`
+	Name       string  `json:"name,omitempty"`
+	Phone      string  `json:"phone,omitempty"`
+	Status     string  `json:"status,omitempty"`
+	AssignedAt *string `json:"assigned_at,omitempty"`
+	PickedUpAt *string `json:"picked_up_at,omitempty"`
+}
+
+type MerchantOrderFinancials struct {
+	SubtotalIDR              int64 `json:"subtotal_idr"`
+	DeliveryFeeIDR           int64 `json:"delivery_fee_idr"`
+	PlatformFeeIDR           int64 `json:"platform_fee_idr"`
+	MerchantPromoDiscountIDR int64 `json:"merchant_promo_discount_idr"`
+	RefundedIDR              int64 `json:"refunded_idr"`
+	NetMerchantIDR           int64 `json:"net_merchant_idr"`
+}
+
+// MerchantOrderDetail is a read model only. All values are loaded from the
+// authoritative order/payment/refund/event tables; the web client cannot
+// derive or overwrite them.
+type MerchantOrderDetail struct {
+	MerchantOrderView
+	StateVersion int64                        `json:"state_version"`
+	Courier      *MerchantOrderCourier        `json:"courier,omitempty"`
+	Financials   MerchantOrderFinancials      `json:"financials"`
+	Timeline     []MerchantOrderTimelineEvent `json:"timeline"`
+	DataAsOf     string                       `json:"data_as_of"`
+}
+
 // FoodOrderItemView — item dalam order food (dari food_order_items snapshot).
 type FoodOrderItemView struct {
 	// FB-087: menu_item_id diperlukan UI edit order untuk PUT items baru.
@@ -122,6 +164,7 @@ type MerchantService interface {
 	ListOrders(ctx context.Context, userID string, status string, page, pageSize int) ([]*MerchantOrderView, int, error)
 	// GetOrderCounts returns canonical counts for the operational board tabs.
 	GetOrderCounts(ctx context.Context, userID string) (*MerchantOrderCounts, error)
+	GetOrderDetail(ctx context.Context, userID, orderID string) (*MerchantOrderDetail, error)
 	// GetStruk ambil data struk pembelian + QR code untuk dicetak (FOOD-BIKE-034).
 	GetStruk(ctx context.Context, userID string, orderID string) (*StrukData, error)
 

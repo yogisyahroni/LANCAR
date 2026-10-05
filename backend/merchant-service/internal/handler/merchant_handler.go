@@ -946,6 +946,30 @@ func (h *MerchantHandler) MarkReady(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
+// GetOrderDetail returns the database-backed detail, courier state, financial
+// projection and ordered transition timeline for one merchant-owned order.
+func (h *MerchantHandler) GetOrderDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	orderID := strings.TrimSpace(r.PathValue("id"))
+	if orderID == "" {
+		h.respondError(w, http.StatusBadRequest, "order id wajib diisi")
+		return
+	}
+	detail, err := h.svc.GetOrderDetail(r.Context(), userID, orderID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, detail)
+}
+
 // @Summary Update rekening bank merchant
 // @Description Update rekening bank untuk payout settlement (FB-114).
 // @Tags merchant

@@ -38,6 +38,22 @@ type MerchantOrderRepository interface {
 	GetOrderItemVariantDeltas(ctx context.Context, orderID string) (map[string]int64, error)
 }
 
+// MerchantOrderTransitionRepository is the production capability used by
+// merchant actions. It keeps the order mutation and its audit event in one
+// database transaction and makes retries safe with a stable idempotency key.
+// The base repository interface remains unchanged so existing test doubles
+// can continue to exercise the legacy compatibility path.
+type MerchantOrderTransitionRepository interface {
+	TransitionOrder(ctx context.Context, merchantID, orderID, targetStatus, actorID, reason, rejectReason, idempotencyKey string) error
+}
+
+// MerchantOrderDetailRepository exposes the server-authoritative order view
+// used by the portal detail panel. It intentionally lives beside the merchant
+// order repository so tenant/outlet ownership is re-checked in the database.
+type MerchantOrderDetailRepository interface {
+	GetOrderDetail(ctx context.Context, merchantID, orderID string) (*MerchantOrderDetail, error)
+}
+
 // MerchantBranchScopedOrderRepository is an optional capability for tenants
 // whose order rows carry an authoritative branch_id. Keeping it optional
 // preserves compatibility with legacy repositories while preventing the

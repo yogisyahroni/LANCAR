@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { Check, ChevronDown, ChevronUp, Clock3, FileText, MapPin, Phone, Utensils } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import { REJECT_REASONS, rupiah } from '../lib/types'
-import type { MerchantOrder } from '../lib/types'
+import type { MerchantOrder, MerchantOrderDetail } from '../lib/types'
 
-export default function OrderCard({ order, onAccept, onReject, onReady, onPrint, onPartialReject }: {
+export default function OrderCard({ order, onAccept, onReject, onReady, onPrint, onPartialReject, onLoadDetail }: {
   order: MerchantOrder
   onAccept: (id: string) => Promise<void>
   onReject: (id: string, reason: string, detail: string) => Promise<void>
   onReady: (id: string) => Promise<void>
   onPrint: (id: string) => Promise<void>
   onPartialReject: (id: string, items: { menu_item_id: string; quantity: number; reason: string }[], reason: string) => Promise<void>
+  onLoadDetail: (id: string) => Promise<MerchantOrderDetail>
 }) {
   const [expanded, setExpanded] = useState(order.status === 'pending_merchant')
   const [busy, setBusy] = useState(false)
@@ -20,6 +21,8 @@ export default function OrderCard({ order, onAccept, onReject, onReady, onPrint,
   const [partialReason, setPartialReason] = useState('Stok menu habis')
   const [reason, setReason] = useState<string>('stok_habis')
   const [detail, setDetail] = useState('')
+  const [serverDetail, setServerDetail] = useState<MerchantOrderDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   if (!order.id) return null
 
@@ -29,6 +32,15 @@ export default function OrderCard({ order, onAccept, onReject, onReady, onPrint,
       await fn()
     } finally {
       setBusy(false)
+    }
+  }
+
+  const loadDetail = async () => {
+    setDetailLoading(true)
+    try {
+      setServerDetail(await onLoadDetail(order.id))
+    } finally {
+      setDetailLoading(false)
     }
   }
 
@@ -85,6 +97,13 @@ export default function OrderCard({ order, onAccept, onReject, onReady, onPrint,
               className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-bold text-zinc-700 transition hover:border-emerald-900/30 hover:text-emerald-900 disabled:opacity-60"
             >
               <FileText className="h-4 w-4" /> Cetak struk
+            </button>
+            <button
+              disabled={detailLoading}
+              onClick={() => act(loadDetail)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 px-4 py-2.5 text-sm font-bold text-emerald-800 transition hover:bg-emerald-50 disabled:opacity-60"
+            >
+              {detailLoading ? 'Memuat…' : 'Lihat timeline'}
             </button>
             {order.status === 'pending_merchant' && (
               <>
@@ -187,6 +206,35 @@ export default function OrderCard({ order, onAccept, onReject, onReady, onPrint,
           )}
 
           {busy && !showReject && <p className="mt-3 text-xs font-semibold text-zinc-400">Memproses…</p>}
+
+          {serverDetail && (
+            <div className="mt-5 grid gap-4 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 lg:grid-cols-[1fr_1.3fr]">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-emerald-900">Ringkasan pembayaran</p>
+                <dl className="mt-3 space-y-2 text-sm text-zinc-600">
+                  <div className="flex justify-between gap-3"><dt>Subtotal menu</dt><dd className="font-bold text-zinc-900">{rupiah(serverDetail.financials.subtotal_idr)}</dd></div>
+                  <div className="flex justify-between gap-3"><dt>Biaya antar</dt><dd>{rupiah(serverDetail.financials.delivery_fee_idr)}</dd></div>
+                  <div className="flex justify-between gap-3"><dt>Biaya platform</dt><dd>{rupiah(serverDetail.financials.platform_fee_idr)}</dd></div>
+                  <div className="flex justify-between gap-3"><dt>Promo merchant</dt><dd>{rupiah(serverDetail.financials.merchant_promo_discount_idr)}</dd></div>
+                  <div className="flex justify-between gap-3 border-t border-emerald-100 pt-2"><dt>Refund</dt><dd className="font-bold text-orange-700">{rupiah(serverDetail.financials.refunded_idr)}</dd></div>
+                </dl>
+                <p className="mt-3 text-xs text-zinc-500">Pembayaran: {serverDetail.payment_status || 'Belum tersedia'}{serverDetail.payment_method ? ` · ${serverDetail.payment_method}` : ''}</p>
+                {serverDetail.courier && <p className="mt-2 text-xs text-zinc-600">Kurir: <b>{serverDetail.courier.name || 'Sedang ditugaskan'}</b> · {serverDetail.courier.status || 'status belum tersedia'}</p>}
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-emerald-900">Jejak pesanan</p>
+                <ol className="mt-3 space-y-3">
+                  {serverDetail.timeline.map((event) => (
+                    <li key={event.id} className="relative pl-5 text-sm before:absolute before:left-0 before:top-1.5 before:h-2 before:w-2 before:rounded-full before:bg-emerald-700">
+                      <p className="font-bold text-zinc-800">{event.to_status || event.event_type}</p>
+                      <p className="text-xs text-zinc-500">{event.description || 'Perubahan status tercatat'} · {new Date(event.created_at).toLocaleString('id-ID')}</p>
+                    </li>
+                  ))}
+                  {serverDetail.timeline.length === 0 && <li className="text-sm text-zinc-500">Belum ada jejak status tersimpan.</li>}
+                </ol>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -22,12 +22,12 @@ task_scope_external_proof_required: false
 external_runtime_validation: PARTIAL
 
 release_readiness: NOT_RUN
-release_followups: "Authenticated staging smoke is still pending because the disposable staging harness was rate-limited during document upload; cross-app event propagation, full Android device interaction, and release gates remain required before production rollout."
+release_followups: "Authenticated staging smoke is still pending because the disposable staging harness was rate-limited during document upload; cross-app event propagation, full Android device interaction, and release gates remain in the owner-approved deferred verification queue until the remaining portal feature scope is implemented."
 
 unproven_requirements: "Authenticated staging fan-out across Customer, Courier, Merchant Android, Merchant Web, and Admin; full Android interaction/reconnect/replay proof; product policy for business-level payout allocation in an outlet view."
 known_blockers: NONE
 
-locally_actionable_remaining: "Complete authenticated Android consumer interaction plus duplicate/stale/reconnect/replay verification; rerun the staging harness after its rate-limit window; then resolve the finance policy gap before marking COMPLETE."
+locally_actionable_remaining: "Continue implementing the remaining Merchant Portal capability chain first. The authenticated staging fan-out, device interaction, reconnect/replay, and release-gate checks are intentionally deferred until the feature scope is complete; then run the queued verification and resolve every failure before readiness is decided."
 
 blocker_resolution_attempts: "Rebuilt merchant-service, order-service, and merchant-web; applied the three new migration up paths to the Docker PostgreSQL instance after the goose image registry denied access; verified schema, triggers, service health, unauthenticated route denial, and executed the expanded order-count SQL directly against the active Docker PostgreSQL instance; then ran the three migration Down paths in reverse and Up paths forward on a schema-only disposable PostgreSQL database and removed that database after validation."
 unblock_condition: NONE
@@ -37,12 +37,32 @@ owner_action_summary: NONE
 verification_after_unblock: NONE
 
 dependency_chain_blocked: false
-next_eligible_task: NONE
+next_eligible_task: MWEB-PORTAL-P0-003
 
 updated_at: 2026-10-05
 ---
 
 # Evidence — MWEB-PORTAL-P0-002
+
+## Owner-Approved Deferred Verification Queue — 2026-10-05
+
+The owner explicitly changed the execution order to feature-first. The following
+checks remain recorded but are intentionally not used as a reason to stop the
+next feature implementation:
+
+- authenticated staging fan-out across Customer, Courier, Merchant Android,
+  Merchant Web, and Admin;
+- complete Android interaction plus reconnect, stale-event, duplicate-event,
+  and replay recovery;
+- the finance policy decision for business-level payout allocation in an outlet
+  view;
+- security, accessibility, observability, rollback/recovery, and production
+  release-gate validation;
+- final cross-application order lifecycle E2E after all feature capabilities
+  have landed.
+
+These items are `PARTIAL`/`NOT_RUN` follow-up evidence, not a readiness approval.
+They must be executed after the portal feature implementation chain is complete.
 
 ## Acceptance Criteria Source
 

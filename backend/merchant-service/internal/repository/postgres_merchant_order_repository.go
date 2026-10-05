@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/lib/pq"
 
@@ -22,6 +23,82 @@ type postgresMerchantOrderRepository struct {
 
 func NewPostgresMerchantOrderRepository(db, readDB *sql.DB) domain.MerchantOrderRepository {
 	return &postgresMerchantOrderRepository{db: db, readDB: readDB}
+}
+
+// TransitionOrder is the merchant-owned write path for the food lifecycle.
+// The order row lock serializes competing clicks and the unique event key
+// makes retries/replays safe without allowing the browser to choose a state.
+func (r *postgresMerchantOrderRepository) TransitionOrder(ctx context.Context, merchantID, orderID, targetStatus, actorID, reason, rejectReason, idempotencyKey string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin merchant order transition: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var replay bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM order_events WHERE idempotency_key = $1)`, idempotencyKey).Scan(&replay); err != nil {
+		return fmt.Errorf("check merchant order replay: %w", err)
+	}
+	if replay {
+		return tx.Commit()
+	}
+
+	var currentStatus, customerID string
+	if err := tx.QueryRowContext(ctx, `
+		SELECT status, customer_id::text
+		FROM orders
+		WHERE id = $1 AND merchant_id = $2 AND service_sub_type = 'food_delivery'
+		FOR UPDATE`, orderID, merchantID).Scan(&currentStatus, &customerID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("order tidak ditemukan atau bukan milik merchant")
+		}
+		return fmt.Errorf("lock merchant order: %w", err)
+	}
+	if currentStatus == targetStatus {
+		return tx.Commit()
+	}
+
+	allowed := (targetStatus == "preparing" && currentStatus == "pending_merchant") ||
+		(targetStatus == "searching" && currentStatus == "preparing") ||
+		(targetStatus == "cancelled" && currentStatus == "pending_merchant")
+	if !allowed {
+		return fmt.Errorf("order tidak dapat diubah dari %s ke %s", currentStatus, targetStatus)
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE orders
+		SET status = $1,
+		    merchant_accepted_at = CASE WHEN $1 = 'preparing' THEN COALESCE(merchant_accepted_at, NOW()) ELSE merchant_accepted_at END,
+		    food_ready_at = CASE
+		        WHEN $1 = 'preparing' THEN NOW() + (COALESCE(prep_time_minutes, 15) * INTERVAL '1 minute')
+		        WHEN $1 = 'searching' THEN NOW()
+		        ELSE food_ready_at
+		    END,
+		    cancellation_reason = CASE WHEN $1 = 'cancelled' THEN NULLIF($2, '') ELSE cancellation_reason END,
+		    reject_reason = CASE WHEN $1 = 'cancelled' THEN NULLIF($3, '') ELSE reject_reason END,
+		    cancelled_at = CASE WHEN $1 = 'cancelled' THEN NOW() ELSE cancelled_at END,
+		    updated_at = NOW()
+		WHERE id = $4`, targetStatus, reason, rejectReason, orderID); err != nil {
+		return fmt.Errorf("persist merchant order transition: %w", err)
+	}
+
+	var version int64
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(version), 0) + 1 FROM order_events WHERE order_id = $1`, orderID).Scan(&version); err != nil {
+		return fmt.Errorf("next merchant order event version: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO order_events
+			(order_id, user_id, event_type, description, created_at, version,
+			 actor_id, actor_role, from_status, to_status, reason, idempotency_key, metadata)
+		VALUES ($1, $2, 'order.transition', $3, NOW(), $4, $5, 'merchant', $6, $7,
+		        NULLIF($8, ''), $9, jsonb_build_object('source', 'merchant-portal', 'reject_reason', NULLIF($10, '')))
+		ON CONFLICT DO NOTHING`, orderID, customerID, reason, version, actorID, currentStatus, targetStatus, reason, idempotencyKey, rejectReason); err != nil {
+		return fmt.Errorf("record merchant order transition: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit merchant order transition: %w", err)
+	}
+	return nil
 }
 
 func (r *postgresMerchantOrderRepository) AcceptOrder(ctx context.Context, merchantID, orderID string) error {
@@ -109,6 +186,130 @@ func (r *postgresMerchantOrderRepository) RecordOrderEvent(ctx context.Context, 
 		return fmt.Errorf("record order event: %w", err)
 	}
 	return nil
+}
+
+func (r *postgresMerchantOrderRepository) GetOrderDetail(ctx context.Context, merchantID, orderID string) (*domain.MerchantOrderDetail, error) {
+	var detail domain.MerchantOrderDetail
+	var acceptedAt, readyAt, createdAt, orderNotes, cancellationReason, rejectReason, scheduledAt string
+	var paymentStatus, paymentMethod string
+	var courierID, courierName, courierPhone, courierStatus, courierAssignedAt, courierPickedUpAt string
+	var isNewCustomer bool
+	err := r.readDB.QueryRowContext(ctx, `
+		SELECT o.id, o.order_number, o.status,
+		       COALESCE(c.full_name, ''), COALESCE(c.phone_number, ''),
+		       COALESCE(o.dropoff_address, ''), COALESCE(o.total_price_idr, 0),
+		       COALESCE(o.distance_km, 0),
+		       COALESCE(to_char(o.merchant_accepted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
+		       COALESCE(to_char(o.food_ready_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
+		       COALESCE(to_char(o.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
+		       COALESCE(o.order_notes, ''), COALESCE(o.cancellation_reason, ''),
+		       COALESCE(o.reject_reason, ''),
+		       COALESCE(to_char(o.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
+		       COALESCE(p.status, ''), COALESCE(p.method, ''),
+		       COALESCE(o.state_version, 1),
+		       COALESCE(ol.courier_id::text, ''), COALESCE(courier.full_name, ''),
+		       COALESCE(courier.phone_number, ''), COALESCE(ol.status, ''),
+		       COALESCE(to_char(ol.assigned_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
+		       COALESCE(to_char(o.picked_up_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
+		       NOT EXISTS (
+		         SELECT 1 FROM orders prior
+		          WHERE prior.customer_id = o.customer_id
+		            AND prior.merchant_id = o.merchant_id
+		            AND prior.service_sub_type = 'food_delivery'
+		            AND prior.created_at < o.created_at
+		       )
+		FROM orders o
+		LEFT JOIN users c ON c.id = o.customer_id
+		LEFT JOIN payments p ON p.order_id = o.id
+		LEFT JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
+		LEFT JOIN users courier ON courier.id = ol.courier_id
+		WHERE o.id = $1 AND o.merchant_id = $2 AND o.service_sub_type = 'food_delivery'`, orderID, merchantID).Scan(
+		&detail.ID, &detail.OrderNumber, &detail.Status,
+		&detail.CustomerName, &detail.CustomerPhone, &detail.DropoffAddress,
+		&detail.TotalPriceIDR, &detail.DistanceKM,
+		&acceptedAt, &readyAt, &createdAt,
+		&orderNotes, &cancellationReason, &rejectReason, &scheduledAt,
+		&paymentStatus, &paymentMethod, &detail.StateVersion,
+		&courierID, &courierName, &courierPhone, &courierStatus,
+		&courierAssignedAt, &courierPickedUpAt, &isNewCustomer,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, errors.New("order tidak ditemukan atau bukan milik merchant")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get merchant order detail: %w", err)
+	}
+	detail.CreatedAt = createdAt
+	detail.OrderNotes = orderNotes
+	detail.CancellationReason = cancellationReason
+	detail.RejectReason = rejectReason
+	detail.PaymentStatus = paymentStatus
+	detail.PaymentMethod = paymentMethod
+	detail.IsNewCustomer = isNewCustomer
+	if acceptedAt != "" {
+		detail.MerchantAcceptedAt = &acceptedAt
+	}
+	if readyAt != "" {
+		detail.FoodReadyAt = &readyAt
+	}
+	if scheduledAt != "" {
+		detail.ScheduledAt = &scheduledAt
+	}
+	if isOrderInactive(detail.Status) {
+		detail.CustomerPhone = util.MaskPhone(detail.CustomerPhone)
+	}
+	detail.Items = []domain.FoodOrderItemView{}
+	if err := r.attachItems(ctx, map[string]*domain.MerchantOrderView{detail.ID: &detail.MerchantOrderView}, []string{detail.ID}); err != nil {
+		return nil, fmt.Errorf("get merchant order detail items: %w", err)
+	}
+
+	if courierID != "" {
+		courier := &domain.MerchantOrderCourier{ID: courierID, Name: courierName, Phone: util.MaskPhone(courierPhone), Status: courierStatus}
+		if courierAssignedAt != "" {
+			courier.AssignedAt = &courierAssignedAt
+		}
+		if courierPickedUpAt != "" {
+			courier.PickedUpAt = &courierPickedUpAt
+		}
+		detail.Courier = courier
+	}
+	if err := r.readDB.QueryRowContext(ctx, `
+		SELECT COALESCE((SELECT SUM(subtotal) FROM food_order_items WHERE order_id = o.id), 0),
+		       COALESCE(o.distance_fee_idr, 0), COALESCE(o.platform_fee_idr, 0),
+		       COALESCE(o.merchant_promo_discount_idr, 0),
+		       COALESCE((SELECT SUM(amount_idr) FROM refunds WHERE order_id = o.id AND status NOT IN ('failed', 'cancelled')), 0),
+		       COALESCE((SELECT SUM(net_payout_idr) FROM merchant_settlements WHERE order_id = o.id), 0)
+		FROM orders o WHERE o.id = $1 AND o.merchant_id = $2`, orderID, merchantID).Scan(
+		&detail.Financials.SubtotalIDR, &detail.Financials.DeliveryFeeIDR,
+		&detail.Financials.PlatformFeeIDR, &detail.Financials.MerchantPromoDiscountIDR,
+		&detail.Financials.RefundedIDR, &detail.Financials.NetMerchantIDR,
+	); err != nil {
+		return nil, fmt.Errorf("get merchant order financials: %w", err)
+	}
+
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT id::text, COALESCE(event_type, ''), COALESCE(description, ''),
+		       COALESCE(actor_role, ''), COALESCE(from_status, ''), COALESCE(to_status, ''),
+		       COALESCE(reason, ''), COALESCE(version, 0),
+		       to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+		FROM order_events WHERE order_id = $1 ORDER BY created_at ASC, version ASC`, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("list merchant order timeline: %w", err)
+	}
+	defer rows.Close()
+	detail.Timeline = []domain.MerchantOrderTimelineEvent{}
+	for rows.Next() {
+		var event domain.MerchantOrderTimelineEvent
+		if err := rows.Scan(&event.ID, &event.EventType, &event.Description, &event.ActorRole, &event.FromStatus, &event.ToStatus, &event.Reason, &event.Version, &event.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan merchant order timeline: %w", err)
+		}
+		detail.Timeline = append(detail.Timeline, event)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	detail.DataAsOf = time.Now().UTC().Format(time.RFC3339)
+	return &detail, nil
 }
 
 func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, merchantID, status string, limit, offset int) ([]*domain.MerchantOrderView, error) {
