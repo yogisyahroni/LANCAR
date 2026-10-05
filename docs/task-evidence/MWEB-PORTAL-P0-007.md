@@ -3,22 +3,22 @@ task_id: MWEB-PORTAL-P0-007
 status: PARTIAL
 reality_2026_003: PARTIAL
 reality_2026_011: PASS
-implementation_ref: 570d0228
+implementation_ref: WORKTREE-2026-10-05-payment-exception-actions
 tests: PASS
 integration: PARTIAL
 e2e: NOT_RUN
 migration: PASS
-migration_na_reason: "N/A — finance schema and existing settlement tables are used; this batch adds no new finance migration."
+migration_na_reason: "N/A — existing finance tables remain canonical; this batch adds an append-only exception-action history migration."
 observability: NOT_RUN
 security_privacy: PARTIAL
 rollback_recovery: PARTIAL
 task_scope_external_proof_required: true
 external_runtime_validation: NOT_RUN
 release_readiness: NOT_RUN
-release_followups: "Staging/UAT, payout-provider webhook, export audit, and reconciliation recovery remain deferred."
-unproven_requirements: "Provider webhook/polling UNKNOWN handling, mismatch queue actions, audited export, and full ledger-to-payout reconciliation E2E."
+release_followups: "Staging/UAT, payout-provider webhook/polling, and reconciliation recovery remain deferred."
+unproven_requirements: "Provider webhook/polling UNKNOWN handling and full ledger-to-payout reconciliation E2E."
 known_blockers: NONE
-locally_actionable_remaining: "Implement and verify provider UNKNOWN, merchant mismatch action, and full ledger-to-payout reconciliation workflows before release gate."
+locally_actionable_remaining: "Implement and verify provider UNKNOWN/polling recovery and full ledger-to-payout reconciliation workflow before release gate."
 blocker_resolution_attempts: NONE
 unblock_condition: NONE
 owner_action_required: false
@@ -48,6 +48,7 @@ updated_at: 2026-10-05
 - Form perubahan rekening payout memakai endpoint server-authoritative yang sudah ada, meminta approval dengan `change_type=bank_account`, mengirim idempotency key, tidak menampilkan nomor rekening penuh, dan menunggu verifikasi ulang setelah perubahan.
 - Admin memiliki antrean approval tenant-aware untuk perubahan merchant; approval/reject dikunci row-level, requester tidak dapat menyetujui atau menolak permintaannya sendiri, expiry dipaksakan oleh database path, dan alasan/referensi keputusan disimpan.
 - Ekspor catatan keuangan tersedia melalui `POST /merchant/finance-statement/export`; CSV dibentuk dari projection immutable yang sama dengan halaman statement, memisahkan entry, total, dan discrepancy, serta diaudit oleh middleware mutation.
+- Admin memiliki keputusan exception payment `OPEN → IN_REVIEW → RESOLVED/ACCEPTED` dengan row lock, role/TOTP/idempotency guard, catatan wajib, append-only `payment_reconciliation_exception_actions`, dan audit log. Keputusan hanya mengubah queue projection; payment intent, provider evidence, ledger, dan nominal payout tidak diubah.
 
 ## Files Changed
 
@@ -59,6 +60,10 @@ updated_at: 2026-10-05
 - `merchant-web/src/lib/types.ts` — tipe statement/discrepancy dan metadata rekening merchant.
 - `backend/merchant-service/internal/service/report_service.go` — settlement/withdrawal authority yang sudah ada dan dipakai UI.
 - `backend/merchant-service/internal/repository/postgres_report_repository.go` — statement/discrepancy persistence yang sudah ada.
+- `backend/admin-service/src/controllers/platformOperations.controller.ts` — endpoint keputusan exception payment dengan transition guard dan audit.
+- `backend/admin-service/src/routes/admin.routes.ts` — route exception decision dengan role, TOTP, dan idempotency guard.
+- `admin-dashboard/src/pages/PlatformOperations.tsx` — queue exception payment dan form keputusan operator.
+- `database/migrations/20261005000012_payment_reconciliation_exception_actions.sql` — riwayat keputusan exception append-only/idempotent.
 
 ## Commands / Checks Run
 
@@ -104,6 +109,30 @@ updated_at: 2026-10-05
     command: VITE_API_URL=https://api.bawain.my.id/api/v1 VITE_SOCKET_URL=wss://api.bawain.my.id npm run build (admin-dashboard)
     result: PASS — production env validation, TypeScript compilation, and Vite build completed.
 
+    command: goose -dir database/migrations postgres "postgres://postgres:1234@localhost:6432/tembus_session?sslmode=disable" up
+    result: PASS — applied 20261005000012_payment_reconciliation_exception_actions.sql.
+
+    command: npm test -- --runInBand src/platformHardeningContract.test.ts src/routes.test.ts (backend/admin-service)
+    result: PASS — 2 suites, 40 tests.
+
+    command: npm run build (backend/admin-service)
+    result: PASS — TypeScript compilation completed with the exception decision controller.
+
+    command: npm test -- --runInBand src/services/paymentExceptionPolicy.test.ts (backend/admin-service)
+    result: PASS — 1 suite, 2 tests covering valid review/reopen transitions and invalid terminal jumps.
+
+    command: VITE_API_URL=https://api.bawain.my.id/api/v1 VITE_WS_URL=wss://api.bawain.my.id VITE_SOCKET_URL=https://api.bawain.my.id npm run build (admin-dashboard)
+    result: PASS — dashboard exception queue compiled and bundled; existing large-chunk warning only.
+
+    command: docker compose up -d --build --no-deps admin-service admin-dashboard; GET http://localhost:8081/health; GET http://localhost:3084/
+    result: PASS — both images rebuilt; admin-service healthy and both endpoints returned HTTP 200.
+
+    command: docker compose up -d --build --no-deps admin-service; docker compose ps admin-service
+    result: PASS — latest policy/controller image rebuilt and container returned to healthy state.
+
+    command: unauthenticated PATCH http://localhost:8080/api/v1/admin/payment/exceptions/:id
+    result: PASS — gateway rejected the protected decision route with HTTP 401.
+
 ## Remaining Requirements
 
-Provider webhook/polling UNKNOWN, merchant mismatch actions, and staging/cross-app reconciliation proof remain PARTIAL/NOT_RUN. The browser form, audited server-generated export, and Admin approval queue are wired to real guarded endpoints, but authenticated TOTP, two-user approval, provider UNKNOWN recovery, and ledger-to-payout reconciliation remain unverified. This evidence does not claim production finance readiness.
+Provider webhook/polling UNKNOWN and staging/cross-app reconciliation proof remain PARTIAL/NOT_RUN. The browser form, audited server-generated export, and exception decision queue are wired to real guarded endpoints, but authenticated TOTP, provider lookup recovery, and ledger-to-payout reconciliation remain unverified. This evidence does not claim production finance readiness.

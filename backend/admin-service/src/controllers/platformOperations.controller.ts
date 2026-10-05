@@ -6,6 +6,7 @@ import { securityLog } from '../security/logRedaction';
 import { requestPaymentConfigChange } from './paymentConfigApproval.controller';
 import { validateCampaignAudience, validateCampaignFinancialContract, validateCampaignFundingBreakdown, validateCampaignFrequencyCap } from '../services/crmPolicy';
 import { activateDueCrmCampaigns } from '../services/crmCampaignScheduler.service';
+import { canTransitionPaymentException, PAYMENT_EXCEPTION_TRANSITIONS } from '../services/paymentExceptionPolicy';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const limitOf = (value: unknown, fallback = 50) => {
@@ -104,6 +105,108 @@ export const listPaymentExceptions = async (req: Request, res: Response): Promis
   } catch (error: any) {
     securityLog.error('admin_payment_exceptions_failed', { error: error.message });
     res.status(500).json({ success: false, error: 'Payment reconciliation queue unavailable' });
+  }
+};
+
+/**
+ * Move one payment reconciliation exception through an audited operator
+ * workflow. This changes only the exception queue projection; it never edits
+ * payment intents, provider evidence, ledger entries, or payout amounts.
+ */
+export const updatePaymentException = async (req: Request, res: Response): Promise<void> => {
+  const exceptionId = String(req.params.id || '').trim();
+  const nextStatus = String(req.body?.status || '').trim().toUpperCase();
+  const note = String(req.body?.resolution_note || req.body?.note || '').trim();
+  const idempotencyKey = String(req.header('Idempotency-Key') || '').trim();
+  if (!UUID_PATTERN.test(exceptionId) || !Object.prototype.hasOwnProperty.call(PAYMENT_EXCEPTION_TRANSITIONS, nextStatus)) {
+    res.status(400).json({ success: false, error: 'Invalid payment exception decision' });
+    return;
+  }
+  if (!idempotencyKey || idempotencyKey.length > 180) {
+    res.status(400).json({ success: false, error: 'Idempotency-Key is required' });
+    return;
+  }
+  if (note.length < 10 || note.length > 2000) {
+    res.status(400).json({ success: false, error: 'Resolution note must contain 10-2000 characters' });
+    return;
+  }
+
+  const actor = getActorId(req);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const existingAction = await client.query(
+      `SELECT id, exception_id, from_status, to_status, action_note, created_at
+         FROM payment_reconciliation_exception_actions
+        WHERE exception_id = $1 AND idempotency_key = $2`,
+      [exceptionId, idempotencyKey],
+    );
+    if (existingAction.rows[0]) {
+      await client.query('COMMIT');
+      res.status(200).json({ success: true, duplicate: true, data: existingAction.rows[0] });
+      return;
+    }
+
+    const current = await client.query(
+      `SELECT id, status
+         FROM payment_reconciliation_exceptions
+        WHERE id = $1
+        FOR UPDATE`,
+      [exceptionId],
+    );
+    if (!current.rows[0]) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, error: 'Payment exception not found' });
+      return;
+    }
+    const fromStatus = String(current.rows[0].status).toUpperCase();
+    if (!canTransitionPaymentException(fromStatus, nextStatus)) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, error: `Cannot move payment exception from ${fromStatus} to ${nextStatus}` });
+      return;
+    }
+
+    const action = await client.query(
+      `INSERT INTO payment_reconciliation_exception_actions
+        (exception_id, actor_id, from_status, to_status, action_note, idempotency_key)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, exception_id, from_status, to_status, action_note, created_at`,
+      [exceptionId, actor, fromStatus, nextStatus, note, idempotencyKey],
+    );
+    const terminal = nextStatus === 'RESOLVED' || nextStatus === 'ACCEPTED';
+    const updated = await client.query(
+      `UPDATE payment_reconciliation_exceptions
+          SET status = $2,
+              resolved_at = CASE WHEN $3 THEN NOW() ELSE NULL END,
+              resolved_by = CASE WHEN $3 THEN $4::uuid ELSE NULL END,
+              resolution_note = $5,
+              last_seen_at = NOW()
+        WHERE id = $1
+        RETURNING id, intent_id, provider, provider_reference, exception_type,
+                  expected_state, actual_state, expected_amount_minor, actual_amount_minor,
+                  currency, provider_batch_date, status, metadata, first_seen_at, last_seen_at,
+                  resolved_at, resolved_by, resolution_note`,
+      [exceptionId, nextStatus, terminal, actor, note],
+    );
+    await client.query(
+      `INSERT INTO audit_logs (actor_id, action, target_id, payload)
+       VALUES ($1, 'payment.reconciliation_exception.decided', $2, $3::jsonb)`,
+      [actor, exceptionId, JSON.stringify({
+        exception_id: exceptionId,
+        from_status: fromStatus,
+        to_status: nextStatus,
+        action_id: action.rows[0].id,
+        idempotency_key: idempotencyKey,
+      })],
+    );
+    await client.query('COMMIT');
+    res.json({ success: true, data: updated.rows[0], action: action.rows[0] });
+  } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    securityLog.error('admin_payment_exception_decision_failed', { error: error.message, exception_id: exceptionId, actor });
+    res.status(500).json({ success: false, error: 'Payment exception decision could not be recorded' });
+  } finally {
+    client.release();
   }
 };
 

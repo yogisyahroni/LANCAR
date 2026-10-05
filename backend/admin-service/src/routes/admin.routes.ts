@@ -40,6 +40,7 @@ adminRoutes.get('/admin/payment/health', requireRole(['super_admin', 'ops_admin'
 adminRoutes.get('/admin/payment/methods', requireRole(['super_admin', 'ops_admin', 'finance_admin', 'finance']), (req, res) => controllers.listPaymentMethodCatalog(req, res));
 adminRoutes.get('/admin/payment/intents', requireRole(['super_admin', 'ops_admin', 'finance_admin', 'finance', 'cs_agent']), (req, res) => controllers.listPaymentIntents(req, res));
 adminRoutes.get('/admin/payment/exceptions', requireRole(['super_admin', 'ops_admin', 'finance_admin', 'finance']), (req, res) => controllers.listPaymentExceptions(req, res));
+adminRoutes.patch('/admin/payment/exceptions/:id', requireRole(['super_admin', 'ops_admin', 'finance_admin']), requireTotp, requireIdempotencyKey('admin.payment.exception.decision'), (req, res) => controllers.updatePaymentException(req, res));
 adminRoutes.get('/admin/payment/chargebacks', requireRole(['super_admin', 'ops_admin', 'finance_admin', 'finance']), (req, res) => controllers.listPaymentChargebacks(req, res));
 adminRoutes.get('/admin/payment/config-change-requests', requireRole(['super_admin', 'ops_admin', 'finance_admin', 'finance']), (req, res) => controllers.listPaymentConfigChangeRequests(req, res));
 adminRoutes.get('/admin/payment/intents/:id/events', requireRole(['super_admin', 'ops_admin', 'finance_admin', 'finance', 'cs_agent']), (req, res) => controllers.listPaymentIntentEvents(req, res));
