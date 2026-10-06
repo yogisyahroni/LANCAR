@@ -5,7 +5,7 @@ status: COMPLETE
 reality_2026_003: PASS
 reality_2026_011: PASS
 
-implementation_ref: db64b3c9
+implementation_ref: 6f019791
 
 tests: PASS
 integration: PASS
@@ -83,6 +83,17 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 - Migration menambahkan requirement privasi merchant ke policy `id-jk`.
 - Success screen tetap memakai endpoint status publik dan copy-nya menyebut
   pendaftaran merchant perorangan.
+- Form pengajuan dipecah menjadi lima langkah yang terpisah: data usaha, alamat,
+  dokumen wajib, dokumen pangan opsional, dan review/persetujuan. Progress dan
+  validasi per langkah mencegah form panjang tampil sekaligus.
+- Alamat wajib diisi sebagai teks yang dapat dipakai kurir. Peta dihapus dari
+  alur; koordinat GPS hanya dapat ditambahkan secara opsional melalui tombol
+  lokasi saat ini dan izin lokasi Android.
+- Semua foto verifikasi dipilih melalui Android Photo Picker lalu dikirim ke
+  endpoint multipart yang sudah ada. Tidak ada lagi input URL foto yang dapat
+  diedit pengguna; payload hanya menerima URL hasil upload server.
+- Dokumen pangan tetap berada di langkah opsional dan dapat dilewati tanpa
+  menghalangi pengajuan.
 
 ## Files Changed
 
@@ -95,6 +106,7 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/data/repository/AuthRepository.kt` — pembuatan sesi setelah OTP.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/navigation/AppNavHost.kt` — pending route setelah login/onboarding.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/registration/RegistrationScreen.kt` — form individual-only, legal links, checkbox, dan status handoff.
+- `android-app-merchant/app/src/main/AndroidManifest.xml` — izin lokasi runtime untuk pilihan GPS opsional tanpa peta.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/registration/RegistrationViewModel.kt` — consent-before-register orchestration.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/data/api/TEMBUSApiService.kt` — policy dan consent API contract.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/data/model/ComplianceModels.kt` — typed compliance responses/requests.
@@ -114,6 +126,12 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 
     command: ./gradlew.bat testDebugUnitTest assembleDebug --no-daemon
     result: PASS — Merchant Android unit tests and debug APK packaging completed; existing deprecation warnings remain.
+
+    command: adb -s 66fcb3 install -r app/build/outputs/apk/debug/app-debug.apk; adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
+    result: PASS — redesigned debug APK installed on the connected physical Realme device and emulator.
+
+    command: git diff --check; source audit for editable photo URL/map registration copy
+    result: PASS — no `tempel URL Foto`, editable document URL field, or map component remains in RegistrationScreen.
 
     command: go test ./...
     workdir: backend/merchant-service
