@@ -5,7 +5,7 @@ status: COMPLETE
 reality_2026_003: PASS
 reality_2026_011: PASS
 
-implementation_ref: 74726eb6
+implementation_ref: c17b4713
 
 tests: PASS
 integration: PASS
@@ -64,6 +64,9 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 - Login Merchant menampilkan CTA `Daftar sebagai merchant perorangan` dan
   menyimpan tujuan pendaftaran sampai akun TEMBUS berhasil masuk serta onboarding
   selesai.
+- CTA pendaftaran memberi feedback langsung melalui dialog yang menjelaskan
+  kebutuhan login, dan label tombol diringkas menjadi `Daftar sebagai merchant`;
+  batas usaha perorangan tetap terlihat pada supporting copy dan dialog.
 - Form mobile menghapus selector perusahaan dan menjelaskan bahwa aplikasi hanya
   untuk usaha perorangan. Payload selalu `business_type=perorangan`.
 - Backend menegakkan batas ini melalui `X-Merchant-Registration-Channel: android`;
@@ -120,7 +123,10 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
     result: PASS — active merchant terms and privacy requirements were returned from the database-backed policy endpoint.
 
     tool: ADB physical device 66fcb3
-    result: PASS — debug APK installed and MainActivity remained resumed; UI hierarchy exposed `Daftar sebagai merchant perorangan`, `Masuk`, and `Belum punya toko?`.
+    result: PASS — debug APK installed and MainActivity remained resumed; UI hierarchy exposed `Daftar sebagai merchant`, supporting copy for usaha perorangan, `Masuk`, and `Belum punya toko?`.
+
+    tool: ADB physical device 66fcb3 click-through
+    result: PASS — tapping the registration CTA opened the login-required dialog; `Mengerti` closed it and returned to the login screen.
 
 ## Task-Local Verification
 
