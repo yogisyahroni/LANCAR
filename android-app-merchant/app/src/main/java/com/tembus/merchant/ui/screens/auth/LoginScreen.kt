@@ -47,6 +47,26 @@ fun LoginScreen(
     )
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showRegistrationInfo by remember { mutableStateOf(false) }
+
+    if (showRegistrationInfo) {
+        AlertDialog(
+            onDismissRequest = { showRegistrationInfo = false },
+            title = { Text("Daftar sebagai merchant") },
+            text = {
+                Text(
+                    "Pendaftaran di aplikasi ini khusus usaha perorangan. Isi email dan " +
+                        "password akun TEMBUS di atas, lalu tekan Masuk. Setelah berhasil " +
+                        "masuk, form pendaftaran akan dibuka otomatis."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showRegistrationInfo = false }) {
+                    Text("Mengerti")
+                }
+            }
+        )
+    }
 
     LaunchedEffect(uiState.loginSuccess) {
         if (uiState.loginSuccess) {
@@ -194,17 +214,20 @@ fun LoginScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = onGoToRegistration,
+                    onClick = {
+                        onGoToRegistration()
+                        showRegistrationInfo = true
+                    },
                     shape = RoundedCornerShape(TembusRadius.Card),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = LoginText),
                     border = BorderStroke(1.dp, LoginFieldBorder),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Daftar sebagai merchant perorangan")
+                    Text("Daftar sebagai merchant")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Masuk dengan akun TEMBUS terlebih dahulu. Setelah masuk, form pendaftaran akan dibuka otomatis.",
+                    text = "Khusus usaha perorangan. Masuk dengan akun TEMBUS, lalu form pendaftaran akan terbuka otomatis.",
                     style = MaterialTheme.typography.bodySmall,
                     color = LoginTextSoft,
                     textAlign = TextAlign.Center
