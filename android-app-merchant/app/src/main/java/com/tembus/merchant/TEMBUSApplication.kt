@@ -46,7 +46,12 @@ class AppContainer(context: Context) {
 
     val authRepository: AuthRepository = AuthRepository(apiService, sessionManager, onboardingPreferences, deviceIdentityProvider)
     val merchantOfflineCache: MerchantOfflineCache = MerchantOfflineCache(appContext) { sessionManager.getUserIdSync() }
-    val merchantRepository: MerchantRepository = MerchantRepository(apiService, merchantOfflineCache)
+    val merchantRepository: MerchantRepository = MerchantRepository(
+        api = apiService,
+        offlineCache = merchantOfflineCache,
+        sessionManager = sessionManager,
+        deviceIdentityProvider = deviceIdentityProvider
+    )
     val experienceConfigRepository: com.tembus.merchant.data.repository.ExperienceConfigRepository =
         com.tembus.merchant.data.repository.ExperienceConfigRepository(appContext, apiService)
 

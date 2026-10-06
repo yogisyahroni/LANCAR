@@ -13,6 +13,12 @@ enum class SessionInvalidationReason {
     TOKEN_EXPIRED
 }
 
+data class MerchantAccessSession(
+    val sessionToken: String,
+    val branchId: String,
+    val deviceId: String
+)
+
 /**
  * Auth Session Manager — token + user id merchant disimpan di EncryptedSharedPreferences.
  * Pola sama dengan customer app (FOOD-BIKE-028: ikuti struktur android-app-customer).
@@ -63,6 +69,9 @@ class AuthSessionManager(private val context: Context) {
             putString(KEY_USER_ID, userId)
             putString(KEY_USER_NAME, name)
             putString(KEY_USER_EMAIL, email)
+            remove(KEY_MERCHANT_SESSION_TOKEN)
+            remove(KEY_MERCHANT_BRANCH_ID)
+            remove(KEY_MERCHANT_DEVICE_ID)
             apply()
         }
         _authToken.value = token
@@ -96,6 +105,42 @@ class AuthSessionManager(private val context: Context) {
         _isLoggedIn.value = false
     }
 
+    fun saveMerchantAccessSession(sessionToken: String, branchId: String, deviceId: String) {
+        sharedPreferences.edit().apply {
+            putString(KEY_MERCHANT_SESSION_TOKEN, sessionToken)
+            putString(KEY_MERCHANT_BRANCH_ID, branchId)
+            putString(KEY_MERCHANT_DEVICE_ID, deviceId)
+            apply()
+        }
+    }
+
+    fun getMerchantAccessSessionSync(): MerchantAccessSession? {
+        val token = sharedPreferences.getString(KEY_MERCHANT_SESSION_TOKEN, null)
+        val branchId = sharedPreferences.getString(KEY_MERCHANT_BRANCH_ID, null)
+        val deviceId = sharedPreferences.getString(KEY_MERCHANT_DEVICE_ID, null)
+        if (token.isNullOrBlank() || branchId.isNullOrBlank() || deviceId.isNullOrBlank()) return null
+        return MerchantAccessSession(token, branchId, deviceId)
+    }
+
+    fun saveMerchantBranchId(branchId: String?) {
+        sharedPreferences.edit().apply {
+            if (branchId.isNullOrBlank()) remove(KEY_MERCHANT_BRANCH_ID)
+            else putString(KEY_MERCHANT_BRANCH_ID, branchId)
+            apply()
+        }
+    }
+
+    fun getMerchantBranchIdSync(): String? = sharedPreferences.getString(KEY_MERCHANT_BRANCH_ID, null)
+
+    fun clearMerchantAccessSession() {
+        sharedPreferences.edit().apply {
+            remove(KEY_MERCHANT_SESSION_TOKEN)
+            remove(KEY_MERCHANT_BRANCH_ID)
+            remove(KEY_MERCHANT_DEVICE_ID)
+            apply()
+        }
+    }
+
     fun isTokenExpired(token: String): Boolean = false // JWT expiry di-handle refresh interceptor / 401 flow
 
     /** Baca userId sinkron dari SharedPreferences (untuk ViewModel init). */
@@ -113,5 +158,8 @@ class AuthSessionManager(private val context: Context) {
         private const val KEY_USER_ID = "user_id"
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_USER_EMAIL = "user_email"
+        private const val KEY_MERCHANT_SESSION_TOKEN = "merchant_session_token"
+        private const val KEY_MERCHANT_BRANCH_ID = "merchant_branch_id"
+        private const val KEY_MERCHANT_DEVICE_ID = "merchant_device_id"
     }
 }

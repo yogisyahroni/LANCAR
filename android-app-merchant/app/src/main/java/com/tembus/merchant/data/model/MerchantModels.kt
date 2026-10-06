@@ -78,6 +78,59 @@ data class Merchant(
     val isCorporate: Boolean get() = businessType == "perusahaan"
 }
 
+/** Server-owned merchant/outlet scope used by the Android client before protected reads. */
+data class MerchantPortalContextEnvelope(
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: MerchantPortalContext? = null
+)
+
+data class MerchantPortalContext(
+    @SerializedName("merchant") val merchant: Merchant? = null,
+    @SerializedName("business_id") val businessId: String = "",
+    @SerializedName("branches") val branches: List<MerchantBranch> = emptyList(),
+    @SerializedName("current_branch_id") val currentBranchId: String? = null,
+    @SerializedName("effective_role") val effectiveRole: String = "",
+    @SerializedName("granted_permissions") val grantedPermissions: Int = 0,
+    @SerializedName("capabilities") val capabilities: List<String> = emptyList(),
+    @SerializedName("device_session_required") val deviceSessionRequired: Boolean = false,
+    @SerializedName("financial_context") val financialContext: MerchantFinancialContext? = null
+)
+
+data class MerchantBranch(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("merchant_id") val merchantId: String = "",
+    @SerializedName("code") val code: String = "",
+    @SerializedName("name") val name: String = "",
+    @SerializedName("address") val address: String = "",
+    @SerializedName("is_active") val isActive: Boolean = true
+)
+
+data class MerchantFinancialContext(
+    @SerializedName("market_code") val marketCode: String = "",
+    @SerializedName("currency_code") val currencyCode: String = "",
+    @SerializedName("currency_minor_unit") val currencyMinorUnit: Int = 0,
+    @SerializedName("timezone") val timezone: String = "",
+    @SerializedName("display_locale") val displayLocale: String = ""
+)
+
+data class CreateMerchantDeviceSessionRequest(
+    @SerializedName("branch_id") val branchId: String,
+    @SerializedName("device_id") val deviceId: String,
+    @SerializedName("device_label") val deviceLabel: String,
+    @SerializedName("ttl_minutes") val ttlMinutes: Int? = null
+)
+
+data class MerchantDeviceSessionEnvelope(
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: MerchantDeviceSession? = null
+)
+
+data class MerchantDeviceSession(
+    @SerializedName("session_token") val sessionToken: String? = null,
+    @SerializedName("branch_id") val branchId: String = "",
+    @SerializedName("device_id") val deviceId: String = ""
+)
+
 data class MerchantPOSConnectorStatus(
     @SerializedName("provider_code") val providerCode: String = "",
     @SerializedName("provider_name") val providerName: String = "",

@@ -76,6 +76,7 @@ class ProfileViewModel(
                     if (e.message?.contains("belum terdaftar") == true || e.message?.contains("404") == true) {
                         _uiState.value = _uiState.value.copy(
                             needsRegistration = true,
+                            errorMessage = e.message,
                             isLoading = false
                         )
                     } else {

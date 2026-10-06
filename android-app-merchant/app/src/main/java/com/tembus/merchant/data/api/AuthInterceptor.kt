@@ -47,6 +47,15 @@ class AuthInterceptor(private val sessionManager: AuthSessionManager) : Intercep
         val authorizedRequest = clientRequest
             .header("Authorization", "Bearer $token")
             .header("Accept", "application/json")
+            .apply {
+                sessionManager.getMerchantAccessSessionSync()?.let { scope ->
+                    header("X-Merchant-Session-Token", scope.sessionToken)
+                    header("X-Merchant-Branch-ID", scope.branchId)
+                    header("X-Device-ID", scope.deviceId)
+                } ?: sessionManager.getMerchantBranchIdSync()?.let { branchId ->
+                    header("X-Merchant-Branch-ID", branchId)
+                }
+            }
             .build()
 
         return chain.proceed(authorizedRequest)

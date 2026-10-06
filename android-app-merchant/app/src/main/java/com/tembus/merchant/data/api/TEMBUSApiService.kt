@@ -63,6 +63,16 @@ interface TEMBUSApiService {
     @GET("api/v1/merchant/profile")
     suspend fun getProfile(): Response<Merchant>
 
+    // MERCH-2026-002: resolve merchant/outlet scope before protected reads.
+    @GET("api/v1/merchant/context")
+    suspend fun getPortalContext(): Response<MerchantPortalContextEnvelope>
+
+    @POST("api/v1/merchant/device-sessions/{id}")
+    suspend fun createDeviceSession(
+        @Path("id") merchantId: String,
+        @Body request: CreateMerchantDeviceSessionRequest
+    ): Response<MerchantDeviceSessionEnvelope>
+
     // MERCH-2026-008: policy status, safe active-order state and appeal path.
     @GET("api/v1/merchant/enforcement")
     suspend fun getEnforcementStatus(): Response<MerchantEnforcementStatus>

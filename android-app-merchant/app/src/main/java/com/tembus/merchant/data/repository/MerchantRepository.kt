@@ -3,7 +3,11 @@ package com.tembus.merchant.data.repository
 import com.tembus.merchant.data.api.TEMBUSApiService
 import com.tembus.merchant.data.api.MerchantErrorMessages
 import com.tembus.merchant.data.cache.MerchantOfflineCache
+import com.tembus.merchant.data.device.DeviceIdentityProvider
 import com.tembus.merchant.data.model.*
+import com.tembus.merchant.data.session.AuthSessionManager
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -16,11 +20,22 @@ import java.util.UUID
  */
 class MerchantRepository(
     private val api: TEMBUSApiService,
-    private val offlineCache: MerchantOfflineCache? = null
+    private val offlineCache: MerchantOfflineCache? = null,
+    private val sessionManager: AuthSessionManager,
+    private val deviceIdentityProvider: DeviceIdentityProvider
 ) {
 
-    suspend fun getProfile(): Result<Merchant> =
-        request { api.getProfile() }
+    private val accessBootstrapMutex = Mutex()
+    @Volatile private var bootstrappedUserId: String? = null
+
+    suspend fun getProfile(): Result<Merchant> {
+        return try {
+            val context = ensureMerchantAccessContext()
+            Result.success(context.merchant ?: throw Exception("Merchant belum terdaftar"))
+        } catch (error: Exception) {
+            Result.failure(Exception(MerchantErrorMessages.from(error, "Profil merchant belum berhasil dimuat. Coba lagi."), error))
+        }
+    }
 
     // MERCH-2026-008: server-owned enforcement/appeal lifecycle.
     suspend fun getEnforcementStatus(): Result<MerchantEnforcementStatus> =
@@ -46,7 +61,7 @@ class MerchantRepository(
         request { api.deleteSpecialClosure(id) }.map { it.success }
 
     suspend fun registerMerchant(req: RegisterMerchantRequest): Result<Merchant> =
-        request { api.registerMerchant(request = req) }
+        request(requireMerchantContext = false) { api.registerMerchant(request = req) }
 
     /**
      * Records both legal consents from the active server policy. The version is
@@ -56,7 +71,7 @@ class MerchantRepository(
     suspend fun recordIndividualMerchantLegalConsents(
         consentAttemptId: String = UUID.randomUUID().toString()
     ): Result<Unit> {
-        val policy = request { api.getCompliancePolicy("id-jk") }
+        val policy = request(requireMerchantContext = false) { api.getCompliancePolicy("id-jk") }
             .getOrElse { return Result.failure(it) }
         val requirements = policy.data?.requirements.orEmpty()
         val required = listOf("merchant_terms", "merchant_privacy_notice")
@@ -70,7 +85,7 @@ class MerchantRepository(
                 ?: return Result.failure(IllegalStateException("Dokumen legal merchant belum tersedia"))
             val documentVersion = requirement.documentVersion
                 ?: return Result.failure(IllegalStateException("Versi dokumen legal merchant belum tersedia"))
-            val consent = request {
+            val consent = request(requireMerchantContext = false) {
                 api.recordComplianceConsent(
                     idempotencyKey = "merchant-registration-$consentAttemptId-${requirement.requirementCode}",
                     request = ComplianceConsentRequest(
@@ -135,7 +150,7 @@ class MerchantRepository(
 
     // FB-045: upload dokumen registrasi generic (KTP/foto toko/rekening) → URL publik.
     suspend fun uploadPhoto(file: java.io.File): Result<String> =
-        request {
+        request(requireMerchantContext = false) {
             val body = file.asRequestBody("image/jpeg".toMediaType())
             api.uploadDoc(
                 MultipartBody.Part.createFormData("file", file.name, body)
@@ -302,8 +317,76 @@ class MerchantRepository(
     suspend fun updateStaff(merchantId: String, staffId: String, req: UpdateStaffRequest): Result<List<MerchantStaff>> =
         request { api.updateStaff(merchantId, staffId, req) }.map { it.data }
 
-    private suspend fun <T> request(block: suspend () -> retrofit2.Response<T>): Result<T> {
+    private suspend fun ensureMerchantAccessContext(): MerchantPortalContext =
+        accessBootstrapMutex.withLock {
+            val userId = sessionManager.getUserIdSync()
+                ?: throw Exception("Sesi merchant tidak ditemukan")
+            if (bootstrappedUserId == userId) {
+                val cached = sessionManager.getMerchantBranchIdSync()
+                if (cached != null || sessionManager.getMerchantAccessSessionSync() != null) {
+                    return@withLock fetchPortalContext()
+                }
+            }
+
+            var context = fetchPortalContext(clearScopeOnFailure = true)
+            val merchant = context.merchant ?: throw Exception("Akun belum terdaftar sebagai mitra")
+            if (context.deviceSessionRequired) {
+                val branchId = context.currentBranchId
+                    ?: context.branches.firstOrNull { it.isActive }?.id
+                    ?: throw Exception("Akun staff belum memiliki outlet aktif")
+                val deviceId = deviceIdentityProvider.deviceId()
+                val existing = sessionManager.getMerchantAccessSessionSync()
+                if (existing == null || existing.branchId != branchId || existing.deviceId != deviceId) {
+                    sessionManager.clearMerchantAccessSession()
+                    val response = api.createDeviceSession(
+                        merchant.id,
+                        CreateMerchantDeviceSessionRequest(
+                            branchId = branchId,
+                            deviceId = deviceId,
+                            deviceLabel = "TEMBUS Merchant Android"
+                        )
+                    )
+                    if (!response.isSuccessful) {
+                        throw Exception(parseErrorMessage(response.errorBody()?.string(), "Sesi outlet belum dapat dibuat"))
+                    }
+                    val session = response.body()?.data
+                    val token = session?.sessionToken?.takeIf { it.isNotBlank() }
+                        ?: throw Exception("Sesi outlet belum dapat dibuat")
+                    sessionManager.saveMerchantAccessSession(
+                        sessionToken = token,
+                        branchId = session.branchId.ifBlank { branchId },
+                        deviceId = session.deviceId.ifBlank { deviceId }
+                    )
+                }
+                context = fetchPortalContext()
+            } else {
+                sessionManager.clearMerchantAccessSession()
+            }
+            sessionManager.saveMerchantBranchId(context.currentBranchId)
+            bootstrappedUserId = userId
+            context
+        }
+
+    private suspend fun fetchPortalContext(clearScopeOnFailure: Boolean = false): MerchantPortalContext {
+        var response = api.getPortalContext()
+        if (!response.isSuccessful && clearScopeOnFailure) {
+            sessionManager.clearMerchantAccessSession()
+            sessionManager.saveMerchantBranchId(null)
+            response = api.getPortalContext()
+        }
+        if (!response.isSuccessful) {
+            throw Exception(parseErrorMessage(response.errorBody()?.string(), "Konteks merchant belum berhasil dimuat"))
+        }
+        return response.body()?.data?.takeIf { it.merchant != null }
+            ?: throw Exception("Konteks merchant belum lengkap")
+    }
+
+    private suspend fun <T> request(
+        requireMerchantContext: Boolean = true,
+        block: suspend () -> retrofit2.Response<T>
+    ): Result<T> {
         return try {
+            if (requireMerchantContext) ensureMerchantAccessContext()
             val resp = block()
             if (!resp.isSuccessful) {
                 val body = resp.errorBody()?.string()

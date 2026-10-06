@@ -10,6 +10,8 @@ object MerchantErrorMessages {
     fun from(error: Throwable?, fallback: String): String {
         val detail = error?.message.orEmpty().lowercase(Locale.ROOT)
         return when {
+            detail.contains("belum terdaftar sebagai mitra") || detail.contains("belum terdaftar sebagai merchant") ->
+                "Akun ini belum terdaftar sebagai merchant. Selesaikan pendaftaran terlebih dahulu."
             detail.contains("401") || detail.contains("unauthorized") || detail.contains("unauthenticated") || detail.contains("token") ->
                 "Sesi Anda sudah berakhir. Silakan masuk kembali."
             detail.contains("403") || detail.contains("forbidden") || detail.contains("permission") || detail.contains("izin") ->
