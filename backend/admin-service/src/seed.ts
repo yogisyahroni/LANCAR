@@ -452,7 +452,8 @@ const disableDevelopmentOtpFlags = async (client: PoolClient) => {
        updated_at = NOW()
      WHERE key IN (
        'courier_login_otp_required',
-       'customer_auth_otp_required'
+       'customer_auth_otp_required',
+       'customer_registration_otp_required'
      )`
   );
 };

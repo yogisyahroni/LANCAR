@@ -39,6 +39,7 @@ import { toast } from 'sonner'
 const PREDEFINED_FLAGS = [
   { key: 'custom', name: '-- Custom / Other --', description: 'Create a brand new feature flag', category: 'Experimental' },
   { key: 'customer_auth_otp_required', name: 'Customer Auth OTP', description: 'Require OTP for customer registration and login', category: 'System' },
+  { key: 'customer_registration_otp_required', name: 'Customer Registration OTP', description: 'Require OTP when creating a new customer account', category: 'System' },
   { key: 'require_payment_gateway', name: 'Require Payment Gateway', description: 'Enable or bypass the payment gateway for orders', category: 'System' },
   { key: 'payment_provider_xendit', name: 'Xendit Payment Provider', description: 'Enable Xendit as a payment provider', category: 'System' },
   { key: 'payment_provider_midtrans', name: 'Midtrans Payment Provider', description: 'Enable Midtrans as a payment provider', category: 'System' },

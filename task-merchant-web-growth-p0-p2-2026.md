@@ -208,7 +208,10 @@ status yang dapat dilacak melalui Portal Mitra.
   dan konfirmasi password, lalu mengirim OTP ke email. Setelah OTP terverifikasi,
   sesi dibuat dan user diarahkan melalui onboarding bila diperlukan sebelum
   masuk ke form pengajuan merchant perorangan. Login tetap khusus untuk akun
-  yang sudah ada.
+  yang sudah ada. Untuk tunnel/local UAT, OTP registrasi dapat dinonaktifkan
+  melalui flag `customer_registration_otp_required`; default production tetap
+  wajib dan flag `customer_auth_otp_required` tetap menjadi gerbang keamanan
+  autentikasi customer.
 - Hilangkan pemilih `perusahaan` dari form mobile. Backend menegakkan kanal
   Android sebagai `business_type=perorangan`, sedangkan Portal Mitra tetap menjadi
   jalur perusahaan/PT.

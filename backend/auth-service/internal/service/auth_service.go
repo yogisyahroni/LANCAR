@@ -34,7 +34,10 @@ type AuthService struct {
 	emailService    EmailService
 }
 
-const customerAuthOTPRequiredFlag = "customer_auth_otp_required"
+const (
+	customerAuthOTPRequiredFlag         = "customer_auth_otp_required"
+	customerRegistrationOTPRequiredFlag = "customer_registration_otp_required"
+)
 
 var authTracer = otel.Tracer("tembus/auth-service")
 
@@ -54,6 +57,22 @@ func NewAuthService(u domain.UserRepository, a domain.AuthRepository, s domain.S
 
 func (s *AuthService) isCustomerAuthOTPRequired(ctx context.Context) bool {
 	required, err := s.authRepo.IsFeatureFlagEnabled(ctx, customerAuthOTPRequiredFlag, true)
+	if err != nil {
+		return true
+	}
+	return required
+}
+
+// isCustomerRegistrationOTPRequired is a narrower control for the local/UAT
+// registration path. The broader customer_auth_otp_required flag remains the
+// safety gate for all customer authentication. Production therefore keeps OTP
+// required by default even if this registration-only flag is misconfigured.
+func (s *AuthService) isCustomerRegistrationOTPRequired(ctx context.Context) bool {
+	if !s.isCustomerAuthOTPRequired(ctx) {
+		return false
+	}
+
+	required, err := s.authRepo.IsFeatureFlagEnabled(ctx, customerRegistrationOTPRequiredFlag, true)
 	if err != nil {
 		return true
 	}
@@ -490,7 +509,7 @@ func (s *AuthService) StartCustomerPasswordRegistration(ctx context.Context, ful
 	refCode := fmt.Sprintf("RLY-%s", randomPart)
 	_ = s.userRepo.SetReferralCode(ctx, user.ID, refCode)
 
-	if !s.isCustomerAuthOTPRequired(ctx) {
+	if !s.isCustomerRegistrationOTPRequired(ctx) {
 		_ = s.userRepo.MarkVerified(ctx, user.ID)
 		user.IsVerified = true
 		user.Status = domain.StatusActive

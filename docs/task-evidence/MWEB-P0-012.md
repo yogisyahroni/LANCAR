@@ -66,6 +66,9 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
   yang menjelaskan jalur ini khusus usaha perorangan.
 - Alur publik membuat akun TEMBUS dengan nama, email, nomor handphone, password,
   dan konfirmasi password, lalu meminta OTP email sebelum sesi dibuat.
+- Kontrol OTP registrasi dipisahkan melalui `customer_registration_otp_required`.
+  Flag ini tetap `true` secara default; local/UAT dapat menonaktifkannya tanpa
+  mematikan gerbang OTP login customer `customer_auth_otp_required`.
 - Setelah sesi berhasil dibuat, tujuan pengajuan merchant perorangan tetap
   diteruskan melewati onboarding hingga form pengajuan terbuka.
 - Form mobile menghapus selector perusahaan dan menjelaskan bahwa aplikasi hanya
@@ -98,6 +101,10 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 - `backend/merchant-service/internal/handler/merchant_handler.go` — Android channel enforcement.
 - `backend/merchant-service/internal/handler/mobile_registration_contract_test.go` — boundary tests.
 - `database/migrations/20261006000002_merchant_individual_legal_requirements.sql` — merchant privacy requirement.
+- `backend/auth-service/internal/service/auth_service.go` — registration-only OTP gate.
+- `backend/auth-service/internal/service/auth_service_otp_flags_test.go` — scoped OTP flag and fail-closed tests.
+- `database/migrations/20261006000003_customer_registration_otp_feature_flag.sql` — registration-only OTP flag.
+- `backend/admin-service/src/seed.ts` and `admin-dashboard/src/pages/useSettingsData.ts` — development seed and admin flag visibility.
 - `task-merchant-web-growth-p0-p2-2026.md` — owner-approved individual-only task scope.
 
 ## Commands / Checks Run
@@ -127,6 +134,16 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 
     command: GET http://localhost:8080/api/v1/compliance/policy?market_code=id-jk
     result: PASS — active merchant terms and privacy requirements were returned from the database-backed policy endpoint.
+
+    command: docker exec tembus-db psql -U postgres -d tembus -v ON_ERROR_STOP=1 -c "UPDATE feature_flags SET is_enabled = CASE key WHEN 'customer_auth_otp_required' THEN true WHEN 'customer_registration_otp_required' THEN false ELSE is_enabled END, updated_at = NOW() WHERE key IN ('customer_auth_otp_required','customer_registration_otp_required'); SELECT key || '|' || is_enabled FROM feature_flags WHERE key IN ('customer_auth_otp_required','customer_registration_otp_required','otp_provider_live') ORDER BY key;"
+    result: PASS — local Docker uses customer_auth_otp_required=true and customer_registration_otp_required=false; otp_provider_live remains false. This is a local/UAT setting and was not represented as production configuration.
+
+    command: go test ./...
+    workdir: backend/auth-service
+    result: PASS — auth-service package tests passed, including scoped registration OTP flag and fail-closed behavior.
+
+    command: docker compose build auth-service && docker compose up -d --no-deps auth-service
+    result: PASS — auth-service image rebuilt from the current source and the recreated container reported healthy in development.
 
     tool: ADB physical device 66fcb3
     result: PASS — debug APK installed and MainActivity remained resumed; UI hierarchy exposed `Daftar sebagai merchant`, supporting copy for usaha perorangan, `Masuk`, and `Belum punya toko?`.
@@ -159,6 +176,10 @@ Evidence: The physical-device login surface was verified through ADB UI
 hierarchy. A disposable authenticated submit with real document uploads was not
 run in this implementation batch; it is explicitly recorded as release/UAT
 follow-up and was not represented as PASS.
+
+The local tunnel can now exercise account creation without email OTP by using
+the registration-only feature flag. This does not prove the real provider path;
+the production-like OTP path remains a release/UAT follow-up.
 
 ### Migration
 
