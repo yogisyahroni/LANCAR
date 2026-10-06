@@ -4,4 +4,12 @@
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- LeakCanary remains available for diagnostics, but its launcher alias
+         must not compete with the actual Merchant app icon in debug/UAT. -->
+    <application>
+        <activity-alias
+            android:name="leakcanary.internal.activity.LeakLauncherActivity"
+            tools:node="remove" />
+    </application>
 </manifest>

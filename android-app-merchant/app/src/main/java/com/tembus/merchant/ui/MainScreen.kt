@@ -1,9 +1,6 @@
 package com.tembus.merchant.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -45,7 +42,7 @@ import com.tembus.merchant.util.rememberNetworkAvailable
 
 private data class MainTab(val labelRes: Int, val icon: ImageVector, val key: String)
 
-@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     experienceConfigRepository: ExperienceConfigRepository,
@@ -178,7 +175,10 @@ fun MainScreen(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val useNavigationRail = maxWidth >= 600.dp
-        SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+        // Keep navigation lifecycle-local. SharedTransitionLayout retained
+        // Compose snapshot observers after activity recreation in debug builds
+        // (LeakCanary reported MainActivity -> SharedTransitionObserverDelegate).
+        Box(modifier = Modifier.fillMaxSize()) {
             if (useNavigationRail) {
                 Row(Modifier.fillMaxSize()) {
                     MerchantNavigation(
@@ -208,17 +208,15 @@ fun MainScreen(
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun SharedTransitionScope.MerchantNavigation(
+private fun MerchantNavigation(
     tabs: List<MainTab>,
     selectedTab: Int,
     onSelect: (Int) -> Unit,
     useNavigationRail: Boolean
 ) {
-    // AnimatedContent keeps the outgoing and incoming selected icons in the
-    // same SharedTransitionLayout, so the selection visibly travels between
-    // destinations instead of simply fading at its old position.
+    // Keep the selected-state animation local to the navigation bar. A shared
+    // element is unnecessary here and can outlive MainActivity on recreation.
     AnimatedContent(targetState = selectedTab, label = "merchant-navigation-selection") { selected ->
         if (useNavigationRail) {
             NavigationRail(modifier = Modifier.fillMaxHeight()) {
@@ -230,10 +228,7 @@ private fun SharedTransitionScope.MerchantNavigation(
                             Icon(
                                 tab.icon,
                                 contentDescription = stringResource(tab.labelRes),
-                                modifier = if (selected == index) Modifier.sharedElement(
-                                    rememberSharedContentState("merchant-selected-tab-icon"),
-                                    this@AnimatedContent
-                                ) else Modifier
+                                modifier = Modifier
                             )
                         },
                         label = { Text(stringResource(tab.labelRes)) }
@@ -275,10 +270,7 @@ private fun SharedTransitionScope.MerchantNavigation(
                                 tab.icon,
                                 contentDescription = stringResource(tab.labelRes),
                                 tint = itemColor,
-                                modifier = (if (isSelected) Modifier.sharedElement(
-                                    rememberSharedContentState("merchant-selected-tab-icon"),
-                                    this@AnimatedContent
-                                ) else Modifier).size(21.dp)
+                                modifier = Modifier.size(21.dp)
                             )
                             Text(
                                 stringResource(tab.labelRes),

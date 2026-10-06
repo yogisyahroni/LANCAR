@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * ApiClient — Retrofit singleton. Base URL dari BuildConfig.BASE_URL (gateway Tembus).
- * Debug: logging HTTP aktif; release: off.
+ * Debug: log metadata/header HTTP tanpa body; release: off.
  *
  * ADR-004: client utama punya AuthInterceptor + TokenAuthenticator; service refresh
  * memakai client polos (tanpa AuthInterceptor/Authenticator) supaya tidak loop.
@@ -27,7 +27,12 @@ object ApiClient {
     ): TEMBUSApiService {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.BODY
+                // Request/response bodies contain passwords, OTPs, tokens and
+                // personal data. Keep endpoint/status visibility for local
+                // debugging without writing those values to logcat.
+                redactHeader("Authorization")
+                redactHeader("Cookie")
+                HttpLoggingInterceptor.Level.HEADERS
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }

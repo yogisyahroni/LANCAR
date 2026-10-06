@@ -35,8 +35,10 @@ interface TEMBUSApiService {
         @Query("locale") locale: String? = null
     ): Response<AppVersion>
 
-    // ── Auth (auth-service, generic untuk semua role) ──
-    @POST("api/v1/auth/customer/login/start")
+    // ── Auth portal Merchant (owner/staff/customer identity) ──
+    // Merchant login must use the portal scope so the auth service accepts
+    // merchant owners and invited staff, not only customer accounts.
+    @POST("api/v1/auth/merchant-portal/login/start")
     suspend fun login(
         @Body body: LoginRequest
     ): Response<AuthResponse>

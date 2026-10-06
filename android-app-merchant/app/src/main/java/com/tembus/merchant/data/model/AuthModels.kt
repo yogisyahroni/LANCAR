@@ -2,7 +2,7 @@ package com.tembus.merchant.data.model
 
 import com.google.gson.annotations.SerializedName
 
-/** Request login email/password — endpoint /api/v1/auth/customer/login/start (generic untuk semua role). */
+/** Request login email/password untuk portal Merchant. */
 data class LoginRequest(
     @SerializedName("email") val email: String,
     @SerializedName("password") val password: String,

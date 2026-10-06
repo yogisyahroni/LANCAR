@@ -6,10 +6,25 @@ import kotlin.coroutines.Continuation
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import retrofit2.Response
+import retrofit2.http.POST
 import java.lang.reflect.ParameterizedType
 import java.lang.reflect.WildcardType
 
 class RetrofitSignatureTest {
+
+    @Test
+    fun loginUsesMerchantPortalAuthRoute() {
+        val method = TEMBUSApiService::class.java.getDeclaredMethod(
+            "login",
+            LoginRequest::class.java,
+            Continuation::class.java
+        )
+
+        assertEquals(
+            "api/v1/auth/merchant-portal/login/start",
+            method.getAnnotation(POST::class.java)?.value
+        )
+    }
 
     @Test
     fun loginKeepsParameterizedSuspendResponseType() {

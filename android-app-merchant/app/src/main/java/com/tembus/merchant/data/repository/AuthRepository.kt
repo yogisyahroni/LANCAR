@@ -12,8 +12,7 @@ import com.tembus.merchant.data.onboarding.OnboardingPreferences
 import com.tembus.merchant.data.session.AuthSessionManager
 
 /**
- * AuthRepository — login email/password + simpan sesi.
- * Endpoint login auth-service generic untuk semua role (termasuk merchant).
+ * AuthRepository — login email/password + simpan sesi portal Merchant.
  */
 class AuthRepository(
     private val api: TEMBUSApiService,

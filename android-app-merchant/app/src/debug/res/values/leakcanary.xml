@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Keep the debug leak report available from notifications without adding
+         a second launcher icon that can be mistaken for the Merchant app. -->
+    <bool name="leak_canary_add_launcher_icon">false</bool>
+</resources>
