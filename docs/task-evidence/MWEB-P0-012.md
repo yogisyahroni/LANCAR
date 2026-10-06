@@ -88,6 +88,7 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/auth/LoginScreen.kt` — CTA pendaftaran yang terlihat.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/auth/AccountRegistrationScreen.kt` — form akun baru dan verifikasi OTP.
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/data/api/MerchantErrorMessages.kt` — copy aman untuk akun yang sudah terdaftar.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/auth/AccountRegistrationViewModel.kt` — validasi dan orkestrasi pendaftaran akun.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/data/model/AuthModels.kt` — kontrak request registrasi akun dan OTP.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/data/api/TEMBUSApiService.kt` — endpoint registrasi akun dan verifikasi OTP.
@@ -100,6 +101,8 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/data/repository/MerchantRepository.kt` — server-versioned consent persistence.
 - `backend/merchant-service/internal/handler/merchant_handler.go` — Android channel enforcement.
 - `backend/merchant-service/internal/handler/mobile_registration_contract_test.go` — boundary tests.
+- `backend/auth-service/internal/handler/auth_handler.go` — safe duplicate-account error contract.
+- `backend/auth-service/internal/handler/auth_handler_registration_test.go` — registration error redaction tests.
 - `database/migrations/20261006000002_merchant_individual_legal_requirements.sql` — merchant privacy requirement.
 - `backend/auth-service/internal/service/auth_service.go` — registration-only OTP gate.
 - `backend/auth-service/internal/service/auth_service_otp_flags_test.go` — scoped OTP flag and fail-closed tests.
@@ -144,6 +147,12 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 
     command: docker compose build auth-service && docker compose up -d --no-deps auth-service
     result: PASS — auth-service image rebuilt from the current source and the recreated container reported healthy in development.
+
+    command: POST http://localhost:8080/api/v1/auth/customer/register/start with an existing local account
+    result: PASS — API returned HTTP 400 with the actionable safe message "Email atau nomor handphone sudah terdaftar. Silakan masuk dengan akun tersebut."; database/SQL details were not exposed.
+
+    tool: ADB physical device 66fcb3 after reinstalling app-debug.apk
+    result: PASS — registration screen exposed the non-OTP-neutral label `Buat akun & lanjutkan` and copy explaining that email verification is conditional; installed package versionCode was 2033.
 
     tool: ADB physical device 66fcb3
     result: PASS — debug APK installed and MainActivity remained resumed; UI hierarchy exposed `Daftar sebagai merchant`, supporting copy for usaha perorangan, `Masuk`, and `Belum punya toko?`.

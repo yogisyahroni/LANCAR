@@ -73,7 +73,8 @@ fun AccountRegistrationScreen(
                     onPasswordChange = viewModel::onPasswordChange,
                     onPasswordConfirmationChange = viewModel::onPasswordConfirmationChange,
                     onSubmit = viewModel::startRegistration,
-                    onExistingAccount = onBack
+                    onExistingAccount = onBack,
+                    errorMessage = state.errorMessage
                 )
 
                 AccountRegistrationStep.OTP -> OtpForm(
@@ -81,15 +82,8 @@ fun AccountRegistrationScreen(
                     onOtpChange = viewModel::onOtpChange,
                     onVerify = viewModel::verifyOtp,
                     onResend = viewModel::startRegistration,
-                    onEdit = viewModel::backToForm
-                )
-            }
-
-            state.errorMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium
+                    onEdit = viewModel::backToForm,
+                    errorMessage = state.errorMessage
                 )
             }
         }
@@ -105,7 +99,8 @@ private fun AccountForm(
     onPasswordChange: (String) -> Unit,
     onPasswordConfirmationChange: (String) -> Unit,
     onSubmit: () -> Unit,
-    onExistingAccount: () -> Unit
+    onExistingAccount: () -> Unit,
+    errorMessage: String?
 ) {
     Text(
         text = "Buat akun sebelum mendaftar",
@@ -113,7 +108,7 @@ private fun AccountForm(
         fontWeight = FontWeight.Bold
     )
     Text(
-        text = "Kamu belum perlu punya toko atau status approved. Buat akun TEMBUS dulu, verifikasi email, lalu isi pengajuan merchant perorangan.",
+        text = "Kamu belum perlu punya toko atau status approved. Buat akun TEMBUS dulu, lalu isi pengajuan merchant perorangan. Jika verifikasi email aktif, kode akan diminta setelah data dikirim.",
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -131,7 +126,7 @@ private fun AccountForm(
         value = state.email,
         onValueChange = onEmailChange,
         label = { Text("Email") },
-        supportingText = { Text("Kode verifikasi akan dikirim ke email ini.") },
+        supportingText = { Text("Dipakai untuk verifikasi bila diwajibkan.") },
         singleLine = true,
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.Email,
@@ -177,10 +172,17 @@ private fun AccountForm(
     )
 
     Text(
-        text = "Setelah akun terverifikasi, persetujuan dan dokumen merchant akan diminta di langkah pengajuan.",
+        text = "Setelah akun siap, persetujuan dan dokumen merchant akan diminta di langkah pengajuan.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
+    errorMessage?.let { message ->
+        Text(
+            text = message,
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
     Spacer(modifier = Modifier.height(8.dp))
     Button(
         onClick = onSubmit,
@@ -196,7 +198,7 @@ private fun AccountForm(
                 strokeWidth = 2.dp
             )
         } else {
-            Text("Buat akun & kirim kode")
+            Text("Buat akun & lanjutkan")
         }
     }
     TextButton(
@@ -213,7 +215,8 @@ private fun OtpForm(
     onOtpChange: (String) -> Unit,
     onVerify: () -> Unit,
     onResend: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    errorMessage: String?
 ) {
     Text(
         text = "Verifikasi email",
@@ -225,6 +228,13 @@ private fun OtpForm(
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
+    errorMessage?.let { message ->
+        Text(
+            text = message,
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
     Spacer(modifier = Modifier.height(12.dp))
     OutlinedTextField(
         value = state.otp,

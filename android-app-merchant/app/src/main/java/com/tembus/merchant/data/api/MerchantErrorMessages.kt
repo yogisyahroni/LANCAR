@@ -18,6 +18,8 @@ object MerchantErrorMessages {
                 "Data belum tersedia. Coba lagi atau hubungi admin toko."
             detail.contains("408") || detail.contains("429") || detail.contains("timeout") || detail.contains("timed out") ->
                 "Permintaan terlalu lama. Periksa koneksi lalu coba lagi."
+            detail.contains("sudah terdaftar") || detail.contains("already registered") ->
+                "Email atau nomor handphone sudah terdaftar. Silakan masuk dengan akun tersebut."
             detail.contains("connect") || detail.contains("socket") || detail.contains("resolve host") || detail.contains("network") ->
                 "Koneksi bermasalah. Periksa internet lalu coba lagi."
             detail.contains("response kosong") || detail.contains("empty response") ->

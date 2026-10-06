@@ -226,7 +226,7 @@ func (h *AuthHandler) StartCustomerPasswordRegistration(w http.ResponseWriter, r
 	res, err := h.svc.StartCustomerPasswordRegistration(r.Context(), req.FullName, req.Email, req.PhoneNumber, req.Password, req.DeviceID, req.DeviceInfo, req.AWBSenderName)
 	if err != nil {
 		h.recordAuthFailure(r, middleware.ScopeCustomerRegistration, normalizedEmail, "registration_failed")
-		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid request", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", customerRegistrationErrorMessage(err), middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -234,6 +234,23 @@ func (h *AuthHandler) StartCustomerPasswordRegistration(w http.ResponseWriter, r
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(res)
+}
+
+// customerRegistrationErrorMessage keeps validation details out of the API
+// while still giving users a safe next action for the common duplicate-account
+// case. The service error itself is never returned to the client.
+func customerRegistrationErrorMessage(err error) string {
+	if err == nil {
+		return "Invalid request"
+	}
+	detail := strings.ToLower(err.Error())
+	if strings.Contains(detail, "email is already registered") || strings.Contains(detail, "phone number is already registered") {
+		return "Email atau nomor handphone sudah terdaftar. Silakan masuk dengan akun tersebut."
+	}
+	if strings.Contains(detail, "registration data is incomplete") {
+		return "Lengkapi data pendaftaran dengan benar lalu coba lagi."
+	}
+	return "Invalid request"
 }
 
 func NewAuthHandler(svc *service.AuthService, abuse ...*middleware.AuthAbuseProtector) *AuthHandler {
