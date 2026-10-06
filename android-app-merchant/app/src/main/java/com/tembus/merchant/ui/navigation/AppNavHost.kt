@@ -47,6 +47,7 @@ import com.tembus.merchant.ui.screens.promo.CreatePromoZipScreen
 import com.tembus.merchant.ui.screens.ads.AdsZipScreen
 import com.tembus.merchant.ui.screens.report.BusinessInsightsZipScreen
 import com.tembus.merchant.ui.screens.registration.RegistrationScreen
+import com.tembus.merchant.ui.screens.access.MerchantAccessGateScreen
 import com.tembus.merchant.ui.screens.staff.StaffAcceptScreen
 import com.tembus.merchant.ui.screens.staff.StaffAcceptViewModel
 import com.tembus.merchant.ui.screens.staff.MerchantStaffRouteScreen
@@ -78,6 +79,7 @@ object MerchantRoutes {
     const val LOGIN = "login"
     const val ACCOUNT_REGISTRATION = "account_registration"
     const val ONBOARDING = "onboarding"
+    const val ACCESS_GATE = "merchant_access_gate"
     const val MAIN = "main"
     // ZIP inventory routes: these are the native Android targets for all
     // post-login ZIP screens. Splash/onboarding/login remain separate.
@@ -154,7 +156,7 @@ private object MerchantZipDeepLinks {
  * AppNavHost — alur navigasi:
  *   belum login → login
  *   login pertama → onboarding (wajib, sekali)
- *   setelah onboarding → main (3 tab)
+ *   setelah onboarding → server-owned merchant access gate → main
  * Logout / token expired → kembali ke login (via session flow).
  */
 @Composable
@@ -202,20 +204,18 @@ fun AppNavHost() {
             }
             else -> {
                 val pending = pendingPostLoginRoute
-                if (pending != null) {
-                    if (current != pending) {
-                        navController.navigate(pending) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
-                    pendingPostLoginRoute = null
-                    return@LaunchedEffect
-                }
-                // Jangan menimpa route ZIP dari app/deep link saat sesi sudah
-                // valid. Redirect ke shell hanya diperlukan setelah login atau
-                // onboarding selesai.
-                if (current == null || current == MerchantRoutes.LOGIN || current == MerchantRoutes.ONBOARDING) {
-                    navController.navigate(MerchantRoutes.MAIN) {
+                val routeCanStayOutsideGate = setOf(
+                    MerchantRoutes.ACCESS_GATE,
+                    MerchantRoutes.REGISTRATION,
+                    MerchantRoutes.ACCOUNT_REGISTRATION,
+                    MerchantRoutes.STAFF_ACCEPT
+                )
+                val shouldEnterGate = current == null ||
+                    current == MerchantRoutes.LOGIN ||
+                    current == MerchantRoutes.ONBOARDING ||
+                    (pending != null && current !in routeCanStayOutsideGate)
+                if (shouldEnterGate && current != MerchantRoutes.ACCESS_GATE) {
+                    navController.navigate(MerchantRoutes.ACCESS_GATE) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
@@ -250,6 +250,36 @@ fun AppNavHost() {
                         app.container.onboardingPreferences.markOnboardingCompleted()
                     }
                 }
+            )
+        }
+
+        composable(MerchantRoutes.ACCESS_GATE) {
+            MerchantAccessGateScreen(
+                onReady = {
+                    val destination = pendingPostLoginRoute
+                        ?.takeUnless { it == MerchantRoutes.REGISTRATION }
+                        ?: MerchantRoutes.MAIN
+                    pendingPostLoginRoute = null
+                    navController.navigate(destination) {
+                        popUpTo(MerchantRoutes.ACCESS_GATE) { inclusive = true }
+                    }
+                },
+                onOpenRegistration = {
+                    navController.navigate(MerchantRoutes.REGISTRATION)
+                },
+                onOpenStatus = {
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://merchant.bawain.my.id/status")
+                    )
+                    ContextCompat.startActivity(context, intent, null)
+                },
+                onRetry = {
+                    navController.navigate(MerchantRoutes.ACCESS_GATE) {
+                        popUpTo(MerchantRoutes.ACCESS_GATE) { inclusive = true }
+                    }
+                },
+                onLogout = app.container.authRepository::logout
             )
         }
 
@@ -606,7 +636,12 @@ fun AppNavHost() {
         composable(MerchantRoutes.REGISTRATION) {
                     RegistrationScreen(
                         onBack = { navController.popBackStack() },
-                        onRegistered = { navController.popBackStack() }
+                        onRegistered = {
+                            pendingPostLoginRoute = null
+                            navController.navigate(MerchantRoutes.ACCESS_GATE) {
+                                popUpTo(MerchantRoutes.ACCESS_GATE) { inclusive = true }
+                            }
+                        }
                     )
                 }
 
