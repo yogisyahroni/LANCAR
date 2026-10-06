@@ -5,7 +5,7 @@ status: COMPLETE
 reality_2026_003: PASS
 reality_2026_011: PASS
 
-implementation_ref: 6f019791
+implementation_ref: "6f019791, 5c63f88c"
 
 tests: PASS
 integration: PASS
@@ -83,6 +83,11 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 - Migration menambahkan requirement privasi merchant ke policy `id-jk`.
 - Success screen tetap memakai endpoint status publik dan copy-nya menyebut
   pendaftaran merchant perorangan.
+- Setelah login atau onboarding, Merchant Android kini memeriksa konteks merchant
+  server-side sebelum memasang shell operasional. Akun TEMBUS tanpa profil merchant
+  diarahkan ke pendaftaran, sedangkan pengajuan SUBMITTED/REJECTED/SUSPENDED tetap
+  berada di layar status dan tidak melihat tab Beranda, Pesanan, Menu, Keuangan,
+  atau Profil operasional.
 - Form pengajuan dipecah menjadi lima langkah yang terpisah: data usaha, alamat,
   dokumen wajib, dokumen pangan opsional, dan review/persetujuan. Progress dan
   validasi per langkah mencegah form panjang tampil sekaligus.
@@ -105,6 +110,10 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/data/api/TEMBUSApiService.kt` — endpoint registrasi akun dan verifikasi OTP.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/data/repository/AuthRepository.kt` — pembuatan sesi setelah OTP.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/navigation/AppNavHost.kt` — pending route setelah login/onboarding.
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/navigation/AppNavHost.kt` — server-owned access gate sebelum shell merchant.
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/access/MerchantAccessGateScreen.kt` — UI gate pendaftaran/status/error tanpa bottom navigation.
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/access/MerchantAccessGateViewModel.kt` — klasifikasi akses berdasarkan konteks dan lifecycle merchant.
+- `android-app-merchant/app/src/test/java/com/tembus/merchant/ui/screens/access/MerchantAccessGateViewModelTest.kt` — regresi status ACTIVE/pending/rejected dan pesan belum terdaftar.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/registration/RegistrationScreen.kt` — form individual-only, legal links, checkbox, dan status handoff.
 - `android-app-merchant/app/src/main/AndroidManifest.xml` — izin lokasi runtime untuk pilihan GPS opsional tanpa peta.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/registration/RegistrationViewModel.kt` — consent-before-register orchestration.
@@ -126,6 +135,9 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 
     command: ./gradlew.bat testDebugUnitTest assembleDebug --no-daemon
     result: PASS — Merchant Android unit tests and debug APK packaging completed; existing deprecation warnings remain.
+
+    command: ./gradlew.bat :app:lintDebug --no-daemon
+    result: PASS — Merchant Android lint completed; existing deprecation warnings remain.
 
     command: adb -s 66fcb3 install -r app/build/outputs/apk/debug/app-debug.apk; adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
     result: PASS — redesigned debug APK installed on the connected physical Realme device and emulator.
@@ -174,6 +186,9 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 
     tool: ADB physical device 66fcb3
     result: PASS — debug APK installed and MainActivity remained resumed; UI hierarchy exposed `Daftar sebagai merchant`, supporting copy for usaha perorangan, `Masuk`, and `Belum punya toko?`.
+
+    tool: ADB physical device 66fcb3 after access-gate fix
+    result: PASS — an authenticated account without a merchant context stopped at `Belum terdaftar sebagai merchant` with no merchant bottom navigation; tapping `Daftar sebagai merchant` opened `Daftar Merchant`, step 1 of 5.
 
     tool: ADB physical device 66fcb3 click-through
     result: PASS — tapping the registration CTA opened the public account form; the empty submit showed `Nama lengkap minimal 2 karakter` validation.
