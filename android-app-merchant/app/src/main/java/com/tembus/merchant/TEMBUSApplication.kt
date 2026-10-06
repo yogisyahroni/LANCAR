@@ -13,6 +13,7 @@ import com.tembus.merchant.data.cache.MerchantOfflineCache
 import com.tembus.merchant.data.device.DeviceIdentityProvider
 import com.tembus.merchant.data.notifications.OrderAlertNotifier
 import com.tembus.merchant.data.onboarding.OnboardingPreferences
+import com.tembus.merchant.data.theme.ThemePreferences
 import com.tembus.merchant.data.repository.AuthRepository
 import com.tembus.merchant.data.repository.ChatRepository
 import com.tembus.merchant.data.repository.MerchantRepository
@@ -31,6 +32,7 @@ class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
     val sessionManager: AuthSessionManager = AuthSessionManager(context)
     val onboardingPreferences: OnboardingPreferences = OnboardingPreferences(context)
+    val themePreferences: ThemePreferences = ThemePreferences(context)
     val deviceIdentityProvider: DeviceIdentityProvider = DeviceIdentityProvider(context)
     val requestReferenceStore: NetworkRequestReferenceStore = NetworkRequestReferenceStore()
     val mobileTelemetry: MobileTelemetry = MobileTelemetry(appContext)

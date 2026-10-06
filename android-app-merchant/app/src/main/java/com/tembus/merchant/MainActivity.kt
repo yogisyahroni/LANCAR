@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.tembus.merchant.TEMBUSApplication
 import com.tembus.merchant.data.model.AppVersion
+import com.tembus.merchant.data.theme.ThemeMode
 import com.tembus.merchant.ui.components.UpdateDialog
 import com.tembus.merchant.ui.navigation.AppNavHost
 import com.tembus.merchant.ui.navigation.MerchantDeepLinkBus
@@ -47,7 +49,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MerchantLocaleRuntime {
-                TEMBUSMerchantTheme {
+                val themeMode by app.container.themePreferences.mode.collectAsState()
+                TEMBUSMerchantTheme(darkTheme = themeMode == ThemeMode.DARK) {
                 // Auto-update: cek setelah MainActivity tampil; dialog overlay
                 // di atas seluruh app (pola sama dengan customer/courier).
                 var updateInfo by remember { mutableStateOf<AppVersion?>(null) }

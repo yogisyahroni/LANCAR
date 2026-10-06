@@ -24,9 +24,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Notifications
@@ -63,12 +65,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.tembus.merchant.R
+import com.tembus.merchant.TEMBUSApplication
 import com.tembus.merchant.data.model.Merchant
+import com.tembus.merchant.data.theme.ThemeMode
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.localization.MerchantText as Text
 import com.tembus.merchant.ui.theme.Accent
@@ -106,6 +113,11 @@ fun StoreProfileZipScreen(
     }
 ) {
     val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val themePreferences = remember(context) {
+        (context.applicationContext as TEMBUSApplication).container.themePreferences
+    }
+    val themeMode by themePreferences.mode.collectAsState()
 
     PullToRefreshBox(
         isRefreshing = state.isLoading && state.merchant != null,
@@ -140,6 +152,8 @@ fun StoreProfileZipScreen(
                     onOpenLanguage = onOpenLanguage,
                     onOpenStaff = onOpenStaff,
                     onOpenIntegrations = onOpenIntegrations,
+                    themeMode = themeMode,
+                    onThemeModeChange = themePreferences::setMode,
                     onLogout = viewModel::logout
                 )
             }
@@ -193,6 +207,8 @@ private fun ProfileContent(
     onOpenLanguage: () -> Unit,
     onOpenStaff: () -> Unit,
     onOpenIntegrations: () -> Unit,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
     onLogout: () -> Unit
 ) {
     var showBusyDurationDialog by rememberSaveable { mutableStateOf(false) }
@@ -253,6 +269,11 @@ private fun ProfileContent(
             }
         }
         item {
+            ProfileSection("Preferensi aplikasi") {
+                ThemePreferenceRow(themeMode = themeMode, onThemeModeChange = onThemeModeChange)
+            }
+        }
+        item {
             TextButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.Logout, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                 Spacer(Modifier.size(6.dp))
@@ -268,6 +289,52 @@ private fun ProfileContent(
                 showBusyDurationDialog = false
                 onSetBusy(duration, 15)
             }
+        )
+    }
+}
+
+@Composable
+private fun ThemePreferenceRow(
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit
+) {
+    val isDark = themeMode == ThemeMode.DARK
+    val accent = if (isDark) MaterialTheme.colorScheme.primary else Primary
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(modifier = Modifier.size(34.dp), shape = CircleShape, color = PrimarySoft) {
+            Icon(
+                imageVector = if (isDark) Icons.Filled.DarkMode else Icons.Filled.LightMode,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Tampilan aplikasi", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                if (isDark) "Mode gelap" else "Mode terang",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            modifier = Modifier.semantics {
+                contentDescription = "Tampilan aplikasi: ${if (isDark) "mode gelap" else "mode terang"}"
+            },
+            checked = isDark,
+            onCheckedChange = { enabled -> onThemeModeChange(if (enabled) ThemeMode.DARK else ThemeMode.LIGHT) },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Primary,
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = MaterialTheme.colorScheme.outline
+            )
         )
     }
 }
