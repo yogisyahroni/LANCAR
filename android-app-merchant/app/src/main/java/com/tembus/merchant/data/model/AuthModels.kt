@@ -10,13 +10,36 @@ data class LoginRequest(
     @SerializedName("device_info") val deviceInfo: Map<String, String> = emptyMap()
 )
 
+/** Data akun baru sebelum user melanjutkan ke pengajuan merchant perorangan. */
+data class AccountRegistrationRequest(
+    @SerializedName("full_name") val fullName: String,
+    @SerializedName("email") val email: String,
+    @SerializedName("phone_number") val phoneNumber: String,
+    @SerializedName("password") val password: String,
+    @SerializedName("device_id") val deviceId: String = "",
+    @SerializedName("device_info") val deviceInfo: Map<String, String> = emptyMap()
+)
+
+/** OTP registrasi memakai email sebagai identifier yang dikirim server. */
+data class OtpVerifyRequest(
+    @SerializedName("phone_number") val phoneNumber: String,
+    @SerializedName("code") val code: String,
+    @SerializedName("device_id") val deviceId: String = "",
+    @SerializedName("device_info") val deviceInfo: Map<String, String> = emptyMap()
+)
+
 data class AuthResponse(
     @SerializedName("success") val success: Boolean = true,
     @SerializedName("message") val message: String? = null,
     @SerializedName("data") val data: AuthData? = null,
     @SerializedName("access_token") val accessToken: String? = null,
     @SerializedName("refresh_token") val refreshToken: String? = null,
-    @SerializedName("user") val authUser: AuthUser? = null
+    @SerializedName("user") val authUser: AuthUser? = null,
+    @SerializedName("is_new_user") val isNewUser: Boolean = false,
+    @SerializedName("require_otp") val requireOtp: Boolean = false,
+    @SerializedName("otp_reason") val otpReason: String? = null,
+    @SerializedName("require_2fa") val require2Fa: Boolean = false,
+    @SerializedName("mfa_user_id") val mfaUserId: String? = null
 )
 
 data class AuthData(

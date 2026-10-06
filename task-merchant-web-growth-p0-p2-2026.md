@@ -203,9 +203,12 @@ status yang dapat dilacak melalui Portal Mitra.
 
 **Ruang lingkup:**
 
-- Tampilkan CTA `Daftar sebagai merchant perorangan` di layar login. Karena
-  endpoint pendaftaran memakai akun TEMBUS yang terautentikasi, CTA menyimpan
-  tujuan dan membuka form setelah login atau onboarding selesai.
+- Tampilkan CTA `Daftar sebagai merchant` di layar login. CTA membuka alur
+  pembuatan akun TEMBUS publik, meminta nama, email, nomor handphone, password,
+  dan konfirmasi password, lalu mengirim OTP ke email. Setelah OTP terverifikasi,
+  sesi dibuat dan user diarahkan melalui onboarding bila diperlukan sebelum
+  masuk ke form pengajuan merchant perorangan. Login tetap khusus untuk akun
+  yang sudah ada.
 - Hilangkan pemilih `perusahaan` dari form mobile. Backend menegakkan kanal
   Android sebagai `business_type=perorangan`, sedangkan Portal Mitra tetap menjadi
   jalur perusahaan/PT.

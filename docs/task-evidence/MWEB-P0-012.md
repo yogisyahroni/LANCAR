@@ -51,7 +51,8 @@ Original requirements are recorded under `MWEB-P0-012 — Pendaftaran merchant
 perorangan end-to-end di aplikasi` in
 `task-merchant-web-growth-p0-p2-2026.md`.
 
-- CTA pendaftaran perorangan terlihat di login dan menunggu autentikasi akun TEMBUS.
+- CTA pendaftaran perorangan terlihat di login dan membuka pembuatan akun TEMBUS
+  sebelum user masuk ke pengajuan merchant.
 - Kanal Android tidak dapat mengirim pendaftaran perusahaan; Portal Mitra web tetap menjadi jalur perusahaan/PT.
 - Dua persetujuan legal aktif dicatat sebelum submit.
 - Dokumen inti dan persetujuan diwajibkan sebelum submit; hasil tetap mengikuti lifecycle merchant dan memiliki link `/status`.
@@ -61,12 +62,12 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 
 ## Scope Implemented
 
-- Login Merchant menampilkan CTA `Daftar sebagai merchant perorangan` dan
-  menyimpan tujuan pendaftaran sampai akun TEMBUS berhasil masuk serta onboarding
-  selesai.
-- CTA pendaftaran memberi feedback langsung melalui dialog yang menjelaskan
-  kebutuhan login, dan label tombol diringkas menjadi `Daftar sebagai merchant`;
-  batas usaha perorangan tetap terlihat pada supporting copy dan dialog.
+- Login Merchant menampilkan CTA `Daftar sebagai merchant` dan supporting copy
+  yang menjelaskan jalur ini khusus usaha perorangan.
+- Alur publik membuat akun TEMBUS dengan nama, email, nomor handphone, password,
+  dan konfirmasi password, lalu meminta OTP email sebelum sesi dibuat.
+- Setelah sesi berhasil dibuat, tujuan pengajuan merchant perorangan tetap
+  diteruskan melewati onboarding hingga form pengajuan terbuka.
 - Form mobile menghapus selector perusahaan dan menjelaskan bahwa aplikasi hanya
   untuk usaha perorangan. Payload selalu `business_type=perorangan`.
 - Backend menegakkan batas ini melalui `X-Merchant-Registration-Channel: android`;
@@ -83,6 +84,11 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
 ## Files Changed
 
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/auth/LoginScreen.kt` — CTA pendaftaran yang terlihat.
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/auth/AccountRegistrationScreen.kt` — form akun baru dan verifikasi OTP.
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/auth/AccountRegistrationViewModel.kt` — validasi dan orkestrasi pendaftaran akun.
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/data/model/AuthModels.kt` — kontrak request registrasi akun dan OTP.
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/data/api/TEMBUSApiService.kt` — endpoint registrasi akun dan verifikasi OTP.
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/data/repository/AuthRepository.kt` — pembuatan sesi setelah OTP.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/navigation/AppNavHost.kt` — pending route setelah login/onboarding.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/registration/RegistrationScreen.kt` — form individual-only, legal links, checkbox, dan status handoff.
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/registration/RegistrationViewModel.kt` — consent-before-register orchestration.
@@ -126,7 +132,7 @@ lintas aplikasi dengan dokumen nyata dan read-after-write pada staging.
     result: PASS — debug APK installed and MainActivity remained resumed; UI hierarchy exposed `Daftar sebagai merchant`, supporting copy for usaha perorangan, `Masuk`, and `Belum punya toko?`.
 
     tool: ADB physical device 66fcb3 click-through
-    result: PASS — tapping the registration CTA opened the login-required dialog; `Mengerti` closed it and returned to the login screen.
+    result: PASS — tapping the registration CTA opened the public account form; the empty submit showed `Nama lengkap minimal 2 karakter` validation.
 
 ## Task-Local Verification
 

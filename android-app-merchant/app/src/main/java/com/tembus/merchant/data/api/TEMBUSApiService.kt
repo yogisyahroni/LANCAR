@@ -41,6 +41,18 @@ interface TEMBUSApiService {
         @Body body: LoginRequest
     ): Response<AuthResponse>
 
+    /** Akun TEMBUS dibuat sebelum user mengisi pengajuan merchant. */
+    @POST("api/v1/auth/customer/register/start")
+    suspend fun startAccountRegistration(
+        @Body body: AccountRegistrationRequest
+    ): Response<AuthResponse>
+
+    /** Verifikasi OTP registrasi, identifier berisi email yang menerima kode. */
+    @POST("api/v1/auth/otp/verify")
+    suspend fun verifyRegistrationOtp(
+        @Body body: OtpVerifyRequest
+    ): Response<AuthResponse>
+
     /** Auto-refresh token saat 401 (ADR-004) — tanpa JWT, dipanggil TokenAuthenticator. */
     @POST("api/v1/auth/refresh")
     suspend fun refreshToken(

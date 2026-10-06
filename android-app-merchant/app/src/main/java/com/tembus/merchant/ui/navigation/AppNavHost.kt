@@ -24,6 +24,7 @@ import com.tembus.merchant.TEMBUSApplication
 import com.tembus.merchant.ui.AppViewModelFactory
 import com.tembus.merchant.ui.MainScreen
 import com.tembus.merchant.ui.screens.auth.LoginScreen
+import com.tembus.merchant.ui.screens.auth.AccountRegistrationScreen
 import com.tembus.merchant.ui.screens.chat.ChatScreen
 import com.tembus.merchant.ui.screens.chat.ChatViewModel
 import com.tembus.merchant.ui.screens.home.StitchOrdersDashboardScreen
@@ -75,6 +76,7 @@ object MerchantDeepLinkBus {
 
 object MerchantRoutes {
     const val LOGIN = "login"
+    const val ACCOUNT_REGISTRATION = "account_registration"
     const val ONBOARDING = "onboarding"
     const val MAIN = "main"
     // ZIP inventory routes: these are the native Android targets for all
@@ -185,7 +187,7 @@ fun AppNavHost() {
         val current = navController.currentDestination?.route
         when {
             !isLoggedIn -> {
-                if (current != MerchantRoutes.LOGIN) {
+                if (current != MerchantRoutes.LOGIN && current != MerchantRoutes.ACCOUNT_REGISTRATION) {
                     navController.navigate(MerchantRoutes.LOGIN) {
                         popUpTo(0) { inclusive = true }
                     }
@@ -228,7 +230,16 @@ fun AppNavHost() {
         composable(MerchantRoutes.LOGIN) {
             LoginScreen(
                 onLoginSuccess = { /* isLoggedIn flow memicu redirect */ },
-                onGoToRegistration = { pendingPostLoginRoute = MerchantRoutes.REGISTRATION }
+                onGoToRegistration = {
+                    pendingPostLoginRoute = MerchantRoutes.REGISTRATION
+                    navController.navigate(MerchantRoutes.ACCOUNT_REGISTRATION)
+                }
+            )
+        }
+
+        composable(MerchantRoutes.ACCOUNT_REGISTRATION) {
+            AccountRegistrationScreen(
+                onBack = { navController.popBackStack() }
             )
         }
 
