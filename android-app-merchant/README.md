@@ -6,7 +6,7 @@ Aplikasi Android untuk merchant/mitra TEMBUS (FOOD-BIKE-028/036/049).
 
 ## Fitur
 - Login (endpoint auth generic)
-- Onboarding 4 halaman
+- Onboarding 3 halaman
 - Tab Pesanan: accept/reject, toggle buka toko
 - Tab Menu: CRUD menu
 - Struk: QR + print A6 (PrintManager native)

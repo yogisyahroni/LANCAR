@@ -154,9 +154,8 @@ private object MerchantZipDeepLinks {
 
 /**
  * AppNavHost — alur navigasi:
- *   belum login → login
- *   login pertama → onboarding (wajib, sekali)
- *   setelah onboarding → server-owned merchant access gate → main
+ *   native splash → onboarding (wajib, sekali) → login
+ *   setelah login → server-owned merchant access gate → main
  * Logout / token expired → kembali ke login (via session flow).
  */
 @Composable
@@ -173,31 +172,43 @@ fun AppNavHost() {
     var pendingPostLoginRoute by rememberSaveable { mutableStateOf<String?>(null) }
 
     val isLoggedIn by app.container.sessionManager.isLoggedIn.collectAsState(initial = false)
-    val onboardingDone by app.container.onboardingPreferences.onboardingCompleted
-        .collectAsState(initial = false)
+    // Nullable initial state membedakan "preferensi belum terbaca" dari
+    // "onboarding memang belum selesai". Ini mencegah returning user melihat
+    // onboarding sesaat ketika MainActivity baru dibuat setelah native splash.
+    val onboardingDone: Boolean? by app.container.onboardingPreferences.onboardingCompleted
+        .collectAsState(initial = null)
 
     LaunchedEffect(currentRoute) {
         currentRoute?.let { app.container.mobileTelemetry.screenView(it) }
     }
 
-    // Redirect otomatis berdasarkan state sesi + onboarding
+    // Redirect otomatis berdasarkan state sesi + onboarding.
     LaunchedEffect(incomingDeepLink) {
         incomingDeepLink?.toMerchantZipRoute()?.let { pendingPostLoginRoute = it }
     }
 
-    LaunchedEffect(isLoggedIn, onboardingDone, pendingPostLoginRoute) {
+    if (onboardingDone == null) {
+        MerchantNavigationLoadingScreen()
+        return
+    }
+
+    val hasCompletedOnboarding = onboardingDone == true
+
+    LaunchedEffect(isLoggedIn, hasCompletedOnboarding, pendingPostLoginRoute) {
         val current = navController.currentDestination?.route
         when {
-            !isLoggedIn -> {
-                if (current != MerchantRoutes.LOGIN && current != MerchantRoutes.ACCOUNT_REGISTRATION) {
-                    navController.navigate(MerchantRoutes.LOGIN) {
+            // Onboarding adalah gerbang pertama setelah native splash dan tidak
+            // boleh menunggu sesi login.
+            !hasCompletedOnboarding -> {
+                if (current != MerchantRoutes.ONBOARDING) {
+                    navController.navigate(MerchantRoutes.ONBOARDING) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
             }
-            !onboardingDone -> {
-                if (current != MerchantRoutes.ONBOARDING) {
-                    navController.navigate(MerchantRoutes.ONBOARDING) {
+            !isLoggedIn -> {
+                if (current != MerchantRoutes.LOGIN && current != MerchantRoutes.ACCOUNT_REGISTRATION) {
+                    navController.navigate(MerchantRoutes.LOGIN) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
@@ -225,7 +236,13 @@ fun AppNavHost() {
 
     NavHost(
         navController = navController,
-        startDestination = MerchantRoutes.LOGIN
+        // Saat DataStore sudah siap, first install dimulai langsung dari
+        // onboarding; returning user dimulai dari login lalu diproses ke gate.
+        startDestination = if (hasCompletedOnboarding) {
+            MerchantRoutes.LOGIN
+        } else {
+            MerchantRoutes.ONBOARDING
+        }
     ) {
         composable(MerchantRoutes.LOGIN) {
             LoginScreen(
@@ -714,6 +731,19 @@ fun AppNavHost() {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun MerchantNavigationLoadingScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "Menyiapkan aplikasi…",
+            style = MaterialTheme.typography.bodyLarge,
+        )
     }
 }
 

@@ -11,7 +11,7 @@ private val Context.merchantDataStore by preferencesDataStore(name = "merchant_p
 
 /**
  * OnboardingPreferences — flag onboarding selesai (FOOD-BIKE-028: onboarding wajib
- * muncul setelah login pertama untuk memberitahu cara pakai aplikasi).
+ * muncul setelah native splash, sebelum form login, untuk memberitahu cara pakai aplikasi).
  */
 class OnboardingPreferences(private val context: Context) {
 
