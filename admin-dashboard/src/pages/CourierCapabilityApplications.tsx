@@ -150,7 +150,7 @@ export default function CourierCapabilityApplications() {
                 </div>
 
                 <section className="rounded-2xl border border-border bg-surface-subtle p-5">
-                  <div className="flex items-center gap-2 text-sm font-bold text-foreground-muted"><PackageCheck className="h-5 w-5 text-primary-light" />Data alat dan stok</div>
+                  <div className="flex items-center gap-2 text-sm font-bold text-foreground-muted"><PackageCheck className="h-5 w-5 text-primary-light" aria-hidden="true" />Data alat dan stok</div>
                   <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
                     <Meta label="Tipe ban" value={[selected.supports_tubeless && 'Tubeless', selected.supports_tube && 'Ban dalam'].filter(Boolean).join(' + ') || '-'} />
                     <Meta label="Peralatan" value={[selected.has_tire_repair_kit && 'Kit tambal', selected.has_electric_pump && 'Pompa elektrik'].filter(Boolean).join(' + ') || '-'} />
@@ -184,10 +184,10 @@ export default function CourierCapabilityApplications() {
                 {selected.status === 'pending_review' && (
                   <div className="flex flex-wrap gap-3">
                     <button type="button" onClick={() => review.mutate({ item: selected, nextStatus: 'enabled' })} disabled={review.isPending} className="inline-flex items-center gap-2 rounded-xl bg-success px-5 py-3 text-sm font-bold text-on-success disabled:opacity-60">
-                      <CheckCircle2 className="h-4 w-4" /> Setujui capability
+                      <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Setujui capability
                     </button>
                     <button type="button" onClick={() => review.mutate({ item: selected, nextStatus: 'rejected' })} disabled={review.isPending} className="inline-flex items-center gap-2 rounded-xl bg-error px-5 py-3 text-sm font-bold text-on-error disabled:opacity-60">
-                      <XCircle className="h-4 w-4" /> Tolak pengajuan
+                      <XCircle className="h-4 w-4" aria-hidden="true" /> Tolak pengajuan
                     </button>
                   </div>
                 )}
