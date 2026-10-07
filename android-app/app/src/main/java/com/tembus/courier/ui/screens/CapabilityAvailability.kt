@@ -7,8 +7,18 @@ internal fun capabilityIsAvailable(item: CourierServiceCapability): Boolean =
         item.effectiveStatus?.takeIf { it.isNotBlank() } ?: item.status
     ).equals("enabled", ignoreCase = true)
 
+/** Admin/certification availability, deliberately excluding the courier's own opt-in. */
+internal fun capabilityIsAdminAvailable(item: CourierServiceCapability): Boolean =
+    (item.effectiveStatus?.takeIf { it.isNotBlank() } ?: item.status)
+        .equals("enabled", ignoreCase = true)
+
 internal fun capabilityStatusForDisplay(item: CourierServiceCapability): String =
-    item.effectiveStatus?.takeIf { it.isNotBlank() } ?: item.status
+    if (item.isEligible == false && item.status.equals("enabled", ignoreCase = true)) {
+        item.effectiveStatus?.takeIf { it.isNotBlank() && !it.equals("enabled", ignoreCase = true) }
+            ?: "not_available"
+    } else {
+        item.effectiveStatus?.takeIf { it.isNotBlank() } ?: item.status
+    }
 
 internal fun capabilityAvailabilityReason(item: CourierServiceCapability): String =
     item.availabilityReason?.takeIf { it.isNotBlank() }
@@ -23,6 +33,10 @@ internal fun capabilityAvailabilityReason(item: CourierServiceCapability): Strin
             "expired" -> "Sertifikasi sudah kedaluwarsa"
             "documents_ineligible" -> "Dokumen courier belum memenuhi syarat"
             "market_unavailable" -> "Capability belum tersedia di market ini"
+            "vehicle_ineligible" -> "Tidak tersedia untuk kendaraan terdaftar"
+            "equipment_incomplete" -> "Perlengkapan Tambal Ban belum lengkap"
+            "pricing_incomplete" -> "Harga jasa Tambal Ban belum aktif"
+            "not_available" -> "Layanan belum tersedia untuk akun ini"
             else -> "Capability belum tersedia"
         }
 

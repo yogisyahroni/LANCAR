@@ -359,6 +359,8 @@ internal fun ProfileContent(
 
         CourierLanguagePickerCard()
 
+        CourierThemePickerCard()
+
         if (!courierProfile?.enforcementActions.isNullOrEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),

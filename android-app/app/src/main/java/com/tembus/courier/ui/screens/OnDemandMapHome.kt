@@ -180,6 +180,8 @@ internal fun OnDemandMapHome(
     isOnline: Boolean,
     presenceState: String = if (isOnline) "online" else "offline",
     onOnlineToggle: (Boolean) -> Unit,
+    serviceToggleInFlightCode: String? = null,
+    onServiceEnabledChange: (CourierServiceProduct, Boolean) -> Unit = { _, _ -> },
     onOpenDelivery: (Order) -> Unit,
     onViewOrders: () -> Unit
 ) {
@@ -362,15 +364,11 @@ internal fun OnDemandMapHome(
     } else {
         services.filter { it.supportsVehicleGroup(vehicleGroup) }
     }
-    var disabledServiceCodesText by rememberSaveable(vehicleGroup) { mutableStateOf("") }
     var servicePanelExpanded by rememberSaveable(vehicleGroup) { mutableStateOf(false) }
-    val disabledServiceCodes = remember(disabledServiceCodesText) {
-        disabledServiceCodesText.split(",").filter { it.isNotBlank() }.toSet()
-    }
     val activeServiceItems = serviceItems.filter { service ->
         val capability = capabilityByCode[service.code]
-        val enabledByCapability = capability?.let(::capabilityIsAvailable) ?: true
-        enabledByCapability && service.code !in disabledServiceCodes
+        val enabledByCapability = capability?.let(::capabilityIsAdminAvailable) ?: true
+        enabledByCapability && (capability?.courierEnabled ?: service.courierEnabled)
     }
 
     if (activeOrder == null && leadingOffer == null) {
@@ -590,18 +588,11 @@ internal fun OnDemandMapHome(
                     leadingOffer = leadingOffer,
                     serviceItems = serviceItems,
                     capabilityByCode = capabilityByCode,
-                    disabledServiceCodes = disabledServiceCodes,
+                    serviceToggleInFlightCode = serviceToggleInFlightCode,
                     isServiceCatalogLoading = !serviceCatalogReady,
                     servicePanelExpanded = servicePanelExpanded,
                     onToggleServicePanel = { servicePanelExpanded = !servicePanelExpanded },
-                    onServiceEnabledChange = { service, checked ->
-                        val nextCodes = if (checked) {
-                            disabledServiceCodes - service.code
-                        } else {
-                            disabledServiceCodes + service.code
-                        }
-                        disabledServiceCodesText = nextCodes.sorted().joinToString(",")
-                    },
+                    onServiceEnabledChange = onServiceEnabledChange,
                     onViewOrders = onViewOrders
                 )
             }

@@ -194,6 +194,7 @@ internal fun MainScreenRuntime(
     val deliveredToday by orderViewModel.deliveredTodayOrders.collectAsState()
     val onDemandOffers by orderViewModel.offers.collectAsState()
     val onDemandServices by orderViewModel.onDemandServices.collectAsState()
+    val serviceToggleInFlightCode by orderViewModel.serviceToggleInFlightCode.collectAsState()
     val onDemandHotspots by orderViewModel.onDemandHotspots.collectAsState()
     val performanceSummary by orderViewModel.performanceSummary.collectAsState()
     val capabilityProfile by orderViewModel.capabilityProfile.collectAsState()
@@ -451,6 +452,12 @@ internal fun MainScreenRuntime(
         roleEarningsToday = roleEarningsToday,
         allOrders = allOrders,
         onDemandServices = visibleOnDemandServices,
+        serviceToggleInFlightCode = serviceToggleInFlightCode,
+        onServiceEnabledChange = { service, enabled ->
+            orderViewModel.updateServiceEnabled(service.code, enabled) { message ->
+                scope.launch { snackbarHostState.showSnackbar(message) }
+            }
+        },
         capabilityProfile = capabilityProfile,
         courierVehicleType = courierVehicleType,
         routePreviews = routePreviews,
@@ -478,5 +485,9 @@ internal fun MainScreenRuntime(
         showMissingPhotoWarningState = showMissingPhotoWarningState,
         onDismissInlineError = { inlineErrorMessage = null }
     )
+
+    // Keep permission, security, order and proof dialogs in the same Compose
+    // tree as the main content so duty actions can surface their next step.
+    MainScreenModalScreens(deps)
 
 }

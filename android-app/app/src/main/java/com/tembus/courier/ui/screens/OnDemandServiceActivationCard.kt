@@ -219,7 +219,7 @@ internal fun OnDemandServiceActivationCard(
                     } else {
                         serviceItems.forEach { service ->
                             val capability = capabilityByCode[service.code]
-                            val enabledByCapability = capability?.let(::capabilityIsAvailable) ?: true
+                            val enabledByCapability = capability?.let(::capabilityIsAdminAvailable) ?: true
                             val enabled = enabledByCapability && service.code !in disabledServiceCodes
                             OnDemandServiceToggleRow(
                                 service = service,

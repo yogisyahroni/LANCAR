@@ -176,7 +176,7 @@ func (r *availabilityRepo) FindCouriersByCapability(
 		    NULLIF(cp.vehicle_plate, '') as vehicle_plate,
 		    COALESCE(csp.price_amount, 0) as courier_service_price,
 		    COALESCE(csp.price_per_hole_idr, 0) as price_per_hole_idr,
-		    COALESCE(csp.per_km_rate_idr, 0) as per_km_rate_idr,
+            COALESCE(dsp.per_km_idr, 0) as per_km_rate_idr,
 		    COALESCE(csp.toll_entry_idr, 0) as toll_entry_idr,
 		    COALESCE(csp.toll_exit_idr, 0) as toll_exit_idr,
 		    COALESCE(cp.radius_max_km, 1) as radius_max_km,
@@ -201,6 +201,8 @@ func (r *availabilityRepo) FindCouriersByCapability(
 		    ON cp.id = csp.courier_id 
 		    AND csp.service_code = $3
 		    AND csp.is_active = TRUE
+		LEFT JOIN delivery_service_products dsp
+		    ON dsp.code = $3
 		WHERE 
 		    cp.verification_status = 'approved'
 		    AND cp.onboarding_status = 'ACTIVE'
@@ -284,7 +286,7 @@ func (r *availabilityRepo) GetCourierByID(ctx context.Context, courierID, servic
 		    NULLIF(cp.vehicle_plate, '') as vehicle_plate,
 		    COALESCE(csp.price_amount, 0) as courier_service_price,
 		    COALESCE(csp.price_per_hole_idr, 0) as price_per_hole_idr,
-		    COALESCE(csp.per_km_rate_idr, 0) as per_km_rate_idr,
+            COALESCE(dsp.per_km_idr, 0) as per_km_rate_idr,
 		    COALESCE(csp.toll_entry_idr, 0) as toll_entry_idr,
 		    COALESCE(csp.toll_exit_idr, 0) as toll_exit_idr,
 		    COALESCE(cp.radius_max_km, 1) as radius_max_km,
@@ -309,6 +311,8 @@ func (r *availabilityRepo) GetCourierByID(ctx context.Context, courierID, servic
 		    ON cp.id = csp.courier_id
 		    AND csp.service_code = $4
 		    AND csp.is_active = TRUE
+		LEFT JOIN delivery_service_products dsp
+		    ON dsp.code = $4
 		WHERE cp.id = $1
 		  AND cp.verification_status = 'approved'
 		  AND cp.onboarding_status = 'ACTIVE'

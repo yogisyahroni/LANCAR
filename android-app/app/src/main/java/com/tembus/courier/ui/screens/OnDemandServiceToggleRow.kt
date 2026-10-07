@@ -165,6 +165,7 @@ internal fun OnDemandServiceToggleRow(
     service: CourierServiceProduct,
     enabled: Boolean,
     lockedByAdmin: Boolean,
+    isUpdating: Boolean = false,
     availabilityReason: String? = null,
     remediationPath: String? = null,
     onEnabledChange: (Boolean) -> Unit
@@ -188,7 +189,11 @@ internal fun OnDemandServiceToggleRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(service.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    if (lockedByAdmin) "Dikunci operasional" else service.maxEtaMinutes.takeIf { it > 0 }?.let { "ETA maks $it menit" } ?: "ETA dari server",
+                    when {
+                        lockedByAdmin -> "Dikunci operasional"
+                        !enabled -> "Dinonaktifkan oleh Anda"
+                        else -> service.maxEtaMinutes.takeIf { it > 0 }?.let { "ETA maks $it menit" } ?: "ETA dari server"
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,
@@ -213,17 +218,25 @@ internal fun OnDemandServiceToggleRow(
                     }
                 }
             }
-            Switch(
-                checked = enabled,
-                onCheckedChange = onEnabledChange,
-                enabled = !lockedByAdmin,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = LogisticsOrange,
-                    uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)
+            if (isUpdating) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = LogisticsOrange
                 )
-            )
+            } else {
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = onEnabledChange,
+                    enabled = !lockedByAdmin,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = LogisticsOrange,
+                        uncheckedThumbColor = Color.White,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)
+                    )
+                )
+            }
         }
     }
 }

@@ -19,6 +19,7 @@ import com.tembus.courier.data.model.CourierPayoutSummaryData
 import com.tembus.courier.data.model.CourierRoutePreview
 import com.tembus.courier.data.model.CourierSafetyEventRequest
 import com.tembus.courier.data.model.CourierServiceProduct
+import com.tembus.courier.data.model.CourierServicePreferenceUpdateRequest
 import com.tembus.courier.data.model.CourierTrainingCompleteRequest
 import com.tembus.courier.data.model.DutyStatusRequest
 import com.tembus.courier.data.model.MapsProviderConfig
@@ -99,6 +100,9 @@ class OrderViewModel @Inject constructor(
     private val _onDemandServices = MutableStateFlow<List<CourierServiceProduct>>(emptyList())
     val onDemandServices: StateFlow<List<CourierServiceProduct>> = _onDemandServices.asStateFlow()
 
+    private val _serviceToggleInFlightCode = MutableStateFlow<String?>(null)
+    val serviceToggleInFlightCode: StateFlow<String?> = _serviceToggleInFlightCode.asStateFlow()
+
     private val _onDemandHotspots = MutableStateFlow<List<CourierHotspot>>(emptyList())
     val onDemandHotspots: StateFlow<List<CourierHotspot>> = _onDemandHotspots.asStateFlow()
 
@@ -178,6 +182,52 @@ class OrderViewModel @Inject constructor(
 
     fun clearError() {
         _error.update { null }
+    }
+
+    fun updateServiceEnabled(
+        serviceCode: String,
+        enabled: Boolean,
+        onError: (String) -> Unit = {}
+    ) {
+        if (_serviceToggleInFlightCode.value != null) return
+        viewModelScope.launch {
+            _serviceToggleInFlightCode.update { serviceCode }
+            try {
+                val response = apiService.updateCourierServicePreference(
+                    serviceCode = serviceCode,
+                    request = CourierServicePreferenceUpdateRequest(isEnabled = enabled)
+                )
+                val body = response.body()
+                if (!response.isSuccessful || body?.success != true || body.data == null) {
+                    onError(
+                        response.errorMessage(
+                            serverMessage = body?.message,
+                            fallback = "Status layanan belum berhasil diperbarui."
+                        )
+                    )
+                    return@launch
+                }
+
+                _onDemandServices.update { services ->
+                    services.map { service ->
+                        if (service.code == serviceCode) service.copy(courierEnabled = enabled) else service
+                    }
+                }
+                _capabilityProfile.update { profile ->
+                    profile?.copy(
+                        serviceCapabilities = profile.serviceCapabilities.map { capability ->
+                            if (capability.serviceCode == serviceCode) {
+                                capability.copy(courierEnabled = enabled)
+                            } else capability
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                onError(e.message ?: "Status layanan belum berhasil diperbarui.")
+            } finally {
+                _serviceToggleInFlightCode.update { null }
+            }
+        }
     }
 
     // ── Remote ────────────────────────────────────────────────────

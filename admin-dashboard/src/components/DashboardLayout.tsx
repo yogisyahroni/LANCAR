@@ -239,6 +239,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       items: [
         { icon: Truck, label: "Couriers", path: "/couriers" },
         { icon: ClipboardCheck, label: "Courier Review", path: "/courier-applications" },
+        { icon: ClipboardCheck, label: "Review Tambal Ban", path: "/courier-capability-applications" },
         { icon: Store, label: "Merchants", path: "/merchants" },
         { icon: ClipboardCheck, label: "Catalog Moderation", path: "/catalog-moderation", allowedRoles: ['super_admin', 'ops_admin', 'ops_security'] },
         { icon: UserCircle2, label: "Staff Oversight", path: "/merchant-staff", allowedRoles: ['super_admin'] }, // A3

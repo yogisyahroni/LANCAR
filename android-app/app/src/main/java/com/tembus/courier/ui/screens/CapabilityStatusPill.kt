@@ -165,6 +165,10 @@ internal fun CapabilityStatusPill(status: String) {
     val normalized = when (status) {
         "verified" -> "terverifikasi"
         "enabled" -> "aktif"
+        "vehicle_ineligible" -> "kendaraan tidak sesuai"
+        "equipment_incomplete" -> "alat belum lengkap"
+        "pricing_incomplete" -> "harga belum aktif"
+        "not_available" -> "belum tersedia"
         "approved" -> "approved"
         "complete" -> "lengkap"
         "incomplete" -> "belum lengkap"
@@ -172,7 +176,7 @@ internal fun CapabilityStatusPill(status: String) {
     }
     val color = when (status) {
         "enabled", "approved", "complete", "verified" -> Success
-        "disabled", "rejected", "suspended" -> MaterialTheme.colorScheme.error
+        "disabled", "rejected", "suspended", "vehicle_ineligible", "equipment_incomplete", "pricing_incomplete", "not_available" -> MaterialTheme.colorScheme.error
         else -> Warning
     }
     val isDark = isSystemInDarkTheme()
@@ -189,7 +193,7 @@ internal fun CapabilityStatusPill(status: String) {
                 // Di dark mode, warna status terlalu gelap bila dipakai langsung di atas surface gelap.
                 // Naikkan luminansi: warning/success pakai versi lebih terang.
                 when (status) {
-                    "disabled", "rejected", "suspended" -> MaterialTheme.colorScheme.error
+                    "disabled", "rejected", "suspended", "vehicle_ineligible", "equipment_incomplete", "pricing_incomplete", "not_available" -> MaterialTheme.colorScheme.error
                     else -> Color(0xFFFBBF24)
                 }
             } else {

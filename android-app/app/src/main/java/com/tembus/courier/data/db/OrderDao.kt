@@ -44,6 +44,23 @@ interface OrderDao {
     fun getPendingPods(): Flow<List<Order>>
 
     /**
+     * Read only the statuses needed to tune the GPS profile. Keeping this
+     * projection small avoids materializing full order payloads in the
+     * long-lived foreground service.
+     */
+    @Query("""
+        SELECT status FROM orders
+        WHERE status IN (
+            'pending_offer', 'offer', 'offered',
+            'accepted', 'assigned', 'going_to_pickup', 'pickup_pending',
+            'service_started', 'loading', 'arrived_pickup', 'arrived_at_pickup',
+            'picked_up', 'in_transit', 'in_progress', 'unloading',
+            'arrived_dropoff', 'arrived_at_dropoff'
+        )
+    """)
+    fun getLocationStageStatuses(): Flow<List<String>>
+
+    /**
      * Get order by order ID
      */
     @Query("SELECT * FROM orders WHERE order_id = :orderId LIMIT 1")

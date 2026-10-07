@@ -368,7 +368,7 @@ internal fun decodeRuntimeRoutePolyline(encoded: String?): List<LatLng> {
 
 @Composable
 internal fun HotspotRow(hotspot: CourierHotspot) {
-    val color = when (hotspot.intensity.lowercase()) {
+    val color = when (hotspot.intensity?.lowercase()) {
         "high" -> LogisticsOrange
         "medium" -> Warning
         else -> Primary
@@ -384,12 +384,26 @@ internal fun HotspotRow(hotspot: CourierHotspot) {
         Column(modifier = Modifier.weight(1f)) {
             Text(hotspot.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "${if (hotspot.demandEstimate) "Estimasi" else "Aktual"} • ${hotspot.pendingOrders} pickup menunggu • ${hotspot.intensity.replaceFirstChar { it.uppercase() }}",
+                listOfNotNull(
+                    hotspot.demandEstimate?.let { if (it) "Estimasi server" else "Data aktual" },
+                    "${hotspot.pendingOrders} pickup menunggu",
+                    "${hotspot.recentOrders} order terbaru",
+                    hotspot.intensity
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let(::displayDemandIntensity)
+                ).joinToString(" • "),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                "Sumber: ${hotspot.demandSource.replace('_', ' ')} • ${hotspot.freshness.replace('_', ' ')}",
+                listOfNotNull(
+                    hotspot.demandSource
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let(::displayDemandSource),
+                    hotspot.freshness
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let(::displayDemandFreshness)
+                ).joinToString(" • "),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -17,6 +17,7 @@ export * from './faceVerifications.controller';
 export * from './courier/courierEnforcement.controller';
 export * from './courier/courierMarket.controller';
 export * from './courier/courierRoadside.controller';
+export * from './courier/courierServicePreferences.controller';
 
 // Merchant public web registration (merchant.bawain.my.id)
 export * from './merchants-public.controller';

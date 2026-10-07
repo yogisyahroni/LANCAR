@@ -13,9 +13,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
@@ -29,6 +31,9 @@ import com.tembus.courier.service.LocationTrackerService
 import com.tembus.courier.ui.screens.MainScreen
 import com.tembus.courier.ui.screens.auth.LoginScreen
 import com.tembus.courier.ui.theme.TEMBUSCourierTheme
+import com.tembus.courier.ui.theme.CourierThemeController
+import com.tembus.courier.ui.theme.CourierThemePreferenceStore
+import com.tembus.courier.ui.theme.LocalCourierThemeController
 import com.tembus.courier.ui.localization.CourierLocaleRuntime
 import com.tembus.courier.ui.components.UpdateDialog
 import com.tembus.courier.data.model.AppVersion
@@ -116,11 +121,28 @@ class MainActivity : FragmentActivity() {
 
         setContent {
             CourierLocaleRuntime {
-                TEMBUSCourierTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
+                val themePreferences = remember {
+                    CourierThemePreferenceStore(applicationContext)
+                }
+                var preferredDarkTheme by remember {
+                    mutableStateOf(themePreferences.readDarkTheme())
+                }
+                val darkTheme = preferredDarkTheme ?: isSystemInDarkTheme()
+
+                TEMBUSCourierTheme(darkTheme = darkTheme) {
+                    CompositionLocalProvider(
+                        LocalCourierThemeController provides CourierThemeController(
+                            isDarkTheme = darkTheme,
+                            onDarkThemeChanged = { enabled ->
+                                preferredDarkTheme = enabled
+                                themePreferences.writeDarkTheme(enabled)
+                            }
+                        )
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = MaterialTheme.colorScheme.background
+                        ) {
                     // Auth gate — observe login state reactively
                     val isLoggedIn by authSessionManager.isLoggedIn.collectAsState(initial = false)
 
@@ -173,7 +195,7 @@ class MainActivity : FragmentActivity() {
                         )
                     }
 
-                    if (isLoggedIn) {
+                            if (isLoggedIn) {
 
                         MainScreen(
                             initialOrderId = deepLinkOrderId,
@@ -192,18 +214,19 @@ class MainActivity : FragmentActivity() {
                                 }
                             }
                         )
-                    } else {
-                        LoginScreen(
-                            onLoginSuccess = {
-                                askNotificationPermission()
+                            } else {
+                                LoginScreen(
+                                    onLoginSuccess = {
+                                        askNotificationPermission()
+                                    }
+                                )
                             }
-                        )
+                        }
                     }
                 }
                 }
             }
         }
-    }
 
     private fun askNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

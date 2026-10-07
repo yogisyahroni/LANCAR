@@ -196,6 +196,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
         AND csc.application_channel = 'on_demand'
         AND csc.status = 'enabled'
         AND courier_capability_is_eligible(cp.id, csc.service_code, cp.market_code)
+        AND courier_service_is_enabled(cp.id, csc.service_code)
        JOIN courier_vehicles cv ON cv.courier_profile_id = cp.id
         AND cv.verification_status = 'approved'
         AND (
@@ -541,6 +542,7 @@ export const dispatchToPreferredCourier = async (
       AND csc.service_code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
       AND csc.status = 'enabled'
       AND courier_capability_is_eligible(cp.id, csc.service_code, cp.market_code)
+      AND courier_service_is_enabled(cp.id, csc.service_code)
      JOIN courier_vehicles cv ON cv.courier_profile_id = cp.id
       AND cv.verification_status = 'approved'
       AND (csc.vehicle_id IS NULL OR cv.id = csc.vehicle_id)

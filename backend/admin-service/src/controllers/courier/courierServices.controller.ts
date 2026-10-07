@@ -31,7 +31,7 @@ import {
 
 
 
-export const getMobileCourierOnDemandServices = async (_req: Request, res: Response) => {
+export const getMobileCourierOnDemandServices = async (req: Request, res: Response) => {
   try {
     const result = await db.query(
       `SELECT
@@ -65,11 +65,17 @@ export const getMobileCourierOnDemandServices = async (_req: Request, res: Respo
          max_distance_km::float8 AS max_distance_km,
          max_weight_kg::float8 AS max_weight_kg,
          vehicle_types,
-         display_order
+         display_order,
+         COALESCE(csc.courier_enabled, TRUE) AS courier_enabled
        FROM delivery_service_products
+       LEFT JOIN courier_profiles cp ON cp.user_id = $1
+       LEFT JOIN courier_service_capabilities csc
+         ON csc.courier_profile_id = cp.id
+        AND csc.service_code = delivery_service_products.code
        WHERE is_enabled = TRUE
          AND service_category = 'on_demand'
-       ORDER BY display_order ASC, name ASC`
+       ORDER BY display_order ASC, name ASC`,
+      [req.user?.id ?? null]
     );
 
     res.json({

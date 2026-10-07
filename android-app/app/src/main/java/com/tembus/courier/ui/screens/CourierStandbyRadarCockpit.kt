@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.PauseCircle
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.Button
@@ -51,6 +53,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tembus.courier.data.model.CourierHotspot
 import com.tembus.courier.data.model.CourierServiceProduct
+import com.tembus.courier.data.model.hasDemandSignal
+import com.tembus.courier.data.model.hasServerDemandEvidence
 import com.tembus.courier.ui.theme.Accent
 import com.tembus.courier.ui.theme.AccentSoft
 import com.tembus.courier.ui.theme.Primary
@@ -125,8 +129,28 @@ internal fun CourierStandbyRadarCockpit(
                 }
             }
 
-            val hotspot = hotspots.firstOrNull()
+            // The server endpoint orders hotspots by demand score. Do not invent a
+            // fallback zone or count when the snapshot is missing/empty.
+            val hotspot = hotspots.firstOrNull { it.hasServerDemandEvidence && it.hasDemandSignal }
             if (hotspot != null) {
+                val intensityLabel = hotspot.intensity
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(::displayDemandIntensity)
+                val demandMetrics = listOfNotNull(
+                    "${hotspot.pendingOrders} order aktif",
+                    "${hotspot.recentOrders} order terbaru",
+                    intensityLabel?.let { "Permintaan $it" }
+                ).joinToString(" · ")
+                val sourceMetadata = listOfNotNull(
+                    hotspot.demandEstimate?.let { if (it) "Estimasi server" else "Data aktual" },
+                    hotspot.demandSource
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let(::displayDemandSource),
+                    hotspot.freshness
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let(::displayDemandFreshness)
+                ).joinToString(" · ")
+                val isFresh = hotspot.freshness.equals("fresh", ignoreCase = true)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = AccentSoft,
@@ -148,7 +172,11 @@ internal fun CourierStandbyRadarCockpit(
                         }
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                text = "Peluang order di ${hotspot.name}",
+                                text = if (isFresh) {
+                                    "Peluang order di ${hotspot.name}"
+                                } else {
+                                    "Data peluang terakhir di ${hotspot.name}"
+                                },
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Black,
                                 color = PrimaryDark,
@@ -156,9 +184,16 @@ internal fun CourierStandbyRadarCockpit(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "${hotspot.pendingOrders.coerceAtLeast(0)} order terpantau · prioritas area aktif",
+                                text = demandMetrics,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = sourceMetadata,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -211,21 +246,40 @@ internal fun CourierStandbyRadarCockpit(
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = TembusComponentDefaults.buttonShape(),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    contentPadding = ButtonDefaults.ContentPadding
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
-                    Icon(Icons.Default.PauseCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (isOnline) "Jeda kerja" else "Aktifkan kerja", fontWeight = FontWeight.Bold)
+                    Icon(
+                        imageVector = if (isOnline) Icons.Default.PauseCircle else Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = if (isOnline) "Jeda kerja" else "Aktifkan kerja",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
                 Button(
                     onClick = onViewOrders,
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = TembusComponentDefaults.buttonShape(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White)
+                    colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
-                    Icon(Icons.Default.Map, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Peta order", fontWeight = FontWeight.Black)
+                    Icon(Icons.Default.Map, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = "Peta order",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
             }

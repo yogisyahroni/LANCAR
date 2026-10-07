@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import com.tembus.courier.data.api.TEMBUSApiService
 import com.tembus.courier.data.model.CourierServicePrice
 import com.tembus.courier.data.model.CourierServicePriceUpdateRequest
+import com.tembus.courier.data.model.CourierCapabilityEvidenceUploadData
 import com.tembus.courier.data.model.RoadsideVehicleVerification
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -68,6 +69,23 @@ class RoadsideRepository @Inject constructor(
             val data = response.body()?.data
             if (!response.isSuccessful || response.body()?.success != true || data == null) {
                 Result.failure(IllegalStateException(response.errorMessage("Harga layanan belum berhasil dimuat.")))
+            } else Result.success(data)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun uploadCapabilityEvidence(photo: Bitmap): Result<CourierCapabilityEvidenceUploadData> = withContext(Dispatchers.IO) {
+        try {
+            val image = MultipartBody.Part.createFormData(
+                "photo",
+                "courier_capability_${System.currentTimeMillis()}.jpg",
+                compressBitmap(photo).toRequestBody("image/jpeg".toMediaTypeOrNull())
+            )
+            val response = api.uploadCourierCapabilityEvidence(image)
+            val data = response.body()?.data
+            if (!response.isSuccessful || response.body()?.success != true || data == null) {
+                Result.failure(IllegalStateException(response.errorMessage("Foto alat belum berhasil diunggah.")))
             } else Result.success(data)
         } catch (e: Exception) {
             Result.failure(e)

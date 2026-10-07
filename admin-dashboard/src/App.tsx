@@ -7,6 +7,7 @@ import Orders from './pages/Orders'
 import OrderExceptions from './pages/OrderExceptions'
 import Couriers from './pages/Couriers'
 import CourierApplications from './pages/CourierApplications'
+import CourierCapabilityApplications from './pages/CourierCapabilityApplications'
 import Merchants from './pages/Merchants'
 import CatalogModeration from './pages/CatalogModeration'
 import MerchantStaff from './pages/MerchantStaff'
@@ -195,6 +196,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CourierApplications />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/courier-capability-applications"
+            element={
+              <ProtectedRoute>
+                <CourierCapabilityApplications />
               </ProtectedRoute>
             }
           />

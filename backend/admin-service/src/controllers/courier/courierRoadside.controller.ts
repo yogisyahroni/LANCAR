@@ -166,23 +166,43 @@ export const getCourierServicePrices = async (req: Request, res: Response) => {
   }
   try {
     const result = await db.query(
-      `SELECT csp.service_code,
-              COALESCE(dsp.name, csp.service_code) AS service_name,
-              csp.price_amount,
-              csp.price_per_hole_idr,
-              csp.per_km_rate_idr,
-              csp.toll_entry_idr,
-              csp.toll_exit_idr,
-              csp.min_price,
-              csp.max_price,
-              csp.is_active,
+      `SELECT dsp.code AS service_code,
+              dsp.name AS service_name,
+              COALESCE(csp.price_amount, 0)::bigint AS price_amount,
+              COALESCE(csp.price_per_hole_idr, 0)::bigint AS price_per_hole_idr,
+              COALESCE(dsp.per_km_idr, 0)::bigint AS per_km_rate_idr,
+              COALESCE(csp.toll_entry_idr, 0)::bigint AS toll_entry_idr,
+              COALESCE(csp.toll_exit_idr, 0)::bigint AS toll_exit_idr,
+              COALESCE(csp.min_price, min_cfg.min_price, 0)::bigint AS min_price,
+              COALESCE(csp.max_price, max_cfg.max_price, 0)::bigint AS max_price,
+              COALESCE(csp.is_active, FALSE) AS is_active,
+              dsp.base_fare_idr::bigint AS admin_base_fare_idr,
+              dsp.included_distance_km::double precision AS admin_included_distance_km,
+              dsp.per_km_idr::bigint AS admin_per_km_idr,
+              COALESCE(sc.commission_basis, 'unknown') AS commission_basis,
+              COALESCE(sc.platform_commission_pct, 0)::double precision AS platform_commission_pct,
+              COALESCE(sc.courier_keeps_service_fee, TRUE) AS courier_keeps_service_fee,
               csp.updated_at
-         FROM courier_service_prices csp
-         JOIN courier_profiles cp ON cp.id = csp.courier_id AND cp.user_id = $1
-         LEFT JOIN delivery_service_products dsp ON dsp.code = csp.service_code
-        WHERE csp.service_code LIKE 'tambal_ban%'
-           OR csp.service_code LIKE 'towing%'
-        ORDER BY csp.service_code`,
+         FROM courier_profiles cp
+         JOIN delivery_service_products dsp
+           ON dsp.code LIKE 'tambal_ban%'
+         LEFT JOIN courier_service_prices csp
+           ON cp.id = csp.courier_id AND csp.service_code = dsp.code
+         LEFT JOIN settlement_configs sc ON sc.service_code = dsp.code
+         LEFT JOIN LATERAL (
+             SELECT NULLIF(value #>> '{}', '')::bigint AS min_price
+             FROM system_configs
+            WHERE key = 'min_courier_price_tambal_ban'
+            LIMIT 1
+         ) min_cfg ON TRUE
+         LEFT JOIN LATERAL (
+             SELECT NULLIF(value #>> '{}', '')::bigint AS max_price
+             FROM system_configs
+            WHERE key = 'max_courier_price_tambal_ban'
+            LIMIT 1
+         ) max_cfg ON TRUE
+        WHERE cp.user_id = $1
+        ORDER BY dsp.code`,
       [req.user.id],
     );
     res.json({ success: true, data: result.rows, message: 'Harga layanan roadside loaded' });
@@ -218,6 +238,10 @@ export const updateCourierServicePrice = async (req: Request, res: Response) => 
     || (tollEntryIdr != null && (!Number.isSafeInteger(tollEntryIdr) || tollEntryIdr < 0))
     || (tollExitIdr != null && (!Number.isSafeInteger(tollExitIdr) || tollExitIdr < 0))) {
     sendBadRequest(res, 'Kode layanan dan harga jasa yang valid wajib dikirim.', 'ERR_BAD_REQUEST');
+    return;
+  }
+  if (serviceCode.startsWith('tambal_ban') && (perKmRateIdr != null || tollEntryIdr != null || tollExitIdr != null)) {
+    sendBadRequest(res, 'Tarif perjalanan dan tol Tambal Ban ditetapkan admin dan tidak dapat diubah oleh mitra.', 'ERR_ADMIN_TARIFF_ONLY', 422);
     return;
   }
   try {

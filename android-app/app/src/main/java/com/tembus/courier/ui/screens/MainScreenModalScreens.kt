@@ -486,7 +486,10 @@ internal fun MainScreenModalScreens(deps: MainScreenDeps) {
     // ── Inbox Screen ──────────────────────────────────────────
     if (routeState.screen == CourierRouteScreen.SERVICE_UPGRADE) {
         ServiceUpgradeScreen(
-            onNavigateBack = { routeState = CourierRouteReducer.home() }
+            onNavigateBack = { routeState = CourierRouteReducer.home() },
+            vehicleType = deps.capabilityProfile?.vehicle?.vehicleType
+                ?: deps.capabilityProfile?.vehicles?.firstOrNull()?.vehicleType
+                ?: "motor",
         )
         return
     }

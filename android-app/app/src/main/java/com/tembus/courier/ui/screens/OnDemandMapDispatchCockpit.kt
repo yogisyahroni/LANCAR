@@ -171,7 +171,7 @@ internal fun OnDemandMapDispatchCockpit(
     leadingOffer: Order?,
     serviceItems: List<CourierServiceProduct>,
     capabilityByCode: Map<String, CourierServiceCapability>,
-    disabledServiceCodes: Set<String>,
+    serviceToggleInFlightCode: String?,
     isServiceCatalogLoading: Boolean,
     servicePanelExpanded: Boolean,
     onToggleServicePanel: () -> Unit,
@@ -356,8 +356,9 @@ internal fun OnDemandMapDispatchCockpit(
             ) {
                 val activeServiceNames = serviceItems
                     .filter { service ->
-                        val capabilityEnabled = capabilityByCode[service.code]?.let(::capabilityIsAvailable) == true
-                        capabilityEnabled && service.code !in disabledServiceCodes
+                        val capability = capabilityByCode[service.code]
+                        val capabilityEnabled = capability?.let(::capabilityIsAdminAvailable) ?: true
+                        capabilityEnabled && (capability?.courierEnabled ?: service.courierEnabled)
                     }
                     .map { it.name }
                     .filter(String::isNotBlank)
@@ -408,12 +409,13 @@ internal fun OnDemandMapDispatchCockpit(
                         } else {
                             serviceItems.forEach { service ->
                                 val capability = capabilityByCode[service.code]
-                                val enabledByCapability = capability?.let(::capabilityIsAvailable) ?: true
-                                val enabled = enabledByCapability && service.code !in disabledServiceCodes
+                                val enabledByCapability = capability?.let(::capabilityIsAdminAvailable) ?: true
+                                val enabled = enabledByCapability && (capability?.courierEnabled ?: service.courierEnabled)
                                 OnDemandServiceToggleRow(
                                     service = service,
                                     enabled = enabled,
                                     lockedByAdmin = !enabledByCapability,
+                                    isUpdating = serviceToggleInFlightCode == service.code,
                                     availabilityReason = capability?.let(::capabilityAvailabilityReason),
                                     remediationPath = capability?.let(::capabilityRemediation),
                                     onEnabledChange = { checked ->

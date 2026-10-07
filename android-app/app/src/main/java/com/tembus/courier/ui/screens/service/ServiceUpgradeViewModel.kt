@@ -3,6 +3,7 @@ package com.tembus.courier.ui.screens.service
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.api.TEMBUSApiService
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.json.JSONObject
+import retrofit2.Response
 import javax.inject.Inject
 
 data class ServiceUpgradeUiState(
@@ -36,6 +39,28 @@ class ServiceUpgradeViewModel @Inject constructor(
     val uiState: StateFlow<ServiceUpgradeUiState> = _uiState.asStateFlow()
 
     var proofImageUrl by mutableStateOf("")
+
+    fun clearProofImage() {
+        proofImageUrl = ""
+    }
+
+    fun setMessage(message: String, isError: Boolean) {
+        _uiState.update { it.copy(isError = isError, message = message) }
+    }
+
+    fun uploadProofImage(photo: Bitmap) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, isError = false, message = null) }
+            roadsideRepository.uploadCapabilityEvidence(photo)
+                .onSuccess { upload ->
+                    proofImageUrl = upload.storageKey
+                    _uiState.update { it.copy(isLoading = false, message = "Foto kamera berhasil disimpan dengan aman.") }
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isLoading = false, isError = true, message = error.message ?: "Foto kamera gagal disimpan.") }
+                }
+        }
+    }
 
     init {
         loadServicePrices()
@@ -84,28 +109,62 @@ class ServiceUpgradeViewModel @Inject constructor(
         }
     }
 
-    fun requestUpgrade() {
+    fun requestUpgrade(
+        serviceCode: String,
+        supportsTubeless: Boolean,
+        supportsTube: Boolean,
+        hasTireRepairKit: Boolean,
+        hasElectricPump: Boolean,
+        materialInventory: Map<String, Int>,
+        pricePerHoleIdr: Long,
+    ) {
         if (proofImageUrl.isBlank()) {
-            _uiState.value = ServiceUpgradeUiState(isError = true, message = "URL foto bukti harus diisi")
+            _uiState.update { it.copy(isError = true, message = "Bukti foto alat wajib diisi") }
             return
         }
 
         viewModelScope.launch {
-            _uiState.value = ServiceUpgradeUiState(isLoading = true)
+            _uiState.update { it.copy(isLoading = true, isError = false, message = null) }
             try {
                 val request = CourierCapabilityUpgradeRequest(
-                    serviceCode = "TAMBAL_BAN",
-                    proofImageUrl = proofImageUrl
+                    serviceCode = serviceCode,
+                    proofImageUrl = proofImageUrl.trim(),
+                    supportsTubeless = supportsTubeless,
+                    supportsTube = supportsTube,
+                    hasTireRepairKit = hasTireRepairKit,
+                    hasElectricPump = hasElectricPump,
+                    materialInventory = materialInventory,
+                    pricePerHoleIdr = pricePerHoleIdr,
                 )
                 val response = apiService.requestCourierCapabilityUpgrade(request)
                 if (response.isSuccessful && response.body()?.success == true) {
-                    _uiState.value = ServiceUpgradeUiState(message = "Permintaan upgrade layanan berhasil dikirim. Menunggu persetujuan admin.")
+                    _uiState.update { it.copy(isLoading = false, message = "Pengajuan Tambal Ban berhasil dikirim. Layanan aktif setelah review dan persetujuan admin.") }
                 } else {
-                    _uiState.value = ServiceUpgradeUiState(isError = true, message = "Gagal mengirim permintaan: ${response.message()}")
+                    _uiState.update { it.copy(isLoading = false, isError = true, message = responseErrorMessage(response)) }
                 }
             } catch (e: Exception) {
-                _uiState.value = ServiceUpgradeUiState(isError = true, message = "Terjadi kesalahan: ${e.message}")
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isError = true,
+                        message = "Pengajuan belum terkirim. ${e.message?.takeIf { message -> message.isNotBlank() } ?: "Periksa koneksi lalu coba lagi."}",
+                    )
+                }
             }
+        }
+    }
+
+    private fun responseErrorMessage(response: Response<*>): String {
+        val body = runCatching { response.errorBody()?.string() }.getOrNull().orEmpty()
+        val payload = runCatching { JSONObject(body) }.getOrNull()
+        val serverMessage = payload?.optString("message")?.takeIf { it.isNotBlank() }
+            ?: payload?.optString("error")?.takeIf { it.isNotBlank() }
+        val code = payload?.optString("code")?.takeIf { it.isNotBlank() }
+        return when {
+            serverMessage != null && code != null -> "Gagal mengirim pengajuan: $serverMessage ($code)."
+            serverMessage != null -> "Gagal mengirim pengajuan: $serverMessage."
+            response.code() > 0 -> "Gagal mengirim pengajuan (HTTP ${response.code()}). Periksa data lalu coba lagi."
+            else -> "Gagal mengirim pengajuan. Periksa koneksi lalu coba lagi."
         }
     }
 }

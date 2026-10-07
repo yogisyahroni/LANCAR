@@ -658,6 +658,86 @@ export const getCourierApplicationsByChannel = async (req: Request, res: Respons
   return getCourierApplications(req, res, String(req.params.channel || req.query.application_channel || 'on_demand'));
 };
 
+// Roadside capability review is intentionally separate from courier onboarding:
+// an already-approved courier can submit a new Tambal Ban capability and the
+// reviewer must see the evidence, equipment, service fee, and admin tariff in
+// one authoritative record.
+export const getCourierCapabilityApplications = async (req: Request, res: Response): Promise<void> => {
+  const status = String(req.query.status || 'pending_review').trim().toLowerCase();
+  const serviceCode = String(req.query.service_code || '').trim().toLowerCase();
+  const allowedStatuses = new Set(['all', 'pending_review', 'enabled', 'rejected', 'disabled', 'paused', 'suspended']);
+  if (!allowedStatuses.has(status)) {
+    res.status(400).json({ success: false, data: null, message: 'Status review capability tidak valid.', code: 'ERR_INVALID_STATUS' });
+    return;
+  }
+
+  const values: string[] = [];
+  const filters = ["csc.service_code LIKE 'tambal_ban%'"];
+  if (status !== 'all') {
+    values.push(status);
+    filters.push(`csc.status = $${values.length}`);
+  }
+  if (serviceCode) {
+    values.push(serviceCode);
+    filters.push(`csc.service_code = $${values.length}`);
+  }
+
+  try {
+    const result = await readDb.query(
+      `SELECT csc.id,
+              csc.courier_profile_id,
+              csc.service_code,
+              csc.status,
+              csc.certification_type,
+              csc.evidence_storage_key,
+              CASE WHEN csc.evidence_storage_key IS NULL OR csc.evidence_storage_key = ''
+                   THEN NULL ELSE '/uploads/' || csc.evidence_storage_key END AS evidence_file_url,
+              csc.supports_tubeless,
+              csc.supports_tube,
+              csc.has_tire_repair_kit,
+              csc.has_electric_pump,
+              csc.material_inventory,
+              csc.eligibility_reason,
+              csc.approved_by,
+              csc.approved_at,
+              csc.updated_at,
+              cp.vehicle_type,
+              cp.vehicle_brand,
+              cp.vehicle_model,
+              cp.vehicle_plate,
+              cp.verification_status AS courier_verification_status,
+              u.full_name,
+              u.email,
+              u.phone_number,
+              dsp.name AS service_name,
+              dsp.base_fare_idr::bigint AS admin_base_fare_idr,
+              dsp.included_distance_km::double precision AS admin_included_distance_km,
+              dsp.per_km_idr::bigint AS admin_per_km_idr,
+              COALESCE(csp.price_per_hole_idr, csp.price_amount, 0)::bigint AS courier_price_per_hole_idr,
+              COALESCE(csp.min_price, 0)::bigint AS min_price,
+              COALESCE(csp.max_price, 0)::bigint AS max_price,
+              COALESCE(sc.commission_basis, 'unknown') AS commission_basis,
+              COALESCE(sc.platform_commission_pct, 0)::double precision AS platform_commission_pct,
+              COALESCE(sc.courier_keeps_service_fee, TRUE) AS courier_keeps_service_fee
+         FROM courier_service_capabilities csc
+         JOIN courier_profiles cp ON cp.id = csc.courier_profile_id
+         JOIN users u ON u.id = cp.user_id
+         JOIN delivery_service_products dsp ON dsp.code = csc.service_code
+         LEFT JOIN courier_service_prices csp
+           ON csp.courier_id = cp.id AND csp.service_code = csc.service_code
+         LEFT JOIN settlement_configs sc ON sc.service_code = csc.service_code
+        WHERE ${filters.join(' AND ')}
+        ORDER BY CASE WHEN csc.status = 'pending_review' THEN 0 ELSE 1 END,
+                 csc.updated_at DESC`,
+      values,
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    securityLog.error('Get courier capability applications error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Data review capability belum berhasil dimuat.', code: 'ERR_INTERNAL' });
+  }
+};
+
 const getCourierApplications = async (req: Request, res: Response, requestedChannel: string) => {
   try {
     const status = String(req.query.status || 'pending');
@@ -1507,6 +1587,7 @@ export const getMobileCourierCapabilities = async (req: Request, res: Response):
               dsp.service_family, dsp.route_model, csc.status, csc.eligibility_reason,
               csc.certification_type, csc.certified_at, csc.effective_from, csc.expires_at, csc.market_scope,
               cce.effective_status, cce.availability_reason, cce.remediation_path, cce.is_eligible,
+              csc.courier_enabled,
               dsp.batching_allowed,
               dsp.max_packages_per_order,
               dsp.max_active_orders_regular,
@@ -1526,7 +1607,10 @@ export const getMobileCourierCapabilities = async (req: Request, res: Response):
               dsp.regular_max_reschedule_attempts,
               dsp.failed_delivery_policy,
               dsp.pod_label,
-              csc.max_weight_kg::float8 AS max_weight_kg, csc.approved_at
+              csc.max_weight_kg::float8 AS max_weight_kg, csc.approved_at,
+              csc.supports_tubeless, csc.supports_tube,
+              csc.has_tire_repair_kit, csc.has_electric_pump,
+              csc.material_inventory
        FROM courier_service_capabilities csc
        JOIN courier_capability_eligibility cce ON cce.id = csc.id
        JOIN delivery_service_products dsp ON dsp.code = csc.service_code
@@ -1619,53 +1703,212 @@ export const requestMobileCourierCapabilityUpgrade = async (req: Request, res: R
     return;
   }
 
+  const client = await db.connect();
   try {
-    const profileRes = await db.query('SELECT id FROM courier_profiles WHERE user_id = $1', [req.user.id]);
+    const profileRes = await client.query(
+      `SELECT id, vehicle_type, vehicle_category
+         FROM courier_profiles
+        WHERE user_id = $1`,
+      [req.user.id],
+    );
     if (profileRes.rows.length === 0) {
       res.status(404).json({ success: false, data: null, message: 'Courier profile not found', code: 'ERR_NOT_FOUND' });
       return;
     }
 
-    const serviceCode = String(req.body?.service_code || '');
+    const serviceCode = String(req.body?.service_code || '').trim().toLowerCase();
     const proofImageUrl = String(req.body?.proof_image_url || '');
+    const supportsTubeless = req.body?.supports_tubeless === true || String(req.body?.supports_tubeless).toLowerCase() === 'true';
+    const supportsTube = req.body?.supports_tube === true || String(req.body?.supports_tube).toLowerCase() === 'true';
+    const hasTireRepairKit = req.body?.has_tire_repair_kit === true || String(req.body?.has_tire_repair_kit).toLowerCase() === 'true';
+    const hasElectricPump = req.body?.has_electric_pump === true || String(req.body?.has_electric_pump).toLowerCase() === 'true';
+    const pricePerHoleIdr = Number(req.body?.price_per_hole_idr ?? req.body?.pricePerHoleIdr);
+    const rawInventory = req.body?.material_inventory ?? req.body?.materialInventory ?? {};
 
-    if (!serviceCode) {
-      res.status(400).json({ success: false, data: null, message: 'Service code is required', code: 'ERR_BAD_REQUEST' });
+    if (!['tambal_ban_motor', 'tambal_ban_mobil'].includes(serviceCode)) {
+      res.status(400).json({ success: false, data: null, message: 'Pengajuan saat ini hanya mendukung Tambal Ban Motor atau Tambal Ban Mobil.', code: 'ERR_INVALID_SERVICE' });
       return;
     }
 
-    // Attempt to get the primary vehicle of the courier
+    if (!proofImageUrl.trim() || !Number.isSafeInteger(pricePerHoleIdr) || pricePerHoleIdr <= 0
+      || !hasTireRepairKit || !hasElectricPump || (!supportsTubeless && !supportsTube)
+      || !rawInventory || typeof rawInventory !== 'object' || Array.isArray(rawInventory)) {
+      res.status(400).json({
+        success: false,
+        data: null,
+        message: 'Bukti alat, harga per lubang, minimal satu tipe ban, kit tambal, pompa elektrik, dan stok material wajib diisi.',
+        code: 'ERR_INCOMPLETE_ROADSIDE_PROFILE',
+      });
+      return;
+    }
+
+    const inventory: Record<string, number> = {};
+    for (const [rawCode, rawQuantity] of Object.entries(rawInventory as Record<string, unknown>)) {
+      const code = String(rawCode).trim().toLowerCase();
+      const quantity = Number(rawQuantity);
+      if (!code || !Number.isSafeInteger(quantity) || quantity < 0 || quantity > 100000) {
+        res.status(400).json({ success: false, data: null, message: 'Stok material harus berupa bilangan bulat 0 sampai 100000.', code: 'ERR_INVALID_INVENTORY' });
+        return;
+      }
+      inventory[code] = quantity;
+    }
+
+    const materialRes = await client.query(
+      `SELECT code
+         FROM tambal_ban_materials
+        WHERE service_code = $1 AND is_active = TRUE`,
+      [serviceCode],
+    );
+    const allowedMaterialCodes = new Set(materialRes.rows.map((row: { code: string }) => String(row.code)));
+    const tubelessMaterialCode = serviceCode === 'tambal_ban_motor' ? 'tambal_tubeless' : 'tambal_ban_mobil';
+    const tubeMaterialCode = serviceCode === 'tambal_ban_motor' ? 'tambal_ban_dalam' : 'tambal_ban_dalam_mobil';
+    if (Object.keys(inventory).some((code) => !allowedMaterialCodes.has(code))) {
+      res.status(400).json({ success: false, data: null, message: 'Ada material yang tidak tersedia pada katalog layanan.', code: 'ERR_INVALID_MATERIAL' });
+      return;
+    }
+    if (supportsTubeless && (inventory[tubelessMaterialCode] || 0) <= 0) {
+      res.status(400).json({ success: false, data: null, message: 'Stok material tambal tubeless wajib lebih dari 0.', code: 'ERR_MISSING_TUBELESS_STOCK' });
+      return;
+    }
+    if (supportsTube && (inventory[tubeMaterialCode] || 0) <= 0) {
+      res.status(400).json({ success: false, data: null, message: 'Stok material tambal ban dalam wajib lebih dari 0.', code: 'ERR_MISSING_TUBE_STOCK' });
+      return;
+    }
+
     const vehicleRes = await db.query(
-      `SELECT id FROM courier_vehicles WHERE courier_profile_id = $1 ORDER BY is_primary DESC, created_at DESC LIMIT 1`,
+      `SELECT id, vehicle_type, verification_status
+         FROM courier_vehicles
+        WHERE courier_profile_id = $1
+        ORDER BY is_primary DESC, created_at DESC
+        LIMIT 1`,
       [profileRes.rows[0].id]
     );
 
-    const vehicleId = vehicleRes.rows.length > 0 ? vehicleRes.rows[0].id : null;
+    const vehicle = vehicleRes.rows[0];
+    const vehicleType = String(vehicle?.vehicle_type || '').toLowerCase();
+    const expectedVehicleType = serviceCode === 'tambal_ban_mobil' ? 'car' : 'motor';
+    if (!vehicle || vehicle.verification_status !== 'approved' || vehicleType !== expectedVehicleType) {
+      res.status(422).json({ success: false, data: null, message: 'Layanan Tambal Ban yang diajukan tidak sesuai kendaraan terdaftar atau kendaraan belum disetujui.', code: 'ERR_VEHICLE_INELIGIBLE' });
+      return;
+    }
 
-    const result = await db.query(
+    const priceConfigRes = await client.query(
+      `SELECT
+         dsp.base_fare_idr::bigint AS default_price,
+         COALESCE((SELECT NULLIF(sc.value #>> '{}', '')::bigint FROM system_configs sc WHERE sc.key = 'min_courier_price_tambal_ban'), dsp.base_fare_idr::bigint) AS min_price,
+         COALESCE((SELECT NULLIF(sc.value #>> '{}', '')::bigint FROM system_configs sc WHERE sc.key = 'max_courier_price_tambal_ban'), 500000::bigint) AS max_price
+         FROM delivery_service_products dsp
+        WHERE dsp.code = $1`,
+      [serviceCode],
+    );
+    const priceConfig = priceConfigRes.rows[0];
+    const minPrice = Number(priceConfig?.min_price ?? 0);
+    const maxPrice = Number(priceConfig?.max_price ?? 0);
+    if (!Number.isSafeInteger(minPrice) || !Number.isSafeInteger(maxPrice) || pricePerHoleIdr < minPrice || pricePerHoleIdr > maxPrice) {
+      res.status(422).json({ success: false, data: null, message: `Harga per lubang harus berada di antara Rp${minPrice.toLocaleString('id-ID')} dan Rp${maxPrice.toLocaleString('id-ID')}.`, code: 'ERR_SERVICE_PRICE_BOUNDS' });
+      return;
+    }
+
+    await client.query('BEGIN');
+    const result = await client.query(
       `INSERT INTO courier_service_capabilities (
          courier_profile_id, vehicle_id, service_code, application_channel, status,
-         certification_type, evidence_storage_key, eligibility_reason, updated_at
-       ) VALUES ($1, $2, $3, 'on_demand', 'pending_review', 'service_equipment_proof', $4, $5, NOW())
+         certification_type, evidence_storage_key, eligibility_reason,
+         supports_tubeless, supports_tube, has_tire_repair_kit, has_electric_pump,
+         material_inventory, updated_at
+       ) VALUES ($1, $2, $3, 'on_demand', 'pending_review', 'service_equipment_proof', $4, $5,
+                $6, $7, $8, $9, $10::jsonb, NOW())
        ON CONFLICT (courier_profile_id, service_code) DO UPDATE SET
-         status = CASE WHEN courier_service_capabilities.status = 'enabled' THEN 'enabled' ELSE 'pending_review' END,
+         status = 'pending_review',
          certification_type = EXCLUDED.certification_type,
          evidence_storage_key = COALESCE(EXCLUDED.evidence_storage_key, courier_service_capabilities.evidence_storage_key),
          eligibility_reason = EXCLUDED.eligibility_reason,
+         supports_tubeless = EXCLUDED.supports_tubeless,
+         supports_tube = EXCLUDED.supports_tube,
+         has_tire_repair_kit = EXCLUDED.has_tire_repair_kit,
+         has_electric_pump = EXCLUDED.has_electric_pump,
+         material_inventory = EXCLUDED.material_inventory,
          updated_at = NOW()
-       RETURNING id, service_code, status`,
+       RETURNING id, service_code, status, supports_tubeless, supports_tube,
+                 has_tire_repair_kit, has_electric_pump, material_inventory`,
       [
         profileRes.rows[0].id,
-        vehicleId,
+        vehicle.id,
         serviceCode,
         normalizeCapabilityEvidenceKey(proofImageUrl),
-        'Capability upgrade requested with certification evidence.',
+        'Roadside capability submitted with equipment, inventory, tire-type, and pricing evidence.',
+        supportsTubeless,
+        supportsTube,
+        hasTireRepairKit,
+        hasElectricPump,
+        JSON.stringify(inventory),
       ]
     );
 
-    res.json({ success: true, data: result.rows[0], message: 'Capability upgrade requested successfully' });
+    const priceResult = await client.query(
+      `INSERT INTO courier_service_prices (
+         courier_id, service_code, price_amount, min_price, max_price, is_active,
+         price_per_hole_idr, per_km_rate_idr, toll_entry_idr, toll_exit_idr, updated_at
+       )
+       SELECT $1, $2, $3, $4, $5, FALSE, $3, COALESCE(dsp.per_km_idr, 0), 0, 0, NOW()
+         FROM delivery_service_products dsp
+        WHERE dsp.code = $2
+       ON CONFLICT (courier_id, service_code) DO UPDATE SET
+         price_amount = EXCLUDED.price_amount,
+         price_per_hole_idr = EXCLUDED.price_per_hole_idr,
+         per_km_rate_idr = EXCLUDED.per_km_rate_idr,
+         toll_entry_idr = EXCLUDED.toll_entry_idr,
+         toll_exit_idr = EXCLUDED.toll_exit_idr,
+         min_price = EXCLUDED.min_price,
+         max_price = EXCLUDED.max_price,
+         is_active = FALSE,
+         updated_at = NOW()`,
+      [profileRes.rows[0].id, serviceCode, pricePerHoleIdr, minPrice, maxPrice],
+    );
+    if (!priceResult.rowCount) {
+      throw new Error(`Tarif layanan ${serviceCode} belum tersedia di katalog admin.`);
+    }
+
+    await client.query('COMMIT');
+
+    res.json({ success: true, data: result.rows[0], message: 'Pengajuan Tambal Ban berhasil dikirim. Layanan aktif setelah review dan persetujuan admin.' });
   } catch (error: any) {
-    res.status(500).json({ success: false, data: null, message: error.message, code: 'ERR_INTERNAL' });
+    await client.query('ROLLBACK');
+    securityLog.error('Courier roadside capability request failed:', error);
+    res.status(500).json({
+      success: false,
+      data: null,
+      message: 'Pengajuan capability Tambal Ban gagal diproses. Periksa konfigurasi tarif dan data kendaraan, lalu coba lagi.',
+      code: 'ERR_ROADSIDE_CAPABILITY_REQUEST',
+    });
+  } finally {
+    client.release();
+  }
+};
+
+export const uploadMobileCourierCapabilityEvidence = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+  if (!req.file) {
+    res.status(400).json({ success: false, data: null, message: 'Foto alat wajib dikirim.', code: 'ERR_PHOTO_REQUIRED' });
+    return;
+  }
+
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const savedUpload = saveSecureUploadBuffer(req.file, `courier-capabilities/${today}`);
+    res.status(201).json({
+      success: true,
+      data: {
+        file_url: savedUpload.fileUrl,
+        storage_key: savedUpload.storageKey,
+      },
+      message: 'Foto alat berhasil diunggah dan siap dilampirkan pada pengajuan.',
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message, code: 'ERR_UPLOAD_FAILED' });
   }
 };
 
@@ -1781,6 +2024,17 @@ export const updateCourierServiceCapabilities = async (req: Request, res: Respon
           serviceCode,
         ]
       );
+
+      // A roadside price may be edited while the application is pending, but
+      // it must not become customer-visible until the capability is approved.
+      if (serviceCode.startsWith('tambal_ban')) {
+        await client.query(
+          `UPDATE courier_service_prices
+              SET is_active = ($1 = 'enabled'), updated_at = NOW()
+            WHERE courier_id = $2 AND service_code = $3`,
+          [status, id, serviceCode],
+        );
+      }
     }
 
     await client.query('COMMIT');

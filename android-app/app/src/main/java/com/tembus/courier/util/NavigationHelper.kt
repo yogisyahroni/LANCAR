@@ -3,25 +3,25 @@ package com.tembus.courier.util
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import com.tembus.courier.BuildConfig
 
 /**
- * NavigationHelper — Turn-by-turn navigation for courier operations.
+ * NavigationHelper — External navigation hand-off for courier operations.
  *
- * S2-COURIER-02: Provides voice-guided navigation using TomTom Navigation SDK
- * when available, with automatic fallback to Google Maps / Waze intent.
+ * TomTom/backend remain authoritative for the in-app route snapshot, ETA, and
+ * pricing. This helper only hands the selected destination to an installed
+ * navigation app after the courier explicitly asks to navigate.
  *
  * Usage:
  *   NavigationHelper.navigateTo(context, latitude, longitude, "Titik Jemput")
  */
 object NavigationHelper {
 
-    private const val TOMTOM_NAV_PACKAGE = "com.tomtom.navigation"
-
     /**
-     * Launch turn-by-turn navigation to the given coordinates.
+     * Launch external turn-by-turn navigation to the given coordinates.
      *
-     * Tries TomTom Navigation SDK first, falls back to Google Maps intent.
+     * Opens the external navigation fallback. TomTom remains the source of
+     * route/ETA/price data in the app; this action intentionally does not call
+     * another routing API.
      *
      * @param context Android context
      * @param lat Destination latitude
@@ -33,36 +33,8 @@ object NavigationHelper {
             return
         }
 
-        // Try TomTom Navigation SDK if API key is configured
-        val tomTomKey = BuildConfig.TOMTOM_API_KEY
-        if (tomTomKey.isNotBlank() && tomTomKey != "missing-tomtom-api-key") {
-            try {
-                navigateWithTomTom(context, lat, lng, label, tomTomKey)
-                return
-            } catch (_: Exception) {
-                // Fall through to Google Maps
-            }
-        }
-
-        // Fallback: Google Maps intent
-        navigateWithGoogleMaps(context, lat, lng, label)
-    }
-
-    private fun navigateWithTomTom(
-        context: Context,
-        lat: Double,
-        lng: Double,
-        label: String,
-        apiKey: String
-    ) {
-        // TomTom Navigation SDK requires runtime initialization.
-        // When the SDK is fully integrated, replace this with:
-        //   TomTomNavigation.startNavigation(
-        //       context, apiKey, lat, lng, label
-        //   )
-        //
-        // For now, fall through to Google Maps. The SDK dependency is
-        // added to build.gradle.kts and ready for integration.
+        // Route calculation remains server/TomTom-owned. This is only the
+        // user-requested external navigation hand-off.
         navigateWithGoogleMaps(context, lat, lng, label)
     }
 
@@ -71,7 +43,9 @@ object NavigationHelper {
      * Uses the universal geo: intent with navigation mode.
      */
     fun navigateWithGoogleMaps(context: Context, lat: Double, lng: Double, label: String) {
-        val uri = Uri.parse("geo:0,0?q=$lat,$lng")
+        val destinationLabel = label.trim().takeIf { it.isNotBlank() }?.let { Uri.encode(it) }.orEmpty()
+        val query = if (destinationLabel.isBlank()) "$lat,$lng" else "$lat,$lng($destinationLabel)"
+        val uri = Uri.parse("geo:0,0?q=$query")
         val intent = Intent(Intent.ACTION_VIEW, uri).apply {
             setPackage("com.google.android.apps.maps")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

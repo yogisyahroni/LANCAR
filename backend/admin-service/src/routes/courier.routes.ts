@@ -20,6 +20,7 @@ courierRoutes.put('/api/v1/courier/profile/capacity', requireMobileOrWebAuth, (r
 courierRoutes.get('/api/v1/courier/on-demand/services', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOnDemandServices(req, res));
 courierRoutes.get('/api/v1/courier/service-prices', requireMobileOrWebAuth, (req, res) => controllers.getCourierServicePrices(req, res));
 courierRoutes.put('/api/v1/courier/service-price', requireMobileOrWebAuth, (req, res) => controllers.updateCourierServicePrice(req, res));
+courierRoutes.put('/api/v1/courier/service-preferences/:serviceCode', requireMobileOrWebAuth, toggleRateLimiter, (req, res) => controllers.updateMobileCourierServicePreference(req, res));
 courierRoutes.get('/api/v1/courier/on-demand/hotspots', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierHotspots(req, res));
 courierRoutes.get('/api/v1/courier/on-demand/pickup-cancellation-reasons', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPickupCancellationReasons(req, res));
 courierRoutes.get('/api/v1/courier/order-status-transitions', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierStatusTransitions(req, res));
@@ -32,6 +33,7 @@ courierRoutes.get('/api/v1/courier/payout/summary', requireMobileOrWebAuth, (req
 courierRoutes.get('/api/v1/courier/payout/requests', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPayoutRequests(req, res));
 courierRoutes.post('/api/v1/courier/payout/requests', requireMobileOrWebAuth, requireIdempotencyKey('courier.payout.request'), (req, res) => controllers.createMobileCourierPayoutRequest(req, res));
 courierRoutes.get('/api/v1/courier/capabilities', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierCapabilities(req, res));
+courierRoutes.post('/api/v1/courier/capabilities/evidence', requireMobileOrWebAuth, courierProofRateLimiter, ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.uploadMobileCourierCapabilityEvidence(req, res));
 courierRoutes.post('/api/v1/courier/capabilities/request', requireMobileOrWebAuth, (req, res) => controllers.requestMobileCourierCapabilityUpgrade(req, res));
 courierRoutes.post('/api/v1/courier/training/complete', requireMobileOrWebAuth, (req, res) => controllers.completeMobileCourierTraining(req, res));
 courierRoutes.get('/api/v1/courier/orders', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOrders(req, res));

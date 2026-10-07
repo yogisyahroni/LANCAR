@@ -151,6 +151,7 @@ const preferredCourierEligibilityQuery = `
         AND csc.application_channel = 'on_demand'
         AND csc.status = 'enabled'
         AND courier_capability_is_eligible(cp.id, ts.code, cp.market_code)
+        AND courier_service_is_enabled(cp.id, ts.code)
         AND (
           (
             ts.service_category = 'towing'

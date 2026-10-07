@@ -13,6 +13,7 @@ import com.tembus.courier.data.model.CourierProfile
 import com.tembus.courier.data.model.CourierMarketEligibilityData
 import com.tembus.courier.data.model.CourierCapabilityProfile
 import com.tembus.courier.data.model.CourierCapabilityUpgradeRequest
+import com.tembus.courier.data.model.CourierCapabilityEvidenceUploadData
 import com.tembus.courier.data.model.CourierServiceCapability
 import com.tembus.courier.data.model.CourierHotspot
 import com.tembus.courier.data.model.CourierEarningsLedger
@@ -33,6 +34,8 @@ import com.tembus.courier.data.model.CourierSupportContext
 import com.tembus.courier.data.model.CourierServiceProduct
 import com.tembus.courier.data.model.CourierServicePrice
 import com.tembus.courier.data.model.CourierServicePriceUpdateRequest
+import com.tembus.courier.data.model.CourierServicePreference
+import com.tembus.courier.data.model.CourierServicePreferenceUpdateRequest
 import com.tembus.courier.data.model.CourierTrainingCompleteRequest
 import com.tembus.courier.data.model.CourierTrainingCompletion
 import com.tembus.courier.data.model.CourierDocumentUploadData
@@ -194,6 +197,12 @@ interface TEMBUSApiService {
     @GET("api/v1/courier/on-demand/services")
     suspend fun getOnDemandServices(): Response<ApiResponse<List<CourierServiceProduct>>>
 
+    @PUT("api/v1/courier/service-preferences/{serviceCode}")
+    suspend fun updateCourierServicePreference(
+        @Path("serviceCode") serviceCode: String,
+        @Body request: CourierServicePreferenceUpdateRequest
+    ): Response<ApiResponse<CourierServicePreference>>
+
     @GET("api/v1/courier/service-prices")
     suspend fun getCourierServicePrices(): Response<ApiResponse<List<CourierServicePrice>>>
 
@@ -240,6 +249,12 @@ interface TEMBUSApiService {
 
     @GET("api/v1/courier/capabilities")
     suspend fun getCourierCapabilities(): Response<ApiResponse<CourierCapabilityProfile>>
+
+    @Multipart
+    @POST("api/v1/courier/capabilities/evidence")
+    suspend fun uploadCourierCapabilityEvidence(
+        @Part photo: MultipartBody.Part
+    ): Response<ApiResponse<CourierCapabilityEvidenceUploadData>>
 
     @POST("api/v1/courier/capabilities/request")
     suspend fun requestCourierCapabilityUpgrade(

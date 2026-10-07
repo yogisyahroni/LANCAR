@@ -212,6 +212,7 @@ adminRoutes.put('/admin/operational-lookups/status-transition-policies/:id', req
 adminRoutes.delete('/admin/operational-lookups/status-transition-policies/:id', requireTotp, (req, res) => controllers.operationalLookups.deactivateAdminStatusTransitionPolicy(req, res));
 adminRoutes.get('/admin/courier-applications/on-demand', (req, res) => controllers.getOnDemandCourierApplications(req, res));
 adminRoutes.get('/admin/courier-applications/:channel', (req, res) => controllers.getCourierApplicationsByChannel(req, res));
+adminRoutes.get('/admin/courier-capability-applications', requireRole(['super_admin', 'ops_security', 'ops_admin']), (req, res) => controllers.getCourierCapabilityApplications(req, res));
 adminRoutes.get('/admin/courier-registration-links', (req, res) => controllers.getCourierRegistrationLinks(req, res));
 adminRoutes.post('/admin/courier-registration-links', (req, res) => controllers.createCourierRegistrationLink(req, res));
 adminRoutes.get('/admin/couriers', (req, res) => controllers.getAllCouriers(req, res));

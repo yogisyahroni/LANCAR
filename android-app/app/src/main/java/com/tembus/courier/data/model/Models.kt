@@ -243,7 +243,10 @@ data class CourierServiceProduct(
     val podLabel: String = "POD",
 
     @SerialName("display_order")
-    val displayOrder: Int = 100
+    val displayOrder: Int = 100,
+
+    @SerialName("courier_enabled")
+    val courierEnabled: Boolean = true
 )
 
 @Serializable
@@ -258,6 +261,12 @@ data class CourierServicePrice(
     @SerialName("min_price") val minPrice: Long = 0,
     @SerialName("max_price") val maxPrice: Long = 0,
     @SerialName("is_active") val isActive: Boolean = true,
+    @SerialName("admin_base_fare_idr") val adminBaseFareIdr: Long = 0,
+    @SerialName("admin_included_distance_km") val adminIncludedDistanceKm: Double = 0.0,
+    @SerialName("admin_per_km_idr") val adminPerKmIdr: Long = 0,
+    @SerialName("commission_basis") val commissionBasis: String = "",
+    @SerialName("platform_commission_pct") val platformCommissionPct: Double = 0.0,
+    @SerialName("courier_keeps_service_fee") val courierKeepsServiceFee: Boolean = true,
     @SerialName("updated_at") val updatedAt: String? = null
 )
 
@@ -270,6 +279,20 @@ data class CourierServicePriceUpdateRequest(
     @SerialName("toll_entry_idr") val tollEntryIdr: Long? = null,
     @SerialName("toll_exit_idr") val tollExitIdr: Long? = null,
     @SerialName("is_active") val isActive: Boolean = true
+)
+
+@Serializable
+data class CourierServicePreferenceUpdateRequest(
+    @SerialName("is_enabled") val isEnabled: Boolean
+)
+
+@Serializable
+data class CourierServicePreference(
+    @SerialName("service_code") val serviceCode: String,
+    @SerialName("service_name") val serviceName: String = "",
+    @SerialName("is_enabled") val isEnabled: Boolean = true,
+    @SerialName("status") val status: String = "enabled",
+    @SerialName("updated_at") val updatedAt: String? = null
 )
 
 @Serializable
@@ -340,7 +363,7 @@ data class CourierHotspot(
     @SerialName("longitude")
     val longitude: Double? = null,
     @SerialName("intensity")
-    val intensity: String = "low",
+    val intensity: String? = null,
     @SerialName("demand_score")
     val demandScore: Int = 0,
     @SerialName("recent_orders")
@@ -348,12 +371,23 @@ data class CourierHotspot(
     @SerialName("refreshed_at")
     val refreshedAt: String? = null,
     @SerialName("demand_estimate")
-    val demandEstimate: Boolean = true,
+    val demandEstimate: Boolean? = null,
     @SerialName("demand_source")
-    val demandSource: String = "server_demand_rollup",
+    val demandSource: String? = null,
     @SerialName("freshness")
-    val freshness: String = "unknown"
+    val freshness: String? = null
 )
+
+/** A hotspot is displayable only when the server supplied its evidence metadata. */
+val CourierHotspot.hasServerDemandEvidence: Boolean
+    get() = demandEstimate != null &&
+        !demandSource.isNullOrBlank() &&
+        !freshness.isNullOrBlank() &&
+        !refreshedAt.isNullOrBlank()
+
+/** Prevents a zero/empty snapshot from being presented as an active opportunity. */
+val CourierHotspot.hasDemandSignal: Boolean
+    get() = pendingOrders > 0 || recentOrders > 0 || demandScore > 0
 
 @Serializable
 data class CancelPickupReason(
@@ -1157,7 +1191,19 @@ data class CourierServiceCapability(
     @SerialName("remediation_path")
     val remediationPath: String? = null,
     @SerialName("is_eligible")
-    val isEligible: Boolean? = null,
+      val isEligible: Boolean? = null,
+    @SerialName("courier_enabled")
+      val courierEnabled: Boolean = true,
+      @SerialName("supports_tubeless")
+      val supportsTubeless: Boolean = false,
+      @SerialName("supports_tube")
+      val supportsTube: Boolean = false,
+      @SerialName("has_tire_repair_kit")
+      val hasTireRepairKit: Boolean = false,
+      @SerialName("has_electric_pump")
+      val hasElectricPump: Boolean = false,
+      @SerialName("material_inventory")
+      val materialInventory: Map<String, Int> = emptyMap(),
 
     @SerialName("batching_allowed")
     val batchingAllowed: Boolean = false,
@@ -1484,7 +1530,19 @@ data class UnreadCountData(
 )
 
 @Serializable
-data class CourierCapabilityUpgradeRequest(
-    @SerialName("service_code") val serviceCode: String,
-    @SerialName("proof_image_url") val proofImageUrl: String
+data class CourierCapabilityEvidenceUploadData(
+    @SerialName("file_url") val fileUrl: String,
+    @SerialName("storage_key") val storageKey: String,
 )
+
+@Serializable
+  data class CourierCapabilityUpgradeRequest(
+      @SerialName("service_code") val serviceCode: String,
+      @SerialName("proof_image_url") val proofImageUrl: String,
+      @SerialName("supports_tubeless") val supportsTubeless: Boolean,
+      @SerialName("supports_tube") val supportsTube: Boolean,
+      @SerialName("has_tire_repair_kit") val hasTireRepairKit: Boolean,
+      @SerialName("has_electric_pump") val hasElectricPump: Boolean,
+      @SerialName("material_inventory") val materialInventory: Map<String, Int>,
+      @SerialName("price_per_hole_idr") val pricePerHoleIdr: Long
+  )

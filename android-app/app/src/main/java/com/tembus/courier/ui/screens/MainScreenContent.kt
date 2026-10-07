@@ -23,6 +23,7 @@ import com.tembus.courier.data.repository.ExperienceConfigRepository
 import com.tembus.courier.ui.components.CourierExperienceSlot
 import com.tembus.courier.domain.CourierProofTypes
 import com.tembus.courier.domain.CourierRouteReducer
+import com.tembus.courier.domain.CourierRouteScreen
 import com.tembus.courier.domain.CourierRouteState
 import com.tembus.courier.ui.screens.order.OrderViewModel
 import com.tembus.courier.ui.theme.*
@@ -56,6 +57,8 @@ internal fun MainScreenContent(
     displayCourierName: String,
     courierProfile: CourierProfile?,
     presenceState: String = "offline",
+    serviceToggleInFlightCode: String? = null,
+    onServiceEnabledChange: (CourierServiceProduct, Boolean) -> Unit = { _, _ -> },
     localSecurityManager: LocalDeviceSecurityManager,
     localSecuritySettings: LocalDeviceSecuritySettings,
     authSessionManager: AuthSessionManager,
@@ -76,16 +79,27 @@ internal fun MainScreenContent(
     var selectedTab by selectedTabState
     var routeState by routeStateState
     var showMissingPhotoWarning by showMissingPhotoWarningState
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = {
-            OnDemandBottomNavigation(
-                selectedTab = selectedTab,
-                offerCount = onDemandOffers.size,
-                onSelectTab = { selectedTab = it }
-            )
-        }
-    ) { paddingValues ->
+    val isFullScreenRoute = routeState.screen != CourierRouteScreen.HOME
+    if (isFullScreenRoute) {
+        // Child routes render their own surface/top bar. Do not leave the
+        // home scaffold and bottom navigation underneath them; that makes
+        // long forms appear to overlap the Account screen on small devices.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        )
+    } else {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            bottomBar = {
+                OnDemandBottomNavigation(
+                    selectedTab = selectedTab,
+                    offerCount = onDemandOffers.size,
+                    onSelectTab = { selectedTab = it }
+                )
+            }
+        ) { paddingValues ->
         if (selectedTab == 0) {
             Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
                 CourierExperienceSlot(experienceConfigRepository, Modifier.padding(bottom = 8.dp))
@@ -106,6 +120,8 @@ internal fun MainScreenContent(
                     isOnline = isOnline,
                     presenceState = presenceState,
                     onOnlineToggle = { online -> requestDutyToggle(online) },
+                    serviceToggleInFlightCode = serviceToggleInFlightCode,
+                    onServiceEnabledChange = onServiceEnabledChange,
                     onOpenDelivery = { order ->
                         if (order.isMaintenanceService()) {
                             routeState = if (order.serviceCode?.startsWith("towing") == true) {
@@ -173,9 +189,10 @@ internal fun MainScreenContent(
             }
         }
 
-        MainScreenMissingPhotoWarning(
-            show = showMissingPhotoWarning,
-            onDismiss = { showMissingPhotoWarning = false }
-        )
+            MainScreenMissingPhotoWarning(
+                show = showMissingPhotoWarning,
+                onDismiss = { showMissingPhotoWarning = false }
+            )
+        }
     }
 }

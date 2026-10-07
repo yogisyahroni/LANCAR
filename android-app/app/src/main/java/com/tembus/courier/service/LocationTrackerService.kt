@@ -20,6 +20,11 @@ import com.tembus.courier.BuildConfig
 import com.google.android.gms.location.*
 import com.tembus.courier.R
 import com.tembus.courier.data.model.Location as LocationModel
+import com.tembus.courier.data.db.OrderDao
+import com.tembus.courier.data.policy.CourierLocationStage
+import com.tembus.courier.data.policy.courierLocationProfile
+import com.tembus.courier.data.policy.resolveCourierLocationStage
+import com.tembus.courier.data.policy.shouldPersistLocation
 import com.tembus.courier.data.repository.LocationRepository
 import com.tembus.courier.data.security.FakeGpsDetector
 import com.tembus.courier.data.security.SensorFusionEngine
@@ -28,6 +33,7 @@ import com.tembus.courier.ui.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -68,6 +74,9 @@ class LocationTrackerService : Service() {
     private var isForeground = false
     private var courierId: String? = null
     private var deviceId: String? = null
+    private var currentLocationStage = CourierLocationStage.IDLE_ON_DUTY
+    private var lastPersistedLocation: Location? = null
+    private var lastPersistedAtMillis = 0L
 
     // Repository
     @Inject
@@ -75,6 +84,9 @@ class LocationTrackerService : Service() {
     
     @Inject
     lateinit var authSessionManager: AuthSessionManager
+
+    @Inject
+    lateinit var orderDao: OrderDao
 
     // 🔋 Battery-Adaptive Configurable GPS Intervals
     private val NORMAL_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1) // 1 minute
@@ -122,6 +134,10 @@ class LocationTrackerService : Service() {
 
         // Start tracking if courier is logged in AND online
         checkAndStartTracking()
+
+        // Rebuild the request only when the locally synced operational stage
+        // changes; this avoids a permanently aggressive GPS profile on duty.
+        observeLocationStage()
         
         // Start Tamper Watchdog
         startTamperWatchdog()
@@ -205,7 +221,10 @@ class LocationTrackerService : Service() {
                         startActivity(tamperIntent)
                     }
                 }
-                delay(3000) // check every 3 seconds
+                // SOS remains responsive, while the normal idle path must not
+                // wake the process twenty times per minute just to read a
+                // boolean that is almost always false.
+                delay(if (isSosActive) 3_000L else 60_000L)
             }
         }
     }
@@ -234,6 +253,21 @@ class LocationTrackerService : Service() {
                     if (isTracking) {
                         stopTracking()
                     }
+                }
+            }
+        }
+    }
+
+    private fun observeLocationStage() {
+        MAIN_THREAD.launch {
+            orderDao.getLocationStageStatuses().collect { statuses ->
+                val nextStage = resolveCourierLocationStage(statuses)
+                if (nextStage == currentLocationStage) return@collect
+
+                currentLocationStage = nextStage
+                debugLog("Location stage changed to $currentLocationStage")
+                if (isTracking) {
+                    rebuildLocationRequest()
                 }
             }
         }
@@ -320,6 +354,8 @@ class LocationTrackerService : Service() {
         }
         locationCallback = null
         locationRequest = null
+        lastPersistedLocation = null
+        lastPersistedAtMillis = 0L
 
         // 🛡️ Stop sensor fusion engine
         sensorFusionEngine?.stop()
@@ -375,6 +411,27 @@ class LocationTrackerService : Service() {
         val sensorIntegrity = report?.let {
             it.accelerometerConsistent && it.gyroscopeConsistent && it.barometerConsistent && it.stepCounterConsistent
         } ?: true
+
+        val stageProfile = courierLocationProfile(currentLocationStage)
+        val minPersistDistanceMeters = if (currentIntervalMode == IntervalMode.POWER_SAVER) {
+            maxOf(100f, stageProfile.minDistanceMeters)
+        } else {
+            stageProfile.minDistanceMeters
+        }
+        val nowMillis = System.currentTimeMillis()
+        val previousLocation = lastPersistedLocation
+        val distanceMeters = previousLocation?.distanceTo(location)
+        if (!shouldPersistLocation(
+                distanceMeters = distanceMeters,
+                elapsedMillis = nowMillis - lastPersistedAtMillis,
+                minDistanceMeters = minPersistDistanceMeters,
+            )
+        ) {
+            debugLog("Skipped GPS jitter sample (${distanceMeters}m); heartbeat window remains bounded")
+            return
+        }
+        lastPersistedLocation = Location(location)
+        lastPersistedAtMillis = nowMillis
 
         val locationModel = LocationModel(
             latitude = location.latitude,
@@ -540,27 +597,38 @@ class LocationTrackerService : Service() {
      * Configure and bind fused updates depending on current battery power saving configurations
      */
     private fun bindLocationUpdates() {
+        val stageProfile = courierLocationProfile(currentLocationStage)
         val interval = if (currentIntervalMode == IntervalMode.POWER_SAVER) {
-            POWER_SAVER_INTERVAL_MS
+            maxOf(POWER_SAVER_INTERVAL_MS, stageProfile.intervalMillis)
         } else {
-            NORMAL_INTERVAL_MS
+            stageProfile.intervalMillis
         }
-        
+
         val fastestInterval = if (currentIntervalMode == IntervalMode.POWER_SAVER) {
-            POWER_SAVER_FASTEST_INTERVAL_MS
+            maxOf(POWER_SAVER_FASTEST_INTERVAL_MS, stageProfile.fastestIntervalMillis)
         } else {
-            NORMAL_FASTEST_INTERVAL_MS
+            stageProfile.fastestIntervalMillis
+        }
+        val minDistanceMeters = if (currentIntervalMode == IntervalMode.POWER_SAVER) {
+            maxOf(100f, stageProfile.minDistanceMeters)
+        } else {
+            stageProfile.minDistanceMeters
+        }
+        val priority = if (stageProfile.highAccuracy && currentIntervalMode != IntervalMode.POWER_SAVER) {
+            Priority.PRIORITY_HIGH_ACCURACY
+        } else {
+            Priority.PRIORITY_BALANCED_POWER_ACCURACY
         }
 
         val request = LocationRequest.Builder(
-            Priority.PRIORITY_HIGH_ACCURACY,
+            priority,
             interval
         ).apply {
             setMinUpdateIntervalMillis(fastestInterval)
             // Keep location updates battery-bounded while still syncing each
             // accepted sample immediately for server-side presence tracking.
             setMaxUpdateDelayMillis(interval)
-            setMinUpdateDistanceMeters(50f)
+            setMinUpdateDistanceMeters(minDistanceMeters)
         }.build()
         
         locationRequest = request
@@ -596,7 +664,7 @@ class LocationTrackerService : Service() {
                     cb,
                     android.os.Looper.getMainLooper()
                 )
-                debugLog("Fused location bound. Mode: $currentIntervalMode, Interval: ${interval / 1000}s")
+                debugLog("Fused location bound. Stage: $currentLocationStage, mode: $currentIntervalMode, interval: ${interval / 1000}s, distance: ${minDistanceMeters}m")
             }
         }
     }
