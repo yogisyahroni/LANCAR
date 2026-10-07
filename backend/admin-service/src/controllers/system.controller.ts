@@ -180,7 +180,7 @@ export const getLatestVersion = async (req: Request, res: Response): Promise<voi
 
     res.json({
       ...version,
-      update_url: updateUrlResult.rows[0]?.value || 'https://github.com/yogisyahroni/TEMBUS/releases',
+      update_url: updateUrlResult.rows[0]?.value || 'https://github.com/yogisyahroni/LANCAR/releases',
       min_supported_code: policy.minimumSupportedVersionCode,
       min_supported_name: policy.minimumSupportedVersionName,
       api_schema_version: policy.currentApiSchemaVersion,

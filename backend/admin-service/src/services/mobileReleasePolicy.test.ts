@@ -106,6 +106,18 @@ describe('mobile release policy contract', () => {
     });
   });
 
+  it('redirects the legacy TEMBUS release destination to the LANCAR repository', () => {
+    const decision = decideMobileRelease(policy({
+      store_destinations: { primary: 'https://github.com/yogisyahroni/TEMBUS/releases' },
+    }), {
+      clientType: 'courier', appVersion: '1.0.2', appVersionCode: 2, schemaVersion: 1,
+      capabilities: [], status: 'compatible', upgradeRequired: false,
+      dynamicFeaturesEnabled: true, reason: null,
+    }, 'id-ID');
+
+    expect(decision.update_url).toBe('https://github.com/yogisyahroni/LANCAR/releases');
+  });
+
   it('hard-blocks only an unsafe/incompatible old client while preserving recovery access', () => {
     const decision = decideMobileRelease(policy({
       update_mode: 'hard',

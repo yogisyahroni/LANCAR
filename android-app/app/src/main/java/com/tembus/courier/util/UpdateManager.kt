@@ -30,11 +30,11 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * Handles update checks and debug/staging sideload updates.
+ * Handles update checks and debug/staging release-page updates.
  *
  * Production release builds keep the backend update contract, while debug builds
- * can fetch the latest TEMBUS Courier APK from GitHub Releases and open the
- * Android package installer after explicit user confirmation.
+ * can find the latest TEMBUS Courier APK in GitHub Releases and open the
+ * official release page after explicit user confirmation.
  */
 @Singleton
 class UpdateManager @Inject constructor(
@@ -61,73 +61,13 @@ class UpdateManager @Inject constructor(
         return checkGitHubReleaseUpdate() ?: checkBackendUpdate()
     }
 
-    suspend fun downloadAndOpenInstaller(version: AppVersion): Result<Unit> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val updateUri = Uri.parse(version.updateUrl)
-                val isApkUrl = version.updateUrl.contains(".apk", ignoreCase = true)
-
-                if (!BuildConfig.GITHUB_RELEASE_UPDATES_ENABLED || !isApkUrl) {
-                    openExternalUpdatePage(version.updateUrl)
-                    return@withContext Result.success(Unit)
-                }
-
-                if (updateUri.scheme != "https" || updateUri.host.isNullOrBlank()) {
-                    throw IOException("URL update harus menggunakan HTTPS.")
-                }
-
-                if (!canRequestPackageInstalls()) {
-                    throw InstallPermissionRequiredException()
-                }
-
-                val updateDir = File(context.cacheDir, UPDATE_CACHE_DIR).apply {
-                    if (!exists() && !mkdirs()) {
-                        throw IOException("Gagal membuat folder cache update.")
-                    }
-                }
-                val targetFile = File(updateDir, BuildConfig.GITHUB_RELEASE_ASSET_NAME)
-                val tempFile = File(updateDir, "${BuildConfig.GITHUB_RELEASE_ASSET_NAME}.download")
-
-                val request = Request.Builder()
-                    .url(version.updateUrl)
-                    .header("User-Agent", "TEMBUS-Courier/${BuildConfig.VERSION_NAME}")
-                    .build()
-
-                httpClient.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        throw IOException("Gagal mengunduh update: HTTP ${response.code}.")
-                    }
-
-                    val responseBody = response.body ?: throw IOException("File update kosong.")
-                    tempFile.outputStream().use { output ->
-                        responseBody.byteStream().use { input ->
-                            input.copyTo(output)
-                        }
-                    }
-                }
-
-                if (tempFile.length() < MIN_APK_BYTES) {
-                    throw IOException("File update tidak valid atau terlalu kecil.")
-                }
-
-                verifyChecksumIfPresent(tempFile, version.checksumSha256)
-                validateDownloadedApk(tempFile, version.code)
-
-                if (targetFile.exists() && !targetFile.delete()) {
-                    throw IOException("Gagal mengganti file update lama.")
-                }
-
-                if (!tempFile.renameTo(targetFile)) {
-                    tempFile.copyTo(targetFile, overwrite = true)
-                    tempFile.delete()
-                }
-
-                openApkInstaller(targetFile)
-                Result.success(Unit)
-            } catch (error: Throwable) {
-                if (error is CancellationException) throw error
-                Result.failure(normalizeUpdateFailure(error))
-            }
+    suspend fun openUpdatePage(version: AppVersion): Result<Unit> {
+        return try {
+            openExternalUpdatePage(version.updateUrl)
+            Result.success(Unit)
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            Result.failure(normalizeUpdateFailure(error))
         }
     }
 
@@ -234,7 +174,10 @@ class UpdateManager @Inject constructor(
                                 code = versionCode,
                                 name = "1.0.$versionCode-staging",
                                 force = false,
-                                updateUrl = apkAsset.browserDownloadUrl,
+                                updateUrl = release.htmlUrl
+                                    .trim()
+                                    .takeIf { it.startsWith("https://github.com/") }
+                                    ?: return@mapNotNull null,
                                 checksumSha256 = apkAsset.sha256Digest()
                             )
                         }
@@ -504,6 +447,8 @@ class UpdateManager @Inject constructor(
     private data class GitHubRelease(
         @SerialName("tag_name")
         val tagName: String,
+        @SerialName("html_url")
+        val htmlUrl: String = "",
         val draft: Boolean = false,
         val assets: List<GitHubReleaseAsset> = emptyList()
     )

@@ -43,7 +43,7 @@ fun UpdateDialog(
             Column {
                 Text(
                     text = version.message
-                        ?: "TEMBUS Mitra Kurir ${version.name} sudah tersedia. Aplikasi akan menyiapkan paket update dan membuka installer Android."
+                        ?: "TEMBUS Mitra Kurir ${version.name} sudah tersedia. Tekan Update sekarang untuk membuka GitHub Release dan memilih APK Courier."
                 )
 
                 if (version.hardBlock || version.force) {
@@ -62,7 +62,7 @@ fun UpdateDialog(
                         CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Mengunduh update...",
+                            text = "Membuka GitHub Release...",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -83,7 +83,7 @@ fun UpdateDialog(
                 enabled = !isUpdating,
                 onClick = onUpdateNow
             ) {
-                Text(if (isUpdating) "Mengunduh..." else "Update sekarang")
+                Text(if (isUpdating) "Membuka..." else "Update sekarang")
             }
         },
         dismissButton = {

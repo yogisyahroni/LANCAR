@@ -432,11 +432,18 @@ const resolvedMessage = (policy: MobileReleasePolicyRecord, requestedLocale: str
   return typeof copy === 'string' ? copy : copy.body;
 };
 
-const primaryStoreUrl = (policy: MobileReleasePolicyRecord): string =>
-  policy.store_destinations.primary
-  || policy.store_destinations.default
-  || Object.values(policy.store_destinations)[0]
-  || 'https://github.com/yogisyahroni/TEMBUS/releases';
+const DEFAULT_MOBILE_RELEASE_URL = 'https://github.com/yogisyahroni/LANCAR/releases';
+const LEGACY_MOBILE_RELEASE_URL = 'https://github.com/yogisyahroni/TEMBUS/releases';
+
+const primaryStoreUrl = (policy: MobileReleasePolicyRecord): string => {
+  const configuredUrl = policy.store_destinations.primary
+    || policy.store_destinations.default
+    || Object.values(policy.store_destinations)[0];
+
+  return configuredUrl === LEGACY_MOBILE_RELEASE_URL
+    ? DEFAULT_MOBILE_RELEASE_URL
+    : configuredUrl || DEFAULT_MOBILE_RELEASE_URL;
+};
 
 export type MobileReleaseDecision = {
   code: number;
