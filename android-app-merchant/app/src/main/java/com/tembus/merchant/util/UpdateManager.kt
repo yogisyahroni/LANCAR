@@ -15,6 +15,7 @@ import com.tembus.merchant.BuildConfig
 import com.tembus.merchant.data.api.TEMBUSApiService
 import com.tembus.merchant.data.model.AppVersion
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
@@ -24,11 +25,11 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * Handles update checks and debug/staging sideload updates.
+ * Handles update checks and signed APK updates.
  *
- * Production release builds keep the backend update contract, while debug builds
- * can fetch the latest TEMBUS Merchant APK from GitHub Releases and open the
- * Android package installer after explicit user confirmation.
+ * All build variants can fetch the latest TEMBUS Merchant APK from the
+ * controlled GitHub Release and open the Android package installer after
+ * explicit user confirmation, when the release-update flag is enabled.
  *
  * DI manual (AppContainer) — konsisten dengan pola merchant app (tanpa Hilt).
  * Parse GitHub Releases memakai Gson (dependency sudah ada via converter-gson).
@@ -43,15 +44,14 @@ class UpdateManager(
 
     private val gson = Gson()
     private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .callTimeout(90, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(2, TimeUnit.MINUTES)
+        .callTimeout(DOWNLOAD_TIMEOUT_MINUTES, TimeUnit.MINUTES)
         .build()
 
     /**
-     * Checks GitHub Releases first for debug/staging builds, then falls back to
-     * the backend version endpoint for compatibility with production update
-     * policy.
+     * Checks GitHub Releases first when enabled, then falls back to the backend
+     * version endpoint for compatibility with the server update policy.
      */
     suspend fun checkUpdate(): AppVersion? {
         return checkGitHubReleaseUpdate() ?: checkBackendUpdate()
@@ -226,28 +226,62 @@ class UpdateManager(
 
     private suspend fun downloadAndOpenInstallerInternal(version: AppVersion, updateUri: Uri) {
         val cacheDir = File(context.cacheDir, UPDATE_CACHE_DIR).apply { mkdirs() }
-        val tempFile = File(cacheDir, "tembus-merchant-update-${version.code}.apk")
+        val targetFile = File(cacheDir, BuildConfig.GITHUB_RELEASE_ASSET_NAME)
+        val tempFile = File(cacheDir, "${BuildConfig.GITHUB_RELEASE_ASSET_NAME}.download")
 
-        val request = Request.Builder().url(updateUri.toString()).build()
-        httpClient.newCall(request).execute().use { response ->
+        downloadApkResumably(updateUri.toString(), tempFile)
+        try {
+            if (tempFile.length() < MIN_APK_BYTES) {
+                throw IOException("File update yang diunduh tidak valid.")
+            }
+
+            verifyChecksumIfPresent(tempFile, version.checksumSha256)
+            validateDownloadedApk(tempFile, version.code)
+        } catch (error: Throwable) {
+            tempFile.delete()
+            throw error
+        }
+
+        if (targetFile.exists() && !targetFile.delete()) {
+            throw IOException("Gagal mengganti file update lama.")
+        }
+
+        if (!tempFile.renameTo(targetFile)) {
+            tempFile.copyTo(targetFile, overwrite = true)
+            tempFile.delete()
+        }
+        openApkInstaller(targetFile)
+    }
+
+    private fun downloadApkResumably(url: String, tempFile: File) {
+        val existingBytes = tempFile.takeIf { it.exists() }?.length()?.coerceAtLeast(0L) ?: 0L
+        val requestBuilder = Request.Builder()
+            .url(url)
+            .header("Accept", APK_MIME_TYPE)
+            .header("Cache-Control", "no-cache")
+            .header("User-Agent", "TEMBUS-Merchant/${BuildConfig.VERSION_NAME}")
+
+        if (existingBytes > 0L) {
+            requestBuilder.header("Range", "bytes=$existingBytes-")
+        }
+
+        httpClient.newCall(requestBuilder.build()).execute().use { response ->
             if (!response.isSuccessful) {
                 throw IOException("Gagal mengunduh update (HTTP ${response.code}).")
             }
 
-            response.body?.byteStream()?.use { input ->
-                tempFile.outputStream().use { output ->
-                    input.copyTo(output)
+            val append = existingBytes > 0L && response.code == 206
+            if (!append && existingBytes > 0L) {
+                tempFile.delete()
+            }
+
+            val responseBody = response.body ?: throw IOException("File update kosong.")
+            FileOutputStream(tempFile, append).use { output ->
+                responseBody.byteStream().use { input ->
+                    input.copyTo(output, bufferSize = DOWNLOAD_BUFFER_BYTES)
                 }
-            } ?: throw IOException("Respons unduhan kosong.")
+            }
         }
-
-        if (tempFile.length() < MIN_APK_BYTES) {
-            throw IOException("File update yang diunduh tidak valid.")
-        }
-
-        verifyChecksumIfPresent(tempFile, version.checksumSha256)
-        validateDownloadedApk(tempFile, version.code)
-        openApkInstaller(tempFile)
     }
 
     private fun canRequestPackageInstalls(): Boolean {
@@ -480,5 +514,7 @@ class UpdateManager(
         private const val UPDATE_CACHE_DIR = "updates"
         private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
         private const val MIN_APK_BYTES = 1_000_000L
+        private const val DOWNLOAD_TIMEOUT_MINUTES = 20L
+        private const val DOWNLOAD_BUFFER_BYTES = 64 * 1024
     }
 }

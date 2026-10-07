@@ -263,7 +263,9 @@ android {
             }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("String", "BASE_URL", quoteBuildConfigString(releaseBuildConfigBaseUrl))
-            buildConfigField("boolean", "GITHUB_RELEASE_UPDATES_ENABLED", "false")  // SECURITY: Release builds use backend only
+            // Signed release artifacts use the same controlled GitHub Release asset
+            // as staging, with package/signature validation before installation.
+            buildConfigField("boolean", "GITHUB_RELEASE_UPDATES_ENABLED", githubReleaseUpdatesEnabled.toString())
             buildConfigField("String", "GITHUB_RELEASES_API_URL", quoteBuildConfigString(githubReleasesApiUrl))
             buildConfigField("String", "GITHUB_RELEASE_ASSET_NAME", quoteBuildConfigString("tembus-customer-release.apk"))
         }

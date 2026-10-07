@@ -22,7 +22,8 @@
     <!-- Location is requested only when the customer explicitly chooses a pin. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <!-- Removed: REQUEST_INSTALL_PACKAGES — use Play Store for updates instead -->
+    <!-- Required for the direct APK update flow from the controlled GitHub Release. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".TEMBUSApplication"
