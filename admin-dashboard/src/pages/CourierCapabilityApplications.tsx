@@ -95,7 +95,7 @@ export default function CourierCapabilityApplications() {
         </div>
       </div>
 
-      {isError && <div className="rounded-2xl border border-error/40 bg-error/10 p-4 text-sm text-error">Data review capability gagal dimuat.</div>}
+      {isError && <div className="rounded-2xl border border-error/40 bg-error-surface p-4 text-sm text-error">Data review capability gagal dimuat.</div>}
       {isLoading ? <AdminPageSkeleton /> : (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
           <div className="rounded-3xl border border-border bg-surface/[0.03]">
