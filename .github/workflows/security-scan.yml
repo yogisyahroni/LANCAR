@@ -325,8 +325,12 @@ jobs:
       # Upload Reports
       # -------------------------------------------------------
       - name: Upload Trivy SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: ${{ always() && hashFiles('trivy-fs-results.sarif') != '' }}
+        # GitHub Code Scanning is an auxiliary publishing target. The JSON
+        # report remains an artifact and the gate below evaluates it directly,
+        # so a transient SARIF API/upload failure must not mask SCA results.
+        continue-on-error: true
         with:
           sarif_file: 'trivy-fs-results.sarif'
           category: 'trivy-sca'
@@ -455,13 +459,13 @@ jobs:
       # (staging.yml) + Semgrep + Trivy + errcheck.
       # -------------------------------------------------------
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript,python
           queries: security-extended,security-and-quality
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:codeql"
 
@@ -469,7 +473,7 @@ jobs:
       # Upload Semgrep SARIF
       # -------------------------------------------------------
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         continue-on-error: true
         with:
@@ -526,14 +530,14 @@ jobs:
       # Upload Reports
       # -------------------------------------------------------
       - name: Upload Checkov SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: checkov-results.sarif
           category: 'checkov-iac'
 
       - name: Upload Trivy config SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-config-results.sarif'

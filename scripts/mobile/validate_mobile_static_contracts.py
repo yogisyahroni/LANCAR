@@ -88,7 +88,10 @@ def main() -> int:
         "android-app/app/src/main/java/com/tembus/courier/service/LocationTrackerService.kt",
         "POWER_SAVER_INTERVAL_MS",
         "handleBatteryChanged",
-        "setMinUpdateDistanceMeters(50f)",
+        # The distance is selected from the server-backed operational stage
+        # and widened in power-saver mode; keep the static contract aligned
+        # with that runtime policy instead of freezing it at one literal.
+        "setMinUpdateDistanceMeters(minDistanceMeters)",
         "setMaxUpdateDelayMillis",
     )
 
