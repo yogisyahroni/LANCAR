@@ -14,6 +14,7 @@ import com.tembus.courier.data.api.TEMBUSApiService
 import com.tembus.courier.data.model.AppVersion
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
@@ -30,11 +31,11 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * Handles update checks and debug/staging release-page updates.
+ * Handles update checks and debug/staging APK updates.
  *
  * Production release builds keep the backend update contract, while debug builds
- * can find the latest TEMBUS Courier APK in GitHub Releases and open the
- * official release page after explicit user confirmation.
+ * can find the latest TEMBUS Courier APK in GitHub Releases, download it with
+ * resumable I/O, validate it, and open the Android installer after confirmation.
  */
 @Singleton
 class UpdateManager @Inject constructor(
@@ -47,9 +48,9 @@ class UpdateManager @Inject constructor(
 
     private val json = Json { ignoreUnknownKeys = true }
     private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .callTimeout(90, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(2, TimeUnit.MINUTES)
+        .callTimeout(DOWNLOAD_TIMEOUT_MINUTES, TimeUnit.MINUTES)
         .build()
 
     /**
@@ -61,13 +62,61 @@ class UpdateManager @Inject constructor(
         return checkGitHubReleaseUpdate() ?: checkBackendUpdate()
     }
 
-    suspend fun openUpdatePage(version: AppVersion): Result<Unit> {
-        return try {
-            openExternalUpdatePage(version.updateUrl)
-            Result.success(Unit)
-        } catch (error: Throwable) {
-            if (error is CancellationException) throw error
-            Result.failure(normalizeUpdateFailure(error))
+    suspend fun downloadAndOpenInstaller(version: AppVersion): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val updateUri = Uri.parse(version.updateUrl)
+                val isApkUrl = version.updateUrl.contains(".apk", ignoreCase = true)
+
+                if (!BuildConfig.GITHUB_RELEASE_UPDATES_ENABLED || !isApkUrl) {
+                    openExternalUpdatePage(version.updateUrl)
+                    return@withContext Result.success(Unit)
+                }
+
+                if (updateUri.scheme != "https" || updateUri.host.isNullOrBlank()) {
+                    throw IOException("URL update harus menggunakan HTTPS.")
+                }
+
+                if (!canRequestPackageInstalls()) {
+                    throw InstallPermissionRequiredException()
+                }
+
+                val updateDir = File(context.cacheDir, UPDATE_CACHE_DIR).apply {
+                    if (!exists() && !mkdirs()) {
+                        throw IOException("Gagal membuat folder cache update.")
+                    }
+                }
+                val targetFile = File(updateDir, BuildConfig.GITHUB_RELEASE_ASSET_NAME)
+                val tempFile = File(updateDir, "${BuildConfig.GITHUB_RELEASE_ASSET_NAME}.download")
+                downloadApkResumably(version.updateUrl, tempFile)
+
+                try {
+                    if (tempFile.length() < MIN_APK_BYTES) {
+                        throw IOException("File update tidak valid atau terlalu kecil.")
+                    }
+
+                    verifyChecksumIfPresent(tempFile, version.checksumSha256)
+                    validateDownloadedApk(tempFile, version.code)
+                } catch (error: Throwable) {
+                    tempFile.delete()
+                    throw error
+                }
+
+                if (targetFile.exists() && !targetFile.delete()) {
+                    throw IOException("Gagal mengganti file update lama.")
+                }
+
+                if (!tempFile.renameTo(targetFile)) {
+                    tempFile.copyTo(targetFile, overwrite = true)
+                    tempFile.delete()
+                }
+
+                openApkInstaller(targetFile)
+                Result.success(Unit)
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                Result.failure(normalizeUpdateFailure(error))
+            }
         }
     }
 
@@ -174,9 +223,9 @@ class UpdateManager @Inject constructor(
                                 code = versionCode,
                                 name = "1.0.$versionCode-staging",
                                 force = false,
-                                updateUrl = release.htmlUrl
+                                updateUrl = apkAsset.browserDownloadUrl
                                     .trim()
-                                    .takeIf { it.startsWith("https://github.com/") }
+                                    .takeIf { it.startsWith("https://") }
                                     ?: return@mapNotNull null,
                                 checksumSha256 = apkAsset.sha256Digest()
                             )
@@ -185,6 +234,37 @@ class UpdateManager @Inject constructor(
                 }
             } catch (_: Exception) {
                 null
+            }
+        }
+    }
+
+    private fun downloadApkResumably(url: String, tempFile: File) {
+        val existingBytes = tempFile.takeIf { it.exists() }?.length()?.coerceAtLeast(0L) ?: 0L
+        val requestBuilder = Request.Builder()
+            .url(url)
+            .header("Accept", APK_MIME_TYPE)
+            .header("Cache-Control", "no-cache")
+            .header("User-Agent", "TEMBUS-Courier/${BuildConfig.VERSION_NAME}")
+
+        if (existingBytes > 0L) {
+            requestBuilder.header("Range", "bytes=$existingBytes-")
+        }
+
+        httpClient.newCall(requestBuilder.build()).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("Gagal mengunduh update: HTTP ${response.code}.")
+            }
+
+            val append = existingBytes > 0L && response.code == 206
+            if (!append && existingBytes > 0L) {
+                tempFile.delete()
+            }
+
+            val responseBody = response.body ?: throw IOException("File update kosong.")
+            FileOutputStream(tempFile, append).use { output ->
+                responseBody.byteStream().use { input ->
+                    input.copyTo(output, bufferSize = DOWNLOAD_BUFFER_BYTES)
+                }
             }
         }
     }
@@ -468,5 +548,7 @@ class UpdateManager @Inject constructor(
         private const val UPDATE_CACHE_DIR = "updates"
         private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
         private const val MIN_APK_BYTES = 1_000_000L
+        private const val DOWNLOAD_TIMEOUT_MINUTES = 20L
+        private const val DOWNLOAD_BUFFER_BYTES = 64 * 1024
     }
 }

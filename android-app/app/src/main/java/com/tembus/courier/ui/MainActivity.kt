@@ -172,10 +172,19 @@ class MainActivity : FragmentActivity() {
                                 updateError = null
                                 isUpdating = true
                                 activityScope.launch {
-                                    val result = updateManager.openUpdatePage(info)
+                                    val result = updateManager.downloadAndOpenInstaller(info)
                                     isUpdating = false
                                     result.onFailure { error ->
-                                        updateError = error.message ?: "Halaman GitHub Release tidak bisa dibuka."
+                                        if (error is UpdateManager.InstallPermissionRequiredException) {
+                                            updateError = "Aktifkan izin install update untuk TEMBUS Mitra Kurir, lalu tekan Update sekarang lagi."
+                                            updateManager.openInstallPermissionSettings(this@MainActivity)
+                                                .onFailure { permissionError ->
+                                                    updateError = permissionError.message
+                                                        ?: "Halaman izin install tidak bisa dibuka."
+                                                }
+                                        } else {
+                                            updateError = error.message ?: "Gagal mengunduh update."
+                                        }
                                     }
                                 }
                             },
