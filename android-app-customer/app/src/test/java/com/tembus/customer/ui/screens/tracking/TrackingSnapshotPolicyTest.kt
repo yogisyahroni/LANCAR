@@ -22,4 +22,12 @@ class TrackingSnapshotPolicyTest {
     fun terminalCancellationCannotBeReplacedByOlderSuccess() {
         assertFalse(shouldAcceptTrackingSnapshot("dibatalkan", "selesai"))
     }
+
+    @Test
+    fun trackingPollIsSlowerWhileSearchingAndStopsAggressiveRefreshAfterTerminal() {
+        assertTrue(trackingPollDelayMillis("searching", hasCourierLocation = false) > 5_000L)
+        assertTrue(trackingPollDelayMillis("delivered", hasCourierLocation = true) > 5_000L)
+        assertFalse(isTerminalTrackingStatus("in_transit"))
+        assertTrue(isTerminalTrackingStatus("completed"))
+    }
 }

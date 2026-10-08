@@ -823,11 +823,13 @@ private fun formatPromoIdr(value: Long): String =
 internal fun FigmaHomeHeader(
     customerName: String,
     onSearchClick: () -> Unit,
+    onLocationClick: () -> Unit = {},
     onWalletTopUpClick: () -> Unit = {},
     onVoucherClick: () -> Unit = {},
     voucherCount: Int? = null,
     networkBanner: @Composable () -> Unit = {},
     locationLabel: String? = null,
+    locationMessage: String? = null,
     walletBalance: Long? = null,
     showSearchBar: Boolean = true,
     showWalletCard: Boolean = true,
@@ -860,6 +862,16 @@ internal fun FigmaHomeHeader(
             )
             Spacer(Modifier.width(8.dp))
             Surface(
+                modifier = Modifier
+                    .clickable(role = Role.Button, onClick = onLocationClick)
+                    .semantics {
+                        contentDescription = if (locationLabel.isNullOrBlank()) {
+                            "Pilih area dan aktifkan lokasi"
+                        } else {
+                            "Lokasi aktif $areaLabel. Ubah area"
+                        }
+                        role = Role.Button
+                    },
                 color = MaterialTheme.colorScheme.tertiaryContainer,
                 shape = RoundedCornerShape(999.dp),
                 border = BorderStroke(1.dp, OrangeCta.copy(alpha = 0.28f)),
@@ -876,7 +888,17 @@ internal fun FigmaHomeHeader(
         }
         Spacer(Modifier.height(9.dp))
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button, onClick = onLocationClick)
+                .semantics {
+                    contentDescription = if (locationLabel.isNullOrBlank()) {
+                        "Lokasi Anda. Pilih titik lokasi"
+                    } else {
+                        "Lokasi Anda $locationLabel"
+                    }
+                    role = Role.Button
+                },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(Icons.Default.LocationOn, contentDescription = null, tint = OrangeCta, modifier = Modifier.size(13.dp))
@@ -890,6 +912,16 @@ internal fun FigmaHomeHeader(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
+            )
+        }
+        if (!locationMessage.isNullOrBlank()) {
+            Text(
+                text = locationMessage,
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 10.sp,
+                modifier = Modifier.padding(start = 17.dp, top = 3.dp),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         if (showSearchBar) {

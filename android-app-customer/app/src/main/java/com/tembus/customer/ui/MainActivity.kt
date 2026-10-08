@@ -9,17 +9,22 @@ import android.os.SystemClock
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.tembus.customer.BuildConfig
 import com.tembus.customer.data.model.AppVersion
 import com.tembus.customer.ui.components.UpdateDialog
+import com.tembus.customer.ui.theme.CustomerThemeController
+import com.tembus.customer.ui.theme.CustomerThemePreferenceStore
+import com.tembus.customer.ui.theme.LocalCustomerThemeController
 import com.tembus.customer.ui.theme.TEMBUSCustomerTheme
 import com.tembus.customer.ui.localization.CustomerLocaleRuntime
 import com.tembus.customer.util.UpdateManager
@@ -101,7 +106,24 @@ class MainActivity : FragmentActivity() {
 
         setContent {
             CustomerLocaleRuntime {
-            TEMBUSCustomerTheme {
+            val themePreferences = remember {
+                CustomerThemePreferenceStore(applicationContext)
+            }
+            var preferredDarkTheme by remember {
+                mutableStateOf(themePreferences.readDarkTheme())
+            }
+            val darkTheme = preferredDarkTheme ?: isSystemInDarkTheme()
+
+            TEMBUSCustomerTheme(darkTheme = darkTheme) {
+                CompositionLocalProvider(
+                    LocalCustomerThemeController provides CustomerThemeController(
+                        isDarkTheme = darkTheme,
+                        onDarkThemeChanged = { enabled ->
+                            preferredDarkTheme = enabled
+                            themePreferences.writeDarkTheme(enabled)
+                        }
+                    )
+                ) {
                 val campaignDecision by startupCampaignCoordinator.decision.collectAsState()
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -160,6 +182,7 @@ class MainActivity : FragmentActivity() {
                             )
                         }
                     }
+                }
                 }
             }
             }

@@ -33,11 +33,13 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.LocationOn
@@ -72,6 +74,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import com.tembus.customer.ui.localization.CustomerText as Text
 import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TextButton
@@ -105,6 +108,7 @@ import com.tembus.customer.ui.designsystem.TembusBottomNavigation
 import com.tembus.customer.ui.designsystem.TembusNavigationItem
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.OrangeCta
+import com.tembus.customer.ui.theme.LocalCustomerThemeController
 import com.tembus.customer.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -396,7 +400,7 @@ private fun ProfileContent(
         ProfileMenuSection(
             title = "PREFERENSI LAYANAN & KEAMANAN",
             items = listOf(
-                AccountMenuItem(Icons.Default.People, "Kontak Darurat Keluarga", "Atur kontak untuk keadaan darurat", onSettingsClick),
+                AccountMenuItem(Icons.Default.Settings, "Pengaturan Aplikasi", "Tema, notifikasi, dan sinkronisasi", onSettingsClick),
                 AccountMenuItem(Icons.Default.NotificationsActive, "Notifikasi & Pesan Siaga", "Update status, promo, dan pengingat", onNotificationsClick),
                 AccountMenuItem(Icons.Default.Shield, "Keamanan & PIN Transaksi", "PIN akun dan perlindungan perangkat", onSecurityClick),
                 AccountMenuItem(Icons.Default.Language, "Bahasa & Satuan Jarak", "Bahasa Indonesia • Kilometer", onLanguageClick),
@@ -880,11 +884,36 @@ private fun EditProfileDialog(
 
 @Composable
 private fun SettingsDialog(onDismiss: () -> Unit, onRefresh: () -> Unit) {
+    val themeController = LocalCustomerThemeController.current
+    val isDarkTheme = themeController.isDarkTheme
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Pengaturan Aplikasi", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(
+                        imageVector = if (isDarkTheme) Icons.Default.DarkMode else Icons.Default.LightMode,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Tema aplikasi", fontWeight = FontWeight.Bold)
+                        Text(
+                            if (isDarkTheme) "Mode gelap aktif" else "Mode terang aktif",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                        )
+                    }
+                    Switch(
+                        checked = isDarkTheme,
+                        onCheckedChange = themeController.onDarkThemeChanged,
+                    )
+                }
                 StatusRow(Icons.Default.NotificationsActive, "Notifikasi", "Mengikuti preferensi sistem perangkat")
                 StatusRow(Icons.Default.Refresh, "Konfigurasi peta", "Disinkronkan otomatis tanpa update aplikasi")
                 Text(

@@ -2,6 +2,7 @@ package com.tembus.customer.ui.screens.tracking
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tembus.customer.data.policy.shouldRefreshMapsProviderConfig
 import com.tembus.customer.ui.components.maps.LatLng
 import com.tembus.customer.data.model.MapsProviderConfig
 import com.tembus.customer.data.model.OrderTrackingDetail
@@ -19,6 +20,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import java.util.UUID
 
@@ -59,14 +62,18 @@ class TrackingViewModel @Inject constructor(
 
     private var pollingJob: Job? = null
     private var realtimeJob: Job? = null
+    private val snapshotRefreshMutex = Mutex()
+    private var mapsConfigLastSuccessfulAtMillis = 0L
+    private var mapsConfigLastAttemptAtMillis = 0L
+    private var lastSnapshotRefreshAtMillis = 0L
     private val safetyActionKeys = mutableMapOf<String, String>()
 
-    /**
-     * Commences deterministic loop to pull telemetric coordinates every 5 seconds.
-     */
+    /** Starts the live tracking loop while respecting server config TTLs. */
     fun startTracking(orderId: String) {
-        // Stop previous job if user re-triggers somehow
-        pollingJob?.cancel()
+        // Leave the previous socket room as well as cancelling its jobs. This
+        // prevents a reopened tracking screen from retaining two live rooms.
+        stopTracking()
+        lastSnapshotRefreshAtMillis = 0L
         
         _uiState.update { it.copy(orderId = orderId, isLoading = true) }
         viewModelScope.launch { fetchSafetyCenter(orderId) }
@@ -74,13 +81,19 @@ class TrackingViewModel @Inject constructor(
         socketManager.joinOrderRoom(orderId)
 
         pollingJob = viewModelScope.launch {
+            fetchMapsProviderConfig(force = true)
             while (isActive) {
                 fetchMapsProviderConfig()
-                fetchLatestOrder(orderId)
-                fetchLatestTracking(orderId)
-                fetchUnreadMessageState()
-                val ttlMs = (_uiState.value.mapsProviderConfig.ttlSeconds.coerceIn(30, 3600) * 1000L).coerceAtMost(5000L)
-                delay(ttlMs)
+                refreshVisibleSnapshot(orderId)
+                val status = _uiState.value.detail?.order?.status
+                    ?: _uiState.value.detail?.tracking?.stage
+                if (isTerminalTrackingStatus(status)) break
+                delay(
+                    trackingPollDelayMillis(
+                        status = status,
+                        hasCourierLocation = _uiState.value.courierLocation != null,
+                    )
+                )
             }
         }
 
@@ -88,9 +101,7 @@ class TrackingViewModel @Inject constructor(
         realtimeJob = viewModelScope.launch {
             socketManager.orderUpdates.collect { updatedOrderId ->
                 if (updatedOrderId == orderId) {
-                    fetchLatestOrder(orderId)
-                    fetchLatestTracking(orderId)
-                    fetchUnreadMessageState()
+                    refreshVisibleSnapshot(orderId, minimumIntervalMillis = 1_000L)
                 }
             }
         }
@@ -109,12 +120,27 @@ class TrackingViewModel @Inject constructor(
         val targetOrderId = orderId ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            fetchMapsProviderConfig()
-            fetchLatestOrder(targetOrderId)
-            fetchLatestTracking(targetOrderId)
-            fetchUnreadMessageState()
+            fetchMapsProviderConfig(force = true)
+            refreshVisibleSnapshot(targetOrderId)
             fetchSafetyCenter(targetOrderId)
             _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+
+    private suspend fun refreshVisibleSnapshot(
+        orderId: String,
+        minimumIntervalMillis: Long = 0L,
+    ) {
+        snapshotRefreshMutex.withLock {
+            val now = System.currentTimeMillis()
+            if (minimumIntervalMillis > 0L && now - lastSnapshotRefreshAtMillis < minimumIntervalMillis) {
+                return
+            }
+
+            fetchLatestOrder(orderId)
+            fetchLatestTracking(orderId)
+            fetchUnreadMessageState()
+            lastSnapshotRefreshAtMillis = System.currentTimeMillis()
         }
     }
 
@@ -171,8 +197,23 @@ class TrackingViewModel @Inject constructor(
         }
     }
 
-    private suspend fun fetchMapsProviderConfig() {
+    private suspend fun fetchMapsProviderConfig(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        val currentConfig = _uiState.value.mapsProviderConfig
+        if (!shouldRefreshMapsProviderConfig(
+                nowMillis = now,
+                lastSuccessfulAtMillis = mapsConfigLastSuccessfulAtMillis,
+                lastAttemptAtMillis = mapsConfigLastAttemptAtMillis,
+                ttlSeconds = currentConfig.ttlSeconds,
+                force = force,
+            )
+        ) {
+            return
+        }
+
+        mapsConfigLastAttemptAtMillis = now
         repository.getMapsProviderConfig().onSuccess { config ->
+            mapsConfigLastSuccessfulAtMillis = System.currentTimeMillis()
             _uiState.update {
                 it.copy(
                     mapsProviderConfig = config,

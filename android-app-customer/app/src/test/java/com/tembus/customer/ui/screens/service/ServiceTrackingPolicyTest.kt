@@ -66,4 +66,40 @@ class ServiceTrackingPolicyTest {
         assertTrue(shouldShowServiceProgress(hasAssignedProvider = true, isTerminal = false, noSupply = false))
         assertTrue(shouldShowServiceProgress(hasAssignedProvider = false, isTerminal = true, noSupply = false))
     }
+
+    @Test
+    fun mapsConfigRefreshPolicyHonorsTtlAndBacksOffFailures() {
+        assertTrue(
+            com.tembus.customer.data.policy.shouldRefreshMapsProviderConfig(
+                nowMillis = 300_000L,
+                lastSuccessfulAtMillis = 0L,
+                lastAttemptAtMillis = 0L,
+                ttlSeconds = 300,
+            )
+        )
+        assertFalse(
+            com.tembus.customer.data.policy.shouldRefreshMapsProviderConfig(
+                nowMillis = 10_000L,
+                lastSuccessfulAtMillis = 1_000L,
+                lastAttemptAtMillis = 1_000L,
+                ttlSeconds = 300,
+            )
+        )
+        assertFalse(
+            com.tembus.customer.data.policy.shouldRefreshMapsProviderConfig(
+                nowMillis = 10_000L,
+                lastSuccessfulAtMillis = 0L,
+                lastAttemptAtMillis = 1_000L,
+                ttlSeconds = 300,
+            )
+        )
+        assertTrue(
+            com.tembus.customer.data.policy.shouldRefreshMapsProviderConfig(
+                nowMillis = 31_000L,
+                lastSuccessfulAtMillis = 0L,
+                lastAttemptAtMillis = 1_000L,
+                ttlSeconds = 300,
+            )
+        )
+    }
 }

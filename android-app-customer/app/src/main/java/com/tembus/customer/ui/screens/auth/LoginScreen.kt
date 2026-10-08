@@ -74,6 +74,7 @@ import com.tembus.customer.ui.theme.PrimaryDark
 import com.tembus.customer.ui.theme.Secondary
 import com.tembus.customer.ui.theme.SurfaceVariant
 import com.tembus.customer.ui.theme.TextDisabled
+import com.tembus.customer.ui.theme.LocalCustomerThemeController
 
 private val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
 private val Muted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
@@ -425,7 +426,7 @@ fun LoginScreen(
 
 @Composable
 private fun TembusLogo(modifier: Modifier = Modifier) {
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDark = LocalCustomerThemeController.current.isDarkTheme
     val logoRes = if (isDark) R.drawable.tembus_home_logo else R.drawable.tembus_login_logo
     Image(
         painter = painterResource(id = logoRes),

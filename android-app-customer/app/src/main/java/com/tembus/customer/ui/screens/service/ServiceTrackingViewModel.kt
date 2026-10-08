@@ -2,6 +2,7 @@ package com.tembus.customer.ui.screens.service
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tembus.customer.data.policy.shouldRefreshMapsProviderConfig
 import com.tembus.customer.data.model.MapsProviderConfig
 import com.tembus.customer.data.repository.OrderRepository
 import com.tembus.customer.ui.components.maps.LatLng
@@ -60,6 +61,8 @@ class ServiceTrackingViewModel @Inject constructor(
     val uiState: StateFlow<ServiceTrackingUiState> = _uiState.asStateFlow()
 
     private var trackingJob: Job? = null
+    private var mapsConfigLastSuccessfulAtMillis = 0L
+    private var mapsConfigLastAttemptAtMillis = 0L
 
     fun startTracking(orderId: String, serviceSubType: String = "") {
         trackingJob?.cancel()
@@ -67,13 +70,14 @@ class ServiceTrackingViewModel @Inject constructor(
             while (isActive) {
                 loadTrackingSnapshot(orderId, serviceSubType)
                 if (_uiState.value.isTerminal) break
-                delay(if (_uiState.value.hasSnapshot) 5_000L else 1_000L)
+                delay(if (_uiState.value.hasSnapshot) 5_000L else 3_000L)
             }
         }
     }
 
     private suspend fun loadTrackingSnapshot(orderId: String, serviceSubType: String) {
             _uiState.update { it.copy(isLoading = true, error = null) }
+            val mapsConfig = loadMapsProviderConfigIfStale()
 
             orderRepository.getOrderTrackingDetail(orderId)
                 .onSuccess { detail ->
@@ -94,7 +98,6 @@ class ServiceTrackingViewModel @Inject constructor(
                     val persistedRoute = decodeEncodedPolyline(
                         tracking?.orderRoutePolyline ?: order.routePolyline ?: order.routeSnapshot?.routePolyline
                     )
-                    val mapsConfig = orderRepository.getMapsProviderConfig().getOrElse { _uiState.value.mapsProviderConfig }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -153,6 +156,29 @@ class ServiceTrackingViewModel @Inject constructor(
                         )
                     }
                 }
+    }
+
+    private suspend fun loadMapsProviderConfigIfStale(force: Boolean = false): MapsProviderConfig {
+        val now = System.currentTimeMillis()
+        val currentConfig = _uiState.value.mapsProviderConfig
+        if (!shouldRefreshMapsProviderConfig(
+                nowMillis = now,
+                lastSuccessfulAtMillis = mapsConfigLastSuccessfulAtMillis,
+                lastAttemptAtMillis = mapsConfigLastAttemptAtMillis,
+                ttlSeconds = currentConfig.ttlSeconds,
+                force = force,
+            )
+        ) {
+            return currentConfig
+        }
+
+        mapsConfigLastAttemptAtMillis = now
+        return orderRepository.getMapsProviderConfig()
+            .onSuccess { config ->
+                mapsConfigLastSuccessfulAtMillis = System.currentTimeMillis()
+                _uiState.update { it.copy(mapsProviderConfig = config) }
+            }
+            .getOrElse { currentConfig }
     }
 
     private fun latLngOrNull(latitude: Double?, longitude: Double?): LatLng? {

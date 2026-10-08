@@ -1,20 +1,13 @@
 package com.tembus.customer.ui.components.maps
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.unit.dp
-import com.tembus.customer.ui.theme.Primary
 
 data class LatLng(
     val latitude: Double,
@@ -39,6 +32,7 @@ object CameraUpdateFactory {
 class CameraPositionState(initialPosition: CameraPosition) {
     var position by mutableStateOf(initialPosition)
 
+    @Suppress("UNUSED_PARAMETER")
     suspend fun animate(update: CameraUpdate, durationMs: Int = 0) {
         position = update.position
     }
@@ -70,16 +64,21 @@ data class MapUiSettings(
 
 data class MarkerState(val position: LatLng)
 
-data class BitmapDescriptor(val color: Int = Primary.toArgb())
+data class BitmapDescriptor(val color: Int = 0)
 
 object BitmapDescriptorFactory {
     const val HUE_GREEN: Float = 120f
 
+    @Suppress("UNUSED_PARAMETER")
     fun defaultMarker(hue: Float = HUE_GREEN): BitmapDescriptor = BitmapDescriptor()
+
+    @Suppress("UNUSED_PARAMETER")
     fun fromBitmap(bitmap: android.graphics.Bitmap): BitmapDescriptor = BitmapDescriptor()
 }
 
+/** Compatibility shims for legacy imports. Use RuntimeMapRenderer for maps. */
 @Composable
+@Suppress("UNUSED_PARAMETER")
 fun RuntimeMap(
     modifier: Modifier = Modifier,
     cameraPositionState: CameraPositionState,
@@ -89,13 +88,12 @@ fun RuntimeMap(
     onMapClick: (LatLng) -> Unit = {},
     content: @Composable () -> Unit = {}
 ) {
-    Box(modifier = modifier.background(Color(0xFFEFF7F1))) {
-        content()
-    }
+    Box(modifier = modifier) { content() }
     onMapLoaded()
 }
 
 @Composable
+@Suppress("UNUSED_PARAMETER")
 fun MapMarker(
     state: MarkerState,
     title: String? = null,
@@ -104,20 +102,9 @@ fun MapMarker(
 ) = Unit
 
 @Composable
+@Suppress("UNUSED_PARAMETER")
 fun MapPolyline(
     points: List<LatLng>,
     color: Color,
     width: Float
-) {
-    if (points.size < 2) return
-    Canvas(modifier = Modifier) {
-        val strokeWidth = width.dp.toPx()
-        drawLine(
-            color = color,
-            start = center.copy(x = center.x - 24.dp.toPx()),
-            end = center.copy(x = center.x + 24.dp.toPx()),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-    }
-}
+) = Unit

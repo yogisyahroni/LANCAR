@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.location.Geocoder
 import android.os.Build
+import android.content.pm.PackageManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
@@ -60,9 +61,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import com.tembus.customer.ui.localization.CustomerText as Text
@@ -99,6 +100,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -106,6 +109,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.tembus.customer.R
 import com.tembus.customer.data.model.Order
 import com.tembus.customer.data.config.ExperienceBannerEvent
@@ -129,6 +133,7 @@ import com.tembus.customer.ui.theme.Secondary
 import com.tembus.customer.ui.theme.SecondaryLight
 import com.tembus.customer.ui.theme.Success
 import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.theme.LocalCustomerThemeController
 import com.tembus.customer.util.CustomerNetworkRecoveryBanner
 import com.tembus.customer.util.rememberNetworkAvailable
 import kotlinx.coroutines.delay
@@ -145,7 +150,7 @@ internal val SurfaceLine @Composable get() = MaterialTheme.colorScheme.outline
 @Composable
 private fun HomeStatusBarIcons() {
     val view = LocalView.current
-    val darkTheme = isSystemInDarkTheme()
+    val darkTheme = LocalCustomerThemeController.current.isDarkTheme
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
@@ -214,14 +219,51 @@ fun DashboardScreen(
 
     // DESIGN.md §12: lokasi untuk header brand (reverse-geocode, sekali per lokasi).
     var locationLabel by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) {
+    var showLocationPermissionDialog by rememberSaveable { mutableStateOf(false) }
+    var locationRequestVersion by remember { mutableStateOf(0) }
+    var locationMessage by remember { mutableStateOf<String?>(null) }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        val granted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            locationMessage = null
+            locationRequestVersion++
+        } else {
+            locationMessage = "Izin lokasi belum diberikan. Aktifkan agar Lokasi Anda dan Pilih area bisa digunakan."
+        }
+    }
+    val requestLocationAccess: () -> Unit = {
+        val fineGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val coarseGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        if (fineGranted || coarseGranted) {
+            locationMessage = null
+            locationRequestVersion++
+        } else {
+            showLocationPermissionDialog = true
+        }
+    }
+    LaunchedEffect(locationRequestVersion) {
         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
         if (!fine && !coarse) return@LaunchedEffect
         runCatching {
             val client = LocationServices.getFusedLocationProviderClient(context)
-            client.lastLocation.addOnSuccessListener { loc ->
-                if (loc == null) return@addOnSuccessListener
+            client.getCurrentLocation(
+                if (fine) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                null
+            ).addOnSuccessListener { loc ->
+                if (loc == null) {
+                    locationMessage = "Lokasi belum ditemukan. Pastikan GPS aktif lalu coba lagi."
+                    return@addOnSuccessListener
+                }
                 viewModel.loadFoodRecommendations(loc.latitude, loc.longitude)
                 runCatching {
                     val geo = Geocoder(context, java.util.Locale("id", "ID"))
@@ -232,9 +274,46 @@ fun DashboardScreen(
                     // Figma header may omit the location row until the device
                     // returns an authoritative label.
                     locationLabel = parts.takeIf { it.isNotEmpty() }?.take(2)?.joinToString(", ")
+                    locationMessage = if (locationLabel == null) {
+                        "Lokasi ditemukan, tetapi nama area belum tersedia."
+                    } else {
+                        null
+                    }
                 }
+            }.addOnFailureListener {
+                locationMessage = "Lokasi belum tersedia. Pastikan GPS aktif lalu coba lagi."
             }
         }
+    }
+
+    if (showLocationPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showLocationPermissionDialog = false },
+            title = { Text("Aktifkan lokasi") },
+            text = {
+                Text("Izinkan akses lokasi agar Lokasi Anda terisi otomatis dan pilihan area dapat digunakan.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLocationPermissionDialog = false
+                        locationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                            )
+                        )
+                    }
+                ) {
+                    Text("Izinkan lokasi")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLocationPermissionDialog = false }) {
+                    Text("Nanti")
+                }
+            }
+        )
     }
 
     LaunchedEffect(isLoading) {
@@ -316,10 +395,12 @@ fun DashboardScreen(
                         FigmaHomeHeader(
                             customerName = customerName.orEmpty().ifBlank { "Pelanggan" },
                             onSearchClick = onSearchClick,
+                            onLocationClick = requestLocationAccess,
                             onWalletTopUpClick = onWalletTopUpClick,
                             onVoucherClick = onVoucherClick,
                             voucherCount = availablePromoCount,
                             locationLabel = locationLabel,
+                            locationMessage = locationMessage,
                             walletBalance = walletBalance,
                             networkBanner = {
                                 CustomerNetworkRecoveryBanner(

@@ -1,7 +1,6 @@
 package com.tembus.customer.ui.experience.components
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,6 +41,7 @@ import com.tembus.customer.ui.navigation.RemoteDeepLinkResolver
 import com.tembus.customer.ui.navigation.RemoteDeepLinkTarget
 import com.tembus.customer.ui.theme.RuntimeBadgePreset
 import com.tembus.customer.ui.theme.LocalRuntimeDesignTokens
+import com.tembus.customer.ui.theme.LocalCustomerThemeController
 
 internal data class DynamicPromoCardModel(
     val id: String,
@@ -69,7 +69,7 @@ internal fun DynamicPromoCard(
     modifier: Modifier = Modifier,
 ) {
     val runtimeTokens = LocalRuntimeDesignTokens.current
-    val darkTheme = isSystemInDarkTheme()
+    val darkTheme = LocalCustomerThemeController.current.isDarkTheme
     val accentColor = runtimeTokens.accentColor(darkTheme)
     val accentContentColor = runtimeTokens.accentContentColor(darkTheme)
     val assetPath by produceState<String?>(initialValue = null, item.imageAssetId, manifestRevision) {
