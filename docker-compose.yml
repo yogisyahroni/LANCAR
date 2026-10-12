@@ -319,7 +319,7 @@ services:
       OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-traceidratio}
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
     ports:
-      - "${AUTH_PORT:-8081}:8081"
+      - "${AUTH_HOST_PORT:-${AUTH_PORT:-8081}}:8081"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8081/health || exit 1"]
       interval: 10s
@@ -361,7 +361,7 @@ services:
     volumes:
       - tembus-merchant-uploads:/app/public/uploads
     ports:
-      - "8085:8085"
+      - "${MERCHANT_HOST_PORT:-8085}:8085"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8085/health || exit 1"]
       interval: 10s
@@ -397,7 +397,7 @@ services:
       ADS_ORDER_EVENT_SECRET: ${ADS_ORDER_EVENT_SECRET:-tembus-ads-order-events-local-32}
       ENVIRONMENT: ${ENVIRONMENT:-development}
     ports:
-      - "8091:8091"
+      - "${ADS_HOST_PORT:-8091}:8091"
     healthcheck:
       test: ["CMD", "/ads-service", "--healthcheck"]
       interval: 10s
@@ -424,7 +424,7 @@ services:
       SEARCH_SERVICE_PORT: 8092
       INTERNAL_GATEWAY_SECRET: ${INTERNAL_GATEWAY_SECRET:-${JWT_SECRET:-changeme_in_production_min32chars}}
     ports:
-      - "8092:8092"
+      - "${SEARCH_HOST_PORT:-8092}:8092"
     healthcheck:
       test: ["CMD", "/search-service", "--healthcheck"]
       interval: 10s
@@ -678,7 +678,7 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
     ports:
-      - "${ORDER_PORT:-8083}:8083"
+      - "${ORDER_HOST_PORT:-${ORDER_PORT:-8083}}:8083"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8083/health || exit 1"]
       interval: 10s
@@ -743,7 +743,7 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       INTERNAL_PAYMENT_API_KEY: ${INTERNAL_PAYMENT_API_KEY:-${INTERNAL_API_KEY:?INTERNAL_API_KEY must be supplied by the deployment secret manager}}
     ports:
-      - "${PAYMENT_PORT:-8084}:8084"
+      - "${PAYMENT_HOST_PORT:-${PAYMENT_PORT:-8084}}:8084"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8084/health || exit 1"]
       interval: 10s
@@ -836,7 +836,11 @@ services:
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
 
     ports:
-      - "8080:8080"
+      # Windows reserves the 8023-8122 range on the local Docker host.
+      # Keep the gateway's container port at 8080 and make the host binding
+      # configurable so this workstation can use 18080 without changing the
+      # port used by other environments.
+      - "${API_GATEWAY_HOST_PORT:-8080}:8080"
     networks:
       - tembus-net
 
