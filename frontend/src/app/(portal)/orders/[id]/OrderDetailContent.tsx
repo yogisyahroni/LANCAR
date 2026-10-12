@@ -14,7 +14,6 @@ import {
   ImageIcon,
   FileSignature,
   MessageSquare,
-  ShoppingBag,
   ShieldAlert,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -897,17 +896,6 @@ export function OrderDetailContent({
                   <span className="rounded-full border border-border bg-surface-subtle px-3 py-1 text-xs font-semibold text-muted-foreground">
                     {foodItems.length} item
                   </span>
-                  {(order.status.toLowerCase() === "completed" ||
-                    order.status.toLowerCase() === "delivered" ||
-                    order.status.toLowerCase() === "cancelled") && (
-                    <Link
-                      href={`/orders/new/food?orderId=${encodeURIComponent(order.id)}`}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20"
-                    >
-                      <ShoppingBag className="h-3.5 w-3.5" aria-hidden="true" />{" "}
-                      Pesan Lagi
-                    </Link>
-                  )}
                 </div>
               </div>
               <div className="space-y-3">

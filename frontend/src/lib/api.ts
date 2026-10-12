@@ -100,7 +100,7 @@ export const api = axios.create({
     'X-App-Platform': 'web',
     'X-App-Version': WEB_APP_VERSION,
     'X-App-Schema-Version': WEB_API_SCHEMA_VERSION,
-    'X-App-Capabilities': 'orders,food,tracking,payments',
+    'X-App-Capabilities': 'orders,tracking,payments',
   },
 });
 

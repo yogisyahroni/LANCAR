@@ -20,6 +20,7 @@ import {
   parseCustomerOrderDraft,
 } from './OrderSchemas';
 import { buildCalendarDays, formatDateLabel, formatDateValue, pickupTimeOptions } from './AddressPicker';
+import { isCustomerWebFoodService } from '@/lib/customerWebServices';
 
 export function useOnDemandOrderFormRuntime({ mode = 'instan', onFormChange, onSubmit }: OrderFormProps) {
   const { config } = useRuntimeConfig();
@@ -142,10 +143,14 @@ export function useOnDemandOrderFormRuntime({ mode = 'instan', onFormChange, onS
     setIsLoadingServices(true); setServiceLoadError(null);
     try {
       const response = await api.get('/auth/web/delivery-services');
-      const nextServices = response.data?.services || [];
+      const nextServices = (response.data?.services || []).filter(
+        (service: DeliveryService) => !isCustomerWebFoodService(service),
+      );
       setServices(nextServices);
       const defaultService = nextServices.find((service: DeliveryService) => service.code === 'tembus_instant') || nextServices[0];
-      if (defaultService && !getValues('service_code')) {
+      const currentServiceCode = getValues('service_code');
+      const currentServiceIsAvailable = nextServices.some((service: DeliveryService) => service.code === currentServiceCode);
+      if (defaultService && (!currentServiceCode || !currentServiceIsAvailable)) {
         setValue('service_code', defaultService.code, { shouldDirty: true, shouldValidate: true });
         if (defaultService.size_tiers?.[0]) setValue('size_tier', defaultService.size_tiers[0].code, { shouldDirty: true, shouldValidate: true });
       }
