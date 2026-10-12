@@ -1,4 +1,4 @@
-FROM mirror.gcr.io/golang:1.26.6-alpine AS builder
+FROM mirror.gcr.io/golang:1.26.9-alpine AS builder
 
 WORKDIR /app
 
@@ -17,4 +17,3 @@ COPY --from=builder /app/datalake-worker .
 
 CMD ["./datalake-worker"]
 # trigger security scan
-
