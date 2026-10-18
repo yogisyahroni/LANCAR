@@ -3,60 +3,9 @@
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { motion } from "framer-motion";
-import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Truck, Package, Clock, ShieldCheck, Zap, Building2, MapPin } from "lucide-react";
-
-const services = [
-  { 
-    id: "reguler",
-    icon: Truck,
-    title: "Reguler", 
-    text: "Layanan pengiriman standar dengan harga ekonomis namun tetap mengutamakan ketepatan waktu. Solusi tepat untuk pengiriman harian antar kota.", 
-    href: "/layanan/reguler",
-    features: ["Harga kompetitif", "Estimasi 2-3 hari", "Cakupan nasional"]
-  },
-  { 
-    id: "cargo",
-    icon: Package,
-    title: "Cargo", 
-    text: "Solusi pengiriman barang besar, berat, dan bervolume tinggi. Sangat cocok untuk pindahan atau distribusi logistik antar pulau.", 
-    href: "/layanan/cargo",
-    features: ["Kapasitas besar", "Tarif per kg lebih murah", "Penanganan khusus"]
-  },
-  { 
-    id: "cod",
-    icon: ShieldCheck,
-    title: "Cash on Delivery (COD)", 
-    text: "Beri kemudahan bertransaksi dengan opsi bayar di tempat. Menjamin keamanan belanja online bagi pelanggan Anda.", 
-    href: "/layanan/cod",
-    features: ["Bayar di tempat", "Pencairan dana cepat", "Aman terpercaya"]
-  },
-  { 
-    id: "instant",
-    icon: Zap,
-    title: "Instant", 
-    text: "Pengiriman super cepat dalam hitungan jam di hari yang sama. Prioritas utama untuk dokumen penting atau barang mendesak.", 
-    href: "/layanan/instant",
-    features: ["Selesai dalam hitungan jam", "Prioritas utama", "Lacak real-time"]
-  },
-  { 
-    id: "same-day",
-    icon: Clock,
-    title: "Same Day", 
-    text: "Kirim pagi, sampai sore. Solusi pas untuk menjaga efisiensi bisnis dengan pengiriman yang tiba pada hari yang sama.", 
-    href: "/layanan/same-day",
-    features: ["Tiba hari yang sama", "Tarif bersahabat", "Kurir fleksibel"]
-  },
-  { 
-    id: "business",
-    icon: Building2,
-    title: "Business / B2B", 
-    text: "Solusi logistik yang dirancang khusus untuk ekosistem korporat. Terintegrasi API dengan dashboard pelacakan mendalam.", 
-    href: "/layanan/business",
-    features: ["Integrasi API", "Dedicated account manager", "Report analitik"]
-  }
-];
+import { ArrowRight, MapPin } from "lucide-react";
+import { serviceCategories, services, serviceCountLabel } from "@/data/services";
 
 function fadeUp(delay = 0) {
   return {
@@ -85,8 +34,15 @@ export default function ServicesHubPage() {
               Solusi Pengiriman Tepat untuk <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#072a20] to-[#0a4a35]">Setiap Kebutuhan</span>
             </h1>
             <p className="text-lg text-gray-600 leading-relaxed">
-              Dari pengiriman dokumen kilat hingga kargo antar pulau, Tembus menyediakan layanan yang fleksibel, aman, dan dapat diandalkan untuk individu maupun bisnis skala besar.
+              Dari pengiriman dokumen kilat hingga bantuan kendaraan di jalan, Tembus menyediakan {serviceCountLabel} yang fleksibel, aman, dan dapat diandalkan untuk individu maupun bisnis.
             </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2" aria-label="Kategori layanan">
+              {serviceCategories.slice(1).map((category) => (
+                <span key={category.id} className="rounded-full border border-[#dbe6df] bg-white px-3 py-1.5 text-xs font-bold text-[#52645c]">
+                  {category.label}
+                </span>
+              ))}
+            </div>
           </motion.div>
         </section>
 
@@ -102,8 +58,11 @@ export default function ServicesHubPage() {
                 <div className="h-14 w-14 rounded-xl bg-[#f0fdf4] text-[#072a20] flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                   <service.icon className="h-7 w-7" />
                 </div>
-                
-                <h3 className="text-xl font-bold text-[#071712] mb-3">{service.title}</h3>
+
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-xl font-bold text-[#071712]">{service.title}</h3>
+                  <span className="rounded-full bg-[#eef6ed] px-2.5 py-1 text-[10px] font-bold text-[#37624b]">{service.categoryLabel}</span>
+                </div>
                 <p className="text-gray-600 mb-6 flex-grow leading-relaxed text-sm">
                   {service.text}
                 </p>
@@ -121,13 +80,25 @@ export default function ServicesHubPage() {
                   ))}
                 </div>
 
-                <Link 
-                  href={service.href}
-                  className="mt-auto inline-flex items-center gap-2 text-sm font-bold text-[#072a20] hover:text-[#0a4a35] transition-colors group/link"
-                >
-                  Pelajari Lebih Lanjut
-                  <ArrowRight className="h-4 w-4 group-hover/link:translate-x-1 transition-transform" />
-                </Link>
+                {service.external ? (
+                  <a
+                    href={service.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-auto inline-flex items-center gap-2 text-sm font-bold text-[#072a20] transition-colors hover:text-[#0a4a35] group/link"
+                  >
+                    Pelajari Lebih Lanjut
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover/link:translate-x-1" />
+                  </a>
+                ) : (
+                  <Link
+                    href={service.href}
+                    className="mt-auto inline-flex items-center gap-2 text-sm font-bold text-[#072a20] transition-colors hover:text-[#0a4a35] group/link"
+                  >
+                    Pelajari Lebih Lanjut
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover/link:translate-x-1" />
+                  </Link>
+                )}
               </motion.article>
             ))}
           </div>

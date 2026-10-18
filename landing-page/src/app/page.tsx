@@ -1,33 +1,26 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
-  Bike,
-  Boxes,
   Building2,
   Clock3,
   Headphones,
-  Link2,
   LocateFixed,
-  Mail,
   MapPin,
-  Menu,
-  PackageCheck,
   PackageOpen,
-  Phone,
   ShieldCheck,
-  Truck,
   Users,
   WalletCards,
-  Zap,
-  Search
+  Zap
 } from "lucide-react";
 import PublicTrackingWidget from "@/components/ui/PublicTrackingWidget";
 import { motion } from "framer-motion";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { serviceCategories, services, serviceCountLabel } from "@/data/services";
 
 const appUrl = "https://app.bawain.my.id";
 const trackingUrl = `${appUrl}/track`;
@@ -54,15 +47,6 @@ const featureCards = [
   { icon: WalletCards, title: "Harga Kompetitif", text: "Tarif transparan tanpa biaya tersembunyi." },
   { icon: Building2, title: "Solusi Lengkap", text: "Layanan pribadi, bisnis, hingga enterprise." },
   { icon: Headphones, title: "Customer Support", text: "Tim CS siap membantu Anda 24/7 dengan pelayanan terbaik." }
-];
-
-const services = [
-  { image: "/brand/samday.svg", title: "Same Day", text: "Pengiriman di hari yang sama, cepat sampai tujuan.", href: "/layanan/same-day" },
-  { image: "/brand/instant.svg", title: "Instant", text: "Pengiriman instan dalam hitungan jam.", href: "/layanan/instant" },
-  { image: "/brand/regular.svg", title: "Reguler", text: "Layanan reguler dengan harga lebih hemat.", href: "/layanan/reguler" },
-  { image: "/brand/cargo.svg", title: "Cargo", text: "Pengiriman barang besar, berat, dan volume banyak.", href: "/layanan/cargo" },
-  { image: "/brand/cod.svg", title: "COD", text: "Bayar di tempat lebih praktis dan aman.", scaleClass: "scale-[1.4] hover:scale-[1.5] -mt-2", href: "/layanan/cod" },
-  { image: "/brand/businnes.svg", title: "Business", text: "Solusi logistik untuk Bisnis Anda secara terintegrasi.", href: "/layanan/business" }
 ];
 
 const collaborations = [
@@ -106,6 +90,16 @@ function fadeUp(delay = 0) {
 }
 
 export default function LandingPage() {
+  const [activeServiceCategory, setActiveServiceCategory] = useState<"semua" | (typeof serviceCategories)[number]["id"]>("semua");
+  const filteredServices = useMemo(() => {
+    if (activeServiceCategory === "semua") {
+      return services.slice(0, 6);
+    }
+
+    return services.filter((service) => service.category === activeServiceCategory);
+  }, [activeServiceCategory]);
+  const remainingServiceCount = activeServiceCategory === "semua" ? services.length - filteredServices.length : 0;
+
   return (
     <main className="page-shell">
       {/* ========== HERO ========== */}
@@ -199,36 +193,88 @@ export default function LandingPage() {
 
       {/* ========== LAYANAN KAMI ========== */}
       <section id="layanan" className="container py-8">
-        <motion.div {...fadeUp()} className="text-center mb-6">
-          <h2 className="text-2xl font-black text-[#071712]">Layanan Kami</h2>
+        <motion.div {...fadeUp()} className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#6f857c]">Lebih dari sekadar kirim paket</p>
+            <h2 className="text-2xl font-black text-[#071712]">Satu platform, banyak kebutuhan</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--muted)]">
+              Temukan {serviceCountLabel} untuk pengiriman pribadi, pertumbuhan bisnis, dan bantuan kendaraan di perjalanan.
+            </p>
+          </div>
+          <Link href="/layanan" className="inline-flex shrink-0 items-center gap-1.5 text-sm font-bold text-[#003d2b] transition-colors hover:text-[#7a9e33]">
+            Lihat semua {serviceCountLabel}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </motion.div>
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-          {services.map((item, index) => {
+
+        <div className="mb-5 flex gap-2 overflow-x-auto pb-1" aria-label="Filter kategori layanan">
+          {serviceCategories.map((category) => {
+            const isActive = activeServiceCategory === category.id;
+
+            return (
+              <button
+                key={category.id}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => setActiveServiceCategory(category.id)}
+                className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7bc043] focus-visible:ring-offset-2 ${
+                  isActive
+                    ? "border-[#003d2b] bg-[#003d2b] text-white"
+                    : "border-[#dbe6df] bg-white text-[#52645c] hover:border-[#7bc043] hover:text-[#003d2b]"
+                }`}
+              >
+                {category.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          aria-live="polite"
+        >
+          {filteredServices.map((item, index) => {
             const CardContent = (
-              <article className="group h-full cursor-pointer overflow-hidden rounded-xl border border-[var(--line)] bg-white transition-all duration-300 hover:border-transparent hover:shadow-xl">
+              <article className="group flex h-full min-h-[315px] cursor-pointer flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-white transition-all duration-300 hover:border-transparent hover:shadow-xl">
                 {/* Image area */}
-                <div className="flex items-center justify-center pt-4 pb-2">
+                <div className="flex h-40 shrink-0 items-center justify-center pt-4 pb-2">
                   <Image 
                     src={item.image}
                     alt={item.title}
                     width={300}
                     height={300}
-                    className={`object-contain drop-shadow-sm h-40 w-full transform transition-transform duration-300 ${item.scaleClass || 'scale-105 group-hover:scale-110'}`}
+                    className={`object-contain drop-shadow-sm h-40 w-full transform transition-transform duration-300 ${item.imageClass || 'scale-105 group-hover:scale-110'}`}
                   />
                 </div>
-                <div className="p-4 pt-2">
-                  <h3 className="text-[13px] font-black text-[#111] group-hover:text-[var(--brand-soft)] transition-colors">{item.title}</h3>
-                  <p className="mt-1.5 text-[10px] leading-[1.5] text-[var(--muted)]">{item.text}</p>
+                <div className="flex min-h-0 flex-1 flex-col p-4 pt-2">
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <h3 className="text-[13px] font-black text-[#111] transition-colors group-hover:text-[var(--brand-soft)]">{item.title}</h3>
+                    <span className="rounded-full bg-[#eef6ed] px-2 py-1 text-[9px] font-bold text-[#37624b]">{item.categoryLabel}</span>
+                  </div>
+                  <p className="mt-1 min-h-[48px] text-[10px] leading-[1.5] text-[var(--muted)]">{item.text}</p>
+                  <span className="mt-auto inline-flex items-center gap-1 pt-4 text-[11px] font-bold text-[#003d2b]">
+                    Lihat detail <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                  </span>
                 </div>
               </article>
             );
 
-            return (
-              <motion.div key={item.title} {...fadeUp(index * 0.04)} className="h-full">
+            const card = (
+              <motion.div
+                key={item.title}
+                {...fadeUp(index * 0.04)}
+                className="min-w-0"
+              >
                 {item.href && item.href !== "#" ? (
-                  <Link href={item.href} className="block h-full">
-                    {CardContent}
-                  </Link>
+                  item.external ? (
+                    <a href={item.href} target="_blank" rel="noreferrer" className="block h-full">
+                      {CardContent}
+                    </a>
+                  ) : (
+                    <Link href={item.href} className="block h-full">
+                      {CardContent}
+                    </Link>
+                  )
                 ) : (
                   <div className="h-full" onClick={() => alert("Halaman ini belum tersedia")}>
                     {CardContent}
@@ -236,13 +282,20 @@ export default function LandingPage() {
                 )}
               </motion.div>
             );
+
+            return card;
           })}
         </div>
-        <div className="mt-6 text-center">
-          <Link href="/layanan" className="cta-primary px-6 py-2.5 text-sm">
-            Lihat Semua Layanan <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
+        {remainingServiceCount > 0 && (
+          <div className="mt-5 flex flex-col gap-3 rounded-xl border border-dashed border-[#cfe0d4] bg-[#f7fbf7] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-[#52645c]">
+              Masih ada <strong className="text-[#003d2b]">{remainingServiceCount} layanan lainnya</strong> yang bisa membantu kebutuhan Anda.
+            </p>
+            <Link href="/layanan" className="inline-flex shrink-0 items-center gap-1.5 text-sm font-bold text-[#003d2b] hover:text-[#7a9e33]">
+              Jelajahi semuanya <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        )}
       </section>
 
       {/* ========== CARA KERJA + TRACKING ========== */}

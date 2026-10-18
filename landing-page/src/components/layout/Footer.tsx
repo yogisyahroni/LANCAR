@@ -10,8 +10,13 @@ import {
   Phone,
   Users
 } from "lucide-react";
+import { services } from "@/data/services";
 
 const appUrl = "https://app.bawain.my.id";
+const serviceLinks: Array<{ name: string; href: string; external?: boolean }> = [
+  { name: "Semua layanan", href: "/layanan", external: false },
+  ...services.map((service) => ({ name: service.title, href: service.href, external: service.external }))
+];
 
 export function Footer() {
   return (
@@ -75,14 +80,7 @@ export function Footer() {
           {[
             {
               title: "Layanan",
-              links: [
-                { name: "Same Day", href: "/layanan/same-day" },
-                { name: "Instant", href: "/layanan/instant" },
-                { name: "Reguler", href: "/layanan/reguler" },
-                { name: "Cargo", href: "/layanan/cargo" },
-                { name: "COD", href: "/layanan/cod" },
-                { name: "Business", href: "/layanan/business" }
-              ]
+              links: serviceLinks
             },
             {
               title: "Untuk Bisnis",
@@ -117,7 +115,13 @@ export function Footer() {
               <ul className="mt-4 space-y-2 text-[12px] text-white/65">
                 {col.links.map((link) => (
                   <li key={link.name}>
-                    <Link href={link.href} className="transition-all duration-200 hover:text-white">{link.name}</Link>
+                    {link.external ? (
+                      <a href={link.href} target="_blank" rel="noreferrer" className="transition-all duration-200 hover:text-white">
+                        {link.name}
+                      </a>
+                    ) : (
+                      <Link href={link.href} className="transition-all duration-200 hover:text-white">{link.name}</Link>
+                    )}
                   </li>
                 ))}
               </ul>
