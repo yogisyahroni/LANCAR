@@ -10,6 +10,8 @@ This matrix is the production gateway contract for public and protected routes.
 | `/api/v1/maps/*` | Public | Runtime map configuration/geocode proxy needed before order placement. |
 | `/api/v1/public/*` | Public | Public handoff links are scoped by downstream token validation. |
 | `/api/v1/payments/midtrans/*` | Public | Provider webhook authenticated by downstream provider signature. |
+| `GET/HEAD /uploads/banners/*` | Public | Explicitly public banner assets only. |
+| `GET/HEAD /uploads/*` (except the banner namespace) | Web session or JWT | User, courier, merchant, evidence, and document uploads are private. |
 | `POST /api/v1/pricing/estimate` | Public | Quote endpoint with gateway payload validation and rate limiting downstream. |
 | `/api/v1/auth/web/*` except public web auth paths | Web session or JWT | Customer/admin web routes must present an HttpOnly session cookie or bearer token. |
 | `/api/v1/customer/*` | Web session or JWT | Customer portal aggregate API. |

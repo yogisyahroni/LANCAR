@@ -197,6 +197,7 @@ Minimum values that must be real and non-default:
 - `JWT_REFRESH_SECRET`
 - `INTERNAL_GATEWAY_SECRET`
 - `METRICS_BEARER_TOKEN`
+- `TRUSTED_PROXY_IP` (the reverse-proxy IP that connects directly to the API gateway)
 - `ALLOWED_ORIGINS`
 - `FRONTEND_URL`
 - `PUBLIC_APP_URL`

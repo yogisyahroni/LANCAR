@@ -35,6 +35,7 @@ import { Bulkhead, resolveBulkheadLimit } from './resilience/bulkhead';
 import { createDirectProxyResilienceMiddleware, DirectProxyPolicy } from './resilience/directProxy';
 import { createWebSocketUpgradeHandler } from './resilience/webSocketUpgrade';
 import { rateLimitStoreOptions } from './redisRateLimitStore';
+import { resolveClientIpForRateLimit } from './rateLimitClientIp';
 
 
 
@@ -69,20 +70,6 @@ const resolveTrustProxy = (value?: string): boolean | number | string => {
     return hopCount;
   }
   return rawValue;
-};
-
-const resolveClientIpForRateLimit = (req: Request): string => {
-  const cloudflareIp = req.headers['cf-connecting-ip'];
-  if (typeof cloudflareIp === 'string' && cloudflareIp.trim()) {
-    return cloudflareIp.trim();
-  }
-
-  const forwardedFor = req.headers['x-forwarded-for'];
-  if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
-    return forwardedFor.split(',')[0].trim();
-  }
-
-  return req.ip || req.socket.remoteAddress || 'unknown';
 };
 
 const rateLimitClientKey = (req: Request): string => ipKeyGenerator(resolveClientIpForRateLimit(req));

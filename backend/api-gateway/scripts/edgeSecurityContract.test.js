@@ -20,6 +20,8 @@ assertPolicy('POST', '/api/v1/auth/otp/send', 'public', 'auth-service-public');
 assertPolicy('POST', '/api/v1/auth/customer/login/start', 'public', 'auth-service-public');
 assertPolicy('GET', '/api/v1/search', 'web-session-or-jwt', 'search-api');
 assertPolicy('GET', '/api/v1/maps/geocode', 'public', 'maps-public-runtime');
+assertPolicy('GET', '/uploads/banners/banner.png', 'public', 'public-uploaded-banners');
+assertPolicy('GET', '/uploads/safety-evidence/evidence.pdf', 'web-session-or-jwt', 'private-uploaded-assets');
 assertPolicy('POST', '/api/v1/pricing/estimate', 'public', 'pricing-estimate-public');
 assertPolicy('GET', '/api/v1/tracking/public', 'public', 'public-tracking-lookup');
 assertPolicy('POST', '/api/v1/payments/midtrans/notification', 'public', 'payment-provider-webhook');

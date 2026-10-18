@@ -101,9 +101,15 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: prefix('/socket.io'),
   },
   {
-    id: 'uploaded-assets',
+    id: 'public-uploaded-banners',
     requirement: 'public',
-    publicReason: 'Compatibility path for existing uploaded assets; upload hardening is tracked separately.',
+    publicReason: 'Only the explicitly public banner namespace is reachable without authentication.',
+    matches: prefix('/uploads/banners', ['GET', 'HEAD']),
+  },
+  {
+    id: 'private-uploaded-assets',
+    requirement: 'web-session-or-jwt',
+    publicReason: 'Private uploads require a verified web session or JWT before proxying to admin-service.',
     matches: prefix('/uploads', ['GET', 'HEAD']),
   },
   {

@@ -62,6 +62,13 @@ const validateDocsProtection = (failures: string[]) => {
   }
 };
 
+const validateTrustedProxy = (failures: string[]) => {
+  const configured = process.env.TRUSTED_PROXY_IP || process.env.TRUSTED_PROXY_IPS;
+  if (isBlank(configured)) {
+    failures.push('TRUSTED_PROXY_IP is required in production so rate limiting can safely trust forwarding headers');
+  }
+};
+
 const validateObservabilityEnv = (failures: string[]) => {
   const enabled = process.env.OTEL_ENABLED === 'true';
   const protocol = process.env.OTEL_EXPORTER_OTLP_PROTOCOL;
@@ -110,6 +117,7 @@ export const validateProductionEnv = () => {
   requireStrongSecret('JWT_SECRET', failures);
   requireStrongSecret('INTERNAL_GATEWAY_SECRET', failures);
   requireStrongSecret('METRICS_BEARER_TOKEN', failures);
+  validateTrustedProxy(failures);
   validateAllowedOrigins(failures);
   validateDocsProtection(failures);
   validateObservabilityEnv(failures);

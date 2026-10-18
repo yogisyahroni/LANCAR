@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import { rateLimitStoreOptions } from './redisRateLimitStore';
+import { resolveClientIpForRateLimit } from './rateLimitClientIp';
 
 type PublicEndpoint = 'maps' | 'pricing' | 'system' | 'experience';
 type AbuseAction = 'blocked' | 'rate_limited' | 'observed';
@@ -28,7 +29,7 @@ const emit = (options: AbuseProtectionOptions | undefined, event: AbuseEvent) =>
   options?.recordEvent?.(event);
 };
 
-const clientIpKey = (req: Request) => ipKeyGenerator(req.ip || req.socket.remoteAddress || '0.0.0.0');
+const clientIpKey = (req: Request) => ipKeyGenerator(resolveClientIpForRateLimit(req));
 
 export const publicEndpointKey = (req: Request, endpoint: PublicEndpoint) => {
   const deviceId = String(req.headers['x-device-id'] || req.headers['x-client-device-id'] || '').trim();

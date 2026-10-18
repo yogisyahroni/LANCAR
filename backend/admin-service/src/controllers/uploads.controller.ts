@@ -12,12 +12,34 @@ const contentTypeByExtension: Record<string, string> = {
   '.webp': 'image/webp',
 };
 
-export const servePrivateUpload = async (req: Request, res: Response): Promise<void> => {
+const getUploadPath = (req: Request): string | null => {
   let rawPath: string;
   try {
     rawPath = decodeURIComponent(req.originalUrl.split('?')[0].replace(/^\/uploads\/?/, ''));
   } catch (_error) {
+    return null;
+  }
+  return rawPath;
+};
+
+// Only explicitly public asset namespaces may be served without a session.
+// All user, courier, merchant, evidence, and document uploads remain private.
+export const isPublicUploadPath = (rawPath: string): boolean => {
+  const segments = rawPath.replace(/\\/g, '/').split('/');
+  return segments[0] === 'banners'
+    && segments.length > 1
+    && segments.every((segment) => Boolean(segment) && segment !== '.' && segment !== '..' && !segment.startsWith('.'));
+};
+
+const serveUpload = async (req: Request, res: Response, access: 'public' | 'private'): Promise<void> => {
+  const rawPath = getUploadPath(req);
+  if (!rawPath) {
     res.status(400).json({ success: false, error: 'Invalid upload path' });
+    return;
+  }
+
+  if (access === 'public' && !isPublicUploadPath(rawPath)) {
+    res.status(404).json({ success: false, error: 'File not found' });
     return;
   }
 
@@ -46,7 +68,7 @@ export const servePrivateUpload = async (req: Request, res: Response): Promise<v
   }
 
   const ext = path.extname(absolutePath).toLowerCase();
-  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Cache-Control', access === 'public' ? 'public, max-age=300' : 'private, no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Content-Type', contentTypeByExtension[ext] || 'application/octet-stream');
   res.sendFile(absolutePath, (error) => {
@@ -55,3 +77,9 @@ export const servePrivateUpload = async (req: Request, res: Response): Promise<v
     }
   });
 };
+
+export const servePublicUpload = async (req: Request, res: Response): Promise<void> =>
+  serveUpload(req, res, 'public');
+
+export const servePrivateUpload = async (req: Request, res: Response): Promise<void> =>
+  serveUpload(req, res, 'private');

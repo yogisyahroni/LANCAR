@@ -22,6 +22,9 @@ assertPolicy('GET', '/api/v1/system/latest-version', 'public', 'mobile-update-ve
 assertPolicy('GET', '/api/v1/markets/config', 'public', 'market-config-public-runtime');
 assertPolicy('GET', '/api/v1/experience/manifest', 'public', 'experience-config-public-runtime');
 assertPolicy('GET', '/api/v1/maps/config', 'public', 'maps-public-runtime');
+assertPolicy('GET', '/uploads/banners/tembus.png', 'public', 'public-uploaded-banners');
+assertPolicy('HEAD', '/uploads/banners/tembus.png', 'public', 'public-uploaded-banners');
+assertPolicy('GET', '/uploads/courier-documents/2026/document.pdf', 'web-session-or-jwt', 'private-uploaded-assets');
 assertPolicy('GET', '/track/scoped-token-value', 'public', 'public-trip-share');
 assertPolicy('POST', '/api/v1/public/location-requests/token-1', 'public', 'customer-public-handoff');
 assertPolicy('POST', '/api/v1/pricing/estimate', 'public', 'pricing-estimate-public');
