@@ -16,19 +16,26 @@
  */
 
 const CSRF_COOKIE_NAME = 'tembus_admin_csrf';
+const CANONICAL_CSRF_COOKIE_NAME = 'csrf_token';
 const TOKEN_BYTES = 32; // 256 bits of entropy
 
 /**
  * Reads the CSRF token from the cookie store.
  * Returns null if no token exists yet.
  */
-const readCsrfTokenFromCookie = (): string | null => {
+const readCookie = (name: string): string | null => {
   if (typeof document === 'undefined') return null;
   const match = document.cookie
     .split(';')
     .map((c) => c.trim())
-    .find((c) => c.startsWith(`${CSRF_COOKIE_NAME}=`));
-  return match ? decodeURIComponent(match.slice(CSRF_COOKIE_NAME.length + 1)) : null;
+    .find((c) => c.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
+};
+
+const readCsrfTokenFromCookie = (): string | null => {
+  // Prefer the session-bound cookie issued by the backend. Fall back to the
+  // legacy client-generated cookie for older sessions still being migrated.
+  return readCookie(CANONICAL_CSRF_COOKIE_NAME) || readCookie(CSRF_COOKIE_NAME);
 };
 
 import { adminApiUrl } from './runtimeConfig';
@@ -63,6 +70,20 @@ const writeCsrfTokenToCookie = (token: string): void => {
   if (typeof document === 'undefined') return;
   const isHttps = window.location.protocol === 'https:';
   const domain = getSharedDomain();
+
+  // Older dashboard builds could create a host-only cookie on
+  // admin.bawain.my.id. The browser then sends the header but not that cookie
+  // to api.bawain.my.id, which makes every DELETE/PATCH/POST fail at the
+  // gateway with 403. Remove that legacy host-only copy before writing the
+  // shared-domain cookie used by the API.
+  const legacyCookie = [
+    `${CSRF_COOKIE_NAME}=`,
+    'Path=/',
+    'Max-Age=0',
+    'SameSite=Lax',
+  ];
+  if (isHttps) legacyCookie.push('Secure');
+  document.cookie = legacyCookie.join('; ');
   
   const parts = [
     `${CSRF_COOKIE_NAME}=${encodeURIComponent(token)}`,
@@ -82,6 +103,9 @@ const writeCsrfTokenToCookie = (token: string): void => {
 export const getOrCreateCsrfToken = (): string => {
   const existing = readCsrfTokenFromCookie();
   if (existing && existing.length >= TOKEN_BYTES * 2) {
+    // Re-assert the cookie with the API's shared domain so a token left by an
+    // older host-only cookie cannot keep mutating requests blocked.
+    writeCsrfTokenToCookie(existing);
     return existing;
   }
 

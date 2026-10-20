@@ -14,6 +14,8 @@ import {
   MapPin,
   Check,
   User,
+  Leaf,
+  AlertTriangle,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import Barcode from "react-barcode";
@@ -34,6 +36,13 @@ interface Order {
   recipient_phone?: string;
   sender_name?: string;
   sender_phone?: string;
+  item_description?: string | null;
+  item_names?: string | null;
+  weight?: number | string | null;
+  total_weight?: number | string | null;
+  total_items?: number | string | null;
+  routing_code?: string | null;
+  cod_amount?: number | null;
   model: string;
   service_category?: string | null;
   service_code?: string | null;
@@ -66,6 +75,14 @@ interface Order {
     received_at: string;
   }>;
 }
+
+const PAPER_SIZES = {
+  A6: { width: 384, height: 576 },
+  A4: { width: 794, height: 1123 },
+} as const;
+
+const isSafeImageSource = (value: unknown): value is string =>
+  typeof value === "string" && (value.startsWith("/") || /^https?:\/\//i.test(value));
 
 export default function ResiDetailPage({
   params,
@@ -183,6 +200,8 @@ export default function ResiDetailPage({
   }
 
   const elements = templateData?.layout_config?.elements || [];
+  const paperSize = templateData?.paper_size === "A4" ? "A4" : "A6";
+  const canvasSize = PAPER_SIZES[paperSize];
 
   const resolveValue = (val: string, currentOrder: Order) => {
     if (!val) return "";
@@ -210,18 +229,24 @@ export default function ResiDetailPage({
       .replace(/{{sender_name}}/g, currentOrder.sender_name || "-")
       .replace(/{{sender_phone}}/g, currentOrder.sender_phone || "-")
       .replace(/{{sender_address}}/g, currentOrder.pickup_address || "-")
+      .replace(/{{pickup_address}}/g, currentOrder.pickup_address || "-")
       .replace(/{{receiver_name}}/g, currentOrder.recipient_name || "-")
       .replace(/{{receiver_phone}}/g, currentOrder.recipient_phone || "-")
       .replace(/{{receiver_address}}/g, currentOrder.dropoff_address || "-")
-      .replace(/{{item_names}}/g, (currentOrder as any).item_names || "-")
+      .replace(/{{dropoff_address}}/g, currentOrder.dropoff_address || "-")
+      .replace(/{{item_names}}/g, currentOrder.item_names || "-")
+      .replace(/{{item_description}}/g, currentOrder.item_description || currentOrder.item_names || "-")
       .replace(
         /{{total_weight}}/g,
-        String((currentOrder as any).total_weight ?? "-"),
+        String(currentOrder.total_weight ?? currentOrder.weight ?? "-"),
       )
+      .replace(/{{weight}}/g, String(currentOrder.weight ?? currentOrder.total_weight ?? "-"))
       .replace(
         /{{total_items}}/g,
-        String((currentOrder as any).total_items ?? "-"),
+        String(currentOrder.total_items ?? "-"),
       )
+      .replace(/{{routing_code}}/g, currentOrder.routing_code || "-")
+      .replace(/{{cod_amount}}/g, formatIDR(currentOrder.cod_amount || 0))
       .replace(
         /{{order_id}}/g,
         currentOrder.order_number || currentOrder.id || "",
@@ -303,7 +328,7 @@ export default function ResiDetailPage({
         {templateData && elements.length > 0 ? (
           <div
             className="relative bg-surface shadow-sm border border-border overflow-hidden mx-auto print:shadow-none print:border-none"
-            style={{ width: 384, height: 576 }} // A6 scaling matches designer
+            style={{ width: canvasSize.width, height: canvasSize.height }}
           >
             {elements.map((el: any) => (
               <div
@@ -324,14 +349,19 @@ export default function ResiDetailPage({
                   </span>
                 )}
                 {el.type === "qrcode" && (
-                  <QRCodeSVG
-                    value={
-                      resolveValue(el.value, order) ||
-                      order.awb_number ||
-                      order.id
-                    }
-                    size={el.width || 80}
-                  />
+                  <div
+                    style={{ width: el.width || 80, height: el.height || el.width || 80 }}
+                    className="flex items-center justify-center overflow-hidden"
+                  >
+                    <QRCodeSVG
+                      value={
+                        resolveValue(el.value, order) ||
+                        order.awb_number ||
+                        order.id
+                      }
+                      size={Math.min(el.width || 80, el.height || el.width || 80)}
+                    />
+                  </div>
                 )}
                 {el.type === "barcode" && (
                   <Barcode
@@ -348,7 +378,7 @@ export default function ResiDetailPage({
                   />
                 )}
                 {el.type === "logo" &&
-                  (el.value && el.value.startsWith("http") ? (
+                  (isSafeImageSource(el.value) ? (
                     <img
                       src={resolveValue(el.value, order)}
                       alt="Logo"
@@ -372,6 +402,53 @@ export default function ResiDetailPage({
                       {order.model ? order.model.toUpperCase() : "LOGO KURIR"}
                     </div>
                   ))}
+                {el.type === "image" && (
+                  isSafeImageSource(el.value) ? (
+                    <img
+                      src={resolveValue(el.value, order)}
+                      alt="Gambar template resi"
+                      style={{
+                        width: el.width || 100,
+                        height: el.height || 40,
+                        objectFit: "contain",
+                      }}
+                    />
+                  ) : null
+                )}
+                {el.type === "eco_icon" && (
+                  <div
+                    style={{ width: el.width || 40, height: el.height || 40 }}
+                    className="bg-success border border-success rounded-full flex items-center justify-center text-success"
+                  >
+                    <Leaf className="w-6 h-6" aria-hidden="true" />
+                  </div>
+                )}
+                {el.type === "fragile_badge" && (
+                  <div
+                    style={{ width: el.width || 40, height: el.height || 40 }}
+                    className="bg-error border border-error rounded-full flex items-center justify-center text-error"
+                  >
+                    <AlertTriangle className="w-6 h-6" aria-hidden="true" />
+                  </div>
+                )}
+                {el.type === "box" && (
+                  <div
+                    style={{ width: el.width || 100, height: el.height || 50 }}
+                    className="border-2 border-border bg-transparent"
+                  />
+                )}
+                {el.type === "h_line" && (
+                  <div
+                    style={{ width: el.width || 200, height: Math.max(1, el.height || 2) }}
+                    className="bg-scrim"
+                  />
+                )}
+                {el.type === "v_line" && (
+                  <div
+                    style={{ width: Math.max(1, el.width || 2), height: el.height || 200 }}
+                    className="bg-scrim"
+                  />
+                )}
                 {el.type === "tembus_logo" && (
                   <img
                     src="/tembusweb-resi.svg"

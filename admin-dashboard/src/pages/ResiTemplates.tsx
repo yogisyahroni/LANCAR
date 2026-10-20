@@ -12,6 +12,7 @@ import Barcode from 'react-barcode'
 interface ResiTemplate {
   id: string
   name: string
+  paper_size?: string
   layout_config: any
   is_active: boolean
   provider_code?: string
@@ -40,21 +41,27 @@ interface DesignElement {
   barWidth?: number
 }
 
-const TOOLBOX_ITEMS = [
+const TOOLBOX_ITEMS: Array<{ type: ElementType; label: string; icon: React.ComponentType<{ className?: string }>; defaultVal: string; width?: number; height?: number }> = [
   { type: 'text', label: 'Teks', icon: Type, defaultVal: '{{awb_number}}' },
   { type: 'barcode', label: 'Barcode', icon: BarcodeIcon, defaultVal: '{{awb_number}}' },
   { type: 'qrcode', label: 'QR Code', icon: QrCode, defaultVal: '{{tracking_url}}' },
   { type: 'logo', label: 'Logo Provider (Otomatis)', icon: ImageIcon, defaultVal: 'provider_logo' },
-  { type: 'image', label: 'Gambar/Logo URL', icon: ImageIcon, defaultVal: 'https://placehold.co/200x80?text=LOGO', width: 100, height: 40 },
+  { type: 'image', label: 'Gambar (URL)', icon: ImageIcon, defaultVal: '', width: 100, height: 40 },
   { type: 'eco_icon', label: 'Eco Badge', icon: Leaf, defaultVal: '' },
   { type: 'fragile_badge', label: 'Fragile Badge', icon: AlertTriangle, defaultVal: '' },
   { type: 'box', label: 'Kotak (Box)', icon: Square, defaultVal: '', width: 200, height: 100 },
   { type: 'h_line', label: 'Garis Horisontal', icon: Minus, defaultVal: '', width: 200, height: 2 },
-  { type: 'v_line', label: 'Garis Vertikal', icon: Minus, defaultVal: '', width: 2, height: 200 }
+  { type: 'v_line', label: 'Garis Vertikal', icon: Minus, defaultVal: '', width: 2, height: 200 },
+  { type: 'tembus_logo', label: 'Logo TEMBUS', icon: ImageIcon, defaultVal: '', width: 120, height: 30 },
 ]
 
-const CANVAS_WIDTH = 384 // A6 approximate scaled (384px width e.g. for thermal)
-const CANVAS_HEIGHT = 576
+const PAPER_SIZES = {
+  A6: { width: 384, height: 576, label: 'A6 (100 × 150 mm)' },
+  A4: { width: 794, height: 1123, label: 'A4 (210 × 297 mm)' },
+} as const
+type PaperSize = keyof typeof PAPER_SIZES
+
+const isSafeImageSource = (value: string) => value.startsWith('/') || /^https?:\/\//i.test(value)
 
 const ResiTemplates = () => {
   const [templates, setTemplates] = useState<ResiTemplate[]>([])
@@ -63,6 +70,7 @@ const ResiTemplates = () => {
   const [editingTemplate, setEditingTemplate] = useState<ResiTemplate | null>(null)
   
   const [name, setName] = useState('')
+  const [paperSize, setPaperSize] = useState<PaperSize>('A6')
   const [isActive, setIsActive] = useState(false)
   const [providerCode, setProviderCode] = useState<string>('')
   const [providers, setProviders] = useState<LogisticsProvider[]>([])
@@ -85,12 +93,18 @@ const ResiTemplates = () => {
       .replace(/{{sender_name}}/g, 'Toko TEMBUS Official')
       .replace(/{{sender_phone}}/g, '0812-3456-7890')
       .replace(/{{sender_address}}/g, 'Jl. Sudirman No. 45, Jakarta Pusat 10210')
+      .replace(/{{pickup_address}}/g, 'Jl. Sudirman No. 45, Jakarta Pusat 10210')
       .replace(/{{receiver_name}}/g, 'Andi Wijaya')
       .replace(/{{receiver_phone}}/g, '0857-9876-5432')
       .replace(/{{receiver_address}}/g, 'Jl. Gatot Subroto No. 88, Blok C2, Bandung 40123')
+      .replace(/{{dropoff_address}}/g, 'Jl. Gatot Subroto No. 88, Blok C2, Bandung 40123')
       .replace(/{{item_names}}/g, '1x Kemeja Batik Pria (L), 2x Kaos Polos')
+      .replace(/{{item_description}}/g, '1x Kemeja Batik Pria (L), 2x Kaos Polos')
       .replace(/{{total_weight}}/g, '1.2')
+      .replace(/{{weight}}/g, '1.2 kg')
       .replace(/{{total_items}}/g, '3')
+      .replace(/{{routing_code}}/g, 'JKT-BDG')
+      .replace(/{{cod_amount}}/g, 'Rp 0')
       .replace(/{{order_id}}/g, 'ORD-2026-00123')
       .replace(/{{tracking_url}}/g, 'https://tembus.id/track/JP1234567890');
   };
@@ -125,6 +139,7 @@ const ResiTemplates = () => {
     if (t) {
       setEditingTemplate(t)
       setName(t.name)
+      setPaperSize(t.paper_size === 'A4' ? 'A4' : 'A6')
       setIsActive(t.is_active)
       setProviderCode(t.provider_code || '')
       try {
@@ -135,6 +150,7 @@ const ResiTemplates = () => {
     } else {
       setEditingTemplate(null)
       setName('')
+      setPaperSize('A6')
       setIsActive(false)
       setProviderCode('')
       setElements([])
@@ -157,6 +173,7 @@ const ResiTemplates = () => {
 
     const payload = {
       name,
+      paper_size: paperSize,
       layout_config,
       is_active: isActive,
       provider_code: providerCode === '' ? null : providerCode
@@ -194,8 +211,10 @@ const ResiTemplates = () => {
       if (!t) return
       await api.put(`/admin/resi-templates/${id}`, {
         name: t.name,
+        paper_size: t.paper_size || 'A6',
         layout_config: t.layout_config,
-        is_active: true
+        is_active: true,
+        provider_code: t.provider_code || null,
       })
       toast.success('Template set as active')
       fetchTemplates()
@@ -204,9 +223,11 @@ const ResiTemplates = () => {
     }
   }
 
-  const onDragStart = (e: React.DragEvent, type: string, defaultVal: string) => {
-    e.dataTransfer.setData('type', type)
-    e.dataTransfer.setData('defaultVal', defaultVal)
+  const onDragStart = (e: React.DragEvent, item: typeof TOOLBOX_ITEMS[number]) => {
+    e.dataTransfer.setData('type', item.type)
+    e.dataTransfer.setData('defaultVal', item.defaultVal)
+    e.dataTransfer.setData('width', String(item.width || ''))
+    e.dataTransfer.setData('height', String(item.height || ''))
   }
 
   const onCanvasDrop = (e: React.DragEvent) => {
@@ -217,8 +238,12 @@ const ResiTemplates = () => {
 
     if (!canvasRef.current) return
     const rect = canvasRef.current.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const width = Number(e.dataTransfer.getData('width')) || (type === 'barcode' ? 200 : type === 'qrcode' ? 80 : 100)
+    const height = Number(e.dataTransfer.getData('height')) || (type === 'barcode' ? 50 : type === 'qrcode' ? 80 : 40)
+    const canvasSize = PAPER_SIZES[paperSize]
+    const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), Math.max(min, max))
+    const x = clamp(e.clientX - rect.left, 0, canvasSize.width - width)
+    const y = clamp(e.clientY - rect.top, 0, canvasSize.height - height)
 
     const newElement: DesignElement = {
       id: createClientId('resi-element'),
@@ -227,10 +252,10 @@ const ResiTemplates = () => {
       y,
       value: defaultVal,
       fontSize: 14,
-      width: type === 'barcode' ? 200 : 100,
-      height: type === 'barcode' ? 50 : 100
+      width,
+      height,
     }
-    setElements([...elements, newElement])
+    setElements(current => [...current, newElement])
     setSelectedElementId(newElement.id)
   }
 
@@ -239,12 +264,22 @@ const ResiTemplates = () => {
   }
 
   const updateElement = (id: string, updates: Partial<DesignElement>) => {
-    setElements(elements.map(el => el.id === id ? { ...el, ...updates } : el))
+    setElements(current => current.map(el => el.id === id ? { ...el, ...updates } : el))
   }
 
   const removeElement = (id: string) => {
-    setElements(elements.filter(el => el.id !== id))
+    setElements(current => current.filter(el => el.id !== id))
     if (selectedElementId === id) setSelectedElementId(null)
+  }
+
+  const canvasSize = PAPER_SIZES[paperSize]
+  const getElementSize = (element: DesignElement) => ({
+    width: element.width || (element.type === 'qrcode' ? 80 : element.type === 'barcode' ? 200 : 100),
+    height: element.height || (element.type === 'qrcode' ? 80 : element.type === 'barcode' ? 50 : 40),
+  })
+  const parseNumber = (value: string, fallback: number, minimum = 0) => {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? Math.max(minimum, parsed) : fallback
   }
 
   return (
@@ -365,6 +400,16 @@ const ResiTemplates = () => {
                       <option key={p.id} value={p.code}>{p.name} ({p.code})</option>
                     ))}
                   </select>
+                  <select
+                    aria-label="Ukuran kertas template resi"
+                    value={paperSize}
+                    onChange={e => setPaperSize(e.target.value as PaperSize)}
+                    className="bg-surface-raised border border-border rounded-lg px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+                  >
+                    {Object.entries(PAPER_SIZES).map(([size, config]) => (
+                      <option key={size} value={size}>{config.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <button type="button" onClick={handleCloseModal} aria-label="Tutup editor template resi" title="Tutup editor template resi" className="text-foreground-muted hover:text-foreground">
                   <XCircle className="w-6 h-6" aria-hidden="true" />
@@ -381,7 +426,7 @@ const ResiTemplates = () => {
                       <div 
                         key={item.type}
                         draggable
-                        onDragStart={(e) => onDragStart(e, item.type, item.defaultVal)}
+                        onDragStart={(e) => onDragStart(e, item)}
                         className="flex items-center gap-3 bg-surface p-3 rounded-xl border border-border cursor-grab active:cursor-grabbing hover:border-primary/50 transition-colors"
                       >
                         <item.icon className="w-5 h-5 text-primary" aria-hidden="true" />
@@ -411,7 +456,7 @@ const ResiTemplates = () => {
                     onDrop={onCanvasDrop}
                     onDragOver={onCanvasDragOver}
                     className="bg-surface relative shadow-2xl overflow-hidden"
-                    style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
+                    style={{ width: canvasSize.width, height: canvasSize.height }}
                   >
                     {elements.map(el => (
                       <div
@@ -432,15 +477,18 @@ const ResiTemplates = () => {
                         draggable
                         onDragStart={(e) => {
                           e.dataTransfer.setData('moveId', el.id);
-                          const rect = (e.target as HTMLElement).getBoundingClientRect();
+                          const rect = e.currentTarget.getBoundingClientRect();
                           e.dataTransfer.setData('offsetX', (e.clientX - rect.left).toString());
                           e.dataTransfer.setData('offsetY', (e.clientY - rect.top).toString());
                         }}
                         onDragEnd={(e) => {
                           if (!canvasRef.current) return;
                           const rect = canvasRef.current.getBoundingClientRect();
-                          const newX = e.clientX - rect.left;
-                          const newY = e.clientY - rect.top;
+                          const { width, height } = getElementSize(el);
+                          const offsetX = Number(e.dataTransfer.getData('offsetX')) || 0;
+                          const offsetY = Number(e.dataTransfer.getData('offsetY')) || 0;
+                          const newX = Math.min(Math.max(0, e.clientX - rect.left - offsetX), Math.max(0, canvasSize.width - width));
+                          const newY = Math.min(Math.max(0, e.clientY - rect.top - offsetY), Math.max(0, canvasSize.height - height));
                           updateElement(el.id, { x: newX, y: newY });
                         }}
                       >
@@ -461,12 +509,18 @@ const ResiTemplates = () => {
                           </div>
                         )}
                         {el.type === 'image' && (
-                          <img 
-                            src={el.value} 
-                            alt="Custom Image"
-                            style={{ width: el.width || 100, height: el.height || 40, objectFit: 'contain' }}
-                            draggable={false}
-                          />
+                          isSafeImageSource(el.value) ? (
+                            <img
+                              src={el.value}
+                              alt="Gambar template resi"
+                              style={{ width: el.width || 100, height: el.height || 40, objectFit: 'contain' }}
+                              draggable={false}
+                            />
+                          ) : (
+                            <div style={{ width: el.width || 100, height: el.height || 40 }} className="border border-dashed border-border flex items-center justify-center text-[10px] text-foreground-muted text-center p-1">
+                              Masukkan URL gambar yang aman
+                            </div>
+                          )
                         )}
                         {el.type === 'eco_icon' && (
                           <div className="w-10 h-10 bg-success border border-success rounded-full flex items-center justify-center text-success">
@@ -527,7 +581,7 @@ const ResiTemplates = () => {
                               type="number"
                               aria-label="Font Size"
                               value={el.fontSize || 14}
-                              onChange={(e) => updateElement(el.id, { fontSize: parseInt(e.target.value) })}
+                              onChange={(e) => updateElement(el.id, { fontSize: parseNumber(e.target.value, el.fontSize || 14, 1) })}
                               className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
                             />
                           </div>
@@ -540,7 +594,7 @@ const ResiTemplates = () => {
                                 type="number"
                                 aria-label="Width (px)"
                                 value={el.width || 100}
-                                onChange={(e) => updateElement(el.id, { width: parseInt(e.target.value) })}
+                                onChange={(e) => updateElement(el.id, { width: parseNumber(e.target.value, el.width || 100, 1) })}
                                 className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
                               />
                             </div>
@@ -550,7 +604,7 @@ const ResiTemplates = () => {
                                 type="number"
                                 aria-label="Height (px)"
                                 value={el.height || 50}
-                                onChange={(e) => updateElement(el.id, { height: parseInt(e.target.value) })}
+                                onChange={(e) => updateElement(el.id, { height: parseNumber(e.target.value, el.height || 50, 1) })}
                                 className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
                               />
                             </div>
@@ -564,7 +618,7 @@ const ResiTemplates = () => {
                               aria-label="Bar Width (1.0 - 3.0)"
                               step="0.1"
                               value={el.barWidth || 1.5}
-                              onChange={(e) => updateElement(el.id, { barWidth: parseFloat(e.target.value) })}
+                              onChange={(e) => updateElement(el.id, { barWidth: parseNumber(e.target.value, el.barWidth || 1.5, 0.1) })}
                               className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
                             />
                           </div>
@@ -576,7 +630,7 @@ const ResiTemplates = () => {
                               type="number"
                               aria-label="X Position"
                               value={Math.round(el.x)}
-                              onChange={(e) => updateElement(el.id, { x: parseInt(e.target.value) })}
+                              onChange={(e) => updateElement(el.id, { x: Math.min(parseNumber(e.target.value, el.x, 0), Math.max(0, canvasSize.width - getElementSize(el).width)) })}
                               className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
                             />
                           </div>
@@ -586,7 +640,7 @@ const ResiTemplates = () => {
                               type="number"
                               aria-label="Y Position"
                               value={Math.round(el.y)}
-                              onChange={(e) => updateElement(el.id, { y: parseInt(e.target.value) })}
+                              onChange={(e) => updateElement(el.id, { y: Math.min(parseNumber(e.target.value, el.y, 0), Math.max(0, canvasSize.height - getElementSize(el).height)) })}
                               className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
                             />
                           </div>

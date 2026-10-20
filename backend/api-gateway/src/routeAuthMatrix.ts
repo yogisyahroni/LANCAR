@@ -291,6 +291,11 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: prefix('/api/v1/merchant'),
   },
   {
+    id: 'customer-resi-render',
+    requirement: 'web-session-or-jwt',
+    matches: prefix('/api/v1/resi', ['GET']),
+  },
+  {
     id: 'order-domain-api',
     requirement: 'jwt',
     matches: (method, path) =>

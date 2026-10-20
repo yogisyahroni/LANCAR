@@ -7,6 +7,15 @@ const allowLocalhostFallback =
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '')
 const localHostnames = new Set(['localhost', '127.0.0.1', '::1'])
 
+// Keep a misconfigured API base such as `/api/v1/v1` from producing invalid
+// requests like `/api/v1/v1/admin/...`. The API client paths intentionally
+// start at `/admin`, so the version prefix belongs only in this base URL.
+const normalizeApiBaseUrl = (value: string) => {
+  const parsed = new URL(value)
+  parsed.pathname = parsed.pathname.replace(/(\/api\/v1)(?:\/v1)+(\/?$)/, '$1$2')
+  return parsed.toString()
+}
+
 const isLocalBrowserHost = () => {
   if (typeof window === 'undefined') return false
   return localHostnames.has(window.location.hostname.toLowerCase())
@@ -35,7 +44,9 @@ const resolveRequiredUrl = (name: string, value: string | undefined, localFallba
 
   const configured = value?.trim()
   if (configured) {
-    const normalized = trimTrailingSlash(configured)
+    const normalized = trimTrailingSlash(
+      name === 'VITE_API_URL' ? normalizeApiBaseUrl(configured) : configured,
+    )
     assertUsableUrl(name, normalized)
     return normalized
   }

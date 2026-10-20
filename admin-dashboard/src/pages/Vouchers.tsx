@@ -58,6 +58,13 @@ function VoucherDataState({ title, message, onRetry, tone = 'muted' }: { title: 
 
 type VoucherStatusFilter = 'all' | 'active' | 'inactive' | 'expired'
 
+const voucherMutationError = (error: any) => {
+  const response = error?.response?.data
+  const detail = response?.message || response?.error
+  if (detail) return response?.code ? `${detail} (${response.code})` : detail
+  return error?.message || 'Terjadi kesalahan yang tidak diketahui.'
+}
+
 const emptyVoucherForm = {
   code: '',
   name: '',
@@ -103,7 +110,7 @@ export default function Vouchers() {
       toast.success('Voucher berhasil dibuat');
       setIsModalOpen(false);
     },
-    onError: (err: any) => toast.error(`Voucher gagal dibuat: ${err.message}`)
+    onError: (err: any) => toast.error(`Voucher gagal dibuat: ${voucherMutationError(err)}`)
   });
 
   const updateMutation = useMutation({
@@ -113,7 +120,7 @@ export default function Vouchers() {
       toast.success('Perubahan voucher berhasil disimpan');
       setIsModalOpen(false);
     },
-    onError: (err: any) => toast.error(`Voucher gagal diperbarui: ${err.message}`)
+    onError: (err: any) => toast.error(`Voucher gagal diperbarui: ${voucherMutationError(err)}`)
   });
 
   const deleteMutation = useMutation({
@@ -123,7 +130,7 @@ export default function Vouchers() {
       queryClient.invalidateQueries({ queryKey: ['voucher-stats'] });
       toast.success('Voucher berhasil dihapus');
     },
-    onError: (err: any) => toast.error(`Voucher gagal dihapus: ${err.message}`)
+    onError: (err: any) => toast.error(`Voucher gagal dihapus: ${voucherMutationError(err)}`)
   });
 
   if (isLoadingStats || isLoadingVouchers) {

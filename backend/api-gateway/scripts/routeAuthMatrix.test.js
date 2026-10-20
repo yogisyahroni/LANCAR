@@ -40,6 +40,7 @@ assertPolicy('POST', '/api/v1/device-tokens', 'web-session-or-jwt', 'device-toke
 assertPolicy('DELETE', '/api/v1/device-tokens/unregister', 'web-session-or-jwt', 'device-token-api');
 assertPolicy('GET', '/api/v1/merchant/context', 'web-session-or-jwt', 'merchant-portal-api');
 assertPolicy('POST', '/api/v1/merchant/order-settings/auto-accept', 'web-session-or-jwt', 'merchant-portal-api');
+assertPolicy('GET', '/api/v1/resi/render/JNE0095175545', 'web-session-or-jwt', 'customer-resi-render');
 assertPolicy('GET', '/api/v1/notifications', 'web-session-or-jwt', 'notification-api');
 assertPolicy('GET', '/api/v1/admin/orders', 'admin-session-or-jwt', 'admin-management');
 assertPolicy('GET', '/api/v1/admin/ads/inventory', 'admin-session-or-jwt', 'commerce-ads-admin-api');

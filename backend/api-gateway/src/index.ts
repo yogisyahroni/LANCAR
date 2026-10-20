@@ -1147,6 +1147,38 @@ app.use(createProxyMiddleware({
   },
 }));
 
+// Resi rendering is owned by order-service, but customer web reaches it through
+// the versioned gateway namespace. Keep this route explicit so it cannot fall
+// through to the generic API proxy and accidentally lose the /api/resi prefix.
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/resi',
+  target: ORDER_SERVICE_URL,
+  changeOrigin: true,
+  pathRewrite: { '^/api/v1/resi': '/api/resi' },
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('resi', req, ORDER_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) {
+        recordBreakerFailure(orderBreaker);
+      }
+    },
+    error: (err: Error, req: any, res: any) => {
+      recordBreakerFailure(orderBreaker);
+      logProxyError('resi', ORDER_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(502).json({
+          status: 'error',
+          code: 'ERR_BAD_GATEWAY',
+          message: 'Service is currently unavailable',
+        });
+      }
+    },
+  },
+}));
+
 // Orders Service
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/orders',

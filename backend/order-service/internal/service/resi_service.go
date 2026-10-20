@@ -58,24 +58,28 @@ func (s *resiService) RenderResiByAWB(ctx context.Context, awb string) (map[stri
 	}
 
 	replacements := map[string]string{
-		"{{awb_number}}":      order.AWB,
-		"{{order_number}}":    order.OrderNumber,
-		"{{provider_name}}":   order.LogisticsProvider,
-		"{{service_type}}":    order.LogisticsServiceType,
-		"{{service_name}}":    fmt.Sprintf("%s %s", strings.ToUpper(order.LogisticsProvider), strings.ToUpper(order.LogisticsServiceType)),
-		"{{sender_name}}":     senderName,
-		"{{sender_phone}}":    "-", // TBD from customer profile
-		"{{pickup_address}}":  order.PickupAddress,
-		"{{receiver_name}}":   order.ReceiverName,
-		"{{receiver_phone}}":  order.ReceiverPhone,
-		"{{dropoff_address}}": order.DropoffAddress,
-		"{{item_names}}":      order.ItemDescription,
-		"{{total_weight}}":    fmt.Sprintf("%.1f", order.Weight),
-		"{{total_items}}":     "1",        // Currently single package assumption
-		"{{payment_type}}":    "CASHLESS", // Since no COD is allowed
-		"{{total_price_idr}}": fmt.Sprintf("%d", order.TotalPriceIDR),
-		"{{total_price}}":     fmt.Sprintf("%d", order.TotalPriceIDR),
-		"{{routing_code}}":    order.RoutingCode,
+		"{{awb_number}}":       order.AWB,
+		"{{order_number}}":     order.OrderNumber,
+		"{{provider_name}}":    order.LogisticsProvider,
+		"{{service_type}}":     order.LogisticsServiceType,
+		"{{service_name}}":     fmt.Sprintf("%s %s", strings.ToUpper(order.LogisticsProvider), strings.ToUpper(order.LogisticsServiceType)),
+		"{{sender_name}}":      senderName,
+		"{{sender_phone}}":     "-", // TBD from customer profile
+		"{{pickup_address}}":   order.PickupAddress,
+		"{{sender_address}}":   order.PickupAddress,
+		"{{receiver_name}}":    order.ReceiverName,
+		"{{receiver_phone}}":   order.ReceiverPhone,
+		"{{dropoff_address}}":  order.DropoffAddress,
+		"{{receiver_address}}": order.DropoffAddress,
+		"{{item_names}}":       order.ItemDescription,
+		"{{item_description}}": order.ItemDescription,
+		"{{total_weight}}":     fmt.Sprintf("%.1f", order.Weight),
+		"{{weight}}":           fmt.Sprintf("%.1f kg", order.Weight),
+		"{{total_items}}":      "1",        // Currently single package assumption
+		"{{payment_type}}":     "CASHLESS", // Since no COD is allowed
+		"{{total_price_idr}}":  fmt.Sprintf("%d", order.TotalPriceIDR),
+		"{{total_price}}":      fmt.Sprintf("%d", order.TotalPriceIDR),
+		"{{routing_code}}":     order.RoutingCode,
 	}
 
 	for k, v := range replacements {
@@ -83,7 +87,9 @@ func (s *resiService) RenderResiByAWB(ctx context.Context, awb string) (map[stri
 	}
 
 	var processedLayout map[string]interface{}
-	_ = json.Unmarshal([]byte(layoutStr), &processedLayout)
+	if err := json.Unmarshal([]byte(layoutStr), &processedLayout); err != nil {
+		return nil, fmt.Errorf("invalid processed layout config json: %w", err)
+	}
 
 	return map[string]interface{}{
 		"order":         order,

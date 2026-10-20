@@ -8,6 +8,7 @@
     "build": "tsc",
     "test:compliance-boundary": "npm run build && node scripts/complianceBoundary.test.js",
     "test:auth-matrix": "npm run build && node scripts/routeAuthMatrix.test.js",
+    "test:csrf": "npm run build && node scripts/csrf.test.js",
     "test:cors": "npm run build && node scripts/corsPolicy.test.js",
     "test:observability": "npm run build && node scripts/requestObservability.test.js",
     "test:ops-surface": "npm run build && node scripts/opsSurfaceProtection.test.js",

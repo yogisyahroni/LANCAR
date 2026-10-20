@@ -459,7 +459,9 @@ func (r *postgresRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order,
 				COALESCE(discount_minor, 0), COALESCE(insurance_premium_minor, 0),
 				COALESCE(platform_fee_minor, 0), COALESCE(promo_subsidy_minor, 0),
 				COALESCE(total_price_minor, 0), COALESCE(dpp_minor, 0), COALESCE(ppn_minor, 0),
-				COALESCE(tax_rule_version, ''), COALESCE(tax_jurisdiction, '')
+				COALESCE(tax_rule_version, ''), COALESCE(tax_jurisdiction, ''),
+				COALESCE(logistics_provider, ''), COALESCE(logistics_service_type, ''),
+				COALESCE(receiver_name, ''), COALESCE(receiver_phone, ''), COALESCE(routing_code, '')
 				FROM orders WHERE awb_number = $1`
 
 	o := &domain.Order{}
@@ -474,7 +476,8 @@ func (r *postgresRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order,
 		&o.Currency, &o.CurrencyMinorUnit, &o.BasePriceMinor, &o.DistanceFeeMinor,
 		&o.VolumetricSurchargeMinor, &o.DynamicPriceMinor, &o.DiscountMinor, &o.InsurancePremiumMinor,
 		&o.PlatformFeeMinor, &o.PromoSubsidyMinor, &o.TotalPriceMinor, &o.DPPMinor, &o.PPNMinor,
-		&o.TaxRuleVersion, &o.TaxJurisdiction,
+		&o.TaxRuleVersion, &o.TaxJurisdiction, &o.LogisticsProvider, &o.LogisticsServiceType,
+		&o.ReceiverName, &o.ReceiverPhone, &o.RoutingCode,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {

@@ -7,7 +7,10 @@
  *     `tembus_admin_csrf` cookie remains accepted for older admin-dashboard
  *     clients during the cookie migration.
  *  2. Read CSRF token from the `X-CSRF-Token` request header.
- *  3. Reject if either is missing or if they do not match (timing-safe comparison).
+ *  3. Reject if either is missing or if no CSRF cookie matches the header
+ *     (timing-safe comparison). Both cookie names may coexist during the
+ *     migration, so the matching pair must be found rather than assuming one
+ *     cookie wins by ordering.
  *
  * This stops Cross-Site Request Forgery attacks where a malicious site tricks
  * an authenticated admin into making unintended requests — the attacker's page
@@ -27,24 +30,27 @@ const CSRF_HEADER_NAME = 'x-csrf-token'; // Express normalizes headers to lowerc
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
- * Parse the CSRF token value from the Cookie header.
- * Returns null if the cookie is absent or empty.
+ * Parse all CSRF token values from the Cookie header. The canonical and
+ * legacy cookies can coexist during migration.
  */
-const parseCsrfFromCookie = (cookieHeader: string | undefined): string | null => {
-  if (!cookieHeader) return null;
-  const match = cookieHeader
-    .split(';')
-    .map((c) => c.trim())
-    .find((c) => CSRF_COOKIE_NAMES.some((name) => c.startsWith(`${name}=`)));
-  if (!match) return null;
-  const cookieName = CSRF_COOKIE_NAMES.find((name) => match.startsWith(`${name}=`));
-  if (!cookieName) return null;
-  const raw = match.slice(cookieName.length + 1);
-  try {
-    return decodeURIComponent(raw) || null;
-  } catch {
-    return null;
-  }
+const parseCsrfFromCookie = (cookieHeader: string | undefined): string[] => {
+  if (!cookieHeader) return [];
+
+  return cookieHeader.split(';').flatMap((segment) => {
+    const trimmed = segment.trim();
+    const separator = trimmed.indexOf('=');
+    if (separator <= 0) return [];
+
+    const cookieName = trimmed.slice(0, separator);
+    if (!CSRF_COOKIE_NAMES.includes(cookieName as (typeof CSRF_COOKIE_NAMES)[number])) return [];
+
+    try {
+      const value = decodeURIComponent(trimmed.slice(separator + 1));
+      return value ? [value] : [];
+    } catch {
+      return [];
+    }
+  });
 };
 
 /**
@@ -62,10 +68,10 @@ export const verifyCsrfToken = (req: Request, res: Response, next: NextFunction)
     return;
   }
 
-  const cookieToken = parseCsrfFromCookie(req.headers.cookie);
+  const cookieTokens = parseCsrfFromCookie(req.headers.cookie);
   const headerToken = (req.headers[CSRF_HEADER_NAME] as string | undefined)?.trim() || null;
 
-  if (!cookieToken || !headerToken) {
+  if (cookieTokens.length === 0 || !headerToken) {
     res.status(403).json({
       status: 'error',
       code: 'ERR_CSRF_TOKEN_MISSING',
@@ -74,21 +80,15 @@ export const verifyCsrfToken = (req: Request, res: Response, next: NextFunction)
     return;
   }
 
-  // Reject tokens of different length immediately (timing-safe comparison requires equal-length buffers)
-  if (cookieToken.length !== headerToken.length) {
-    res.status(403).json({
-      status: 'error',
-      code: 'ERR_CSRF_TOKEN_INVALID',
-      message: 'Permintaan tidak dapat diproses: token keamanan tidak valid.',
-    });
-    return;
-  }
-
-  // Timing-safe comparison to prevent timing oracle attacks
-  const cookieBuffer = Buffer.from(cookieToken, 'utf8');
+  // Timing-safe comparison to prevent timing oracle attacks. Accept only when
+  // the header matches one of the cookies exactly.
   const headerBuffer = Buffer.from(headerToken, 'utf8');
+  const hasMatchingCookie = cookieTokens.some((cookieToken) => {
+    if (cookieToken.length !== headerToken.length) return false;
+    return timingSafeEqual(Buffer.from(cookieToken, 'utf8'), headerBuffer);
+  });
 
-  if (!timingSafeEqual(cookieBuffer, headerBuffer)) {
+  if (!hasMatchingCookie) {
     res.status(403).json({
       status: 'error',
       code: 'ERR_CSRF_TOKEN_INVALID',
