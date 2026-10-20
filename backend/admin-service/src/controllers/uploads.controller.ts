@@ -26,7 +26,7 @@ const getUploadPath = (req: Request): string | null => {
 // All user, courier, merchant, evidence, and document uploads remain private.
 export const isPublicUploadPath = (rawPath: string): boolean => {
   const segments = rawPath.replace(/\\/g, '/').split('/');
-  return segments[0] === 'banners'
+  return (segments[0] === 'banners' || segments[0] === 'resi-templates')
     && segments.length > 1
     && segments.every((segment) => Boolean(segment) && segment !== '.' && segment !== '..' && !segment.startsWith('.'));
 };

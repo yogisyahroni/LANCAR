@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db } from '../db';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
+import { saveSecureUploadBuffer } from '../security/uploadSecurity';
 
 const CANONICAL_TEMPLATE_COLUMNS = [
   'id',
@@ -120,6 +121,26 @@ export const getResiTemplate = async (req: Request, res: Response) => {
     res.json(result.rows[0]);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const uploadResiTemplateAsset = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No image file uploaded' });
+      return;
+    }
+
+    const saved = saveSecureUploadBuffer(req.file, 'resi-templates/assets');
+    res.status(201).json({
+      success: true,
+      data: {
+        file_url: saved.fileUrl,
+        storage_key: saved.storageKey,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 

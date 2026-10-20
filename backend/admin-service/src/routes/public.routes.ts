@@ -105,7 +105,8 @@ publicRoutes.get('/api/v1/maps/geocode', (req, res) => controllers.getPublicMaps
 publicRoutes.get('/api/v1/maps/reverse-geocode', (req, res) => controllers.getPublicMapsReverseGeocode(req, res));
 publicRoutes.get('/track/:token', publicEndpointRateLimiter, (req, res) => controllers.getPublicTripShare(req, res));
 publicRoutes.get('/api/v1/public/location-requests/:token', publicEndpointRateLimiter, (req, res) => controllers.customerOrder.getReceiverLocationRequestPublic(req, res));
-// Public upload access is intentionally limited to the banner namespace.
+// Public upload access is intentionally limited to approved public asset namespaces.
 // Every other upload path is private and must pass downstream session/JWT auth.
 publicRoutes.use('/uploads/banners', (req, res) => controllers.servePublicUpload(req, res));
+publicRoutes.use('/uploads/resi-templates', (req, res) => controllers.servePublicUpload(req, res));
 publicRoutes.use('/uploads', requireMobileOrWebAuth, (req, res) => controllers.servePrivateUpload(req, res));

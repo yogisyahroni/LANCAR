@@ -93,6 +93,7 @@ adminRoutes.get('/admin/courier-enforcement/appeals', requireRole(['super_admin'
 adminRoutes.patch('/admin/courier-enforcement/appeals/:appealId', requireRole(['super_admin', 'ops_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.courier_enforcement.review'), (req, res) => controllers.reviewAdminCourierEnforcementAppeal(req, res));
 adminRoutes.get('/admin/resi-templates', (req, res) => controllers.listResiTemplates(req, res));
 adminRoutes.post('/admin/resi-templates', (req, res) => controllers.createResiTemplate(req, res));
+adminRoutes.post('/admin/resi-templates/upload-asset', ...secureUploadSingle('file', 'resiTemplateAsset'), (req, res) => controllers.uploadResiTemplateAsset(req, res));
 adminRoutes.get('/admin/resi-templates/:id', (req, res) => controllers.getResiTemplate(req, res));
 adminRoutes.put('/admin/resi-templates/:id', (req, res) => controllers.updateResiTemplate(req, res));
 adminRoutes.delete('/admin/resi-templates/:id', (req, res) => controllers.deleteResiTemplate(req, res));

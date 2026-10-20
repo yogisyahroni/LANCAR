@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Edit2, Trash2, CheckCircle2, XCircle, Code2, Play, Eye, GripVertical, Image as ImageIcon, Type, QrCode, Barcode as BarcodeIcon, Leaf, AlertTriangle, Square, Minus } from 'lucide-react'
+import { Plus, Edit2, Trash2, XCircle, Code2, GripVertical, Image as ImageIcon, Type, QrCode, Barcode as BarcodeIcon, Leaf, AlertTriangle, Square, Minus, Upload, LoaderCircle } from 'lucide-react'
 import { api } from '../lib/api'
+import { adminApiRootUrl } from '../lib/runtimeConfig'
 import { createClientId } from '../lib/clientId'
 import { toast } from 'sonner'
 import { Button } from '../components/Button'
@@ -41,12 +42,19 @@ interface DesignElement {
   barWidth?: number
 }
 
+interface ResiBranding {
+  tembusLogo: string
+  providerLogo: string
+}
+
+type AssetUploadTarget = 'tembus' | 'provider' | 'image'
+
 const TOOLBOX_ITEMS: Array<{ type: ElementType; label: string; icon: React.ComponentType<{ className?: string }>; defaultVal: string; width?: number; height?: number }> = [
   { type: 'text', label: 'Teks', icon: Type, defaultVal: '{{awb_number}}' },
   { type: 'barcode', label: 'Barcode', icon: BarcodeIcon, defaultVal: '{{awb_number}}' },
   { type: 'qrcode', label: 'QR Code', icon: QrCode, defaultVal: '{{tracking_url}}' },
   { type: 'logo', label: 'Logo Provider (Otomatis)', icon: ImageIcon, defaultVal: 'provider_logo' },
-  { type: 'image', label: 'Gambar (URL)', icon: ImageIcon, defaultVal: '', width: 100, height: 40 },
+  { type: 'image', label: 'Gambar Custom', icon: ImageIcon, defaultVal: '', width: 100, height: 40 },
   { type: 'eco_icon', label: 'Eco Badge', icon: Leaf, defaultVal: '' },
   { type: 'fragile_badge', label: 'Fragile Badge', icon: AlertTriangle, defaultVal: '' },
   { type: 'box', label: 'Kotak (Box)', icon: Square, defaultVal: '', width: 200, height: 100 },
@@ -61,7 +69,46 @@ const PAPER_SIZES = {
 } as const
 type PaperSize = keyof typeof PAPER_SIZES
 
+const DEFAULT_TEMBUS_LOGO = '/tembusweb-resi.svg'
+const RESI_ASSET_MAX_BYTES = 2 * 1024 * 1024
+const SUPPORTED_ASSET_TYPES = ['image/png', 'image/jpeg', 'image/webp']
+
 const isSafeImageSource = (value: string) => value.startsWith('/') || /^https?:\/\//i.test(value)
+const resolveAdminAssetUrl = (value: string) => value.startsWith('/uploads/') ? `${adminApiRootUrl}${value}` : value
+
+const createDefaultTembusElements = (): DesignElement[] => [
+  { id: createClientId('resi-element'), type: 'tembus_logo', x: 12, y: 10, value: '', width: 128, height: 32 },
+  { id: createClientId('resi-element'), type: 'text', x: 248, y: 18, value: 'COD: {{cod_amount}}', fontSize: 13, fontWeight: 'bold' },
+  { id: createClientId('resi-element'), type: 'h_line', x: 10, y: 52, value: '', width: 364, height: 2 },
+  { id: createClientId('resi-element'), type: 'text', x: 12, y: 62, value: 'No. Resi', fontSize: 10, fontWeight: 'bold' },
+  { id: createClientId('resi-element'), type: 'barcode', x: 142, y: 60, value: '{{awb_number}}', width: 230, height: 46, barWidth: 1.7 },
+  { id: createClientId('resi-element'), type: 'text', x: 144, y: 110, value: '{{awb_number}}', fontSize: 9 },
+  { id: createClientId('resi-element'), type: 'text', x: 12, y: 120, value: 'BERAT: {{weight}}', fontSize: 9, fontWeight: 'bold' },
+  { id: createClientId('resi-element'), type: 'text', x: 132, y: 120, value: 'QTY: {{total_items}} PCS', fontSize: 9, fontWeight: 'bold' },
+  { id: createClientId('resi-element'), type: 'text', x: 270, y: 120, value: '{{service_name}}', fontSize: 9, fontWeight: 'bold' },
+  { id: createClientId('resi-element'), type: 'h_line', x: 10, y: 140, value: '', width: 364, height: 2 },
+  { id: createClientId('resi-element'), type: 'text', x: 12, y: 150, value: 'PENGIRIM', fontSize: 9, fontWeight: 'bold' },
+  { id: createClientId('resi-element'), type: 'text', x: 12, y: 166, value: '{{sender_name}}', fontSize: 10, fontWeight: 'bold', width: 172 },
+  { id: createClientId('resi-element'), type: 'text', x: 12, y: 182, value: '{{sender_phone}}', fontSize: 9, width: 172 },
+  { id: createClientId('resi-element'), type: 'text', x: 12, y: 198, value: '{{sender_address}}', fontSize: 9, width: 172, height: 48 },
+  { id: createClientId('resi-element'), type: 'text', x: 204, y: 150, value: 'PENERIMA', fontSize: 9, fontWeight: 'bold' },
+  { id: createClientId('resi-element'), type: 'text', x: 204, y: 166, value: '{{receiver_name}}', fontSize: 10, fontWeight: 'bold', width: 168 },
+  { id: createClientId('resi-element'), type: 'text', x: 204, y: 182, value: '{{receiver_phone}}', fontSize: 9, width: 168 },
+  { id: createClientId('resi-element'), type: 'text', x: 204, y: 198, value: '{{receiver_address}}', fontSize: 9, width: 168, height: 48 },
+  { id: createClientId('resi-element'), type: 'h_line', x: 10, y: 258, value: '', width: 364, height: 2 },
+  { id: createClientId('resi-element'), type: 'text', x: 12, y: 268, value: 'ISI PAKET', fontSize: 9, fontWeight: 'bold' },
+  { id: createClientId('resi-element'), type: 'text', x: 12, y: 284, value: '{{item_description}}', fontSize: 10, width: 360, height: 32 },
+  { id: createClientId('resi-element'), type: 'h_line', x: 10, y: 330, value: '', width: 364, height: 2 },
+  { id: createClientId('resi-element'), type: 'qrcode', x: 16, y: 344, value: '{{tracking_url}}', width: 78, height: 78 },
+  { id: createClientId('resi-element'), type: 'text', x: 110, y: 350, value: 'SCAN QR UNTUK LACAK PAKET', fontSize: 10, fontWeight: 'bold', width: 250 },
+  { id: createClientId('resi-element'), type: 'text', x: 110, y: 370, value: 'Lacak status pengiriman di sistem TEMBUS.', fontSize: 9, width: 250, height: 30 },
+  { id: createClientId('resi-element'), type: 'h_line', x: 10, y: 445, value: '', width: 364, height: 2 },
+  { id: createClientId('resi-element'), type: 'text', x: 12, y: 456, value: 'Order ID: {{order_id}}', fontSize: 9, fontWeight: 'bold', width: 145 },
+  { id: createClientId('resi-element'), type: 'barcode', x: 160, y: 450, value: '{{order_id}}', width: 210, height: 38, barWidth: 1.2 },
+  { id: createClientId('resi-element'), type: 'text', x: 12, y: 516, value: 'Powered by TEMBUS · tembus.id', fontSize: 9, fontWeight: 'bold' },
+]
+
+const isWrappedText = (value: string) => /address|description|item_names/i.test(value)
 
 const ResiTemplates = () => {
   const [templates, setTemplates] = useState<ResiTemplate[]>([])
@@ -75,9 +122,17 @@ const ResiTemplates = () => {
   const [providerCode, setProviderCode] = useState<string>('')
   const [providers, setProviders] = useState<LogisticsProvider[]>([])
   const [elements, setElements] = useState<DesignElement[]>([])
+  const [branding, setBranding] = useState<ResiBranding>({ tembusLogo: DEFAULT_TEMBUS_LOGO, providerLogo: '' })
+  const [assetUploading, setAssetUploading] = useState<AssetUploadTarget | null>(null)
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null)
 
   const canvasRef = useRef<HTMLDivElement>(null)
+  const pointerDragRef = useRef<{
+    id: string
+    pointerId: number
+    offsetX: number
+    offsetY: number
+  } | null>(null)
 
   const resolvePreviewValue = (val: string) => {
     if (!val) return '';
@@ -138,22 +193,31 @@ const ResiTemplates = () => {
   const handleOpenModal = (t?: ResiTemplate) => {
     if (t) {
       setEditingTemplate(t)
-      setName(t.name)
+      setName(t.name || 'TEMBUS Standard A6')
       setPaperSize(t.paper_size === 'A4' ? 'A4' : 'A6')
       setIsActive(t.is_active)
       setProviderCode(t.provider_code || '')
       try {
-        setElements(t.layout_config?.elements || [])
+        const layoutConfig = typeof t.layout_config === 'string' ? JSON.parse(t.layout_config) : t.layout_config
+        setBranding({
+          tembusLogo: layoutConfig?.branding?.tembusLogo || DEFAULT_TEMBUS_LOGO,
+          providerLogo: layoutConfig?.branding?.providerLogo || '',
+        })
+        setElements(Array.isArray(layoutConfig?.elements) && layoutConfig.elements.length > 0
+          ? layoutConfig.elements
+          : createDefaultTembusElements())
       } catch(e) {
-        setElements([])
+        setBranding({ tembusLogo: DEFAULT_TEMBUS_LOGO, providerLogo: '' })
+        setElements(createDefaultTembusElements())
       }
     } else {
       setEditingTemplate(null)
-      setName('')
+      setName('TEMBUS Standard A6')
       setPaperSize('A6')
-      setIsActive(false)
+      setIsActive(true)
       setProviderCode('')
-      setElements([])
+      setBranding({ tembusLogo: DEFAULT_TEMBUS_LOGO, providerLogo: '' })
+      setElements(createDefaultTembusElements())
     }
     setSelectedElementId(null)
     setIsModalOpen(true)
@@ -168,6 +232,7 @@ const ResiTemplates = () => {
     e.preventDefault()
     const layout_config = {
       layout: 'standard',
+      branding,
       elements
     }
 
@@ -224,6 +289,7 @@ const ResiTemplates = () => {
   }
 
   const onDragStart = (e: React.DragEvent, item: typeof TOOLBOX_ITEMS[number]) => {
+    e.dataTransfer.effectAllowed = 'copy'
     e.dataTransfer.setData('type', item.type)
     e.dataTransfer.setData('defaultVal', item.defaultVal)
     e.dataTransfer.setData('width', String(item.width || ''))
@@ -261,6 +327,105 @@ const ResiTemplates = () => {
 
   const onCanvasDragOver = (e: React.DragEvent) => {
     e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+  }
+
+  const handleAssetUpload = async (target: AssetUploadTarget, file?: File) => {
+    if (!file) return
+    if (!SUPPORTED_ASSET_TYPES.includes(file.type)) {
+      toast.error('Gunakan file PNG, JPG, atau WebP untuk aset resi.')
+      return
+    }
+    if (file.size > RESI_ASSET_MAX_BYTES) {
+      toast.error('Ukuran aset resi maksimal 2 MB.')
+      return
+    }
+
+    setAssetUploading(target)
+    try {
+      const payload = new FormData()
+      payload.append('file', file)
+      const response = await api.post('/admin/resi-templates/upload-asset', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const fileUrl = String(response.data?.data?.file_url || '')
+      if (!fileUrl) throw new Error('URL aset tidak diterima dari server')
+
+      if (target === 'image') {
+        if (selectedElementId) updateElement(selectedElementId, { value: fileUrl })
+      } else {
+        setBranding((current) => ({ ...current, [target === 'tembus' ? 'tembusLogo' : 'providerLogo']: fileUrl }))
+      }
+      toast.success(target === 'image' ? 'Gambar berhasil diupload' : 'Logo berhasil diupload')
+    } catch (error: any) {
+      toast.error(`Upload aset gagal: ${error.response?.data?.error || error.message}`)
+    } finally {
+      setAssetUploading(null)
+    }
+  }
+
+  const addElement = (item: typeof TOOLBOX_ITEMS[number], x = 12, y = 12) => {
+    const width = item.width || (item.type === 'barcode' ? 200 : item.type === 'qrcode' ? 80 : 100)
+    const height = item.height || (item.type === 'barcode' ? 50 : item.type === 'qrcode' ? 80 : 40)
+    const element: DesignElement = {
+      id: createClientId('resi-element'),
+      type: item.type,
+      x: Math.min(x, Math.max(0, canvasSize.width - width)),
+      y: Math.min(y, Math.max(0, canvasSize.height - height)),
+      value: item.defaultVal,
+      fontSize: 14,
+      width,
+      height,
+    }
+    setElements(current => [...current, element])
+    setSelectedElementId(element.id)
+  }
+
+  const getCanvasPoint = (clientX: number, clientY: number) => {
+    const canvas = canvasRef.current
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: (clientX - rect.left) * (canvasSize.width / rect.width),
+      y: (clientY - rect.top) * (canvasSize.height / rect.height),
+    }
+  }
+
+  const startElementPointerDrag = (event: React.PointerEvent<HTMLDivElement>, element: DesignElement) => {
+    if (event.button !== 0) return
+    const point = getCanvasPoint(event.clientX, event.clientY)
+    if (!point) return
+    event.preventDefault()
+    event.stopPropagation()
+    pointerDragRef.current = {
+      id: element.id,
+      pointerId: event.pointerId,
+      offsetX: point.x - element.x,
+      offsetY: point.y - element.y,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setSelectedElementId(element.id)
+  }
+
+  const moveElementWithPointer = (event: React.PointerEvent<HTMLDivElement>, element: DesignElement) => {
+    const drag = pointerDragRef.current
+    if (!drag || drag.id !== element.id || drag.pointerId !== event.pointerId) return
+    const point = getCanvasPoint(event.clientX, event.clientY)
+    if (!point) return
+    const { width, height } = getElementSize(element)
+    updateElement(element.id, {
+      x: Math.min(Math.max(0, point.x - drag.offsetX), Math.max(0, canvasSize.width - width)),
+      y: Math.min(Math.max(0, point.y - drag.offsetY), Math.max(0, canvasSize.height - height)),
+    })
+  }
+
+  const finishElementPointerDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (pointerDragRef.current?.pointerId === event.pointerId) {
+      pointerDragRef.current = null
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+    }
   }
 
   const updateElement = (id: string, updates: Partial<DesignElement>) => {
@@ -366,7 +531,7 @@ const ResiTemplates = () => {
               className="absolute inset-0 bg-scrim/60 backdrop-blur-sm"
               onClick={handleCloseModal}
             />
-            <FocusTrap active={isModalOpen} className="w-full max-w-6xl h-[90vh]">
+            <FocusTrap active={isModalOpen} className="relative z-10 w-full max-w-6xl h-[90vh]">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -416,6 +581,54 @@ const ResiTemplates = () => {
                 </button>
               </div>
 
+              <div className="px-4 py-3 border-b border-border bg-background/70">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div>
+                    <h2 className="text-xs font-bold text-foreground uppercase tracking-wider">Branding Resi</h2>
+                    <p className="text-[11px] text-foreground-muted mt-1">Upload logo di sini. Canvas dan hasil cetak otomatis hitam putih.</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-foreground-muted">
+                    <span className="h-2 w-2 rounded-full bg-foreground" aria-hidden="true" />
+                    Monokrom wajib
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3">
+                    <div className="flex h-12 w-24 shrink-0 items-center justify-center rounded-lg border border-border bg-white px-2">
+                      <img src={resolveAdminAssetUrl(branding.tembusLogo || DEFAULT_TEMBUS_LOGO)} alt="Preview logo TEMBUS" className="max-h-8 max-w-full object-contain" style={{ filter: 'grayscale(1) contrast(1.15)' }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-foreground">Logo TEMBUS</p>
+                      <p className="truncate text-[11px] text-foreground-muted">Logo utama platform</p>
+                    </div>
+                    <label htmlFor="resi-logo-tembus" className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-border px-2.5 py-2 text-xs font-bold text-foreground hover:border-primary hover:text-primary">
+                      {assetUploading === 'tembus' ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Upload className="h-3.5 w-3.5" aria-hidden="true" />}
+                      {assetUploading === 'tembus' ? 'Uploading' : 'Upload'}
+                    </label>
+                    <input id="resi-logo-tembus" className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={assetUploading !== null} onChange={(event) => { void handleAssetUpload('tembus', event.target.files?.[0]); event.currentTarget.value = '' }} />
+                  </div>
+
+                  <div className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3">
+                    <div className="flex h-12 w-24 shrink-0 items-center justify-center rounded-lg border border-border bg-white px-2">
+                      {branding.providerLogo && isSafeImageSource(branding.providerLogo) ? (
+                        <img src={resolveAdminAssetUrl(branding.providerLogo)} alt="Preview logo kurir" className="max-h-8 max-w-full object-contain" style={{ filter: 'grayscale(1) contrast(1.15)' }} />
+                      ) : (
+                        <span className="text-center text-[10px] font-bold uppercase text-slate-500">Logo kurir</span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-foreground">Logo Kurir</p>
+                      <p className="truncate text-[11px] text-foreground-muted">{providers.find((provider) => provider.code === providerCode)?.name || providerCode || 'Provider yang dipilih'}</p>
+                    </div>
+                    <label htmlFor="resi-logo-provider" className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-border px-2.5 py-2 text-xs font-bold text-foreground hover:border-primary hover:text-primary">
+                      {assetUploading === 'provider' ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Upload className="h-3.5 w-3.5" aria-hidden="true" />}
+                      {assetUploading === 'provider' ? 'Uploading' : 'Upload'}
+                    </label>
+                    <input id="resi-logo-provider" className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={assetUploading !== null} onChange={(event) => { void handleAssetUpload('provider', event.target.files?.[0]); event.currentTarget.value = '' }} />
+                  </div>
+                </div>
+              </div>
+
               <div className="flex-1 flex overflow-hidden">
                 {/* Toolbox */}
                 <div className="w-64 border-r border-border bg-background p-4 overflow-y-auto">
@@ -423,16 +636,19 @@ const ResiTemplates = () => {
                     <h3 className="text-xs font-bold text-foreground-muted uppercase tracking-wider mb-4">Elements</h3>
                   <div className="space-y-2">
                     {TOOLBOX_ITEMS.map(item => (
-                      <div 
+                      <button
+                        type="button"
                         key={item.type}
                         draggable
                         onDragStart={(e) => onDragStart(e, item)}
-                        className="flex items-center gap-3 bg-surface p-3 rounded-xl border border-border cursor-grab active:cursor-grabbing hover:border-primary/50 transition-colors"
+                        onClick={() => addElement(item)}
+                        aria-label={`Tambahkan ${item.label}`}
+                        className="w-full flex items-center gap-3 bg-surface p-3 rounded-xl border border-border cursor-grab active:cursor-grabbing hover:border-primary/50 transition-colors text-left"
                       >
                         <item.icon className="w-5 h-5 text-primary" aria-hidden="true" />
                         <span className="text-sm font-medium text-foreground">{item.label}</span>
                         <GripVertical className="w-4 h-4 text-foreground-muted ml-auto" aria-hidden="true" />
-                      </div>
+                      </button>
                     ))}
                   </div>
 
@@ -455,6 +671,7 @@ const ResiTemplates = () => {
                     ref={canvasRef}
                     onDrop={onCanvasDrop}
                     onDragOver={onCanvasDragOver}
+                    onClick={() => setSelectedElementId(null)}
                     className="bg-surface relative shadow-2xl overflow-hidden"
                     style={{ width: canvasSize.width, height: canvasSize.height }}
                   >
@@ -473,26 +690,19 @@ const ResiTemplates = () => {
                         tabIndex={0}
                         aria-label={`Pilih elemen ${el.type}`}
                         className={`absolute cursor-move select-none ${selectedElementId === el.id ? 'ring-2 ring-primary ring-offset-1' : ''}`}
-                        style={{ left: el.x, top: el.y }}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('moveId', el.id);
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          e.dataTransfer.setData('offsetX', (e.clientX - rect.left).toString());
-                          e.dataTransfer.setData('offsetY', (e.clientY - rect.top).toString());
+                        style={{
+                          left: el.x,
+                          top: el.y,
+                          width: el.width || (isWrappedText(el.value) ? 160 : undefined),
+                          minHeight: el.height || undefined,
+                          touchAction: 'none',
                         }}
-                        onDragEnd={(e) => {
-                          if (!canvasRef.current) return;
-                          const rect = canvasRef.current.getBoundingClientRect();
-                          const { width, height } = getElementSize(el);
-                          const offsetX = Number(e.dataTransfer.getData('offsetX')) || 0;
-                          const offsetY = Number(e.dataTransfer.getData('offsetY')) || 0;
-                          const newX = Math.min(Math.max(0, e.clientX - rect.left - offsetX), Math.max(0, canvasSize.width - width));
-                          const newY = Math.min(Math.max(0, e.clientY - rect.top - offsetY), Math.max(0, canvasSize.height - height));
-                          updateElement(el.id, { x: newX, y: newY });
-                        }}
+                        onPointerDown={(event) => startElementPointerDrag(event, el)}
+                        onPointerMove={(event) => moveElementWithPointer(event, el)}
+                        onPointerUp={finishElementPointerDrag}
+                        onPointerCancel={finishElementPointerDrag}
                       >
-                        {el.type === 'text' && <span style={{ fontSize: el.fontSize || 14, color: '#000', whiteSpace: 'nowrap', fontWeight: el.fontWeight || 'normal' }}>{resolvePreviewValue(el.value)}</span>}
+                        {el.type === 'text' && <span style={{ fontSize: el.fontSize || 14, color: '#000', whiteSpace: isWrappedText(el.value) ? 'normal' : 'nowrap', lineHeight: 1.25, fontWeight: el.fontWeight || 'normal' }}>{resolvePreviewValue(el.value)}</span>}
                         {el.type === 'qrcode' && (
                           <div style={{ width: el.width || 80, height: el.height || 80 }} className="bg-surface border border-border flex flex-col items-center justify-center p-1 text-center font-mono overflow-hidden">
                             <QrCode style={{ width: (el.width || 80) - 20, height: (el.height || 80) - 20 }} className="text-foreground-muted" aria-hidden="true" />
@@ -504,21 +714,30 @@ const ResiTemplates = () => {
                           </div>
                         )}
                         {el.type === 'logo' && (
-                          <div style={{ width: el.width || 120, height: el.height || 32 }} className="bg-surface-subtle border border-border flex items-center justify-center text-xs text-foreground-muted font-bold tracking-wide rounded">
-                            LOGO KURIR
-                          </div>
+                          branding.providerLogo && isSafeImageSource(branding.providerLogo) ? (
+                            <img
+                              src={resolveAdminAssetUrl(branding.providerLogo)}
+                              alt="Logo kurir"
+                              style={{ width: el.width || 120, height: el.height || 32, objectFit: 'contain', filter: 'grayscale(1) contrast(1.15)' }}
+                              draggable={false}
+                            />
+                          ) : (
+                            <div style={{ width: el.width || 120, height: el.height || 32 }} className="bg-surface-subtle border border-border flex items-center justify-center text-xs text-foreground-muted font-bold tracking-wide rounded">
+                              LOGO KURIR
+                            </div>
+                          )
                         )}
                         {el.type === 'image' && (
                           isSafeImageSource(el.value) ? (
                             <img
-                              src={el.value}
+                              src={resolveAdminAssetUrl(el.value)}
                               alt="Gambar template resi"
                               style={{ width: el.width || 100, height: el.height || 40, objectFit: 'contain' }}
                               draggable={false}
                             />
                           ) : (
                             <div style={{ width: el.width || 100, height: el.height || 40 }} className="border border-dashed border-border flex items-center justify-center text-[10px] text-foreground-muted text-center p-1">
-                              Masukkan URL gambar yang aman
+                              Masukkan path atau URL gambar yang aman
                             </div>
                           )
                         )}
@@ -546,9 +765,9 @@ const ResiTemplates = () => {
                         )}
                         {el.type === 'tembus_logo' && (
                           <img
-                            src="/tembusweb-resi.svg"
-                            alt="TEMBUS Logo"
-                            style={{ width: el.width || 120, height: el.height || 30, objectFit: 'contain' }}
+                            src={resolveAdminAssetUrl(branding.tembusLogo || DEFAULT_TEMBUS_LOGO)}
+                            alt="Logo TEMBUS"
+                            style={{ width: el.width || 120, height: el.height || 30, objectFit: 'contain', filter: 'grayscale(1) contrast(1.15)' }}
                             draggable={false}
                           />
                         )}
@@ -559,21 +778,40 @@ const ResiTemplates = () => {
 
                 {/* Properties Panel */}
                 <div className="w-64 border-l border-border bg-background p-4 overflow-y-auto">
-                  <h3 className="text-xs font-bold text-foreground-muted uppercase tracking-wider mb-4">Properties</h3>
+                  <h3 className="text-xs font-bold text-foreground-muted uppercase tracking-wider mb-2">Properties</h3>
+                  <p className="text-xs text-foreground-muted mb-4">Klik elemen untuk memilih. Geser langsung di kertas atau ubah angka posisinya.</p>
                   {selectedElementId ? (() => {
                     const el = elements.find(x => x.id === selectedElementId)!;
                     return (
                       <div className="space-y-4">
-                        <div>
-                          <label className="block text-xs font-medium text-foreground-muted mb-1">Value (e.g. {'{'}{'{'} awb_number {'}'}{'}'})</label>
-                          <input 
-                            type="text"
-                            aria-label="Value"
-                            value={el.value}
-                            onChange={(e) => updateElement(el.id, { value: e.target.value })}
-                            className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
-                          />
-                        </div>
+                        {!['logo', 'tembus_logo'].includes(el.type) ? (
+                          <div>
+                            <label className="block text-xs font-medium text-foreground-muted mb-1">{el.type === 'image' ? 'Path atau URL gambar (opsional)' : <>Value (e.g. {'{'}{'{'} awb_number {'}'}{'}'})</>}</label>
+                            <input
+                              type="text"
+                              aria-label="Value"
+                              value={el.value}
+                              onChange={(e) => updateElement(el.id, { value: e.target.value })}
+                              className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm text-foreground"
+                              placeholder={el.type === 'image' ? 'Upload file atau masukkan /path atau URL https' : undefined}
+                            />
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-border bg-surface p-3 text-xs text-foreground-muted">
+                            {el.type === 'tembus_logo' ? 'Menggunakan Logo TEMBUS dari panel Branding Resi.' : 'Menggunakan Logo Kurir dari panel Branding Resi.'}
+                            <span className="mt-1 block font-semibold text-foreground">Selalu hitam putih di canvas dan hasil cetak.</span>
+                          </div>
+                        )}
+                        {el.type === 'image' && (
+                          <div className="rounded-lg border border-dashed border-border bg-surface p-3">
+                            <label htmlFor={`resi-image-upload-${el.id}`} className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-bold text-foreground hover:border-primary hover:text-primary">
+                              {assetUploading === 'image' ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Upload className="h-3.5 w-3.5" aria-hidden="true" />}
+                              {assetUploading === 'image' ? 'Uploading gambar...' : 'Upload file gambar'}
+                            </label>
+                            <input id={`resi-image-upload-${el.id}`} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={assetUploading !== null} onChange={(event) => { void handleAssetUpload('image', event.target.files?.[0]); event.currentTarget.value = '' }} />
+                            <p className="mt-2 text-[10px] leading-relaxed text-foreground-muted">PNG, JPG, atau WebP maksimal 2 MB.</p>
+                          </div>
+                        )}
                         {el.type === 'text' && (
                           <div>
                             <label className="block text-xs font-medium text-foreground-muted mb-1">Font Size</label>
@@ -646,7 +884,7 @@ const ResiTemplates = () => {
                           </div>
                         </div>
                         <div className="pt-4 mt-4 border-t border-border">
-                          <Button variant="outline" size="sm" onClick={() => removeElement(el.id)} className="w-full text-error">
+                          <Button type="button" variant="outline" size="sm" onClick={() => removeElement(el.id)} className="w-full text-error">
                             Delete Element
                           </Button>
                         </div>
@@ -682,8 +920,8 @@ const ResiTemplates = () => {
               </div>
 
               <div className="p-4 border-t border-border bg-background flex justify-end gap-3">
-                <Button variant="outline" onClick={handleCloseModal}>Cancel</Button>
-                <Button onClick={handleSubmit}>Save Template</Button>
+                <Button type="button" variant="outline" onClick={handleCloseModal}>Batal</Button>
+                <Button type="button" onClick={handleSubmit}>Simpan Template</Button>
               </div>
             </motion.div>
             </FocusTrap>

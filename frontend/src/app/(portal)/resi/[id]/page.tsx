@@ -26,12 +26,17 @@ import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
 import { CarrierStatusBadge } from "@/components/orders/CarrierStatusBadge";
 import { getOrderStatusPresentation } from "@/components/orders/orderPresentation";
 import { presentCarrierStatus } from "@/lib/carrierStatusPresentation";
+import { customerApiRootUrl } from "@/lib/runtimeConfig";
 
 interface Order {
   id: string;
   order_number: string;
   pickup_address: string;
+  pickup_city?: string | null;
+  pickup_zip_code?: string | null;
   dropoff_address: string;
+  dropoff_city?: string | null;
+  dropoff_zip_code?: string | null;
   recipient_name: string;
   recipient_phone?: string;
   sender_name?: string;
@@ -83,6 +88,16 @@ const PAPER_SIZES = {
 
 const isSafeImageSource = (value: unknown): value is string =>
   typeof value === "string" && (value.startsWith("/") || /^https?:\/\//i.test(value));
+
+const resolveCustomerAssetUrl = (value: string) =>
+  value.startsWith("/uploads/") ? `${customerApiRootUrl}${value}` : value;
+
+const formatLocation = (address: string | null | undefined, city?: string | null, postalCode?: string | null) => {
+  const parts = [address, city, postalCode]
+    .map((part) => (part || "").trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : "-";
+};
 
 export default function ResiDetailPage({
   params,
@@ -200,11 +215,14 @@ export default function ResiDetailPage({
   }
 
   const elements = templateData?.layout_config?.elements || [];
+  const branding = templateData?.layout_config?.branding || {};
   const paperSize = templateData?.paper_size === "A4" ? "A4" : "A6";
   const canvasSize = PAPER_SIZES[paperSize];
 
   const resolveValue = (val: string, currentOrder: Order) => {
     if (!val) return "";
+    const pickupAddress = formatLocation(currentOrder.pickup_address, currentOrder.pickup_city, currentOrder.pickup_zip_code);
+    const dropoffAddress = formatLocation(currentOrder.dropoff_address, currentOrder.dropoff_city, currentOrder.dropoff_zip_code);
     return val
       .replace(/{{order_number}}/g, currentOrder.order_number || "")
       .replace(/{{awb_number}}/g, currentOrder.awb_number || "")
@@ -228,12 +246,12 @@ export default function ResiDetailPage({
       .replace(/{{customer_name}}/g, currentOrder.recipient_name || "")
       .replace(/{{sender_name}}/g, currentOrder.sender_name || "-")
       .replace(/{{sender_phone}}/g, currentOrder.sender_phone || "-")
-      .replace(/{{sender_address}}/g, currentOrder.pickup_address || "-")
-      .replace(/{{pickup_address}}/g, currentOrder.pickup_address || "-")
+      .replace(/{{sender_address}}/g, pickupAddress)
+      .replace(/{{pickup_address}}/g, pickupAddress)
       .replace(/{{receiver_name}}/g, currentOrder.recipient_name || "-")
       .replace(/{{receiver_phone}}/g, currentOrder.recipient_phone || "-")
-      .replace(/{{receiver_address}}/g, currentOrder.dropoff_address || "-")
-      .replace(/{{dropoff_address}}/g, currentOrder.dropoff_address || "-")
+      .replace(/{{receiver_address}}/g, dropoffAddress)
+      .replace(/{{dropoff_address}}/g, dropoffAddress)
       .replace(/{{item_names}}/g, currentOrder.item_names || "-")
       .replace(/{{item_description}}/g, currentOrder.item_description || currentOrder.item_names || "-")
       .replace(
@@ -334,15 +352,23 @@ export default function ResiDetailPage({
               <div
                 key={el.id}
                 className="absolute"
-                style={{ left: el.x, top: el.y }}
+                style={{
+                  left: el.x,
+                  top: el.y,
+                  width: el.width || (/address|description|item_names/i.test(el.value || "") ? 160 : undefined),
+                  minHeight: el.height || undefined,
+                }}
               >
                 {el.type === "text" && (
-                  <span
+                    <span
                     style={{
                       fontSize: el.fontSize || 14,
                       color: "#000",
-                      whiteSpace: "nowrap",
+                      whiteSpace: /address|description|item_names/i.test(el.value || "") ? "normal" : "nowrap",
+                      lineHeight: 1.25,
                       fontWeight: el.fontWeight || "normal",
+                      display: "inline-block",
+                      width: "100%",
                     }}
                   >
                     {resolveValue(el.value, order)}
@@ -378,14 +404,15 @@ export default function ResiDetailPage({
                   />
                 )}
                 {el.type === "logo" &&
-                  (isSafeImageSource(el.value) ? (
+                  (isSafeImageSource(branding.providerLogo) ? (
                     <img
-                      src={resolveValue(el.value, order)}
-                      alt="Logo"
+                      src={resolveCustomerAssetUrl(branding.providerLogo)}
+                      alt="Logo kurir"
                       style={{
                         width: el.width || 100,
                         height: el.height || 32,
                         objectFit: "contain",
+                        filter: "grayscale(1) contrast(1.15)",
                       }}
                       onError={(e) => {
                         e.currentTarget.style.display = "none";
@@ -405,7 +432,7 @@ export default function ResiDetailPage({
                 {el.type === "image" && (
                   isSafeImageSource(el.value) ? (
                     <img
-                      src={resolveValue(el.value, order)}
+                      src={resolveCustomerAssetUrl(resolveValue(el.value, order))}
                       alt="Gambar template resi"
                       style={{
                         width: el.width || 100,
@@ -451,12 +478,13 @@ export default function ResiDetailPage({
                 )}
                 {el.type === "tembus_logo" && (
                   <img
-                    src="/tembusweb-resi.svg"
+                    src={resolveCustomerAssetUrl(branding.tembusLogo || "/tembusweb-resi.svg")}
                     alt="TEMBUS Logo"
                     style={{
                       width: el.width || 120,
                       height: el.height || 30,
                       objectFit: "contain",
+                      filter: "grayscale(1) contrast(1.15)",
                     }}
                   />
                 )}

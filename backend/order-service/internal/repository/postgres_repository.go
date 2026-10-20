@@ -446,8 +446,8 @@ func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string)
 func (r *postgresRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order, error) {
 	query := `SELECT 
 				id, order_number, customer_id, model, status, 
-				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, 
-				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
+				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, COALESCE(pickup_city, ''), COALESCE(pickup_zip_code, ''),
+				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, COALESCE(dropoff_city, ''), COALESCE(dropoff_zip_code, ''),
 				COALESCE(length, 0), COALESCE(width, 0), COALESCE(height, 0), COALESCE(weight, 0), COALESCE(item_description, ''), COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, COALESCE(handover_token, ''), dispatch_expiry, COALESCE(batch_id::text, ''), COALESCE(sequence_no, 0),
@@ -468,8 +468,8 @@ func (r *postgresRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order,
 	var courierID string
 	err := r.readDB.QueryRowContext(ctx, query, awb).Scan(
 		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
-		&o.PickupLat, &o.PickupLng, &o.PickupAddress,
-		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+		&o.PickupLat, &o.PickupLng, &o.PickupAddress, &o.PickupCity, &o.PickupZipCode,
+		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress, &o.DropoffCity, &o.DropoffZipCode,
 		&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
 		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
 		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.AWB, &o.TrackingURL, &o.CreatedAt, &o.UpdatedAt,
@@ -1470,4 +1470,13 @@ func (r *postgresRepo) GetUserSenderName(ctx context.Context, userID string) (st
 	var senderName string
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(&senderName)
 	return senderName, err
+}
+
+func (r *postgresRepo) GetUserSenderContact(ctx context.Context, userID string) (string, string, error) {
+	query := `SELECT COALESCE(NULLIF(awb_sender_name, ''), NULLIF(full_name, ''), ''), COALESCE(phone_number, '') FROM users WHERE id = $1`
+	var senderName, senderPhone string
+	if err := r.db.QueryRowContext(ctx, query, userID).Scan(&senderName, &senderPhone); err != nil {
+		return "", "", err
+	}
+	return senderName, senderPhone, nil
 }

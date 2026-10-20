@@ -40,7 +40,11 @@ func TestRenderResiByAWBReplacesDesignerVariables(t *testing.T) {
 		LogisticsProvider:    "jne",
 		LogisticsServiceType: "REG",
 		PickupAddress:        "Jakarta",
+		PickupCity:           "Jakarta Pusat",
+		PickupZipCode:        "10210",
 		DropoffAddress:       "Bandung",
+		DropoffCity:          "Bandung",
+		DropoffZipCode:       "40123",
 		ReceiverName:         "Andi",
 		ItemDescription:      "Kemeja",
 		Weight:               1.2,
@@ -51,7 +55,7 @@ func TestRenderResiByAWBReplacesDesignerVariables(t *testing.T) {
 		ID:           "template-1",
 		Name:         "JNE A6",
 		PaperSize:    "A6",
-		LayoutConfig: `{"layout":"standard","elements":[{"type":"text","value":"{{awb_number}} - {{receiver_name}} - {{item_description}} - {{weight}} - {{routing_code}}"}]}`,
+		LayoutConfig: `{"layout":"standard","elements":[{"type":"text","value":"{{awb_number}} - {{receiver_name}} - {{item_description}} - {{weight}} - {{routing_code}} - {{dropoff_address}} - {{cod_amount}} - {{tracking_url}}"}]}`,
 	}
 
 	result, err := NewResiService(
@@ -72,14 +76,17 @@ func TestRenderResiByAWBReplacesDesignerVariables(t *testing.T) {
 	}
 	element := elements[0].(map[string]interface{})
 	value := element["value"].(string)
-	for _, expected := range []string{"JNE123", "Andi", "Kemeja", "1.2 kg", "JKT-BDG"} {
+	for _, expected := range []string{"JNE123", "Andi", "Kemeja", "1.2 kg", "JKT-BDG", "0", "https://tembus.id/track/JNE123"} {
 		if !strings.Contains(value, expected) {
 			t.Errorf("rendered value %q does not contain %q", value, expected)
 		}
 	}
+	if !strings.Contains(value, "Bandung, 40123") {
+		t.Errorf("rendered value %q does not contain formatted drop-off location", value)
+	}
 }
 
-func TestRenderResiByAWBRejectsMalformedProcessedLayout(t *testing.T) {
+func TestRenderResiByAWBEscapesDataInsideLayoutValues(t *testing.T) {
 	order := &domain.Order{
 		CustomerID:        "customer-1",
 		AWB:               "JNE123",
@@ -92,11 +99,16 @@ func TestRenderResiByAWBRejectsMalformedProcessedLayout(t *testing.T) {
 		LayoutConfig: `{"elements":[{"value":"{{item_description}}"}]}`,
 	}
 
-	_, err := NewResiService(
+	result, err := NewResiService(
 		&fakeResiOrderRepo{order: order},
 		&fakeResiTemplateRepo{template: template},
 	).RenderResiByAWB(context.Background(), "JNE123")
-	if err == nil || !strings.Contains(err.Error(), "invalid processed layout config json") {
-		t.Fatalf("RenderResiByAWB() error = %v, want processed layout validation error", err)
+	if err != nil {
+		t.Fatalf("RenderResiByAWB() error = %v, want safe rendering", err)
+	}
+	layout := result["layout_config"].(map[string]interface{})
+	element := layout["elements"].([]interface{})[0].(map[string]interface{})
+	if element["value"] != `bad"value` {
+		t.Fatalf("rendered value = %#v, want original quoted value", element["value"])
 	}
 }

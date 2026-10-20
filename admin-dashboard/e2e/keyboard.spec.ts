@@ -151,6 +151,94 @@ test('Admin resi template icon actions retain names and keyboard activation @key
   await expect(page.getByRole('dialog', { name: 'Edit Resi Template' })).toBeVisible();
 });
 
+test('Admin resi template designer supports click add, property editing and pointer drag @resi-editor', async ({ page }) => {
+  const template = {
+    id: 'resi-template-editor-fixture',
+    name: 'TEMBUS Editor Fixture',
+    layout_config: {
+      layout: 'standard',
+      elements: [{ id: 'fixture-text', type: 'text', x: 12, y: 12, value: '{{awb_number}}', fontSize: 14 }],
+    },
+    is_active: false,
+    provider_code: null,
+    created_at: '2026-10-21T00:00:00.000Z',
+    updated_at: '2026-10-21T00:00:00.000Z',
+  };
+  let savedPayload: Record<string, unknown> | null = null;
+
+  await page.route('**/*', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.pathname.endsWith('/auth/web/me')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: { id: 'resi-editor-fixture', name: 'Resi Editor Fixture', role: 'super_admin', permissions: [] } }) });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/resi-templates') && request.method() === 'GET') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([template]) });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/resi-templates/resi-template-editor-fixture') && request.method() === 'PUT') {
+      savedPayload = request.postDataJSON() as Record<string, unknown>;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...template, ...savedPayload }) });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/resi-templates/upload-asset') && request.method() === 'POST') {
+      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ success: true, data: { file_url: '/uploads/resi-templates/assets/provider-logo.png' } }) });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/logistics-providers')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/dashboard/events')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return;
+    }
+    if (request.resourceType() === 'xhr' || request.resourceType() === 'fetch') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto('/resi-templates', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: 'Edit TEMBUS Editor Fixture' }).click();
+  await expect(page.getByRole('dialog', { name: 'Edit Resi Template' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Branding Resi' })).toBeVisible();
+  await page.locator('#resi-logo-provider').setInputFiles({
+    name: 'provider-logo.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('fixture-logo'),
+  });
+  await expect(page.getByText('Logo berhasil diupload')).toBeVisible();
+  await expect(page.locator('img[alt="Preview logo kurir"]')).toHaveAttribute('src', /provider-logo\.png/);
+
+  await page.getByRole('button', { name: 'Tambahkan Teks' }).click();
+  const valueInput = page.getByRole('textbox', { name: 'Value' });
+  await expect(valueInput).toHaveValue('{{awb_number}}');
+  await valueInput.fill('TEMBUS {{awb_number}}');
+  await expect(page.getByText('TEMBUS JP1234567890')).toBeVisible();
+
+  const xInput = page.getByRole('spinbutton', { name: 'X Position' });
+  await xInput.fill('40');
+  await xInput.press('Tab');
+  await expect(xInput).toHaveValue('40');
+
+  const selectedElement = page.getByRole('button', { name: 'Pilih elemen text' }).last();
+  const box = await selectedElement.boundingBox();
+  if (!box) throw new Error('Selected resi element has no layout box');
+  await page.mouse.move(box.x + 8, box.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 48, box.y + 28);
+  await page.mouse.up();
+  await expect(xInput).not.toHaveValue('40');
+
+  await page.getByRole('button', { name: 'Simpan Template' }).click();
+  await expect.poll(() => savedPayload).not.toBeNull();
+  expect((savedPayload?.layout_config as { elements: unknown[] }).elements.length).toBe(2);
+  expect((savedPayload?.layout_config as { branding: { providerLogo: string } }).branding.providerLogo).toContain('provider-logo.png');
+});
+
 test('Admin collapsed sidebar preserves names, current location and focus @keyboard', async ({ page }) => {
   await page.route('**/*', async (route) => {
     const url = route.request().url();
