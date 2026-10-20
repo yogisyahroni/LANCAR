@@ -5,6 +5,7 @@ import {
   BadgePercent,
   BellRing,
   CalendarClock,
+  ChevronDown,
   CheckCircle2,
   ClipboardList,
   Clock,
@@ -20,6 +21,7 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
+  Trash2,
   WalletCards,
 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -335,13 +337,14 @@ function PromoStatusPill({ status }: { status: PromoStatus }) {
               ? 'superseded'
               : 'draft'
 
-  return <StatusBadge status={semanticStatus} label={label} labelPrefix="Promo status" className="px-3 py-1" />
+  return <StatusBadge status={semanticStatus} label={label} labelPrefix="Status promo" className="px-3 py-1" />
 }
 
 export default function Promos() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [form, setForm] = useState<PromoFormState>(initialForm)
+  const [showExternalImageUrl, setShowExternalImageUrl] = useState(false)
   const [simulation, setSimulation] = useState<SimulationState>(initialSimulation)
   const [simulationResult, setSimulationResult] = useState<any>(null)
   const [notificationDrafts, setNotificationDrafts] = useState<Record<string, PromoNotificationDraft>>({})
@@ -368,6 +371,7 @@ export default function Promos() {
     onSuccess: () => {
       toast.success('Campaign promo dibuat sebagai draft')
       setForm(initialForm)
+      setShowExternalImageUrl(false)
       queryClient.invalidateQueries({ queryKey: ['promo-campaigns'] })
     },
     onError: (error: any) => toast.error(queryErrorMessage(error, 'Campaign promo gagal dibuat')),
@@ -545,11 +549,11 @@ export default function Promos() {
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-success bg-success-surface px-4 py-2 text-xs font-black uppercase tracking-wide text-success">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            Margin Safe Promotion Control
+            Promo dengan perlindungan margin
           </div>
-          <h1 className="mt-6 text-4xl font-black tracking-tight text-foreground">Promo Engine</h1>
+          <h1 className="mt-6 text-4xl font-black tracking-tight text-foreground">Promo &amp; Kode Redeem</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-foreground-muted">
-            Kelola campaign promo dengan guard margin dinamis, budget ledger, approval superadmin, dan audit trail. Diskon final selalu dihitung backend setelah pajak/asuransi.
+            Kelola promo dengan perlindungan margin, anggaran, persetujuan superadmin, dan riwayat aktivitas. Nilai diskon final selalu dihitung server setelah pajak dan asuransi.
           </p>
         </div>
         <button
@@ -561,23 +565,23 @@ export default function Promos() {
           className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface-subtle px-5 py-3 text-xs font-black uppercase tracking-wide text-foreground-muted transition-all hover:bg-surface-subtle active:scale-[0.98]"
         >
           <RefreshCw className={cn('h-4 w-4', (campaignsQuery.isFetching || policiesQuery.isFetching) && 'animate-spin')} aria-hidden="true" />
-          Refresh
+          Muat ulang
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={BadgePercent} label="Campaign aktif" value={activeCampaigns.toLocaleString('id-ID')} />
-        <MetricCard icon={WalletCards} label="Total budget" value={formatIdr(totalBudget)} tone="blue" />
-        <MetricCard icon={Coins} label="Budget terpakai" value={formatIdr(redeemedBudget)} tone="amber" />
-        <MetricCard icon={AlertTriangle} label="Risk campaign" value={riskCampaigns.toLocaleString('id-ID')} tone={riskCampaigns > 0 ? 'red' : 'emerald'} />
+        <MetricCard icon={BadgePercent} label="Promo aktif" value={activeCampaigns.toLocaleString('id-ID')} />
+        <MetricCard icon={WalletCards} label="Total anggaran" value={formatIdr(totalBudget)} tone="blue" />
+        <MetricCard icon={Coins} label="Anggaran terpakai" value={formatIdr(redeemedBudget)} tone="amber" />
+        <MetricCard icon={AlertTriangle} label="Promo berisiko tinggi" value={riskCampaigns.toLocaleString('id-ID')} tone={riskCampaigns > 0 ? 'red' : 'emerald'} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <section className="rounded-[36px] border border-border bg-surface/[0.03] p-6 shadow-xl shadow-scrim">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-black tracking-tight text-foreground-muted">Campaign baru</h2>
-              <p className="mt-1 text-sm text-foreground-muted">Mutasi membutuhkan role finance/superadmin dan sesi TOTP aktif.</p>
+              <h2 className="text-2xl font-black tracking-tight text-foreground-muted">Buat promo baru</h2>
+              <p className="mt-1 text-sm text-foreground-muted">Promo baru disimpan sebagai draft dan dapat melalui persetujuan sebelum diterbitkan.</p>
             </div>
             <Sparkles className="h-7 w-7 text-success" aria-hidden="true" />
           </div>
@@ -592,10 +596,10 @@ export default function Promos() {
                 className="mt-2 inline-flex items-center gap-2 rounded-xl border border-success bg-success-surface px-3 py-2 text-xs font-black uppercase tracking-wide text-success transition-all hover:bg-success-surface disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {generateCodeMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />}
-                Generate kode
+                Buat kode otomatis
               </button>
             </div>
-            <TextField label="Nama campaign" value={form.name} onChange={(value) => updateForm('name', value)} placeholder="Hemat pengiriman motor" />
+            <TextField label="Nama promo" value={form.name} onChange={(value) => updateForm('name', value)} placeholder="Hemat pengiriman motor" />
             <SelectField
               label="Tipe diskon"
               value={form.discount_type}
@@ -608,17 +612,17 @@ export default function Promos() {
               onChange={(value) => updateForm('component_scope', value as ComponentScope)}
               options={['shipping', 'insurance', 'service_fee', 'referral']}
             />
-            <TextField label="Diskon IDR" value={form.discount_value_idr} onChange={(value) => updateForm('discount_value_idr', value)} type="number" />
-            <TextField label="Diskon persen" value={form.discount_percent} onChange={(value) => updateForm('discount_percent', value)} type="number" />
-            <TextField label="Max diskon" value={form.max_discount_idr} onChange={(value) => updateForm('max_discount_idr', value)} type="number" />
-            <TextField label="Min order" value={form.min_order_idr} onChange={(value) => updateForm('min_order_idr', value)} type="number" />
-            <TextField label="Service codes" value={form.service_codes} onChange={(value) => updateForm('service_codes', value)} placeholder="instant_motor, same_day_motor" />
-            <TextField label="Total budget" value={form.total_budget_idr} onChange={(value) => updateForm('total_budget_idr', value)} type="number" />
-            <TextField label="Daily budget" value={form.daily_budget_idr} onChange={(value) => updateForm('daily_budget_idr', value)} type="number" />
-            <TextField label="Max redemption" value={form.max_redemptions} onChange={(value) => updateForm('max_redemptions', value)} type="number" />
-            <TextField label="Limit per user" value={form.per_user_limit} onChange={(value) => updateForm('per_user_limit', value)} type="number" />
-            <TextField label="Mulai" value={form.starts_at} onChange={(value) => updateForm('starts_at', value)} type="datetime-local" />
-            <TextField label="Berakhir" value={form.ends_at} onChange={(value) => updateForm('ends_at', value)} type="datetime-local" />
+            <TextField label="Nilai diskon (rupiah)" value={form.discount_value_idr} onChange={(value) => updateForm('discount_value_idr', value)} type="number" />
+            <TextField label="Diskon persentase" value={form.discount_percent} onChange={(value) => updateForm('discount_percent', value)} type="number" />
+            <TextField label="Maksimal diskon (rupiah)" value={form.max_discount_idr} onChange={(value) => updateForm('max_discount_idr', value)} type="number" />
+            <TextField label="Minimal transaksi (rupiah)" value={form.min_order_idr} onChange={(value) => updateForm('min_order_idr', value)} type="number" />
+            <TextField label="Layanan yang berlaku" value={form.service_codes} onChange={(value) => updateForm('service_codes', value)} placeholder="instant_motor, same_day_motor" />
+            <TextField label="Total anggaran (rupiah)" value={form.total_budget_idr} onChange={(value) => updateForm('total_budget_idr', value)} type="number" />
+            <TextField label="Anggaran harian (rupiah)" value={form.daily_budget_idr} onChange={(value) => updateForm('daily_budget_idr', value)} type="number" />
+            <TextField label="Batas penggunaan promo" value={form.max_redemptions} onChange={(value) => updateForm('max_redemptions', value)} type="number" />
+            <TextField label="Batas per customer" value={form.per_user_limit} onChange={(value) => updateForm('per_user_limit', value)} type="number" />
+            <TextField label="Mulai berlaku" value={form.starts_at} onChange={(value) => updateForm('starts_at', value)} type="datetime-local" />
+            <TextField label="Berakhir pada" value={form.ends_at} onChange={(value) => updateForm('ends_at', value)} type="datetime-local" />
             <label className="flex min-h-[58px] items-center gap-3 rounded-2xl border border-warning bg-warning-surface px-4 py-3">
               <input
                 type="checkbox"
@@ -626,27 +630,27 @@ export default function Promos() {
                 onChange={(event) => updateForm('risk_campaign', event.target.checked)}
                 className="h-4 w-4 accent-amber-400"
               />
-              <span className="text-sm font-bold text-warning">Risk campaign - wajib approval superadmin</span>
+              <span className="text-sm font-bold text-warning">Promo berisiko tinggi — wajib persetujuan superadmin</span>
             </label>
             <div className="md:col-span-2">
-              <TextField label="Alasan risk atau catatan campaign" value={form.risk_reason} onChange={(value) => updateForm('risk_reason', value)} placeholder="Contoh: kampanye akuisisi terbatas area Jakarta" />
+              <TextField label="Alasan risiko atau catatan promo" value={form.risk_reason} onChange={(value) => updateForm('risk_reason', value)} placeholder="Contoh: promo akuisisi terbatas area Jakarta" />
             </div>
             <div className="md:col-span-2">
               <label className="text-xs font-bold tracking-wide text-foreground-muted">Deskripsi</label>
             <textarea
-              aria-label="Promo campaign description"
+              aria-label="Deskripsi promo"
               value={form.description}
                 onChange={(event) => updateForm('description', event.target.value)}
                 className="mt-2 min-h-24 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground-muted outline-none transition-all placeholder:text-foreground-muted focus:border-success focus:ring-2 focus:ring-success"
-                placeholder="Copy promo yang aman untuk user dan tidak menjanjikan diskon di luar policy."
+                placeholder="Contoh: Hemat ongkir untuk pengiriman same day minggu ini."
               />
             </div>
             <div className="md:col-span-2 rounded-2xl border border-dashed border-success bg-success-surface p-4">
               <div className="flex items-start gap-3">
                 <ImagePlus className="mt-0.5 h-5 w-5 shrink-0 text-success" aria-hidden="true" />
                 <div>
-                  <p className="text-sm font-black text-success">Gambar promo untuk customer web &amp; mobile</p>
-                  <p className="mt-1 text-xs leading-5 text-success">Upload JPG, PNG, atau WebP maksimal 5 MB. Gambar baru akan tampil setelah campaign aktif.</p>
+                  <p className="text-sm font-black text-success">Gambar promo untuk web &amp; mobile customer</p>
+                  <p className="mt-1 text-xs leading-5 text-success">Upload JPG, PNG, atau WebP maksimal 5 MB. Gambar tampil setelah promo aktif.</p>
                 </div>
               </div>
               <input
@@ -659,17 +663,50 @@ export default function Promos() {
                   event.currentTarget.value = ''
                   if (file) uploadImageMutation.mutate(file)
                 }}
+                aria-describedby="promo-image-help"
                 className="mt-4 block w-full text-xs text-foreground-muted file:mr-3 file:rounded-xl file:border-0 file:bg-success file:px-4 file:py-2 file:font-black file:text-on-success hover:file:opacity-90"
               />
-              <div className="mt-3">
-                <TextField label="Atau URL gambar HTTPS / upload" value={form.promo_image_url} onChange={(value) => updateForm('promo_image_url', value)} placeholder="/uploads/banners/promos/promo.webp atau https://..." />
-              </div>
-              <div className="mt-3">
-                <TextField label="Alt text gambar" value={form.promo_image_alt} onChange={(value) => updateForm('promo_image_alt', value)} placeholder="Promo hemat ongkir untuk pengiriman cepat" />
-              </div>
+              <p id="promo-image-help" className="mt-2 text-xs leading-5 text-foreground-muted">
+                Pilih file dari komputer. Setelah upload, gambar akan otomatis dipakai untuk customer web dan mobile.
+              </p>
               {form.promo_image_url && (
-                <img src={resolvePromoImageUrl(form.promo_image_url)} alt={form.promo_image_alt || form.name || 'Preview gambar promo'} className="mt-4 h-36 w-full rounded-2xl object-cover" />
+                <div className="mt-4 overflow-hidden rounded-2xl border border-success bg-background">
+                  <img src={resolvePromoImageUrl(form.promo_image_url)} alt={form.promo_image_alt || form.name || 'Preview gambar promo'} className="h-36 w-full object-cover" />
+                  <div className="flex items-center justify-between gap-3 px-4 py-3">
+                    <span className="text-xs font-bold text-success">Gambar siap digunakan</span>
+                    <button
+                      type="button"
+                      onClick={() => updateForm('promo_image_url', '')}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-error bg-error-surface px-3 py-2 text-xs font-black text-error transition-all hover:bg-error-surface"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      Hapus gambar
+                    </button>
+                  </div>
+                </div>
               )}
+              <div className="mt-4 rounded-2xl border border-border bg-background/40 p-3">
+                <button
+                  type="button"
+                  aria-expanded={showExternalImageUrl}
+                  aria-controls="external-promo-image-url"
+                  onClick={() => setShowExternalImageUrl((current) => !current)}
+                  className="flex w-full items-center justify-between gap-3 text-left text-xs font-black uppercase tracking-wide text-foreground-muted"
+                >
+                  <span>Opsi lanjutan: gunakan URL eksternal</span>
+                  <ChevronDown className={cn('h-4 w-4 transition-transform', showExternalImageUrl && 'rotate-180')} aria-hidden="true" />
+                </button>
+                {showExternalImageUrl && (
+                  <div id="external-promo-image-url" className="mt-3">
+                    <TextField label="URL gambar HTTPS" value={form.promo_image_url} onChange={(value) => updateForm('promo_image_url', value)} placeholder="https://cdn.contoh.com/promo.webp" />
+                    <p className="mt-2 text-xs leading-5 text-foreground-muted">Gunakan hanya jika gambar sudah berada di CDN atau server tepercaya.</p>
+                  </div>
+                )}
+              </div>
+              <div className="mt-3">
+                <TextField label="Deskripsi gambar untuk aksesibilitas" value={form.promo_image_alt} onChange={(value) => updateForm('promo_image_alt', value)} placeholder="Gratis ongkir hingga Rp20.000 untuk same day" />
+                <p className="mt-2 text-xs leading-5 text-foreground-muted">Deskripsi ini dibacakan oleh pembaca layar dan digunakan jika gambar gagal dimuat. Jelaskan pesan utama gambar, bukan “banner promo”.</p>
+              </div>
             </div>
           </div>
 
@@ -680,7 +717,7 @@ export default function Promos() {
             className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-success px-5 py-4 text-sm font-black uppercase tracking-wide text-on-success shadow-lg shadow-success transition-all hover:bg-success active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {createMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <Send className="h-5 w-5" aria-hidden="true" />}
-            Buat Draft Promo
+            Simpan sebagai draft
           </button>
         </section>
 
@@ -695,12 +732,12 @@ export default function Promos() {
             </div>
             <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <TextField label="Kode promo" value={simulation.code} onChange={(value) => updateSimulation('code', value.toUpperCase())} />
-              <TextField label="Service code" value={simulation.service_code} onChange={(value) => updateSimulation('service_code', value)} />
+              <TextField label="Kode layanan" value={simulation.service_code} onChange={(value) => updateSimulation('service_code', value)} />
               <TextField label="Kendaraan" value={simulation.vehicle_type} onChange={(value) => updateSimulation('vehicle_type', value)} />
-              <TextField label="Zone" value={simulation.zone_code} onChange={(value) => updateSimulation('zone_code', value)} />
-              <TextField label="Gross amount" value={simulation.gross_amount_idr} onChange={(value) => updateSimulation('gross_amount_idr', value)} type="number" />
-              <TextField label="Insurance" value={simulation.insurance_amount_idr} onChange={(value) => updateSimulation('insurance_amount_idr', value)} type="number" />
-              <TextField label="Tax" value={simulation.tax_amount_idr} onChange={(value) => updateSimulation('tax_amount_idr', value)} type="number" />
+              <TextField label="Kode zona" value={simulation.zone_code} onChange={(value) => updateSimulation('zone_code', value)} />
+              <TextField label="Nilai transaksi" value={simulation.gross_amount_idr} onChange={(value) => updateSimulation('gross_amount_idr', value)} type="number" />
+              <TextField label="Biaya asuransi" value={simulation.insurance_amount_idr} onChange={(value) => updateSimulation('insurance_amount_idr', value)} type="number" />
+              <TextField label="Pajak" value={simulation.tax_amount_idr} onChange={(value) => updateSimulation('tax_amount_idr', value)} type="number" />
             </div>
             <button
               type="button"
@@ -769,8 +806,8 @@ export default function Promos() {
       <section className="rounded-[36px] border border-border bg-surface/[0.03] p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-2xl font-black tracking-tight text-foreground-muted">Campaign promo</h2>
-            <p className="mt-1 text-sm text-foreground-muted">Lifecycle: draft - approval - publish - pause. Semua aksi dicatat di audit trail.</p>
+            <h2 className="text-2xl font-black tracking-tight text-foreground-muted">Daftar promo</h2>
+            <p className="mt-1 text-sm text-foreground-muted">Alur promo: draft → persetujuan → terbitkan → jeda. Semua aksi dicatat.</p>
           </div>
           <div className="relative w-full md:w-96">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-muted" aria-hidden="true" />
@@ -921,22 +958,22 @@ function PromoCampaignCard({
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        {canSubmit && <ActionButton label="Submit" icon={Send} disabled={actionPending} onClick={() => onAction('submit')} />}
-        {canApprove && <ActionButton label="Approve" icon={ShieldCheck} disabled={actionPending} onClick={() => onAction('approve')} />}
-        {canPublish && <ActionButton label="Publish" icon={PlayCircle} disabled={actionPending} onClick={() => onAction('publish')} />}
-        {canPause && <ActionButton label="Pause" icon={PauseCircle} disabled={actionPending} tone="danger" onClick={() => onAction('pause')} />}
-        <ActionButton label={analytics ? 'Refresh audit' : 'Lihat audit'} icon={ClipboardList} disabled={analyticsPending} onClick={onLoadAnalytics} />
+        {canSubmit && <ActionButton label="Ajukan persetujuan" icon={Send} disabled={actionPending} onClick={() => onAction('submit')} />}
+        {canApprove && <ActionButton label="Setujui promo" icon={ShieldCheck} disabled={actionPending} onClick={() => onAction('approve')} />}
+        {canPublish && <ActionButton label="Terbitkan" icon={PlayCircle} disabled={actionPending} onClick={() => onAction('publish')} />}
+        {canPause && <ActionButton label="Jeda" icon={PauseCircle} disabled={actionPending} tone="danger" onClick={() => onAction('pause')} />}
+        <ActionButton label={analytics ? 'Muat ulang audit' : 'Lihat audit'} icon={ClipboardList} disabled={analyticsPending} onClick={onLoadAnalytics} />
       </div>
 
       {canNotify && (
         <div className="mt-5 rounded-[26px] border border-success bg-success/[0.04] p-4">
           <div className="flex items-center gap-2">
             <BellRing className="h-4 w-4 text-success" aria-hidden="true" />
-            <p className="text-xs font-black uppercase tracking-wide text-success">Campaign notification</p>
+            <p className="text-xs font-black uppercase tracking-wide text-success">Notifikasi promo</p>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <SelectField
-              label="Channel"
+              label="Saluran kirim"
               value={notificationDraft.channel}
               onChange={(value) => onNotificationDraftChange('channel', value as PromoNotificationChannel)}
               options={['none', 'in_app', 'push_in_app', 'scheduled_push']}
@@ -950,16 +987,16 @@ function PromoCampaignCard({
               />
             ) : (
               <div className="rounded-2xl border border-border bg-background px-4 py-3 text-xs leading-5 text-foreground-muted">
-                Push langsung tetap menghormati quiet hours. Mode none hanya mencatat audit tanpa mengirim pesan.
+                Push langsung tetap menghormati jam tenang. Pilihan “Tanpa notifikasi” hanya mencatat aktivitas tanpa mengirim pesan.
               </div>
             )}
-            <TextField label="Max per hari" value={notificationDraft.max_per_day} onChange={(value) => onNotificationDraftChange('max_per_day', value)} type="number" />
-            <TextField label="Max per minggu" value={notificationDraft.max_per_week} onChange={(value) => onNotificationDraftChange('max_per_week', value)} type="number" />
-            <TextField label="Quiet start" value={notificationDraft.quiet_hours_start} onChange={(value) => onNotificationDraftChange('quiet_hours_start', value)} type="time" />
-            <TextField label="Quiet end" value={notificationDraft.quiet_hours_end} onChange={(value) => onNotificationDraftChange('quiet_hours_end', value)} type="time" />
+            <TextField label="Maksimal per hari" value={notificationDraft.max_per_day} onChange={(value) => onNotificationDraftChange('max_per_day', value)} type="number" />
+            <TextField label="Maksimal per minggu" value={notificationDraft.max_per_week} onChange={(value) => onNotificationDraftChange('max_per_week', value)} type="number" />
+            <TextField label="Mulai jam tenang" value={notificationDraft.quiet_hours_start} onChange={(value) => onNotificationDraftChange('quiet_hours_start', value)} type="time" />
+            <TextField label="Selesai jam tenang" value={notificationDraft.quiet_hours_end} onChange={(value) => onNotificationDraftChange('quiet_hours_end', value)} type="time" />
           </div>
           <div className="mt-4 flex flex-wrap gap-3">
-            <ActionButton label="Preview audience" icon={Target} disabled={notificationPending} onClick={onPreviewAudience} />
+            <ActionButton label="Lihat perkiraan penerima" icon={Target} disabled={notificationPending} onClick={onPreviewAudience} />
             <ActionButton
               label={notificationDraft.channel === 'none' ? 'Simpan tanpa kirim' : 'Kirim promo'}
               icon={Send}
@@ -980,8 +1017,8 @@ function PromoAnalyticsPanel({ analytics }: { analytics: PromoAnalytics }) {
     <div className="mt-5 rounded-[26px] border border-border bg-surface/[0.03] p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Audit & analytics</p>
-          <p className="mt-1 text-sm text-foreground-muted">Budget, delivery, redemption, dan event terakhir dari backend.</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Audit &amp; analitik</p>
+          <p className="mt-1 text-sm text-foreground-muted">Anggaran, pengiriman notifikasi, penggunaan kode, dan aktivitas terakhir.</p>
         </div>
         <span className="rounded-full border border-success bg-success-surface px-3 py-1 text-xs font-black uppercase tracking-wide text-success">
           {analytics.status}
@@ -990,22 +1027,22 @@ function PromoAnalyticsPanel({ analytics }: { analytics: PromoAnalytics }) {
 
       <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <MiniMetric icon={WalletCards} label="Sisa budget" value={formatIdr(analytics.budget.remaining_budget_idr)} />
-        <MiniMetric icon={Coins} label="Burn" value={`${analytics.budget.burn_rate_percent}%`} />
+        <MiniMetric icon={Coins} label="Pemakaian" value={`${analytics.budget.burn_rate_percent}%`} />
         <MiniMetric icon={Send} label="Terkirim" value={`${analytics.delivery.sent}/${analytics.delivery.total}`} />
-        <MiniMetric icon={Target} label="Open rate" value={`${analytics.delivery.open_rate_percent}%`} />
+        <MiniMetric icon={Target} label="Dibuka" value={`${analytics.delivery.open_rate_percent}%`} />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="rounded-2xl border border-border bg-surface-subtle p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Redemption</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Penggunaan kode</p>
           <p className="mt-2 text-sm text-foreground-muted">
-            Redeemed {analytics.redemption.redeemed} dari {analytics.redemption.total}, diskon terpakai {formatIdr(analytics.redemption.discount_redeemed_idr)}, margin rata-rata {analytics.redemption.average_margin_percent}%.
+            {analytics.redemption.redeemed} dari {analytics.redemption.total} penggunaan, diskon terpakai {formatIdr(analytics.redemption.discount_redeemed_idr)}, margin rata-rata {analytics.redemption.average_margin_percent}%.
           </p>
         </div>
         <div className="rounded-2xl border border-border bg-surface-subtle p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Delivery</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Pengiriman notifikasi</p>
           <p className="mt-2 text-sm text-foreground-muted">
-            Queued {analytics.delivery.queued}, failed {analytics.delivery.failed}, opened {analytics.delivery.opened}.
+            Antrean {analytics.delivery.queued}, gagal {analytics.delivery.failed}, dibuka {analytics.delivery.opened}.
           </p>
         </div>
       </div>
@@ -1097,6 +1134,21 @@ function SelectField({
   onChange: (value: string) => void
   options: string[]
 }) {
+  const optionLabels: Record<string, string> = {
+    shipping_discount: 'Diskon ongkir',
+    fixed: 'Nominal tetap',
+    percentage: 'Persentase',
+    free_insurance: 'Gratis asuransi',
+    shipping: 'Ongkir',
+    insurance: 'Asuransi',
+    service_fee: 'Biaya layanan',
+    referral: 'Referral',
+    none: 'Tanpa notifikasi',
+    in_app: 'Notifikasi di aplikasi',
+    push_in_app: 'Push + aplikasi',
+    scheduled_push: 'Push terjadwal',
+  }
+
   return (
     <label className="block">
       <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">{label}</span>
@@ -1106,7 +1158,7 @@ function SelectField({
         className="mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground-muted outline-none transition-all focus:border-success focus:ring-2 focus:ring-success"
       >
         {options.map((option) => (
-          <option key={option} value={option}>{option.replace('_', ' ')}</option>
+          <option key={option} value={option}>{optionLabels[option] || option.replaceAll('_', ' ')}</option>
         ))}
       </select>
     </label>

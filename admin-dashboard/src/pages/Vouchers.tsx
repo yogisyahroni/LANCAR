@@ -49,16 +49,33 @@ function VoucherDataState({ title, message, onRetry, tone = 'muted' }: { title: 
           )}
         >
           <RefreshCw size={14} aria-hidden="true" />
-          Retry
+          Coba lagi
         </button>
       )}
     </div>
   )
 }
 
+type VoucherStatusFilter = 'all' | 'active' | 'inactive' | 'expired'
+
+const emptyVoucherForm = {
+  code: '',
+  name: '',
+  type: 'percentage',
+  value: 0,
+  max_discount_idr: 0,
+  min_order_idr: 0,
+  quota: 100,
+  valid_from: format(new Date(), 'yyyy-MM-dd'),
+  valid_until: format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
+  applicable_models: ['p2p'],
+  is_active: true,
+}
+
 export default function Vouchers() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<VoucherStatusFilter>('all')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedVoucher, setSelectedVoucher] = useState<any>(null)
 
@@ -83,20 +100,20 @@ export default function Vouchers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vouchers'] });
       queryClient.invalidateQueries({ queryKey: ['voucher-stats'] });
-      toast.success('Voucher created successfully');
+      toast.success('Voucher berhasil dibuat');
       setIsModalOpen(false);
     },
-    onError: (err: any) => toast.error(`Failed to create: ${err.message}`)
+    onError: (err: any) => toast.error(`Voucher gagal dibuat: ${err.message}`)
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string, data: any }) => api.patch(`/admin/vouchers/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vouchers'] });
-      toast.success('Voucher updated successfully');
+      toast.success('Perubahan voucher berhasil disimpan');
       setIsModalOpen(false);
     },
-    onError: (err: any) => toast.error(`Failed to update: ${err.message}`)
+    onError: (err: any) => toast.error(`Voucher gagal diperbarui: ${err.message}`)
   });
 
   const deleteMutation = useMutation({
@@ -104,9 +121,9 @@ export default function Vouchers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vouchers'] });
       queryClient.invalidateQueries({ queryKey: ['voucher-stats'] });
-      toast.success('Voucher deleted successfully');
+      toast.success('Voucher berhasil dihapus');
     },
-    onError: (err: any) => toast.error(`Failed to delete: ${err.message}`)
+    onError: (err: any) => toast.error(`Voucher gagal dihapus: ${err.message}`)
   });
 
   if (isLoadingStats || isLoadingVouchers) {
@@ -114,15 +131,25 @@ export default function Vouchers() {
   }
 
   const statCards = [
-    { label: 'Active Vouchers', value: stats?.activeVouchers?.toLocaleString() ?? 'Tidak tersedia', icon: Ticket, color: 'text-success' },
-    { label: 'Total Claims', value: stats?.totalClaims?.toLocaleString() ?? 'Tidak tersedia', icon: Users, color: 'text-primary-light' },
-    { label: 'Revenue Impact', value: typeof stats?.revenueImpact === 'number' ? `Rp ${stats.revenueImpact.toLocaleString()}` : 'Tidak tersedia', icon: TrendingUp, color: 'text-warning' },
+    { label: 'Voucher aktif', value: stats?.activeVouchers?.toLocaleString('id-ID') ?? 'Tidak tersedia', icon: Ticket, color: 'text-success' },
+    { label: 'Total penggunaan', value: stats?.totalClaims?.toLocaleString('id-ID') ?? 'Tidak tersedia', icon: Users, color: 'text-primary-light' },
+    { label: 'Dampak pendapatan', value: typeof stats?.revenueImpact === 'number' ? `Rp ${stats.revenueImpact.toLocaleString('id-ID')}` : 'Tidak tersedia', icon: TrendingUp, color: 'text-warning' },
   ];
 
-  const filteredVouchers = vouchers?.filter((v: any) =>
-    String(v.code || '').toLowerCase().includes(search.toLowerCase()) ||
-    String(v.name || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredVouchers = vouchers?.filter((v: any) => {
+    const term = search.trim().toLowerCase()
+    const matchesSearch = !term ||
+      String(v.code || '').toLowerCase().includes(term) ||
+      String(v.name || '').toLowerCase().includes(term)
+    if (!matchesSearch) return false
+
+    const expiry = new Date(v.valid_until || v.expiry_date)
+    const isExpired = Number.isFinite(expiry.getTime()) && expiry.getTime() < Date.now()
+    if (statusFilter === 'active') return Boolean(v.is_active) && !isExpired
+    if (statusFilter === 'inactive') return !v.is_active && !isExpired
+    if (statusFilter === 'expired') return isExpired
+    return true
+  });
 
   const handleEdit = (voucher: any) => {
     setSelectedVoucher(voucher);
@@ -135,7 +162,7 @@ export default function Vouchers() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this voucher?')) {
+    if (confirm('Hapus voucher ini? Voucher yang sudah dihapus tidak dapat digunakan lagi.')) {
       deleteMutation.mutate(id);
     }
   };
@@ -144,15 +171,15 @@ export default function Vouchers() {
     <div className="space-y-8 animate-in pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-foreground-muted tracking-tight italic uppercase">Voucher Engine</h1>
-          <p className="text-foreground-muted mt-1">Create and monitor promotional campaigns and discounts.</p>
+          <h1 className="text-3xl font-black text-foreground-muted tracking-tight italic uppercase">Voucher &amp; Kode Redeem</h1>
+          <p className="text-foreground-muted mt-1">Buat kode promo, atur batas penggunaannya, dan pantau hasilnya.</p>
         </div>
         <button 
           onClick={handleCreate}
           className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-wide hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
         >
           <Plus size={18} aria-hidden="true" />
-          Generate Voucher
+          Buat voucher
         </button>
       </div>
 
@@ -184,18 +211,28 @@ export default function Vouchers() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted group-focus-within:text-primary-light transition-colors" size={18} aria-hidden="true" />
           <input 
             type="text" 
-            aria-label="Search vouchers by code or name"
-            placeholder="Search by code or name..."
+            aria-label="Cari voucher berdasarkan kode atau nama"
+            placeholder="Cari kode atau nama voucher..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-surface-subtle border border-border rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-foreground-muted"
           />
         </div>
-        <div className="flex items-center gap-2">
-           <button type="button" aria-label="Open voucher filters" title="Open voucher filters" className="p-3.5 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground border border-border transition-all">
-              <Filter size={20} aria-hidden="true" />
-           </button>
-        </div>
+        <label className="flex w-full items-center gap-2 rounded-2xl border border-border bg-surface-subtle px-3.5 py-2.5 md:w-auto">
+          <Filter size={18} className="text-foreground-muted" aria-hidden="true" />
+          <span className="sr-only">Filter status voucher</span>
+          <select
+            aria-label="Filter status voucher"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as VoucherStatusFilter)}
+            className="w-full bg-transparent text-sm font-bold text-foreground-muted outline-none md:w-40"
+          >
+            <option value="all">Semua status</option>
+            <option value="active">Aktif</option>
+            <option value="inactive">Nonaktif</option>
+            <option value="expired">Kedaluwarsa</option>
+          </select>
+        </label>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -228,13 +265,13 @@ export default function Vouchers() {
                     <div className="px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary-light font-black text-lg tracking-wider">
                       {voucher.code}
                     </div>
-                    <StatusBadge status={voucher.is_active ? 'active' : 'disabled'} label={voucher.is_active ? 'Aktif' : 'Nonaktif'} labelPrefix="Voucher status" />
+                    <StatusBadge status={daysLeft > 0 && voucher.is_active ? 'active' : daysLeft <= 0 ? 'expired' : 'disabled'} label={daysLeft <= 0 ? 'Kedaluwarsa' : voucher.is_active ? 'Aktif' : 'Nonaktif'} labelPrefix="Status voucher" />
                   </div>
                   <div>
                      <h4 className="font-bold text-foreground-muted text-lg">{voucher.name || 'Nama voucher belum tersedia'}</h4>
-                     <p className="text-sm font-medium text-foreground-muted mt-1">Discount: <span className="text-success font-bold">{voucher.type === 'percentage' ? `${voucher.value}%` : `Rp ${voucher.value?.toLocaleString()}`}</span></p>
+                     <p className="text-sm font-medium text-foreground-muted mt-1">Diskon: <span className="text-success font-bold">{voucher.type === 'percentage' ? `${voucher.value}%` : `Rp ${voucher.value?.toLocaleString('id-ID')}`}</span></p>
                      <p className="text-xs text-foreground-muted mt-2 italic font-medium">
-                      Min. Order {typeof voucher.min_order_idr === 'number' ? `Rp ${voucher.min_order_idr.toLocaleString()}` : 'belum tersedia'} • Max. {typeof voucher.max_discount_idr === 'number' ? `Rp ${voucher.max_discount_idr.toLocaleString()}` : 'belum tersedia'}
+                      Min. transaksi {typeof voucher.min_order_idr === 'number' ? `Rp ${voucher.min_order_idr.toLocaleString('id-ID')}` : 'belum tersedia'} • Maks. diskon {typeof voucher.max_discount_idr === 'number' ? `Rp ${voucher.max_discount_idr.toLocaleString('id-ID')}` : 'belum tersedia'}
                     </p>
                   </div>
                 </div>
@@ -243,7 +280,7 @@ export default function Vouchers() {
               <div className="grid grid-cols-2 gap-8 mt-8 pt-8 border-t border-border relative z-10">
                  <div className="space-y-1">
                     <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
-                       <TrendingUp size={12} aria-hidden="true" /> Redemptions
+                       <TrendingUp size={12} aria-hidden="true" /> Penggunaan
                     </p>
                     <div className="w-full h-1.5 bg-surface-subtle rounded-full overflow-hidden mt-3">
                        <div 
@@ -252,15 +289,15 @@ export default function Vouchers() {
                        />
                     </div>
                     <p className="text-xs font-bold text-foreground-muted mt-3 tracking-tight">
-                      {voucher.used_count?.toLocaleString() || 0} <span className="text-foreground-muted font-medium">/ {voucher.quota?.toLocaleString() || '∞'} used</span>
+                      {voucher.used_count?.toLocaleString('id-ID') || 0} <span className="text-foreground-muted font-medium">/ {voucher.quota?.toLocaleString('id-ID') || '∞'} digunakan</span>
                     </p>
                  </div>
                  <div className="space-y-1">
                     <p className="text-xs font-black text-foreground-muted uppercase tracking-wide flex items-center gap-2">
-                       <Calendar size={12} aria-hidden="true" /> Expiration
+                       <Calendar size={12} aria-hidden="true" /> Masa berlaku
                     </p>
                     <p className="text-xs font-bold text-foreground-muted mt-3">{format(new Date(voucher.valid_until || voucher.expiry_date), 'dd MMM yyyy')}</p>
-                    <StatusBadge status={daysLeft > 0 ? 'healthy' : 'expired'} label={daysLeft > 0 ? `${daysLeft} hari lagi` : 'Kedaluwarsa'} labelPrefix="Voucher expiration" className="mt-2 rounded-md px-2 py-1" />
+                    <StatusBadge status={daysLeft > 0 ? 'healthy' : 'expired'} label={daysLeft > 0 ? `${daysLeft} hari lagi` : 'Kedaluwarsa'} labelPrefix="Masa berlaku voucher" className="mt-2 rounded-md px-2 py-1" />
                  </div>
               </div>
 
@@ -269,14 +306,14 @@ export default function Vouchers() {
                    onClick={() => handleEdit(voucher)}
                    className="flex-1 py-4 rounded-2xl bg-surface-subtle text-foreground-secondary font-black text-xs uppercase tracking-wide hover:bg-primary/20 hover:text-primary-light transition-all border border-border hover:border-primary/20"
                  >
-                    Modify Parameters
+                    Edit voucher
                  </button>
                  <button 
                    type="button"
                    onClick={() => handleDelete(voucher.id)}
                    disabled={deleteMutation.isPending}
-                   aria-label={`Delete voucher ${voucher.code || voucher.name || voucher.id}`}
-                   title="Delete voucher"
+                   aria-label={`Hapus voucher ${voucher.code || voucher.name || voucher.id}`}
+                   title="Hapus voucher"
                    className="p-4 rounded-2xl bg-error-surface border border-error text-error hover:bg-error hover:text-on-error transition-all disabled:opacity-60"
                  >
                     {deleteMutation.isPending ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Trash2 size={18} aria-hidden="true" />}
@@ -289,8 +326,16 @@ export default function Vouchers() {
           <div className="col-span-full py-20 text-center space-y-4 glass-card rounded-[40px] border-dashed border-border">
             <Ticket className="mx-auto text-foreground-muted" size={48}  aria-hidden="true"/>
             <p className="text-foreground-muted font-black italic uppercase tracking-wide italic">
-              No digital tokens found in archives
+              Belum ada voucher yang sesuai
             </p>
+            <button
+              type="button"
+              onClick={handleCreate}
+              className="mx-auto inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-xs font-black uppercase tracking-wide text-on-primary transition-all hover:bg-primary-light"
+            >
+              <Plus size={14} aria-hidden="true" />
+              Buat voucher
+            </button>
           </div>
         )}
       </div>
@@ -313,19 +358,7 @@ export default function Vouchers() {
 }
 
 function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
-  const [formData, setFormData] = useState<any>({
-    code: '',
-    name: '',
-    type: 'percentage',
-    value: 0,
-    max_discount_idr: 0,
-    min_order_idr: 0,
-    quota: 100,
-    valid_from: format(new Date(), 'yyyy-MM-dd'),
-    valid_until: format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-    applicable_models: ['p2p'],
-    is_active: true
-  });
+  const [formData, setFormData] = useState<any>({ ...emptyVoucherForm });
 
   useEffect(() => {
     if (voucher) {
@@ -334,6 +367,8 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
         valid_from: format(new Date(voucher.valid_from), 'yyyy-MM-dd'),
         valid_until: format(new Date(voucher.valid_until), 'yyyy-MM-dd'),
       });
+    } else {
+      setFormData({ ...emptyVoucherForm });
     }
   }, [voucher]);
 
@@ -357,9 +392,9 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
           <div className="flex items-center justify-between">
             <div>
               <h2 id="voucher-form-title" className="text-2xl font-black text-foreground-muted italic uppercase tracking-tight">
-                {voucher ? 'Update Parameter' : 'Forge Digital Token'}
+                {voucher ? 'Edit voucher' : 'Buat voucher'}
               </h2>
-              <p className="text-foreground-muted text-xs mt-1 font-medium">Configure discount logic and redemption constraints.</p>
+              <p className="text-foreground-muted text-xs mt-1 font-medium">Tentukan nilai diskon, batas penggunaan, dan masa berlaku voucher.</p>
             </div>
             <button type="button" onClick={onClose} aria-label="Tutup detail voucher" title="Tutup detail voucher" className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
               <X size={20} aria-hidden="true" />
@@ -368,10 +403,10 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
 
           <div className="grid grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground-muted tracking-wide">Token Code</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Kode redeem</label>
               <input 
                 value={formData.code}
-                aria-label="Voucher code"
+                aria-label="Kode redeem voucher"
                 onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                 placeholder="PROMO2024"
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all uppercase"
@@ -379,40 +414,41 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground-muted tracking-wide">Campaign Name</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Nama voucher</label>
               <input 
                 value={formData.name}
-                aria-label="Voucher name"
+                aria-label="Nama voucher"
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Summer Sale Blast"
+                placeholder="Hemat ongkir akhir pekan"
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground-muted tracking-wide">Logic Type</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Jenis diskon</label>
               <div className="flex p-1 bg-surface-subtle rounded-2xl border border-border">
                 {['percentage', 'fixed'].map(t => (
                   <button 
                     key={t}
+                    type="button"
                     onClick={() => setFormData({ ...formData, type: t })}
                     className={cn(
                       "flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all",
                       formData.type === t ? "bg-primary text-on-primary shadow-lg shadow-primary/20" : "text-foreground-muted hover:text-foreground-muted"
                     )}
                   >
-                    {t}
+                    {t === 'percentage' ? 'Persentase' : 'Nominal tetap'}
                   </button>
                 ))}
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground-muted tracking-wide">Discount Value</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Nilai diskon</label>
               <div className="relative">
                 <span className="absolute left-6 top-1/2 -translate-y-1/2 text-foreground-muted font-black text-sm">{formData.type === 'percentage' ? '%' : 'Rp'}</span>
                 <input 
                   type="number"
-                  aria-label="Discount Value"
+                aria-label="Nilai diskon"
                   value={formData.value}
                   onChange={e => setFormData({ ...formData, value: Number(e.target.value) })}
                   className="w-full bg-surface-subtle border border-border rounded-2xl py-4 pl-12 pr-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -421,20 +457,20 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground-muted tracking-wide">Min. Transaction</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Minimal transaksi</label>
               <input 
                 type="number"
-                aria-label="Min. Transaction"
+                aria-label="Minimal transaksi"
                 value={formData.min_order_idr}
                 onChange={e => setFormData({ ...formData, min_order_idr: Number(e.target.value) })}
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground-muted tracking-wide">Max. Ceiling</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Maksimal diskon</label>
               <input 
                 type="number"
-                aria-label="Max. Ceiling"
+                aria-label="Maksimal diskon"
                 value={formData.max_discount_idr}
                 onChange={e => setFormData({ ...formData, max_discount_idr: Number(e.target.value) })}
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -442,20 +478,20 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground-muted tracking-wide">Valid Until</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Berlaku sampai</label>
               <input 
                 type="date"
-                aria-label="Valid Until"
+                aria-label="Berlaku sampai"
                 value={formData.valid_until}
                 onChange={e => setFormData({ ...formData, valid_until: e.target.value })}
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground-muted tracking-wide">Global Quota</label>
+              <label className="text-xs font-bold text-foreground-muted tracking-wide">Batas penggunaan</label>
               <input 
                 type="number"
-                aria-label="Global Quota"
+                aria-label="Batas penggunaan"
                 value={formData.quota}
                 onChange={e => setFormData({ ...formData, quota: Number(e.target.value) })}
                 className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-6 text-foreground-muted font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
@@ -469,8 +505,8 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
                 type="button"
                 onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
                 aria-pressed={formData.is_active}
-                aria-label="Toggle voucher active status"
-                title="Toggle voucher active status"
+                aria-label="Aktifkan voucher"
+                title="Aktifkan voucher"
                 className={cn(
                   "w-12 h-6 rounded-full relative transition-all duration-300",
                   formData.is_active ? "bg-primary" : "bg-surface-raised"
@@ -481,7 +517,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
                   formData.is_active ? "right-1" : "left-1"
                 )} />
               </button>
-              <span className="text-xs font-bold text-foreground-muted tracking-wide">Active Status</span>
+              <span className="text-xs font-bold text-foreground-muted tracking-wide">Voucher aktif</span>
             </div>
             <div className="flex gap-4">
               <button
@@ -489,7 +525,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
                 onClick={onClose}
                 className="px-8 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-wide hover:text-foreground transition-all"
               >
-                Abort
+                Batal
               </button>
               <button
                 type="button"
@@ -498,7 +534,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
                 className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
               >
                 {isSaving ? <Loader2 className="animate-spin" size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
-                {voucher ? 'Update Token' : 'Authorize Token'}
+                {voucher ? 'Simpan perubahan' : 'Buat voucher'}
               </button>
             </div>
           </div>

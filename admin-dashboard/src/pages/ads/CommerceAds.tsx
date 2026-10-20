@@ -19,9 +19,9 @@ type Campaign = {
 }
 
 const tabs = [
-  ['overview', 'Overview'], ['campaigns', 'Campaigns'], ['moderation', 'Creatives & Moderation'],
-  ['inventory', 'Inventory & Placements'], ['bid', 'Bid/Pacing Policy'], ['invalid', 'Invalid Traffic'],
-  ['billing', 'Billing & Credits'], ['analytics', 'Analytics'], ['audit', 'Audit'],
+  ['overview', 'Ringkasan'], ['campaigns', 'Campaign'], ['moderation', 'Moderasi materi'],
+  ['inventory', 'Slot & penempatan'], ['bid', 'Aturan bid & pacing'], ['invalid', 'Traffic tidak valid'],
+  ['billing', 'Penagihan & kredit'], ['analytics', 'Analitik'], ['audit', 'Audit'],
 ] as const
 
 const money = (value: unknown, currency = 'IDR') => `${currency} ${Number(value || 0).toLocaleString('id-ID')}`
@@ -46,19 +46,19 @@ export default function CommerceAds() {
     <div className="w-full" aria-labelledby="commerce-ads-title">
       <div className="mx-auto max-w-7xl space-y-8">
         <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div><p className="text-xs font-black uppercase tracking-[0.22em] text-primary">Commerce Ads</p><h1 id="commerce-ads-title" className="mt-2 text-3xl font-black text-foreground">Paid visibility dengan guardrail marketplace</h1><p className="mt-2 max-w-3xl text-sm text-foreground-muted">Promo finansial tetap berada di Promo/Pricing. Ads hanya memilih sponsored content untuk slot yang disediakan Experience; rating, ETA, harga, dan serviceability tetap organik/server-authoritative.</p></div>
-          <div className="rounded-2xl border border-warning/40 bg-warning-surface px-4 py-3 text-sm text-warning" role="status">High-blast-radius policy: maker-checker + audit wajib.</div>
+          <div><p className="text-xs font-black uppercase tracking-[0.22em] text-primary">Pengawasan iklan berbayar</p><h1 id="commerce-ads-title" className="mt-2 text-3xl font-black text-foreground">Commerce Ads</h1><p className="mt-2 max-w-3xl text-sm text-foreground-muted">Promo finansial tetap dibuat di Promo &amp; Kode Redeem. Halaman ini digunakan admin untuk meninjau materi, penempatan, anggaran, dan keamanan campaign iklan.</p></div>
+          <div className="rounded-2xl border border-warning/40 bg-warning-surface px-4 py-3 text-sm text-warning" role="status">Perubahan berdampak luas. Setiap persetujuan dan penangguhan dicatat dalam audit.</div>
         </header>
         <nav className="flex gap-2 overflow-x-auto border-b border-border pb-2" aria-label="Commerce Ads navigation">{tabs.map(([key, label]) => <button key={key} type="button" onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined} className={`whitespace-nowrap rounded-xl px-3 py-2 text-sm font-bold ${tab === key ? 'bg-primary text-on-primary' : 'text-foreground-muted hover:bg-surface-subtle'}`}>{label}</button>)}</nav>
-        {(campaignsQuery.isLoading || inventoryQuery.isLoading) && <div className="rounded-2xl border border-border bg-surface p-6" role="status">Memuat control plane Ads…</div>}
-        {(campaignsQuery.isError || inventoryQuery.isError) && <div className="rounded-2xl border border-error bg-error-surface p-6 text-error" role="alert"><AlertTriangle className="mb-2 h-5 w-5" aria-hidden="true" />Ads control plane tidak tersedia. Core discovery tetap harus fallback ke organik.</div>}
-        {tab === 'overview' && <section className="grid gap-4 md:grid-cols-4" aria-label="Ads overview metrics"><Metric icon={Layers3} label="Campaigns" value={campaigns.length} /><Metric icon={CheckCircle2} label="Active" value={active} /><Metric icon={WalletCards} label="Charged spend" value={money(spend)} /><Metric icon={ShieldCheck} label="Protected zones" value={inventoryQuery.data?.protected_global_bounds?.ad_free_zones?.length || 0} /></section>}
-        {(tab === 'campaigns' || tab === 'moderation' || tab === 'billing' || tab === 'analytics') && <section className="overflow-hidden rounded-2xl border border-border bg-surface" aria-label="Ads campaigns table"><div className="border-b border-border p-5"><h2 className="text-xl font-black text-foreground">{tab === 'moderation' ? 'Creative moderation queue' : tab === 'billing' ? 'Billing and balance evidence' : tab === 'analytics' ? 'Paid vs organic reporting' : 'Campaign owner control'}</h2><p className="mt-1 text-sm text-foreground-muted">Owner access is scoped by the Ads service; changes produce append-only audit events.</p></div><div role="region" aria-label="Ads campaigns table scroll region" tabIndex={0} className="overflow-x-auto"><table className="min-w-full text-left text-sm"><thead className="bg-surface-subtle text-xs uppercase tracking-wide text-foreground-muted"><tr><th scope="col" className="px-5 py-3">Campaign</th><th scope="col" className="px-5 py-3">State</th><th scope="col" className="px-5 py-3">Policy</th><th scope="col" className="px-5 py-3">Budget / spend</th><th scope="col" className="px-5 py-3">Actions</th></tr></thead><tbody className="divide-y divide-border">{campaigns.map((campaign) => <tr key={campaign.id}><td className="px-5 py-4"><div className="font-bold text-foreground">{campaign.name}</div><div className="text-xs text-foreground-muted">{campaign.id} · {campaign.market_code}</div>{campaign.rejection_reason && <div className="mt-1 text-xs text-error">Ditolak: {campaign.rejection_reason}</div>}{campaign.suspension_reason && <div className="mt-1 text-xs text-error">Ditangguhkan: {campaign.suspension_reason}</div>}</td><td className="px-5 py-4"><span className="rounded-full bg-surface-subtle px-3 py-1 text-xs font-bold">{campaign.status}</span></td><td className="px-5 py-4">{campaign.policy_status || 'pending'}<div className="text-xs text-foreground-muted">{campaign.creative?.alt_text || 'creative alt text enforced'}</div></td><td className="px-5 py-4">{money(campaign.budget?.spent_minor, campaign.budget?.currency)}<div className="text-xs text-foreground-muted">cap {money(campaign.budget?.total_minor, campaign.budget?.currency)}</div></td><td className="px-5 py-4"><div className="flex flex-wrap gap-2"><button type="button" className="rounded-lg bg-success px-3 py-2 text-xs font-bold text-on-success" onClick={() => action.mutate({ id: campaign.id, action: 'moderation', payload: { status: 'approved', reason: 'admin moderation approved' } })}>Approve</button><button type="button" className="rounded-lg bg-error px-3 py-2 text-xs font-bold text-on-error" onClick={() => action.mutate({ id: campaign.id, action: 'suspend', payload: { scope: 'campaign', reason: 'manual admin suspension' } })}><Ban className="mr-1 inline h-3 w-3" aria-hidden="true" />Suspend</button></div></td></tr>)}</tbody></table>{campaigns.length === 0 && <p className="p-6 text-sm text-foreground-muted">Belum ada campaign Ads.</p>}</div></section>}
-        {tab === 'inventory' && <PolicyPanel title="Inventory & placements" icon={Gauge} data={inventoryQuery.data} />}
-        {tab === 'bid' && <PolicyPanel title="Bid, pacing & protected bounds" icon={BarChart3} data={{ rules: ['highest payer is not automatic winner', 'quality × relevance × eligibility ranking', 'daily/total hard cap with atomic reservation', 'currency comes from market financial context, never locale'], maker_checker: true }} />}
-        {tab === 'invalid' && <PolicyPanel title="Invalid traffic & privacy-safe debug" icon={ShieldCheck} data={{ rules: ['server-side cadence/self-click review', 'credit/reversal is append-only', 'merchant sees no user identity/list', 'raw fingerprinting is not collected'], reviewable: true }} />}
-        {tab === 'audit' && <PolicyPanel title="Append-only audit" icon={FileCheck2} data={auditQuery.data || { items: [], privacy: 'campaign-level audit only' }} />}
-        <footer className="rounded-2xl border border-border bg-surface p-5 text-sm text-foreground-muted"><strong className="text-foreground">Ad-free contract:</strong> checkout, payment, tracking, support/claim, Tambal/Towing booking-matching-active, and aggregator carrier comparison do not receive Ads. Ads failure returns organic fallback and cannot break order/payment.</footer>
+        {(campaignsQuery.isLoading || inventoryQuery.isLoading) && <div className="rounded-2xl border border-border bg-surface p-6" role="status">Memuat data pengawasan iklan…</div>}
+        {(campaignsQuery.isError || inventoryQuery.isError) && <div className="rounded-2xl border border-error bg-error-surface p-6 text-error" role="alert"><AlertTriangle className="mb-2 h-5 w-5" aria-hidden="true" />Data iklan tidak tersedia. Tampilan discovery harus tetap kembali ke hasil organik.</div>}
+        {tab === 'overview' && <section className="grid gap-4 md:grid-cols-4" aria-label="Ringkasan metrik iklan"><Metric icon={Layers3} label="Total campaign" value={campaigns.length} /><Metric icon={CheckCircle2} label="Aktif" value={active} /><Metric icon={WalletCards} label="Pengeluaran" value={money(spend)} /><Metric icon={ShieldCheck} label="Zona terlindungi" value={inventoryQuery.data?.protected_global_bounds?.ad_free_zones?.length || 0} /></section>}
+        {(tab === 'campaigns' || tab === 'moderation' || tab === 'billing' || tab === 'analytics') && <section className="overflow-hidden rounded-2xl border border-border bg-surface" aria-label="Daftar campaign iklan"><div className="border-b border-border p-5"><h2 className="text-xl font-black text-foreground">{tab === 'moderation' ? 'Antrean moderasi materi iklan' : tab === 'billing' ? 'Bukti penagihan dan saldo' : tab === 'analytics' ? 'Laporan iklan dan organik' : 'Kendali campaign'}</h2><p className="mt-1 text-sm text-foreground-muted">Akses admin dibatasi oleh layanan Ads dan setiap perubahan menghasilkan catatan audit.</p></div><div role="region" aria-label="Area tabel campaign iklan" tabIndex={0} className="overflow-x-auto"><table className="min-w-full text-left text-sm"><thead className="bg-surface-subtle text-xs uppercase tracking-wide text-foreground-muted"><tr><th scope="col" className="px-5 py-3">Campaign</th><th scope="col" className="px-5 py-3">Status</th><th scope="col" className="px-5 py-3">Kebijakan</th><th scope="col" className="px-5 py-3">Anggaran / terpakai</th><th scope="col" className="px-5 py-3">Tindakan</th></tr></thead><tbody className="divide-y divide-border">{campaigns.map((campaign) => <tr key={campaign.id}><td className="px-5 py-4"><div className="font-bold text-foreground">{campaign.name}</div><div className="text-xs text-foreground-muted">{campaign.id} · pasar {campaign.market_code}</div>{campaign.rejection_reason && <div className="mt-1 text-xs text-error">Ditolak: {campaign.rejection_reason}</div>}{campaign.suspension_reason && <div className="mt-1 text-xs text-error">Ditangguhkan: {campaign.suspension_reason}</div>}</td><td className="px-5 py-4"><span className="rounded-full bg-surface-subtle px-3 py-1 text-xs font-bold">{campaign.status}</span></td><td className="px-5 py-4">{campaign.policy_status || 'Menunggu'}<div className="text-xs text-foreground-muted">{campaign.creative?.alt_text ? 'Alt text tersedia' : 'Alt text belum tersedia'}</div></td><td className="px-5 py-4">{money(campaign.budget?.spent_minor, campaign.budget?.currency)}<div className="text-xs text-foreground-muted">batas {money(campaign.budget?.total_minor, campaign.budget?.currency)}</div></td><td className="px-5 py-4"><div className="flex flex-wrap gap-2"><button type="button" className="rounded-lg bg-success px-3 py-2 text-xs font-bold text-on-success" onClick={() => { if (window.confirm(`Setujui campaign ${campaign.name}?`)) action.mutate({ id: campaign.id, action: 'moderation', payload: { status: 'approved', reason: 'admin moderation approved' } }) }}>Setujui</button><button type="button" className="rounded-lg bg-error px-3 py-2 text-xs font-bold text-on-error" onClick={() => { if (window.confirm(`Tangguhkan campaign ${campaign.name}? Campaign tidak akan tampil sampai diaktifkan kembali.`)) action.mutate({ id: campaign.id, action: 'suspend', payload: { scope: 'campaign', reason: 'manual admin suspension' } }) }}><Ban className="mr-1 inline h-3 w-3" aria-hidden="true" />Tangguhkan</button></div></td></tr>)}</tbody></table>{campaigns.length === 0 && <p className="p-6 text-sm text-foreground-muted">Belum ada campaign iklan.</p>}</div></section>}
+        {tab === 'inventory' && <PolicyPanel title="Slot dan penempatan iklan" icon={Gauge} data={inventoryQuery.data} />}
+        {tab === 'bid' && <PolicyPanel title="Aturan bid, pacing, dan batas perlindungan" icon={BarChart3} data={{ rules: ['Pembayar tertinggi tidak otomatis menjadi pemenang', 'Peringkat menggunakan kualitas, relevansi, dan kelayakan', 'Batas harian dan total memakai reservasi atomik', 'Mata uang mengikuti konteks pasar, bukan locale perangkat'], maker_checker: true }} />}
+        {tab === 'invalid' && <PolicyPanel title="Traffic tidak valid dan pemeriksaan privasi" icon={ShieldCheck} data={{ rules: ['Pemeriksaan cadence dan self-click dilakukan di server', 'Kredit dan pembalikan dicatat secara append-only', 'Merchant tidak melihat identitas atau daftar customer', 'Fingerprint mentah tidak dikumpulkan'], reviewable: true }} />}
+        {tab === 'audit' && <PolicyPanel title="Riwayat audit" icon={FileCheck2} data={auditQuery.data || { items: [], privacy: 'Audit hanya pada level campaign' }} />}
+        <footer className="rounded-2xl border border-border bg-surface p-5 text-sm text-foreground-muted"><strong className="text-foreground">Area tanpa iklan:</strong> checkout, pembayaran, tracking, support/claim, booking dan matching Tambal/Towing, serta perbandingan carrier aggregator. Jika Ads gagal, sistem kembali ke hasil organik dan order tetap berjalan.</footer>
       </div>
     </div>
   )
@@ -66,4 +66,66 @@ export default function CommerceAds() {
 
 function Metric({ icon: Icon, label, value }: { icon: any; label: string; value: string | number }) { return <div className="rounded-2xl border border-border bg-surface p-5"><Icon className="h-5 w-5 text-primary" aria-hidden="true" /><p className="mt-4 text-xs font-bold uppercase tracking-wide text-foreground-muted">{label}</p><p className="mt-1 text-2xl font-black text-foreground">{value}</p></div> }
 
-function PolicyPanel({ title, icon: Icon, data }: { title: string; icon: any; data: unknown }) { return <section className="rounded-2xl border border-border bg-surface p-6"><div className="flex items-center gap-3"><Icon className="h-6 w-6 text-primary" aria-hidden="true" /><h2 className="text-xl font-black text-foreground">{title}</h2></div><pre className="mt-5 overflow-x-auto rounded-xl bg-surface-subtle p-4 text-xs text-foreground-muted">{JSON.stringify(data, null, 2)}</pre></section> }
+function PolicyPanel({ title, icon: Icon, data }: { title: string; icon: any; data: unknown }) {
+  const entries = data && typeof data === 'object' && !Array.isArray(data)
+    ? Object.entries(data as Record<string, unknown>)
+    : [['detail', data] as [string, unknown]]
+
+  return (
+    <section className="rounded-2xl border border-border bg-surface p-6">
+      <div className="flex items-center gap-3">
+        <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
+        <h2 className="text-xl font-black text-foreground">{title}</h2>
+      </div>
+      <dl className="mt-5 grid gap-3 md:grid-cols-2">
+        {entries.map(([key, value]) => (
+          <div key={key} className="rounded-xl border border-border bg-surface-subtle p-4">
+            <dt className="text-xs font-black uppercase tracking-wide text-foreground-muted">{policyKeyLabel(key)}</dt>
+            <dd className="mt-2 text-sm text-foreground-muted"><PolicyValue value={value} /></dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  )
+}
+
+function PolicyValue({ value, depth = 0 }: { value: unknown; depth?: number }) {
+  if (Array.isArray(value)) {
+    return value.length === 0 ? <span>Belum ada data</span> : (
+      <ul className="space-y-2">
+        {value.map((item, index) => <li key={index} className="rounded-lg border border-border/60 bg-background/40 px-3 py-2"><PolicyValue value={item} depth={depth + 1} /></li>)}
+      </ul>
+    )
+  }
+
+  if (value && typeof value === 'object' && depth < 2) {
+    return (
+      <dl className="space-y-2">
+        {Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => (
+          <div key={key}>
+            <dt className="text-xs font-bold text-foreground-muted">{policyKeyLabel(key)}</dt>
+            <dd className="mt-1"><PolicyValue value={nestedValue} depth={depth + 1} /></dd>
+          </div>
+        ))}
+      </dl>
+    )
+  }
+
+  return <span>{value === null || value === undefined || value === '' ? 'Belum tersedia' : String(value)}</span>
+}
+
+function policyKeyLabel(key: string) {
+  const labels: Record<string, string> = {
+    protected_global_bounds: 'Batas perlindungan global',
+    ad_free_zones: 'Zona tanpa iklan',
+    maker_checker: 'Persetujuan berlapis',
+    reviewable: 'Dapat ditinjau',
+    privacy: 'Privasi',
+    items: 'Daftar data',
+    policies: 'Aturan yang berlaku',
+    rules: 'Aturan',
+    value: 'Nilai',
+    detail: 'Detail',
+  }
+  return labels[key] || key.replaceAll('_', ' ')
+}
