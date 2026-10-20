@@ -7,6 +7,7 @@ import {
   getPromoCampaignById,
   getPromoCampaignAnalytics,
   getPromoMarginPolicies,
+  generatePromoCode,
   listPromoCampaigns,
   pausePromoCampaign,
   previewPromoNotificationAudience,
@@ -19,6 +20,7 @@ import {
   validatePromoForCheckout,
   validatePromoStackForCheckout,
 } from '../services/promoEngine';
+import { saveSecureUploadBuffer } from '../security/uploadSecurity';
 
 const respondError = (res: Response, error: unknown) => { securityLog.error('PROMO ERROR:', error);
   const safeError = safePromoError(error);
@@ -89,6 +91,34 @@ export const createAdminPromoCampaign = async (req: Request, res: Response): Pro
   try {
     const campaign = await createPromoCampaign(req.user || {}, req.body || {});
     res.status(201).json({ success: true, data: campaign });
+  } catch (error) {
+    respondError(res, error);
+  }
+};
+
+export const generateAdminPromoCode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const code = await generatePromoCode(req.body?.prefix);
+    res.json({ success: true, data: { code } });
+  } catch (error) {
+    respondError(res, error);
+  }
+};
+
+export const uploadAdminPromoImage = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ success: false, data: null, message: 'No image file uploaded', code: 'ERR_PROMO_IMAGE_REQUIRED' });
+      return;
+    }
+    const saved = saveSecureUploadBuffer(req.file, 'banners/promos');
+    res.status(201).json({
+      success: true,
+      data: {
+        file_url: saved.fileUrl,
+        storage_key: saved.storageKey,
+      },
+    });
   } catch (error) {
     respondError(res, error);
   }
@@ -202,6 +232,8 @@ export const listCustomerEligiblePromos = async (req: Request, res: Response): P
       code: campaign.code,
       name: campaign.name,
       description: campaign.description,
+      promo_image_url: campaign.promo_image_url || null,
+      promo_image_alt: campaign.promo_image_alt || campaign.name || campaign.code,
       discount_type: campaign.discount_type,
       discount_value_idr: campaign.discount_value_idr,
       discount_percent: campaign.discount_percent,

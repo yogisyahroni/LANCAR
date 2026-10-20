@@ -88,6 +88,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tembus.customer.R
+import com.tembus.customer.BuildConfig
 import com.tembus.customer.data.model.GlobalBanner
 import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.data.model.CustomerEligiblePromo
@@ -670,6 +671,7 @@ internal fun FigmaPromoBanner(
         ?: eligiblePromo?.code
         ?: return
     val sectionId = heroSection?.id ?: "promo_campaign"
+    val promoImageUrl = absolutePromoImageUrl(eligiblePromo?.promoImageUrl)
     val target = remember(deepLink, externalUrl) {
         if (!deepLink.isNullOrBlank() || !externalUrl.isNullOrBlank()) {
             RemoteDeepLinkResolver.resolve(deepLink, externalUrl)
@@ -793,10 +795,19 @@ internal fun FigmaPromoBanner(
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center,
             ) {
-                Box(Modifier.size(112.dp).clip(CircleShape).border(8.dp, Color(0xFF1E654A), CircleShape))
-                Box(Modifier.size(76.dp).clip(CircleShape).border(7.dp, Color(0xFF1E654A), CircleShape))
-                Box(Modifier.size(42.dp).clip(CircleShape).background(Color(0xFF1E654A)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Color(0xFFB8D8C7), modifier = Modifier.size(22.dp))
+                if (promoImageUrl != null) {
+                    AsyncImage(
+                        model = promoImageUrl,
+                        contentDescription = eligiblePromo?.promoImageAlt ?: title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(112.dp).clip(RoundedCornerShape(20.dp)),
+                    )
+                } else {
+                    Box(Modifier.size(112.dp).clip(CircleShape).border(8.dp, Color(0xFF1E654A), CircleShape))
+                    Box(Modifier.size(76.dp).clip(CircleShape).border(7.dp, Color(0xFF1E654A), CircleShape))
+                    Box(Modifier.size(42.dp).clip(CircleShape).background(Color(0xFF1E654A)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Color(0xFFB8D8C7), modifier = Modifier.size(22.dp))
+                    }
                 }
             }
         }
@@ -809,6 +820,13 @@ private fun promoDiscountLabel(promo: CustomerEligiblePromo): String? = when {
     promo.discountValueIdr > 0 -> "Diskon ${formatPromoIdr(promo.discountValueIdr)}"
     promo.discountType.equals("free_insurance", ignoreCase = true) -> "Gratis proteksi"
     else -> null
+}
+
+private fun absolutePromoImageUrl(path: String?): String? {
+    val value = path?.trim().orEmpty()
+    if (value.isBlank()) return null
+    if (value.startsWith("http://") || value.startsWith("https://")) return value
+    return BuildConfig.BASE_URL.substringBefore("/api/v1").trimEnd('/') + "/" + value.trimStart('/')
 }
 
 private fun formatPromoIdr(value: Long): String =

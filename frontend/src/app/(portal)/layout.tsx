@@ -70,6 +70,15 @@ interface DBNotification {
  */
 const NOTIFICATIONS_UPDATED_EVENT = "tembus:notifications-updated";
 
+function ThemeAwareBrandLogo({ className }: { className: string }) {
+  return (
+    <>
+      <img src="/tembus-logo-light.svg" alt="Tembus" className={cn("theme-logo theme-logo-light", className)} />
+      <img src="/tembus-logo-dark.svg" alt="Tembus" className={cn("theme-logo theme-logo-dark", className)} />
+    </>
+  );
+}
+
 export default function PortalLayout({
   children,
 }: {
@@ -326,19 +335,11 @@ export default function PortalLayout({
               animate={{ opacity: 1 }}
               className="flex items-center gap-3"
             >
-              <img
-                src="/tembusweb.svg"
-                alt="Tembus"
-                className="h-10 object-contain drop-shadow-md"
-              />
+              <ThemeAwareBrandLogo className="h-10 object-contain drop-shadow-md" />
             </motion.div>
           ) : (
             <div className="h-10 w-10 overflow-hidden flex items-center justify-center mx-auto">
-              <img
-                src="/tembusweb.svg"
-                alt="Tembus"
-                className="h-10 w-auto max-w-none object-cover object-left drop-shadow-md -ml-3"
-              />
+              <ThemeAwareBrandLogo className="h-10 w-auto max-w-none object-cover object-left drop-shadow-md -ml-3" />
             </div>
           )}
         </div>
@@ -425,11 +426,7 @@ export default function PortalLayout({
             >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
-                  <img
-                    src="/tembusweb.svg"
-                    alt="Tembus"
-                    className="h-10 object-contain drop-shadow-md"
-                  />
+                  <ThemeAwareBrandLogo className="h-10 object-contain drop-shadow-md" />
                 </div>
                 <button
                   type="button"

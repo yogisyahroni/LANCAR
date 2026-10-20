@@ -38,6 +38,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,6 +49,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.customer.data.api.TEMBUSApiService
 import com.tembus.customer.data.model.CustomerEligiblePromo
+import com.tembus.customer.BuildConfig
+import coil.compose.AsyncImage
 import com.tembus.customer.ui.designsystem.TembusBadge
 import com.tembus.customer.ui.designsystem.TembusBadgeTone
 import com.tembus.customer.ui.designsystem.TembusButton
@@ -172,6 +176,14 @@ fun PromoCenterScreen(
 private fun PromoCard(promo: CustomerEligiblePromo, onUse: () -> Unit) {
     TembusCard {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            absolutePromoImageUrl(promo.promoImageUrl)?.let { imageUrl ->
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = promo.promoImageAlt ?: promo.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxWidth().height(132.dp).clip(RoundedCornerShape(14.dp)),
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(promo.name.ifBlank { promo.code }, fontWeight = FontWeight.Black, fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -186,6 +198,13 @@ private fun PromoCard(promo: CustomerEligiblePromo, onUse: () -> Unit) {
             }
         }
     }
+}
+
+private fun absolutePromoImageUrl(path: String?): String? {
+    val value = path?.trim().orEmpty()
+    if (value.isBlank()) return null
+    if (value.startsWith("http://") || value.startsWith("https://")) return value
+    return BuildConfig.BASE_URL.substringBefore("/api/v1").trimEnd('/') + "/" + value.trimStart('/')
 }
 
 private fun discountLabel(promo: CustomerEligiblePromo): String {

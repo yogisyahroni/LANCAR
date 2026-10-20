@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { clientLog } from '@/lib/clientLogger';
+import { resolveCustomerMediaUrl } from '@/lib/publicMedia';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 interface EligiblePromo {
@@ -20,6 +21,8 @@ interface EligiblePromo {
   code: string;
   name: string;
   description?: string | null;
+  promo_image_url?: string | null;
+  promo_image_alt?: string | null;
   expires_at?: string | null;
   valid_until?: string | null;
   min_spend_idr?: number | null;
@@ -300,6 +303,14 @@ export default function VoucherPage() {
                   transition={{ duration: 0.25, delay: Math.min(index * 0.05, 0.3) }}
                 >
                   <article className="glass-card relative h-full overflow-hidden rounded-2xl p-5">
+                    {promo.promo_image_url && (
+                      <img
+                        src={resolveCustomerMediaUrl(promo.promo_image_url)}
+                        alt={promo.promo_image_alt || promo.name}
+                        loading="lazy"
+                        className="-mx-5 -mt-5 mb-4 h-36 w-[calc(100%+2.5rem)] object-cover"
+                      />
+                    )}
                     <div
                       aria-hidden="true"
                       className="absolute right-0 top-0 h-16 w-16 translate-x-6 -translate-y-6 rounded-full bg-primary/10 dark:bg-success/10"
@@ -333,7 +344,7 @@ export default function VoucherPage() {
                       )}
                     </dl>
                     <Link
-                      href={`/orders/new?promo=${encodeURIComponent(promo.code)}`}
+                      href={`/orders/new/ondemand?promo=${encodeURIComponent(promo.code)}`}
                       className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-black text-on-primary transition-all hover:bg-primary-light active:scale-[0.98]"
                     >
                       Pakai Sekarang

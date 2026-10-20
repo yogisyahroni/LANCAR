@@ -9,6 +9,8 @@ import {
   ClipboardList,
   Clock,
   Coins,
+  ImagePlus,
+  KeyRound,
   Loader2,
   PauseCircle,
   PlayCircle,
@@ -23,6 +25,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
+import { adminApiRootUrl } from '../lib/runtimeConfig'
 import { cn } from '../lib/utils'
 import { StatusBadge } from '../components/StatusBadge'
 
@@ -36,6 +39,8 @@ type PromoCampaign = {
   code: string
   name: string
   description?: string | null
+  promo_image_url?: string | null
+  promo_image_alt?: string | null
   status: PromoStatus
   discount_type: DiscountType
   discount_value_idr: number
@@ -73,6 +78,8 @@ type PromoFormState = {
   code: string
   name: string
   description: string
+  promo_image_url: string
+  promo_image_alt: string
   discount_type: DiscountType
   discount_value_idr: string
   discount_percent: string
@@ -155,6 +162,8 @@ const initialForm: PromoFormState = {
   code: '',
   name: '',
   description: '',
+  promo_image_url: '',
+  promo_image_alt: '',
   discount_type: 'shipping_discount',
   discount_value_idr: '10000',
   discount_percent: '0',
@@ -204,6 +213,12 @@ const formatIdr = (value: unknown) => {
   return `Rp ${amount.toLocaleString('id-ID')}`
 }
 
+const resolvePromoImageUrl = (value: string) => {
+  const trimmed = value.trim()
+  if (!trimmed || trimmed.startsWith('https://')) return trimmed
+  return `${adminApiRootUrl}/${trimmed.replace(/^\/+/, '')}`
+}
+
 const parseServiceCodes = (value: unknown): string[] => {
   if (Array.isArray(value)) return value.map(String)
   if (value && typeof value === 'object') return Object.keys(value as Record<string, unknown>).filter((key) => Boolean((value as Record<string, unknown>)[key]))
@@ -214,6 +229,8 @@ const buildCreatePayload = (form: PromoFormState) => ({
   code: form.code.trim().toUpperCase(),
   name: form.name.trim(),
   description: form.description.trim(),
+  promo_image_url: form.promo_image_url.trim() || undefined,
+  promo_image_alt: form.promo_image_alt.trim() || form.name.trim(),
   discount_type: form.discount_type,
   discount_value_idr: toInt(form.discount_value_idr),
   discount_percent: Number(form.discount_percent || 0),
@@ -354,6 +371,43 @@ export default function Promos() {
       queryClient.invalidateQueries({ queryKey: ['promo-campaigns'] })
     },
     onError: (error: any) => toast.error(queryErrorMessage(error, 'Campaign promo gagal dibuat')),
+  })
+
+  const generateCodeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post('/admin/promos/generate-code', { prefix: 'TEMBUS' })
+      return String(res.data?.data?.code || '')
+    },
+    onSuccess: (code) => {
+      if (!code) {
+        toast.error('Kode redeem tidak berhasil dibuat')
+        return
+      }
+      updateForm('code', code)
+      setSimulation((current) => ({ ...current, code }))
+      toast.success(`Kode redeem dibuat: ${code}`)
+    },
+    onError: (error: any) => toast.error(queryErrorMessage(error, 'Kode redeem gagal dibuat')),
+  })
+
+  const uploadImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const payload = new FormData()
+      payload.append('image', file)
+      const res = await api.post('/admin/promos/upload-image', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return String(res.data?.data?.file_url || '')
+    },
+    onSuccess: (url) => {
+      if (!url) {
+        toast.error('URL gambar promo tidak diterima dari server')
+        return
+      }
+      updateForm('promo_image_url', url)
+      toast.success('Gambar promo berhasil diupload')
+    },
+    onError: (error: any) => toast.error(queryErrorMessage(error, 'Upload gambar promo gagal')),
   })
 
   const actionMutation = useMutation({
@@ -529,7 +583,18 @@ export default function Promos() {
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <TextField label="Kode promo" value={form.code} onChange={(value) => updateForm('code', value.toUpperCase())} placeholder="TEMBUSHEMAT" />
+            <div>
+              <TextField label="Kode redeem" value={form.code} onChange={(value) => updateForm('code', value.toUpperCase())} placeholder="TEMBUS-ABC123" />
+              <button
+                type="button"
+                disabled={generateCodeMutation.isPending}
+                onClick={() => generateCodeMutation.mutate()}
+                className="mt-2 inline-flex items-center gap-2 rounded-xl border border-success bg-success-surface px-3 py-2 text-xs font-black uppercase tracking-wide text-success transition-all hover:bg-success-surface disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {generateCodeMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />}
+                Generate kode
+              </button>
+            </div>
             <TextField label="Nama campaign" value={form.name} onChange={(value) => updateForm('name', value)} placeholder="Hemat pengiriman motor" />
             <SelectField
               label="Tipe diskon"
@@ -575,6 +640,36 @@ export default function Promos() {
                 className="mt-2 min-h-24 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground-muted outline-none transition-all placeholder:text-foreground-muted focus:border-success focus:ring-2 focus:ring-success"
                 placeholder="Copy promo yang aman untuk user dan tidak menjanjikan diskon di luar policy."
               />
+            </div>
+            <div className="md:col-span-2 rounded-2xl border border-dashed border-success bg-success-surface p-4">
+              <div className="flex items-start gap-3">
+                <ImagePlus className="mt-0.5 h-5 w-5 shrink-0 text-success" aria-hidden="true" />
+                <div>
+                  <p className="text-sm font-black text-success">Gambar promo untuk customer web &amp; mobile</p>
+                  <p className="mt-1 text-xs leading-5 text-success">Upload JPG, PNG, atau WebP maksimal 5 MB. Gambar baru akan tampil setelah campaign aktif.</p>
+                </div>
+              </div>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                aria-label="Upload gambar promo"
+                disabled={uploadImageMutation.isPending}
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  event.currentTarget.value = ''
+                  if (file) uploadImageMutation.mutate(file)
+                }}
+                className="mt-4 block w-full text-xs text-foreground-muted file:mr-3 file:rounded-xl file:border-0 file:bg-success file:px-4 file:py-2 file:font-black file:text-on-success hover:file:opacity-90"
+              />
+              <div className="mt-3">
+                <TextField label="Atau URL gambar HTTPS / upload" value={form.promo_image_url} onChange={(value) => updateForm('promo_image_url', value)} placeholder="/uploads/banners/promos/promo.webp atau https://..." />
+              </div>
+              <div className="mt-3">
+                <TextField label="Alt text gambar" value={form.promo_image_alt} onChange={(value) => updateForm('promo_image_alt', value)} placeholder="Promo hemat ongkir untuk pengiriman cepat" />
+              </div>
+              {form.promo_image_url && (
+                <img src={resolvePromoImageUrl(form.promo_image_url)} alt={form.promo_image_alt || form.name || 'Preview gambar promo'} className="mt-4 h-36 w-full rounded-2xl object-cover" />
+              )}
             </div>
           </div>
 

@@ -21,7 +21,6 @@ import DriverWalletHold from './pages/DriverWalletHold' // FOOD-BIKE-054
 import CourierPublicRegistration from './pages/CourierPublicRegistration'
 import PricingConfig from './pages/PricingConfig'
 import EconomicsControlPlane from './pages/EconomicsControlPlane'
-import SettlementConfig from './pages/SettlementConfig'
 import Disputes from './pages/Disputes'
 import Cases from './pages/Cases'
 import Customers from './pages/Customers'

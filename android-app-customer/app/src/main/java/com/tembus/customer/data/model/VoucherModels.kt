@@ -31,6 +31,8 @@ data class CustomerEligiblePromo(
     @SerialName("code") val code: String = "",
     @SerialName("name") val name: String = "",
     @SerialName("description") val description: String? = null,
+    @SerialName("promo_image_url") val promoImageUrl: String? = null,
+    @SerialName("promo_image_alt") val promoImageAlt: String? = null,
     @SerialName("discount_type") val discountType: String = "",
     @SerialName("discount_value_idr") val discountValueIdr: Long = 0,
     @SerialName("discount_percent") val discountPercent: Double? = null,

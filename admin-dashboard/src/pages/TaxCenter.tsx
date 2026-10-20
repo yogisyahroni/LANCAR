@@ -83,7 +83,7 @@ export default function TaxCenter() {
   const saveRuleMutation = useMutation({
     mutationFn: async (rule: Partial<TaxRule>) => {
       if (editingRule?.id) {
-        const res = await api.patch(`/admin/finance/tax-rules/${editingRule.id}`, rule)
+        const res = await api.put(`/admin/finance/tax-rules/${editingRule.id}`, rule)
         return res.data
       } else {
         const res = await api.post('/admin/finance/tax-rules', rule)
@@ -166,7 +166,7 @@ export default function TaxCenter() {
           <button
             onClick={async () => {
               try {
-                const res = await api.get('/admin/finance/tax-pack/export', { responseType: 'blob' })
+                const res = await api.get('/admin/finance/tax-dashboard/export-pack', { responseType: 'blob' })
                 const url = window.URL.createObjectURL(new Blob([res.data]))
                 const link = document.createElement('a')
                 link.href = url

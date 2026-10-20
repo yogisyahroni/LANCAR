@@ -9,7 +9,7 @@ import Link from "next/link";
 import { PaymentModal } from "@/components/orders/PaymentModal";
 import { api } from "@/lib/api";
 import { clientLog } from "@/lib/clientLogger";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useNotificationStore } from "@/store/useNotificationStore";
 import { Info } from "lucide-react";
 import { normalizePromoCodes } from "@/lib/promoCodes";
@@ -166,9 +166,17 @@ export default function NewOrderPage() {
   const previousFormDataRef = useRef<string>("");
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { addNotification } = useNotificationStore();
   const routePreviewRequestRef = useRef(0);
   const promoRequestRef = useRef(0);
+
+  useEffect(() => {
+    const initialPromo = searchParams.get("promo")?.trim().toUpperCase();
+    if (initialPromo && /^[A-Z0-9_-]{1,40}$/.test(initialPromo)) {
+      setPromoCode((current) => current || initialPromo);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const pending = readPendingTransaction();

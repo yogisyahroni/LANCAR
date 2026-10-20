@@ -825,6 +825,10 @@ jobs:
           # in the canonical orders table. The courier feed reads order_legs;
           # without this guard, an accepted leg can resurrect old UAT work.
           docker-compose up -d db
+          # Apply every pending migration before replacing application containers.
+          # The deploy host is already authenticated to GHCR above, so the
+          # compose migration image can be pulled and run against the staging DB.
+          docker-compose --profile migrate run --rm migrate
           docker-compose exec -T db sh -lc 'psql -v ON_ERROR_STOP=1 -U "\$POSTGRES_USER" -d "\$POSTGRES_DB" -c "UPDATE order_legs AS ol SET status = '\''cancelled'\'', updated_at = NOW() WHERE ol.status NOT IN ('\''delivered'\'','\''completed'\'','\''cancelled'\'','\''failed'\'','\''rejected'\'') AND EXISTS (SELECT 1 FROM orders AS o WHERE o.id = ol.order_id AND o.status = '\''cancelled'\'');"'
           docker-compose up -d traefik
           export CURRENT_SHA="${SHA}"

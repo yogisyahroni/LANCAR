@@ -54,6 +54,15 @@ input {
   margin: 0 auto;
 }
 
+.services-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.services-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .glass-panel {
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.88);

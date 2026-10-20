@@ -55,7 +55,7 @@ try {
         "bawain-api"
     )
 
-    Write-Host "Menjalankan bawain-api dengan HTTP/2, IPv4, dan resolver DNS 1.1.1.1 / 8.8.8.8..."
+    Write-Host "Menjalankan bawain-api dengan HTTP/2, edge IPv4/IPv6 otomatis, dan resolver DNS 1.1.1.1 / 8.8.8.8..."
     & $cloudflared @arguments
     $exitCode = $LASTEXITCODE
 }

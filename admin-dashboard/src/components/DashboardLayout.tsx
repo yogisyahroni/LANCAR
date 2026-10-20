@@ -91,6 +91,15 @@ const SidebarItem = ({ icon: Icon, label, path, collapsed }: SidebarItemProps) =
   )
 }
 
+function ThemeAwareBrandLogo({ className }: { className: string }) {
+  return (
+    <>
+      <img src="/tembus-logo-light.svg" alt="Tembus" className={cn("theme-logo theme-logo-light", className)} />
+      <img src="/tembus-logo-dark.svg" alt="Tembus" className={cn("theme-logo theme-logo-dark", className)} />
+    </>
+  )
+}
+
 interface DBNotification {
   id: string;
   title: string;
@@ -501,11 +510,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               animate={{ opacity: 1 }}
               className="flex items-center gap-3"
             >
-              <img src="/tembusweb.svg" alt="Tembus Logo" className="h-10 object-contain drop-shadow-md" />
+              <ThemeAwareBrandLogo className="h-10 object-contain drop-shadow-md" />
             </motion.div>
           ) : (
             <div className="h-10 w-10 overflow-hidden flex items-center justify-center mx-auto">
-              <img src="/tembusweb.svg" alt="Tembus Logo" className="h-10 w-auto max-w-none object-cover object-left drop-shadow-md -ml-3" />
+              <ThemeAwareBrandLogo className="h-10 w-auto max-w-none object-cover object-left drop-shadow-md -ml-3" />
             </div>
           )}
         </div>
@@ -554,7 +563,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             >
               <div className="flex items-center justify-between mb-6 flex-shrink-0">
                 <div className="flex items-center gap-3">
-                  <img src="/tembusweb.svg" alt="Tembus Logo" className="h-10 object-contain drop-shadow-md" />
+                  <ThemeAwareBrandLogo className="h-10 object-contain drop-shadow-md" />
                 </div>
                 <button type="button" onClick={() => setIsMobileMenuOpen(false)} aria-label="Close navigation" title="Close navigation" className="p-2 text-foreground-muted hover:text-foreground rounded-lg">
                   <X size={24} aria-hidden="true" />

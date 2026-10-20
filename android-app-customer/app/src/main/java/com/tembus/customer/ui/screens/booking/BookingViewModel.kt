@@ -234,11 +234,17 @@ class BookingViewModel @Inject constructor(
 ) : ViewModel() {
 
     val isAggregatorMode: Boolean = savedStateHandle.get<String>("mode") == "aggregator"
+    private val initialPromoCode = savedStateHandle.get<String>("promo")
+        ?.trim()
+        ?.uppercase()
+        ?.filter { it.isLetterOrDigit() || it == '_' || it == '-' }
+        ?.take(32)
+        .orEmpty()
 
     private val _bookingState = MutableStateFlow(
         savedStateHandle.get<String>(BOOKING_DRAFT_KEY)
             ?.let { encoded -> runCatching { bookingDraftJson.decodeFromString<BookingDraft>(encoded).toBookingState() }.getOrNull() }
-            ?: BookingState()
+            ?: BookingState(promoCode = initialPromoCode)
     )
     val bookingState: StateFlow<BookingState> = _bookingState.asStateFlow()
 

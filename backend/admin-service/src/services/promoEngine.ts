@@ -34,9 +34,19 @@ const campaignStatusSchema = z.enum(['draft', 'pending_approval', 'scheduled', '
 const discountTypeSchema = z.enum(['fixed', 'percentage', 'shipping_discount', 'free_insurance']);
 const componentScopeSchema = z.enum(['shipping', 'insurance', 'service_fee', 'referral']);
 const uuidSchema = z.string().uuid();
+const promoImageUrlSchema = z.preprocess(
+  (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+  z.string().trim().max(2048).refine(
+    (value) => /^\/uploads\/banners\/[A-Za-z0-9._/-]+$/.test(value) || /^https:\/\/[^\s]+$/.test(value),
+    'Promo image must be an HTTPS URL or a public /uploads/banners path',
+  ).optional(),
+);
 
 const campaignMutationSchema = z.object({
-  code: z.string().trim().min(3).max(40).regex(/^[A-Z0-9_-]+$/).optional(),
+  code: z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string().trim().min(3).max(40).regex(/^[A-Z0-9_-]+$/).optional(),
+  ),
   name: z.string().trim().min(3).max(120).optional(),
   description: z.string().trim().max(1000).optional(),
   discount_type: discountTypeSchema.optional(),
@@ -57,6 +67,8 @@ const campaignMutationSchema = z.object({
   audience_rules: z.record(z.string(), z.unknown()).optional(),
   eligibility_rules: z.record(z.string(), z.unknown()).optional(),
   notification_copy: z.record(z.string(), z.unknown()).optional(),
+  promo_image_url: promoImageUrlSchema,
+  promo_image_alt: z.string().trim().max(240).optional(),
   risk_campaign: z.boolean().optional(),
   risk_reason: z.string().trim().max(500).optional(),
 });
@@ -101,6 +113,27 @@ const decimalValue = (value: unknown, fallback = 0) => {
 };
 
 const jsonValue = (value: unknown) => JSON.stringify(value ?? {});
+
+const PROMO_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+export const generatePromoCode = async (requestedPrefix?: unknown): Promise<string> => {
+  const prefix = String(requestedPrefix || 'TEMBUS')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 12) || 'TEMBUS';
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const suffix = Array.from({ length: 6 }, () => PROMO_CODE_ALPHABET[crypto.randomInt(0, PROMO_CODE_ALPHABET.length)]).join('');
+    const code = `${prefix}-${suffix}`;
+    const existing = await readDb.query('SELECT 1 FROM promo_campaigns WHERE code = $1 LIMIT 1', [code]);
+    if (existing.rows.length === 0) return code;
+  }
+
+  const error = new Error('Unable to generate a unique promo code');
+  (error as any).statusCode = 503;
+  throw error;
+};
 
 export type PromoStackCandidate = {
   campaign: Record<string, any>;
@@ -229,6 +262,8 @@ const campaignSelect = `
     code,
     name,
     description,
+    promo_image_url,
+    promo_image_alt,
     status,
     discount_type,
     discount_value_idr,
@@ -341,13 +376,14 @@ const requirePoliciesForCampaign = async (campaign: Record<string, any>) => {
 export const createPromoCampaign = async (actor: PromoActor, input: unknown) => {
   assertActor(actor);
   const parsed = campaignMutationSchema.extend({
-    code: campaignMutationSchema.shape.code.unwrap(),
+    code: campaignMutationSchema.shape.code,
     name: campaignMutationSchema.shape.name.unwrap(),
     discount_type: discountTypeSchema.default('fixed'),
     service_codes: z.array(serviceCodeSchema).min(1).max(20),
     starts_at: z.coerce.date(),
     ends_at: z.coerce.date(),
   }).parse(input);
+  const code = parsed.code || await generatePromoCode();
 
   const client = await db.connect();
   try {
@@ -378,16 +414,18 @@ export const createPromoCampaign = async (actor: PromoActor, input: unknown) => 
         notification_copy,
         risk_campaign,
         risk_reason,
+        promo_image_url,
+        promo_image_alt,
         created_by,
         updated_by
       )
       VALUES (
         $1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9::TEXT[], $10, $11, $12,
-        $13, $14, $15, $16, $17, $18, $19::jsonb, $20::jsonb, $21::jsonb, $22, $23, $24, $24
+        $13, $14, $15, $16, $17, $18, $19::jsonb, $20::jsonb, $21::jsonb, $22, $23, $24, $25, $26, $26
       )
       RETURNING *`,
       [
-        parsed.code,
+        code,
         parsed.name,
         parsed.description || '',
         parsed.discount_type,
@@ -410,12 +448,14 @@ export const createPromoCampaign = async (actor: PromoActor, input: unknown) => 
         jsonValue(parsed.notification_copy || {}),
         parsed.risk_campaign === true,
         parsed.risk_reason || null,
+        parsed.promo_image_url || null,
+        parsed.promo_image_alt || '',
         actor.id,
       ]
     );
 
     await auditPromoEvent(client, result.rows[0].id, actor, 'promo_campaign_created', 'Promo campaign draft created', {
-      code: parsed.code,
+      code,
       service_codes: parsed.service_codes,
     });
     await client.query('COMMIT');
@@ -480,7 +520,9 @@ export const updatePromoCampaign = async (actor: PromoActor, id: string, input: 
            notification_copy = $21::jsonb,
            risk_campaign = $22,
            risk_reason = $23,
-           updated_by = $24,
+           promo_image_url = $24,
+           promo_image_alt = $25,
+           updated_by = $26,
            updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
@@ -508,6 +550,8 @@ export const updatePromoCampaign = async (actor: PromoActor, id: string, input: 
         jsonValue(merged.notification_copy || {}),
         merged.risk_campaign === true,
         merged.risk_reason || null,
+        merged.promo_image_url || null,
+        merged.promo_image_alt || '',
         actor.id,
       ]
     );

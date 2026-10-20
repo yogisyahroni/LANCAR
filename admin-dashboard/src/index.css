@@ -1,6 +1,23 @@
 @import "tailwindcss";
 @import "./tembus-tokens.generated.css";
 
+/* Sidebar branding follows the explicit app theme, including system mode. */
+.theme-logo-light {
+  display: block;
+}
+
+.theme-logo-dark {
+  display: none;
+}
+
+.dark .theme-logo-light {
+  display: none;
+}
+
+.dark .theme-logo-dark {
+  display: block;
+}
+
 @theme inline {
   --color-primary: var(--token-primary);
   --color-primary-light: var(--token-primary-light);
@@ -338,4 +355,3 @@ select option {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: var(--token-border-strong);
 }
-

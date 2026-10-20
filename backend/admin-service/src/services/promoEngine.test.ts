@@ -22,6 +22,7 @@ import {
   previewPromoNotificationAudience,
   releasePromoReservation,
   selectCanonicalPromoStack,
+  generatePromoCode,
   validatePromoForCheckout,
   validatePromoStackForCheckout,
 } from './promoEngine';
@@ -93,6 +94,16 @@ describe('promoEngine checkout guards', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('generates a readable unique redeem code from the server', async () => {
+    mockReadDbQuery.mockResolvedValueOnce({ rows: [] });
+
+    await expect(generatePromoCode('tembus')).resolves.toMatch(/^TEMBUS-[A-Z2-9]{6}$/);
+    expect(mockReadDbQuery).toHaveBeenCalledWith(
+      'SELECT 1 FROM promo_campaigns WHERE code = $1 LIMIT 1',
+      [expect.stringMatching(/^TEMBUS-[A-Z2-9]{6}$/)],
+    );
   });
 
   it('rejects a promo that would break contribution margin', async () => {
