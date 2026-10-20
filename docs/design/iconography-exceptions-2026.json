@@ -65,6 +65,30 @@
       "kind": "brand-asset",
       "rationale": "Admin-served copy of the monochrome TEMBUS resi/receipt brand asset.",
       "accessible_contract": "Every application img reference supplies meaningful alt text."
+    },
+    {
+      "path": "frontend/public/tembus-logo-light.svg",
+      "kind": "brand-asset",
+      "rationale": "Light TEMBUS logo variant used by the customer portal shell on dark surfaces.",
+      "accessible_contract": "Every application img reference supplies meaningful alt text."
+    },
+    {
+      "path": "frontend/public/tembus-logo-dark.svg",
+      "kind": "brand-asset",
+      "rationale": "Dark TEMBUS logo variant used by the customer portal shell on light surfaces.",
+      "accessible_contract": "Every application img reference supplies meaningful alt text."
+    },
+    {
+      "path": "admin-dashboard/public/tembus-logo-light.svg",
+      "kind": "brand-asset",
+      "rationale": "Light TEMBUS logo variant used by the admin shell on dark surfaces.",
+      "accessible_contract": "Every application img reference supplies meaningful alt text."
+    },
+    {
+      "path": "admin-dashboard/public/tembus-logo-dark.svg",
+      "kind": "brand-asset",
+      "rationale": "Dark TEMBUS logo variant used by the admin shell on light surfaces.",
+      "accessible_contract": "Every application img reference supplies meaningful alt text."
     }
   ]
 }
