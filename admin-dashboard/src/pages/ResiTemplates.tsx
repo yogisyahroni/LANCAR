@@ -817,7 +817,7 @@ const ResiTemplates = () => {
                               {assetUploading === 'image' ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Upload className="h-3.5 w-3.5" aria-hidden="true" />}
                               {assetUploading === 'image' ? 'Uploading gambar...' : 'Upload file gambar'}
                             </label>
-                            <input id={`resi-image-upload-${el.id}`} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={assetUploading !== null} onChange={(event) => { void handleAssetUpload('image', event.target.files?.[0]); event.currentTarget.value = '' }} />
+                            <input id={`resi-image-upload-${el.id}`} aria-label={`Upload gambar untuk elemen ${el.id}`} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={assetUploading !== null} onChange={(event) => { void handleAssetUpload('image', event.target.files?.[0]); event.currentTarget.value = '' }} />
                             <p className="mt-2 text-[10px] leading-relaxed text-foreground-muted">PNG, JPG, atau WebP maksimal 2 MB.</p>
                           </div>
                         )}
