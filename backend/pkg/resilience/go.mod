@@ -1,3 +1,3 @@
 module tembus/pkg/resilience
 
-go 1.26.9
+go 1.26.10

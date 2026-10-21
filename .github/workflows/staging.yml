@@ -208,7 +208,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.9'
+          go-version: '1.26.10'
           cache-dependency-path: backend/auth-service/go.sum
       - name: Verify modules are tidy
         working-directory: ./backend/auth-service
@@ -235,7 +235,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.9'
+          go-version: '1.26.10'
           cache-dependency-path: backend/datalake-worker/go.sum
       - name: Verify modules are tidy
         working-directory: ./backend/datalake-worker
@@ -278,7 +278,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.9'
+          go-version: '1.26.10'
           cache-dependency-path: backend/routing-service/go.sum
       - name: Verify modules are tidy
         working-directory: ./backend/routing-service
@@ -305,7 +305,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.9'
+          go-version: '1.26.10'
           cache-dependency-path: backend/developer-platform-service/go.sum
       - name: Verify modules are tidy
         working-directory: ./backend/developer-platform-service
@@ -452,7 +452,7 @@ jobs:
           npm audit --audit-level=high
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.9'
+          go-version: '1.26.10'
       - name: Show Go version
         run: go version
       - name: govulncheck (auth-service)

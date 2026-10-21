@@ -1,5 +1,5 @@
 # Developer Platform — public scoped API and webhook delivery service.
-FROM mirror.gcr.io/golang:1.26.9-alpine AS builder
+FROM mirror.gcr.io/golang:1.26.10-alpine AS builder
 
 RUN apk add --no-cache ca-certificates git
 WORKDIR /app
