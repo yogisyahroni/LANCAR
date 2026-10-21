@@ -672,6 +672,15 @@ const ResiTemplates = () => {
                     onDrop={onCanvasDrop}
                     onDragOver={onCanvasDragOver}
                     onClick={() => setSelectedElementId(null)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') {
+                        event.preventDefault()
+                        setSelectedElementId(null)
+                      }
+                    }}
+                    role="region"
+                    tabIndex={0}
+                    aria-label="Kanvas template resi"
                     className="bg-surface relative shadow-2xl overflow-hidden"
                     style={{ width: canvasSize.width, height: canvasSize.height }}
                   >
