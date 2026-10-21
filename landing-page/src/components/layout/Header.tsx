@@ -5,7 +5,7 @@ import { Menu } from "lucide-react";
 import Link from "next/link";
 
 const appUrl = "https://app.bawain.my.id";
-const trackingUrl = `${appUrl}/track`;
+const trackingUrl = "/#lacak-paket";
 
 export const navItems = [
   { label: "Beranda", href: "/" },

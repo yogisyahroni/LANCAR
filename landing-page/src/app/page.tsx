@@ -23,7 +23,7 @@ import { Footer } from "@/components/layout/Footer";
 import { serviceCategories, services, serviceCountLabel } from "@/data/services";
 
 const appUrl = "https://app.bawain.my.id";
-const trackingUrl = `${appUrl}/track`;
+const trackingUrl = "/#lacak-paket";
 
 const navItems = [
   { label: "Beranda", href: "#beranda" },
@@ -314,7 +314,11 @@ export default function LandingPage() {
           </div>
         </motion.div>
 
-        <motion.div {...fadeUp(0.08)} className="dark-panel rounded-xl p-7 xl:p-9">
+        <motion.div
+          id="lacak-paket"
+          {...fadeUp(0.08)}
+          className="dark-panel scroll-mt-24 rounded-xl p-7 xl:p-9"
+        >
           <PublicTrackingWidget />
         </motion.div>
       </section>
