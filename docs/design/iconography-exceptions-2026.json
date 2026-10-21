@@ -13,10 +13,10 @@
     {
       "path": "frontend/src/app/(auth)/login/page.tsx",
       "kind": "brand-mark",
-      "raw_svg_count": 1,
-      "needle": "<svg aria-hidden=\"true\" className=\"w-5 h-5\" viewBox=\"0 0 24 24\">",
-      "rationale": "Google brand mark inside the labelled Google sign-in button; the button text is the action name.",
-      "accessible_contract": "Decorative SVG with aria-hidden=true; button text remains the accessible name."
+      "raw_svg_count": 2,
+      "needle": "<svg aria-hidden=\"true\" className=\"h-5 w-5\" viewBox=\"0 0 24 24\">",
+      "rationale": "Google and Apple brand marks inside labelled social sign-in buttons; each button's text remains the action name.",
+      "accessible_contract": "Both decorative SVGs use aria-hidden=true; adjacent button text remains the accessible name."
     },
     {
       "path": "frontend/src/components/orders/OrderSummary.tsx",
